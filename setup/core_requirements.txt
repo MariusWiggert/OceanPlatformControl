@@ -1,0 +1,10 @@
+jupyterlab
+numpy
+tqdm
+pandas
+seaborn
+plotly
+matplotlib
+casadi
+ffmpeg
+imageio
