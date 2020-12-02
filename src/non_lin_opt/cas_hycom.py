@@ -1,5 +1,5 @@
 import casadi as ca
-from utils import particles, hycom_utils, kernels, optimal_control_utils
+from src.utils import particles, hycom_utils, kernels, optimal_control_utils
 import parcels as p
 import numpy as np
 import matplotlib.pyplot as plt

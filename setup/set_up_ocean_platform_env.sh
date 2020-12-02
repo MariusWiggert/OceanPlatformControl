@@ -11,5 +11,5 @@ conda remove --force parcels
 pip install git+https://github.com/MariusWiggert/parcels.git@master
 
 # install other python requirements
-pip install -r ./requirements_new.txt
+pip install -r ./requirements.txt
 
