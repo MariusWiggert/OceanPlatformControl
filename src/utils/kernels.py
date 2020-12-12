@@ -25,9 +25,10 @@ def open_loop_control(particle, fieldset, time):
     while particle.control_time[-index] - time > 0:
         index += 1
 
-    particle.lon += math.cos(particle.control_traj[1, -index + 1]) * particle.control_traj[0, -index + 1] * particle.v_max * particle.dt
-    particle.lat += math.sin(particle.control_traj[1, -index + 1]) * particle.control_traj[0, -index + 1] * particle.v_max * particle.dt
+    particle.lon += particle.control_traj[0, -index + 1] * particle.v_max * particle.dt
+    particle.lat += particle.control_traj[1, -index + 1] * particle.v_max * particle.dt
 
-    # particle.lon += math.cos(particle.control_angle) * particle.control_magnitude * particle.v_max * particle.dt
-    # particle.lat += math.sin(particle.control_angle) * particle.control_magnitude * particle.v_max * particle.dt
-
+    # particle.lon += math.cos(particle.control_traj[1, -index + 1]) * particle.control_traj[
+    #     0, -index + 1] * particle.v_max * particle.dt
+    # particle.lat += math.sin(particle.control_traj[1, -index + 1]) * particle.control_traj[
+    #     0, -index + 1] * particle.v_max * particle.dt
