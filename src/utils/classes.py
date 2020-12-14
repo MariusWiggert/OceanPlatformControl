@@ -42,6 +42,20 @@ class Problem:
 class Planner:
     """ All Planners should inherit this class """
 
+    def __init__(self, problem, settings, t_init, n, mode='open-loop'):
+
+        if settings is None:
+            settings = {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'dyn_constraints': 'ef'}
+        # problem containing the vector field, x_0, and x_T
+        self.problem = problem
+
+        # time to run the fixed time optimal control problem
+        self.T_init = t_init
+        # number of decision variables in the trajectory
+        self.N = n
+        self.settings = settings
+        self.mode = mode
+
     def get_next_action(self, state, rel_time):
         """ TODO: returns (thrust, header) for the next timestep """
         raise NotImplementedError()
