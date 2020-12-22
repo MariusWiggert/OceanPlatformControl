@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 class Position:
     def __init__(self, lon, lat):
+        # Configure longitude and latitude
         self.lon = lon
         self.lat = lat
 
@@ -60,12 +61,17 @@ class Planner:
         raise NotImplementedError()
 
     def transform_u_dir_to_u(self, u_dir):
-        thrust = np.sqrt(u_dir[0]**2 + u_dir[1]**2)
-        heading = np.arctan(u_dir[1]/u_dir[0])
+        thrust = np.sqrt(u_dir[0]**2 + u_dir[1]**2)         # Calculating thrust from distance formula on input u
+        heading = np.arctan(u_dir[1]/u_dir[0])              # Finds heading angle from input u
         return np.array([thrust, heading])
 
 
 class TrajectoryTrackingController:
+    """
+    TODO: implement controller to go along planned trajectory for platforms.
+    """
+    def __init(self, trajectory, state): # Will need planned trajectory and current state
+        pass
     pass 
 
 
