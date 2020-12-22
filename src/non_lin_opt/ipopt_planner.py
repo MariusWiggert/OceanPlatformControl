@@ -1,5 +1,5 @@
 from src.utils.classes import *
-from src.utils import gif_utils
+from src.utils.archive import gif_utils
 import bisect
 
 
@@ -105,4 +105,4 @@ class IpoptPlanner(Planner):
         return T, u, x, dt
 
     def plot_opt_results(self):
-        gif_utils.plot_opt_results(self.T, self.u_open_loop*self.problem.u_max, self.x_solver, self.N)
+        gif_utils.plot_opt_results(self.T, self.u_open_loop * self.problem.u_max, self.x_solver, self.N)

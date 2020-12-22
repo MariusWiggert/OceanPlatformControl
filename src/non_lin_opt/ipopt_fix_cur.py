@@ -24,7 +24,7 @@ ipopt_planner = IpoptPlanner(problem=prob, t_init=T_planner)
 ipopt_planner.plot_opt_results()
 #%%
 # Step 3: init the simulator
-settings = {'dt': ipopt_planner.dt, 'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'sim_integration': 'rk',
+settings = {'dt': ipopt_planner.dt, 'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'sim_integration': 'ef',
             'project_dir': project_dir}
 sim = Simulator(ipopt_planner, problem=prob, settings=settings)
 #%%

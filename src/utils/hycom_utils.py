@@ -24,7 +24,9 @@ def get_hycom_fieldset(ncfile):
                   'lon': 'lon',
                   'time': 'time',
                   'depth': 'depth'}
-    return FieldSet.from_netcdf(filenames, variables, dimensions, mesh='spherical', allow_time_extrapolation=True) # indices={'U':})
+    # Note deferred_load=True only loads the time steps immediately before & after the current time. This is to save memory in the RAM
+    # at some point we might use that again/build our own
+    return FieldSet.from_netcdf(filenames, variables, dimensions, mesh='spherical', allow_time_extrapolation=True, deferred_load=False) # indices={'U':})
 
 
 def make_movie_fieldset(fieldset, particle_ncfile, domain, prefix):

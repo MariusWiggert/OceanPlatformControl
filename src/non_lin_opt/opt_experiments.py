@@ -1,10 +1,8 @@
 import casadi as ca
-from src.utils import particles, hycom_utils, kernels, optimal_control_utils, gif_utils
+from src.utils import hycom_utils, optimal_control_utils
+from src.utils.archive import particles, gif_utils
 import parcels as p
 import numpy as np
-import matplotlib.pyplot as plt
-from datetime import timedelta
-import netCDF4
 
 #%% Load in data as fieldset
 # large field fixed cur
@@ -35,13 +33,13 @@ N = 100
 # get interpolation function
 u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg)
 #%%
-pset = p.ParticleSet.from_list(fieldset=fieldset,   # the fields on which the particles are advected
-                             pclass=particles.TargetParticle,  # the type of particles (JITParticle or ScipyParticle)
-                             lon=[x_0[0]],    # a vector of release longitudes
-                             lat=[x_0[1]],   # a vector of release latitudes
-                            lon_target=[x_T[0]],
-                            lat_target=[x_T[1]],
-                            v_max=[u_max/conv_m_to_deg])
+pset = p.ParticleSet.from_list(fieldset=fieldset,  # the fields on which the particles are advected
+                               pclass=particles.TargetParticle,  # the type of particles (JITParticle or ScipyParticle)
+                               lon=[x_0[0]],  # a vector of release longitudes
+                               lat=[x_0[1]],  # a vector of release latitudes
+                               lon_target=[x_T[0]],
+                               lat_target=[x_T[1]],
+                               v_max=[u_max/conv_m_to_deg])
 
 # pset.show(field=fieldset.U)
 pset.show(field='vector')

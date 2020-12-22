@@ -1,5 +1,6 @@
 import casadi as ca
-from src.utils import particles, hycom_utils, kernels, optimal_control_utils, gif_utils
+from src.utils import hycom_utils, optimal_control_utils
+from src.utils.archive import kernels, particles, gif_utils
 import parcels as p
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,13 +25,13 @@ N = 100
 # get interpolation function
 u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg)
 #%%
-pset = p.ParticleSet.from_list(fieldset=fieldset,   # the fields on which the particles are advected
-                             pclass=particles.TargetParticle,  # the type of particles (JITParticle or ScipyParticle)
-                             lon=[x_0[0]],    # a vector of release longitudes
-                             lat=[x_0[1]],   # a vector of release latitudes
-                            lon_target=[x_T[0]],
-                            lat_target=[x_T[1]],
-                            v_max=[u_max/conv_m_to_deg])
+pset = p.ParticleSet.from_list(fieldset=fieldset,  # the fields on which the particles are advected
+                               pclass=particles.TargetParticle,  # the type of particles (JITParticle or ScipyParticle)
+                               lon=[x_0[0]],  # a vector of release longitudes
+                               lat=[x_0[1]],  # a vector of release latitudes
+                               lon_target=[x_T[0]],
+                               lat_target=[x_T[1]],
+                               v_max=[u_max/conv_m_to_deg])
 
 # pset.show(field=fieldset.U)
 pset.show(field='vector')
@@ -114,13 +115,13 @@ gif_utils.gif_straight_line('trial_3_straight', x_0, x_T, T, dt, fieldset, u_max
 #%%
 from datetime import timedelta
 
-pset = p.ParticleSet.from_list(fieldset=fieldset,   # the fields on which the particles are advected
-                             pclass=particles.OpenLoopParticle,  # the type of particles (JITParticle or ScipyParticle)
-                             lon=[x_0[0]],    # a vector of release longitudes
-                             lat=[x_0[1]],   # a vector of release latitudes
-                            control_traj=[u],
-                            control_time=[time_vec],
-                            v_max=[u_max/conv_m_to_deg]
+pset = p.ParticleSet.from_list(fieldset=fieldset,  # the fields on which the particles are advected
+                               pclass=particles.OpenLoopParticle,  # the type of particles (JITParticle or ScipyParticle)
+                               lon=[x_0[0]],  # a vector of release longitudes
+                               lat=[x_0[1]],  # a vector of release latitudes
+                               control_traj=[u],
+                               control_time=[time_vec],
+                               v_max=[u_max/conv_m_to_deg]
                                )
 open_loop_actuation = pset.Kernel(kernels.open_loop_control)
 

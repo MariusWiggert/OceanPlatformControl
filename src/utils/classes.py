@@ -1,9 +1,8 @@
 import parcels as p
-from parcels import FieldSet, ParticleSet, JITParticle, AdvectionRK4, Field, Variable
 import glob, imageio, os
-from src.utils import kernels, particles, optimal_control_utils
+from src.utils import optimal_control_utils
 import casadi as ca
-from datetime import datetime, timedelta
+from datetime import timedelta
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -99,7 +98,7 @@ class Simulator:
         """ runs the simulator for time T"""
         # run over T with dt stepsize
         N = int(T // self.settings['dt']) + 1
-        print('N',N)
+        print('N', N)
         for _ in range(N):
             # get next action
             u = self.planner.get_next_action(self.cur_state, self.rel_time.total_seconds())
@@ -118,28 +117,31 @@ class Simulator:
         # add new state to trajectory
         self.trajectory = np.hstack((self.trajectory, self.cur_state))
 
-    def initialize_dynamics(self):
+    def initialize_dynamics(self, fixed_current=True):
         """ Initialize symbolic dynamics function for simulation"""
         """ TODO: 
         - add 3rd & 4th state (battery, time) 
         - make input heading & trust!
         """
-        x_sym_1 = ca.MX.sym('x1')
-        x_sym_2 = ca.MX.sym('x2')
+        x_sym_1 = ca.MX.sym('x1')   # lon
+        x_sym_2 = ca.MX.sym('x2')   # lat
         x_sym = ca.vertcat(x_sym_1, x_sym_2)
 
-        u_sim_1 = ca.MX.sym('u_1')
-        u_sim_2 = ca.MX.sym('u_2')
+        u_sim_1 = ca.MX.sym('u_1')  # thrust
+        u_sim_2 = ca.MX.sym('u_2')  # header
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
         # get the current interpolation functions
-        u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(
-            self.problem.fieldset, self.settings['conv_m_to_deg'], type=self.settings['int_pol_type'])
+        if fixed_current:
+            u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(
+                self.problem.fieldset, self.settings['conv_m_to_deg'], type=self.settings['int_pol_type'])
+        else:
+            raise NotImplementedError
 
         # create the x_dot dynamics function
         x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                   [ca.vertcat(u_sym[0] / self.settings['conv_m_to_deg'] + u_curr_func(ca.vertcat(x_sym[0], x_sym[1])),
-                                               u_sym[1] / self.settings['conv_m_to_deg'] + v_curr_func(ca.vertcat(x_sym[0], x_sym[1])))],
+                                   [ca.vertcat(ca.cos(u_sym[1])*u_sym[0] / self.settings['conv_m_to_deg'] + u_curr_func(ca.vertcat(x_sym[0], x_sym[1])),
+                                               ca.sin(u_sym[1])*u_sym[0] / self.settings['conv_m_to_deg'] + v_curr_func(ca.vertcat(x_sym[0], x_sym[1])))],
                                    ['x', 'u'], ['x_dot'])
 
         # create an integrator out of it
