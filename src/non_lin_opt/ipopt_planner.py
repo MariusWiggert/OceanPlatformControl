@@ -1,40 +1,33 @@
 from src.utils.classes import *
 from src.utils.archive import gif_utils
+from src.utils import non_lin_opt_utils, plotting_utils
 import bisect
 
 
-class IpoptPlanner(Planner):
+class IpoptPlannerFixCur(Planner):
     """ Non_linear optimizer using ipopt """
     def __init__(self, problem,
                  settings=None,
                  t_init=806764., n=100, mode='open-loop'):
-
-        if settings is None:
-            settings = {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'dyn_constraints': 'ef'}
-        # problem containing the vector field, x_0, and x_T
-        self.problem = problem
-
-        # time to run the fixed time optimal control problem
-        self.T_init = t_init
-        # number of decision variables in the trajectory
-        self.N = n
-        self.settings = settings
+        # initialize superclass
+        super().__init__(problem, settings, t_init, n, mode='open-loop')
 
         # get the current interpolation functions
-        self.u_curr_func, self.v_curr_func = optimal_control_utils.get_interpolation_func(
-            self.problem.fieldset, self.settings['conv_m_to_deg'], type=self.settings['int_pol_type'])
+        self.u_curr_func, self.v_curr_func = non_lin_opt_utils.get_2Dinterpolation_func(
+            self.problem, type=self.settings['int_pol_type'])
 
         if mode == 'open-loop':
             self.T, self.u_open_loop, self.x_solver, self.dt = self.run_optimization()
             self.control_time_vec = np.arange(self.u_open_loop.shape[1] + 1) * self.dt
 
-    def get_next_action(self, state, rel_time):
-        """ TODO: returns (thrust, header) for the next timestep """
-
+    def get_next_action(self, state):
         # an easy way of finding for each time, which index of control signal to apply
-        idx = bisect.bisect_left(self.control_time_vec, rel_time)
+        idx = bisect.bisect_left(self.control_time_vec, state[3])
 
-        u_out = np.array([[self.u_open_loop[0, idx]], [self.u_open_loop[1, idx]]])*self.problem.u_max
+        u_dir = np.array([[self.u_open_loop[0, idx]], [self.u_open_loop[1, idx]]])*self.problem.u_max
+
+        # transform to thrust & angle
+        u_out = super().transform_u_dir_to_u(u_dir=u_dir)
         return u_out
 
     def run_optimization(self):
@@ -58,8 +51,9 @@ class IpoptPlanner(Planner):
 
         # create the dynamics function (note here in form of u_x and u_y)
         F = ca.Function('f', [x, u],
-                        [ca.vertcat(u[0]*self.problem.u_max / self.settings['conv_m_to_deg'] + self.u_curr_func(ca.vertcat(x[0], x[1])),
-                                    u[1]*self.problem.u_max / self.settings['conv_m_to_deg'] + self.v_curr_func(ca.vertcat(x[0], x[1])))],
+                        [ca.vertcat(u[0]*self.problem.u_max + self.u_curr_func(ca.vertcat(x[1], x[0])),
+                                    u[1]*self.problem.u_max + self.v_curr_func(ca.vertcat(x[1], x[0])))
+                         / self.settings['conv_m_to_deg']],
                         # ,c_recharge - u[0]**2)],
                         ['x', 'u'], ['x_dot'])
 
@@ -88,7 +82,7 @@ class IpoptPlanner(Planner):
                                      x[1, :], self.problem.fieldset.U.grid.lat.max()))
         # opti.subject_to(opti.bounded(0.1, x[2, :], 1.))   # battery constraint
 
-        opti.set_value(x_start, self.problem.x_0)
+        opti.set_value(x_start, self.problem.x_0[:2])
         opti.set_value(x_goal, self.problem.x_T)
         # opti.set_initial(x, x_init)
         # opti.set_initial(u, u_init)
@@ -105,4 +99,4 @@ class IpoptPlanner(Planner):
         return T, u, x, dt
 
     def plot_opt_results(self):
-        gif_utils.plot_opt_results(self.T, self.u_open_loop * self.problem.u_max, self.x_solver, self.N)
+        plotting_utils.plot_opt_results(self.T, self.u_open_loop * self.problem.u_max, self.x_solver, self.N)

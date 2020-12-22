@@ -1,6 +1,6 @@
 import parcels as p
 import glob, imageio, os
-from src.utils import optimal_control_utils
+from src.utils import simulation_utils
 import casadi as ca
 from datetime import timedelta
 import numpy as np
@@ -23,13 +23,25 @@ class ProblemSet:
 
 
 class Problem:
-    def __init__(self, fieldset, x_0, x_T, u_max):
-        self.fieldset = fieldset                        
-        self.x_0 = x_0                                  # Start Position
-        self.x_T = x_T                                  # Final Position
+    def __init__(self, fieldset, x_0, x_T, u_max, charging, bat_cap, fixed_time_index=None):
+        self.fieldset = fieldset
+        # check if we do a fixed or variable current problem
+        if fieldset.U.grid.time.shape[0] == 1:
+            self.fixed_time_index = 0
+        else:
+            self.fixed_time_index = fixed_time_index
+        if len(x_0) == 2:   # add 100% charge and time
+            x_0 = x_0 + [bat_cap, 0.]
+        elif len(x_0) == 3:  # add time only
+            x_0.append(0.)
+        self.x_0 = x_0                                  # Start State
+        self.x_T = x_T                                  # Final Position (only lon, lat)
         self.u_max = u_max                              # maximal actuation of the platform in m/s
+        self.charging = charging                        # charging of the battery capacity per second
+        self.battery_capacity = bat_cap                 # battery capacity
 
     def viz(self):
+        """TODO: Implement show_time"""
         pset = p.ParticleSet.from_list(fieldset=self.fieldset,  # the fields on which the particles are advected
                                        pclass=p.ScipyParticle,
                                        # the type of particles (JITParticle or ScipyParticle)
@@ -42,7 +54,7 @@ class Problem:
 class Planner:
     """ All Planners should inherit this class """
 
-    def __init__(self, problem, settings, t_init, n, mode='open-loop'):
+    def __init__(self, problem, settings, t_init, n, mode='open-loop', fixed_time_index=None):
 
         if settings is None:
             settings = {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'dyn_constraints': 'ef'}
@@ -56,13 +68,13 @@ class Planner:
         self.settings = settings
         self.mode = mode
 
-    def get_next_action(self, state, rel_time):
+    def get_next_action(self, state):
         """ TODO: returns (thrust, header) for the next timestep """
         raise NotImplementedError()
 
     def transform_u_dir_to_u(self, u_dir):
         thrust = np.sqrt(u_dir[0]**2 + u_dir[1]**2)         # Calculating thrust from distance formula on input u
-        heading = np.arctan(u_dir[1]/u_dir[0])              # Finds heading angle from input u
+        heading = np.arctan2(u_dir[1], u_dir[0])              # Finds heading angle from input u
         return np.array([thrust, heading])
 
 
@@ -90,10 +102,9 @@ class Simulator:
                         'int_pol_type': 'bspline', 'sim_integration': 'rk'}
         self.planner = planner
         self.problem = problem
-        self.cur_state = problem.x_0
+        self.cur_state = np.array(problem.x_0).reshape(4, 1)   # lon, lat, battery level, time
         self.time_origin = problem.fieldset.time_origin
-        self.rel_time = timedelta(seconds=0.)
-        self.trajectory = np.array(problem.x_0).reshape(-1, 1)
+        self.trajectory = self.cur_state
         # self.control_traj = []            # """TODO: implement this mainly for debugging & viz"""
         self.settings = settings
 
@@ -107,48 +118,57 @@ class Simulator:
         print('N', N)
         for _ in range(N):
             # get next action
-            u = self.planner.get_next_action(self.cur_state, self.rel_time.total_seconds())
+            u = self.planner.get_next_action(self.cur_state)
             # update simulator states
-            self.cur_state = np.array(self.F_x_next(self.cur_state, u))
-            self.rel_time += timedelta(seconds=self.settings['dt'])
+            self.cur_state = np.array(self.F_x_next(self.cur_state, u)).astype('float32')
             # add new state to trajectory
             self.trajectory = np.hstack((self.trajectory, self.cur_state))
 
     def run_step(self):
         # run one dt step
-        u = self.planner.get_next_action(self.cur_state, self.rel_time.total_seconds())
+
+        u = self.planner.get_next_action(self.cur_state)
         # update simulator states
-        self.cur_state = np.array(self.F_x_next(self.cur_state, u))
-        self.rel_time += timedelta(seconds=self.settings['dt'])
+        self.cur_state = np.array(self.F_x_next(self.cur_state, u)).astype('float32')
         # add new state to trajectory
         self.trajectory = np.hstack((self.trajectory, self.cur_state))
 
-    def initialize_dynamics(self, fixed_current=True):
+    def initialize_dynamics(self):
         """ Initialize symbolic dynamics function for simulation"""
         """ TODO: 
         - add 3rd & 4th state (battery, time) 
         - make input heading & trust!
         """
+        # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')   # lon
         x_sym_2 = ca.MX.sym('x2')   # lat
-        x_sym = ca.vertcat(x_sym_1, x_sym_2)
+        x_sym_3 = ca.MX.sym('x3')   # battery
+        x_sym_4 = ca.MX.sym('t')    # time
+        x_sym = ca.vertcat(x_sym_1, x_sym_2, x_sym_3, x_sym_4)
 
         u_sim_1 = ca.MX.sym('u_1')  # thrust
         u_sim_2 = ca.MX.sym('u_2')  # header
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
-        # get the current interpolation functions
-        if fixed_current:
-            u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(
-                self.problem.fieldset, self.settings['conv_m_to_deg'], type=self.settings['int_pol_type'])
-        else:
-            raise NotImplementedError
+        # Step 2: get the current interpolation functions
+        u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
+            self.problem.fieldset, type=self.settings['int_pol_type'], fixed_time_index=self.problem.fixed_time_index)
 
-        # create the x_dot dynamics function
-        x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                   [ca.vertcat(ca.cos(u_sym[1])*u_sym[0] / self.settings['conv_m_to_deg'] + u_curr_func(ca.vertcat(x_sym[0], x_sym[1])),
-                                               ca.sin(u_sym[1])*u_sym[0] / self.settings['conv_m_to_deg'] + v_curr_func(ca.vertcat(x_sym[0], x_sym[1])))],
-                                   ['x', 'u'], ['x_dot'])
+        # Step 3: create the x_dot dynamics function
+        if self.problem.fixed_time_index is None:    # time varying current
+            x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
+                                       [ca.vertcat((ca.cos(u_sym[1])*u_sym[0] + u_curr_func(ca.vertcat(x_sym[4], x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
+                                                   (ca.sin(u_sym[1])*u_sym[0] + v_curr_func(ca.vertcat(x_sym[4], x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
+                                                   self.problem.charging, # implement taking of energy - u_sym[0]**3
+                                                   1)],
+                                       ['x', 'u'], ['x_dot'])
+        else:   # fixed current
+            x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
+                                     [ca.vertcat((ca.cos(u_sym[1])*u_sym[0] + u_curr_func(ca.vertcat(x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
+                                                 (ca.sin(u_sym[1])*u_sym[0] + v_curr_func(ca.vertcat(x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
+                                                 self.problem.charging,
+                                                 1)],
+                                     ['x', 'u'], ['x_dot'])
 
         # create an integrator out of it
         if self.settings['sim_integration'] == 'rk':
@@ -160,8 +180,7 @@ class Simulator:
 
         elif self.settings['sim_integration'] == 'ef':
             F_x_next = ca.Function('F_x_next', [x_sym, u_sym],
-                                       [ca.vertcat(x_sym[0] + self.settings['dt'] * x_dot_func(x_sym, u_sym)[0],
-                                                   x_sym[1] + self.settings['dt'] * x_dot_func(x_sym, u_sym)[1])],
+                                       [x_sym + self.settings['dt'] * x_dot_func(x_sym, u_sym)],
                                        ['x', 'u'], ['x_next'])
         else:
             raise ValueError('sim_integration: only RK4 (rk) and forward euler (ef) implemented')

@@ -1,5 +1,5 @@
 import casadi as ca
-from src.utils import hycom_utils, optimal_control_utils
+from src.utils import hycom_utils, non_lin_opt_utils
 from src.utils.archive import kernels, particles, gif_utils
 import parcels as p
 import numpy as np
@@ -23,7 +23,7 @@ x_T = [-97.2, 21.9]
 N = 100
 
 # get interpolation function
-u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg)
+u_curr_func, v_curr_func = non_lin_opt_utils.get_interpolation_func(fieldset, conv_m_to_deg)
 #%%
 pset = p.ParticleSet.from_list(fieldset=fieldset,  # the fields on which the particles are advected
                                pclass=particles.TargetParticle,  # the type of particles (JITParticle or ScipyParticle)
@@ -37,7 +37,7 @@ pset = p.ParticleSet.from_list(fieldset=fieldset,  # the fields on which the par
 pset.show(field='vector')
 #%%
 # solve without currents for initialization
-T_init, u_init, x_init, dt = optimal_control_utils.solve_time_opt_wo_currents(x_0, x_T, N, conv_m_to_deg, u_max)
+T_init, u_init, x_init, dt = non_lin_opt_utils.solve_time_opt_wo_currents(x_0, x_T, N, conv_m_to_deg, u_max)
 
 # Plot the results
 # gif_utils.plot_opt_results(T_init, u_init, x_init, N)
@@ -174,7 +174,7 @@ u_sim_2 = ca.MX.sym('u_2')
 u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
 #%%
-u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='bspline')
+u_curr_func, v_curr_func = non_lin_opt_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='bspline')
 
 print(u_curr_func(x_0)*conv_m_to_deg)
 print(v_curr_func(x_0)*conv_m_to_deg)
@@ -182,7 +182,7 @@ print(u_curr_func(x_T)*conv_m_to_deg)
 print(v_curr_func(x_T)*conv_m_to_deg)
 #%%
 # get the RK4 & b-spline variant
-u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='bspline')
+u_curr_func, v_curr_func = non_lin_opt_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='bspline')
 f_rk_bspline = ca.Function('f_rk_bspline', [x_sym, u_sym],
                 [ca.vertcat(u_sym[0]/conv_m_to_deg + u_curr_func(ca.vertcat(x_sym[0], x_sym[1])),
                  u_sym[1]/conv_m_to_deg + v_curr_func(ca.vertcat(x_sym[0], x_sym[1])))],
@@ -218,7 +218,7 @@ x_ef_bspline = np.array(sim_ef_bspline(x_0, u))
 #%%
 # get the Euler & linear variant
 # NOTE: have to implement Euler myself, only RK in the package...
-u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='linear')
+u_curr_func, v_curr_func = non_lin_opt_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='linear')
 f_ef_linear = ca.Function('f_ef_linear', [x_sym, u_sym],
                 [ca.vertcat(u_sym[0]/conv_m_to_deg + u_curr_func(ca.vertcat(x_sym[0], x_sym[1])),
                  u_sym[1]/conv_m_to_deg + v_curr_func(ca.vertcat(x_sym[0], x_sym[1])))],
@@ -235,7 +235,7 @@ x_ef_linear = np.array(sim_ef_linear(x_0, u))
 #%%
 # get the RK4 & linear variant
 # NOTE: have to implement Euler myself, only RK in the package...
-u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='linear')
+u_curr_func, v_curr_func = non_lin_opt_utils.get_interpolation_func(fieldset, conv_m_to_deg, type='linear')
 f_rk_linear = ca.Function('f_rk_linear', [x_sym, u_sym],
                 [ca.vertcat(u_sym[0]/conv_m_to_deg + u_curr_func(ca.vertcat(x_sym[0], x_sym[1])),
                  u_sym[1]/conv_m_to_deg + v_curr_func(ca.vertcat(x_sym[0], x_sym[1])))],
