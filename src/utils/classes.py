@@ -1,6 +1,9 @@
+import math
+import random
+
 import parcels as p
 import glob, imageio, os
-from src.utils import simulation_utils
+from src.utils import simulation_utils, hycom_utils
 import casadi as ca
 from datetime import timedelta
 import numpy as np
@@ -18,12 +21,60 @@ class ProblemSet:
     def __init__(self, fieldset):
         self.fieldset = fieldset
 
-    def create_problem(self):
-        """ TODO: Randomly generate Problems with valid x_0 and x_T """
+    def create_problem(self, u_max=.2):
+        """ Randomly generates a Problem with valid x_0 and x_T """
+        x_0, x_T = None, None
+        while not self.valid_start_and_end(x_0, x_T):
+            x_0, x_T = self.random_point(), self.random_point()
+        return Problem(self.fieldset, x_0, x_T, u_max)
+
+    def random_point(self):
+        """ Returns a random point anywhere in the grid """
+        lon = random.choice(self.fieldset.U.grid.lon)
+        lat = random.choice(self.fieldset.U.grid.lat)
+        return [lon, lat]
+
+    def valid_start_and_end(self, x_0, x_T):
+        """ Returns whether the given start (x_0) and end (x_T) is valid """
+        if x_0 is None or x_T is None:
+            return False
+        return self.is_far_apart(x_0, x_T) and self.in_ocean(x_0) and self.in_ocean(x_T)
+
+    def is_far_apart(self, x_0, x_T, sep=0.5):
+        """ Returns whether x_0 and x_T are sufficiently far apart """
+        lon, lat, lon_target, lat_target = x_0[0], x_0[1], x_T[0], x_T[1]
+        dlon = lon_target - lon
+        dlat = lat_target - lat
+        mag = math.sqrt(dlon * dlon + dlat * dlat)
+        return mag > sep
+
+    def in_ocean(self, point, offset=0.1):
+        """ Returns whether a point is in the ocean. Determines this by checking if the velocity is nonzero for this
+        and ALL points that are "offset" distance about the point in the 8 directions. """
+
+        lon, lat = point[0], point[1]
+        offsets = [(0, 0), (0, offset), (offset, 0), (offset, offset), (0, -offset),
+                   (-offset, 0), (-offset, -offset), (offset, -offset), (-offset, offset)]
+        for lon_offset, lat_offset in offsets:
+            if self.zero_velocity(lon + lon_offset, lat + lat_offset):
+                return False
+        return True
+
+    def out_of_bounds(self, coordinate, grid):
+        """ Returns whether the given coordinate (either lat or lon) is out of bounds for its respective grid """
+        return coordinate < min(grid) or coordinate > max(grid)
+
+    def zero_velocity(self, lon, lat):
+        """ Returns whether the (lon, lat) pair is zero velocity, i.e. on land """
+        if self.out_of_bounds(lat, self.fieldset.U.grid.lat) or self.out_of_bounds(lon, self.fieldset.U.grid.lon):
+            return False
+        x = self.fieldset.U.eval(0., 0., lat, lon)
+        y = self.fieldset.V.eval(0., 0., lat, lon)
+        return x == 0. and y == 0.
 
 
 class Problem:
-    def __init__(self, fieldset, x_0, x_T, u_max, charging, bat_cap, fixed_time_index=None):
+    def __init__(self, fieldset, x_0, x_T, u_max, charging=1., bat_cap=100., fixed_time_index=None):
         self.fieldset = fieldset
         # check if we do a fixed or variable current problem
         if fieldset.U.grid.time.shape[0] == 1:
@@ -84,7 +135,7 @@ class TrajectoryTrackingController:
     """
     def __init(self, trajectory, state): # Will need planned trajectory and current state
         pass
-    pass 
+    pass
 
 
 class Simulator:
@@ -226,6 +277,6 @@ class Simulator:
                     writer.append_data(image)
                     os.remove(filename)
             print("saved gif as " + name)
-    
+
     def evaluate(self, planner, problem):
         """ TODO: Evaluate the planner on the given problem by some metrics """
