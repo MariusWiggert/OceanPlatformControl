@@ -3,6 +3,7 @@ import random
 
 import parcels as p
 import glob, imageio, os
+
 from src.utils import simulation_utils, hycom_utils
 import casadi as ca
 from datetime import timedelta
@@ -18,7 +19,8 @@ class Position:
 
 
 class ProblemSet:
-    def __init__(self, fieldset):
+    def __init__(self, fieldset, seed=1):
+        random.seed(seed)
         self.fieldset = fieldset
 
     def create_problem(self, u_max=.2):
@@ -38,15 +40,15 @@ class ProblemSet:
         """ Returns whether the given start (x_0) and end (x_T) is valid """
         if x_0 is None or x_T is None:
             return False
-        return self.is_far_apart(x_0, x_T) and self.in_ocean(x_0) and self.in_ocean(x_T)
+        return self.within_range(x_0, x_T) and self.in_ocean(x_0) and self.in_ocean(x_T)
 
-    def is_far_apart(self, x_0, x_T, sep=0.5):
-        """ Returns whether x_0 and x_T are sufficiently far apart """
+    def within_range(self, x_0, x_T, min_sep=0.2, max_sep=1.5):
+        """ Returns whether x_0 and x_T are not too close (min_sep) and not too far (max_sep) """
         lon, lat, lon_target, lat_target = x_0[0], x_0[1], x_T[0], x_T[1]
         dlon = lon_target - lon
         dlat = lat_target - lat
         mag = math.sqrt(dlon * dlon + dlat * dlat)
-        return mag > sep
+        return min_sep < mag < max_sep
 
     def in_ocean(self, point, offset=0.1):
         """ Returns whether a point is in the ocean. Determines this by checking if the velocity is nonzero for this
@@ -135,13 +137,11 @@ class TrajectoryTrackingController:
     """
     def __init(self, trajectory, state): # Will need planned trajectory and current state
         pass
-    pass
-
 
 class Simulator:
     """
     Functions as our "Parcels". Users will:
-    1. Create Simulator object with planner, problem, 
+    1. Create Simulator object with planner, problem
     2. Execute simulator.run()
     3. Fetch trajectory plot with plot_trajectory
     4. Evaluate planner solving given problem under some metric
@@ -162,22 +162,36 @@ class Simulator:
         # initialize dynamics
         self.u_curr_func, self.v_curr_func, self.F_x_next = self.initialize_dynamics()
 
+    def reset(self, planner, problem):
+        """ Resets the state of the simulator """
+        self.planner, self.problem = planner, problem
+        self.cur_state = np.array(problem.x_0).reshape(4, 1)   # lon, lat, battery level, time
+        self.time_origin = problem.fieldset.time_origin
+        self.trajectory = self.cur_state
+
+    def reached_goal(self, slack=0.1):
+        """ Returns whether we have reached the target goal """
+        lon, lat = self.cur_state[0][0], self.cur_state[1][0]
+        lon_target, lat_target = self.problem.x_T[0], self.problem.x_T[1]
+        return abs(lon - lon_target) < slack and abs(lat - lat_target) < slack
+
+    def run_until_success(self, max_steps=100000):
+        """ Runs the planner until the goal is reached or the time exceeds timeout. Returns (success, time) """
+        step = 0
+        while not self.reached_goal() and step < max_steps:
+            self.run_step()
+            step += 1
+        return self.reached_goal(), step * self.settings['dt']
+
     def run(self, T):
-        """ runs the simulator for time T"""
+        """ Runs the simulator for time T"""
         # run over T with dt stepsize
         N = int(T // self.settings['dt']) + 1
-        print('N', N)
         for _ in range(N):
-            # get next action
-            u = self.planner.get_next_action(self.cur_state)
-            # update simulator states
-            self.cur_state = np.array(self.F_x_next(self.cur_state, u)).astype('float32')
-            # add new state to trajectory
-            self.trajectory = np.hstack((self.trajectory, self.cur_state))
+            self.run_step()
 
     def run_step(self):
-        # run one dt step
-
+        """ Run one dt step """
         u = self.planner.get_next_action(self.cur_state)
         # update simulator states
         self.cur_state = np.array(self.F_x_next(self.cur_state, u)).astype('float32')
@@ -278,5 +292,43 @@ class Simulator:
                     os.remove(filename)
             print("saved gif as " + name)
 
-    def evaluate(self, planner, problem):
-        """ TODO: Evaluate the planner on the given problem by some metrics """
+    def evaluate(self, planner, problem, bat_level_threshold=0.2):
+        """ Evaluate the planner on the given problem by some metrics. Currently returns (success, time,
+        (average battery level, variance of battery level, percent of time below battery level threshold))
+        """
+        # TODO: fix the battery level updates to add in ceiling at 1
+
+        # Step 1: set the planner and problem and reset the simulator
+        self.reset(planner=planner, problem=problem)
+
+        # Step 2: run the planner on the problem
+        success, steps = self.run_until_success()
+        if not success:
+            return False, None, (None, None, None)
+
+        # Step 3: extract the "time" variable of the final state, which is the last element of the last list
+        time = self.trajectory[-1][-1]
+
+        # Step 4: create a list of all the battery levels and extract average/variance/percent below thresh
+        battery_levels = self.trajectory[2]
+        average = np.average(battery_levels)
+        variance = np.var(battery_levels)
+
+        # we will create a list of all the battery levels below the threshold to calculate percentage of time below
+        below_thresh = list(filter(lambda bat_level: bat_level < bat_level_threshold, battery_levels))
+        percent_below = len(below_thresh) / len(battery_levels)
+        return success, time, (average, variance, percent_below)
+
+    def simulate(self, planner, trials=100):
+        problem_set = ProblemSet(fieldset=self.problem.fieldset)
+        total_successes, total_time = 0, 0
+        for _ in range(trials):
+            problem = problem_set.create_problem()
+            planner.problem = problem
+            success, time, battery_level_data = self.evaluate(planner=planner, problem=problem)
+            average, variance, percent_below = battery_level_data
+
+
+
+
+
