@@ -5,8 +5,8 @@ import os
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 
 #%% Set stuff up
-nc_file = 'data/' + "gulf_of_mexico_2020-11-17-22_5h.nc4"
-# nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
+# nc_file = 'data/' + "gulf_of_mexico_2020-11-17-22_5h.nc4"
+nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 u_max = 0.2     # in m/s
 # Test 3 long around the vortex
