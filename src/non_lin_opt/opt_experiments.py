@@ -1,5 +1,5 @@
 import casadi as ca
-from src.utils import hycom_utils, optimal_control_utils
+from src.utils import hycom_utils, non_lin_opt_utils
 from src.utils.archive import particles, gif_utils
 import parcels as p
 import numpy as np
@@ -31,7 +31,7 @@ x_T = [-96.9, 22.2]
 N = 100
 
 # get interpolation function
-u_curr_func, v_curr_func = optimal_control_utils.get_interpolation_func(fieldset, conv_m_to_deg)
+u_curr_func, v_curr_func = non_lin_opt_utils.get_interpolation_func(fieldset, conv_m_to_deg)
 #%%
 pset = p.ParticleSet.from_list(fieldset=fieldset,  # the fields on which the particles are advected
                                pclass=particles.TargetParticle,  # the type of particles (JITParticle or ScipyParticle)
