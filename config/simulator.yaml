@@ -1,0 +1,5 @@
+#simulator_config:
+dt: 8067.64             # in seconds
+conv_m_to_deg: 111120.  # used to transform anything in meters to in degrees (assuming sphere)
+int_pol_type: 'bspline' # either b-spline or linear
+sim_integration: 'ef'   # either 'rk' (a 4th order method) or forward euler 'ef'
