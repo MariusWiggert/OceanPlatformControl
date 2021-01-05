@@ -7,9 +7,7 @@ project_dir = os.path.abspath(os.path.join(os.getcwd()))
 #%% Set stuff up
 nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
-u_max = 0.2     # in m/s
-charging = 1.
-bat_cap = 100.
+
 # Test 3 long around the vortex
 x_0 = [-96.9, 22.8]
 x_T = [-96.9, 22.2]
@@ -18,20 +16,18 @@ x_T = [-96.9, 22.2]
 T_planner = 806764
 
 # Step 1: set up problem
-prob = Problem(fieldset, x_0, x_T, u_max, charging, bat_cap, fixed_time_index=None)
-# prob.viz()
+prob = Problem(fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fixed_time_index=None)
+prob.viz()
 #%%
 # Step 2: initialize planner
 ipopt_planner = IpoptPlannerFixCur(problem=prob, t_init=T_planner)
 ipopt_planner.plot_opt_results()
 #%%
 # Step 3: init the simulator
-settings = {'dt': ipopt_planner.dt, 'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'sim_integration': 'ef',
-            'project_dir': project_dir}
-sim = Simulator(ipopt_planner, problem=prob, settings=settings)
+sim = Simulator(ipopt_planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
 #%%
 # Step 4: run the simulator
 sim.run(T_planner)
 #%%
 # Step 5: plot it
-sim.plot_trajectory(name='classes_test', plotting_type='2D')
+sim.plot_trajectory(name='classes_test', plotting_type='battery')

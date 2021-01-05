@@ -24,6 +24,6 @@ class StraightLinePlanner(Planner):
         mag = math.sqrt(dlon * dlon + dlat * dlat)
 
         # go there full power
-        u_dir = np.array([[dlon / mag], [dlat / mag]]) * self.problem.u_max
+        u_dir = np.array([[dlon / mag], [dlat / mag]])
         u_out = super().transform_u_dir_to_u(u_dir=u_dir)
         return u_out

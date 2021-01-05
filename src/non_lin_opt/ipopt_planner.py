@@ -24,7 +24,7 @@ class IpoptPlannerFixCur(Planner):
         # an easy way of finding for each time, which index of control signal to apply
         idx = bisect.bisect_left(self.control_time_vec, state[3])
 
-        u_dir = np.array([[self.u_open_loop[0, idx]], [self.u_open_loop[1, idx]]])*self.problem.u_max
+        u_dir = np.array([[self.u_open_loop[0, idx]], [self.u_open_loop[1, idx]]])
 
         # transform to thrust & angle
         u_out = super().transform_u_dir_to_u(u_dir=u_dir)
@@ -51,8 +51,8 @@ class IpoptPlannerFixCur(Planner):
 
         # create the dynamics function (note here in form of u_x and u_y)
         F = ca.Function('f', [x, u],
-                        [ca.vertcat(u[0]*self.problem.u_max + self.u_curr_func(ca.vertcat(x[1], x[0])),
-                                    u[1]*self.problem.u_max + self.v_curr_func(ca.vertcat(x[1], x[0])))
+                        [ca.vertcat(u[0]*self.problem.dyn_dict['u_max'] + self.u_curr_func(ca.vertcat(x[1], x[0])),
+                                    u[1]*self.problem.dyn_dict['u_max'] + self.v_curr_func(ca.vertcat(x[1], x[0])))
                          / self.settings['conv_m_to_deg']],
                         # ,c_recharge - u[0]**2)],
                         ['x', 'u'], ['x_dot'])
@@ -99,4 +99,4 @@ class IpoptPlannerFixCur(Planner):
         return T, u, x, dt
 
     def plot_opt_results(self):
-        plotting_utils.plot_opt_results(self.T, self.u_open_loop * self.problem.u_max, self.x_solver, self.N)
+        plotting_utils.plot_opt_results(self.T/3600, self.u_open_loop * self.problem.dyn_dict['u_max'], self.x_solver, self.N)

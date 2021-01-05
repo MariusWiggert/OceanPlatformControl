@@ -1,0 +1,14 @@
+#planner:
+#    type: "trajopt"
+#    max_iter: 50
+#    num_waypts: 5
+
+#waypoint_tracking:
+#    # These settings have been tuned for PID controller.
+#    type: "pid"
+#    p_gain: 50.0
+#    i_gain: 0.0
+#    d_gain: 20.0
+#    epsilon: 0.10
+#    max_cmd: 40.0
+
