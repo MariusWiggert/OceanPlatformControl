@@ -1,8 +1,10 @@
 import math
+import pickle
 import random
-
 import parcels as p
-import glob, imageio, os
+import glob
+import imageio
+import os
 
 from src.utils import simulation_utils, hycom_utils
 import casadi as ca
@@ -11,17 +13,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class Position:
-    def __init__(self, lon, lat):
-        # Configure longitude and latitude
-        self.lon = lon
-        self.lat = lat
-
-
 class ProblemSet:
-    def __init__(self, fieldset, seed=1):
-        random.seed(seed)
+    def __init__(self, fieldset, filename=None, num_problems=100):
         self.fieldset = fieldset
+        if filename is None:
+            self.problems = [self.create_problem() for _ in range(num_problems)]
+        else:
+            self.problems = self.load_problems(filename)
 
     def create_problem(self, u_max=.2):
         """ Randomly generates a Problem with valid x_0 and x_T """
@@ -74,6 +72,13 @@ class ProblemSet:
         y = self.fieldset.V.eval(0., 0., lat, lon)
         return x == 0. and y == 0.
 
+    def load_problems(self, filename):
+        """ Deserializes the list of problems from the filename """
+        return pickle.load(open(filename))
+
+    def save_problems(self, filename):
+        """ Serializes the list of problems to the filename """
+        pickle.dump(self.problems, open(filename, 'w'))
 
 class Problem:
     def __init__(self, fieldset, x_0, x_T, u_max, charging=1., bat_cap=100., fixed_time_index=None):
@@ -200,8 +205,8 @@ class Simulator:
 
     def initialize_dynamics(self):
         """ Initialize symbolic dynamics function for simulation"""
-        """ TODO: 
-        - add 3rd & 4th state (battery, time) 
+        """ TODO:
+        - add 3rd & 4th state (battery, time)
         - make input heading & trust!
         """
         # Step 1: define variables
@@ -292,43 +297,57 @@ class Simulator:
                     os.remove(filename)
             print("saved gif as " + name)
 
-    def evaluate(self, planner, problem, bat_level_threshold=0.2):
-        """ Evaluate the planner on the given problem by some metrics. Currently returns (success, time,
-        (average battery level, variance of battery level, percent of time below battery level threshold))
-        """
-        # TODO: fix the battery level updates to add in ceiling at 1
 
-        # Step 1: set the planner and problem and reset the simulator
-        self.reset(planner=planner, problem=problem)
+class EvaluatePlanners:
+
+    def __init__(self, problem_set):
+        self.problem_set = problem_set
+        self.successes = {}         # map each planner to a percentage of successes as a decimal between 0 and 1
+        self.times = {}             # map each planner to a list of times
+        self.battery_levels = []    # map each planner to a list of lists of battery level
+
+    def evaluate_planner(self, planner):
+        problem_set = ProblemSet(fieldset=self.problem.fieldset, )
+        total_successes, total_times, total_battery_levels = 0, [], []
+        for problem in problem_set.problems:
+            planner.problem = problem
+            success, time, battery_levels = self.evaluate_on_problem(planner=planner, problem=problem)
+            total_successes += success
+            if success:
+                total_times.append(time)
+                total_battery_levels.append(battery_levels)
+        self.successes[planner] = total_successes / len(problem_set.problems)
+        self.times[planner] = total_times
+        self.battery_levels[planner] = total_battery_levels
+
+    def evaluate_on_problem(self, planner, problem, settings=None):
+        """ Evaluate the planner on the given problem by some metrics.
+        Currently returns (success, time, percent of time below battery level threshold))
+        """
+
+        # Step 1: create the simulator
+        sim = Simulator(planner, problem, settings)
 
         # Step 2: run the planner on the problem
-        success, steps = self.run_until_success()
+        success, steps = sim.run_until_success()
         if not success:
             return False, None, (None, None, None)
 
         # Step 3: extract the "time" variable of the final state, which is the last element of the last list
-        time = self.trajectory[-1][-1]
+        time = sim.trajectory[-1][-1]
 
-        # Step 4: create a list of all the battery levels and extract average/variance/percent below thresh
-        battery_levels = self.trajectory[2]
+        # Step 4: extract a list of all the battery levels
+        battery_levels = sim.trajectory[2]
+
+        return success, time, battery_levels
+
+    def extract_battery_level_data(self, battery_levels, bat_level_threshold=0.2):
+
         average = np.average(battery_levels)
         variance = np.var(battery_levels)
 
         # we will create a list of all the battery levels below the threshold to calculate percentage of time below
         below_thresh = list(filter(lambda bat_level: bat_level < bat_level_threshold, battery_levels))
         percent_below = len(below_thresh) / len(battery_levels)
-        return success, time, (average, variance, percent_below)
 
-    def simulate(self, planner, trials=100):
-        problem_set = ProblemSet(fieldset=self.problem.fieldset)
-        total_successes, total_time = 0, 0
-        for _ in range(trials):
-            problem = problem_set.create_problem()
-            planner.problem = problem
-            success, time, battery_level_data = self.evaluate(planner=planner, problem=problem)
-            average, variance, percent_below = battery_level_data
-
-
-
-
-
+        return average, variance, percent_below
