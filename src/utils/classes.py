@@ -1,3 +1,10 @@
+"""The underlying classes for the Ocean Platform.
+
+This module contains the implementation of the following classes — Problem, ProblemSet, Planner,
+TrajectoryTrackingController, Simulator, and EvaluatePlanners. Note that the Planner class provides a protocol for a
+planner, e.g. StraightLinePlanner, to inherit.
+"""
+
 import math
 import pickle
 import random
@@ -12,102 +19,73 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class ProblemSet:
-    def __init__(self, fieldset, filename=None, num_problems=100):
-        self.fieldset = fieldset
-        if filename is None:
-            self.problems = [self.create_problem() for _ in range(num_problems)]
-        else:
-            self.problems = self.load_problems(filename)
-
-    def create_problem(self, u_max=.2):
-        """ Randomly generates a Problem with valid x_0 and x_T """
-        x_0, x_T = None, None
-        while not self.valid_start_and_end(x_0, x_T):
-            x_0, x_T = self.random_point(), self.random_point()
-        return Problem(self.fieldset, x_0, x_T, u_max)
-
-    def random_point(self):
-        """ Returns a random point anywhere in the grid """
-        lon = random.choice(self.fieldset.U.grid.lon)
-        lat = random.choice(self.fieldset.U.grid.lat)
-        return [lon, lat]
-
-    def valid_start_and_end(self, x_0, x_T):
-        """ Returns whether the given start (x_0) and end (x_T) is valid """
-        if x_0 is None or x_T is None:
-            return False
-        return self.is_far_apart(x_0, x_T) and self.in_ocean(x_0) and self.in_ocean(x_T)
-
-    def is_far_apart(self, x_0, x_T, sep=0.5):
-        """ Returns whether x_0 and x_T are sufficiently far apart """
-        lon, lat, lon_target, lat_target = x_0[0], x_0[1], x_T[0], x_T[1]
-        dlon = lon_target - lon
-        dlat = lat_target - lat
-        mag = math.sqrt(dlon * dlon + dlat * dlat)
-        return mag > sep
-
-    def in_ocean(self, point, offset=0.1):
-        """ Returns whether a point is in the ocean. Determines this by checking if the velocity is nonzero for this
-        and ALL points that are "offset" distance about the point in the 8 directions. """
-
-        lon, lat = point[0], point[1]
-        offsets = [(0, 0), (0, offset), (offset, 0), (offset, offset), (0, -offset),
-                   (-offset, 0), (-offset, -offset), (offset, -offset), (-offset, offset)]
-        for lon_offset, lat_offset in offsets:
-            if self.zero_velocity(lon + lon_offset, lat + lat_offset):
-                return False
-        return True
-
-    def out_of_bounds(self, coordinate, grid):
-        """ Returns whether the given coordinate (either lat or lon) is out of bounds for its respective grid """
-        return coordinate < min(grid) or coordinate > max(grid)
-
-    def zero_velocity(self, lon, lat):
-        """ Returns whether the (lon, lat) pair is zero velocity, i.e. on land """
-        if self.out_of_bounds(lat, self.fieldset.U.grid.lat) or self.out_of_bounds(lon, self.fieldset.U.grid.lon):
-            return False
-        x = self.fieldset.U.eval(0., 0., lat, lon)
-        y = self.fieldset.V.eval(0., 0., lat, lon)
-        return x == 0. and y == 0.
-
-    def load_problems(self, filename):
-        """ Deserializes the list of problems from the filename """
-        return pickle.load(open(filename))
-
-    def save_problems(self, filename):
-        """ Serializes the list of problems to the filename """
-        pickle.dump(self.problems, open(filename, 'w'))
-
 class Problem:
+    """A path planning problem for a Planner to solve.
+
+    Attributes:
+        fieldset:
+            The fieldset contains data about ocean currents and is more rigorously defined in the
+            parcels documentation.
+        x_0:
+            The starting state, represented as (lon, lat, battery_level, time).
+        x_T:
+            The target state, represented as (lon, lat).
+        project_dir:
+            A string giving the path to the project directory.
+        config_yaml:
+            A YAML file for the Problem configurations.
+        fixed_time_index:
+            An index of a fixed time. Note that the fixed_time_index is only
+            applicable when the time is fixed, i.e. the currents are not time varying.
+    """
     def __init__(self, fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fixed_time_index=None):
         self.fieldset = fieldset
-        # check if we do a fixed or variable current problem
-        if fieldset.U.grid.time.shape[0] == 1:
+        if fieldset.U.grid.time.shape[0] == 1:  # check if we do a fixed or variable current problem
             self.fixed_time_index = 0
         else:
             self.fixed_time_index = fixed_time_index
-        if len(x_0) == 2:   # add 100% charge and time
+        if len(x_0) == 2:  # add 100% charge and time
             x_0 = x_0 + [1., 0.]
         elif len(x_0) == 3:  # add time only
             x_0.append(0.)
-        self.x_0 = x_0                                  # Start State
-        self.x_T = x_T                                  # Final Position (only lon, lat)
-
+        self.x_0 = x_0
+        self.x_T = x_T
         self.dyn_dict = self.derive_platform_dynamics(project_dir, config=config_yaml)
 
+    def __repr__(self):
+        """Returns the string representation of a Problem, to be used for debugging.
+
+        Returns:
+            A String
+        """
+        return "Problem(x_0: {0}, x_T: {1})".format(self.x_0, self.x_T)
+
     def viz(self):
-        """TODO: Implement show_time"""
+        """Visualizes the problem in a plot.
+
+        Returns:
+            None
+        """
         pset = p.ParticleSet.from_list(fieldset=self.fieldset,  # the fields on which the particles are advected
-                                       pclass=p.ScipyParticle,
-                                       # the type of particles (JITParticle or ScipyParticle)
+                                       pclass=p.ScipyParticle,  # the type of particles (JITParticle or ScipyParticle)
                                        lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
                                        lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
                                        )
         pset.show(field='vector')
 
     def derive_platform_dynamics(self, project_dir, config):
-        """ Takes in the platform specs and derives battery capacity dynamics for the specific dt."""
+        """Derives battery capacity dynamics for the specific dt.
+
+        Args:
+            project_dir:
+                See class docstring
+            config:
+                See config_yaml in class docstring
+
+        Returns:
+            A dictionary of settings for the Problem, i.e. {'charge': __, 'energy': __, 'u_max': __}
+        """
+
         # load in YAML
         with open(project_dir + '/config/' + config) as f:
             config_data = yaml.load(f, Loader=yaml.FullLoader)
@@ -120,6 +98,156 @@ class Problem:
         platform_dict = {'charge': charge_factor, 'energy': energy_coeff, 'u_max': platform_specs['u_max']}
 
         return platform_dict
+
+
+class ProblemSet:
+    """Stores a list of Problems.
+
+    If no filename is given, the list of problems is randomly created. Else, the list of problems is deserialized
+    from the filename with pickle. This class is used in the EvaluatePlanner's evaluate method to provide a collection
+    of Problems to test a given Planner.
+
+    Attributes:
+        fieldset:
+            The fieldset contains data about ocean currents and is more rigorously defined in the
+            parcels documentation.
+        project_dir:
+            A string giving the path to the project directory.
+        problems:
+            A list of Problems.
+    """
+    def __init__(self, fieldset, project_dir, filename=None, num_problems=100):
+        self.fieldset = fieldset
+        self.project_dir = project_dir
+        if filename is None:
+            # random.seed(num_problems)
+            self.problems = [self.create_problem() for _ in range(num_problems)]
+        else:
+            self.problems = self.load_problems(filename)
+
+    def create_problem(self):
+        """Randomly generates a Problem with valid x_0 and x_T.
+
+        Iteratively produces random problems until one that fulfills the criteria in valid_start_and_end is found.
+
+        Returns:
+            A Problem.
+        """
+        x_0, x_T = None, None
+        while not self.valid_start_and_end(x_0, x_T):
+            x_0, x_T = self.random_point(), self.random_point()
+        return Problem(self.fieldset, x_0, x_T, self.project_dir)
+
+    def random_point(self):
+        """Returns a random point anywhere in the grid.
+
+        Returns:
+            A point, i.e. a pair of longitude and latitude coordinates: [lon, lat].
+        """
+        lon = random.choice(self.fieldset.U.grid.lon)
+        lat = random.choice(self.fieldset.U.grid.lat)
+        return [lon, lat]
+
+    def valid_start_and_end(self, x_0, x_T):
+        """Determines whether the given start (x_0) and target (x_T) are valid.
+
+        For a start and end to be valid, they must be sufficiently far apart, and neither point can be in the ocean.
+
+        Args:
+            x_0:
+                The starting point, a pair of longitude and latitude coordinates: [lon, lat].
+            x_T:
+                The target point, a pair of longitude and latitude coordinates: [lon, lat].
+        Returns:
+            A boolean.
+        """
+        if x_0 is None or x_T is None:
+            return False
+        return self.is_far_apart(x_0, x_T) and self.in_ocean(x_0) and self.in_ocean(x_T)
+
+    def is_far_apart(self, x_0, x_T, sep=0.5):
+        """Returns whether x_0 and x_T are sufficiently far apart
+
+        Args:
+            x_0:
+                The starting point, a pair of longitude and latitude coordinates: [lon, lat].
+            x_T:
+                The target point, a pair of longitude and latitude coordinates: [lon, lat].
+            sep:
+                The minimum distance between the two points.
+        Returns:
+            A boolean.
+        """
+        lon, lat, lon_target, lat_target = x_0[0], x_0[1], x_T[0], x_T[1]
+        dlon = lon_target - lon
+        dlat = lat_target - lat
+        mag = math.sqrt(dlon * dlon + dlat * dlat)  # mag is the distance between the two points.
+        return mag > sep
+
+    def in_ocean(self, point, offset=0.1):
+        """ Returns whether the point is in the ocean.
+
+        Determines this by checking if the velocity is nonzero for this and ALL points that are "offset" distance
+        about the point in the 8 directions.
+
+        Args:
+            point:
+                A pair of longitude and latitude coordinates: [lon, lat].
+            offset: A float which determines how far about the point to look. Increasing the value of offset will
+                prevent points on the coast from being chosen.
+
+        Returns:
+            A boolean.
+        """
+        lon, lat = point[0], point[1]
+        offsets = [(0, 0), (0, offset), (offset, 0), (offset, offset), (0, -offset),
+                   (-offset, 0), (-offset, -offset), (offset, -offset), (-offset, offset)]
+        for lon_offset, lat_offset in offsets:
+            if self.zero_velocity(lon + lon_offset, lat + lat_offset):
+                return False
+        return True
+
+    def out_of_bounds(self, coordinate, grid):
+        """Determines whether the given coordinate (either lat or lon) is out of bounds for its respective grid.
+
+        Returns:
+            A boolean.
+        """
+        return coordinate < min(grid) or coordinate > max(grid)
+
+    def zero_velocity(self, lon, lat):
+        """Determines whether the (lon, lat) pair is zero velocity, i.e. on land.
+
+        Returns:
+            A boolean.
+        """
+        if self.out_of_bounds(lat, self.fieldset.U.grid.lat) or self.out_of_bounds(lon, self.fieldset.U.grid.lon):
+            return False
+        x = self.fieldset.U.eval(0., 0., lat, lon)
+        y = self.fieldset.V.eval(0., 0., lat, lon)
+        return x == 0. and y == 0.
+
+    def load_problems(self, filename):
+        """Deserializes the list of problems from the filename.
+
+        Args:
+            filename:
+                A filename represented as a String, e.g. 'file.txt', that need not already exist.
+        Returns:
+            A list of Problems.
+        """
+        with open(filename, 'rb') as reader:
+            return pickle.load(reader)
+
+    def save_problems(self, filename):
+        """Serializes the list of problems to the filename.
+
+        Returns:
+            None
+        """
+        with open(filename, 'wb') as writer:
+            pickle.dump(self.problems, writer)
+
 
 class Planner:
     """ All Planners should inherit this class """
@@ -142,6 +270,9 @@ class Planner:
         """ TODO: returns (thrust, header) for the next timestep """
         raise NotImplementedError()
 
+    def __repr__(self):
+        return "Planner(mode: {0}, problem: {1})".format(self.mode, self.problem)
+
     def transform_u_dir_to_u(self, u_dir):
         thrust = np.sqrt(u_dir[0]**2 + u_dir[1]**2)         # Calculating thrust from distance formula on input u
         heading = np.arctan2(u_dir[1], u_dir[0])              # Finds heading angle from input u
@@ -154,7 +285,6 @@ class TrajectoryTrackingController:
     """
     def __init(self, trajectory, state): # Will need planned trajectory and current state
         pass
-    pass
 
 
 class Simulator:
@@ -177,18 +307,32 @@ class Simulator:
         self.cur_state = np.array(problem.x_0).reshape(4, 1)   # lon, lat, battery level, time
         self.time_origin = problem.fieldset.time_origin
         self.trajectory = self.cur_state
-        self.control_traj = []            # """TODO: implement this mainly for debugging & viz"""
+        self.control_traj = []
 
         # initialize dynamics
         self.u_curr_func, self.v_curr_func, self.F_x_next = self.initialize_dynamics()
 
-    def run(self, T):
-        """ runs the simulator for time T in seconds"""
+    def run(self, T=None, max_steps=100000):
+        """ If T is None, runs the simulator for time T in seconds. Runs the planner until the goal is reached or the
+        time exceeds timeout. Returns success boolean """
         # run over T with dt stepsize
-        N = int(T // self.settings['dt']) + 1
-        print('N', N)
-        for _ in range(N):
-            self.run_step()
+        if T:
+            N = int(T // self.settings['dt']) + 1
+            for _ in range(N):
+                self.run_step()
+        else:
+            step = 0
+            while not self.reached_goal() and step < max_steps:
+                self.run_step()
+                step += 1
+        return self.reached_goal()
+
+    def reached_goal(self, slack=0.1):
+        """Returns whether we have reached the target goal """
+
+        lon, lat = self.cur_state[0][0], self.cur_state[1][0]
+        lon_target, lat_target = self.problem.x_T[0], self.problem.x_T[1]
+        return abs(lon - lon_target) < slack and abs(lat - lat_target) < slack
 
     def run_step(self):
         """Run the simulator for one dt step"""
@@ -201,7 +345,7 @@ class Simulator:
         self.trajectory = np.hstack((self.trajectory, self.cur_state))
 
     def thrust_check(self, u_planner):
-        """ If the thrust would use more energy than available adjust accordingly."""
+        """If the thrust would use more energy than available adjust accordingly."""
 
         delta_charge = self.problem.dyn_dict['charge'] - \
                        self.problem.dyn_dict['energy']*(self.problem.dyn_dict['u_max'] * u_planner[0]) ** 3
@@ -218,13 +362,13 @@ class Simulator:
             return u_planner
 
     def battery_check(self, cur_state):
-        """ Prevents battery level to go above 1."""
+        """Prevents battery level to go above 1."""
         if cur_state[2] > 1.:
             cur_state[2] = 1.
         return cur_state
 
     def initialize_dynamics(self):
-        """ Initialize symbolic dynamics function for simulation"""
+        """Initialize symbolic dynamics function for simulation """
 
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')   # lon
@@ -289,7 +433,6 @@ class Simulator:
             plt.xlabel('x')
             plt.ylabel('y')
             plt.show()
-
             return
 
         elif plotting_type == 'battery':
@@ -300,7 +443,6 @@ class Simulator:
             plt.xlabel('time in h')
             plt.ylabel('Battery Charging level [0,1]')
             plt.show()
-
             return
 
         elif plotting_type == 'gif':
@@ -332,37 +474,81 @@ class Simulator:
 
 
 class EvaluatePlanners:
+    """Evaluates a planner on a set of problems
 
-    def __init__(self, problem_set):
+    Attributes:
+        problem_set:
+            A ProblemSet instance which will supply the problems.
+        project_dir:
+            A string giving the path to the project directory.
+        total_successes:
+            A dictionary that maps each planner to the proportion of successes as a decimal between 0 and 1. For this,
+            and the following two dictionaries, planners are only added after the evaluate_planner method is called.
+        all_times:
+            A dictionary that maps each planner to a list of times, one time for each Problem solved.
+        all_battery_levels:
+            A dictionary that maps each planner to a list of lists of battery levels, one list for each Problem solved.
+        failed_problems:
+            A dictionary that maps each planner to a list of Problems it failed.
+    """
+    def __init__(self, problem_set, project_dir):
         self.problem_set = problem_set
-        self.successes = {}         # map each planner to a percentage of successes as a decimal between 0 and 1
-        self.times = {}             # map each planner to a list of times
-        self.battery_levels = []    # map each planner to a list of lists of battery level
+        self.project_dir = project_dir
+        self.total_successes = {}
+        self.all_times = {}
+        self.all_battery_levels = {}
+        self.failed_problems = {}
 
     def evaluate_planner(self, planner):
-        problem_set = ProblemSet(fieldset=self.problem.fieldset, )
-        total_successes, total_times, total_battery_levels = 0, [], []
-        for problem in problem_set.problems:
-            planner.problem = problem
+        """ Evaluates the planner on all the problems in self.problem_set.
+
+        Calls self.evaluate_on_problem(...) for each problem in the problem_set. After looping through all the problems,
+        populates total_successes, all_times, all_battery_levels, and failed_problems with the pertinent data.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner
+
+        Returns:
+            None
+        """
+        total_successes, total_times, total_battery_levels, failed_problems = 0, [], [], []
+        for problem in self.problem_set.problems:
             success, time, battery_levels = self.evaluate_on_problem(planner=planner, problem=problem)
             total_successes += success
             if success:
                 total_times.append(time)
                 total_battery_levels.append(battery_levels)
-        self.successes[planner] = total_successes / len(problem_set.problems)
-        self.times[planner] = total_times
-        self.battery_levels[planner] = total_battery_levels
+            else:
+                failed_problems.append(problem)
+        self.total_successes[planner] = total_successes / len(self.problem_set.problems)
+        self.all_times[planner] = total_times
+        self.all_battery_levels[planner] = total_battery_levels
+        self.failed_problems[planner] = failed_problems
 
-    def evaluate_on_problem(self, planner, problem, settings=None):
-        """ Evaluate the planner on the given problem by some metrics.
-        Currently returns (success, time, percent of time below battery level threshold))
+    def evaluate_on_problem(self, planner, problem, sim_config='simulator.yaml'):
+        """Evaluate the planner on the given problem by some metrics.
+
+        Creates and runs a Simulator for the given planner and problem. Extracts information from the simulator's
+        trajectory.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
+            problem:
+                A Problem
+            sim_config:
+                A YAML file for the Simulator configurations.
+
+        Returns:
+            Currently returns (success, time, list of battery_levels), but this will most likely be added to over time.
         """
+        # Step 1: Set the planner's problem to the given problem
+        planner.problem = problem
 
-        # Step 1: create the simulator
-        sim = Simulator(planner, problem, settings)
-
-        # Step 2: run the planner on the problem
-        success, steps = sim.run_until_success()
+        # Step 2: Create and run the simulator
+        sim = Simulator(planner=planner, problem=problem, project_dir=self.project_dir, sim_config=sim_config)
+        success = sim.run()
         if not success:
             return False, None, (None, None, None)
 
@@ -374,13 +560,106 @@ class EvaluatePlanners:
 
         return success, time, battery_levels
 
-    def extract_battery_level_data(self, battery_levels, bat_level_threshold=0.2):
+    def avg_bat_level(self, planner):
+        """Finds the average battery level across all states in all problems.
 
-        average = np.average(battery_levels)
-        variance = np.var(battery_levels)
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
 
-        # we will create a list of all the battery levels below the threshold to calculate percentage of time below
-        below_thresh = list(filter(lambda bat_level: bat_level < bat_level_threshold, battery_levels))
-        percent_below = len(below_thresh) / len(battery_levels)
+        Returns:
+            A float.
+        """
+        return self.general_avg_bat_level(planner=planner, aggregation_func=np.average)
 
-        return average, variance, percent_below
+    def avg_bat_level_variance(self, planner):
+        """Finds the average battery level variance across all problems. The variance is calculated for each problem,
+        and then averaged.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
+
+        Returns:
+            A float.
+        """
+        return self.general_avg_bat_level(planner=planner, aggregation_func=np.var)
+
+    def avg_bat_level_percent_below_threshold(self, planner, threshold=0.2):
+        """Finds the average percent of time the battery level is below a given threshold across all states in all
+        problems.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
+
+        Returns:
+            A float.
+        """
+        def percent_below(battery_levels):
+            # we will create a list of all the battery levels below the threshold to calculate percent of time below
+            below_thresh = list(filter(lambda bat_level: bat_level < threshold, battery_levels))
+            percent_below = len(below_thresh) / len(battery_levels)
+            return percent_below
+
+        return self.general_avg_bat_level(planner=planner, aggregation_func=percent_below)
+
+    def general_avg_bat_level(self, planner, aggregation_func):
+        """ A generic function that averages some aspect of each battery level list.
+
+        For instance, if the aggregation_func is np.var, then this generic function finds the variance of each battery
+        levels list, and returns the average of these variances.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
+            aggregation_func:
+                A one argument function that returns a number, e.g. np.var.
+
+        Returns:
+            A float.
+        """
+        assert planner in self.all_battery_levels, "Did not run the evaluate_planner method"
+
+        average = np.average([aggregation_func(battery_levels) for battery_levels in self.all_battery_levels[planner]])
+        return average
+
+    def avg_time(self, planner):
+        """Finds the average time it takes the planner to solve a problem.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
+
+        Returns:
+            A float.
+        """
+        assert planner in self.all_battery_levels, "Did not run the evaluate_planner method"
+
+        return np.average(self.all_times[planner])
+
+    def view_results(self, planner, ndigits=5):
+        """Prints pertinent information about the planner's performance on the problems from the problem_set.
+
+        Args:
+            planner:
+                An instance of a subclass that inherits Planner, e.g. StraightLinePlanner.
+            ndigits:
+                The number of digits to be used in rounding.
+
+        Returns:
+            None
+        """
+        assert planner in self.all_battery_levels, "Did not run the evaluate_planner method"
+
+        print("-" * 50)
+        print("PERCENT SUCCESSFUL: {} %".format(round(self.total_successes[planner] * 100, ndigits=ndigits)))
+        print("\nFAILED PROBLEMS: ", self.failed_problems[planner])
+        print("\nALL TIMES: ", self.all_times[planner])
+        print("\nAVERAGE TIME: ", round(self.avg_time(planner), ndigits=ndigits))
+        print("\nBATTERY LEVELS LISTS: ", self.all_battery_levels[planner])
+        print("\nAVERAGE BATTERY LEVEL: ", round(self.avg_bat_level(planner), ndigits=ndigits))
+        print("\nAVERAGE BATTERY VARIANCE: ", round(self.avg_bat_level_variance(planner), ndigits=ndigits))
+        print("\nAVERAGE BATTERY PERCENT BELOW THRESHOLD: {} %"
+              "".format(round(self.avg_bat_level_percent_below_threshold(planner, 0.2) * 100, ndigits=ndigits)))
+        print("-" * 50)
