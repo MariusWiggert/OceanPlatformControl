@@ -1,6 +1,8 @@
-from src.utils.classes import *
+from src.utils.problem import Problem
+import casadi as ca
+import numpy as np
+import matplotlib.pyplot as plt
 from src.utils import hycom_utils
-from src.non_lin_opt.ipopt_planner import IpoptPlanner
 import os
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 
