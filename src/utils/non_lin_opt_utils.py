@@ -69,30 +69,3 @@ def solve_time_opt_wo_currents(x_0, x_T, N, conv_m_to_deg, u_max, T_fixed = None
     # dt = sol.value(dt)
 
     return T, u, x, dt
-
-
-def get_2Dinterpolation_func(problem, type='bspline'):
-    # Step 1: get grid
-    xgrid = problem.fieldset.U.lon
-    ygrid = problem.fieldset.U.lat
-    t_grid = problem.fieldset.U.grid.time
-
-    print("Optimizer fieldset interpolation fixed time at: {time}".format(
-        time=str(problem.fieldset.U.grid.time_origin.fulltime(t_grid[problem.fixed_time_index]))))
-
-    # Step 2: extract field data
-    # [tdim, zdim, ydim, xdim]
-    if len(problem.fieldset.U.data.shape) == 4:  # if there is a depth dimension in the dataset
-        u_data = problem.fieldset.U.data[problem.fixed_time_index, 0, :, :]
-        v_data = problem.fieldset.V.data[problem.fixed_time_index, 0, :, :]
-    # [tdim, ydim, xdim]
-    elif len(problem.fieldset.U.data.shape) == 3:  # if there is no depth dimension in the dataset
-        u_data = problem.fieldset.U.data[problem.fixed_time_index, :, :]
-        v_data = problem.fieldset.V.data[problem.fixed_time_index, :, :]
-
-    # U field fixed
-    u_curr_func = ca.interpolant('u_curr', type, [ygrid, xgrid], u_data.ravel(order='F'))
-    # V field fixed
-    v_curr_func = ca.interpolant('v_curr', type, [ygrid, xgrid], v_data.ravel(order='F'))
-
-    return u_curr_func, v_curr_func

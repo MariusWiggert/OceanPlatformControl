@@ -108,8 +108,8 @@ class Simulator:
         # Step 3: create the x_dot dynamics function
         if self.problem.fixed_time_index is None:    # time varying current
             x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                     [ca.vertcat((ca.cos(u_sym[1])*u_sym[0]*self.problem.dyn_dict['u_max'] + u_curr_func(ca.vertcat(x_sym[4], x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
-                                                 (ca.sin(u_sym[1])*u_sym[0]*self.problem.dyn_dict['u_max'] + v_curr_func(ca.vertcat(x_sym[4], x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
+                                     [ca.vertcat((ca.cos(u_sym[1])*u_sym[0]*self.problem.dyn_dict['u_max'] + u_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
+                                                 (ca.sin(u_sym[1])*u_sym[0]*self.problem.dyn_dict['u_max'] + v_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0])))/self.settings['conv_m_to_deg'],
                                                  self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
                                                  (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
                                                  1)],
@@ -176,8 +176,14 @@ class Simulator:
                         lat=[self.trajectory[1,i]],  # a vector of release latitudes
                     )
 
-                pset.show(savefile=self.settings['project_dir'] + '/viz/pics_2_gif/particles' + str(i).zfill(2), field='vector', land=True,
-                    vmax=1.0, show_time=0.)
+                if self.problem.fixed_time_index is None:
+                    pset.show(savefile=self.settings['project_dir'] + '/viz/pics_2_gif/particles' + str(i).zfill(2),
+                              field='vector', land=True,
+                              vmax=1.0, show_time=self.trajectory[3, i])
+                else:
+                    pset.show(savefile=self.settings['project_dir'] + '/viz/pics_2_gif/particles' + str(i).zfill(2),
+                              field='vector', land=True,
+                              vmax=1.0, show_time=self.problem.fieldset.gridset.grids[0].time[self.problem.fixed_time_index])
 
             # Step 2: compile to gif
             file_list = glob.glob(self.settings['project_dir'] + "/viz/pics_2_gif/*")
