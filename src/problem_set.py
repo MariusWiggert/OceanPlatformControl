@@ -2,7 +2,7 @@ import math
 import pickle
 import random
 
-from src.utils.problem import Problem
+from src.problem import Problem
 
 
 class ProblemSet:

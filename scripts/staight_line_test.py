@@ -1,8 +1,8 @@
-from src.straight_line.straight_line_planner import StraightLinePlanner
+from src.planners.straight_line_planner import StraightLinePlanner
 from src.utils import hycom_utils
 import os
-from src.utils.problem import Problem
-from src.utils.simulator import Simulator
+from src.problem import Problem
+from src.simulation.simulator import Simulator
 
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 

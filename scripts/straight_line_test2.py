@@ -1,6 +1,6 @@
-from src.straight_line.straight_line_planner import StraightLinePlanner
-from src.utils.evaluate_planner import EvaluatePlanner
-from src.utils.problem_set import ProblemSet
+from src.planners.straight_line_planner import StraightLinePlanner
+from src.simulation.evaluate_planner import EvaluatePlanner
+from src.problem_set import ProblemSet
 from src.utils import hycom_utils
 import os
 
