@@ -1,15 +1,12 @@
 import casadi as ca
-from src.utils import hycom_utils, non_lin_opt_utils, simulation_utils
-from src.utils.archive import particles, gif_utils
-import parcels as p
+from src.utils import simulation_utils
+from src.utils.archive import gif_utils
 import numpy as np
 
 from src.utils import hycom_utils
-from src.non_lin_opt.ipopt_planner import IpoptPlannerFixCur
 import os
 
-from src.utils.problem import Problem
-from src.utils.simulator import Simulator
+from src.problem import Problem
 
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 

@@ -1,9 +1,7 @@
-from src.utils.planner import Planner
-from src.utils.trajectory_tracking_controller import *
-from src.utils.archive import gif_utils
+from src.planners.planner import Planner
 import casadi as ca
 import numpy as np
-from src.utils import non_lin_opt_utils, plotting_utils, simulation_utils
+from src.utils import plotting_utils, simulation_utils
 import bisect
 
 class IpoptPlanner(Planner):

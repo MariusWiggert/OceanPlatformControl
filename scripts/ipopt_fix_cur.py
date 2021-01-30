@@ -1,9 +1,9 @@
 from src.utils import hycom_utils
-from src.non_lin_opt.ipopt_planner import IpoptPlannerFixCur
+from src.planners.ipopt_planner import IpoptPlannerFixCur
 import os
 
-from src.utils.problem import Problem
-from src.utils.simulator import Simulator
+from src.problem import Problem
+from src.simulation.simulator import Simulator
 
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 
