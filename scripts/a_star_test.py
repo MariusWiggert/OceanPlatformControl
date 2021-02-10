@@ -26,12 +26,8 @@ prob = Problem(fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fix
 prob.viz()
 #%% Step 2: initialize planner
 planner = AStarPlanner(problem=prob, t_init=T_planner)
-planner.a_star()
-x_labels = list(map(lambda x: x[0], planner.waypoints))
-y_labels = list(map(lambda x: x[1], planner.waypoints))
-plt.scatter(x_labels, y_labels)
-plt.show()
-
+#%%
+planner.show_trajectory()
 
 #%% Step 3: init the simulator
 sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
