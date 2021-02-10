@@ -1,9 +1,12 @@
+import bisect
+
 from src.planners.planner import Planner
 from src.utils import simulation_utils
 import heapq
 import math
 import casadi as ca
 import numpy as np
+import matplotlib.pyplot as plt
 import pdb
 
 
@@ -22,13 +25,28 @@ class AStarPlanner(Planner):
         super().__init__(problem, settings, t_init, n, mode)
         # self.dt = self.T_init / self.N
         self.dt = 10.
-        self.waypoints = []
+        self.path = []
+        self.times = []
         self.control = []
         self.a_star()
 
+    def show_trajectory(self):
+        x_labels = list(map(lambda x: x[0], self.path))
+        y_labels = list(map(lambda x: x[1], self.path))
+        plt.scatter(x_labels, y_labels)
+        plt.annotate('x_0', (x_labels[0], y_labels[0]))
+        plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
+        plt.show()
+
     def get_next_action(self, state):
         """Grab the next action. """
-        return self.control.pop(0)
+        assert len(self.times) == len(self.control)
+        assert sorted(self.times) == self.times, "The times should be in sorted order: " + str(self.times)
+        idx = bisect.bisect_left(self.times, state[3])
+        print("Index: {}".format(idx))
+        if idx == len(self.times):
+            idx -= 1
+        return self.control[idx]
 
     def a_star(self):
         """ Discretize the graph and find the time optimal path using A Star
@@ -46,18 +64,20 @@ class AStarPlanner(Planner):
         # set the state class variables
         State.set_dlon_dlat(lon, lat, target_lon, target_lat)
         State.set_fieldset(self.problem)
+        State.time_to = time_to
+        State.problem = self.problem
 
-        starting_state = State(lon=lon, lat=lat, time_to=time_to, bat_level=1.0)
+        starting_state = State(lon=lon, lat=lat, bat_level=1.0)
         pq.append(starting_state)
         time_to[starting_state] = 0
         edge_to[starting_state] = starting_state
         state = starting_state
-        end_state = State(lon=target_lon, lat=target_lat, time_to=time_to, bat_level=None)
+        end_state = State(lon=target_lon, lat=target_lat, bat_level=None)
 
         # run Dijkstra's
         while not state == end_state:
             state = heapq.heappop(pq)
-            print(state.lon, state.lat, time_to[state])
+            print(state.lon, state.lat, time_to[state], state.bat_level)
             seen.add(state)
             for time, neighbor_state in state.neighbors():
                 if neighbor_state in seen:
@@ -71,8 +91,10 @@ class AStarPlanner(Planner):
             heapq.heapify(pq)
 
         # extract the waypoints
+        self.times, self.path, self.control = [], [], []
         while state != starting_state:
-            self.waypoints.insert(0, (state.lon, state.lat))
+            self.path.insert(0, (state.lon, state.lat))
+            self.times.insert(0, time_to[state])
             self.control.insert(0, (state.thrust, state.heading))
             state = edge_to[state]
 
@@ -94,11 +116,12 @@ class State:
     # matrices = [], an array of matrices, one for each direction
     u_curr_func, v_curr_func = None, None
     dlon, dlat = None, None
+    time_to = None
+    problem = None
 
-    def __init__(self, lon, lat, time_to, bat_level, heading=None, thrust=None):
+    def __init__(self, lon, lat, bat_level, heading=None, thrust=None):
         self.lon = lon
         self.lat = lat
-        self.time_to = time_to
         self.bat_level = bat_level
         self.heading = heading
         self.thrust = thrust
@@ -121,7 +144,8 @@ class State:
                 continue
             # TODO: potentially add data structure that maps each state to the heading/thrust needed to get there.
             bat_level = self.change_bat_level(thrust, time)
-            yield time, State(lon=lon, lat=lat, time_to=self.time_to, bat_level=bat_level, heading=heading,
+            bat_level = math.floor(bat_level * 100) / 100
+            yield time, State(lon=lon, lat=lat, bat_level=bat_level, heading=heading,
                               thrust=thrust)
             thrust += thrust_granularity
 
@@ -169,7 +193,7 @@ class State:
         else:
             cls.dlat = lat_dist
 
-    def find_min_thrust(self, lon, lat, matrix=None, v_min=0.1, distance=None, max_thrust=0.5):
+    def find_min_thrust(self, lon, lat, matrix=None, v_min=0.1, distance=None, max_thrust=1.0):
         """ Finds the minimum thrust to go from the current state to the given lon, lat
 
         Args:
@@ -225,7 +249,8 @@ class State:
             return None, None, None
 
         # Step 7: Find the TIME = distance / (u_parallel + current_parallel)
-        time = distance / (u_parallel + curr_parallel)
+        # TODO: replace hard coded constant with settings data reference
+        time = distance * 111120. / (u_parallel + curr_parallel)
 
         # Step 8: Go back to original basis, i.e. in terms of u and v
         u_vector = np.array([u_parallel, u_perp])
@@ -238,8 +263,9 @@ class State:
         return thrust, heading, time
 
     def change_bat_level(self, thrust, time):
-        # TODO: change the battery level
-        return self.bat_level
+        # return self.bat_level
+        bat_level_delta = self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] * (self.problem.dyn_dict['u_max'] * thrust) ** 3
+        return min(self.bat_level + time * bat_level_delta, 1)
 
     @classmethod
     def set_fieldset(cls, problem, type='bspline'):
