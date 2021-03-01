@@ -12,11 +12,10 @@ fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 u_max = .2
 
 # Create the ProblemSet
-problem_set = ProblemSet(fieldset=fieldset, num_problems=5, project_dir=project_dir)
+problem_set = ProblemSet(fieldset=fieldset, num_problems=20, project_dir=project_dir)
 
 # %% Step 2: init planner
-
-for prob in problem_set.problems:
+for prob in problem_set.problems[:]:
     prob.viz()
     planner = AStarPlanner(problem=prob)
     planner.show_trajectory()
