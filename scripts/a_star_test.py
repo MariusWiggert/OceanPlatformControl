@@ -24,12 +24,13 @@ prob = Problem(fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fix
 # problem_set = ProblemSet(fieldset=fieldset)
 # prob = problem_set.create_problem()
 prob.viz()
-#%% Step 2: initialize planner
+    #%% Step 2: initialize planner
 planner = AStarPlanner(problem=prob, t_init=T_planner)
 #%%
 planner.show_trajectory()
 
 #%% Step 3: init the simulator
+# print(planner.problem.dyn_dict['u_max'])
 sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
 
 #%% Step 4: run the simulator
@@ -38,5 +39,8 @@ sim.run()
 #%% Step 5: plot it
 sim.plot_trajectory(name='classes_test', plotting_type='2D')
 # prob.viz()
-# sim.plot_trajectory(name='classes_test', plotting_type='battery')
+sim.plot_trajectory(name='classes_test', plotting_type='battery')
 # sim.plot_trajectory(name='classes_test', plotting_type='gif')
+
+#%%
+planner.times
