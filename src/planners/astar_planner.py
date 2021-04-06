@@ -20,6 +20,8 @@ class AStarPlanner(Planner):
     Attributes:
         dt:
             A float giving the time, in seconds, between queries. see Planner class for the rest of the attributes.
+        last_waypoint_index:
+            The index of the current waypoint we are trying to actuate towards
         path:
             A list of lon, lat coordinates for the waypoints
         battery_levels:
@@ -35,10 +37,12 @@ class AStarPlanner(Planner):
                  t_init=None, n=100, mode='open-loop', dt=10.):
         super().__init__(problem, settings, t_init, n, mode)
         self.dt = dt
+        self.last_waypoint_index = 1
         self.path = []
         self.battery_levels = []
         self.times = []
         self.control = []
+        self.states_traveled = []
         self.failure = False
         start_time = t.time()
         self.a_star()
@@ -58,17 +62,95 @@ class AStarPlanner(Planner):
 
     def get_next_action(self, state):
         """Grab the next action. TODO: USE THE TTC """
-        assert len(self.times) == len(self.control)
-        assert sorted(self.times) == self.times, "The times should be in sorted order: " + str(self.times)
-        idx = bisect.bisect_left(self.times, state[3])
-        print("Index: {}".format(idx))
-        if idx == len(self.times):
-            idx -= 1
-        return self.control[idx]
+        # Using the TTC
+
+        # HIGH LEVEL
+
+        # GET NEXT WAYPOINT
+        """
+        - to get the next waypoint:
+        1. let's look at all the distances from us to the other waypoints
+        2. find the closest
+        3. actuate toward the one after the closest
+        
+        OR
+        
+        1. keep track of the index of the last waypoint we actuated towards
+        2. calculate vector from us to them. 
+        3. if vectors are in same direction (angle is same between us and them), then we continue actuating towards that waypoint.
+        4. otherwise, let's start actuating towards the next waypoint from the current state.
+        """
+        def vec(cur_state, next_state):
+            """ Creates a vector from the current state to the next state
+
+            Args:
+                cur_state: (lon, lat)
+                next_state: (lon, lat)
+            """
+            return [next_state[0] - cur_state[0], next_state[1] - cur_state[1]]
+
+        def direction(u_dir):
+            """ Returns direction of a vector between
+
+            Args:
+                u_dir: vector (dlon, dlat)
+            """
+            return np.arctan2(u_dir[1], u_dir[0])  # Finds heading angle from input u
+
+        # extract data from passed in state
+        lon, lat, bat_level, time_to_state = state[0][0], state[1][0], state[2], state[3]
+        self.states_traveled.append((lon, lat))
+
+        # set the state class variables
+        State.set_fieldset(self.problem)
+        State.problem = self.problem
+
+        # ACTUATE IN THAT DIRECTION USING MIN THRUST FUNCTION
+        cur_state = State(lon=lon, lat=lat, bat_level=bat_level)
+
+        # for each waypoint 3 represent: (increment, (lon, lat), [thrust, heading, time], (dlon, dlat))
+
+        # prospective_waypoints = [(i, wp, list(cur_state.actuate_towards(wp[0], wp[1], print_output=True, use_middle=False)), vec((lon, lat), wp))
+        #                          for i, wp in enumerate(self.path[self.last_waypoint_index - 3:self.last_waypoint_index + 3])]
+        # viable_waypoints = list(filter(lambda x: x[2], prospective_waypoints))
+
+
+        prospective_waypoints = []
+        for i, waypoint in enumerate(self.path[self.last_waypoint_index - 3:self.last_waypoint_index + 3]):
+            try:
+                thrust, heading, time = next(cur_state.actuate_towards(waypoint[0], waypoint[1], print_output=True, use_middle=False))
+                vector = vec((lon, lat), waypoint)
+                prospective_waypoints.append((i, waypoint, (thrust, heading, time), vector))
+            except StopIteration:
+                continue
+
+        def compare_prospective_waypoints(wp_state):
+            planned_vector = vec(self.path[self.last_waypoint_index + wp_state[0] - 1],
+                                 self.path[self.last_waypoint_index + wp_state[0]])
+            return abs(direction(wp_state[3]) - direction(planned_vector))
+
+        if not viable_waypoints:
+                x_labels = list(map(lambda x: x[0], self.path))
+                y_labels = list(map(lambda x: x[1], self.path))
+                plt.scatter(x_labels, y_labels, c='coral')
+                x_labels = list(map(lambda x: x[0], self.states_traveled))
+                y_labels = list(map(lambda x: x[1], self.states_traveled))
+                plt.scatter(x_labels, y_labels, c='lightblue')
+                plt.annotate('x_0', (x_labels[0], y_labels[0]))
+                plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
+                plt.show()
+
+        best_waypoint_state = min(viable_waypoints, key=compare_prospective_waypoints)
+        self.last_waypoint_index += best_waypoint_state[0]
+        chosen_state = best_waypoint_state[2][0]
+
+        print("AT: {0} \nGOING TO: {1}".format(str(cur_state), str(best_waypoint_state[1])))
+        return chosen_state[0], chosen_state[1]
+
 
     def heuristic(self, state, target_lon, target_lat, max_velocity=0.6):
         """ Return the minimum time between the given state and the end target """
-        distance = math.sqrt((state.lon - target_lon)**2 + (state.lat - target_lat)**2)
+        distance = math.sqrt((state.lon - target_lon) ** 2 + (state.lat - target_lat) ** 2)
         return distance * 111120. / max_velocity
 
     def a_star(self):
@@ -77,7 +159,7 @@ class AStarPlanner(Planner):
         # data structures
         time_to = {}
         edge_to = {}
-        seen = {}   # we will map each (lon, lat) to the (time, bat_level) used to get there.
+        seen = {}  # we will map each (lon, lat) to the (time, bat_level) used to get there.
         pq = []
 
         # set up problem
@@ -192,6 +274,9 @@ class State:
     def __hash__(self):
         return hash((self.lon, self.lat, self.bat_level))
 
+    def __repr__(self):
+        return "State(lon: {0}, lat: {1}, battery_level: {2})".format(self.lon, self.lat, self.bat_level)
+
     def __eq__(self, other):
         if abs(self.lon - other.lon) > 0.01 or abs(self.lat - other.lat) > 0.01:
             return False
@@ -233,7 +318,7 @@ class State:
         else:
             cls.dlat = lat_dist
 
-    def actuate_towards(self, lon, lat, matrix=None, v_min=0.1, distance=None):
+    def actuate_towards(self, lon, lat, matrix=None, v_min=0.1, distance=None, print_output=False, use_middle=True):
         """ Yields thrusts
 
         Args:
@@ -260,19 +345,21 @@ class State:
         dlat = lat - self.lat
         distance = math.sqrt(dlon * dlon + dlat * dlat)
 
-        # Step 2: Find the current velocity vector (in middle of distance),
-        # w.r.t basis with parallel vector (direction of motion) and perpendicular vector
-        middle_lon = self.lon + dlon / 2
-        middle_lat = self.lat + dlat / 2
+        if use_middle:
+            # Step 2: Find the current velocity vector (in middle of distance),
+            # w.r.t basis with parallel vector (direction of motion) and perpendicular vector
+            middle_lon = self.lon + dlon / 2
+            middle_lat = self.lat + dlat / 2
 
-        # TODO: currently doesn't take in the time, should address
-        u_curr = self.u_curr_func(ca.vertcat(middle_lat, middle_lon))
-        v_curr = self.v_curr_func(ca.vertcat(middle_lat, middle_lon))
+            # TODO: currently doesn't take in the time, should address
+            u_curr = self.u_curr_func(ca.vertcat(middle_lat, middle_lon))
+            v_curr = self.v_curr_func(ca.vertcat(middle_lat, middle_lon))
+        else:
+            u_curr = self.u_curr_func(ca.vertcat(self.lat, self.lon))
+            v_curr = self.v_curr_func(ca.vertcat(self.lat, self.lon))
 
         parallel_basis_vector = normalize(np.array([dlon, dlat]))
         perp_basis_vector = normalize(np.array([dlat, -dlon]))
-
-        # TODO: precompute in the future
         matrix = np.array([parallel_basis_vector, perp_basis_vector])
 
         # change basis of vectors w.r.t normalized basis in direction of motion
@@ -288,14 +375,18 @@ class State:
 
         # Step 6: If u_perp is more than possible thrust, failure
         if math.sqrt(u_perp ** 2 + u_parallel_min ** 2) > max_thrust:
+            if print_output:
+                print("U PERP MORE THAN POSSIBLE THRUST")
+                print("going from {0} to {1}".format((self.lon, self.lat), (lon, lat)))
             return
 
-        u_parallel_max = math.sqrt(max_thrust**2 - u_perp**2)
+        u_parallel_max = math.sqrt(max_thrust ** 2 - u_perp ** 2)
+
+        """ If we wanted to consider many possible thrusts, too slow in practice. """
         # u_parallels = list(np.arange(u_parallel_min, u_parallel_max - 0.1, 0.1)) + [u_parallel_max]
 
         # Can potentially consider more than one thrust
         for u_parallel in [u_parallel_min]:
-
             # Step 7: Find the TIME = distance / (u_parallel + current_parallel)
             # TODO: replace hard coded constant with settings data reference
             time = distance * 111120. / (u_parallel + curr_parallel)
