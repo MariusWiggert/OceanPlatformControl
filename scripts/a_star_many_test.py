@@ -1,6 +1,7 @@
 from src.planners.astar_planner import AStarPlanner
 from src.simulation.evaluate_planner import EvaluatePlanner
 from src.problem_set import ProblemSet
+from src.simulation.simulator import Simulator
 from src.utils import hycom_utils
 import os
 
@@ -18,7 +19,10 @@ problem_set = ProblemSet(fieldset=fieldset, num_problems=20, project_dir=project
 for prob in problem_set.problems[:]:
     prob.viz()
     planner = AStarPlanner(problem=prob)
-    planner.show_trajectory()
+    planner.show_planned_trajectory()
+    sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
+    sim.run()
+    sim.plot_trajectory(name='classes_test', plotting_type='2D')
 
 # %% Step 3: init the simulator and evaluator
 
