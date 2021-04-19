@@ -15,7 +15,7 @@ from src.utils.in_bounds_utils import InBounds
 
 
 class AStarPlanner(Planner):
-    """Discretize the graph and run A Star
+    """ Discretize the graph and run A Star
 
     Attributes:
         dt:
@@ -37,8 +37,8 @@ class AStarPlanner(Planner):
                  t_init=None, n=100, mode='open-loop', dt=10.):
         super().__init__(problem, settings, t_init, n, mode)
         self.dt = dt
-        self.last_waypoint_index = 1
         self.path = []
+        self.actuating_towards = []
         self.battery_levels = []
         self.times = []
         self.control = []
@@ -49,7 +49,8 @@ class AStarPlanner(Planner):
         end_time = t.time()
         print("TIME ELAPSED: ", end_time - start_time)
 
-    def show_trajectory(self):
+    def show_planned_trajectory(self):
+        """ Shows the PLANNED trajectory """
         if not self.failure:
             x_labels = list(map(lambda x: x[0], self.path))
             y_labels = list(map(lambda x: x[1], self.path))
@@ -60,26 +61,67 @@ class AStarPlanner(Planner):
         else:
             print('failure')
 
+    def show_actual_trajectory(self):
+        """ Shows the ACTUAL, i.e. simulated, trajectory in the same plots as the
+        planned trajectory. Note the black lines show which waypoint the TTC is actuating to. """
+
+        fig, ax = plt.subplots()
+        x_labels = list(map(lambda x: x[0], self.path))
+        y_labels = list(map(lambda x: x[1], self.path))
+        ax.scatter(x_labels, y_labels, c='coral', label="Planned Waypoints")
+        x_labels = list(map(lambda x: x[0], self.states_traveled))
+        y_labels = list(map(lambda x: x[1], self.states_traveled))
+        ax.scatter(x_labels, y_labels, c='lightblue', label="Actual Waypoints")
+        plt.annotate('x_0', (x_labels[0], y_labels[0]))
+        plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
+        for x1, x2 in zip(self.states_traveled, self.actuating_towards):
+            plt.arrow(x=x1[0], y=x1[1], dx=x2[0] - x1[0], dy=x2[1] - x1[1], width=.0006)
+        ax.legend()
+        ax.grid(True)
+        plt.show()
+
     def get_next_action(self, state):
-        """Grab the next action. TODO: USE THE TTC """
-        # Using the TTC
-
-        # HIGH LEVEL
-
-        # GET NEXT WAYPOINT
+        """Grab the next action by actuating to the nearest/best waypoint with the minimum thrust logic
+        Args: state
+        Returns: (thrust, header)
         """
-        - to get the next waypoint:
-        1. let's look at all the distances from us to the other waypoints
-        2. find the closest
-        3. actuate toward the one after the closest
-        
-        OR
-        
-        1. keep track of the index of the last waypoint we actuated towards
-        2. calculate vector from us to them. 
-        3. if vectors are in same direction (angle is same between us and them), then we continue actuating towards that waypoint.
-        4. otherwise, let's start actuating towards the next waypoint from the current state.
-        """
+
+        # HELPER FUNCTIONS
+        class PotentialWaypoint:
+            """ Collection of information on the next waypoint to potentially actuate to.
+
+            Attributes:
+                waypoint: the lat, lon of the waypoint
+                thrust: the needed thrust to actuate here
+                heading: the calculated heading to actuate here
+                proposed_vector: the vector between this waypoint and the current state
+                planned_vector: the vector between this waypoint and the PLANNED waypoint before it
+            """
+
+            def __init__(self, waypoint, thrust, heading, time, proposed_vector, planned_vector):
+                self.waypoint = waypoint
+                self.thrust = thrust
+                self.heading = heading
+                self.time = time
+                self.proposed_vector = proposed_vector
+                self.planned_vector = planned_vector
+
+            def cost(self):
+                """ This method will be used as a helper routine to figure out which waypoint to go to next. More
+                concretely, this function will quantify how good a waypoint is, where a smaller number is a better
+                waypoint. """
+
+                # A waypoint is "good" if the directions of the proposed vector and the planned vector are similar.
+
+                vector_1 = self.planned_vector
+                vector_2 = self.proposed_vector
+                unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+                unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+                dot_product = np.dot(unit_vector_1, unit_vector_2)
+                angle = np.arccos(dot_product)
+
+                return abs(angle)
+
         def vec(cur_state, next_state):
             """ Creates a vector from the current state to the next state
 
@@ -97,9 +139,19 @@ class AStarPlanner(Planner):
             """
             return np.arctan2(u_dir[1], u_dir[0])  # Finds heading angle from input u
 
+        def mag(u_dir):
+            """ Returns the magnitude of the given vector"""
+
+            return math.sqrt(u_dir[1] * u_dir[1] + u_dir[0] * u_dir[0])
+
+        def nearest_waypoint(all_waypoints, curr_wp):
+            """ Finds the index of the nearest planned waypoint to where we currently are in the simulation """
+
+            distances_away = np.array([mag(vec(wp, curr_wp)) for wp in all_waypoints])
+            return np.argmin(distances_away)
+
         # extract data from passed in state
         lon, lat, bat_level, time_to_state = state[0][0], state[1][0], state[2], state[3]
-        self.states_traveled.append((lon, lat))
 
         # set the state class variables
         State.set_fieldset(self.problem)
@@ -110,43 +162,48 @@ class AStarPlanner(Planner):
 
         # for each waypoint 3 represent: (increment, (lon, lat), [thrust, heading, time], (dlon, dlat))
 
-        # prospective_waypoints = [(i, wp, list(cur_state.actuate_towards(wp[0], wp[1], print_output=True, use_middle=False)), vec((lon, lat), wp))
-        #                          for i, wp in enumerate(self.path[self.last_waypoint_index - 3:self.last_waypoint_index + 3])]
-        # viable_waypoints = list(filter(lambda x: x[2], prospective_waypoints))
-
-
         prospective_waypoints = []
-        for i, waypoint in enumerate(self.path[self.last_waypoint_index - 3:self.last_waypoint_index + 3]):
+
+        # only consider points after the given waypoint, w.r.t to time
+        prune_start = bisect.bisect_left(self.times, time_to_state)
+        # prune_start = 0
+        index = prune_start + nearest_waypoint(self.path[prune_start:], (lon, lat))
+        self.states_traveled.append((lon, lat))
+        self.actuating_towards.append(self.path[index])
+        # print('NEAREST WAYPOINT IS APPARENTLY ', self.path[index])
+
+        start_index = max(1, index - 3)
+        # print("prune start: ", prune_start, " and the nearest index is ", index)
+        end_index = min(len(self.path), index + 3)
+        for i in range(start_index, end_index):
+            waypoint, prev = self.path[i], self.path[i - 1]
             try:
-                thrust, heading, time = next(cur_state.actuate_towards(waypoint[0], waypoint[1], print_output=True, use_middle=False))
+                thrust, heading, time = next(cur_state.actuate_towards(waypoint[0], waypoint[1],
+                                                                       print_output=True, use_middle=False,
+                                                                       full_send=False, cushion=0.1))
+
+                # consider adding in the time here, and LQR
+
+
+                # nan if we are actuating to ourself.
+                if np.isnan(thrust):
+                    continue
                 vector = vec((lon, lat), waypoint)
-                prospective_waypoints.append((i, waypoint, (thrust, heading, time), vector))
+                planned_vector = vec(prev, waypoint)
+                prospective_waypoints.append(PotentialWaypoint(waypoint, thrust, heading, time, vector, planned_vector))
             except StopIteration:
                 continue
 
-        def compare_prospective_waypoints(wp_state):
-            planned_vector = vec(self.path[self.last_waypoint_index + wp_state[0] - 1],
-                                 self.path[self.last_waypoint_index + wp_state[0]])
-            return abs(direction(wp_state[3]) - direction(planned_vector))
+        if not prospective_waypoints:
+            self.show_actual_trajectory()
 
-        if not viable_waypoints:
-                x_labels = list(map(lambda x: x[0], self.path))
-                y_labels = list(map(lambda x: x[1], self.path))
-                plt.scatter(x_labels, y_labels, c='coral')
-                x_labels = list(map(lambda x: x[0], self.states_traveled))
-                y_labels = list(map(lambda x: x[1], self.states_traveled))
-                plt.scatter(x_labels, y_labels, c='lightblue')
-                plt.annotate('x_0', (x_labels[0], y_labels[0]))
-                plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
-                plt.show()
+        print("WAYPOINTS FOUND", prospective_waypoints)
+        best_waypoint_state = min(prospective_waypoints, key=lambda wp: wp.cost())
+        chosen_actuation = (best_waypoint_state.thrust, best_waypoint_state.heading)
 
-        best_waypoint_state = min(viable_waypoints, key=compare_prospective_waypoints)
-        self.last_waypoint_index += best_waypoint_state[0]
-        chosen_state = best_waypoint_state[2][0]
-
-        print("AT: {0} \nGOING TO: {1}".format(str(cur_state), str(best_waypoint_state[1])))
-        return chosen_state[0], chosen_state[1]
-
+        print("AT: {0} \nGOING TO: {1}".format(str(cur_state), str(best_waypoint_state.waypoint)))
+        print(chosen_actuation)
+        return chosen_actuation[0], chosen_actuation[1]
 
     def heuristic(self, state, target_lon, target_lat, max_velocity=0.6):
         """ Return the minimum time between the given state and the end target """
@@ -215,12 +272,16 @@ class AStarPlanner(Planner):
 
         # extract the waypoints
         self.times, self.path, self.control, self.battery_levels = [], [], [], []
-        while state != starting_state:
+        done = False
+        while not done:
             self.battery_levels.insert(0, state.bat_level)
             self.path.insert(0, (state.lon, state.lat))
             self.times.insert(0, time_to[state])
             self.control.insert(0, (state.thrust, state.heading))
+            done = edge_to[state] == state
             state = edge_to[state]
+
+        print("PATH and THRUST/HEADINGS  ", list(zip(self.path, self.control)))
 
 
 class State:
@@ -252,6 +313,7 @@ class State:
         self.adjacent = self.adjacent_points()
 
     def adjacent_points(self):
+        """ Returns a list of all valid that are adjacent in the 8 directions """
         dlon, dlat = self.dlon, self.dlat
         assert dlon is not None and dlat is not None, "need to set dlon and dlat first"
         offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
@@ -262,6 +324,11 @@ class State:
                 yield point
 
     def neighbors(self):
+        """ Returns all the neighboring states in A, along with the time to get there *
+
+        Returns:
+            time, next state
+        """
         for lon, lat in self.adjacent:
             for thrust, heading, time in self.actuate_towards(lon, lat):
                 bat_level = self.change_bat_level(thrust, time)
@@ -301,8 +368,7 @@ class State:
         Returns:
             min_thrust, heading, time
         """
-        # TODO: address case when points are too close, add keyword arguments
-        starting_dlon, starting_dlat = 0.05, 0.05
+        starting_dlon, starting_dlat = 0.03, 0.03
         lon_dist, lat_dist = abs(target_lon - lon), abs(target_lat - lat)
 
         lon_intervals, lon_extra = lon_dist // starting_dlon, lon_dist % starting_dlon
@@ -318,7 +384,8 @@ class State:
         else:
             cls.dlat = lat_dist
 
-    def actuate_towards(self, lon, lat, matrix=None, v_min=0.1, distance=None, print_output=False, use_middle=True):
+    def actuate_towards(self, lon, lat, v_min=0.1, distance=None, print_output=False, use_middle=False, full_send=False,
+                        cushion=0):
         """ Yields thrusts
 
         Args:
@@ -337,7 +404,7 @@ class State:
         def normalize(v):
             return v / math.sqrt(np.sum(v ** 2))
 
-        max_thrust = self.problem.dyn_dict['u_max']
+        max_thrust = self.problem.dyn_dict['u_max'] + cushion
 
         # TODO: precompute in the future
         # Step 1:  Find the distance between the two points
@@ -376,7 +443,8 @@ class State:
         # Step 6: If u_perp is more than possible thrust, failure
         if math.sqrt(u_perp ** 2 + u_parallel_min ** 2) > max_thrust:
             if print_output:
-                print("U PERP MORE THAN POSSIBLE THRUST")
+                print("U PERP MORE THAN POSSIBLE THRUST\n Needed thrust: ",
+                      math.sqrt(u_perp ** 2 + u_parallel_min ** 2), " max thrust ", max_thrust)
                 print("going from {0} to {1}".format((self.lon, self.lat), (lon, lat)))
             return
 
@@ -385,8 +453,10 @@ class State:
         """ If we wanted to consider many possible thrusts, too slow in practice. """
         # u_parallels = list(np.arange(u_parallel_min, u_parallel_max - 0.1, 0.1)) + [u_parallel_max]
 
-        # Can potentially consider more than one thrust
-        for u_parallel in [u_parallel_min]:
+        thrusts = [u_parallel_max if full_send else u_parallel_min]
+
+        # for loop allows us to potentially consider more than one thrust
+        for u_parallel in thrusts:
             # Step 7: Find the TIME = distance / (u_parallel + current_parallel)
             # TODO: replace hard coded constant with settings data reference
             time = distance * 111120. / (u_parallel + curr_parallel)
@@ -398,11 +468,9 @@ class State:
             # Step 9: Find the thrust and heading
             thrust_array = Planner.transform_u_dir_to_u(self=None, u_dir=u_dir)
             thrust, heading = thrust_array[0], thrust_array[1]
-
             yield thrust, heading, time
 
     def change_bat_level(self, thrust, time):
-        # return self.bat_level
         bat_level_delta = self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] * (thrust ** 3)
         return min(self.bat_level + time * bat_level_delta, 1)
 
