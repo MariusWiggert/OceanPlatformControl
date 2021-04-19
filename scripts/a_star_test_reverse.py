@@ -14,8 +14,8 @@ nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 
 # Set starting positions
-x_0 = [-96.7, 22.2]
-x_T = [-97.2, 21.6]
+x_0 = [-97.2, 21.6]
+x_T = [-96.7, 22.2]
 
 # planner fixed time horizon
 T_planner = 116500
@@ -26,7 +26,6 @@ prob = Problem(fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fix
 prob.viz()
 #%% Step 2: initialize planner
 planner = AStarPlanner(problem=prob, t_init=T_planner)
-
 #%%
 planner.show_planned_trajectory()
 
