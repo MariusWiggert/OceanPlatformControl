@@ -11,9 +11,13 @@ project_dir = os.path.abspath(os.path.join(os.getcwd()))
 nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 
-# Test 3 long around the vortex
-x_0 = [-96.9, 22.8]
-x_T = [-96.9, 22.2]
+# # Test 3 long around the vortex
+# x_0 = [-96.9, 22.8]
+# x_T = [-96.9, 22.2]
+
+# Set starting positions
+x_0 = [-97.2, 21.6]
+x_T = [-96.7, 22.2]
 
 # planner fixed time horizon
 T_planner = 806764
