@@ -9,6 +9,9 @@ import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 import time as t
+import parcels as p
+from parcels.plotting import plotparticles
+
 import pdb
 
 from src.utils.in_bounds_utils import InBounds
@@ -49,36 +52,61 @@ class AStarPlanner(Planner):
         end_time = t.time()
         print("TIME ELAPSED: ", end_time - start_time)
 
-    def show_planned_trajectory(self):
+    def show_planned_trajectory(self, with_currents=True):
         """ Shows the PLANNED trajectory """
-        if not self.failure:
-            x_labels = list(map(lambda x: x[0], self.path))
-            y_labels = list(map(lambda x: x[1], self.path))
+        if self.failure:
+            print('failure')
+            return
+        x_labels = list(map(lambda x: x[0], self.path))
+        y_labels = list(map(lambda x: x[1], self.path))
+        if with_currents:
+            pset = p.ParticleSet.from_list(fieldset=self.problem.fieldset,  # the fields on which the particles are advected
+                                           pclass=p.ScipyParticle,
+                                           # the type of particles (JITParticle or ScipyParticle)
+                                           lon=x_labels,  # a vector of release longitudes
+                                           lat=y_labels,  # a vector of release latitudes
+                                           )
+
+            pset.show(field='vector', show_time=self.problem.fixed_time_index)
+        else:
             plt.scatter(x_labels, y_labels)
             plt.annotate('x_0', (x_labels[0], y_labels[0]))
             plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
             plt.show()
-        else:
-            print('failure')
 
-    def show_actual_trajectory(self):
+    def show_actual_trajectory(self, with_currents=True):
         """ Shows the ACTUAL, i.e. simulated, trajectory in the same plots as the
-        planned trajectory. Note the black lines show which waypoint the TTC is actuating to. """
+        planned trajectory. Note the black lines show which waypoint the TTC is actuating to.
 
-        fig, ax = plt.subplots()
-        x_labels = list(map(lambda x: x[0], self.path))
-        y_labels = list(map(lambda x: x[1], self.path))
-        ax.scatter(x_labels, y_labels, c='coral', label="Planned Waypoints")
+        Set with_currents to False to see the actuated path compared to the planned path
+        """
         x_labels = list(map(lambda x: x[0], self.states_traveled))
         y_labels = list(map(lambda x: x[1], self.states_traveled))
-        ax.scatter(x_labels, y_labels, c='lightblue', label="Actual Waypoints")
-        plt.annotate('x_0', (x_labels[0], y_labels[0]))
-        plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
-        for x1, x2 in zip(self.states_traveled, self.actuating_towards):
-            plt.arrow(x=x1[0], y=x1[1], dx=x2[0] - x1[0], dy=x2[1] - x1[1], width=.0006)
-        ax.legend()
-        ax.grid(True)
-        plt.show()
+        if with_currents:
+            pset = p.ParticleSet.from_list(fieldset=self.problem.fieldset,
+                                           # the fields on which the particles are advected
+                                           pclass=p.ScipyParticle,
+                                           # the type of particles (JITParticle or ScipyParticle)
+                                           lon=x_labels,  # a vector of release longitudes
+                                           lat=y_labels,  # a vector of release latitudes
+                                           )
+
+            pset.show(field='vector', show_time=self.problem.fixed_time_index)
+        else:
+            fig, ax = plt.subplots()
+            x_labels = list(map(lambda x: x[0], self.path))
+            y_labels = list(map(lambda x: x[1], self.path))
+            ax.scatter(x_labels, y_labels, c='coral', label="Planned Waypoints")
+            x_labels = list(map(lambda x: x[0], self.states_traveled))
+            y_labels = list(map(lambda x: x[1], self.states_traveled))
+            ax.scatter(x_labels, y_labels, c='lightblue', label="Actual Waypoints")
+            plt.annotate('x_0', (x_labels[0], y_labels[0]))
+            plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
+            for x1, x2 in zip(self.states_traveled, self.actuating_towards):
+                plt.arrow(x=x1[0], y=x1[1], dx=x2[0] - x1[0], dy=x2[1] - x1[1], width=.0006)
+            ax.legend()
+            ax.grid(True)
+            plt.show()
 
     def get_next_action(self, state):
         """ Grab the next action by actuating to the nearest/best waypoint with the minimum thrust logic
@@ -180,7 +208,7 @@ class AStarPlanner(Planner):
                     continue
                 vector = vec((lon, lat), waypoint)
                 planned_vector = vec(prev, waypoint)
-                
+
                 prospective_waypoints.append(PotentialWaypoint(waypoint, thrust, heading, time, vector, planned_vector))
             except StopIteration:
                 continue
