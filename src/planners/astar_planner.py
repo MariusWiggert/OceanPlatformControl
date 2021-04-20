@@ -81,12 +81,12 @@ class AStarPlanner(Planner):
         plt.show()
 
     def get_next_action(self, state):
-        """Grab the next action by actuating to the nearest/best waypoint with the minimum thrust logic
+        """ Grab the next action by actuating to the nearest/best waypoint with the minimum thrust logic
         Args: state
         Returns: (thrust, header)
         """
 
-        # HELPER FUNCTIONS
+        # HELPER FUNCTIONS/CLASSES
         class PotentialWaypoint:
             """ Collection of information on the next waypoint to potentially actuate to.
 
@@ -131,14 +131,6 @@ class AStarPlanner(Planner):
             """
             return [next_state[0] - cur_state[0], next_state[1] - cur_state[1]]
 
-        def direction(u_dir):
-            """ Returns direction of a vector between
-
-            Args:
-                u_dir: vector (dlon, dlat)
-            """
-            return np.arctan2(u_dir[1], u_dir[0])  # Finds heading angle from input u
-
         def mag(u_dir):
             """ Returns the magnitude of the given vector"""
 
@@ -160,8 +152,6 @@ class AStarPlanner(Planner):
         # ACTUATE IN THAT DIRECTION USING MIN THRUST FUNCTION
         cur_state = State(lon=lon, lat=lat, bat_level=bat_level)
 
-        # for each waypoint 3 represent: (increment, (lon, lat), [thrust, heading, time], (dlon, dlat))
-
         prospective_waypoints = []
 
         # only consider points after the given waypoint, w.r.t to time
@@ -180,7 +170,7 @@ class AStarPlanner(Planner):
             try:
                 thrust, heading, time = next(cur_state.actuate_towards(waypoint[0], waypoint[1],
                                                                        print_output=True, use_middle=False,
-                                                                       full_send=False, cushion=0.1))
+                                                                       full_send=True, cushion=0.1))
 
                 # consider adding in the time here, and LQR
 
@@ -190,6 +180,7 @@ class AStarPlanner(Planner):
                     continue
                 vector = vec((lon, lat), waypoint)
                 planned_vector = vec(prev, waypoint)
+                
                 prospective_waypoints.append(PotentialWaypoint(waypoint, thrust, heading, time, vector, planned_vector))
             except StopIteration:
                 continue
@@ -324,7 +315,7 @@ class State:
                 yield point
 
     def neighbors(self):
-        """ Returns all the neighboring states in A, along with the time to get there *
+        """ Returns all the neighboring states in A, along with the time to get there
 
         Returns:
             time, next state
@@ -398,9 +389,6 @@ class State:
         Returns:
             min_thrust, heading, time
         """
-
-        # TODO: figure out what values for v_min and max_thrust should be used
-
         def normalize(v):
             return v / math.sqrt(np.sum(v ** 2))
 
