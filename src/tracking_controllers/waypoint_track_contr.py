@@ -7,10 +7,8 @@ class WaypointTrackingController:
     """
 
     def __init__(self):
-        # Lis
         self.waypoints = None
         pass
-
 
     def get_next_action(self, state):
         """ Returns (thrust, header) for the next timestep
@@ -24,10 +22,6 @@ class WaypointTrackingController:
             An array containing the thrust and heading, i.e. array([thrust], [heading]).
         """
         raise NotImplementedError()
-
-    def __repr__(self):
-        """ """
-        return "Planner(problem: {1})".format(self.problem)
 
     @staticmethod
     def transform_u_dir_to_u(u_dir):

@@ -14,7 +14,7 @@ def plot_opt_results(T,u,x,N):
     plt.show()
 
     plt.figure(1)
-    plt.plot(x[0, :], x[1, :], '--')
+    plt.plot(x[0, :], x[1, :], '--', marker='o')
     plt.title('Trajectory ipopt')
     plt.xlabel('x')
     plt.ylabel('y')

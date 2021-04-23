@@ -64,7 +64,8 @@ class IpoptPlanner(Planner):
                                         self.x_solver, self.N)
 
     def get_waypoints(self):
-        raise NotImplementedError
+        """Returns: a list of waypoints each containing [lon, lat, time]"""
+        return np.vstack((self.x_solver, self.control_time_vec)).T.tolist()
 
 
 class IpoptPlannerVarCur(IpoptPlanner):

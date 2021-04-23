@@ -15,15 +15,23 @@ class Simulator:
     3. Fetch trajectory plot with plot_trajectory
     4. Evaluate planner solving given problem under some metric
     """
-    def __init__(self, planner, problem, project_dir, sim_config):
+    def __init__(self, planner, problem, project_dir, sim_config, wypt_contr=None):
         # load simulator settings
         with open(project_dir + '/config/' + sim_config) as f:
             settings = yaml.load(f, Loader=yaml.FullLoader)
             settings['project_dir'] = project_dir
         self.settings = settings
-
-        self.planner = planner
         self.problem = problem
+
+        # set planner & waypoint tracking controller
+        # if there is a wypt_controller
+        if wypt_contr is not None:
+            self.high_level_planner = planner
+            self.planner = wypt_contr
+        else:
+            self.planner = planner
+
+        # initiate some tracking variables
         self.cur_state = np.array(problem.x_0).reshape(4, 1)   # lon, lat, battery level, time
         self.time_origin = problem.fieldset.time_origin
         self.trajectory = self.cur_state
