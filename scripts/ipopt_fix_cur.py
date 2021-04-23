@@ -11,7 +11,7 @@ project_dir = os.path.abspath(os.path.join(os.getcwd()))
 nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 
-# Test 3 long around the vortex
+# # Test 3 long around the vortex
 x_0 = [-96.9, 22.8]
 x_T = [-96.9, 22.2]
 
