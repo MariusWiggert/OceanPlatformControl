@@ -7,29 +7,22 @@ class Planner:
     Attributes:
         problem:
             The Problem to solve containing the vector field, x_0, and x_T
-        T_init:
-            A fixed amount of time for the trip, not applicable to all planners.
-        N:
-            The number of decision variables in the trajectory
+
         settings:
             A configuration of the settings of the Planner. Expects the keys below:
 
-            - 'conv_m_to_deg'
-            - 'int_pol_type'
-            - 'dyn_constraints'
+            - 'conv_m_to_deg'       # a fixed factor converting m to degree only working far from the pole
+            - 'int_pol_type'        # the underlying interpolation type used by the planner to access the current fields
 
             TODO: add which, if any, other keys could go in the settings dictionary.
     """
 
-    def __init__(self, problem, settings, t_init, n, mode='open-loop', fixed_time_index=None):
+    def __init__(self, problem, settings):
 
         if settings is None:
-            settings = {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', 'dyn_constraints': 'ef'}
+            settings = {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline'}
         self.problem = problem
-        self.T_init = t_init
-        self.N = n
         self.settings = settings
-        self.mode = mode
 
     def get_next_action(self, state):
         """ Returns (thrust, header) for the next timestep.
@@ -46,9 +39,19 @@ class Planner:
 
     def __repr__(self):
         """ """
-        return "Planner(mode: {0}, problem: {1})".format(self.mode, self.problem)
+        return "Planner(problem: {1})".format(self.problem)
 
-    def transform_u_dir_to_u(self, u_dir):
+    def get_waypoints(self):
+        """ Returns waypoints to be used for the waypoint tracking controller.
+
+        Returns:
+            An array containing the waypoints for the tracking controller.
+        TODO: decide on interface for waypoint tracking!
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def transform_u_dir_to_u(u_dir):
         """ Transforms the given u and v velocities to the corresponding heading and thrust.
 
         Args:

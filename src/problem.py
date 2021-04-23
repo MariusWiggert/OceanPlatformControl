@@ -2,7 +2,7 @@ import yaml
 import parcels as p
 import math
 import glob, os, imageio
-from datetime import timedelta
+
 
 class Problem:
     """A path planning problem for a Planner to solve.
@@ -27,19 +27,23 @@ class Problem:
     def __init__(self, fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fixed_time_index=None):
         self.fieldset = fieldset
         if fieldset.U.grid.time.shape[0] == 1:  # check if we do a fixed or variable current problem
+            # Fixed time by nature of the fieldset
             self.fixed_time_index = 0
-            print("Fixed-time fieldset at ".format(fieldset.time_origin))
+            print("Fixed-time fieldset at {}".format(self.fieldset.time_origin))
         elif fixed_time_index is not None:
+            # Fixed time by nature of the index supplied
             self.fixed_time_index = fixed_time_index
-            print("Fixed-time fieldset at ".format(fieldset.gridset.grids[0].timeslices[0][fixed_time_index]))
-        else:
+            print("Fixed-time fieldset at {}".format(fieldset.gridset.grids[0].timeslices[0][fixed_time_index]))
+        else:   # variable time
             self.fixed_time_index = None
             print("Time-varying fieldset from {} to {}".format(fieldset.time_origin, fieldset.gridset.grids[0].timeslices[0][-1]))
             print("Resolution of {} h".format(math.ceil(fieldset.gridset.grids[0].time[1]/3600)))
+
         if len(x_0) == 2:  # add 100% charge and time
             x_0 = x_0 + [1., 0.]
         elif len(x_0) == 3:  # add time only
             x_0.append(0.)
+
         self.x_0 = x_0
         self.x_T = x_T
         self.project_dir = project_dir

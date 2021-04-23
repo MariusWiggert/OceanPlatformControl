@@ -16,26 +16,26 @@ x_0 = [-96.9, 22.5]
 x_T = [-96.3, 21.3]
 
 # planner fixed time horizon
-T_planner = 700000
+T_planner_in_h = 190
 
 # Step 1: set up problem
 prob = Problem(fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fixed_time_index=None)
 prob.viz()
 #%%
 # Step 2: initialize planner
-ipopt_planner = IpoptPlannerVarCur(problem=prob, t_init=T_planner)
+ipopt_planner = IpoptPlannerVarCur(problem=prob, t_init_in_h=T_planner_in_h)
 ipopt_planner.plot_opt_results()
 #%%
 # Step 3: init the simulator
 sim = Simulator(ipopt_planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
 #%%
 # Step 4: run the simulator
-sim.run(T=T_planner)
+sim.run(T_in_h=T_planner_in_h)
 #%%
 # Step 5: plot it
-sim.plot_trajectory(name='classes_test', plotting_type='battery')
-sim.plot_trajectory(name='classes_test', plotting_type='2D')
-sim.plot_trajectory(name='ARPA-E', plotting_type='gif')
+sim.plot_trajectory(name='ipopt_var_cur', plotting_type='battery')
+sim.plot_trajectory(name='ipopt_var_cur', plotting_type='2D')
+sim.plot_trajectory(name='ipopt_var_cur', plotting_type='gif')
 
 #%% Compare with actuation vs. without Actuation
 opt_traj = sim.trajectory
@@ -44,11 +44,10 @@ opt_traj = sim.trajectory
 ipopt_planner.u_open_loop = np.zeros((2,100))
 #%%
 sim = Simulator(ipopt_planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
-sim.run(T=T_planner)
+sim.run(T_in_h=T_planner_in_h)
 passive_traj = sim.trajectory
 
 #%%
-passive_traj = sim.trajectory
 import matplotlib.pyplot as plt
 #%%
 plt.figure(1)

@@ -1,3 +1,5 @@
+from abc import ABC
+
 from src.planners.planner import Planner
 import math
 import numpy as np
@@ -12,12 +14,9 @@ class StraightLinePlanner(Planner):
         see Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem,
-                 settings=None,
-                 t_init=None, n=100, mode='open-loop'):
-        super().__init__(problem, settings, t_init, n, mode)
-        # self.dt = self.T_init / self.N
-        self.dt = 10.
+    def __init__(self, problem, settings=None, dt=10.):
+        super().__init__(problem, settings)
+        self.dt = dt
 
     def get_next_action(self, state):
         """Go in the direction of the target with full power. See superclass for args and return value. """
@@ -33,3 +32,6 @@ class StraightLinePlanner(Planner):
         u_dir = np.array([[dlon / mag], [dlat / mag]])
         u_out = super().transform_u_dir_to_u(u_dir=u_dir)
         return u_out
+
+    def get_waypoints(self):
+        raise NotImplementedError

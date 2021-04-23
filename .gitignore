@@ -4,4 +4,4 @@ __pycache__*
 *.png
 *.gif
 optimized_dp/
-viz/pics_2_gif/
+viz/

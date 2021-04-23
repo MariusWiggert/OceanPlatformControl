@@ -482,7 +482,7 @@ class State:
             u_dir = np.matmul(u_vector, matrix)
 
             # Step 9: Find the thrust and heading
-            thrust_array = Planner.transform_u_dir_to_u(self=None, u_dir=u_dir)
+            thrust_array = Planner.transform_u_dir_to_u(u_dir=u_dir)
             thrust, heading = thrust_array[0], thrust_array[1]
             yield thrust, heading, time
 

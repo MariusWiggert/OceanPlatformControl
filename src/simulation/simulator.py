@@ -32,12 +32,12 @@ class Simulator:
         # initialize dynamics
         self.u_curr_func, self.v_curr_func, self.F_x_next = self.initialize_dynamics()
 
-    def run(self, T=None, max_steps=500):
+    def run(self, T_in_h=None, max_steps=500):
         """ If T is None, runs the simulator for time T in seconds. Runs the planner until the goal is reached or the
         time exceeds timeout. Returns success boolean """
         # run over T with dt stepsize
-        if T:
-            N = int(T // self.settings['dt']) + 1
+        if T_in_h:
+            N = int(T_in_h*3600 // self.settings['dt'])
             for _ in range(N):
                 self.run_step()
         else:
