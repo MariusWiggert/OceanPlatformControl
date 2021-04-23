@@ -21,8 +21,6 @@ class AStarPlanner(Planner):
     """ Discretize the graph and run A Star
 
     Attributes:
-        dt:
-            A float giving the time, in seconds, between queries. see Planner class for the rest of the attributes.
         last_waypoint_index:
             The index of the current waypoint we are trying to actuate towards
         path:
@@ -35,11 +33,9 @@ class AStarPlanner(Planner):
             If we failed.
     """
 
-    def __init__(self, problem,
-                 settings=None,
-                 t_init=None, n=100, mode='open-loop', dt=10.):
-        super().__init__(problem, settings, t_init, n, mode)
-        self.dt = dt
+    def __init__(self, problem, settings=None):
+        super().__init__(problem, settings)
+
         self.path = []
         self.actuating_towards = []
         self.battery_levels = []
@@ -47,6 +43,8 @@ class AStarPlanner(Planner):
         self.control = []
         self.states_traveled = []
         self.failure = False
+
+        # run the A-Star algorithm for path planning
         start_time = t.time()
         self.a_star()
         end_time = t.time()
@@ -235,7 +233,8 @@ class AStarPlanner(Planner):
         # data structures
         time_to = {}
         edge_to = {}
-        seen = {}  # we will map each (lon, lat) to the (time, bat_level) used to get there.
+        seen = {}  # we will map each (lon, lat) to the (time, bat_level) used to get there
+        # priority queue
         pq = []
 
         # set up problem
@@ -272,6 +271,7 @@ class AStarPlanner(Planner):
             else:
                 best_time, best_bat_level = seen[(state.lon, state.lat)]
                 seen[(state.lon, state.lat)] = min(best_time, time_to[state]), max(best_bat_level, state.bat_level)
+
             for time, neighbor_state in state.neighbors():
                 if (neighbor_state.lon, neighbor_state.lat) in seen:
                     recorded_time, recorded_bat_level = seen[(neighbor_state.lon, neighbor_state.lat)]
@@ -332,7 +332,7 @@ class State:
         self.adjacent = self.adjacent_points()
 
     def adjacent_points(self):
-        """ Returns a list of all valid that are adjacent in the 8 directions """
+        """ Returns a list of all valid points that are adjacent in the 8 directions """
         dlon, dlat = self.dlon, self.dlat
         assert dlon is not None and dlat is not None, "need to set dlon and dlat first"
         offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
@@ -343,13 +343,15 @@ class State:
                 yield point
 
     def neighbors(self):
-        """ Returns all the neighboring states in A, along with the time to get there
+        """ Returns all reachable neighboring states in A, along with the time to get there
 
         Returns:
             time, next state
         """
+        # iterate over all valid adjacent points
         for lon, lat in self.adjacent:
             for thrust, heading, time in self.actuate_towards(lon, lat):
+                # check if it exceeds the available energy from the battery
                 bat_level = self.change_bat_level(thrust, time)
                 if bat_level >= 0.1:
                     yield time, State(lon=lon, lat=lat, bat_level=bat_level, heading=heading, thrust=thrust)
@@ -377,7 +379,7 @@ class State:
 
     @classmethod
     def set_dlon_dlat(cls, lon, lat, target_lon, target_lat):
-        """ Sets the dlon and dlat variables of the class appropriately.
+        """ Sets the dlon and dlat variables of the class appropriately (thereby creating a grid).
 
         Args:
             lon: longitude, a float
@@ -387,6 +389,7 @@ class State:
         Returns:
             min_thrust, heading, time
         """
+        #TODO: make the discretization of the grid a variable to configure and add on the top level
         starting_dlon, starting_dlat = 0.03, 0.03
         lon_dist, lat_dist = abs(target_lon - lon), abs(target_lat - lat)
 
@@ -434,13 +437,14 @@ class State:
             middle_lon = self.lon + dlon / 2
             middle_lat = self.lat + dlat / 2
 
-            # TODO: currently doesn't take in the time, should address
+            # TODO: currently doesn't take in the time, should address that
             u_curr = self.u_curr_func(ca.vertcat(middle_lat, middle_lon))
             v_curr = self.v_curr_func(ca.vertcat(middle_lat, middle_lon))
         else:
             u_curr = self.u_curr_func(ca.vertcat(self.lat, self.lon))
             v_curr = self.v_curr_func(ca.vertcat(self.lat, self.lon))
 
+        # TODO: sweet way of calculating it. We have exactly 8 changing matrices, so we can definitely pre-compute that
         parallel_basis_vector = normalize(np.array([dlon, dlat]))
         perp_basis_vector = normalize(np.array([dlat, -dlon]))
         matrix = np.array([parallel_basis_vector, perp_basis_vector])
@@ -487,10 +491,12 @@ class State:
             yield thrust, heading, time
 
     def change_bat_level(self, thrust, time):
+        # calculate the change in battery level when actuating a specific trust for a certain time
         bat_level_delta = self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] * (thrust ** 3)
         return min(self.bat_level + time * bat_level_delta, 1)
 
     @classmethod
-    def set_fieldset(cls, problem, type='bspline'):
+    def set_fieldset(cls, problem, type='linear'):
+        # setting the fieldset
         cls.u_curr_func, cls.v_curr_func = simulation_utils.get_interpolation_func(
             fieldset=problem.fieldset, type=type, fixed_time_index=problem.fixed_time_index)
