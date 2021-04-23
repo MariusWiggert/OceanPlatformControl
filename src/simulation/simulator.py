@@ -149,9 +149,9 @@ class Simulator:
         if plotting_type == '2D':
             plt.figure(1)
             plt.plot(self.trajectory[0, :], self.trajectory[1, :], '--')
-            plt.title('Simulated Trajectory')
-            plt.xlabel('x')
-            plt.ylabel('y')
+            plt.title('Simulated Trajectory of Platform')
+            plt.xlabel('lon in deg')
+            plt.ylabel('lat in deg')
             plt.show()
             return
 
