@@ -1,5 +1,3 @@
-import bisect
-
 from src.planners.planner import Planner
 from src.utils import simulation_utils
 import math
@@ -27,6 +25,8 @@ class State:
     heuristic = None
     in_bounds = None
     discretization = None
+    offsets = []
+    matrices = {}
 
     def __init__(self, lon, lat, bat_level, heading=None, thrust=None):
         self.lon = lon
@@ -40,12 +40,18 @@ class State:
         """ Returns a list of all valid points that are adjacent in the 8 directions """
         dlon, dlat = self.dlon, self.dlat
         assert dlon is not None and dlat is not None, "need to set dlon and dlat first"
-        offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
-                   (-dlon, -dlat), (dlon, -dlat), (-dlon, dlat)]
-        for lon_offset, lat_offset in offsets:
+        for lon_offset, lat_offset in State.offsets:
             point = (self.lon + lon_offset, self.lat + lat_offset)
             if State.in_bounds.in_ocean(point):
                 yield point
+
+    @classmethod
+    def fill_matrices(cls):
+        for dlon, dlat in State.offsets:
+            parallel_basis_vector = cls.normalize(np.array([dlon, dlat]))
+            perp_basis_vector = cls.normalize(np.array([dlat, -dlon]))
+            matrix = np.array([parallel_basis_vector, perp_basis_vector])
+            cls.matrices[round(dlon, 4), round(dlat, 4)] = matrix
 
     def neighbors(self):
         """ Returns all reachable neighboring states in A, along with the time to get there
@@ -82,6 +88,10 @@ class State:
     def bat_level_round(self, bat_level):
         return math.floor(bat_level * 20) / 20
 
+    @staticmethod
+    def normalize(v):
+        return v / math.sqrt(np.sum(v ** 2))
+
     @classmethod
     def set_dlon_dlat(cls, discretization, lon, lat, target_lon, target_lat):
         """ Sets the dlon and dlat variables of the class appropriately (thereby creating a grid).
@@ -110,6 +120,10 @@ class State:
         else:
             cls.dlat = lat_dist
 
+        dlat, dlon = cls.dlat, cls.dlon
+        State.offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
+                   (-dlon, -dlat), (dlon, -dlat), (-dlon, dlat)]
+
     def actuate_towards(self, lon, lat, v_min=0.1, distance=None, print_output=False, use_middle=False, full_send=False,
                         cushion=0):
         """ Yields thrusts
@@ -124,8 +138,6 @@ class State:
         Returns:
             min_thrust, heading, time
         """
-        def normalize(v):
-            return v / math.sqrt(np.sum(v ** 2))
 
         max_thrust = self.problem.dyn_dict['u_max'] + cushion
 
@@ -133,6 +145,9 @@ class State:
         dlon = lon - self.lon
         dlat = lat - self.lat
         distance = math.sqrt(dlon * dlon + dlat * dlat)
+
+        if not State.matrices:
+            State.fill_matrices()
 
         if use_middle:
             # Step 2: Find the current velocity vector (in middle of distance),
@@ -147,10 +162,12 @@ class State:
             u_curr = self.u_curr_func(ca.vertcat(self.lat, self.lon))
             v_curr = self.v_curr_func(ca.vertcat(self.lat, self.lon))
 
-        # TODO: sweet way of calculating it. We have exactly 8 changing matrices, so we can definitely pre-compute that
-        parallel_basis_vector = normalize(np.array([dlon, dlat]))
-        perp_basis_vector = normalize(np.array([dlat, -dlon]))
+        parallel_basis_vector = State.normalize(np.array([dlon, dlat]))
+        perp_basis_vector = State.normalize(np.array([dlat, -dlon]))
         matrix = np.array([parallel_basis_vector, perp_basis_vector])
+
+        # TODO: check that using the matrix below actually works
+        # matrix = State.matrices[round(dlon, 4), round(dlat, 4)]
 
         # change basis of vectors w.r.t normalized basis in direction of motion
         change_of_basis = np.linalg.inv(matrix)

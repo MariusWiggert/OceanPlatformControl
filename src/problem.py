@@ -8,6 +8,7 @@ class Problem:
     """A path planning problem for a Planner to solve.
 
     Attributes:
+        # TODO: real fieldset and predicted fieldset in the problem
         fieldset:
             The fieldset contains data about ocean currents and is more rigorously defined in the
             parcels documentation.
@@ -24,20 +25,29 @@ class Problem:
             applicable when the time is fixed, i.e. the currents are not time varying.
     """
 
-    def __init__(self, fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fixed_time_index=None):
-        self.fieldset = fieldset
-        if fieldset.U.grid.time.shape[0] == 1:  # check if we do a fixed or variable current problem
+    def __init__(self, real_fieldset, x_0, x_T, project_dir, forecasted_fieldset=None, config_yaml='platform.yaml',
+                 fixed_time_index=None):
+        # self.real_fieldset = real_fieldset
+        self.forecasted_fieldset = forecasted_fieldset
+        self.real_fieldset = real_fieldset
+
+        # TODO: temporary setting, remove once both fieldsets are working correctly
+        self.fieldset = real_fieldset
+
+        # TODO: adjust the following logic for both fieldsets?
+        if self.fieldset.U.grid.time.shape[0] == 1:  # check if we do a fixed or variable current problem
             # Fixed time by nature of the fieldset
             self.fixed_time_index = 0
             print("Fixed-time fieldset at {}".format(self.fieldset.time_origin))
         elif fixed_time_index is not None:
             # Fixed time by nature of the index supplied
             self.fixed_time_index = fixed_time_index
-            print("Fixed-time fieldset at {}".format(fieldset.gridset.grids[0].timeslices[0][fixed_time_index]))
-        else:   # variable time
+            print("Fixed-time fieldset at {}".format(self.fieldset.gridset.grids[0].timeslices[0][fixed_time_index]))
+        else:  # variable time
             self.fixed_time_index = None
-            print("Time-varying fieldset from {} to {}".format(fieldset.time_origin, fieldset.gridset.grids[0].timeslices[0][-1]))
-            print("Resolution of {} h".format(math.ceil(fieldset.gridset.grids[0].time[1]/3600)))
+            print("Time-varying fieldset from {} to {}".format(self.fieldset.time_origin,
+                                                               self.fieldset.gridset.grids[0].timeslices[0][-1]))
+            print("Resolution of {} h".format(math.ceil(self.fieldset.gridset.grids[0].time[1] / 3600)))
 
         if len(x_0) == 2:  # add 100% charge and time
             x_0 = x_0 + [1., 0.]
@@ -126,3 +136,29 @@ class Problem:
         platform_dict = {'charge': charge_factor, 'energy': energy_coeff, 'u_max': platform_specs['u_max']}
 
         return platform_dict
+
+
+class WaypointTrackingProblem(Problem):
+    """ Only difference is the added waypoints to the problem """
+
+    def __init__(self, real_fieldset, forecasted_fieldset, x_0, x_T, project_dir, waypoints,
+                 config_yaml='platform.yaml',
+                 fixed_time_index=None):
+        super().__init__(real_fieldset=real_fieldset,
+                         forecasted_fieldset=forecasted_fieldset,
+                         x_0=x_0,
+                         x_T=x_T,
+                         project_dir=project_dir,
+                         config_yaml=config_yaml,
+                         fixed_time_index=fixed_time_index)
+        self.waypoints = waypoints
+
+    @classmethod
+    def convert_problem(cls, problem, waypoints):
+        """ Given a problem, construct the corresponding WaypointTrackingProblem, with the same waypoints """
+        return WaypointTrackingProblem(real_fieldset=problem.real_fieldset,
+                                       forecasted_fieldset=problem.forecasted_fieldset,
+                                       x_0=problem.x_0,
+                                       x_T=problem.x_T,
+                                       project_dir=problem.project_dir,
+                                       waypoints=waypoints)

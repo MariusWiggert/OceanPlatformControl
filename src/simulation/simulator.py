@@ -65,7 +65,9 @@ class Simulator:
     def run_step(self):
         """Run the simulator for one dt step"""
 
+        # u = self.thrust_check(self.planner.get_next_action(self.cur_state))
         u = self.thrust_check(self.planner.get_next_action(self.cur_state))
+
         # update simulator states
         self.control_traj.append(u)
         self.cur_state = self.battery_check(np.array(self.F_x_next(self.cur_state, u)).astype('float32'))

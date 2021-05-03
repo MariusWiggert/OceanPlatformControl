@@ -8,79 +8,23 @@ from parcels.plotting import plotparticles
 
 
 class MinimumThrustController(WaypointTrackingController):
-    """ Simple proportional controller:
-        Outside a radius r from the waypoint: actuate full power
-        Inside the radius actuate: linearly decreasing actuation
+    """ Continually actuate with the minimum thrust in the direction of the currents,
     """
 
-    def __init__(self, path, times, problem):
+    def __init__(self, waypoints, problem=None):
         super().__init__()
-        self.path = path
-        self.times = times
-        if not self.path:
-            self.failure = True
+        if waypoints is not None:
+            self.path = list(map(lambda wp: (wp[0], wp[1]), waypoints))
+            self.times = list(map(lambda wp: wp[2], waypoints))
         else:
-            self.failure = False
+            self.path = []
+            self.times = []
         self.problem = problem
         self.states_traveled = []
         self.actuating_towards = []
 
-    def show_planned_trajectory(self, with_currents=True):
-        """ Shows the PLANNED trajectory """
-        if self.failure:
-            print('failure')
-            return
-        x_labels = list(map(lambda x: x[0], self.path))
-        y_labels = list(map(lambda x: x[1], self.path))
-        if with_currents:
-            pset = p.ParticleSet.from_list(fieldset=self.problem.fieldset,
-                                           # the fields on which the particles are advected
-                                           pclass=p.ScipyParticle,
-                                           # the type of particles (JITParticle or ScipyParticle)
-                                           lon=x_labels,  # a vector of release longitudes
-                                           lat=y_labels,  # a vector of release latitudes
-                                           )
-
-            pset.show(field='vector', show_time=self.problem.fixed_time_index)
-        else:
-            plt.scatter(x_labels, y_labels)
-            plt.annotate('x_0', (x_labels[0], y_labels[0]))
-            plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
-            plt.show()
-
-    def show_actual_trajectory(self, with_currents=True):
-        """ Shows the ACTUAL, i.e. simulated, trajectory in the same plots as the
-        planned trajectory. Note the black lines show which waypoint the TTC is actuating to.
-
-        Set with_currents to False to see the actuated path compared to the planned path
-        """
-        x_labels = list(map(lambda x: x[0], self.states_traveled))
-        y_labels = list(map(lambda x: x[1], self.states_traveled))
-        if with_currents:
-            pset = p.ParticleSet.from_list(fieldset=self.problem.fieldset,
-                                           # the fields on which the particles are advected
-                                           pclass=p.ScipyParticle,
-                                           # the type of particles (JITParticle or ScipyParticle)
-                                           lon=x_labels,  # a vector of release longitudes
-                                           lat=y_labels,  # a vector of release latitudes
-                                           )
-
-            pset.show(field='vector', show_time=self.problem.fixed_time_index)
-        else:
-            fig, ax = plt.subplots()
-            x_labels = list(map(lambda x: x[0], self.path))
-            y_labels = list(map(lambda x: x[1], self.path))
-            ax.scatter(x_labels, y_labels, c='coral', label="Planned Waypoints")
-            x_labels = list(map(lambda x: x[0], self.states_traveled))
-            y_labels = list(map(lambda x: x[1], self.states_traveled))
-            ax.scatter(x_labels, y_labels, c='lightblue', label="Actual Waypoints")
-            plt.annotate('x_0', (x_labels[0], y_labels[0]))
-            plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
-            for x1, x2 in zip(self.states_traveled, self.actuating_towards):
-                plt.arrow(x=x1[0], y=x1[1], dx=x2[0] - x1[0], dy=x2[1] - x1[1], width=.0006)
-            ax.legend()
-            ax.grid(True)
-            plt.show()
+    def set_waypoints(self, waypoints, problem):
+        self.__init__(waypoints=waypoints, problem=problem)
 
     def get_next_action(self, state):
         """ Returns (thrust, header) for the next timestep
@@ -175,10 +119,8 @@ class MinimumThrustController(WaypointTrackingController):
             waypoint, prev = self.path[i], self.path[i - 1]
             try:
                 thrust, heading, time = next(cur_state.actuate_towards(waypoint[0], waypoint[1],
-                                                                       print_output=True, use_middle=False,
+                                                                       print_output=False, use_middle=False,
                                                                        full_send=True, cushion=0.1))
-
-                # consider adding in the time here, and LQR
 
                 # nan if we are actuating to ourself.
                 if np.isnan(thrust):
@@ -193,10 +135,13 @@ class MinimumThrustController(WaypointTrackingController):
         if not prospective_waypoints:
             self.show_actual_trajectory()
 
-        print("WAYPOINTS FOUND", prospective_waypoints)
+        # print("WAYPOINTS FOUND", prospective_waypoints)
         best_waypoint_state = min(prospective_waypoints, key=lambda wp: wp.cost())
         chosen_actuation = (best_waypoint_state.thrust, best_waypoint_state.heading)
 
-        print("AT: {0} \nGOING TO: {1}".format(str(cur_state), str(best_waypoint_state.waypoint)))
+        # print("AT: {0} \nGOING TO: {1}".format(str(cur_state), str(best_waypoint_state.waypoint)))
         print(chosen_actuation)
         return chosen_actuation[0], chosen_actuation[1]
+
+    def __str__(self):
+        return "Minimum Thrust Controller"

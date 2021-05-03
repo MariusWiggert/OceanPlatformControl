@@ -3,7 +3,7 @@ import bisect
 from src.State import State
 from src.planners.planner import Planner
 from src.problem_set import ProblemSet
-from src.tracking_controllers.minimumThrustController import MinimumThrustController
+from src.tracking_controllers.minimum_thrust_controller import MinimumThrustController
 from src.utils import simulation_utils
 import heapq
 import math
@@ -31,32 +31,31 @@ class AStarPlanner(Planner):
             The battery level at each waypoint
         control:
             List of thrusts/headings as calculated by find_min_thrust
-        failure:
-            If we failed.
     """
 
-    def __init__(self, problem, settings=None):
+    def __init__(self, problem=None, grid_granularity=0.3, settings=None):
         super().__init__(problem, settings)
-
-        self.path = []
+        self.waypoints = []
         self.battery_levels = []
-        self.times = []
         self.control = []
-        self.failure = False
+        self.grid_granularity = grid_granularity
 
         # run the A-Star algorithm for path planning
         start_time = t.time()
-        self.a_star()
+        if problem is not None:
+            self.a_star()
         end_time = t.time()
-        self.TTC = MinimumThrustController(self.path, self.times, self.problem)
         print("TIME ELAPSED: ", end_time - start_time)
 
-    def get_next_action(self, state):
-        """ Grab the next action by actuating to the nearest/best waypoint with the minimum thrust logic
-        Args: state
-        Returns: (thrust, header)
-        """
-        return self.TTC.get_next_action(state)
+    def get_waypoints(self):
+        """ See superclass """
+        return self.waypoints
+
+    def run(self, problem):
+        """ See superclass """
+        self.problem = problem
+        self.a_star()
+        return self.get_waypoints()
 
     def heuristic(self, state, target_lon, target_lat, max_velocity=0.6):
         """ Return the minimum time between the given state and the end target """
@@ -78,7 +77,7 @@ class AStarPlanner(Planner):
         target_lon, target_lat = self.problem.x_T[0], self.problem.x_T[1]
 
         # set the state class variables
-        State.set_dlon_dlat(0.03, lon, lat, target_lon, target_lat)
+        State.set_dlon_dlat(self.grid_granularity, lon, lat, target_lon, target_lat)
         State.set_fieldset(self.problem)
         State.time_to = time_to
         State.problem = self.problem
@@ -98,7 +97,6 @@ class AStarPlanner(Planner):
         starting_time = t.time()
         while not state == end_state:
             if not pq or starting_time + max_time < t.time():
-                self.failure = True
                 return
             state = heapq.heappop(pq)
 
@@ -126,14 +124,13 @@ class AStarPlanner(Planner):
             heapq.heapify(pq)
 
         # extract the waypoints
-        self.times, self.path, self.control, self.battery_levels = [], [], [], []
+        self.waypoints, self.control, self.battery_levels = [], [], []
         done = False
         while not done:
             self.battery_levels.insert(0, state.bat_level)
-            self.path.insert(0, (state.lon, state.lat))
-            self.times.insert(0, time_to[state])
+            self.waypoints.insert(0, (state.lon, state.lat, time_to[state]))
             self.control.insert(0, (state.thrust, state.heading))
             done = edge_to[state] == state
             state = edge_to[state]
 
-        print("PATH and THRUST/HEADINGS  ", list(zip(self.path, self.control)))
+        print("PATH and THRUST/HEADINGS  ", list(zip(self.waypoints, self.control)))
