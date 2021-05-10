@@ -24,7 +24,7 @@ prob = Problem(fieldset, x_0, x_T, project_dir, config_yaml='platform.yaml', fix
 prob.viz()
 #%% Step 2: initialize planner
 planner = AStarPlanner(problem=prob)
-planner.show_planned_trajectory(with_currents=True)
+planner.TTC.show_planned_trajectory(with_currents=True)
 #%% Step 3: init the simulator
 sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
 #%% Step 4: run the simulator until reaching the goal or until max time
@@ -33,4 +33,4 @@ sim.run()
 # sim.plot_trajectory(name='a_star', plotting_type='2D')
 # sim.plot_trajectory(name='a_star', plotting_type='battery')
 # sim.plot_trajectory(name='a_star_gif', plotting_type='gif')
-planner.show_actual_trajectory(with_currents=True)
+planner.TTC.show_actual_trajectory(with_currents=True)

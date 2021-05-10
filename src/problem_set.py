@@ -2,7 +2,7 @@ import math
 import pickle
 import random
 
-from src.problem import Problem
+from src.problem import Problem, WaypointTrackingProblem
 from src.utils.in_bounds_utils import InBounds
 
 
@@ -22,13 +22,19 @@ class ProblemSet:
         problems:
             A list of Problems.
     """
-    def __init__(self, fieldset, project_dir, filename=None, num_problems=100):
+
+    def __init__(self, fieldset, project_dir, planner=None, filename=None, num_problems=100, WTC=False):
         self.fieldset = fieldset
         self.project_dir = project_dir
         self.in_bounds = InBounds(self.fieldset)
         if filename is None:
             random.seed(num_problems)
-            self.problems = [self.create_problem() for _ in range(num_problems)]
+            if WTC:
+                assert planner is not None, "Must pass in a planner to create Waypoint Controller Problems "
+                create = lambda: self.create_waypoint_tracking_problem(planner)
+            else:
+                create = self.create_problem
+            self.problems = [create() for _ in range(num_problems)]
         else:
             self.problems = self.load_problems(filename)
 
@@ -43,7 +49,15 @@ class ProblemSet:
         x_0, x_T = None, None
         while not self.in_bounds.valid_start_and_end(x_0, x_T):
             x_0, x_T = self.random_point(), self.random_point()
-        return Problem(self.fieldset, x_0, x_T, self.project_dir)
+        return Problem(real_fieldset=self.fieldset, x_0=x_0, x_T=x_T, project_dir=self.project_dir)
+
+    def create_waypoint_tracking_problem(self, planner):
+        """ Create and return a WaypointTrackingProblem """
+        problem = self.create_problem()
+        planner.run(problem)
+        waypoints = planner.get_waypoints()
+
+        return WaypointTrackingProblem.convert_problem(problem, waypoints)
 
     def random_point(self):
         """Returns a random point anywhere in the grid.
@@ -55,12 +69,13 @@ class ProblemSet:
         lat = random.choice(self.fieldset.U.grid.lat)
         return [lon, lat]
 
-    def load_problems(self, filename):
+    @classmethod
+    def load_problems(cls, filename):
         """Deserializes the list of problems from the filename.
 
         Args:
             filename:
-                A filename represented as a String, e.g. 'file.txt', that need not already exist.
+                A filename represented as a String, e.g. 'file.txt'
         Returns:
             A list of Problems.
         """
@@ -75,4 +90,3 @@ class ProblemSet:
         """
         with open(filename, 'wb') as writer:
             pickle.dump(self.problems, writer)
-

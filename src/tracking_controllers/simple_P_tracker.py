@@ -12,7 +12,13 @@ class simple_P_tracker(WaypointTrackingController):
     def __init__(self, waypoints):
         super().__init__()
         self.waypoints = waypoints
-        self.waypoint_timings = [point[2] for point in self.waypoints]
+        if waypoints is not None:
+            self.waypoint_timings = [point[2] for point in self.waypoints]
+        else:
+            self.waypoint_timings = None
+
+    def set_waypoints(self, waypoints, problem=None):
+        self.__init__(waypoints=waypoints)
 
     def get_next_waypoint(self, state):
         """ Get the next waypoint to actuate towards.
@@ -44,3 +50,6 @@ class simple_P_tracker(WaypointTrackingController):
         u_dir = np.array([[dlon / mag], [dlat / mag]])
         u_out = super().transform_u_dir_to_u(u_dir=u_dir)
         return u_out
+
+    def __str__(self):
+        return "Simple P Controller"

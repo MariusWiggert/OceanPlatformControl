@@ -24,6 +24,10 @@ class Planner:
         self.problem = problem
         self.settings = settings
 
+    def run(self, problem):
+        """ Run the planner on the given problem and return a list of waypoints """
+        raise NotImplementedError()
+
     def get_next_action(self, state):
         """ Returns (thrust, header) for the next timestep.
 
@@ -38,15 +42,13 @@ class Planner:
         raise NotImplementedError()
 
     def __repr__(self):
-        """ """
-        return "Planner(problem: {1})".format(self.problem)
+        return "Planner(problem: {0})".format(self.problem)
 
     def get_waypoints(self):
         """ Returns waypoints to be used for the waypoint tracking controller.
 
         Returns:
             An array containing the waypoints for the tracking controller.
-        TODO: decide on interface for waypoint tracking!
         """
         raise NotImplementedError()
 

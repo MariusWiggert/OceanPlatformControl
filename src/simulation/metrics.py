@@ -14,6 +14,11 @@ class EvaluationMetric:
         self.data = evaluation_data
         self.results = self.evaluate()
 
+        # TODO: distinguish the type of metric — either comparing planners or TTCs
+        # we can also capture this relationship with more inheritance
+        self.mode = "planner"
+        # self.mode = "TTC"
+
     def evaluate(self):
         """ Applies some metric on the given data """
         raise NotImplementedError()
@@ -34,6 +39,13 @@ class EvaluationMetric:
         Returns:
             An instance of an EvaluationMetric subclass, e.g. SuccessRateMetric.
         """
+        # TODO: ADD OTHER METRICS
+        """
+        - deviation from the predicted path
+        - deviation from the predicted time
+        - nutrients collected on the path (not sure if we have the data for this)
+        """
+
         if metric_string == 'success_rate':
             return SuccessRateMetric(evaluation_data)
         elif metric_string == 'avg_time':
@@ -54,10 +66,12 @@ class SuccessRateMetric(EvaluationMetric):
         Returns:
             A float.
         """
-        return self.data.total_successes / len(self.data.problems)
+        return np.average(np.array(self.data.total_successes))
 
     def plot_results(self):
+        # TODO: Add plotting here
         print("\nPERCENT SUCCESSFUL: {} %".format(round(self.results, ndigits=5)))
+        print("ALL RESULTS: ", self.data.total_successes)
 
 
 class AvgTimeMetric(EvaluationMetric):
@@ -68,10 +82,11 @@ class AvgTimeMetric(EvaluationMetric):
         Returns:
             A float.
         """
-        return np.average(self.data.all_times)
+        return np.array(self.data.all_times)
 
     def plot_results(self):
-        print("\nAVERAGE TIME: ", round(self.results, ndigits=5))
+        # TODO: Add plotting here
+        print("\nAVERAGE TIME: ", np.round(self.results))
 
 
 class AvgBatLevelMetric(EvaluationMetric):
@@ -86,6 +101,7 @@ class AvgBatLevelMetric(EvaluationMetric):
         return average
 
     def plot_results(self):
+        # TODO: Add plotting here
         print("\nAVERAGE BATTERY LEVEL: ", round(self.results, ndigits=5))
 
 
@@ -102,6 +118,7 @@ class AvgBatLevelVarMetric(EvaluationMetric):
         return average
 
     def plot_results(self):
+        # TODO: Add plotting here
         print("\nAVERAGE BATTERY VARIANCE: ", round(self.results, ndigits=5))
 
 
@@ -125,5 +142,6 @@ class AvgBatLevelBelowThresholdMetric(EvaluationMetric):
         return average
 
     def plot_results(self):
+        # TODO: Add plotting here
         print("\nAVERAGE BATTERY PROPORTION BELOW THRESHOLD: {} %"
               "".format(round(self.results, ndigits=5)))
