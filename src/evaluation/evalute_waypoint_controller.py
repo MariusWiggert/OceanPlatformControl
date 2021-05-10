@@ -1,10 +1,8 @@
 import pickle
 
 from src.problem import WaypointTrackingProblem
-from src.simulation.evaluate_high_level_planner import EvaluatePlanner
-from src.simulation.evaluation_data import EvaluationData
-from src.simulation.metrics import EvaluationMetric
-from src.simulation.simulator import Simulator
+from src.evaluation.evaluate_high_level_planner import EvaluatePlanner
+from src.evaluation.evaluation_data import EvaluationData
 
 
 class EvaluateWaypointController(EvaluatePlanner):

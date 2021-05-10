@@ -1,5 +1,5 @@
 from src.planners.straight_line_planner import StraightLinePlanner
-from src.simulation.evaluate_high_level_planner import EvaluatePlanner
+from src.evaluation.evaluate_high_level_planner import EvaluatePlanner
 from src.problem_set import ProblemSet
 from src.utils import hycom_utils
 import os

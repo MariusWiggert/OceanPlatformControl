@@ -1,6 +1,4 @@
 from src.problem_set import ProblemSet
-from src.simulation.evaluation_data import EvaluationData
-from src.simulation.metrics import EvaluationMetric
 from src.simulation.simulator import Simulator
 
 

@@ -1,5 +1,5 @@
 from src.planners.astar_planner import AStarPlanner
-from src.simulation.evaluate_high_level_planner import EvaluatePlanner
+from src.evaluation.evaluate_high_level_planner import EvaluatePlanner
 from src.problem_set import ProblemSet
 from src.simulation.simulator import Simulator
 from src.utils import hycom_utils

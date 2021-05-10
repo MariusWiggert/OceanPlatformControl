@@ -1,6 +1,6 @@
 import pickle
 
-from src.simulation.metrics import EvaluationMetric
+from src.evaluation.metrics import EvaluationMetric
 
 
 class DataVisualization:
