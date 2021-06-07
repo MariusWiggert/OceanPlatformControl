@@ -15,6 +15,8 @@ def plot_opt_results(T,u,x,N):
 
     plt.figure(1)
     plt.plot(x[0, :], x[1, :], '--', marker='o')
+    plt.plot(x[0, 0], x[1, 0], '--', marker='x', color='red')
+    plt.plot(x[0, -1], x[1, -1], '--', marker='x', color='green')
     plt.title('Trajectory ipopt')
     plt.xlabel('x')
     plt.ylabel('y')

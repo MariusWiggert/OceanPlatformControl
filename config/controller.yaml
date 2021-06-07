@@ -1,14 +1,9 @@
-#planner:
-#    type: "trajopt"
-#    max_iter: 50
-#    num_waypts: 5
+planner:
+    name: "IpoptPlannerVarCur"
+    gen_settings: {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline'}
+    specific_settings: {n_dec_var: 100, t_init_in_h: 224., deg_around_x0_xT_box: 0.8}
 
-#waypoint_tracking:
-#    # These settings have been tuned for PID controller.
-#    type: "pid"
-#    p_gain: 50.0
-#    i_gain: 0.0
-#    d_gain: 20.0
-#    epsilon: 0.10
-#    max_cmd: 40.0
+waypoint_tracking:
+    name: "None" #"simple_P_tracker"
+    dt_replanning: 8064.0
 

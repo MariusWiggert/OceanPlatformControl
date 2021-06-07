@@ -98,7 +98,14 @@ class Simulator:
         return cur_state
 
     def initialize_dynamics(self):
-        """Initialize symbolic dynamics function for simulation """
+        """Initialize symbolic dynamics function for simulation
+            Input: fieldset       a parcels fieldset
+
+            Output:
+                u_curr_func       interpolation function for longitude currents
+                v_curr_func       interpolation function for latitude currents
+                F_x_next          cassadi function with (x,u)->(x_next)
+        """
 
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')   # lon

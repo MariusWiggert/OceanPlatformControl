@@ -1,14 +1,14 @@
 from src.planners.planner import Planner
 import casadi as ca
 import numpy as np
-from src.utils import plotting_utils, simulation_utils
+from src.utils import plotting_utils, simulation_utils, hycom_utils
 import bisect
 
 
 class IpoptPlanner(Planner):
-    """Planner based in non-linear optimization in ipopt
+    """Planner based on non-linear optimization in ipopt
 
-        Attributes:
+        Attributes required in the specific_settings dict
             t_init_in_h:
                 The initial time to be used in the optimization (only fixed time Opt. implemented right now)
             n_dec_var:
@@ -16,21 +16,29 @@ class IpoptPlanner(Planner):
 
             see Planner class for the rest of the attributes.
         """
-    def __init__(self, problem, settings=None, t_init_in_h=224., n_dec_var=100):
+    def __init__(self, problem, gen_settings, specific_settings):
         # initialize superclass
-        super().__init__(problem, settings)
+        super().__init__(problem, gen_settings, specific_settings)
 
         # initialize values
-        self.T_init = t_init_in_h*3600
-        self.N = n_dec_var
+        self.T_init = self.specific_settings["t_init_in_h"]*3600
+        self.N = self.specific_settings["n_dec_var"]
 
-        # get the current interpolation functions
+    def plan(self, x_t, new_forecast_file=None, trajectory=None):
+        super().update_forecast_file(new_forecast_file)
+
+        # Step 1: read the relevant subset of data
+        self.grids_dict, u_data, v_data = \
+            simulation_utils.get_current_data_subset(self.cur_forecast_file,
+                                                     self.x_0, self.x_T,
+                                                     self.specific_settings['deg_around_x0_xT_box'],
+                                                     self.fixed_time_index)
+
+        # Step 2: get the current interpolation functions
         self.u_curr_func, self.v_curr_func = simulation_utils.get_interpolation_func(
-            self.problem.fieldset,
-            type=self.settings['int_pol_type'],
-            fixed_time_index=self.problem.fixed_time_index)
+            self.grids_dict, u_data, v_data, self.gen_settings['int_pol_type'], self.fixed_time_index)
 
-        # run optimization
+        # Step 2: run optimization
         self.T, self.u_open_loop, self.x_solver, self.dt = self.run_optimization()
         # create the vector containing the times when which control is active
         self.control_time_vec = np.arange(self.u_open_loop.shape[1] + 1) * self.dt
@@ -60,7 +68,7 @@ class IpoptPlanner(Planner):
         pass
 
     def plot_opt_results(self):
-        plotting_utils.plot_opt_results(self.T/3600, self.u_open_loop * self.problem.dyn_dict['u_max'],
+        plotting_utils.plot_opt_results(self.T/3600, self.u_open_loop * self.dyn_dict['u_max'],
                                         self.x_solver, self.N)
 
     def get_waypoints(self):
@@ -69,12 +77,10 @@ class IpoptPlanner(Planner):
 
 
 class IpoptPlannerVarCur(IpoptPlanner):
-    """ Non_linear optimizer using ipopt for current fields that are time-varying. """
-    def __init__(self, problem,
-                 settings=None,
-                 t_init_in_h=224., n_dec_var=100):
+    """ Non_linear optimizer using ipopt for current fields that are time-varying."""
+    def __init__(self, problem, gen_settings, specific_settings):
         # initialize superclass
-        super().__init__(problem, settings, t_init_in_h, n_dec_var)
+        super().__init__(problem, gen_settings, specific_settings)
 
     def run_optimization(self):
         # create optimization problem
@@ -98,9 +104,9 @@ class IpoptPlannerVarCur(IpoptPlanner):
 
         # create the dynamics function (note here in form of u_x and u_y)
         F = ca.Function('f', [t, x, u],
-                        [ca.vertcat(u[0]*self.problem.dyn_dict['u_max'] + self.u_curr_func(ca.vertcat(t, x[1], x[0])),
-                                    u[1]*self.problem.dyn_dict['u_max'] + self.v_curr_func(ca.vertcat(t, x[1], x[0])))
-                         / self.settings['conv_m_to_deg']],
+                        [ca.vertcat(u[0]*self.dyn_dict['u_max'] + self.u_curr_func(ca.vertcat(t, x[1], x[0])),
+                                    u[1]*self.dyn_dict['u_max'] + self.v_curr_func(ca.vertcat(t, x[1], x[0])))
+                         / self.gen_settings['conv_m_to_deg']],
                         # ,c_recharge - u[0]**2)],
                         ['t', 'x', 'u'], ['x_dot'])
 
@@ -119,17 +125,17 @@ class IpoptPlannerVarCur(IpoptPlanner):
         opti.subject_to(u[0, :]**2 + u[1, :]**2 <= 1)
 
         # State constraints to the map boundaries
-        opti.subject_to(opti.bounded(self.problem.fieldset.U.grid.lon.min(),
-                                     x[0, :], self.problem.fieldset.U.grid.lon.max()))
-        opti.subject_to(opti.bounded(self.problem.fieldset.U.grid.lat.min(),
-                                     x[1, :], self.problem.fieldset.U.grid.lat.max()))
+        opti.subject_to(opti.bounded(self.grids_dict['xgrid'].min(),
+                                     x[0, :], self.grids_dict['xgrid'].max()))
+        opti.subject_to(opti.bounded(self.grids_dict['ygrid'].min(),
+                                     x[1, :], self.grids_dict['ygrid'].max()))
 
         # battery constraint
         # opti.subject_to(opti.bounded(0.1, x[2, :], 1.))
 
         # Set the values for the optimization problem
-        opti.set_value(x_start, self.problem.x_0[:2])
-        opti.set_value(x_goal, self.problem.x_T)
+        opti.set_value(x_start, self.x_0[:2])
+        opti.set_value(x_goal, self.x_T)
 
         # Optional: initialize variables for the optimizer
         # opti.set_initial(x, x_init)
@@ -149,9 +155,9 @@ class IpoptPlannerVarCur(IpoptPlanner):
 
 class IpoptPlannerFixCur(IpoptPlanner):
     """ Non_linear optimizer using ipopt for current fields that are fixed. """
-    def __init__(self, problem, settings=None, t_init_in_h=806764., n_dec_var=100):
+    def __init__(self, problem, gen_settings, specific_settings):
         # initialize superclass
-        super().__init__(problem, settings, t_init_in_h, n_dec_var)
+        super().__init__(problem, gen_settings, specific_settings)
 
     def run_optimization(self):
         # create optimization problem
@@ -175,9 +181,9 @@ class IpoptPlannerFixCur(IpoptPlanner):
         # create the dynamics function
         # Note: using u_x and u_y instead of thrust & heading for smoother optimization landscape
         F = ca.Function('f', [x, u],
-                        [ca.vertcat(u[0]*self.problem.dyn_dict['u_max'] + self.u_curr_func(ca.vertcat(x[1], x[0])),
-                                    u[1]*self.problem.dyn_dict['u_max'] + self.v_curr_func(ca.vertcat(x[1], x[0])))
-                         / self.settings['conv_m_to_deg']],
+                        [ca.vertcat(u[0]*self.dyn_dict['u_max'] + self.u_curr_func(ca.vertcat(x[1], x[0])),
+                                    u[1]*self.dyn_dict['u_max'] + self.v_curr_func(ca.vertcat(x[1], x[0])))
+                         / self.gen_settings['conv_m_to_deg']],
                         # ,c_recharge - u[0]**2)],
                         ['x', 'u'], ['x_dot'])
 
@@ -196,17 +202,17 @@ class IpoptPlannerFixCur(IpoptPlanner):
         opti.subject_to(u[0, :]**2 + u[1, :]**2 <= 1)
 
         # State constraints to the map boundaries
-        opti.subject_to(opti.bounded(self.problem.fieldset.U.grid.lon.min(),
-                                     x[0, :], self.problem.fieldset.U.grid.lon.max()))
-        opti.subject_to(opti.bounded(self.problem.fieldset.U.grid.lat.min(),
-                                     x[1, :], self.problem.fieldset.U.grid.lat.max()))
+        opti.subject_to(opti.bounded(self.grids_dict['xgrid'].min(),
+                                     x[0, :], self.grids_dict['xgrid'].max()))
+        opti.subject_to(opti.bounded(self.grids_dict['ygrid'].min(),
+                                     x[1, :], self.grids_dict['ygrid'].max()))
 
         # battery constraint
         # opti.subject_to(opti.bounded(0.1, x[2, :], 1.))
 
         # Set the values for the optimization problem
-        opti.set_value(x_start, self.problem.x_0[:2])
-        opti.set_value(x_goal, self.problem.x_T)
+        opti.set_value(x_start, self.x_0[:2])
+        opti.set_value(x_goal, self.x_T)
 
         # Optional: initialize variables for the optimizer
         # opti.set_initial(x, x_init)

@@ -1,53 +1,70 @@
 import yaml
 import parcels as p
 import math
+import numpy as np
 import glob, os, imageio
+from src.utils import hycom_utils
+from os import listdir
+from os.path import isfile, join
 
 
 class Problem:
     """A path planning problem for a Planner to solve.
 
     Attributes:
-        # TODO: real fieldset and predicted fieldset in the problem
-        fieldset:
-            The fieldset contains data about ocean currents and is more rigorously defined in the
-            parcels documentation.
         x_0:
             The starting state, represented as (lon, lat, battery_level, time).
+            Note that time is implemented as relative time right now (hence always x_0[3]=0)
+            # TODO: implement possibility to put in datetime objects as x_0
         x_T:
             The target state, represented as (lon, lat).
-        project_dir:
-            A string giving the path to the project directory.
+            # TODO: currently we do point-2-point navigation though ultimately we'd like
+            this to be a set representation (point-2-region) because that is the more general formulation.
+        t_0:
+            A np.datetime object of the absolute starting time
+            # TODO: currently this doesn't have an effect
+            we assume starting at 0 time of both the forecasts and hindcast file
+        # TODO: implement flexible loading of the nc4 files outside of here
+        hindcast_file:
+            Path to the nc4 files of forecasted ocean currents. Will be used as true currents (potentially adding noise)
+        forecast_folder:
+            Path to the nc4 files of forecasted ocean currents
+        noise:
+            # TODO: optionally implement a way to add noise to the hindcasts
+        x_t_tol:
+            Radius around x_T that when reached counts as "target reached"
         config_yaml:
-            A YAML file for the Problem configurations.
+            A YAML file for the platform configurations.
         fixed_time_index:
-            An index of a fixed time. Note that the fixed_time_index is only
+            An index of a fixed time index from the hindcast file.
             applicable when the time is fixed, i.e. the currents are not time varying.
+            # TODO: currently not implemented, easier when taken care of outside of this.
+        project dir:
+            Only needed if the data is stored outside the repo
     """
 
-    def __init__(self, real_fieldset, x_0, x_T, project_dir, forecasted_fieldset=None, config_yaml='platform.yaml',
-                 fixed_time_index=None):
-        # self.real_fieldset = real_fieldset
-        self.forecasted_fieldset = forecasted_fieldset
-        self.real_fieldset = real_fieldset
+    def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, noise=None, x_t_tol=0.1, config_yaml='platform.yaml',
+                 fixed_time_index=None, project_dir=None):
 
-        # TODO: temporary setting, remove once both fieldsets are working correctly
-        self.fieldset = real_fieldset
+        if project_dir is None:
+            project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-        # TODO: adjust the following logic for both fieldsets?
-        if self.fieldset.U.grid.time.shape[0] == 1:  # check if we do a fixed or variable current problem
-            # Fixed time by nature of the fieldset
-            self.fixed_time_index = 0
-            print("Fixed-time fieldset at {}".format(self.fieldset.time_origin))
-        elif fixed_time_index is not None:
-            # Fixed time by nature of the index supplied
+        # load the respective fieldsets
+        self.hindcast_file = hindcast_file  # because the simulator loads only subsetting of it
+        self.hindcast_fieldset = hycom_utils.get_hycom_fieldset(hindcast_file)  # this loads in all, good for plotting
+        self.forecast_list = [forecast_folder + f for f in listdir(forecast_folder) if isfile(join(forecast_folder, f))]
+        self.forecast_list.sort()
+
+        if fixed_time_index is not None:
             self.fixed_time_index = fixed_time_index
-            print("Fixed-time fieldset at {}".format(self.fieldset.gridset.grids[0].timeslices[0][fixed_time_index]))
+            print("Fixed-time fieldset currently not implemented")
+            raise NotImplementedError()
         else:  # variable time
             self.fixed_time_index = None
-            print("Time-varying fieldset from {} to {}".format(self.fieldset.time_origin,
-                                                               self.fieldset.gridset.grids[0].timeslices[0][-1]))
-            print("Resolution of {} h".format(math.ceil(self.fieldset.gridset.grids[0].time[1] / 3600)))
+            print("GT fieldset from  {} to {}".format(self.hindcast_fieldset.time_origin,
+                                                      self.hindcast_fieldset.gridset.grids[0].timeslices[0][-1]))
+            print("GT Resolution of {} h".format(math.ceil(self.hindcast_fieldset.gridset.grids[0].time[1] / 3600)))
+            print("Forecast files from \n{} \n to \n{}".format(self.forecast_list[0],self.forecast_list[-1]))
 
         if len(x_0) == 2:  # add 100% charge and time
             x_0 = x_0 + [1., 0.]
@@ -56,8 +73,9 @@ class Problem:
 
         self.x_0 = x_0
         self.x_T = x_T
+        self.t_0 = t_0
         self.project_dir = project_dir
-        self.dyn_dict = self.derive_platform_dynamics(project_dir, config=config_yaml)
+        self.dyn_dict = self.derive_platform_dynamics(config=config_yaml)
 
     def __repr__(self):
         """Returns the string representation of a Problem, to be used for debugging.
@@ -73,7 +91,8 @@ class Problem:
         Returns:
             None
         """
-        pset = p.ParticleSet.from_list(fieldset=self.fieldset,  # the fields on which the particles are advected
+        print("Note only the GT file is currently visualized")
+        pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
                                        pclass=p.ScipyParticle,  # the type of particles (JITParticle or ScipyParticle)
                                        lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
                                        lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
@@ -81,13 +100,13 @@ class Problem:
 
         if self.fixed_time_index is None and time is None and gif:
             # Step 1: create the images
-            pset = p.ParticleSet.from_list(fieldset=self.fieldset,  # the fields on which the particles are advected
+            pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
                                            pclass=p.ScipyParticle,
                                            # the type of particles (JITParticle or ScipyParticle)
                                            lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
                                            lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
                                            )
-            for i, time in enumerate(self.fieldset.gridset.grids[0].time_full):
+            for i, time in enumerate(self.hindcast_fieldset.gridset.grids[0].time_full):
                 # under the assumption that x is a Position
                 pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
                           field='vector', land=True,
@@ -111,12 +130,10 @@ class Problem:
         else:
             pset.show(field='vector', show_time=time)
 
-    def derive_platform_dynamics(self, project_dir, config):
+    def derive_platform_dynamics(self, config):
         """Derives battery capacity dynamics for the specific dt.
 
         Args:
-            project_dir:
-                See class docstring
             config:
                 See config_yaml in class docstring
 
@@ -125,7 +142,7 @@ class Problem:
         """
 
         # load in YAML
-        with open(project_dir + '/config/' + config) as f:
+        with open(self.project_dir + '/config/' + config) as f:
             config_data = yaml.load(f, Loader=yaml.FullLoader)
             platform_specs = config_data['platform_config']
 
@@ -139,6 +156,7 @@ class Problem:
 
 
 class WaypointTrackingProblem(Problem):
+    #TODO: not fit to new closed loop controller yet
     """ Only difference is the added waypoints to the problem """
 
     def __init__(self, real_fieldset, forecasted_fieldset, x_0, x_T, project_dir, waypoints,

@@ -15,6 +15,7 @@ class WaypointTrackingController:
         self.actuating_towards = []     # a list of each (lon, lat) point we are actuating to at each time step
 
     def set_waypoints(self, waypoints, problem):
+        # TODO: needs to be updated so that it is general and also a MPC style tracking controller is possible
         """ Changes the waypoints, and resets the state of the Tracking Controller
 
         Args:
@@ -25,6 +26,19 @@ class WaypointTrackingController:
             None
         """
         raise NotImplementedError()
+
+    def replan(self, state):
+        """ Runs a planning loop in case the tracking controller has one (e.g. an MPC Tracking Controller)
+        Does not have to be implemented by the child class if get_next_action contains all the logic required.
+
+        Args:
+            state:
+                A four element list describing the current state, i.e. [[lon],[lat], [battery_level], [time]]. Note each
+                 nested variable is a float.
+        Returns:
+            None
+        """
+        return None
 
     def get_next_action(self, state):
         """ Returns (thrust, header) for the next timestep

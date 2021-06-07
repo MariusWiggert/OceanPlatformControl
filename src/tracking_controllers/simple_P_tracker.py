@@ -9,16 +9,16 @@ class simple_P_tracker(WaypointTrackingController):
         Inside the radius actuate: linearly decreasing actuation
     """
 
-    def __init__(self, waypoints):
+    def __init__(self):
         super().__init__()
+        self.waypoint_timings = None
+
+    def set_waypoints(self, waypoints, problem=None):
         self.waypoints = waypoints
         if waypoints is not None:
             self.waypoint_timings = [point[2] for point in self.waypoints]
         else:
             self.waypoint_timings = None
-
-    def set_waypoints(self, waypoints, problem=None):
-        self.__init__(waypoints=waypoints)
 
     def get_next_waypoint(self, state):
         """ Get the next waypoint to actuate towards.

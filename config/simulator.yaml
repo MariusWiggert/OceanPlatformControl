@@ -1,5 +1,11 @@
 #simulator_config:
-dt: 8064.0             # in seconds
-conv_m_to_deg: 111120.    # used to transform anything in meters to in degrees (assuming sphere)
-int_pol_type: 'linear'   # either bspline or linear (linear is faster as the dynamics don't need to be fit a priori)
+dt: 8064.0                # in seconds
+conv_m_to_deg: 111120.    # used to transform anything in meters to in degrees (assuming a sphere)
+int_pol_type: 'bspline'    # either bspline or linear (linear is a lot faster as the dynamics don't need to be fit a priori)
 sim_integration: 'ef'     # either 'rk' (a 4th order method) or forward euler 'ef'
+
+# nc4 file sub-setting configurations
+deg_around_x0_xT_box: 0.8  # degrees around the x_0, x_T box that are read in when simulating
+
+# setting for what counts as goal reached
+slack_around_goal: 0.05     # slack around the goal in degrees

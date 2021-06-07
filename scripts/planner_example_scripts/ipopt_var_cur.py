@@ -8,7 +8,7 @@ from src.simulation.simulator import Simulator
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 
 #%% Set stuff up
-nc_file = 'data/' + "gulf_of_mexico_2020-11-01-10_5h.nc4"
+nc_file = 'data/' + "forecastgulf_of_mexico_2020-11-01-10_5h.nc4"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 
 # Test 1 easy follow currents
