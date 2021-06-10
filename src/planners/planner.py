@@ -24,10 +24,9 @@ class Planner:
 
         # extract relevant aspects from the problem
         self.x_0 = problem.x_0
-        self.t_0 = problem.t_0
         self.x_T = problem.x_T
         self.dyn_dict = problem.dyn_dict
-        self.fixed_time_index = problem.fixed_time_index
+        self.fixed_time = problem.fixed_time
 
         # Note: managing the forecast fieldsets is done in the simulator
         self.cur_forecast_file = None

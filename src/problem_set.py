@@ -49,7 +49,7 @@ class ProblemSet:
         x_0, x_T = None, None
         while not self.in_bounds.valid_start_and_end(x_0, x_T):
             x_0, x_T = self.random_point(), self.random_point()
-        return Problem(real_fieldset=self.fieldset, x_0=x_0, x_T=x_T, project_dir=self.project_dir)
+        return Problem(real_fieldset=self.fieldset, x_0_pos=x_0, x_T=x_T, project_dir=self.project_dir)
 
     def create_waypoint_tracking_problem(self, planner):
         """ Create and return a WaypointTrackingProblem """

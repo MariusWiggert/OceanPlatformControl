@@ -1,8 +1,9 @@
 #simulator_config:
 dt: 8064.0                # in seconds
 conv_m_to_deg: 111120.    # used to transform anything in meters to in degrees (assuming a sphere)
-int_pol_type: 'bspline'    # either bspline or linear (linear is a lot faster as the dynamics don't need to be fit a priori)
+int_pol_type: 'linear'   # either bspline or linear (linear is a lot faster as the dynamics don't need to be fit a priori)
 sim_integration: 'ef'     # either 'rk' (a 4th order method) or forward euler 'ef'
+temporal_stride: 5         # default is 1, but can be any integer. This can be used to speed up computation.
 
 # nc4 file sub-setting configurations
 deg_around_x0_xT_box: 0.8  # degrees around the x_0, x_T box that are read in when simulating

@@ -13,6 +13,9 @@ class IpoptPlanner(Planner):
                 The initial time to be used in the optimization (only fixed time Opt. implemented right now)
             n_dec_var:
                 The number of decision variables in the discrete optimization problem.
+            temporal_stride:
+                Integer. If the forecasts are hourly but because bspline fitting is expensive we only
+                want to take every 5h currents in fitting it. Essentially saves compute speed.
 
             see Planner class for the rest of the attributes.
         """
@@ -21,7 +24,7 @@ class IpoptPlanner(Planner):
         super().__init__(problem, gen_settings, specific_settings)
 
         # initialize values
-        self.T_init = self.specific_settings["t_init_in_h"]*3600
+        self.T_goal_in_h = self.specific_settings["T_goal_in_h"]*3600
         self.N = self.specific_settings["n_dec_var"]
 
     def plan(self, x_t, new_forecast_file=None, trajectory=None):
@@ -32,24 +35,27 @@ class IpoptPlanner(Planner):
             simulation_utils.get_current_data_subset(self.cur_forecast_file,
                                                      self.x_0, self.x_T,
                                                      self.specific_settings['deg_around_x0_xT_box'],
-                                                     self.fixed_time_index)
+                                                     self.fixed_time,
+                                                     self.gen_settings["temporal_stride"])
 
         # Step 2: get the current interpolation functions
         self.u_curr_func, self.v_curr_func = simulation_utils.get_interpolation_func(
-            self.grids_dict, u_data, v_data, self.gen_settings['int_pol_type'], self.fixed_time_index)
+            self.grids_dict, u_data, v_data, self.gen_settings['int_pol_type'], self.fixed_time)
 
         # Step 2: run optimization
         self.T, self.u_open_loop, self.x_solver, self.dt = self.run_optimization()
         # create the vector containing the times when which control is active
-        self.control_time_vec = np.arange(self.u_open_loop.shape[1] + 1) * self.dt
+        self.control_time_vec = x_t[3] + np.arange(self.u_open_loop.shape[1] + 1) * self.dt
 
     def get_next_action(self, state):
         """When run in open loop this action is directly applied."""
         # an easy way of finding for each time, which index of control signal to apply
-        idx = bisect.bisect_left(self.control_time_vec, state[3], lo=1)
-        # Note: the lo=1 is because when time=0 then it would otherwise index to -1 in u_open_loop
+        idx = bisect.bisect_right(self.control_time_vec, state[3]) - 1
+        if idx == len(self.control_time_vec) - 1:
+            idx = idx - 1
+            print("WARNING: continuing using last control although not planned as such")
 
-        u_dir = np.array([[self.u_open_loop[0, idx-1]], [self.u_open_loop[1, idx-1]]])
+        u_dir = np.array([[self.u_open_loop[0, idx]], [self.u_open_loop[1, idx]]])
 
         # transform to thrust & angle
         u_out = super().transform_u_dir_to_u(u_dir=u_dir)
@@ -87,7 +93,7 @@ class IpoptPlannerVarCur(IpoptPlanner):
         opti = ca.Opti()
 
         # declare fixed End time and variable t for indexing to variable current
-        T = self.T_init
+        T = self.T_goal_in_h
         t = ca.MX.sym('t')  # time symbolic variable
 
         # declare decision variables
@@ -113,8 +119,10 @@ class IpoptPlannerVarCur(IpoptPlanner):
         # add the dynamics constraints
         dt = T / self.N
         for k in range(self.N):
+            # calculate time in POSIX seconds
+            time = self.x_0[3] + k * dt
             # explicit forward euler version
-            x_next = x[:, k] + dt * F(t=dt * k, x=x[:, k], u=u[:, k])['x_dot']
+            x_next = x[:, k] + dt * F(t=time, x=x[:, k], u=u[:, k])['x_dot']
             opti.subject_to(x[:, k + 1] == x_next)
 
         # start state & goal constraint
@@ -164,7 +172,7 @@ class IpoptPlannerFixCur(IpoptPlanner):
         opti = ca.Opti()
 
         # fixed end_time
-        T = self.T_init
+        T = self.T_goal_in_h
 
         # declare decision variables
         # For now 2 State system (X, Y), not capturing battery or seaweed mass

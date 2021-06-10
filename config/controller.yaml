@@ -1,9 +1,8 @@
 planner:
     name: "IpoptPlannerVarCur"
-    gen_settings: {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline'}
-    specific_settings: {n_dec_var: 100, t_init_in_h: 224., deg_around_x0_xT_box: 0.8}
+    gen_settings: {'conv_m_to_deg': 111120., 'int_pol_type': 'bspline', temporal_stride: 5}
+    specific_settings: {n_dec_var: 100, T_goal_in_h: 60, deg_around_x0_xT_box: 0.8}
 
 waypoint_tracking:
     name: "None" #"simple_P_tracker"
     dt_replanning: 8064.0
-

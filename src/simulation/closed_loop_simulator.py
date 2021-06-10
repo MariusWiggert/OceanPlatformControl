@@ -13,12 +13,13 @@ class ClosedLoopSimulator:
     """
     This class takes in a simulator and control YAML file for configuration as well as a problem.
     It has access to the forecasted currents for each day and hindcasts over the time period.
-    It simulates the closed-loop performance of the running-system.
+    It simulates the closed-loop performance of the running-system in POSIX time.
 
     sim_config:                     Simulator YAML configuration file
     control_config:                 Controller YAML configuration file
     problem:                        Problem for the planner (x_0, x_T, t_0, radius, noise)
     project_dir (optional):         Directory of the project for access to config YAMLs and data
+    #TODO: set up a logging infrastructure with different levels for debugging.
     """
 
     def __init__(self, sim_config, control_config, problem, project_dir=None):
@@ -45,9 +46,8 @@ class ClosedLoopSimulator:
         self.problem = problem
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
-        # TODO: program a smart loader with input the problem and it checks if the data exists and loads it
-        self.F_x_next = self.initialize_dynamics(self.problem.hindcast_file)
-        # implement check if forecasts are available for those days of the problem
+        self.F_x_next = self.initialize_dynamics()
+        # TODO: implement check if forecasts are available for those days of the problem
         # Note: for now we assume the predictions are ordered in time one daily
 
         # create instances for the high-level planner and a pointer to the waypoint tracking function
@@ -66,18 +66,12 @@ class ClosedLoopSimulator:
 
         # initiate some tracking variables
         self.cur_state = np.array(problem.x_0).reshape(4, 1)  # lon, lat, battery level, time
-        self.time_origin = problem.hindcast_fieldset.time_origin
-        self.max_time_hindcast = max(problem.hindcast_fieldset.gridset.grids[0].time[:])
         self.trajectory = self.cur_state
-        self.control_traj = []
+        self.control_traj = np.empty((2, 0), float)
 
-    def initialize_dynamics(self, hindcast_file):
+    def initialize_dynamics(self):
         """Initialize symbolic dynamics function for simulation
-        Input: fieldset       a parcels fieldset
-
         Output:
-            u_curr_func       interpolation function for longitude currents
-            v_curr_func       interpolation function for latitude currents
             F_x_next          cassadi function with (x,u)->(x_next)
         """
         # Step 1: define variables
@@ -93,17 +87,18 @@ class ClosedLoopSimulator:
 
         # Step 2: read the relevant subset of data
         self.grids_dict, u_data, v_data = \
-            simulation_utils.get_current_data_subset(hindcast_file,
+            simulation_utils.get_current_data_subset(self.problem.hindcast_file,
                                                      self.problem.x_0, self.problem.x_T,
                                                      self.sim_settings['deg_around_x0_xT_box'],
-                                                     self.problem.fixed_time_index)
+                                                     self.problem.fixed_time,
+                                                     self.sim_settings['temporal_stride'])
 
         # Step 2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
-            self.grids_dict, u_data, v_data, self.sim_settings['int_pol_type'], self.problem.fixed_time_index)
+            self.grids_dict, u_data, v_data, self.sim_settings['int_pol_type'], self.problem.fixed_time)
 
         # Step 3: create the x_dot dynamics function
-        if self.problem.fixed_time_index is None:  # time varying current
+        if self.problem.fixed_time is None:  # time varying current
             x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
                                      [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
                                          'u_max'] + u_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) /
@@ -169,6 +164,7 @@ class ClosedLoopSimulator:
             if self.cur_state[3] >= next_forecast_update_time:
                 # self.high_level_planner.plan(self.cur_state, new_forecast_file=self.problem.forecast_list[0],
                 #                              trajectory=None)
+                # TODO: change back...
                 self.high_level_planner.plan(self.cur_state, new_forecast_file=self.problem.hindcast_file,
                                              trajectory=None)
                 self.wypt_tracking_contr.set_waypoints(self.high_level_planner.get_waypoints())
@@ -179,6 +175,7 @@ class ClosedLoopSimulator:
                                                   + self.control_settings['waypoint_tracking']['dt_replanning']
                 print("High-level planner & tracking controller replanned")
 
+            # TODO: replanning of Waypoint tracking!
             # if self.cur_state[3] >= next_tracking_controller_update:
             #     self.wypt_tracking_contr.replan(self.cur_state)
             #     print("Tracking controller replanned")
@@ -196,8 +193,8 @@ class ClosedLoopSimulator:
         u = self.thrust_check(self.wypt_tracking_contr.get_next_action(self.cur_state))
 
         # update simulator states
-        self.control_traj.append(u)
-        self.cur_state = self.battery_check(np.array(self.F_x_next(self.cur_state, u)).astype('float32'))
+        self.control_traj = np.append(self.control_traj, u, axis=1)
+        self.cur_state = self.battery_check(np.array(self.F_x_next(self.cur_state, u)).astype('float64'))
         # add new state to trajectory
         self.trajectory = np.hstack((self.trajectory, self.cur_state))
 
@@ -227,14 +224,23 @@ class ClosedLoopSimulator:
     def check_termination(self, T_in_h, max_steps):
         """Helper function returning boolean.
         If False: simulation is continued, if True it ends."""
-        if T_in_h is not None and (self.cur_state[3] / 3600.) > T_in_h:
+        t_sim_run = (self.cur_state[3] - self.problem.x_0[3])
+        if T_in_h is not None and (t_sim_run/ 3600.) > T_in_h:
+            print("Sim terminate because T_in_h is over")
             return True
         if self.reached_goal():
+            print("Sim terminate because goal reached")
             return True
-        if self.cur_state[3] > max_steps * self.sim_settings['dt']:
+        if t_sim_run > max_steps * self.sim_settings['dt']:
+            print("Sim terminate because max_steps reached")
             return True
-        if self.cur_state[3] > self.max_time_hindcast:
+        if self.cur_state[3] > self.grids_dict['t_grid'][-1]:
+            print("Sim terminate because hindcast fieldset time is over")
             return True
+        # TODO: implement a way of checking for stranding!
+        # if self.cur_state in some region where there is land:
+        #     print("Sim terminated because platform stranded on land")
+        #     return True
         return False
 
     def reached_goal(self):
@@ -282,14 +288,14 @@ class ClosedLoopSimulator:
                         lat=[self.trajectory[1,i]],  # a vector of release latitudes
                     )
 
-                if self.problem.fixed_time_index is None:
+                if self.problem.fixed_time is None:
                     pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
                               field='vector', land=True,
                               vmax=1.0, show_time=self.trajectory[3, i])
                 else:
                     pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
                               field='vector', land=True,
-                              vmax=1.0, show_time=self.problem.fieldset.gridset.grids[0].time[self.problem.fixed_time_index])
+                              vmax=1.0, show_time=self.problem.fieldset.gridset.grids[0].time[self.problem.fixed_time])
 
             # Step 2: compile to gif
             file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")

@@ -13,17 +13,14 @@ class Problem:
 
     Attributes:
         x_0:
-            The starting state, represented as (lon, lat, battery_level, time).
-            Note that time is implemented as relative time right now (hence always x_0[3]=0)
-            # TODO: implement possibility to put in datetime objects as x_0
+            The starting state, represented as (lon, lat) or (lat, lon, battery_level).
+            Note that time is implemented as absolute time in POSIX.
         x_T:
             The target state, represented as (lon, lat).
             # TODO: currently we do point-2-point navigation though ultimately we'd like
             this to be a set representation (point-2-region) because that is the more general formulation.
         t_0:
-            A np.datetime object of the absolute starting time
-            # TODO: currently this doesn't have an effect
-            we assume starting at 0 time of both the forecasts and hindcast file
+            A timezone aware datetime object of the absolute starting time of the platform at x_0
         # TODO: implement flexible loading of the nc4 files outside of here
         hindcast_file:
             Path to the nc4 files of forecasted ocean currents. Will be used as true currents (potentially adding noise)
@@ -33,18 +30,17 @@ class Problem:
             # TODO: optionally implement a way to add noise to the hindcasts
         x_t_tol:
             Radius around x_T that when reached counts as "target reached"
+            # Note: not used currently as the sim config has that value too.
         config_yaml:
             A YAML file for the platform configurations.
-        fixed_time_index:
-            An index of a fixed time index from the hindcast file.
-            applicable when the time is fixed, i.e. the currents are not time varying.
-            # TODO: currently not implemented, easier when taken care of outside of this.
+        fixed_time:
+            datetime object of the fixed time for the hindcast_file as GT
         project dir:
             Only needed if the data is stored outside the repo
     """
 
     def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, noise=None, x_t_tol=0.1, config_yaml='platform.yaml',
-                 fixed_time_index=None, project_dir=None):
+                 fixed_time=None, project_dir=None):
 
         if project_dir is None:
             project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -55,25 +51,27 @@ class Problem:
         self.forecast_list = [forecast_folder + f for f in listdir(forecast_folder) if isfile(join(forecast_folder, f))]
         self.forecast_list.sort()
 
-        if fixed_time_index is not None:
-            self.fixed_time_index = fixed_time_index
+        if fixed_time is not None:
+            self.fixed_time = fixed_time
             print("Fixed-time fieldset currently not implemented")
             raise NotImplementedError()
         else:  # variable time
-            self.fixed_time_index = None
+            self.fixed_time = None
             print("GT fieldset from  {} to {}".format(self.hindcast_fieldset.time_origin,
                                                       self.hindcast_fieldset.gridset.grids[0].timeslices[0][-1]))
             print("GT Resolution of {} h".format(math.ceil(self.hindcast_fieldset.gridset.grids[0].time[1] / 3600)))
-            print("Forecast files from \n{} \n to \n{}".format(self.forecast_list[0],self.forecast_list[-1]))
+            print("Forecast files from \n{} \n to \n{}".format(self.forecast_list[0], self.forecast_list[-1]))
 
-        if len(x_0) == 2:  # add 100% charge and time
-            x_0 = x_0 + [1., 0.]
-        elif len(x_0) == 3:  # add time only
-            x_0.append(0.)
+        if len(x_0) == 2:  # add 100% charge
+            x_0 = x_0 + [1.]
+        elif len(x_0) != 3:
+            raise ValueError("x_0 should be (lat, lon, charge)")
+
+        # add POSIX timestamp of t_0
+        x_0 = x_0 + [t_0.timestamp()]
 
         self.x_0 = x_0
         self.x_T = x_T
-        self.t_0 = t_0
         self.project_dir = project_dir
         self.dyn_dict = self.derive_platform_dynamics(config=config_yaml)
 
@@ -98,7 +96,7 @@ class Problem:
                                        lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
                                        )
 
-        if self.fixed_time_index is None and time is None and gif:
+        if self.fixed_time is None and time is None and gif:
             # Step 1: create the images
             pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
                                            pclass=p.ScipyParticle,
@@ -123,10 +121,10 @@ class Problem:
                     writer.append_data(image)
                     os.remove(filename)
             print("saved gif as " + "var_prob_viz")
-        elif self.fixed_time_index is None and time is None and not gif:
+        elif self.fixed_time is None and time is None and not gif:
             pset.show(field='vector', show_time=0)
         elif time is None:  # fixed time index
-            pset.show(field='vector', show_time=self.fixed_time_index)
+            pset.show(field='vector', show_time=self.fixed_time)
         else:
             pset.show(field='vector', show_time=time)
 
@@ -161,14 +159,14 @@ class WaypointTrackingProblem(Problem):
 
     def __init__(self, real_fieldset, forecasted_fieldset, x_0, x_T, project_dir, waypoints,
                  config_yaml='platform.yaml',
-                 fixed_time_index=None):
+                 fixed_time=None):
         super().__init__(real_fieldset=real_fieldset,
                          forecasted_fieldset=forecasted_fieldset,
                          x_0=x_0,
                          x_T=x_T,
                          project_dir=project_dir,
                          config_yaml=config_yaml,
-                         fixed_time_index=fixed_time_index)
+                         fixed_time=fixed_time)
         self.waypoints = waypoints
 
     @classmethod
