@@ -1,3 +1,5 @@
+import bisect
+
 import yaml
 import parcels as p
 import math
@@ -6,6 +8,9 @@ import glob, os, imageio
 from src.utils import hycom_utils
 from os import listdir
 from os.path import isfile, join
+from datetime import datetime, timedelta
+from dateutil import tz
+import netCDF4
 
 
 class Problem:
@@ -26,6 +31,9 @@ class Problem:
             Path to the nc4 files of forecasted ocean currents. Will be used as true currents (potentially adding noise)
         forecast_folder:
             Path to the nc4 files of forecasted ocean currents
+        forecast_delay_in_h:
+            The hours of delay when a forecast becomes available
+            e.g. forecast starts at 1st of Jan but only available from HYCOM 48h later on 3rd of January
         noise:
             # TODO: optionally implement a way to add noise to the hindcasts
         x_t_tol:
@@ -39,7 +47,8 @@ class Problem:
             Only needed if the data is stored outside the repo
     """
 
-    def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, noise=None, x_t_tol=0.1, config_yaml='platform.yaml',
+    def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, forecast_delay_in_h=0.,
+                 noise=None, x_t_tol=0.1, config_yaml='platform.yaml',
                  fixed_time=None, project_dir=None):
 
         if project_dir is None:
@@ -47,9 +56,20 @@ class Problem:
 
         # load the respective fieldsets
         self.hindcast_file = hindcast_file  # because the simulator loads only subsetting of it
-        self.hindcast_fieldset = hycom_utils.get_hycom_fieldset(hindcast_file)  # this loads in all, good for plotting
-        self.forecast_list = [forecast_folder + f for f in listdir(forecast_folder) if isfile(join(forecast_folder, f))]
-        self.forecast_list.sort()
+        self.hindcast_fieldset = hycom_utils.get_hycom_fieldset(hindcast_file)  # this loads in all for plotting
+
+        # get the gt_field_grid
+        hindcast_posix_times = self.hindcast_fieldset.gridset.grids[0].timeslices[0].astype(datetime) / (10 ** 9)
+
+        self.hindcast_grid_dict = {"gt_t_range": [hindcast_posix_times[0], hindcast_posix_times[-1]],
+                                   "gt_y_range": [min(self.hindcast_fieldset.gridset.grids[0].lat),
+                                                  max(self.hindcast_fieldset.gridset.grids[0].lat)],
+                                   "gt_x_range": [min(self.hindcast_fieldset.gridset.grids[0].lon),
+                                                  max(self.hindcast_fieldset.gridset.grids[0].lon)],
+                                   }
+        # create forecast dict list with ranges & filename
+        forecast_files_list = [forecast_folder + f for f in listdir(forecast_folder) if isfile(join(forecast_folder, f))]
+        self.forecasts_dict = self.create_forecasts_dicts(forecast_files_list)
 
         if fixed_time is not None:
             self.fixed_time = fixed_time
@@ -60,7 +80,8 @@ class Problem:
             print("GT fieldset from  {} to {}".format(self.hindcast_fieldset.time_origin,
                                                       self.hindcast_fieldset.gridset.grids[0].timeslices[0][-1]))
             print("GT Resolution of {} h".format(math.ceil(self.hindcast_fieldset.gridset.grids[0].time[1] / 3600)))
-            print("Forecast files from \n{} \n to \n{}".format(self.forecast_list[0], self.forecast_list[-1]))
+            print("Forecast files from {} to {}".format(datetime.utcfromtimestamp(
+                self.forecasts_dict[0]['t_range'][0]), datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
 
         if len(x_0) == 2:  # add 100% charge
             x_0 = x_0 + [1.]
@@ -69,10 +90,11 @@ class Problem:
 
         # add POSIX timestamp of t_0
         x_0 = x_0 + [t_0.timestamp()]
-
         self.x_0 = x_0
         self.x_T = x_T
         self.project_dir = project_dir
+        self.forecast_delay_in_h = forecast_delay_in_h
+        self.most_recent_forecast_idx = self.check_current_files_provided()
         self.dyn_dict = self.derive_platform_dynamics(config=config_yaml)
 
     def __repr__(self):
@@ -151,6 +173,66 @@ class Problem:
         platform_dict = {'charge': charge_factor, 'energy': energy_coeff, 'u_max': platform_specs['u_max']}
 
         return platform_dict
+
+    def check_current_files_provided(self):
+        def in_interval(x, interval):
+            if interval[0] <= x <= interval[1]:
+                return True
+            else:
+                return False
+        # Step 1: check gt_file
+        if not in_interval(self.x_0[3], self.hindcast_grid_dict['gt_t_range']):
+            raise ValueError("t_0 is not in hindcast fieldset time range.")
+        if not in_interval(self.x_0[0], self.hindcast_grid_dict['gt_x_range']):
+            raise ValueError("lon of x_0 is not in hindcast fieldset lon range.")
+        if not in_interval(self.x_0[1], self.hindcast_grid_dict['gt_y_range']):
+            raise ValueError("lat of x_0 is not in hindcast fieldset lon range.")
+        if not in_interval(self.x_T[0], self.hindcast_grid_dict['gt_x_range']):
+            raise ValueError("lon of x_T is not in hindcast fieldset lon range.")
+        if not in_interval(self.x_T[1], self.hindcast_grid_dict['gt_y_range']):
+            raise ValueError("lat of x_T is not in hindcast fieldset lon range.")
+
+        # Step 2: check forecast file
+        # 2.1 check if at start_time any forecast is available
+        if self.x_0[3] <= self.forecasts_dict[0]['t_range'][0] + self.forecast_delay_in_h *3600.:
+            raise ValueError("No forecast file available at the starting time t_0")
+        # 2.1 check most recent file at t_0 for x_0
+        times_available = [dict['t_range'][0] + self.forecast_delay_in_h *3600. for dict in self.forecasts_dict]
+        idx = bisect.bisect_right(times_available, self.x_0[3]) - 1
+        if not in_interval(self.x_0[3], self.forecasts_dict[idx]['t_range']):
+            raise ValueError("t_0 is not in the timespan of the most recent forecase file.")
+        print("At starting time {}, most recent forecast available is from {} to {}.".format(datetime.utcfromtimestamp(self.x_0[3]),
+                                                                                             datetime.utcfromtimestamp(self.forecasts_dict[idx]['t_range'][0]),
+                                                                                             datetime.utcfromtimestamp(self.forecasts_dict[idx]['t_range'][1])))
+        # Step 2: check location around x_0 for both hindcast & forecast (because interpolation doesn't check it..)                                                                                     ))
+        if not in_interval(self.x_0[0], self.forecasts_dict[idx]['x_range']):
+            raise ValueError("lon of x_0 is not in most recent forecast lon range.")
+        if not in_interval(self.x_0[1], self.forecasts_dict[idx]['y_range']):
+            raise ValueError("lat of x_0 is not in most recent forecast lon range.")
+        return idx
+
+    def create_forecasts_dicts(self, forecast_files_list):
+        """ Takes in a list of files and returns a list of tuples with:
+        (start_time_posix, end_time_posix, grids, file) sorted according to start_time_posix
+        """
+        forecast_dicts = []
+        for file in forecast_files_list:
+            f = netCDF4.Dataset(file)
+            # get the time coverage in POSIX
+            time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
+                                            'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
+            start_time_posix = (time_origin + timedelta(hours=f.variables['time'][0].data.tolist())).timestamp()
+            end_time_posix = (time_origin + timedelta(hours=f.variables['time'][-1].data.tolist())).timestamp()
+            # get the lat and lon intervals
+            time_range = [start_time_posix, end_time_posix]
+            y_range = [min(f.variables['lat'][:]), max(f.variables['lat'][:])]
+            x_range = [min(f.variables['lon'][:]), max(f.variables['lon'][:])]
+            forecast_dicts.append({'t_range': time_range, 'x_range': x_range, 'y_range': y_range, 'file':file})
+        # sort the tuples list
+        forecast_dicts.sort(key=lambda dict: dict['t_range'][0])
+
+        return forecast_dicts
+
 
 
 class WaypointTrackingProblem(Problem):

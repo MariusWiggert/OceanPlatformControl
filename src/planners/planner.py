@@ -30,28 +30,30 @@ class Planner:
 
         # Note: managing the forecast fieldsets is done in the simulator
         self.cur_forecast_file = None
+        self.new_forecast_file = True
 
         self.gen_settings = gen_settings
         self.specific_settings = specific_settings
 
-    def plan(self, x_t, new_forecast_file=None, trajectory=None):
+    def plan(self, x_t, trajectory=None):
         """ Runs the planner on the problem set at initialization.
         Inputs:
         x_t:
             The current state (lat, lon, bat, time).
-        new_forecast_file (Optional):
-            A string containing the path to the newest available forecast on which the planner should operate.
-            If none is supplied then the last one is used.
         trajectory (Optional):
             The trajectory up to now which can be used by the planner to infer information e.g. by fitting a GP
         """
         raise NotImplementedError()
 
     def update_forecast_file(self, new_forecast_file):
-        """ Makes sure the forecast fieldset is defined and updates it if a new one is given."""
+        """ Makes sure the forecast fieldset is defined and updates it if a new one is given.
+        Input: new_forecast_file:
+            A string containing the path to the newest available forecast on which the planner should operate.
+        """
         if new_forecast_file is not None:
             print("updating forecast file")
             self.cur_forecast_file = new_forecast_file
+            self.new_forecast_file = True
         else:
             if self.cur_forecast_file is None:
                 raise ValueError('No forecast file is available.')

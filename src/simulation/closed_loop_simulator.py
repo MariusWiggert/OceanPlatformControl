@@ -7,7 +7,9 @@ import numpy as np
 import src.planners as planners
 import src.tracking_controllers as tracking_controllers
 import matplotlib.pyplot as plt
-
+import matplotlib.dates as mdates
+import datetime
+import bisect
 
 class ClosedLoopSimulator:
     """
@@ -47,8 +49,6 @@ class ClosedLoopSimulator:
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
         self.F_x_next = self.initialize_dynamics()
-        # TODO: implement check if forecasts are available for those days of the problem
-        # Note: for now we assume the predictions are ordered in time one daily
 
         # create instances for the high-level planner and a pointer to the waypoint tracking function
         # Step 1: initialize high-level planner
@@ -153,32 +153,44 @@ class ClosedLoopSimulator:
         """
         end_sim = False
 
+        if self.sim_settings['plan_on_gt']:
+            self.high_level_planner.update_forecast_file(
+                self.problem.hindcast_file)
+
         # tracking variables
-        # TODO: this will need to be a lookup list of when forecasts were available
-        next_forecast_update_time = 0.
+        current_forecast_dict_idx = self.problem.most_recent_forecast_idx
+        next_planner_update = 0.
         next_tracking_controller_update = 0.
 
         while not end_sim:
-            # TODO: flexible updating based on a dict
-            # update forecast files daily and replan with planner and hand-over to tracking controller
-            if self.cur_state[3] >= next_forecast_update_time:
-                # self.high_level_planner.plan(self.cur_state, new_forecast_file=self.problem.forecast_list[0],
-                #                              trajectory=None)
-                # TODO: change back...
-                self.high_level_planner.plan(self.cur_state, new_forecast_file=self.problem.hindcast_file,
-                                             trajectory=None)
+            # Loop 1: update forecast files if new one is available
+            if (not self.sim_settings['plan_on_gt']) and self.cur_state[3] >= \
+                    self.problem.forecasts_dict[current_forecast_dict_idx + 1]['t_range'][0] \
+                    + self.problem.forecast_delay_in_h * 3600.:
+                self.high_level_planner.update_forecast_file(
+                    self.problem.forecasts_dict[current_forecast_dict_idx + 1]['file'])
+                current_forecast_dict_idx = current_forecast_dict_idx + 1
+                # trigger high-level planner re-planning
+                next_planner_update = self.cur_state[3]
+
+            # Loop 2: replan with high-level planner
+            if self.cur_state[3] >= next_planner_update:
+                self.high_level_planner.plan(self.cur_state, trajectory=None)
                 self.wypt_tracking_contr.set_waypoints(self.high_level_planner.get_waypoints())
                 self.wypt_tracking_contr.replan(self.cur_state)
-                # next_forecast_update_time = self.cur_state[3] + 3600.*24
-                next_forecast_update_time = self.cur_state[3] + 3600.*24*100
+                # set new updating times
+                next_planner_update = self.cur_state[3] \
+                                      + self.control_settings['planner']['dt_replanning']
                 next_tracking_controller_update = self.cur_state[3]\
                                                   + self.control_settings['waypoint_tracking']['dt_replanning']
                 print("High-level planner & tracking controller replanned")
 
-            # TODO: replanning of Waypoint tracking!
-            # if self.cur_state[3] >= next_tracking_controller_update:
-            #     self.wypt_tracking_contr.replan(self.cur_state)
-            #     print("Tracking controller replanned")
+            # Loop 3: replanning of Waypoint tracking
+            if self.cur_state[3] >= next_tracking_controller_update:
+                self.wypt_tracking_contr.replan(self.cur_state)
+                next_tracking_controller_update = self.cur_state[3] \
+                                                  + self.control_settings['waypoint_tracking']['dt_replanning']
+                print("Tracking controller replanned")
 
             # simulator step
             self.run_step()
@@ -225,17 +237,24 @@ class ClosedLoopSimulator:
         """Helper function returning boolean.
         If False: simulation is continued, if True it ends."""
         t_sim_run = (self.cur_state[3] - self.problem.x_0[3])
-        if T_in_h is not None and (t_sim_run/ 3600.) > T_in_h:
-            print("Sim terminate because T_in_h is over")
-            return True
+
         if self.reached_goal():
             print("Sim terminate because goal reached")
+            return True
+        if (T_in_h is not None) and (t_sim_run/ 3600.) > T_in_h:
+            print("Sim terminate because T_in_h is over")
             return True
         if t_sim_run > max_steps * self.sim_settings['dt']:
             print("Sim terminate because max_steps reached")
             return True
         if self.cur_state[3] > self.grids_dict['t_grid'][-1]:
             print("Sim terminate because hindcast fieldset time is over")
+            return True
+        # check if we're going outside of the current sub-setted gt hindcasts
+        # TODO: can build in a check if we can just re-do the sub-setting and keep going
+        if (not self.grids_dict['x_grid'][0] <= self.cur_state[0] <= self.grids_dict['x_grid'][-1]) or \
+            (not self.grids_dict['y_grid'][0] <= self.cur_state[1] <= self.grids_dict['y_grid'][-1]):
+            print("Sim terminate because state went out of sub-setted gt hindcast file.")
             return True
         # TODO: implement a way of checking for stranding!
         # if self.cur_state in some region where there is land:
@@ -268,16 +287,30 @@ class ClosedLoopSimulator:
             return
 
         elif plotting_type == 'battery':
-            plt.figure(1)
-            plt.plot(self.trajectory[3, :]/3600., self.trajectory[2, :], '-')
-            plt.title('Battery charge over time')
-            plt.ylim(0.,1.1)
+            fig, ax = plt.subplots(1, 1)
+            # some stuff for flexible date axis
+            locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
+            formatter = mdates.ConciseDateFormatter(locator)
+            ax.xaxis.set_major_locator(locator)
+            ax.xaxis.set_major_formatter(formatter)
+            # plot
+            dates = [datetime.datetime.utcfromtimestamp(posix) for posix in self.trajectory[3, :]]
+            ax.plot(dates, self.trajectory[2, :])
+            # set axis and stuff
+            ax.set_title('Battery charge over time')
+            ax.set_ylim(0., 1.1)
             plt.xlabel('time in h')
             plt.ylabel('Battery Charging level [0,1]')
             plt.show()
             return
 
         elif plotting_type == 'gif':
+            # Note: maybe at some point we write our own plotting or take the parcels one for us.
+            # Step 0: create the domain dict
+            domain = {'N': self.grids_dict['y_grid'][-1],
+                      'S': self.grids_dict['y_grid'][0],
+                      'W': self.grids_dict['x_grid'][0],
+                      'E': self.grids_dict['x_grid'][-1]}
             # Step 1: create the images
             for i in range(self.trajectory.shape[1]):
                 # under the assumption that x is a Position
@@ -287,15 +320,18 @@ class ClosedLoopSimulator:
                         lon=[self.trajectory[0,i]],  # a vector of release longitudes
                         lat=[self.trajectory[1,i]],  # a vector of release latitudes
                     )
-
                 if self.problem.fixed_time is None:
+                    # calculate relative time since show_time is relative to start of fieldset
+                    rel_time = self.trajectory[3, i] - self.problem.hindcast_time_grid[0].timestamp()
                     pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-                              field='vector', land=True,
-                              vmax=1.0, show_time=self.trajectory[3, i])
+                              field='vector', land=True, domain=domain,
+                              vmax=1.0, show_time=rel_time)
                 else:
+                    rel_time = self.problem.fixed_time.timestamp() - self.problem.hindcast_time_grid[0].timestamp()
                     pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-                              field='vector', land=True,
-                              vmax=1.0, show_time=self.problem.fieldset.gridset.grids[0].time[self.problem.fixed_time])
+                              field='vector', land=True, domain=domain,
+                              vmax=1.0,
+                              show_time=rel_time)
 
             # Step 2: compile to gif
             file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")

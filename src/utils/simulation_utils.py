@@ -63,6 +63,7 @@ def get_current_data_subset(nc_file, x_0, x_T, deg_around_x0_xT_box, fixed_time=
     # fixed time logic if necessary
     if fixed_time is None:
         slice_for_time_dim = np.s_[t_start_idx:(t_end_idx+1):temporal_stride]
+        fixed_time_idx = None
     else:
         fixed_time_idx = bisect.bisect_right(abs_t_grid, fixed_time.timestamp()) - 1
         slice_for_time_dim = np.s_[fixed_time_idx]
@@ -80,8 +81,8 @@ def get_current_data_subset(nc_file, x_0, x_T, deg_around_x0_xT_box, fixed_time=
         raise ValueError("Current data in nc file has neither 3 nor 4 dimensions. Check file.")
 
     # create dict
-    grids_dict = {'xgrid': xgrid[xgrid_inds], 'ygrid': ygrid[ygrid_inds], 't_grid': abs_t_grid[slice_for_time_dim]}
-
+    grids_dict = {'x_grid': xgrid[xgrid_inds], 'y_grid': ygrid[ygrid_inds],
+                  't_grid': abs_t_grid[slice_for_time_dim], 'fixed_time_idx': fixed_time_idx}
 
     if fixed_time is None:
         print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(
@@ -102,17 +103,17 @@ def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_tim
     if fixed_time_index is None:    # time varying current
         # U field varying
         u_curr_func = ca.interpolant('u_curr', type,
-                                     [grids_dict['t_grid'], grids_dict['ygrid'], grids_dict['xgrid']],
+                                     [grids_dict['t_grid'], grids_dict['y_grid'], grids_dict['x_grid']],
                                      u_data.ravel(order='F'))
         # V field varying
         v_curr_func = ca.interpolant('v_curr', type,
-                                     [grids_dict['t_grid'], grids_dict['ygrid'], grids_dict['xgrid']],
+                                     [grids_dict['t_grid'], grids_dict['y_grid'], grids_dict['x_grid']],
                                      v_data.ravel(order='F'))
     else:      # fixed current
         # U field fixed
-        u_curr_func = ca.interpolant('u_curr', type, [grids_dict['ygrid'], grids_dict['xgrid']], u_data.ravel(order='F'))
+        u_curr_func = ca.interpolant('u_curr', type, [grids_dict['y_grid'], grids_dict['x_grid']], u_data.ravel(order='F'))
         # V field fixed
-        v_curr_func = ca.interpolant('v_curr', type, [grids_dict['ygrid'], grids_dict['xgrid']], v_data.ravel(order='F'))
+        v_curr_func = ca.interpolant('v_curr', type, [grids_dict['y_grid'], grids_dict['x_grid']], v_data.ravel(order='F'))
 
     return u_curr_func, v_curr_func
 
