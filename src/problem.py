@@ -22,7 +22,7 @@ class Problem:
             Note that time is implemented as absolute time in POSIX.
         x_T:
             The target state, represented as (lon, lat).
-            # TODO: currently we do point-2-point navigation though ultimately we'd like
+            # TODO: currently we do point-2-point navigation though ultimately we'd like to do point to region
             this to be a set representation (point-2-region) because that is the more general formulation.
         t_0:
             A timezone aware datetime object of the absolute starting time of the platform at x_0
@@ -68,7 +68,8 @@ class Problem:
                                                   max(self.hindcast_fieldset.gridset.grids[0].lon)],
                                    }
         # create forecast dict list with ranges & filename
-        forecast_files_list = [forecast_folder + f for f in listdir(forecast_folder) if isfile(join(forecast_folder, f))]
+        forecast_files_list = [forecast_folder + f for f in listdir(forecast_folder) if
+                               (isfile(join(forecast_folder, f)) and f != '.DS_Store')]
         self.forecasts_dict = self.create_forecasts_dicts(forecast_files_list)
 
         if fixed_time is not None:
@@ -94,7 +95,7 @@ class Problem:
         self.x_T = x_T
         self.project_dir = project_dir
         self.forecast_delay_in_h = forecast_delay_in_h
-        self.most_recent_forecast_idx = self.check_current_files_provided()
+        # self.most_recent_forecast_idx = self.check_current_files_provided()
         self.dyn_dict = self.derive_platform_dynamics(config=config_yaml)
 
     def __repr__(self):
@@ -105,8 +106,16 @@ class Problem:
         """
         return "Problem(x_0: {0}, x_T: {1})".format(self.x_0, self.x_T)
 
-    def viz(self, time=None, gif=False):
-        """Visualizes the problem in a plot or a gif.
+    def viz(self, time=None, gif=False, cut_out_in_deg=None):
+        """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
+
+        Input Parameters:
+        - time: the time to visualize the ocean currents as a datetime.datetime object if
+                None, the visualization is at the initial time.
+        - gif:  if False only the plot at the specific time is shown, if True a gif with the currents over time
+                gets created
+        - cut_out_in_deg: if None, the full fieldset is visualized, otherwise provide a float e.g. 0.5 to plot only
+                a box of the x_0 and x_T including a 0.5 degrees outer buffer.
 
         Returns:
             None
@@ -148,7 +157,11 @@ class Problem:
         elif time is None:  # fixed time index
             pset.show(field='vector', show_time=self.fixed_time)
         else:
-            pset.show(field='vector', show_time=time)
+            rel_time = time.timestamp() - self.hindcast_grid_dict['gt_t_range'][0]
+            if rel_time < 0:
+                raise ValueError("requested time is before hindcaste file timerange")
+            # visualizing at the datetime object time
+            pset.show(field='vector', show_time=rel_time)
 
     def derive_platform_dynamics(self, config):
         """Derives battery capacity dynamics for the specific dt.

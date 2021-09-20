@@ -11,6 +11,7 @@ import matplotlib.dates as mdates
 import datetime
 import bisect
 
+
 class ClosedLoopSimulator:
     """
     This class takes in a simulator and control YAML file for configuration as well as a problem.
@@ -156,9 +157,12 @@ class ClosedLoopSimulator:
         if self.sim_settings['plan_on_gt']:
             self.high_level_planner.update_forecast_file(
                 self.problem.hindcast_file)
+            # put something in so that the rest of the code runs
+            current_forecast_dict_idx = 0
+        else:
+            current_forecast_dict_idx = self.problem.most_recent_forecast_idx
 
         # tracking variables
-        current_forecast_dict_idx = self.problem.most_recent_forecast_idx
         next_planner_update = 0.
         next_tracking_controller_update = 0.
 
@@ -322,7 +326,7 @@ class ClosedLoopSimulator:
                     )
                 if self.problem.fixed_time is None:
                     # calculate relative time since show_time is relative to start of fieldset
-                    rel_time = self.trajectory[3, i] - self.problem.hindcast_time_grid[0].timestamp()
+                    rel_time = self.trajectory[3, i] - self.problem.hindcast_grid_dict['gt_t_range'][0]
                     pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
                               field='vector', land=True, domain=domain,
                               vmax=1.0, show_time=rel_time)

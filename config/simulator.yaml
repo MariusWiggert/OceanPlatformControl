@@ -7,7 +7,7 @@ temporal_stride: 5        # default is 1, but can be any integer. This can be us
 plan_on_gt: 1             # if True no forecasts are used but the planner plans on the gt current data
 
 # nc4 file sub-setting configurations
-deg_around_x0_xT_box: 0.8  # degrees around the x_0, x_T box that are read in when simulating
+deg_around_x0_xT_box: .8  # degrees around the x_0, x_T box that are read in when simulating
 
 # setting for what counts as goal reached
 slack_around_goal: 0.05     # slack around the goal in degrees
