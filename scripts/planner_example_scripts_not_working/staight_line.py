@@ -1,13 +1,17 @@
+import sys
+
+sys.path.append(".")
 from src.planners.straight_line_planner import StraightLinePlanner
 from src.utils import hycom_utils
 import os
 from src.problem import Problem
-from src.simulation.simulator import Simulator
+from src.simulation.closed_loop_simulator import ClosedLoopSimulator
+#from src.simulation.simulator import Simulator
 
 project_dir = os.path.abspath(os.path.join(os.getcwd()))
 
 #%% Set stuff up
-nc_file = 'data/' + "gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
+nc_file = 'data/' + 'forecast_test/GOMu0.04_901m000_FMRC_RUN_2021-06-01T12_00_00Z.nc4' #"gulf_of_mexico_2020-11-17_fixed_cur_small.nc"
 # nc_file = 'data/' + "gulf_of_mexico_2020-11-01-10_5h.nc4"
 fieldset = hycom_utils.get_hycom_fieldset(nc_file)
 
@@ -21,7 +25,8 @@ prob.viz()
 #%% Step 2: initialize planner
 planner = StraightLinePlanner(problem=prob)
 #%% Step 3: init the simulator
-sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
+#sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
+sim = ClosedLoopSimulator("simulator.yaml", "controller.yaml", prob, project_dir)
 #%% Step 4: run the simulator
 sim.run(T_in_h=24)
 #%% Step 5: plot it

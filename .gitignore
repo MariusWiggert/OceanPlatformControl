@@ -5,3 +5,4 @@ __pycache__*
 *.gif
 optimized_dp/
 viz/
+data/
