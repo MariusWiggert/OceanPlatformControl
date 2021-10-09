@@ -1,7 +1,6 @@
 import numpy as np
-
-from src.utils import hycom_utils
-
+from src.utils import plotting_utils
+import bisect
 
 class Planner:
     """ All Planners should inherit this class
@@ -32,6 +31,9 @@ class Planner:
         self.cur_forecast_file = None
         self.new_forecast_file = True
 
+        # initialize vectors for open_loop control
+        self.times, self.x_traj, self.contr_seq = None, None, None
+
         self.gen_settings = gen_settings
         self.specific_settings = specific_settings
 
@@ -44,6 +46,28 @@ class Planner:
             The trajectory up to now which can be used by the planner to infer information e.g. by fitting a GP
         """
         raise NotImplementedError()
+
+    def get_u_from_vectors(self, state, ctrl_vec='xy'):
+        """ Indexing into the planned open_loop control sequence using the time from state.
+        Input Params:
+        - state         1D vector with [lat, lon, battery_level, time]
+        - ctrl_vec      string of 'xy' if the entries in the control vector are u_x and u_y
+                        and 'dir' if the entries are [u, angle]
+        """
+        # an easy way of finding for each time, which index of control signal to apply
+        idx = bisect.bisect_right(self.times, state[3]) - 1
+        if idx == len(self.times) - 1:
+            idx = idx - 1
+            print("WARNING: continuing using last control although not planned as such")
+
+        # extract right element from ctrl vector
+        u_out = np.array([[self.contr_seq[0, idx]], [self.contr_seq[1, idx]]])
+        if ctrl_vec == 'xy':
+            # transform to thrust & angle
+            u_out = self.transform_u_dir_to_u(u_dir=u_out)
+        elif ctrl_vec != 'dir':
+            raise ValueError('ctrl_vec must be either xy or dir')
+        return u_out
 
     def update_forecast_file(self, new_forecast_file):
         """ Makes sure the forecast fieldset is defined and updates it if a new one is given.
@@ -82,6 +106,13 @@ class Planner:
             An array containing the waypoints for the tracking controller.
         """
         raise NotImplementedError()
+
+    def plot_2D_traj(self):
+        plotting_utils.plot_2D_traj(self.x_traj)
+
+    def plot_ctrl_seq(self):
+        plotting_utils.plot_opt_ctrl(self.times[:-1], self.contr_seq)
+
 
     @staticmethod
     def transform_u_dir_to_u(u_dir):
