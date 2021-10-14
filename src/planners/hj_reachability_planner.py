@@ -112,7 +112,7 @@ class HJReach2DPlanner(Planner):
         # backtrack the reachable front to extract trajectory etc.
         if extract_traj:
             _, self.x_traj, self.contr_seq, self.distr_seq = self.Plat_fwd.backtrack_trajectory(
-                self.grid, x_reach_end, self.reach_times, self.all_values, solver_settings)
+                self.grid, x_reach_end, self.reach_times, self.all_values)
 
     def run_backward(self, x_t, T_start_in_h, stop_at_x_t=False):
         """ Run backwards reachability starting from x_T at T_start_in_h. """
@@ -141,7 +141,7 @@ class HJReach2DPlanner(Planner):
 
         # backtrack the reachable front to extract trajectory etc.
         _, self.x_traj, self.contr_seq, self.distr_seq = self.Plat_back.backtrack_trajectory(
-            self.grid, x_t[:2].flatten(), self.reach_times, self.all_values, solver_settings)
+            self.grid, x_t[:2].flatten(), self.reach_times, self.all_values)
 
         # arrange everything forward in time for easier access
         if self.specific_settings['direction'] == 'backward':
@@ -191,28 +191,9 @@ class HJReach2DPlanner(Planner):
         if self.specific_settings['direction'] == 'forward':
             u_out = super().get_u_from_vectors(state, ctrl_vec='dir')
         else:
-            u_out = self.get_opt_ctrl_from_values(state)
-        return u_out
-
-    def get_opt_ctrl_from_values(self, state):
-        # TODO: this should be in the dynamics baseclass for multiple methods to access.
-        # Step 0: interpolate the value function for the specific time along the time axis (0)
-        # Note: this can probably be done more efficiently e.g. by initializing the function once?
-        val_at_t = interp1d(self.times, self.all_values, axis=0, kind='linear')(state[3]).squeeze()
-
-        # Step 1: get center approximation of gradient at current point x
-        left_grad_values, right_grad_values = self.grid.upwind_grad_values(
-            hj.finite_differences.upwind_first.WENO3, values=val_at_t)
-
-        grad_at_x_cur = self.grid.interpolate(values=0.5 * (left_grad_values + right_grad_values),
-                                              state=state[:2].flatten())
-
-        # Step 2: get u_opt and d_opt
-        u_opt, _ = self.Plat_back.optimal_control_and_disturbance(
-            state=state[:2].flatten(), time=state[3], grad_value=grad_at_x_cur)
-
-        # Step 3: return
-        return np.asarray(u_opt.reshape(-1, 1))
+            u_out, _ = self.Plat_back.get_opt_ctrl_from_values(self.grid, state[:2], state[3],
+                                                               self.times, self.all_values)
+        return np.asarray(u_out.reshape(-1, 1))
 
     def plot_reachability(self):
         """ Plot the reachable set the planner was computing last. """
