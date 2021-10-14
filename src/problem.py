@@ -68,8 +68,8 @@ class Problem:
                                                   max(self.hindcast_fieldset.gridset.grids[0].lon)],
                                    }
         # create forecast dict list with ranges & filename
-        forecast_files_list = [forecast_folder + f for f in listdir(forecast_folder) if
-                               (isfile(join(forecast_folder, f)) and f != '.DS_Store')]
+        forecast_files_list = [forecast_folder + '/' + f for f in listdir(forecast_folder) if
+                               (isfile(join(forecast_folder,'/'+ f)) and f != '.DS_Store')]
         self.forecasts_dict = self.create_forecasts_dicts(forecast_files_list)
 
         if fixed_time is not None:
@@ -93,9 +93,6 @@ class Problem:
                     break
 
 
-
-
-
         if len(x_0) == 2:  # add 100% charge
             x_0 = x_0 + [1.]
         elif len(x_0) != 3:
@@ -104,7 +101,7 @@ class Problem:
         # add POSIX timestamp of t_0
         x_0 = x_0 + [t_0.timestamp()]
         self.x_0 = x_0
-        self.x_T = x_T
+        self.x_T = x_T + timedelta(days=10)
         self.x_t_tol = x_t_tol
         self.project_dir = project_dir
         self.forecast_delay_in_h = forecast_delay_in_h
