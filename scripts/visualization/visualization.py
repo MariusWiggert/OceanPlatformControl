@@ -20,7 +20,7 @@ class Visualization:
         self.x_0 = x_0
         self.x_T = x_T
 
-    def visualize(self):
+    def visualize(self, time_idx=0):
         f = plt.figure()
 
         f.set_figwidth(20)
@@ -37,7 +37,6 @@ class Visualization:
 
         X, Y = np.meshgrid(self.grids_dict.get("x_grid"), y_grid, indexing='xy')
 
-        time_idx = 0
         start = datetime.utcfromtimestamp(self.grids_dict['t_grid'][time_idx]).strftime('%Y-%m-%d %H:%M:%S UTC')
         plt.title(start)
         ax.set_xlabel('Longitude', fontsize=12)
