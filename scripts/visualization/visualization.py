@@ -5,6 +5,9 @@ import cartopy.feature as cfeature
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 from datetime import datetime
+import os
+import shutil
+import imageio
 
 class Visualization:
     """
@@ -12,15 +15,17 @@ class Visualization:
     grid_dicts, u_data, v_data = matrices obtained by get_current_data_subset method.
     x_0 = [initial longitude, initial latitude, ...]
     x_T = [destination longitude, destination latitude]
+    nc_file_path = current only function serves as the name of the gif to be generated
     """
-    def __init__(self, grids_dict, u_data, v_data, x_0=None, x_T=None):
+    def __init__(self, grids_dict, u_data, v_data, x_0=None, x_T=None, nc_file_path='Figure'):
         self.grids_dict = grids_dict
         self.u_data = u_data
         self.v_data = v_data
         self.x_0 = x_0
         self.x_T = x_T
+        self.plot_name = nc_file_path
 
-    def visualize(self, time_idx=0):
+    def visualize(self, time_idx=0, animate=False):
         f = plt.figure()
 
         f.set_figwidth(20)
@@ -38,7 +43,7 @@ class Visualization:
         X, Y = np.meshgrid(self.grids_dict.get("x_grid"), y_grid, indexing='xy')
 
         start = datetime.utcfromtimestamp(self.grids_dict['t_grid'][time_idx]).strftime('%Y-%m-%d %H:%M:%S UTC')
-        plt.title(start)
+        ax.set_title(start)
         ax.set_xlabel('Longitude', fontsize=12)
         ax.set_ylabel('Latitude', fontsize=12)
         magnitude = (u_data[time_idx, ...] ** 2 + v_data[time_idx, ...] ** 2) ** 0.5
@@ -60,5 +65,35 @@ class Visualization:
         if self.x_0 is not None and self.x_T is not None:
             plt.scatter([self.x_0[0], self.x_T[0]], [self.x_0[1], self.x_T[1]])
 
-        plt.show()
+        if animate:
+            time_str = str(time_idx)
+            if len(time_str) == 2:
+                time_str = '0' + time_str
+                print(time_str)
+            elif len(time_str) == 1:
+                time_str = '00' + time_str
+                print(time_str)
+            plt.savefig('temp_photos/' + time_str + '.png')
+            plt.close()
+        else:
+            plt.show()
 
+    def animate(self):
+        if not os.path.isdir('gifs'):
+            os.mkdir('gifs')
+        if os.path.isdir('temp_photos'):
+            shutil.rmtree('temp_photos')
+        os.mkdir('temp_photos')
+        for i in range(len(self.u_data)):
+            self.visualize(time_idx=i, animate=True)
+        png_dir = 'temp_photos'
+        images = []
+        for file_name in sorted(os.listdir(png_dir)):
+            if file_name.endswith('.png'):
+                try:
+                    file_path = os.path.join(png_dir, file_name)
+                    images.append(imageio.imread(file_path))
+                except (IOError, SyntaxError) as e:
+                    print('Bad file:', file_name)
+        imageio.mimsave('gifs/' + self.plot_name + '.gif', images)
+        shutil.rmtree('temp_photos')
