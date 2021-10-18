@@ -69,10 +69,8 @@ class Visualization:
             time_str = str(time_idx)
             if len(time_str) == 2:
                 time_str = '0' + time_str
-                print(time_str)
             elif len(time_str) == 1:
                 time_str = '00' + time_str
-                print(time_str)
             plt.savefig('temp_photos/' + time_str + '.png')
             plt.close()
         else:
