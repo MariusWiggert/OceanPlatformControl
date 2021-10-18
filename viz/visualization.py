@@ -18,7 +18,7 @@ class Visualization:
     nc_file_path = current only function serves as the name of the gif to be generated
     size = size to be passed into the figure size
     """
-    def __init__(self, grids_dict, u_data, v_data, x_0=None, x_T=None, nc_file_path='Figure', size=10):
+    def __init__(self, grids_dict, u_data, v_data, x_0=None, x_T=None, nc_file_path='Figure', size=12):
         self.grids_dict = grids_dict
         self.u_data = u_data
         self.v_data = v_data
