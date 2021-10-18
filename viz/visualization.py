@@ -16,20 +16,22 @@ class Visualization:
     x_0 = [initial longitude, initial latitude, ...]
     x_T = [destination longitude, destination latitude]
     nc_file_path = current only function serves as the name of the gif to be generated
+    size = size to be passed into the figure size
     """
-    def __init__(self, grids_dict, u_data, v_data, x_0=None, x_T=None, nc_file_path='Figure'):
+    def __init__(self, grids_dict, u_data, v_data, x_0=None, x_T=None, nc_file_path='Figure', size=10):
         self.grids_dict = grids_dict
         self.u_data = u_data
         self.v_data = v_data
         self.x_0 = x_0
         self.x_T = x_T
         self.plot_name = nc_file_path
+        self.size = size
 
     def visualize(self, time_idx=0, animate=False):
         f = plt.figure()
 
-        f.set_figwidth(20)
-        f.set_figheight(20)
+        f.set_figwidth(size)
+        f.set_figheight(size)
 
         pc = ccrs.PlateCarree()
         ax = plt.axes(projection=pc)
