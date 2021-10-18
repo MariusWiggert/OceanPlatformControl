@@ -2,8 +2,8 @@ import math
 import pickle
 import random
 
-from src.problem import Problem, WaypointTrackingProblem
-from src.utils.in_bounds_utils import InBounds
+from ocean_platform_package.src.problem import Problem, WaypointTrackingProblem
+from ocean_platform_package.src.utils.in_bounds_utils import InBounds
 
 
 class ProblemSet:

@@ -1,15 +1,15 @@
 import yaml
 import parcels as p
 import glob, imageio, os
-from src.utils import simulation_utils, hycom_utils
+from ocean_platform_package.src.utils import simulation_utils, hycom_utils
 import casadi as ca
 import numpy as np
-import src.planners as planners
-import src.tracking_controllers as tracking_controllers
+import ocean_platform_package.src.planners as planners
+import ocean_platform_package.src.tracking_controllers as tracking_controllers
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import datetime
-from src.utils import plotting_utils
+from ocean_platform_package.src.utils import plotting_utils
 import bisect
 
 

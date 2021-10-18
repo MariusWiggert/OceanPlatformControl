@@ -1,4 +1,4 @@
-from src.evaluation.evaluate_planner import EvaluatePlanner
+from ocean_platform_package.src.evaluation.evaluate_planner import EvaluatePlanner
 
 
 class EvaluateHighLevelPlanner(EvaluatePlanner):

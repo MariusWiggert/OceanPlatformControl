@@ -1,6 +1,6 @@
 import pickle
 
-from src.evaluation.metrics import EvaluationMetric
+from ocean_platform_package.src.evaluation.metrics import EvaluationMetric
 
 
 class DataVisualization:

@@ -1,5 +1,5 @@
 import numpy as np
-from src.utils import plotting_utils
+from ocean_platform_package.src.utils import plotting_utils
 import bisect
 
 

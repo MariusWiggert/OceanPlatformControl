@@ -1,5 +1,5 @@
-from src.problem_set import ProblemSet
-from src.simulation.simulator import Simulator
+from ocean_platform_package.src.problem_set import ProblemSet
+from ocean_platform_package.src.simulation.simulator import Simulator
 
 
 class EvaluatePlanner:

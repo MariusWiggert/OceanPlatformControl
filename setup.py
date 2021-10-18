@@ -16,5 +16,6 @@ setuptools.setup(
     project_urls = {}, 
     license = 'MIT',
     packages = ['ocean_platform_package'],
+    # Included core requirements: https://packaging.python.org/discussions/install-requires-vs-requirements/
     install_requires=['jupyterlab', 'numpy', 'tqdm', 'pandas', 'seaborn', 'plotly', 'matplotlib', 'casadi', 'ffmpeg', 'imageio'],
 )

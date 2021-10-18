@@ -1,8 +1,8 @@
 import pickle
 
-from src.problem import WaypointTrackingProblem
-from src.evaluation.evaluate_high_level_planner import EvaluatePlanner
-from src.evaluation.evaluation_data import EvaluationData
+from ocean_platform_package.src.problem import WaypointTrackingProblem
+from ocean_platform_package.src.evaluation.evaluate_high_level_planner import EvaluatePlanner
+from ocean_platform_package.src.evaluation.evaluation_data import EvaluationData
 
 
 class EvaluateWaypointController(EvaluatePlanner):
