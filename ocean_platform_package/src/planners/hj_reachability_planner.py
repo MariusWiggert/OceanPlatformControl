@@ -1,7 +1,7 @@
-from src.planners.planner import Planner
+from ocean_platform_package.src.planners.planner import Planner
 import casadi as ca
 import numpy as np
-from src.utils import plotting_utils, simulation_utils, hycom_utils
+from ocean_platform_package.src.utils import plotting_utils, simulation_utils, hycom_utils
 from scipy.interpolate import interp1d
 import bisect
 import sys

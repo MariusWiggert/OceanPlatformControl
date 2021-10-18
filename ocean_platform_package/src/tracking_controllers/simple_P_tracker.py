@@ -1,4 +1,4 @@
-from src.tracking_controllers.waypoint_track_contr import WaypointTrackingController
+from ocean_platform_package.src.tracking_controllers.waypoint_track_contr import WaypointTrackingController
 import numpy as np
 import math, bisect
 

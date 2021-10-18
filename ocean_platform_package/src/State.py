@@ -1,5 +1,5 @@
-from src.planners.planner import Planner
-from src.utils import simulation_utils
+from ocean_platform_package.src.planners.planner import Planner
+from ocean_platform_package.src.utils import simulation_utils
 import math
 import casadi as ca
 import numpy as np

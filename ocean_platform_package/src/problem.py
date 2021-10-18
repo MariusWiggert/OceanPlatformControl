@@ -5,7 +5,7 @@ import parcels as p
 import math
 import numpy as np
 import glob, os, imageio
-from src.utils import hycom_utils
+from ocean_platform_package.src.utils import hycom_utils
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timedelta

@@ -1,10 +1,10 @@
 import bisect
 
-from src.State import State
-from src.planners.planner import Planner
-from src.problem_set import ProblemSet
-from src.tracking_controllers.minimum_thrust_controller import MinimumThrustController
-from src.utils import simulation_utils
+from ocean_platform_package.src.State import State
+from ocean_platform_package.src.planners.planner import Planner
+from ocean_platform_package.src.problem_set import ProblemSet
+from ocean_platform_package.src.tracking_controllers.minimum_thrust_controller import MinimumThrustController
+from ocean_platform_package.src.utils import simulation_utils
 import heapq
 import math
 import casadi as ca
@@ -16,7 +16,7 @@ from parcels.plotting import plotparticles
 
 import pdb
 
-from src.utils.in_bounds_utils import InBounds
+from ocean_platform_package.src.utils.in_bounds_utils import InBounds
 
 
 class AStarPlanner(Planner):

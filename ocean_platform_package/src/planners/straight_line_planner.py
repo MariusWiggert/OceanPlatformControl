@@ -1,4 +1,4 @@
-from src.planners.planner import Planner
+from ocean_platform_package.src.planners.planner import Planner
 import math
 import numpy as np
 
