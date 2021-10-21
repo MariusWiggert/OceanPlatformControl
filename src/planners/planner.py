@@ -2,6 +2,7 @@ import numpy as np
 from src.utils import plotting_utils
 import bisect
 
+
 class Planner:
     """ All Planners should inherit this class
 
@@ -22,8 +23,8 @@ class Planner:
     def __init__(self, problem, gen_settings, specific_settings):
 
         # extract relevant aspects from the problem
-        self.x_0 = problem.x_0
-        self.x_T = problem.x_T
+        self.x_0 = np.array(problem.x_0)
+        self.x_T = np.array(problem.x_T)
         self.dyn_dict = problem.dyn_dict
         self.fixed_time = problem.fixed_time
 
