@@ -83,6 +83,18 @@ class Problem:
             print("GT Resolution of {} h".format(math.ceil(self.hindcast_fieldset.gridset.grids[0].time[1] / 3600)))
             print("Forecast files from {} to {}".format(datetime.utcfromtimestamp(
                 self.forecasts_dict[0]['t_range'][0]), datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
+            # get most recent forecast_idx for t_0
+            for i, dic in enumerate(self.forecasts_dict):
+                # Note: this assumes the dict is ordered according to time-values
+                # which is true for now, but more complicated once we're in the C3 platform this should be done
+                # in a better way
+                if dic['t_range'][0] > t_0.timestamp() + forecast_delay_in_h*3600:
+                    self.most_recent_forecast_idx = i - 1
+                    break
+
+
+
+
 
         if len(x_0) == 2:  # add 100% charge
             x_0 = x_0 + [1.]
@@ -93,6 +105,7 @@ class Problem:
         x_0 = x_0 + [t_0.timestamp()]
         self.x_0 = x_0
         self.x_T = x_T
+        self.x_t_tol = x_t_tol
         self.project_dir = project_dir
         self.forecast_delay_in_h = forecast_delay_in_h
         # self.most_recent_forecast_idx = self.check_current_files_provided()

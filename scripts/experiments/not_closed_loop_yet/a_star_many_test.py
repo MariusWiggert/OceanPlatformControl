@@ -22,7 +22,7 @@ for prob in problem_set.problems[:]:
     planner.show_planned_trajectory()
     sim = Simulator(planner, problem=prob, project_dir=project_dir, sim_config='simulator.yaml')
     sim.run()
-    sim.plot_trajectory(name='classes_test', plotting_type='2D')
+    sim.plot_trajectory(gif_name='classes_test', plotting_type='2D')
 
 # %% Step 3: init the simulator and evaluator
 

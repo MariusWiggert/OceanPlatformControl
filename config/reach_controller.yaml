@@ -1,0 +1,21 @@
+planner:
+    gen_settings:
+      'conv_m_to_deg': 111120.
+      'int_pol_type': 'linear'
+      'temporal_stride': 1
+    name: "HJReach2DPlanner"
+    specific_settings:
+      'direction': 'forward-backward'
+      'fwd_back_buffer_in_h': 1 # this is the time added to the earliest_to_reach as buffer for forward-backward
+      'T_goal_in_h': 60
+      'initial_set_radii': [0.03, 0.03]
+      'n_time_vector': 60 # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+      'grid_res': !!python/tuple [100, 100]
+      'deg_around_xt_xT_box': 0.8
+      'accuracy': 'high'
+      'artificial_dissipation_scheme': 'local_local'
+    dt_replanning: 864000000.     # right now very high as only tested open-loop control once
+
+waypoint_tracking:
+    name: "None" #"simple_P_tracker"
+    dt_replanning: 8064.0

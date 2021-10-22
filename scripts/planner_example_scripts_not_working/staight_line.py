@@ -32,4 +32,4 @@ sim.run(T_in_h=24)
 #%% Step 5: plot it
 # sim.plot_trajectory(name='straight_line', plotting_type='2D')
 # sim.plot_trajectory(name='straight_line', plotting_type='battery')
-sim.plot_trajectory(name='straight_line_gif', plotting_type='gif')
+sim.plot_trajectory(gif_name='straight_line_gif', plotting_type='gif')

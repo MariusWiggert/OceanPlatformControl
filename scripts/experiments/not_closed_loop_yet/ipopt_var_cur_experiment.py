@@ -33,9 +33,9 @@ sim = Simulator(ipopt_planner, problem=prob, project_dir=project_dir, sim_config
 sim.run(T_in_h=T_planner_in_h)
 #%%
 # Step 5: plot it
-sim.plot_trajectory(name='ipopt_var_cur', plotting_type='battery')
-sim.plot_trajectory(name='ipopt_var_cur', plotting_type='2D')
-sim.plot_trajectory(name='ipopt_var_cur', plotting_type='gif')
+sim.plot_trajectory(gif_name='ipopt_var_cur', plotting_type='battery')
+sim.plot_trajectory(gif_name='ipopt_var_cur', plotting_type='2D')
+sim.plot_trajectory(gif_name='ipopt_var_cur', plotting_type='gif')
 
 #%% Compare with actuation vs. without Actuation
 opt_traj = sim.trajectory

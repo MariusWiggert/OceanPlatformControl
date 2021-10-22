@@ -9,6 +9,7 @@ import src.tracking_controllers as tracking_controllers
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import datetime
+from src.utils import plotting_utils
 import bisect
 
 
@@ -161,6 +162,8 @@ class ClosedLoopSimulator:
             current_forecast_dict_idx = 0
         else:
             current_forecast_dict_idx = self.problem.most_recent_forecast_idx
+            self.high_level_planner.update_forecast_file(
+                self.problem.forecasts_dict[current_forecast_dict_idx]['file'])
 
         # tracking variables
         next_planner_update = 0.
@@ -274,21 +277,17 @@ class ClosedLoopSimulator:
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
                self.sim_settings['slack_around_goal']
 
-    def plot_trajectory(self, name, plotting_type='2D'):
+    def plot_trajectory(self, gif_name='recent_sim_gif', plotting_type='2D'):
         """ Captures the whole trajectory - energy, position, etc over time
         Accesses the trajectory and fieldset from the problem.
         """
-
         if plotting_type == '2D':
-            plt.figure(1)
-            plt.plot(self.trajectory[0, :], self.trajectory[1, :], '--')
-            plt.plot(self.trajectory[0, 0], self.trajectory[1, 0], '--', marker='x', color='red')
-            plt.plot(self.trajectory[0, -1], self.trajectory[1, -1], '--', marker='x', color='green')
-            plt.title('Simulated Trajectory of Platform')
-            plt.xlabel('lon in deg')
-            plt.ylabel('lat in deg')
-            plt.show()
+            plotting_utils.plot_2D_traj(self.trajectory[:2, :], title="Simulator Trajectory")
             return
+
+        if plotting_type == 'ctrl':
+            plotting_utils.plot_opt_ctrl(self.trajectory[3, :-1], self.control_traj,
+                                         title="Simulator Control Trajectory")
 
         elif plotting_type == 'battery':
             fig, ax = plt.subplots(1, 1)
@@ -341,11 +340,11 @@ class ClosedLoopSimulator:
             file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
             file_list.sort()
 
-            gif_file = self.project_dir + '/viz/gifs/' + name + '.gif'
+            gif_file = self.project_dir + '/viz/gifs/' + gif_name + '.gif'
             with imageio.get_writer(gif_file, mode='I') as writer:
                 for filename in file_list:
                     image = imageio.imread(filename)
                     writer.append_data(image)
                     os.remove(filename)
-            print("saved gif as " + name)
+            print("saved gif as " + gif_name)
             return

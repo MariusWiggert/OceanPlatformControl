@@ -3,3 +3,4 @@ from .ipopt_planner import IpoptPlanner
 from .ipopt_planner import IpoptPlannerVarCur
 from .astar_planner import AStarPlanner
 from .passive_float_planner import PassiveFloating
+from .hj_reachability_planner import HJReach2DPlanner
