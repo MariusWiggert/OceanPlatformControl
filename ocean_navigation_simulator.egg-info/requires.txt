@@ -1,0 +1,12 @@
+jupyterlab
+numpy
+tqdm
+pandas
+seaborn
+plotly
+matplotlib
+casadi
+ffmpeg
+imageio
+netCDF4
+datetime
