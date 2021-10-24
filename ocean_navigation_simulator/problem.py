@@ -1,11 +1,9 @@
 import bisect
 
 import yaml
-import parcels as p
 import math
 import numpy as np
 import glob, os, imageio
-from ocean_platform_package.src.utils import hycom_utils
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timedelta
@@ -46,7 +44,6 @@ class Problem:
         project dir:
             Only needed if the data is stored outside the repo
     """
-
     def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, forecast_delay_in_h=0.,
                  noise=None, x_t_tol=0.1, config_yaml='platform.yaml',
                  fixed_time=None, project_dir=None):
@@ -56,16 +53,12 @@ class Problem:
 
         # load the respective fieldsets
         self.hindcast_file = hindcast_file  # because the simulator loads only subsetting of it
-        self.hindcast_fieldset = hycom_utils.get_hycom_fieldset(hindcast_file)  # this loads in all for plotting
 
-        # get the gt_field_grid
-        hindcast_posix_times = self.hindcast_fieldset.gridset.grids[0].timeslices[0].astype(datetime) / (10 ** 9)
+        time_len, time_range, x_range, y_range = self.extract_grid_dict_from_nc(hindcast_file)
 
-        self.hindcast_grid_dict = {"gt_t_range": [hindcast_posix_times[0], hindcast_posix_times[-1]],
-                                   "gt_y_range": [min(self.hindcast_fieldset.gridset.grids[0].lat),
-                                                  max(self.hindcast_fieldset.gridset.grids[0].lat)],
-                                   "gt_x_range": [min(self.hindcast_fieldset.gridset.grids[0].lon),
-                                                  max(self.hindcast_fieldset.gridset.grids[0].lon)],
+        self.hindcast_grid_dict = {"gt_t_range": time_range,
+                                   "gt_y_range": y_range,
+                                   "gt_x_range": x_range,
                                    }
         # create forecast dict list with ranges & filename
         forecast_files_list = [forecast_folder + f for f in listdir(forecast_folder) if
@@ -78,9 +71,12 @@ class Problem:
             raise NotImplementedError()
         else:  # variable time
             self.fixed_time = None
-            print("GT fieldset from  {} to {}".format(self.hindcast_fieldset.time_origin,
-                                                      self.hindcast_fieldset.gridset.grids[0].timeslices[0][-1]))
-            print("GT Resolution of {} h".format(math.ceil(self.hindcast_fieldset.gridset.grids[0].time[1] / 3600)))
+            print("GT fieldset from  {} to {}".format(datetime.utcfromtimestamp(
+                self.hindcast_grid_dict['gt_t_range'][0]),
+                datetime.utcfromtimestamp(self.hindcast_grid_dict['gt_t_range'][1])))
+            print("GT Resolution of {} h".format(
+                math.ceil((self.hindcast_grid_dict['gt_t_range'][1]-self.hindcast_grid_dict['gt_t_range'][0])
+                          / (time_len*3600))))
             print("Forecast files from {} to {}".format(datetime.utcfromtimestamp(
                 self.forecasts_dict[0]['t_range'][0]), datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
             # get most recent forecast_idx for t_0
@@ -91,10 +87,6 @@ class Problem:
                 if dic['t_range'][0] > t_0.timestamp() + forecast_delay_in_h*3600:
                     self.most_recent_forecast_idx = i - 1
                     break
-
-
-
-
 
         if len(x_0) == 2:  # add 100% charge
             x_0 = x_0 + [1.]
@@ -119,62 +111,63 @@ class Problem:
         """
         return "Problem(x_0: {0}, x_T: {1})".format(self.x_0, self.x_T)
 
-    def viz(self, time=None, gif=False, cut_out_in_deg=None):
-        """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
-
-        Input Parameters:
-        - time: the time to visualize the ocean currents as a datetime.datetime object if
-                None, the visualization is at the initial time.
-        - gif:  if False only the plot at the specific time is shown, if True a gif with the currents over time
-                gets created
-        - cut_out_in_deg: if None, the full fieldset is visualized, otherwise provide a float e.g. 0.5 to plot only
-                a box of the x_0 and x_T including a 0.5 degrees outer buffer.
-
-        Returns:
-            None
-        """
-        print("Note only the GT file is currently visualized")
-        pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
-                                       pclass=p.ScipyParticle,  # the type of particles (JITParticle or ScipyParticle)
-                                       lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
-                                       lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
-                                       )
-
-        if self.fixed_time is None and time is None and gif:
-            # Step 1: create the images
-            pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
-                                           pclass=p.ScipyParticle,
-                                           # the type of particles (JITParticle or ScipyParticle)
-                                           lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
-                                           lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
-                                           )
-            for i, time in enumerate(self.hindcast_fieldset.gridset.grids[0].time_full):
-                # under the assumption that x is a Position
-                pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-                          field='vector', land=True,
-                          vmax=1.0, show_time=time)
-
-            # Step 2: compile to gif
-            file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
-            file_list.sort()
-
-            gif_file = self.project_dir + '/viz/gifs/' + "var_prob_viz" + '.gif'
-            with imageio.get_writer(gif_file, mode='I') as writer:
-                for filename in file_list:
-                    image = imageio.imread(filename)
-                    writer.append_data(image)
-                    os.remove(filename)
-            print("saved gif as " + "var_prob_viz")
-        elif self.fixed_time is None and time is None and not gif:
-            pset.show(field='vector', show_time=0)
-        elif time is None:  # fixed time index
-            pset.show(field='vector', show_time=self.fixed_time)
-        else:
-            rel_time = time.timestamp() - self.hindcast_grid_dict['gt_t_range'][0]
-            if rel_time < 0:
-                raise ValueError("requested time is before hindcaste file timerange")
-            # visualizing at the datetime object time
-            pset.show(field='vector', show_time=rel_time)
+    # NOTE: we're kicking out parcels, hence this needs to be replaced.
+    # def viz(self, time=None, gif=False, cut_out_in_deg=None):
+    #     """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
+    #
+    #     Input Parameters:
+    #     - time: the time to visualize the ocean currents as a datetime.datetime object if
+    #             None, the visualization is at the initial time.
+    #     - gif:  if False only the plot at the specific time is shown, if True a gif with the currents over time
+    #             gets created
+    #     - cut_out_in_deg: if None, the full fieldset is visualized, otherwise provide a float e.g. 0.5 to plot only
+    #             a box of the x_0 and x_T including a 0.5 degrees outer buffer.
+    #
+    #     Returns:
+    #         None
+    #     """
+    #     print("Note only the GT file is currently visualized")
+    #     pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
+    #                                    pclass=p.ScipyParticle,  # the type of particles (JITParticle or ScipyParticle)
+    #                                    lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
+    #                                    lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
+    #                                    )
+    #
+    #     if self.fixed_time is None and time is None and gif:
+    #         # Step 1: create the images
+    #         pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
+    #                                        pclass=p.ScipyParticle,
+    #                                        # the type of particles (JITParticle or ScipyParticle)
+    #                                        lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
+    #                                        lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
+    #                                        )
+    #         for i, time in enumerate(self.hindcast_fieldset.gridset.grids[0].time_full):
+    #             # under the assumption that x is a Position
+    #             pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
+    #                       field='vector', land=True,
+    #                       vmax=1.0, show_time=time)
+    #
+    #         # Step 2: compile to gif
+    #         file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
+    #         file_list.sort()
+    #
+    #         gif_file = self.project_dir + '/viz/gifs/' + "var_prob_viz" + '.gif'
+    #         with imageio.get_writer(gif_file, mode='I') as writer:
+    #             for filename in file_list:
+    #                 image = imageio.imread(filename)
+    #                 writer.append_data(image)
+    #                 os.remove(filename)
+    #         print("saved gif as " + "var_prob_viz")
+    #     elif self.fixed_time is None and time is None and not gif:
+    #         pset.show(field='vector', show_time=0)
+    #     elif time is None:  # fixed time index
+    #         pset.show(field='vector', show_time=self.fixed_time)
+    #     else:
+    #         rel_time = time.timestamp() - self.hindcast_grid_dict['gt_t_range'][0]
+    #         if rel_time < 0:
+    #             raise ValueError("requested time is before hindcaste file timerange")
+    #         # visualizing at the datetime object time
+    #         pset.show(field='vector', show_time=rel_time)
 
     def derive_platform_dynamics(self, config):
         """Derives battery capacity dynamics for the specific dt.
@@ -188,7 +181,7 @@ class Problem:
         """
 
         # load in YAML
-        with open(self.project_dir + '/config/' + config) as f:
+        with open(self.project_dir + '/configs/' + config) as f:
             config_data = yaml.load(f, Loader=yaml.FullLoader)
             platform_specs = config_data['platform_config']
 
@@ -237,28 +230,38 @@ class Problem:
             raise ValueError("lat of x_0 is not in most recent forecast lon range.")
         return idx
 
+    def extract_grid_dict_from_nc(self, file):
+        """ Extracts the time, lat, and lon, dict from an nc_file."""
+        f = netCDF4.Dataset(file)
+        # get the time coverage in POSIX
+        try:
+            time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
+                                            '%Y-%m-%d %H:%M:%S %z')
+        except:
+            time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
+                                            'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
+
+        start_time_posix = (time_origin + timedelta(hours=f.variables['time'][0].data.tolist())).timestamp()
+        end_time_posix = (time_origin + timedelta(hours=f.variables['time'][-1].data.tolist())).timestamp()
+        # get the lat and lon intervals
+        time_range = [start_time_posix, end_time_posix]
+        y_range = [min(f.variables['lat'][:]), max(f.variables['lat'][:])]
+        x_range = [min(f.variables['lon'][:]), max(f.variables['lon'][:])]
+        time_vec_len = len(f.variables['time'][:].data)
+        return time_vec_len, time_range, x_range, y_range
+
     def create_forecasts_dicts(self, forecast_files_list):
         """ Takes in a list of files and returns a list of tuples with:
         (start_time_posix, end_time_posix, grids, file) sorted according to start_time_posix
         """
         forecast_dicts = []
         for file in forecast_files_list:
-            f = netCDF4.Dataset(file)
-            # get the time coverage in POSIX
-            time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
-                                            'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
-            start_time_posix = (time_origin + timedelta(hours=f.variables['time'][0].data.tolist())).timestamp()
-            end_time_posix = (time_origin + timedelta(hours=f.variables['time'][-1].data.tolist())).timestamp()
-            # get the lat and lon intervals
-            time_range = [start_time_posix, end_time_posix]
-            y_range = [min(f.variables['lat'][:]), max(f.variables['lat'][:])]
-            x_range = [min(f.variables['lon'][:]), max(f.variables['lon'][:])]
+            _, time_range, x_range, y_range = self.extract_grid_dict_from_nc(file)
             forecast_dicts.append({'t_range': time_range, 'x_range': x_range, 'y_range': y_range, 'file':file})
         # sort the tuples list
         forecast_dicts.sort(key=lambda dict: dict['t_range'][0])
 
         return forecast_dicts
-
 
 
 class WaypointTrackingProblem(Problem):

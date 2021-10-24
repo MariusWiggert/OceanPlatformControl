@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.utils.state import State
+from ocean_navigation_simulator.utils.a_star_state import AStarState
 from ocean_navigation_simulator.steering_controllers import WaypointTrackingController
 import numpy as np
 import math, bisect
@@ -96,11 +96,11 @@ class MinimumThrustController(WaypointTrackingController):
         lon, lat, bat_level, time_to_state = state[0][0], state[1][0], state[2], state[3]
 
         # set the state class variables
-        State.set_fieldset(self.problem)
-        State.problem = self.problem
+        AStarState.set_fieldset(self.problem)
+        AStarState.problem = self.problem
 
         # ACTUATE IN THAT DIRECTION USING MIN THRUST FUNCTION
-        cur_state = State(lon=lon, lat=lat, bat_level=bat_level)
+        cur_state = AStarState(lon=lon, lat=lat, bat_level=bat_level)
 
         prospective_waypoints = []
 

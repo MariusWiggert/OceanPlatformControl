@@ -1,6 +1,6 @@
 import bisect
 
-from ocean_navigation_simulator.utils.state import State
+from ocean_navigation_simulator.utils.a_star_state import AStarState
 from ocean_navigation_simulator.planners.planner import Planner
 from ocean_navigation_simulator.utils.in_bounds_utils import InBounds
 import heapq
@@ -9,8 +9,6 @@ import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 import time as t
-
-
 
 
 class AStarPlanner(Planner):
@@ -71,20 +69,20 @@ class AStarPlanner(Planner):
         target_lon, target_lat = self.problem.x_T[0], self.problem.x_T[1]
 
         # set the state class variables
-        State.set_dlon_dlat(self.grid_granularity, lon, lat, target_lon, target_lat)
-        State.set_fieldset(self.problem)
-        State.time_to = time_to
-        State.problem = self.problem
-        State.heuristic = lambda s: self.heuristic(s, target_lon, target_lat)
-        State.in_bounds = InBounds(self.problem.fieldset)
+        AStarState.set_dlon_dlat(self.grid_granularity, lon, lat, target_lon, target_lat)
+        AStarState.set_fieldset(self.problem)
+        AStarState.time_to = time_to
+        AStarState.problem = self.problem
+        AStarState.heuristic = lambda s: self.heuristic(s, target_lon, target_lat)
+        AStarState.in_bounds = InBounds(self.problem.fieldset)
         # State.heuristic = lambda s: 0
 
-        starting_state = State(lon=lon, lat=lat, bat_level=1.0)
+        starting_state = AStarState(lon=lon, lat=lat, bat_level=1.0)
         pq.append(starting_state)
         time_to[starting_state] = 0
         edge_to[starting_state] = starting_state
         state = starting_state
-        end_state = State(lon=target_lon, lat=target_lat, bat_level=None)
+        end_state = AStarState(lon=target_lon, lat=target_lat, bat_level=None)
 
         # run Dijkstra's
         max_time = 120

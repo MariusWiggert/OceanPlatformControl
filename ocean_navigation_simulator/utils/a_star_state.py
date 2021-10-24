@@ -1,11 +1,11 @@
-from ocean_navigation_simulator.planners import Planner
+# from ocean_navigation_simulator.planners import Planner
 from ocean_navigation_simulator.utils import simulation_utils
 import math
 import casadi as ca
 import numpy as np
 
 
-class State:
+class AStarState:
     """A State in A* and minimumThrustController
 
     Attributes:
@@ -40,14 +40,14 @@ class State:
         """ Returns a list of all valid points that are adjacent in the 8 directions """
         dlon, dlat = self.dlon, self.dlat
         assert dlon is not None and dlat is not None, "need to set dlon and dlat first"
-        for lon_offset, lat_offset in State.offsets:
+        for lon_offset, lat_offset in AStarState.offsets:
             point = (self.lon + lon_offset, self.lat + lat_offset)
-            if State.in_bounds.in_ocean(point):
+            if AStarState.in_bounds.in_ocean(point):
                 yield point
 
     @classmethod
     def fill_matrices(cls):
-        for dlon, dlat in State.offsets:
+        for dlon, dlat in AStarState.offsets:
             parallel_basis_vector = cls.normalize(np.array([dlon, dlat]))
             perp_basis_vector = cls.normalize(np.array([dlat, -dlon]))
             matrix = np.array([parallel_basis_vector, perp_basis_vector])
@@ -65,10 +65,10 @@ class State:
                 # check if it exceeds the available energy from the battery
                 bat_level = self.change_bat_level(thrust, time)
                 if bat_level >= 0.1:
-                    yield time, State(lon=lon, lat=lat, bat_level=bat_level, heading=heading, thrust=thrust)
+                    yield time, AStarState(lon=lon, lat=lat, bat_level=bat_level, heading=heading, thrust=thrust)
 
     def __lt__(self, other):
-        return self.time_to[self] + State.heuristic(self) < self.time_to[other] + State.heuristic(other)
+        return self.time_to[self] + AStarState.heuristic(self) < self.time_to[other] + AStarState.heuristic(other)
 
     def __hash__(self):
         return hash((self.lon, self.lat, self.bat_level))
@@ -121,8 +121,8 @@ class State:
             cls.dlat = lat_dist
 
         dlat, dlon = cls.dlat, cls.dlon
-        State.offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
-                   (-dlon, -dlat), (dlon, -dlat), (-dlon, dlat)]
+        AStarState.offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
+                              (-dlon, -dlat), (dlon, -dlat), (-dlon, dlat)]
 
     def actuate_towards(self, lon, lat, v_min=0.1, distance=None, print_output=False, use_middle=False, full_send=False,
                         cushion=0):
@@ -146,8 +146,8 @@ class State:
         dlat = lat - self.lat
         distance = math.sqrt(dlon * dlon + dlat * dlat)
 
-        if not State.matrices:
-            State.fill_matrices()
+        if not AStarState.matrices:
+            AStarState.fill_matrices()
 
         if use_middle:
             # Step 2: Find the current velocity vector (in middle of distance),
@@ -162,8 +162,8 @@ class State:
             u_curr = self.u_curr_func(ca.vertcat(self.lat, self.lon))
             v_curr = self.v_curr_func(ca.vertcat(self.lat, self.lon))
 
-        parallel_basis_vector = State.normalize(np.array([dlon, dlat]))
-        perp_basis_vector = State.normalize(np.array([dlat, -dlon]))
+        parallel_basis_vector = AStarState.normalize(np.array([dlon, dlat]))
+        perp_basis_vector = AStarState.normalize(np.array([dlat, -dlon]))
         matrix = np.array([parallel_basis_vector, perp_basis_vector])
 
         # TODO: check that using the matrix below actually works
@@ -206,7 +206,9 @@ class State:
             u_dir = np.matmul(u_vector, matrix)
 
             # Step 9: Find the thrust and heading
-            thrust_array = Planner.transform_u_dir_to_u(u_dir=u_dir)
+            raise ValueError("Not implemented due to circular import when installing with Pip..")
+            # thrust_array = Planner.transform_u_dir_to_u(u_dir=u_dir)
+            thrust_array = np.array([0,0])
             thrust, heading = thrust_array[0], thrust_array[1]
             yield thrust, heading, time
 

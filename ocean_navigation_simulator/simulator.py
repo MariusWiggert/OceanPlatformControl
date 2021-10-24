@@ -1,15 +1,13 @@
 import yaml
-import parcels as p
 import glob, imageio, os
-from ocean_platform_package.src.utils import simulation_utils, hycom_utils
 import casadi as ca
 import numpy as np
-import ocean_platform_package.src.planners as planners
-import ocean_platform_package.src.tracking_controllers as tracking_controllers
+import ocean_navigation_simulator.planners as planners
+import ocean_navigation_simulator.steering_controllers as steering_controllers
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import datetime
-from ocean_platform_package.src.utils import plotting_utils
+from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 import bisect
 
 
@@ -29,16 +27,16 @@ class OceanNavSimulator:
     def __init__(self, sim_config, control_config, problem, project_dir=None):
         # get project directory
         if project_dir is None:
-            self.project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+            self.project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         else:
             self.project_dir = project_dir
         # load simulator sim_settings YAML
-        with open(self.project_dir + '/config/' + sim_config) as f:
+        with open(self.project_dir + '/configs/' + sim_config) as f:
             sim_settings = yaml.load(f, Loader=yaml.FullLoader)
             sim_settings['project_dir'] = project_dir
 
         # load controller settings YAML
-        with open(self.project_dir + '/config/' + control_config) as f:
+        with open(self.project_dir + '/configs/' + control_config) as f:
             control_settings = yaml.load(f, Loader=yaml.FullLoader)
 
         # check if update frequencies make sense:
@@ -60,7 +58,7 @@ class OceanNavSimulator:
                                                 specific_settings=self.control_settings['planner']['specific_settings'])
         # Step 2: initialize the tracking controller
         if self.control_settings['waypoint_tracking']['name'] != 'None':
-            tracking_class = getattr(tracking_controllers, self.control_settings['waypoint_tracking']['name'])
+            tracking_class = getattr(steering_controllers, self.control_settings['waypoint_tracking']['name'])
             self.wypt_tracking_contr = tracking_class()
         else:  # do open-loop control using the get_action_function from the high-level planner
             self.wypt_tracking_contr = self.high_level_planner
@@ -307,44 +305,45 @@ class OceanNavSimulator:
             plt.show()
             return
 
-        elif plotting_type == 'gif':
-            # Note: maybe at some point we write our own plotting or take the parcels one for us.
-            # Step 0: create the domain dict
-            domain = {'N': self.grids_dict['y_grid'][-1],
-                      'S': self.grids_dict['y_grid'][0],
-                      'W': self.grids_dict['x_grid'][0],
-                      'E': self.grids_dict['x_grid'][-1]}
-            # Step 1: create the images
-            for i in range(self.trajectory.shape[1]):
-                # under the assumption that x is a Position
-                pset = p.ParticleSet.from_list(
-                        fieldset=self.problem.hindcast_fieldset,  # the fields on which the particles are advected
-                        pclass=p.ScipyParticle, # the type of particles (JITParticle or ScipyParticle)
-                        lon=[self.trajectory[0,i]],  # a vector of release longitudes
-                        lat=[self.trajectory[1,i]],  # a vector of release latitudes
-                    )
-                if self.problem.fixed_time is None:
-                    # calculate relative time since show_time is relative to start of fieldset
-                    rel_time = self.trajectory[3, i] - self.problem.hindcast_grid_dict['gt_t_range'][0]
-                    pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-                              field='vector', land=True, domain=domain,
-                              vmax=1.0, show_time=rel_time)
-                else:
-                    rel_time = self.problem.fixed_time.timestamp() - self.problem.hindcast_time_grid[0].timestamp()
-                    pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-                              field='vector', land=True, domain=domain,
-                              vmax=1.0,
-                              show_time=rel_time)
-
-            # Step 2: compile to gif
-            file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
-            file_list.sort()
-
-            gif_file = self.project_dir + '/viz/gifs/' + gif_name + '.gif'
-            with imageio.get_writer(gif_file, mode='I') as writer:
-                for filename in file_list:
-                    image = imageio.imread(filename)
-                    writer.append_data(image)
-                    os.remove(filename)
-            print("saved gif as " + gif_name)
-            return
+        # NOTE: this needs to be replaced, we kicked out parcels!
+        # elif plotting_type == 'gif':
+        #     # Note: maybe at some point we write our own plotting or take the parcels one for us.
+        #     # Step 0: create the domain dict
+        #     domain = {'N': self.grids_dict['y_grid'][-1],
+        #               'S': self.grids_dict['y_grid'][0],
+        #               'W': self.grids_dict['x_grid'][0],
+        #               'E': self.grids_dict['x_grid'][-1]}
+        #     # Step 1: create the images
+        #     for i in range(self.trajectory.shape[1]):
+        #         # under the assumption that x is a Position
+        #         pset = p.ParticleSet.from_list(
+        #                 fieldset=self.problem.hindcast_fieldset,  # the fields on which the particles are advected
+        #                 pclass=p.ScipyParticle, # the type of particles (JITParticle or ScipyParticle)
+        #                 lon=[self.trajectory[0,i]],  # a vector of release longitudes
+        #                 lat=[self.trajectory[1,i]],  # a vector of release latitudes
+        #             )
+        #         if self.problem.fixed_time is None:
+        #             # calculate relative time since show_time is relative to start of fieldset
+        #             rel_time = self.trajectory[3, i] - self.problem.hindcast_grid_dict['gt_t_range'][0]
+        #             pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
+        #                       field='vector', land=True, domain=domain,
+        #                       vmax=1.0, show_time=rel_time)
+        #         else:
+        #             rel_time = self.problem.fixed_time.timestamp() - self.problem.hindcast_time_grid[0].timestamp()
+        #             pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
+        #                       field='vector', land=True, domain=domain,
+        #                       vmax=1.0,
+        #                       show_time=rel_time)
+        #
+        #     # Step 2: compile to gif
+        #     file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
+        #     file_list.sort()
+        #
+        #     gif_file = self.project_dir + '/viz/gifs/' + gif_name + '.gif'
+        #     with imageio.get_writer(gif_file, mode='I') as writer:
+        #         for filename in file_list:
+        #             image = imageio.imread(filename)
+        #             writer.append_data(image)
+        #             os.remove(filename)
+        #     print("saved gif as " + gif_name)
+        #     return

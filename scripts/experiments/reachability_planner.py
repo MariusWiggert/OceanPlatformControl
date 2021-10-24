@@ -1,13 +1,12 @@
 import sys
-from src.problem import Problem
-from src.simulation.closed_loop_simulator import ClosedLoopSimulator
-from src.utils.simulation_utils import get_current_data_subset
+from ocean_navigation_simulator.problem import Problem
+from ocean_navigation_simulator import OceanNavSimulator
 from datetime import datetime, timezone
-from src.planners import HJReach2DPlanner
+from ocean_navigation_simulator.planners import HJReach2DPlanner
 import numpy as np
 from datetime import datetime, timezone
 # sys.path.extend(['/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/Reachability_Code/hj_reachability_c3'])
-# import hj_reachability as hj
+import hj_reachability as hj
 import time
 #%% Settings to feed into the planner
 # Create the Problem
@@ -36,7 +35,7 @@ prob = Problem(x_0, x_T, t_0, hindcast_file, forecast_folder, forecast_delay_in_
 # planner.plot_ctrl_seq()
 #%% test other functions
 #%% Set stuff up
-sim = ClosedLoopSimulator(sim_config="simulator.yaml", control_config='reach_controller.yaml', problem=prob)
+sim = OceanNavSimulator(sim_config="simulator.yaml", control_config='reach_controller.yaml', problem=prob)
 sim.run(T_in_h=70)
 #%%
 # Step 5: plot from Simulator

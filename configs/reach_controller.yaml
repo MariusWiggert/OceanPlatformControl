@@ -5,9 +5,9 @@ planner:
       'temporal_stride': 1
     name: "HJReach2DPlanner"
     specific_settings:
-      'direction': 'forward-backward'
+      'direction': 'forward'
       'fwd_back_buffer_in_h': 1 # this is the time added to the earliest_to_reach as buffer for forward-backward
-      'T_goal_in_h': 60
+      'T_goal_in_h': 65
       'initial_set_radii': [0.03, 0.03]
       'n_time_vector': 60 # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
       'grid_res': !!python/tuple [100, 100]
