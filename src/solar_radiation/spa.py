@@ -1320,3 +1320,34 @@ def calculate_deltat(year, month):
         else deltat
 
     return deltat
+
+
+def solar_rad(t, t0, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
+    """
+    t: current time as ca.MX
+    t0: first timestamp as unixtime
+
+    lat: latitude as ca.MX
+    lon: longitude as ca.MX
+
+    pressure: pressure in millibars (default: one atmosphere or 1013.25)
+    delta_t: not 100% sure but it's what is given by default
+
+
+    """
+
+    # this is always sea level since the system is always at sea :P
+    elev = 0
+
+    delta_t = 67.0
+    numthreads = 0
+    unixtime = t + t0
+    h = solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
+                         atmos_refract, numthreads, sst=False, esd=False)[3]
+
+    # we assume "middle-level" cloud cover
+    a_i = 0.34
+    b_i = 0.19
+
+    # based on the solar model as given
+    return (1368.0 * ca.sin(h)) * (a_i + b_i * ca.log(ca.sin(h)))
