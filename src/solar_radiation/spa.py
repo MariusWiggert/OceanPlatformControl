@@ -1322,10 +1322,10 @@ def calculate_deltat(year, month):
     return deltat
 
 
-def solar_rad(t, t0, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
+def solar_rad(t, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
     """
-    t: current time as ca.MX
-    t0: first timestamp as unixtime
+    t: current time as ca.MX (and unixtime)
+       as far as i can tell the system seems to already use unixtime so this is cool
 
     lat: latitude as ca.MX
     lon: longitude as ca.MX
@@ -1341,13 +1341,21 @@ def solar_rad(t, t0, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
 
     delta_t = 67.0
     numthreads = 0
-    unixtime = t + t0
-    h = solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
-                         atmos_refract, numthreads, sst=False, esd=False)[3]
+    unixtime = t
+    h = radians(solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
+                         atmos_refract, numthreads, sst=False, esd=False)[3])
 
     # we assume "middle-level" cloud cover
     a_i = 0.34
     b_i = 0.19
 
+    print("h", h)
+    #print("ca.sin", ca.sin(h))
+
     # based on the solar model as given
-    return (1368.0 * ca.sin(h)) * (a_i + b_i * ca.log(ca.sin(h)))
+    #TODO: logarithms don't cope well when the sun is below
+
+    # we need to bound the sine for cases where the solar elevation is nonexistent
+    bounded_sine = ca.fmax(ca.sin(h), 0.0001)
+
+    return ca.fmax((1368.0 * bounded_sine) * (a_i + b_i * ca.log(bounded_sine)), 0)
