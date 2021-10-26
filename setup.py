@@ -16,6 +16,7 @@ setuptools.setup(
     project_urls = {}, 
     license = 'MIT',
     packages = ['ocean_navigation_simulator'],
+    python_requires='>3.9.1',
     # Included core requirements: https://packaging.python.org/discussions/install-requires-vs-requirements/
     install_requires=['jupyterlab', 'numpy', 'tqdm', 'pandas', 'seaborn',
                       'plotly', 'matplotlib', 'casadi', 'ffmpeg', 'imageio', 'netCDF4', 'datetime'],
