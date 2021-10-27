@@ -275,15 +275,35 @@ class OceanNavSimulator:
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
                self.sim_settings['slack_around_goal']
 
-    def plot_trajectory(self, gif_name='recent_sim_gif', plotting_type='2D'):
-        """ Captures the whole trajectory - energy, position, etc over time
-        Accesses the trajectory and fieldset from the problem.
-        """
+    def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
+        """ Captures the whole trajectory - energy, position, etc over time"""
+        # process the time that is put in the for the 2D static plots
+        if time_for_currents is None:
+            time_for_currents = self.problem.x_0[3]
+        else:
+            time_for_currents = time_for_currents.timestamp()
+
         if plotting_type == '2D':
             plotting_utils.plot_2D_traj(self.trajectory[:2, :], title="Simulator Trajectory")
             return
 
-        if plotting_type == 'ctrl':
+        elif plotting_type == '2D_w_currents':
+            print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
+            plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
+                                                      time=time_for_currents,
+                                                      file=self.problem.hindcast_file)
+            return
+
+        elif plotting_type == '2D_w_currents_w_controls':
+            print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
+            plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
+                                                      time=time_for_currents,
+                                                      file=self.problem.hindcast_file,
+                                                      ctrl_seq=self.control_traj,
+                                                      u_max=self.problem.dyn_dict['u_max'])
+            return
+
+        elif plotting_type == 'ctrl':
             plotting_utils.plot_opt_ctrl(self.trajectory[3, :-1], self.control_traj,
                                          title="Simulator Control Trajectory")
 
@@ -305,45 +325,10 @@ class OceanNavSimulator:
             plt.show()
             return
 
-        # NOTE: this needs to be replaced, we kicked out parcels!
-        # elif plotting_type == 'gif':
-        #     # Note: maybe at some point we write our own plotting or take the parcels one for us.
-        #     # Step 0: create the domain dict
-        #     domain = {'N': self.grids_dict['y_grid'][-1],
-        #               'S': self.grids_dict['y_grid'][0],
-        #               'W': self.grids_dict['x_grid'][0],
-        #               'E': self.grids_dict['x_grid'][-1]}
-        #     # Step 1: create the images
-        #     for i in range(self.trajectory.shape[1]):
-        #         # under the assumption that x is a Position
-        #         pset = p.ParticleSet.from_list(
-        #                 fieldset=self.problem.hindcast_fieldset,  # the fields on which the particles are advected
-        #                 pclass=p.ScipyParticle, # the type of particles (JITParticle or ScipyParticle)
-        #                 lon=[self.trajectory[0,i]],  # a vector of release longitudes
-        #                 lat=[self.trajectory[1,i]],  # a vector of release latitudes
-        #             )
-        #         if self.problem.fixed_time is None:
-        #             # calculate relative time since show_time is relative to start of fieldset
-        #             rel_time = self.trajectory[3, i] - self.problem.hindcast_grid_dict['gt_t_range'][0]
-        #             pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-        #                       field='vector', land=True, domain=domain,
-        #                       vmax=1.0, show_time=rel_time)
-        #         else:
-        #             rel_time = self.problem.fixed_time.timestamp() - self.problem.hindcast_time_grid[0].timestamp()
-        #             pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-        #                       field='vector', land=True, domain=domain,
-        #                       vmax=1.0,
-        #                       show_time=rel_time)
-        #
-        #     # Step 2: compile to gif
-        #     file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
-        #     file_list.sort()
-        #
-        #     gif_file = self.project_dir + '/viz/gifs/' + gif_name + '.gif'
-        #     with imageio.get_writer(gif_file, mode='I') as writer:
-        #         for filename in file_list:
-        #             image = imageio.imread(filename)
-        #             writer.append_data(image)
-        #             os.remove(filename)
-        #     print("saved gif as " + gif_name)
-        #     return
+        elif plotting_type == 'video':
+            plotting_utils.plot_2D_traj_animation(
+                traj_full=self.trajectory,
+                control_traj=self.control_traj,
+                file=self.problem.hindcast_file,
+                u_max=self.problem.dyn_dict['u_max'],
+                html_render=html_render, filename=vid_file_name)

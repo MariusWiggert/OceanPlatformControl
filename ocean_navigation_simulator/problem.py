@@ -2,14 +2,14 @@ import bisect
 
 import yaml
 import math
-import numpy as np
 import glob, os, imageio
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timedelta
-from dateutil import tz
+import matplotlib.pyplot as plt
 import netCDF4
-
+import ocean_navigation_simulator.utils.plotting_utils as plot_utils
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset
 
 class Problem:
     """A path planning problem for a Planner to solve.
@@ -111,63 +111,52 @@ class Problem:
         """
         return "Problem(x_0: {0}, x_T: {1})".format(self.x_0, self.x_T)
 
-    # NOTE: we're kicking out parcels, hence this needs to be replaced.
-    # def viz(self, time=None, gif=False, cut_out_in_deg=None):
-    #     """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
-    #
-    #     Input Parameters:
-    #     - time: the time to visualize the ocean currents as a datetime.datetime object if
-    #             None, the visualization is at the initial time.
-    #     - gif:  if False only the plot at the specific time is shown, if True a gif with the currents over time
-    #             gets created
-    #     - cut_out_in_deg: if None, the full fieldset is visualized, otherwise provide a float e.g. 0.5 to plot only
-    #             a box of the x_0 and x_T including a 0.5 degrees outer buffer.
-    #
-    #     Returns:
-    #         None
-    #     """
-    #     print("Note only the GT file is currently visualized")
-    #     pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
-    #                                    pclass=p.ScipyParticle,  # the type of particles (JITParticle or ScipyParticle)
-    #                                    lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
-    #                                    lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
-    #                                    )
-    #
-    #     if self.fixed_time is None and time is None and gif:
-    #         # Step 1: create the images
-    #         pset = p.ParticleSet.from_list(fieldset=self.hindcast_fieldset,  # the fields on which the particles are advected
-    #                                        pclass=p.ScipyParticle,
-    #                                        # the type of particles (JITParticle or ScipyParticle)
-    #                                        lon=[self.x_0[0], self.x_T[0]],  # a vector of release longitudes
-    #                                        lat=[self.x_0[1], self.x_T[1]],  # a vector of release latitudes
-    #                                        )
-    #         for i, time in enumerate(self.hindcast_fieldset.gridset.grids[0].time_full):
-    #             # under the assumption that x is a Position
-    #             pset.show(savefile=self.project_dir + '/viz/pics_2_gif/particles' + str(i).zfill(2),
-    #                       field='vector', land=True,
-    #                       vmax=1.0, show_time=time)
-    #
-    #         # Step 2: compile to gif
-    #         file_list = glob.glob(self.project_dir + "/viz/pics_2_gif/*")
-    #         file_list.sort()
-    #
-    #         gif_file = self.project_dir + '/viz/gifs/' + "var_prob_viz" + '.gif'
-    #         with imageio.get_writer(gif_file, mode='I') as writer:
-    #             for filename in file_list:
-    #                 image = imageio.imread(filename)
-    #                 writer.append_data(image)
-    #                 os.remove(filename)
-    #         print("saved gif as " + "var_prob_viz")
-    #     elif self.fixed_time is None and time is None and not gif:
-    #         pset.show(field='vector', show_time=0)
-    #     elif time is None:  # fixed time index
-    #         pset.show(field='vector', show_time=self.fixed_time)
-    #     else:
-    #         rel_time = time.timestamp() - self.hindcast_grid_dict['gt_t_range'][0]
-    #         if rel_time < 0:
-    #             raise ValueError("requested time is before hindcaste file timerange")
-    #         # visualizing at the datetime object time
-    #         pset.show(field='vector', show_time=rel_time)
+    def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, html_render=None):
+        """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
+
+        Input Parameters:
+        - time: the time to visualize the ocean currents as a datetime.datetime object if
+                None, the visualization is at the t_0 time of the problem.
+        - video: if True a matplotlib animation is created if filename is not None then it's saved, otherwise displayed
+        - filename: a string for filepath and name with ending either '.gif' or '.mp4' under which it is saved
+        - cut_out_in_deg: if None, the full fieldset is visualized, otherwise provide a float e.g. 0.5 to plot only
+                a box of the x_0 and x_T including a 0.5 degrees outer buffer.
+
+        Returns:
+            None
+        """
+
+        # Step 0: get respective data subset from hindcast file
+        grids_dict, u_data, v_data = get_current_data_subset(self.hindcast_file, self.x_0, self.x_T,
+                                                             deg_around_x0_xT_box=cut_out_in_deg,
+                                                             fixed_time=self.fixed_time,
+                                                             temporal_stride=1,
+                                                             temp_horizon_in_h=None)
+
+        print("Note only the GT file is currently visualized")
+        # define helper functions to add on top of current visualization
+
+        def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
+            del time
+            ax.scatter(x_0[0], x_0[1], c='r', marker='o', s=200, label='start')
+            ax.scatter(x_T[0], x_T[1], c='g', marker='*', s=200, label='goal')
+            plt.legend(loc='upper right')
+
+        # if we want to visualize with video
+        if time is None and video :
+            # create animation with extra func
+            plot_utils.viz_current_animation(grids_dict['t_grid'], grids_dict, u_data, v_data,
+                                             interval=200, ax_adding_func=add_ax_func, html_render=html_render,
+                                             save_as_filename=filename)
+        # otherwise plot static image
+        else:
+            if time is None:
+                time = datetime.fromtimestamp(self.x_0[3])
+            # plot underlying currents at time
+            ax = plot_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data, autoscale=True, plot=False)
+            # add the start and goal position to the plot
+            add_ax_func(ax)
+            plt.show()
 
     def derive_platform_dynamics(self, config):
         """Derives battery capacity dynamics for the specific dt.

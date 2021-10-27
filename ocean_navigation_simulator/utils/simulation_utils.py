@@ -8,6 +8,8 @@ import bisect
 def get_current_data_subset(nc_file, x_0, x_T, deg_around_x0_xT_box, fixed_time=None,
                             temporal_stride=1, temp_horizon_in_h=None):
     """ Function to read a subset of the nc_file current data bounded by a box spanned by the x_0 and x_T points.
+    Note: if we want to also include time_subsampling and/or up-sampling we might look into using the function from:
+    https://oceanspy.readthedocs.io/en/latest/_modules/oceanspy/subsample.html#cutout
     Inputs:
         nc_file                 path to nc file
         x_0                     [lat, lon, charge, timestamp]

@@ -1,11 +1,12 @@
 from ocean_navigation_simulator.planners.planner import Planner
 import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
+import os
 from scipy.interpolate import interp1d
 import bisect
 import sys
-# TODO: do this in a cleaner way with hj_reachability as a submodule of the repo
-sys.path.extend(['/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/Reachability_Code/hj_reachability_c3'])
+# Note: if you develop on hj_reachability and this library simultaneously uncomment this line
+# sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
 
 

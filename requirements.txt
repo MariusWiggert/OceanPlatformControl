@@ -22,7 +22,6 @@ entrypoints==0.3
 ffmpeg==1.4
 flatbuffers==2.0
 fonttools==4.27.1
-hj-reachability @ git+https://github.com/MariusWiggert/hj_reachability_c3@d3a44c52e5c574d5b77aee9bdc2aa9975f4abb83
 idna==3.3
 imageio==2.9.0
 ipykernel==6.4.2
@@ -53,7 +52,6 @@ nest-asyncio==1.5.1
 netCDF4==1.5.7
 notebook==6.4.5
 numpy==1.21.3
-ocean-navigation-simulator==0.0.1
 opt-einsum==3.3.0
 packaging==21.0
 pandas==1.3.4

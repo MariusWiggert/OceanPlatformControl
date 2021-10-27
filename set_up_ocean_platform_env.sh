@@ -1,15 +1,17 @@
-#!/usr/bin/env bash
-
-conda init bash
-
+#!/usr/bin/env zsh
+conda init zsh
 # create a conda environment called ocean_platform
-conda create -n ocean_platform -c conda-forge python=3.6 parcels cartopy ffmpeg
+ conda create -n ocean_platform python=3.9
 
-# download & install the modified parcels version from Marius Github
 conda activate ocean_platform
-# conda remove --force parcels
-# pip install git+https://github.com/MariusWiggert/parcels.git@master
+conda install -c conda-forge cartopy ffmpeg
 
-# install other python requirements
-pip install -r ./setup/requirements.txt
+# install jax library for cpu or gpu
+pip install --upgrade "jax[cpu]"
+# pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_releases.html
+# install private hj_reachability library fork via token
+pip install --upgrade git+https://MariusWiggert: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@github.com/MariusWiggert/hj_reachability_c3.git
+
+# install other python requirements via pip
+pip install -r requirements.txt
 
