@@ -29,3 +29,5 @@ numthreads = 0
 #print(spa.solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
 #                         atmos_refract, numthreads, sst=False, esd=False)[3])
 print(spa.solar_rad(unixtime, lat, lon))
+
+# TODO: more tests of admissibility of this approach
