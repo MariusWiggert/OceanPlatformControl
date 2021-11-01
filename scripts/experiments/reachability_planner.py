@@ -1,4 +1,5 @@
 import sys
+sys.path.append('.')
 from ocean_navigation_simulator.problem import Problem
 from ocean_navigation_simulator import OceanNavSimulator
 from datetime import datetime, timezone
@@ -68,4 +69,4 @@ sim.plot_trajectory(plotting_type='video', vid_file_name='sim_anim.gif')
 sim.high_level_planner.plot_2D_traj()
 sim.high_level_planner.plot_ctrl_seq()
 #%% Plot 2D reachable set evolution
-sim.high_level_planner.plot_reachability()
+sim.high_level_planner.plot_reachability(render="html")
