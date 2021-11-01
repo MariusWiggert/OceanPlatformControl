@@ -9,6 +9,7 @@ import matplotlib.dates as mdates
 import datetime
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 import bisect
+from ocean_navigation_simulator.solar_radiation.spa import solar_rad
 
 
 class OceanNavSimulator:
@@ -97,6 +98,9 @@ class OceanNavSimulator:
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
             self.grids_dict, u_data, v_data, self.sim_settings['int_pol_type'], self.problem.fixed_time)
 
+        # Step 3.01
+        charge = self.problem.dyn_dict['charge'] * (self.problem.dyn_dict['solar_factor'] * solar_rad(x_sym[3], x_sym[1], x_sym[0])) 
+
         # Step 3: create the x_dot dynamics function
         if self.problem.fixed_time is None:  # time varying current
             x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
@@ -107,7 +111,7 @@ class OceanNavSimulator:
                                                      'u_max'] + v_curr_func(
                                                      ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) / self.sim_settings[
                                                      'conv_m_to_deg'],
-                                                 self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
+                                                 charge - self.problem.dyn_dict['energy'] *
                                                  (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
                                                  1)],
                                      ['x', 'u'], ['x_dot'])
@@ -119,7 +123,7 @@ class OceanNavSimulator:
                                                  (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
                                                      'u_max'] + v_curr_func(ca.vertcat(x_sym[1], x_sym[0]))) /
                                                  self.sim_settings['conv_m_to_deg'],
-                                                 self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
+                                                 charge - self.problem.dyn_dict['energy'] *
                                                  (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
                                                  1)],
                                      ['x', 'u'], ['x_dot'])
@@ -218,7 +222,10 @@ class OceanNavSimulator:
     def thrust_check(self, u_planner):
         """If the thrust would use more energy than available adjust accordingly."""
 
-        delta_charge = self.problem.dyn_dict['charge'] - \
+        charge = self.problem.dyn_dict['charge'] * (self.problem.dyn_dict['solar_factor'] * 
+                    solar_rad(self.cur_state[3], self.cur_state[1], self.cur_state[0]))
+
+        delta_charge = charge - \
                        self.problem.dyn_dict['energy']*(self.problem.dyn_dict['u_max'] * u_planner[0]) ** 3
 
         next_charge = self.cur_state[2] + delta_charge*self.sim_settings['dt']
@@ -226,7 +233,7 @@ class OceanNavSimulator:
         # if smaller than 0.: change the thrust accordingly
         if next_charge < 0.:
             energy_available = self.cur_state[2]
-            u_planner[0] = ((self.problem.dyn_dict['charge'] - energy_available/self.sim_settings['dt'])/\
+            u_planner[0] = ((charge - energy_available/self.sim_settings['dt'])/\
                     (self.problem.dyn_dict['energy']*self.problem.dyn_dict['u_max']**3))**(1./3)
             return u_planner
         else:

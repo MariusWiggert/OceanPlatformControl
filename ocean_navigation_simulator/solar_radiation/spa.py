@@ -1343,14 +1343,22 @@ def solar_rad(t, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
     numthreads = 0
     unixtime = t
     h = radians(solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
-                         atmos_refract, numthreads, sst=False, esd=False)[3])
+                         atmos_refract, numthreads, sst=False, esd=False)[2])
+    #e = topocentric_elevation_angle(e0, delta_e)
+    #theta = topocentric_zenith_angle(e)
+    #theta0 = topocentric_zenith_angle(e0)
+    #gamma = topocentric_astronomers_azimuth(H_prime, delta_prime, lat)
+    #phi = topocentric_azimuth_angle(gamma)
+    #return theta, theta0, e, e0, phi, None #eot
+    #           0,      1, 2,  3,   4, 0
 
     # we assume "middle-level" cloud cover
     a_i = 0.34
     b_i = 0.19
 
-    print("h", h)
+    #print("h", h)
     #print("ca.sin", ca.sin(h))
+
 
     # based on the solar model as given
     #TODO: logarithms don't cope well when the sun is below

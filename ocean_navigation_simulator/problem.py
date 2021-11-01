@@ -178,7 +178,12 @@ class Problem:
         cap_in_joule = platform_specs['battery_cap'] * 3600
         energy_coeff = (platform_specs['drag_factor'] * (1 / platform_specs['motor_efficiency'])) / cap_in_joule
         charge_factor = platform_specs['avg_solar_power'] / cap_in_joule
-        platform_dict = {'charge': charge_factor, 'energy': energy_coeff, 'u_max': platform_specs['u_max']}
+        platform_dict = {
+            'charge': charge_factor, 
+            'energy': energy_coeff, 
+            'u_max': platform_specs['u_max'], 
+            'solar_factor': platform_specs['solar_factor']
+        }
 
         return platform_dict
 

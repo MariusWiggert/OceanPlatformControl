@@ -5,3 +5,4 @@ platform_config:
     motor_efficiency: 1.    # how much of the energy used from the motor is force for the platform
     avg_solar_power: 10.   # in Watt NOTE: not yet accounting for day-night difference!
     drag_factor: 10.       # all except the v^3 of power needed to overcome drag: 0.5*rho*C_d*A
+    solar_factor: 0.0025   # 1 / W/m^2 efficiency conversion of solar power
