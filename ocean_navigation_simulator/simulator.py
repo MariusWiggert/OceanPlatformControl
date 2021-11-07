@@ -98,8 +98,8 @@ class OceanNavSimulator:
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
             self.grids_dict, u_data, v_data, self.sim_settings['int_pol_type'], self.problem.fixed_time)
 
-        # Step 3.01
-        charge = self.problem.dyn_dict['charge'] * (self.problem.dyn_dict['solar_factor'] * solar_rad(x_sym[3], x_sym[1], x_sym[0])) 
+        # Step 2.1: relative charging of the battery depends on unix time, lat, lon
+        charge = self.problem.dyn_dict['solar_factor'] * solar_rad(x_sym[3], x_sym[1], x_sym[0])
 
         # Step 3: create the x_dot dynamics function
         if self.problem.fixed_time is None:  # time varying current
@@ -222,8 +222,8 @@ class OceanNavSimulator:
     def thrust_check(self, u_planner):
         """If the thrust would use more energy than available adjust accordingly."""
 
-        charge = self.problem.dyn_dict['charge'] * (self.problem.dyn_dict['solar_factor'] * 
-                    solar_rad(self.cur_state[3], self.cur_state[1], self.cur_state[0]))
+        charge = self.problem.dyn_dict['solar_factor'] \
+                 * solar_rad(self.cur_state[3], self.cur_state[1], self.cur_state[0])
 
         delta_charge = charge - \
                        self.problem.dyn_dict['energy']*(self.problem.dyn_dict['u_max'] * u_planner[0]) ** 3

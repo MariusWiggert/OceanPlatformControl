@@ -177,12 +177,13 @@ class Problem:
         # derive calculation
         cap_in_joule = platform_specs['battery_cap'] * 3600
         energy_coeff = (platform_specs['drag_factor'] * (1 / platform_specs['motor_efficiency'])) / cap_in_joule
-        charge_factor = platform_specs['avg_solar_power'] / cap_in_joule
+        charge_factor =  (platform_specs['solar_panel_size'] * platform_specs['solar_efficiency']) / cap_in_joule
         platform_dict = {
-            'charge': charge_factor, 
-            'energy': energy_coeff, 
-            'u_max': platform_specs['u_max'], 
-            'solar_factor': platform_specs['solar_factor']
+            # multiplied by Irridance (lat, lon, time) this is the relative battery charge per second
+            'solar_factor': charge_factor,
+            # multiplied by u^3 this is the relative battery discharge per second
+            'energy': energy_coeff,
+            'u_max': platform_specs['u_max']
         }
 
         return platform_dict

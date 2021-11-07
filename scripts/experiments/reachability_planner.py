@@ -48,7 +48,7 @@ sim = OceanNavSimulator(sim_config="simulator.yaml", control_config='reach_contr
 sim.run(T_in_h=70)
 #%% Step 5: plot from Simulator
 # # plot Battery levels over time
-# sim.plot_trajectory(plotting_type='battery')
+sim.plot_trajectory(plotting_type='battery')
 # # plot 2D Trajectory without background currents
 # sim.plot_trajectory(plotting_type='2D')
 # # plot control over time
@@ -56,7 +56,7 @@ sim.run(T_in_h=70)
 # # plot 2D Trajectory with currents at t_0
 # sim.plot_trajectory(plotting_type='2D_w_currents')
 # # plot 2D Trajectory with currents at t_0 and control_vec for each point
-sim.plot_trajectory(plotting_type='2D_w_currents_w_controls')
+# sim.plot_trajectory(plotting_type='2D_w_currents_w_controls')
 #%% plot simulator animation
 # TODO: can add also battery level to the animation =)
 # # render in Jupyter
