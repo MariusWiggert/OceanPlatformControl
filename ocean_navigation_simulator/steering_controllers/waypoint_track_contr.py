@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import parcels as p
 
 
 class WaypointTrackingController:
@@ -84,31 +83,31 @@ class WaypointTrackingController:
         """
         x_labels = list(map(lambda x: x[0], self.states_traveled))
         y_labels = list(map(lambda x: x[1], self.states_traveled))
-        if with_currents:
-            pset = p.ParticleSet.from_list(fieldset=self.problem.fieldset,
-                                           # the fields on which the particles are advected
-                                           pclass=p.ScipyParticle,
-                                           # the type of particles (JITParticle or ScipyParticle)
-                                           lon=x_labels,  # a vector of release longitudes
-                                           lat=y_labels,  # a vector of release latitudes
-                                           )
-
-            pset.show(field='vector', show_time=self.problem.fixed_time_index)
-        else:
-            fig, ax = plt.subplots()
-            x_labels = list(map(lambda x: x[0], self.waypoints))
-            y_labels = list(map(lambda x: x[1], self.waypoints))
-            ax.scatter(x_labels, y_labels, c='coral', label="Planned Waypoints")
-            x_labels = list(map(lambda x: x[0], self.states_traveled))
-            y_labels = list(map(lambda x: x[1], self.states_traveled))
-            ax.scatter(x_labels, y_labels, c='lightblue', label="Actual Waypoints")
-            plt.annotate('x_0', (x_labels[0], y_labels[0]))
-            plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
-            for x1, x2 in zip(self.states_traveled, self.actuating_towards):
-                plt.arrow(x=x1[0], y=x1[1], dx=x2[0] - x1[0], dy=x2[1] - x1[1], width=.0006)
-            ax.legend()
-            ax.grid(True)
-            plt.show()
+        # if with_currents:
+        #     pset = p.ParticleSet.from_list(fieldset=self.problem.fieldset,
+        #                                    # the fields on which the particles are advected
+        #                                    pclass=p.ScipyParticle,
+        #                                    # the type of particles (JITParticle or ScipyParticle)
+        #                                    lon=x_labels,  # a vector of release longitudes
+        #                                    lat=y_labels,  # a vector of release latitudes
+        #                                    )
+        #
+        #     pset.show(field='vector', show_time=self.problem.fixed_time_index)
+        # else:
+        #     fig, ax = plt.subplots()
+        #     x_labels = list(map(lambda x: x[0], self.waypoints))
+        #     y_labels = list(map(lambda x: x[1], self.waypoints))
+        #     ax.scatter(x_labels, y_labels, c='coral', label="Planned Waypoints")
+        #     x_labels = list(map(lambda x: x[0], self.states_traveled))
+        #     y_labels = list(map(lambda x: x[1], self.states_traveled))
+        #     ax.scatter(x_labels, y_labels, c='lightblue', label="Actual Waypoints")
+        #     plt.annotate('x_0', (x_labels[0], y_labels[0]))
+        #     plt.annotate('x_T', (x_labels[-1], y_labels[-1]))
+        #     for x1, x2 in zip(self.states_traveled, self.actuating_towards):
+        #         plt.arrow(x=x1[0], y=x1[1], dx=x2[0] - x1[0], dy=x2[1] - x1[1], width=.0006)
+        #     ax.legend()
+        #     ax.grid(True)
+        #     plt.show()
 
     @staticmethod
     def transform_u_dir_to_u(u_dir):
