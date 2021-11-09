@@ -6,19 +6,23 @@ from ocean_navigation_simulator.planners import HJReach2DPlanner
 import numpy as np
 from datetime import datetime, timezone
 import os
-# sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
-# sys.path.extend(['/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/Reachability_Code/hj_reachability_c3'])
 import hj_reachability as hj
 import time
+
 #%% Settings to feed into the planner
-# Create the Problem
+# Set the platform configurations
+platform_config_dict = {'battery_cap': 20.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
+                        'avg_solar_power': 10.0, 'drag_factor': 10.0}
+
+# Create the navigation problem
 t_0 = datetime(2021, 6, 1, 12, 10, 10, tzinfo=timezone.utc)
 x_0 = [-88.0, 25.0, 1]  # lon, lat, battery
 x_T = [-88.2, 26.3]
 hindcast_file = "data/hindcast_test/" + "2021_06_1-05_hourly.nc4"
 forecast_folder = "data/forecast_test/"
 forecast_delay_in_h = 0.
-prob = Problem(x_0, x_T, t_0, hindcast_file, forecast_folder, forecast_delay_in_h=forecast_delay_in_h)
+prob = Problem(x_0, x_T, t_0, hindcast_file, forecast_folder, forecast_delay_in_h=forecast_delay_in_h,
+               platform_config_dict=platform_config_dict)
 # # append to x_0 the posix time for the subsetting of the data
 # x_0.append(t_0.timestamp())
 #
@@ -43,7 +47,7 @@ prob.viz() # plots the current at t_0 with the start and goal position
 # planner.plot_ctrl_seq()
 #%% test other functions
 #%% Set stuff up
-sim = OceanNavSimulator(sim_config="simulator.yaml", control_config='reach_controller.yaml', problem=prob)
+sim = OceanNavSimulator(sim_config_dict="simulator.yaml", control_config_dict='reach_controller.yaml', problem=prob)
 sim.run(T_in_h=70)
 #%% Step 5: plot from Simulator
 # # plot Battery levels over time

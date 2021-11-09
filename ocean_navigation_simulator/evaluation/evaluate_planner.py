@@ -57,7 +57,7 @@ class EvaluatePlanner:
         Returns:
             Currently returns (success, time, list of battery_levels), but this will most likely be added to over time.
         """
-        sim = OceanNavSimulator(wypt_contr=wypt_contr, planner=planner, problem=problem, project_dir=self.project_dir, sim_config=sim_config)
+        sim = OceanNavSimulator(wypt_contr=wypt_contr, planner=planner, problem=problem, project_dir=self.project_dir, sim_config_dict=sim_config)
         try:
             success = sim.run()
         except:

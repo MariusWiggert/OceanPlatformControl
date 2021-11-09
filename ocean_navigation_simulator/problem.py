@@ -11,6 +11,7 @@ import netCDF4
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
 from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset
 
+
 class Problem:
     """A path planning problem for a Planner to solve.
 
@@ -37,19 +38,16 @@ class Problem:
         x_t_tol:
             Radius around x_T that when reached counts as "target reached"
             # Note: not used currently as the sim config has that value too.
-        config_yaml:
-            A YAML file for the platform configurations.
+        platform_config_dict:
+            A dict specifying the platform parameters, see the repos 'configs/platform.yaml' as example.
+            If None: assumes python is run locally inside the OceanPlatformControl repo
+                     where the data is stored under '/data' and the config under '/configs/platform.yaml'
+                     => this is meant for local testing of functions only.
         fixed_time:
             datetime object of the fixed time for the hindcast_file as GT
-        project dir:
-            Only needed if the data is stored outside the repo
     """
     def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, forecast_delay_in_h=0.,
-                 noise=None, x_t_tol=0.1, config_yaml='platform.yaml',
-                 fixed_time=None, project_dir=None):
-
-        if project_dir is None:
-            project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+                 noise=None, x_t_tol=0.1, platform_config_dict=None, fixed_time=None):
 
         # load the respective fieldsets
         self.hindcast_file = hindcast_file  # because the simulator loads only subsetting of it
@@ -98,10 +96,17 @@ class Problem:
         self.x_0 = x_0
         self.x_T = x_T
         self.x_t_tol = x_t_tol
-        self.project_dir = project_dir
         self.forecast_delay_in_h = forecast_delay_in_h
         # self.most_recent_forecast_idx = self.check_current_files_provided()
-        self.dyn_dict = self.derive_platform_dynamics(config=config_yaml)
+
+        # Step 4: derive relative batter dynamics variables from config_dict
+        if platform_config_dict is None:
+            project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            # load in YAML
+            with open(project_dir + '/configs/platform.yaml') as f:
+                config_data = yaml.load(f, Loader=yaml.FullLoader)
+                platform_config_dict = config_data['platform_config']
+        self.dyn_dict = self.derive_platform_dynamics(platform_config_dict)
 
     def __repr__(self):
         """Returns the string representation of a Problem, to be used for debugging.
@@ -158,21 +163,13 @@ class Problem:
             add_ax_func(ax)
             plt.show()
 
-    def derive_platform_dynamics(self, config):
-        """Derives battery capacity dynamics for the specific dt.
-
-        Args:
-            config:
-                See config_yaml in class docstring
-
+    def derive_platform_dynamics(self, platform_specs):
+        """Derives the relative battery capacity dynamics (from 0-1) based on absolute physical values.
+        Input:
+            platform_specs      a dictionary containing the required platform specs.
         Returns:
             A dictionary of settings for the Problem, i.e. {'charge': __, 'energy': __, 'u_max': __}
         """
-
-        # load in YAML
-        with open(self.project_dir + '/configs/' + config) as f:
-            config_data = yaml.load(f, Loader=yaml.FullLoader)
-            platform_specs = config_data['platform_config']
 
         # derive calculation
         cap_in_joule = platform_specs['battery_cap'] * 3600
@@ -253,28 +250,28 @@ class Problem:
         return forecast_dicts
 
 
-class WaypointTrackingProblem(Problem):
-    #TODO: not fit to new closed loop controller yet
-    """ Only difference is the added waypoints to the problem """
-
-    def __init__(self, real_fieldset, forecasted_fieldset, x_0, x_T, project_dir, waypoints,
-                 config_yaml='platform.yaml',
-                 fixed_time=None):
-        super().__init__(real_fieldset=real_fieldset,
-                         forecasted_fieldset=forecasted_fieldset,
-                         x_0=x_0,
-                         x_T=x_T,
-                         project_dir=project_dir,
-                         config_yaml=config_yaml,
-                         fixed_time=fixed_time)
-        self.waypoints = waypoints
-
-    @classmethod
-    def convert_problem(cls, problem, waypoints):
-        """ Given a problem, construct the corresponding WaypointTrackingProblem, with the same waypoints """
-        return WaypointTrackingProblem(real_fieldset=problem.real_fieldset,
-                                       forecasted_fieldset=problem.forecasted_fieldset,
-                                       x_0=problem.x_0,
-                                       x_T=problem.x_T,
-                                       project_dir=problem.project_dir,
-                                       waypoints=waypoints)
+# class WaypointTrackingProblem(Problem):
+#     #TODO: not fit to new closed loop controller yet
+#     """ Only difference is the added waypoints to the problem """
+#
+#     def __init__(self, real_fieldset, forecasted_fieldset, x_0, x_T, project_dir, waypoints,
+#                  config_yaml='platform.yaml',
+#                  fixed_time=None):
+#         super().__init__(real_fieldset=real_fieldset,
+#                          forecasted_fieldset=forecasted_fieldset,
+#                          x_0=x_0,
+#                          x_T=x_T,
+#                          project_dir=project_dir,
+#                          config_yaml=config_yaml,
+#                          fixed_time=fixed_time)
+#         self.waypoints = waypoints
+#
+#     @classmethod
+#     def convert_problem(cls, problem, waypoints):
+#         """ Given a problem, construct the corresponding WaypointTrackingProblem, with the same waypoints """
+#         return WaypointTrackingProblem(real_fieldset=problem.real_fieldset,
+#                                        forecasted_fieldset=problem.forecasted_fieldset,
+#                                        x_0=problem.x_0,
+#                                        x_T=problem.x_T,
+#                                        project_dir=problem.project_dir,
+#                                        waypoints=waypoints)
