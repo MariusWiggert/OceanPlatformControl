@@ -1,6 +1,6 @@
 # Make sub-folders visible to the module
-# from ocean_navigation_simulator import steering_controllers
-# from ocean_navigation_simulator import planners
+from ocean_navigation_simulator import steering_controllers
+from ocean_navigation_simulator import planners
 # from ocean_navigation_simulator import utils
 # from ocean_navigation_simulator import evaluation
 
