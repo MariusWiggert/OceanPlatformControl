@@ -2,7 +2,6 @@ from ocean_navigation_simulator.utils.a_star_state import AStarState
 from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import WaypointTrackingController
 import numpy as np
 import math, bisect
-import matplotlib.pyplot as plt
 
 
 class MinimumThrustController(WaypointTrackingController):

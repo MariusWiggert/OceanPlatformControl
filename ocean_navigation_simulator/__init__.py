@@ -9,6 +9,6 @@ from ocean_navigation_simulator.simulator import OceanNavSimulator
 from ocean_navigation_simulator.problem import Problem, WaypointTrackingProblem
 
 # specify version (for pip installation)
-__version__ = "0.3.0"
+__version__ = "0.0.1"
 __all__ = ("OceanNavSimulator", "Problem", "WaypointTrackingProblem",
            "steering_controllers", "utils", "planners", "evaluation")
