@@ -1,9 +1,11 @@
-from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import WaypointTrackingController
+# from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import WaypointTrackingController
 import numpy as np
 import math, bisect
+from ocean_navigation_simulator import steering_controllers
 
 
-class simple_P_tracker(WaypointTrackingController):
+
+class simple_P_tracker(steering_controllers.WaypointTrackingController):
     """ Simple proportional controller:
         Outside a radius r from the waypoint: actuate full power
         Inside the radius actuate: linearly decreasing actuation
