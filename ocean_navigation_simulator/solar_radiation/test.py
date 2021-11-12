@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import datetime
 
 import ocean_navigation_simulator.solar_radiation.spa as spa
+from ocean_navigation_simulator.solar_radiation.solar_rad import solar_rad
 
 x = ca.MX.sym('x', 2, 2)
 A = np.array([[2, 0], [1, 2]])
@@ -38,7 +39,7 @@ numthreads = 0
 # we
 t0 = datetime.datetime(2021, 7, 20)
 xt = [t0 + datetime.timedelta(hours=i) for i in range(0, 24)]
-yt = [spa.solar_rad(dtime.timestamp(), lat, lon) for dtime in xt]
+yt = [solar_rad(dtime.timestamp(), lat, lon) for dtime in xt]
 
 plt.figure()
 plt.title(f"Sunlight over a {t0} at berkeley")
@@ -60,7 +61,7 @@ import pytz
 t0 = datetime.datetime(2021, 6, 21, tzinfo=pytz.timezone('UTC'))
 # t0 = datetime.datetime(2021, 6, 27, tzinfo=pytz.timezone('America/Merida'))
 xt = [t0 + datetime.timedelta(hours=i) for i in range(0, 24)]
-yt = [spa.solar_rad(dtime.timestamp(), lat, lon) for dtime in xt]
+yt = [solar_rad(dtime.timestamp(), lat, lon) for dtime in xt]
 
 plt.figure()
 plt.title(f"Sunlight over a {t0} at berkeley")

@@ -1,8 +1,8 @@
 """
-Calculate the solar position using the NREL SPA algorithm using
-numpy arrays and casadi
+Module used to calculate the solar position using the NREL SPA algorithm using numpy.
 
-From: pvlib-python (bsd 3-clause)
+This code is adapted from the package pvlib-python (bsd 3-clause)
+and has been adapted to only use NumPy and also be casadi compatible.
 """
 
 # Contributors:
@@ -13,9 +13,9 @@ import threading
 import warnings
 
 import numpy as np
-#import np_hard as np
 import casadi as ca
 
+# These functions are necessary to "casadize" the algorithm.
 def rad2deg(x):
     return x / np.pi * 180.0
 
@@ -916,6 +916,15 @@ def solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
     """Calculate the solar position assuming unixtime is a numpy array. Note
     this function will not work if the solar position functions were
     compiled with numba.
+
+    Returns: a tuple of the following values: (theta, theta0, e, e0, phi, None) in degrees.
+
+    theta: topocentric zenith angle,
+    theta0: topcentric zenith angle derived without atmosphere correction
+    e: topocentric elevation angle 
+    e0: topocentric elevation angle derived without atmosphere correction
+    phi: topocentric azimuth angle
+
     """
 
     jd = julian_day(unixtime)
@@ -1321,49 +1330,3 @@ def calculate_deltat(year, month):
 
     return deltat
 
-
-def solar_rad(t, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
-    """
-    t: current time as ca.MX (and unixtime)
-       as far as i can tell the system seems to already use unixtime so this is cool
-
-    lat: latitude as ca.MX
-    lon: longitude as ca.MX
-
-    pressure: pressure in millibars (default: one atmosphere or 1013.25)
-    delta_t: not 100% sure but it's what is given by default
-
-
-    """
-
-    # this is always sea level since the system is always at sea :P
-    elev = 0
-
-    delta_t = 67.0
-    numthreads = 0
-    unixtime = t
-    h = radians(solar_position_numpy(unixtime, lat, lon, elev, pressure, temp, delta_t,
-                         atmos_refract, numthreads, sst=False, esd=False)[2])
-    #e = topocentric_elevation_angle(e0, delta_e)
-    #theta = topocentric_zenith_angle(e)
-    #theta0 = topocentric_zenith_angle(e0)
-    #gamma = topocentric_astronomers_azimuth(H_prime, delta_prime, lat)
-    #phi = topocentric_azimuth_angle(gamma)
-    #return theta, theta0, e, e0, phi, None #eot
-    #           0,      1, 2,  3,   4, 0
-
-    # we assume "middle-level" cloud cover
-    a_i = 0.34
-    b_i = 0.19
-
-    #print("h", h)
-    #print("ca.sin", ca.sin(h))
-
-
-    # based on the solar model as given
-    #TODO: logarithms don't cope well when the sun is below
-
-    # we need to bound the sine for cases where the solar elevation is nonexistent
-    bounded_sine = ca.fmax(ca.sin(h), 0.0001)
-
-    return ca.fmax((1368.0 * bounded_sine) * (a_i + b_i * ca.log(bounded_sine)), 0)
