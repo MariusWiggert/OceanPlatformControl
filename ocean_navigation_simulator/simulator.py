@@ -18,34 +18,37 @@ class OceanNavSimulator:
     It has access to the forecasted currents for each day and hindcasts over the time period.
     It simulates the closed-loop performance of the running-system in POSIX time.
 
-    sim_config:                     Simulator YAML configuration file
-    control_config:                 Controller YAML configuration file
+    sim_config_dict:                Dict specifying the Simulator configuration
+                                    see the repos 'configs/simulator.yaml' as example.
+                                    If a <string> is provided, assumes python is run locally
+                                    from inside the OceanPlatformControl repo and the dict is as yaml under
+                                    '/configs/<string>' => this is meant for local testing.
+    control_config_dict:            Dict specifying the control configuration
+                                    see the repos 'configs/controller.yaml' as example.
+                                    If a <string> is provided, see note for sim_config_dict
     problem:                        Problem for the planner (x_0, x_T, t_0, radius, noise)
-    project_dir (optional):         Directory of the project for access to config YAMLs and data
     #TODO: set up a logging infrastructure with different levels for debugging.
     """
 
-    def __init__(self, sim_config, control_config, problem, project_dir=None):
-        # get project directory
-        if project_dir is None:
-            self.project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        else:
-            self.project_dir = project_dir
-        # load simulator sim_settings YAML
-        with open(self.project_dir + '/configs/' + sim_config) as f:
-            sim_settings = yaml.load(f, Loader=yaml.FullLoader)
-            sim_settings['project_dir'] = project_dir
-
-        # load controller settings YAML
-        with open(self.project_dir + '/configs/' + control_config) as f:
-            control_settings = yaml.load(f, Loader=yaml.FullLoader)
+    def __init__(self, sim_config_dict, control_config_dict, problem):
+        # read in the sim and control configs from yaml files if run locally
+        if isinstance(sim_config_dict, str) and isinstance(control_config_dict, str):
+            # get the local project directory (assuming a specific folder structure)
+            project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            # load simulator sim_settings YAML
+            with open(project_dir + '/configs/' + sim_config_dict) as f:
+                sim_config_dict = yaml.load(f, Loader=yaml.FullLoader)
+                # sim_settings['project_dir'] = project_dir
+            # load controller settings YAML
+            with open(project_dir + '/configs/' + control_config_dict) as f:
+                control_config_dict = yaml.load(f, Loader=yaml.FullLoader)
 
         # check if update frequencies make sense:
-        if control_settings['waypoint_tracking']['dt_replanning'] < sim_settings['dt']:
+        if control_config_dict['waypoint_tracking']['dt_replanning'] < sim_config_dict['dt']:
             raise ValueError("Simulator dt needs to be smaller than tracking controller replanning dt")
 
-        self.sim_settings = sim_settings
-        self.control_settings = control_settings
+        self.sim_settings = sim_config_dict
+        self.control_settings = control_config_dict
         self.problem = problem
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
