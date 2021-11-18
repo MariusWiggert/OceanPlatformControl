@@ -51,7 +51,7 @@ class OceanNavSimulator:
         self.problem = problem
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
-        self.F_x_next = self.initialize_dynamics()
+        self.F_x_next = self.update_dynamics(self.problem.x_0)
 
         # create instances for the high-level planner and a pointer to the waypoint tracking function
         # Step 1: initialize high-level planner
@@ -72,11 +72,21 @@ class OceanNavSimulator:
         self.trajectory = self.cur_state
         self.control_traj = np.empty((2, 0), float)
 
-    def initialize_dynamics(self):
-        """Initialize symbolic dynamics function for simulation
+    def update_dynamics(self, x_0):
+        """Update symbolic dynamics function for simulation
+        Args:
+            x_0: current location of agent
         Output:
             F_x_next          cassadi function with (x,u)->(x_next)
         """
+        # Step 0: set up lat/lon bounds
+        t_interval = (x_0[3], None)
+        # the above will cause the starting time to gradually increase over the course of the simulations
+        # (so will be using less data for the dynamics?), is this the desired behavior?
+
+        lon_bnds = (x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"])
+        lat_bnds = (x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"])
+
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')  # lon
         x_sym_2 = ca.MX.sym('x2')  # lat
@@ -89,12 +99,8 @@ class OceanNavSimulator:
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
         # Step 2: read the relevant subset of data
-        self.grids_dict, u_data, v_data = \
-            simulation_utils.get_current_data_subset(self.problem.hindcast_file,
-                                                     self.problem.x_0, self.problem.x_T,
-                                                     self.sim_settings['deg_around_x0_xT_box'],
-                                                     self.problem.fixed_time,
-                                                     self.sim_settings['temporal_stride'])
+        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(self.problem.hindcast_file,
+                                                                                   t_interval, lat_bnds, lon_bnds)
 
         # Step 2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
@@ -203,6 +209,14 @@ class OceanNavSimulator:
             # simulator step
             self.run_step()
             print("Sim step")
+
+            # check to update dynamics
+            x_low, x_high = self.grids_dict["x_grid"][0], self.grids_dict["x_grid"][-1]
+            y_low, y_high = self.grids_dict["y_grid"][0], self.grids_dict["y_grid"][-1]
+            if self.cur_state[0] < x_low or self.cur_state[0] > x_high \
+                    or self.cur_state[1] < y_low or self.cur_state[1] > y_high:
+                self.update_dynamics(self.cur_state.flatten())
+                print("dynamics updated")
 
             end_sim = self.check_termination(T_in_h, max_steps)
         return self.reached_goal()

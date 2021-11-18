@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import netCDF4
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
-from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
 
 
 class Problem:
@@ -46,6 +46,7 @@ class Problem:
         fixed_time:
             datetime object of the fixed time for the hindcast_file as GT
     """
+
     def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, forecast_delay_in_h=0.,
                  noise=None, x_t_tol=0.1, platform_config_dict=None, fixed_time=None):
 
@@ -73,16 +74,17 @@ class Problem:
                 self.hindcast_grid_dict['gt_t_range'][0]),
                 datetime.utcfromtimestamp(self.hindcast_grid_dict['gt_t_range'][1])))
             print("GT Resolution of {} h".format(
-                math.ceil((self.hindcast_grid_dict['gt_t_range'][1]-self.hindcast_grid_dict['gt_t_range'][0])
-                          / (time_len*3600))))
+                math.ceil((self.hindcast_grid_dict['gt_t_range'][1] - self.hindcast_grid_dict['gt_t_range'][0])
+                          / (time_len * 3600))))
             print("Forecast files from {} to {}".format(datetime.utcfromtimestamp(
-                self.forecasts_dict[0]['t_range'][0]), datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
+                self.forecasts_dict[0]['t_range'][0]),
+                datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
             # get most recent forecast_idx for t_0
             for i, dic in enumerate(self.forecasts_dict):
                 # Note: this assumes the dict is ordered according to time-values
                 # which is true for now, but more complicated once we're in the C3 platform this should be done
                 # in a better way
-                if dic['t_range'][0] > t_0.timestamp() + forecast_delay_in_h*3600:
+                if dic['t_range'][0] > t_0.timestamp() + forecast_delay_in_h * 3600:
                     self.most_recent_forecast_idx = i - 1
                     break
 
@@ -131,14 +133,14 @@ class Problem:
             None
         """
 
+        t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(self.x_0, self.x_T,
+                                                                        deg_around_x0_xT_box=cut_out_in_deg,
+                                                                        temp_horizon_in_h=None)
         # Step 0: get respective data subset from hindcast file
-        grids_dict, u_data, v_data = get_current_data_subset(self.hindcast_file, self.x_0, self.x_T,
-                                                             deg_around_x0_xT_box=cut_out_in_deg,
-                                                             fixed_time=self.fixed_time,
-                                                             temporal_stride=1,
-                                                             temp_horizon_in_h=None)
+        grids_dict, u_data, v_data = get_current_data_subset(self.hindcast_file, t_interval, lat_bnds, lon_bnds)
 
         print("Note only the GT file is currently visualized")
+
         # define helper functions to add on top of current visualization
 
         def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
@@ -148,7 +150,7 @@ class Problem:
             plt.legend(loc='upper right')
 
         # if we want to visualize with video
-        if time is None and video :
+        if time is None and video:
             # create animation with extra func
             plot_utils.viz_current_animation(grids_dict['t_grid'], grids_dict, u_data, v_data,
                                              interval=200, ax_adding_func=add_ax_func, html_render=html_render,
@@ -185,6 +187,7 @@ class Problem:
                 return True
             else:
                 return False
+
         # Step 1: check gt_file
         if not in_interval(self.x_0[3], self.hindcast_grid_dict['gt_t_range']):
             raise ValueError("t_0 is not in hindcast fieldset time range.")
@@ -199,16 +202,17 @@ class Problem:
 
         # Step 2: check forecast file
         # 2.1 check if at start_time any forecast is available
-        if self.x_0[3] <= self.forecasts_dict[0]['t_range'][0] + self.forecast_delay_in_h *3600.:
+        if self.x_0[3] <= self.forecasts_dict[0]['t_range'][0] + self.forecast_delay_in_h * 3600.:
             raise ValueError("No forecast file available at the starting time t_0")
         # 2.1 check most recent file at t_0 for x_0
-        times_available = [dict['t_range'][0] + self.forecast_delay_in_h *3600. for dict in self.forecasts_dict]
+        times_available = [dict['t_range'][0] + self.forecast_delay_in_h * 3600. for dict in self.forecasts_dict]
         idx = bisect.bisect_right(times_available, self.x_0[3]) - 1
         if not in_interval(self.x_0[3], self.forecasts_dict[idx]['t_range']):
             raise ValueError("t_0 is not in the timespan of the most recent forecase file.")
-        print("At starting time {}, most recent forecast available is from {} to {}.".format(datetime.utcfromtimestamp(self.x_0[3]),
-                                                                                             datetime.utcfromtimestamp(self.forecasts_dict[idx]['t_range'][0]),
-                                                                                             datetime.utcfromtimestamp(self.forecasts_dict[idx]['t_range'][1])))
+        print("At starting time {}, most recent forecast available is from {} to {}.".format(
+            datetime.utcfromtimestamp(self.x_0[3]),
+            datetime.utcfromtimestamp(self.forecasts_dict[idx]['t_range'][0]),
+            datetime.utcfromtimestamp(self.forecasts_dict[idx]['t_range'][1])))
         # Step 2: check location around x_0 for both hindcast & forecast (because interpolation doesn't check it..)                                                                                     ))
         if not in_interval(self.x_0[0], self.forecasts_dict[idx]['x_range']):
             raise ValueError("lon of x_0 is not in most recent forecast lon range.")
@@ -243,12 +247,11 @@ class Problem:
         forecast_dicts = []
         for file in forecast_files_list:
             _, time_range, x_range, y_range = self.extract_grid_dict_from_nc(file)
-            forecast_dicts.append({'t_range': time_range, 'x_range': x_range, 'y_range': y_range, 'file':file})
+            forecast_dicts.append({'t_range': time_range, 'x_range': x_range, 'y_range': y_range, 'file': file})
         # sort the tuples list
         forecast_dicts.sort(key=lambda dict: dict['t_range'][0])
 
         return forecast_dicts
-
 
 # class WaypointTrackingProblem(Problem):
 #     #TODO: not fit to new closed loop controller yet

@@ -1,5 +1,5 @@
 #simulator_config:
-dt: 3600.                # in seconds
+dt: 3600.                 # in seconds
 conv_m_to_deg: 111120.    # used to transform anything in meters to in degrees (assuming a sphere)
 int_pol_type: 'linear'    # either bspline or linear (linear is a lot faster as the dynamics don't need to be fit a priori)
 sim_integration: 'ef'     # either 'rk' (a 4th order method) or forward euler 'ef'
@@ -8,6 +8,7 @@ plan_on_gt: 1             # if True no forecasts are used but the planner plans 
 
 # nc4 file sub-setting configurations
 deg_around_x0_xT_box: .8  # degrees around the x_0, x_T box that are read in when simulating
+deg_around_x0: .5         # degrees around x_0 that are read in when simulating
 
 # setting for what counts as goal reached
-slack_around_goal: 0.05     # slack around the goal in degrees
+slack_around_goal: 0.05   # slack around the goal in degrees

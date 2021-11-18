@@ -8,7 +8,7 @@ import matplotlib.animation as animation
 from IPython.display import HTML
 from functools import partial
 import numpy as np
-from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
 import warnings
 import os
 
@@ -173,10 +173,11 @@ def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
-    grids_dict, u_data, v_data = get_current_data_subset(file, lower_left, upper_right,
-                                                         deg_around_x0_xT_box=0.5,
-                                                         temporal_stride=1,
-                                                         temp_horizon_in_h=5)
+
+    t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
+                                                                    deg_around_x0_xT_box=0.5,
+                                                                    temp_horizon_in_h=5)
+    grids_dict, u_data, v_data = get_current_data_subset(file, t_interval, lat_bnds, lon_bnds)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, x_traj=x_traj):
@@ -209,9 +210,11 @@ def plot_2D_traj_animation(traj_full, control_traj, file, u_max, html_render=Non
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(space_traj[0,:]), np.min(space_traj[1,:]), 0, traj_times[0]]
     upper_right = [np.max(space_traj[0, :]), np.max(space_traj[1, :])]
-    grids_dict, u_data, v_data = get_current_data_subset(file, lower_left, upper_right,
-                                                         deg_around_x0_xT_box=0.5,
-                                                         temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
+
+    t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
+                                                                    deg_around_x0_xT_box=0.5,
+                                                                    temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
+    grids_dict, u_data, v_data = get_current_data_subset(file, t_interval, lat_bnds, lon_bnds)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, time):
