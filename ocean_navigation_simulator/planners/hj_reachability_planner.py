@@ -206,8 +206,8 @@ class HJPlannerBase(Planner):
                                                             deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
                                                             temp_horizon_in_h=self.specific_settings['T_goal_in_h'])
 
-        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset_local_file(self.cur_forecast_file,
-                                                                                           t_interval, lat_bnds, lon_bnds)
+        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(self.cur_forecast_file,
+                                                                                t_interval, lat_bnds, lon_bnds)
 
 
         # set absolute time in Posix time

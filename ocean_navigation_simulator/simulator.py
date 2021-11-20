@@ -104,8 +104,8 @@ class OceanNavSimulator:
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
         # Step 2: read the relevant subset of data
-        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset_local_file(self.problem.hindcast_file,
-                                                                                              t_interval, lat_bnds, lon_bnds)
+        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(self.problem.hindcast_file,
+                                                                                   t_interval, lat_bnds, lon_bnds)
 
         # Step 2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(

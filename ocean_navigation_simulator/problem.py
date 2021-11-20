@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import netCDF4
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
-from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset_local_file, convert_to_lat_lon_time_bounds
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
 
 
 class Problem:
@@ -136,7 +136,7 @@ class Problem:
                                                                         deg_around_x0_xT_box=cut_out_in_deg,
                                                                         temp_horizon_in_h=None)
         # Step 0: get respective data subset from hindcast file
-        grids_dict, u_data, v_data = get_current_data_subset_local_file(self.hindcast_file, t_interval, lat_bnds, lon_bnds)
+        grids_dict, u_data, v_data = get_current_data_subset(self.hindcast_file, t_interval, lat_bnds, lon_bnds)
 
         print("Note only the GT file is currently visualized")
 

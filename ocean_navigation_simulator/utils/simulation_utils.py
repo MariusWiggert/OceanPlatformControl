@@ -142,8 +142,8 @@ def get_current_data_subset_from_c3_file(
 
 # define overarching loading and sub-setting function
 def get_current_data_subset(t_interval, lat_interval, lon_interval,
-                        data_type, access,
-                        file = None, C3_hindcast_max_temp_in_h = 120):
+                            data_type, access,
+                            file = None, C3_hindcast_max_temp_in_h = 120):
     """ Function to get a subset of current data either via local file or via C3 database of files.
     Inputs:
         t_interval              if time-varying: [t_0, t_T] in POSIX time

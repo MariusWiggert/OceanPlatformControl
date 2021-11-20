@@ -35,7 +35,7 @@ class IpoptPlanner(Planner):
             t_interval, lat_bnds, lon_bnds = \
                 simulation_utils.convert_to_lat_lon_time_bounds(x_t, x_T,
                                                deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],)
-            self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset_local_file(self.cur_forecast_file, t_interval, lat_bnds, lon_bnds)
+            self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(self.cur_forecast_file, t_interval, lat_bnds, lon_bnds)
 
             # Step 2: get the current interpolation functions
             self.u_curr_func, self.v_curr_func = simulation_utils.get_interpolation_func(
