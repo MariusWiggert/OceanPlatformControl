@@ -79,11 +79,16 @@ class OceanNavSimulator:
         Output:
             F_x_next          cassadi function with (x,u)->(x_next)
         """
-        # Step 0: set up lat/lon bounds
-        t_interval = (x_0[3], None)
-        # the above will cause the starting time to gradually increase over the course of the simulations
-        # (so will be using less data for the dynamics?), is this the desired behavior?
+        # Step 0: set up time and lat/lon bounds for data sub-setting
+        t_upper = x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"]
+        try:
+            # prevents the failure case when there is time left but it's less than the requested t_horizon_sim
+            # can only happen with local files as we assume for C3 Data Files all time-ranges are available
+            t_upper = min(t_upper, self.problem.hindcast_grid_dict['gt_t_range'][1])
+        except:
+            print("Running with C3 Data Files")
 
+        t_interval = (x_0[3], t_upper)
         lon_bnds = (x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"])
         lat_bnds = (x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"])
 
@@ -99,8 +104,8 @@ class OceanNavSimulator:
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
         # Step 2: read the relevant subset of data
-        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(self.problem.hindcast_file,
-                                                                                   t_interval, lat_bnds, lon_bnds)
+        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset_local_file(self.problem.hindcast_file,
+                                                                                              t_interval, lat_bnds, lon_bnds)
 
         # Step 2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
@@ -210,16 +215,22 @@ class OceanNavSimulator:
             self.run_step()
             print("Sim step")
 
-            # check to update dynamics
-            x_low, x_high = self.grids_dict["x_grid"][0], self.grids_dict["x_grid"][-1]
-            y_low, y_high = self.grids_dict["y_grid"][0], self.grids_dict["y_grid"][-1]
-            if self.cur_state[0] < x_low or self.cur_state[0] > x_high \
-                    or self.cur_state[1] < y_low or self.cur_state[1] > y_high:
-                self.update_dynamics(self.cur_state.flatten())
-                print("dynamics updated")
-
+            # check to update current data in the dynamics
+            self.check_dynamics_update()
+            # check termination
             end_sim = self.check_termination(T_in_h, max_steps)
         return self.reached_goal()
+
+    def check_dynamics_update(self):
+        """ Helper function for main loop to check if we need to load new current data into the dynamics."""
+        x_low, x_high = self.grids_dict["x_grid"][0], self.grids_dict["x_grid"][-1]
+        y_low, y_high = self.grids_dict["y_grid"][0], self.grids_dict["y_grid"][-1]
+        # check based on space and time of the currently loaded current data
+        if self.cur_state[0] <= x_low or self.cur_state[0] >= x_high \
+                or self.cur_state[1] <= y_low or self.cur_state[1] >= y_high \
+                or self.cur_state[3] >= self.grids_dict["t_grid"][-1]:
+            self.update_dynamics(self.cur_state.flatten())
+            print("dynamics updated")
 
     def run_step(self):
         """Run the simulator for one dt step"""

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import netCDF4
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
-from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset_local_file, convert_to_lat_lon_time_bounds
 
 
 class Problem:
@@ -25,30 +25,34 @@ class Problem:
             this to be a set representation (point-2-region) because that is the more general formulation.
         t_0:
             A timezone aware datetime object of the absolute starting time of the platform at x_0
-        # TODO: implement flexible loading of the nc4 files outside of here
-        hindcast_file:
-            Path to the nc4 files of forecasted ocean currents. Will be used as true currents (potentially adding noise)
-        forecast_folder:
-            Path to the nc4 files of forecasted ocean currents
-        forecast_delay_in_h:
-            The hours of delay when a forecast becomes available
-            e.g. forecast starts at 1st of Jan but only available from HYCOM 48h later on 3rd of January
-        noise:
-            # TODO: optionally implement a way to add noise to the hindcasts
-        x_t_tol:
-            Radius around x_T that when reached counts as "target reached"
-            # Note: not used currently as the sim config has that value too.
+
         platform_config_dict:
             A dict specifying the platform parameters, see the repos 'configs/platform.yaml' as example.
             If None: assumes python is run locally inside the OceanPlatformControl repo
                      where the data is stored under '/data' and the config under '/configs/platform.yaml'
                      => this is meant for local testing of functions only.
-        fixed_time:
-            datetime object of the fixed time for the hindcast_file as GT
+
+        # TO IMPLEMENT USAGE/FOR FUTURE
+        forecast_delay_in_h:
+            The hours of delay when a forecast becomes available
+            e.g. forecast starts at 1st of Jan but only available from HYCOM 48h later on 3rd of January
+        noise:
+            # TODO: optionally implement a way to add noise to the hindcasts
+
+        # Note sure about those guys yet...
+        hindcast_file:
+            Path to the nc4 files of forecasted ocean currents. Will be used as true currents (potentially adding noise)
+        forecast_folder:
+            Path to the nc4 files of forecasted ocean currents
+
+        # TO REVIEW/THINK ABOUT
+        x_t_tol:
+            Radius around x_T that when reached counts as "target reached"
+            # Note: not used currently as the sim config has that value too.
     """
 
     def __init__(self, x_0, x_T, t_0, hindcast_file, forecast_folder=None, forecast_delay_in_h=0.,
-                 noise=None, x_t_tol=0.1, platform_config_dict=None, fixed_time=None):
+                 noise=None, x_t_tol=0.1, platform_config_dict=None):
 
         # load the respective fieldsets
         self.hindcast_file = hindcast_file  # because the simulator loads only subsetting of it
@@ -64,29 +68,24 @@ class Problem:
                                (isfile(join(forecast_folder, f)) and f != '.DS_Store')]
         self.forecasts_dict = self.create_forecasts_dicts(forecast_files_list)
 
-        if fixed_time is not None:
-            self.fixed_time = fixed_time
-            print("Fixed-time fieldset currently not implemented")
-            raise NotImplementedError()
-        else:  # variable time
-            self.fixed_time = None
-            print("GT fieldset from  {} to {}".format(datetime.utcfromtimestamp(
-                self.hindcast_grid_dict['gt_t_range'][0]),
-                datetime.utcfromtimestamp(self.hindcast_grid_dict['gt_t_range'][1])))
-            print("GT Resolution of {} h".format(
-                math.ceil((self.hindcast_grid_dict['gt_t_range'][1] - self.hindcast_grid_dict['gt_t_range'][0])
-                          / (time_len * 3600))))
-            print("Forecast files from {} to {}".format(datetime.utcfromtimestamp(
-                self.forecasts_dict[0]['t_range'][0]),
-                datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
-            # get most recent forecast_idx for t_0
-            for i, dic in enumerate(self.forecasts_dict):
-                # Note: this assumes the dict is ordered according to time-values
-                # which is true for now, but more complicated once we're in the C3 platform this should be done
-                # in a better way
-                if dic['t_range'][0] > t_0.timestamp() + forecast_delay_in_h * 3600:
-                    self.most_recent_forecast_idx = i - 1
-                    break
+        # Log the problem specs
+        print("GT fieldset from  {} to {}".format(datetime.utcfromtimestamp(
+            self.hindcast_grid_dict['gt_t_range'][0]),
+            datetime.utcfromtimestamp(self.hindcast_grid_dict['gt_t_range'][1])))
+        print("GT Resolution of {} h".format(
+            math.ceil((self.hindcast_grid_dict['gt_t_range'][1] - self.hindcast_grid_dict['gt_t_range'][0])
+                      / (time_len * 3600))))
+        print("Forecast files from {} to {}".format(datetime.utcfromtimestamp(
+            self.forecasts_dict[0]['t_range'][0]),
+            datetime.utcfromtimestamp(self.forecasts_dict[-1]['t_range'][0])))
+        # get most recent forecast_idx for t_0
+        for i, dic in enumerate(self.forecasts_dict):
+            # Note: this assumes the dict is ordered according to time-values
+            # which is true for now, but more complicated once we're in the C3 platform this should be done
+            # in a better way
+            if dic['t_range'][0] > t_0.timestamp() + forecast_delay_in_h * 3600:
+                self.most_recent_forecast_idx = i - 1
+                break
 
         if len(x_0) == 2:  # add 100% charge
             x_0 = x_0 + [1.]
@@ -137,7 +136,7 @@ class Problem:
                                                                         deg_around_x0_xT_box=cut_out_in_deg,
                                                                         temp_horizon_in_h=None)
         # Step 0: get respective data subset from hindcast file
-        grids_dict, u_data, v_data = get_current_data_subset(self.hindcast_file, t_interval, lat_bnds, lon_bnds)
+        grids_dict, u_data, v_data = get_current_data_subset_local_file(self.hindcast_file, t_interval, lat_bnds, lon_bnds)
 
         print("Note only the GT file is currently visualized")
 
