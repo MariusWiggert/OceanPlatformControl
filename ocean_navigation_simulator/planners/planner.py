@@ -111,6 +111,9 @@ class Planner:
     def plot_2D_traj(self):
         plotting_utils.plot_2D_traj(self.x_traj)
 
+    def plot_bat_traj(self):
+        plotting_utils.plot_battery_traj(self.times, self.x_traj)
+
     def plot_ctrl_seq(self):
         plotting_utils.plot_opt_ctrl(self.times[:-1], self.contr_seq)
 

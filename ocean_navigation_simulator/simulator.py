@@ -5,7 +5,6 @@ import numpy as np
 import ocean_navigation_simulator.planners as planners
 import ocean_navigation_simulator.steering_controllers as steering_controllers
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import datetime
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 import bisect
@@ -89,7 +88,7 @@ class OceanNavSimulator:
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
         # Step 2: read the relevant subset of data
-        self.grids_dict, u_data, v_data = \
+        self.grids_dict, u_data, v_data, self.land_mask = \
             simulation_utils.get_current_data_subset(self.problem.hindcast_file,
                                                      self.problem.x_0, self.problem.x_T,
                                                      self.sim_settings['deg_around_x0_xT_box'],
@@ -278,6 +277,10 @@ class OceanNavSimulator:
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
                self.sim_settings['slack_around_goal']
 
+    def check_if_stranded(self):
+        self.land_mask, self.cur_state[:], self.grids_dict
+
+
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
         """ Captures the whole trajectory - energy, position, etc over time"""
         # process the time that is put in the for the 2D static plots
@@ -311,22 +314,9 @@ class OceanNavSimulator:
                                          title="Simulator Control Trajectory")
 
         elif plotting_type == 'battery':
-            fig, ax = plt.subplots(1, 1)
-            # some stuff for flexible date axis
-            locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
-            formatter = mdates.ConciseDateFormatter(locator)
-            ax.xaxis.set_major_locator(locator)
-            ax.xaxis.set_major_formatter(formatter)
-            # plot
-            dates = [datetime.datetime.utcfromtimestamp(posix) for posix in self.trajectory[3, :]]
-            ax.plot(dates, self.trajectory[2, :])
-            # set axis and stuff
-            ax.set_title('Battery charge over time')
-            ax.set_ylim(0., 1.1)
-            plt.xlabel('time in h')
-            plt.ylabel('Battery Charging level [0,1]')
-            plt.show()
-            return
+            plotting_utils.plot_battery_traj(self.trajectory[3, :],
+                                             self.trajectory[2, :],
+                                             title='Battery charge over time')
 
         elif plotting_type == 'video':
             plotting_utils.plot_2D_traj_animation(

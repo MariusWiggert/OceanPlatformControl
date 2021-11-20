@@ -8,6 +8,8 @@ import sys
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
+# for 3D simulation
+from ocean_navigation_simulator.planners.hj_reachability_planners.platform3D_for_sim import Platform3D_for_sim
 
 
 class HJPlannerBase(Planner):
@@ -327,3 +329,36 @@ class HJReach2DPlanner(HJPlannerBase):
         return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
                                        center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
                                        radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
+
+
+class HJReach3DPlanner(HJPlannerBase):
+    """ Reachability planner for 3D (lat, lon, battery) reachability computation."""
+
+    def get_x_from_full_state(self, x):
+        if not len(x) >= 3:
+            raise ValueError("State provided is not the right dimensionality!")
+        return x[:3]
+
+    def get_dim_dynamical_system(self):
+        """Initialize 3D (lat, lon, battery) Platform dynamics in deg/s and relative battery/s."""
+        # space coefficient is fixed for now as we run in deg/s (same as the simulator)
+        space_coeff = 1. / self.gen_settings['conv_m_to_deg']
+        # 'charge': charge_factor, 'energy': energy_coeff
+        return Platform3D_for_sim(u_max=self.dyn_dict['u_max'],
+                                  c=self.dyn_dict['charge'], D=self.dyn_dict['energy'],
+                                  space_coeff=space_coeff, control_mode='min')
+
+    def initialize_hj_grid(self, grids_dict):
+        """Initialize the dimensional grid in degrees lat, lon"""
+        self.grid = hj.Grid.from_grid_definition_and_initial_values(
+            domain=hj.sets.Box(
+                lo=np.array([grids_dict['x_grid'][0], grids_dict['y_grid'][0], 0]),
+                hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1], 1])),
+            shape=self.specific_settings['grid_res'])
+
+    def get_initial_values(self, center):
+        return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
+                                       center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
+                                       radii=self.specific_settings['initial_set_radii'] / self.characteristic_vec)
+
+

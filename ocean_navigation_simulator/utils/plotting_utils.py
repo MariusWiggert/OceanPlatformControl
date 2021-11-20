@@ -5,6 +5,7 @@ import cartopy.feature as cfeature
 from datetime import datetime
 from scipy.interpolate import interp1d
 import matplotlib.animation as animation
+import matplotlib.dates as mdates
 from IPython.display import HTML
 from functools import partial
 import numpy as np
@@ -247,14 +248,40 @@ def plot_2D_traj(x_traj, title="Planned Trajectory"):
     # plt.grid()
     plt.show()
 
+def plot_battery_traj(times, x_traj, title='Battery charge over time'):
+    """ Plot the battery level along the trajectory."""
+    fig, ax = plt.subplots(1, 1)
+    # some stuff for flexible date axis
+    locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    # plot
+    dates = [datetime.utcfromtimestamp(posix) for posix in times]
+    ax.plot(dates, x_traj[2, :])
+    # set axis and stuff
+    ax.set_title(title)
+    ax.set_ylim(0., 1.1)
+    plt.xlabel('time in h')
+    plt.ylabel('Battery Charging level [0,1]')
+    plt.show()
+
 
 def plot_opt_ctrl(times, ctrl_seq, title='Planned Optimal Control'):
-    plt.figure(2)
-    plt.step(times, ctrl_seq[0, :], where='post', label='u_power')
-    plt.step(times, ctrl_seq[1, :], where='post', label='angle')
-    plt.title(title)
-    plt.ylabel('u_power and angle in units')
-    plt.xlabel('time')
+    #TODO: plot times with datetime!
+    fig, ax = plt.subplots(1, 1)
+    # some stuff for flexible date axis
+    locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    # plot
+    dates = [datetime.utcfromtimestamp(posix) for posix in times]
+    ax.step(dates, ctrl_seq[0, :], where='post', label='u_power')
+    ax.step(dates, ctrl_seq[1, :], where='post', label='angle')
+    ax.set_title(title)
+    ax.set_ylabel('u_power in [0,1] and angle in radians [0, 2pi]')
+    ax.set_xlabel('time in h')
     # plt.grid()
     plt.show()
 
