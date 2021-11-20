@@ -2,8 +2,9 @@ import casadi as ca
 from datetime import datetime, timedelta
 import netCDF4
 import numpy as np
-import bisect
 import math
+import warnings
+
 
 def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h):
     """
@@ -28,103 +29,6 @@ def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_
 
     return t_interval, lat_bnds, lon_bnds
 
-
-def get_current_data_subset_local_file(
-    nc_file,
-    t_interval, #temp_res_in_h,   ----> separate function
-    lat_bnds, #lat_res_in_deg,
-    lon_bnds, #lon_res_in_deg,
-    #depth_interval_to_avg_over
-):
-    """ Function to read a subset of the nc_file current data bounded by a box spanned by the x_0 and x_T points.
-    Note: if we want to also include time_subsampling and/or up-sampling we might look into using the function from:
-    https://oceanspy.readthedocs.io/en/latest/_modules/oceanspy/subsample.html#cutout
-    Inputs:
-        nc_file                 path to nc file
-        t_interval              if time-varying: [t_0, t_T] in POSIX time
-                                where t_0 and t_T are the start and end timestamps respectively
-                                if fixed_time:   [fixed_timestamp] in POSIX
-        temp_res_in_h           which temporal resolution the time-axis should have
-                                e.g. if temp_res_in_h = 1, t_grid = [t_0, t_0 + 3600s, ... t_T]
-                                if temp_res_in_h = 5,      t_grid = [t_0, t_0 + 5*3600s, ... t_T]
-                                if temp_res_in_h = 0.5,      t_grid = [t_0, t_0 + 1800s, ... t_T]
-                                => so either averaging or interpolation needs to be done in the backend
-        lat_bnds                [y_lower, y_upper] in degrees
-        lat_res_in_deg          which spatial resolution in y direction in degrees
-                                e.g. if lat_res_in_deg = 1, y_grid = [y_lower, y_lower + 1, ... y_upper]
-                                 => so either averaging or interpolation needs to be done in the backend
-        lon_bnds                [x_lower, x_upper] in degrees
-        lon_res_in_deg          which spatial resolution in x direction in degrees
-                                e.g. if lon_res_in_deg = 1, x_grid = [x_lower, x_lower + 1, ... x_upper]
-                                 => so either averaging or interpolation needs to be done in the backend
-        depth_interval_to_avg_over
-                                Interval to average over the current dimension in meters
-                                e.g. [0, 10] then the currents are averaged over the depth 0-10m.
-
-    """
-    f = netCDF4.Dataset(nc_file)
-
-    # Step 1: get the grids
-    xgrid = f.variables['lon'][:]
-    ygrid = f.variables['lat'][:]
-    t_grid = f.variables['time'][:] # not this is in hours from HYCOM data!
-
-    # extract time_origin from the files
-    try:
-        time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
-                                        '%Y-%m-%d %H:%M:%S %z')
-    except:
-        time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
-                                                 'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
-
-    # Step 2.1 get the spatial indices
-    ygrid_inds = np.where((ygrid > lat_bnds[0]) & (ygrid < lat_bnds[1]))[0]
-    xgrid_inds = np.where((xgrid > lon_bnds[0]) & (xgrid < lon_bnds[1]))[0]
-
-    # Step 2.2 Get the temporal indicies
-    # for time indexing transform to POSIX time
-    abs_t_grid = [(time_origin + timedelta(hours=X)).timestamp() for X in t_grid.data]
-    # get the idx of the value left of the demanded time (for interpolation function)
-    t_start_idx = bisect.bisect_right(abs_t_grid, t_interval[0]) - 1
-    if t_start_idx == len(abs_t_grid) - 1 or t_start_idx == -1:
-        raise ValueError("Requested start time is outside of the nc4 file.")
-
-    # get the max time if provided as input
-    if t_interval[1] is None:  # all data provided
-        t_end_idx = len(abs_t_grid) - 1
-    else:
-        t_end_idx = bisect.bisect_right(abs_t_grid, t_interval[1])
-        if t_end_idx == len(abs_t_grid):
-            raise ValueError("nc4 file does not contain requested temporal horizon.")
-
-    slice_for_time_dim = np.s_[t_start_idx:(t_end_idx+1)]
-
-    # Step 2: extract data
-    # [tdim, zdim, ydim, xdim]
-    if len(f.variables['water_u'].shape) == 4:  # if there is a depth dimension in the dataset
-        u_data = f.variables['water_u'][slice_for_time_dim, 0, ygrid_inds, xgrid_inds]
-        v_data = f.variables['water_v'][slice_for_time_dim, 0, ygrid_inds, xgrid_inds]
-    # [tdim, ydim, xdim]
-    elif len(f.variables['water_u'].shape) == 3:  # if there is no depth dimension in the dataset
-        u_data = f.variables['water_u'][slice_for_time_dim, ygrid_inds, xgrid_inds]
-        v_data = f.variables['water_v'][slice_for_time_dim, ygrid_inds, xgrid_inds]
-    else:
-        raise ValueError("Current data in nc file has neither 3 nor 4 dimensions. Check file.")
-
-    # create dict
-    grids_dict = {'x_grid': xgrid[xgrid_inds], 'y_grid': ygrid[ygrid_inds],
-                  't_grid': abs_t_grid[slice_for_time_dim]}
-
-    print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(
-        start=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC'),
-        end=datetime.utcfromtimestamp(grids_dict['t_grid'][-1]).strftime('%Y-%m-%d %H:%M:%S UTC'),
-        n_steps=len(grids_dict['t_grid']), time=(grids_dict['t_grid'][1] - grids_dict['t_grid'][0])/3600.))
-
-    #TODO: we replace the masked array with fill value 0 because otherwise interpolation doesn't work.
-    # Though that means we cannot anymore detect if we're on land or not (need a way to do that/detect stranding)
-    return grids_dict, u_data.filled(fill_value=0.), v_data.filled(fill_value=0.)
-
-
 def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_time_index=None):
     """ Creates 2D or 3D cassadi interpolation functions to use in the simulator."""
     # fit interpolation function
@@ -146,42 +50,14 @@ def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_tim
     return u_curr_func, v_curr_func
 
 
-# Functions for using the Data from the C3 Cloud DB
-
 # C3 file based data-access function
 def get_current_data_subset_from_c3_file(
-        t_interval,  # temp_res_in_h,   ----> separate function
-        lat_interval,  # lat_res_in_deg,
-        lon_interval,  # lon_res_in_deg,
-        # depth_interval_to_avg_over
+        t_interval,
+        lat_interval,
+        lon_interval,
 ):
-    """ Function to get a subset of current data via the C3 data integration.
-
-    Inputs:
-        t_interval              if time-varying: [t_0, t_T] in POSIX time
-                                where t_0 and t_T are the start and end timestamps respectively
-                                if fixed_time:   [fixed_timestamp] in POSIX
-        temp_res_in_h           which temporal resolution the time-axis should have
-                                e.g. if temp_res_in_h = 1, t_grid = [t_0, t_0 + 3600s, ... t_T]
-                                if temp_res_in_h = 5,      t_grid = [t_0, t_0 + 5*3600s, ... t_T]
-                                if temp_res_in_h = 0.5,      t_grid = [t_0, t_0 + 1800s, ... t_T]
-                                => so either averaging or interpolation needs to be done in the backend
-        lat_interval            [y_lower, y_upper] in degrees
-        lat_res_in_deg          which spatial resolution in y direction in degrees
-                                e.g. if lat_res_in_deg = 1, y_grid = [y_lower, y_lower + 1, ... y_upper]
-                                 => so either averaging or interpolation needs to be done in the backend
-        lon_interval            [x_lower, x_upper] in degrees
-        lon_res_in_deg          which spatial resolution in x direction in degrees
-                                e.g. if lon_res_in_deg = 1, x_grid = [x_lower, x_lower + 1, ... x_upper]
-                                 => so either averaging or interpolation needs to be done in the backend
-        depth_interval_to_avg_over
-                                Interval to average over the current dimension in meters
-                                e.g. [0, 10] then the currents are averaged over the depth 0-10m.
-
-    Outputs:
-        grids_dict              dict containing x_grid, y_grid, t_grid
-        u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
-        v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
+    """ Function to get a subset of Hindcast current data via the C3 data integration.
+    For description of input and outputs see the get_current_data_subset function.
     """
 
     # Step 1: get required file references and data from C3 file DB
@@ -262,3 +138,107 @@ def get_current_data_subset_from_c3_file(
     # TODO: currently, we just do fill_value =0 but then we can't detect if we're on land.
     # We need a way to do that in the simulator, doing it via the currents could be one way.
     return grids_dict, full_u_data.filled(fill_value=0.), full_v_data.filled(fill_value=0.)
+
+
+# define overarching loading and sub-setting function
+def get_current_data_subset(t_interval, lat_interval, lon_interval,
+                        data_type, access,
+                        file = None, C3_hindcast_max_temp_in_h = 120):
+    """ Function to get a subset of current data either via local file or via C3 database of files.
+    Inputs:
+        t_interval              if time-varying: [t_0, t_T] in POSIX time
+                                where t_0 and t_T are the start and end timestamps respectively
+                                if t_T is None and we use a file, the full available time is returned.
+        lat_interval            [y_lower, y_upper] in degrees
+        lon_interval            [x_lower, x_upper] in degrees
+
+        data_type               string either 'F' or 'H'. Specifies if Forecast for Hindcast data is requested.
+        access                  string either 'local' or 'C3'. Specifies if a local file or C3 database is used.
+        file                    string of the path to the file (required for all local and C3 Forecasts but not H)
+
+    Outputs:
+        grids_dict              dict containing x_grid, y_grid, t_grid
+        u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
+        v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
+    """
+    # Step 0: check if its C3 and Hindcasts, then we need extra function
+    if data_type == 'H' and access == 'C3':
+        if t_interval[1] is None:
+            t_interval[1] = t_interval[0] + C3_hindcast_max_temp_in_h * 3600
+        grids_dict, u_data, v_data = get_current_data_subset_from_c3_file(t_interval, lat_interval, lon_interval)
+        return grids_dict, u_data, v_data
+
+    # Step 1: open the file
+    # Check if C3 or not
+    if access == 'C3':
+        f = c3.HycomUtil.nc_open(file)
+    elif access == 'local':
+        f = netCDF4.Dataset(file)
+
+    # Step 2: Extract the grids
+    x_grid = f.variables['lon'][:].data
+    y_grid = f.variables['lat'][:].data
+    t_grid = get_abs_time_grid_for_hycom_file(f, data_type)
+
+    # Step 3: get the subsetting indices for space and time
+    ygrid_inds = np.where((y_grid >= lat_interval[0]) & (y_grid <= lat_interval[1]))[0]
+    xgrid_inds = np.where((x_grid >= lon_interval[0]) & (x_grid <= lon_interval[1]))[0]
+    if t_interval[1] is None: # take full file time contained in the file
+        tgrid_inds = np.where((t_grid >= t_interval[0]))[0]
+    else: # subset ending time
+        tgrid_inds = np.where((t_grid >= t_interval[0]) & (t_grid <= t_interval[1]))[0]
+
+    # Step 3.1: create grid and use that as sanity check if any relevant data is contained in the file
+    try:
+        grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds],
+                      't_grid': t_grid[tgrid_inds]}
+    except:
+         raise ValueError("None of the requested data contained in file. Check File.")
+
+    # Step 3.2: Advanced sanity check if only partial area is contained in file
+    grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval)
+
+    # Step 4: extract data
+    # Note: HYCOM is [tdim, zdim, ydim, xdim]
+    if len(f.variables['water_u'].shape) == 4:  # if there is a depth dimension in the dataset
+        u_data = f.variables['water_u'][tgrid_inds, 0, ygrid_inds, xgrid_inds]
+        v_data = f.variables['water_v'][tgrid_inds, 0, ygrid_inds, xgrid_inds]
+    else:
+        raise ValueError("Current data in nc file does not have 4 dimensions. Check file.")
+
+    print("Subsetted data from {start} to {end} in {n_steps} time steps".format(
+        start=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC'),
+        end=datetime.utcfromtimestamp(grids_dict['t_grid'][-1]).strftime('%Y-%m-%d %H:%M:%S UTC'),
+        n_steps=len(grids_dict['t_grid'])))
+
+    # TODO: we replace the masked array with fill value 0 because otherwise interpolation doesn't work.
+    # Though that means we cannot anymore detect if we're on land or not (need a way to do that/detect stranding)
+    return grids_dict, u_data.filled(fill_value=0.), v_data.filled(fill_value=0.)
+
+
+# Helper functions for the general subset function
+def get_abs_time_grid_for_hycom_file(f, data_type):
+    """Helper function to extract the t_grid in POSIX time from a HYCOM File f."""
+    # Get the t_grid. note that this is in hours from HYCOM data!
+    t_grid = f.variables['time'][:]
+    # Get the time_origin of the file (Note: this is very tailered for the HYCOM Data)
+    if data_type == 'H':
+        time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
+                                        '%Y-%m-%d %H:%M:%S %z')
+    else:
+        time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
+                                        'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
+
+    # for time indexing transform to POSIX time
+    abs_t_grid = [(time_origin + timedelta(hours=X)).timestamp() for X in t_grid.data]
+    return np.array(abs_t_grid)
+
+def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval):
+    """Advanced Check for warning of partially being out of bound in space or time."""
+    if grids_dict['y_grid'][0] > lat_interval[0] or grids_dict['y_grid'][-1] < lat_interval[1]:
+        warnings.warn("Part of the lat requested area is outside of file.", RuntimeWarning)
+    if grids_dict['x_grid'][0] > lon_interval[0] or grids_dict['x_grid'][-1] < lon_interval[1]:
+        warnings.warn("Part of the lon requested area is outside of file.", RuntimeWarning)
+    if t_interval[1] is not None:
+        if grids_dict['t_grid'][0] > t_interval[0] or grids_dict['t_grid'][-1] < t_interval[1]:
+            warnings.warn("Part of the requested time is outside of file.", RuntimeWarning)
