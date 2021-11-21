@@ -6,9 +6,9 @@ from ocean_navigation_simulator import evaluation
 
 # Make certain classes directly accessible
 from ocean_navigation_simulator.simulator import OceanNavSimulator
-from ocean_navigation_simulator.problem import Problem #, WaypointTrackingProblem
+from ocean_navigation_simulator.problem import Problem, C3Problem #, WaypointTrackingProblem
 
 # specify version (for pip installation)
 __version__ = "0.0.1"
-__all__ = ("OceanNavSimulator", "Problem", #"WaypointTrackingProblem",
+__all__ = ("OceanNavSimulator", "Problem", "C3Problem", #"WaypointTrackingProblem",
            "steering_controllers", "utils", "planners", "evaluation")

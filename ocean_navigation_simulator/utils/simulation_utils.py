@@ -23,7 +23,10 @@ def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_
         lat_bnds: [y_lower, y_upper] in degrees
         lon_bnds: [x_lower, x_upper] in degrees
     """
-    t_interval = [x_0[3], x_0[3] + temp_horizon_in_h * 3600]
+    if temp_horizon_in_h is None:
+        t_interval = [x_0[3], None]
+    else:
+        t_interval = [x_0[3], x_0[3] + temp_horizon_in_h * 3600]
     lat_bnds = [min(x_0[1], x_T[1]) - deg_around_x0_xT_box, max(x_0[1], x_T[1]) + deg_around_x0_xT_box]
     lon_bnds = [min(x_0[0], x_T[0]) - deg_around_x0_xT_box, max(x_0[0], x_T[0]) + deg_around_x0_xT_box]
 
