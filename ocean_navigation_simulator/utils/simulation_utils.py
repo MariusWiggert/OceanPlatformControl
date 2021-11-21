@@ -141,9 +141,10 @@ def get_current_data_subset_from_c3_file(
 
 
 # define overarching loading and sub-setting function
+# define overarching function
 def get_current_data_subset(t_interval, lat_interval, lon_interval,
-                            data_type, access,
-                            file = None, C3_hindcast_max_temp_in_h = 120):
+                        data_type, access,
+                        file = None, C3_hindcast_max_temp_in_h = 120):
     """ Function to get a subset of current data either via local file or via C3 database of files.
     Inputs:
         t_interval              if time-varying: [t_0, t_T] in POSIX time
@@ -182,11 +183,14 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval,
 
     # Step 3: get the subsetting indices for space and time
     ygrid_inds = np.where((y_grid >= lat_interval[0]) & (y_grid <= lat_interval[1]))[0]
+    ygrid_inds = add_element_front_and_back_if_possible(y_grid, ygrid_inds)
     xgrid_inds = np.where((x_grid >= lon_interval[0]) & (x_grid <= lon_interval[1]))[0]
+    xgrid_inds = add_element_front_and_back_if_possible(x_grid, xgrid_inds)
     if t_interval[1] is None: # take full file time contained in the file
         tgrid_inds = np.where((t_grid >= t_interval[0]))[0]
     else: # subset ending time
-        tgrid_inds = np.where((t_grid >= t_interval[0]) & (t_grid <= t_interval[1]))[0]
+        tgrid_inds = np.where((t_grid >= t_interval[0]) & (t_grid <= t_interval[1] + 3600))[0]
+    tgrid_inds = add_element_front_and_back_if_possible(t_grid, tgrid_inds)
 
     # Step 3.1: create grid and use that as sanity check if any relevant data is contained in the file
     try:
@@ -233,6 +237,7 @@ def get_abs_time_grid_for_hycom_file(f, data_type):
     abs_t_grid = [(time_origin + timedelta(hours=X)).timestamp() for X in t_grid.data]
     return np.array(abs_t_grid)
 
+
 def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval):
     """Advanced Check for warning of partially being out of bound in space or time."""
     if grids_dict['y_grid'][0] > lat_interval[0] or grids_dict['y_grid'][-1] < lat_interval[1]:
@@ -242,3 +247,12 @@ def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interv
     if t_interval[1] is not None:
         if grids_dict['t_grid'][0] > t_interval[0] or grids_dict['t_grid'][-1] < t_interval[1]:
             warnings.warn("Part of the requested time is outside of file.", RuntimeWarning)
+
+
+def add_element_front_and_back_if_possible(grid, grid_inds):
+    """Helper function to add the elements front and back of the indicies if possible."""
+    # insert in the front if possible
+    grid_inds = np.insert(grid_inds, 0, max(0, grid_inds[0]-1), axis=0)
+    # insert in the end if possible
+    grid_inds = np.insert(grid_inds, len(grid_inds), min(len(grid), grid_inds[-1]+1), axis=0)
+    return grid_inds
