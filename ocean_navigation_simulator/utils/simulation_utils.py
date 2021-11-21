@@ -6,7 +6,7 @@ import math
 import warnings
 
 
-def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h=None):
+def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h):
     """
     We want to switch over to using lat-lon bounds but a lot of functions in the code already use x_0 and x_T with the
     deg_around_x0_xT_box, so for now use this to convert.
@@ -23,10 +23,7 @@ def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_
         lat_bnds: [y_lower, y_upper] in degrees
         lon_bnds: [x_lower, x_upper] in degrees
     """
-    if temp_horizon_in_h is None:
-        t_interval = [x_0[3], None]
-    else:
-        t_interval = [x_0[3], x_0[3] + temp_horizon_in_h * 3600]
+    t_interval = [x_0[3], x_0[3] + temp_horizon_in_h * 3600]
     lat_bnds = [min(x_0[1], x_T[1]) - deg_around_x0_xT_box, max(x_0[1], x_T[1]) + deg_around_x0_xT_box]
     lon_bnds = [min(x_0[0], x_T[0]) - deg_around_x0_xT_box, max(x_0[0], x_T[0]) + deg_around_x0_xT_box]
 
@@ -192,7 +189,7 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval,
     if t_interval[1] is None: # take full file time contained in the file
         tgrid_inds = np.where((t_grid >= t_interval[0]))[0]
     else: # subset ending time
-        tgrid_inds = np.where((t_grid >= t_interval[0]) & (t_grid <= t_interval[1] + 3600))[0]
+        tgrid_inds = np.where((t_grid >= t_interval[0]) & (t_grid <= t_interval[1]))[0]
     tgrid_inds = add_element_front_and_back_if_possible(t_grid, tgrid_inds)
 
     # Step 3.1: create grid and use that as sanity check if any relevant data is contained in the file
@@ -255,7 +252,7 @@ def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interv
 def add_element_front_and_back_if_possible(grid, grid_inds):
     """Helper function to add the elements front and back of the indicies if possible."""
     # insert in the front if possible
-    grid_inds = np.insert(grid_inds, 0, max(0, grid_inds[0]-1), axis=0)
+    grid_inds = np.insert(grid_inds, 0, max(0, grid_inds[0] - 1), axis=0)
     # insert in the end if possible
-    grid_inds = np.insert(grid_inds, len(grid_inds), min(len(grid), grid_inds[-1]+1), axis=0)
+    grid_inds = np.insert(grid_inds, len(grid_inds), min(len(grid) - 1, grid_inds[-1] + 1), axis=0)
     return grid_inds
