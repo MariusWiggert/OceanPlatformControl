@@ -4,8 +4,8 @@ import time
 import matplotlib.pyplot as plt
 import datetime
 
-import ocean_navigation_simulator.solar_radiation.spa as spa
-from ocean_navigation_simulator.solar_radiation.solar_rad import solar_rad
+import ocean_navigation_simulator.utils.solar_radiation.spa as spa
+from ocean_navigation_simulator.utils.solar_radiation.solar_rad import solar_rad
 
 x = ca.MX.sym('x', 2, 2)
 A = np.array([[2, 0], [1, 2]])

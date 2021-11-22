@@ -13,7 +13,7 @@ import time
 #%% Settings to feed into the planner
 # Set the platform configurations
 platform_config_dict = {'battery_cap': 20.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
-                        'avg_solar_power': 10.0, 'drag_factor': 10.0}
+                        'solar_panel_size': 0.5, 'solar_efficiency': 0.2, 'drag_factor': 10.0}
 
 # Create the navigation problem
 t_0 = datetime(2021, 6, 1, 12, 10, 10, tzinfo=timezone.utc)

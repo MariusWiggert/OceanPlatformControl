@@ -1,7 +1,11 @@
 """
 Module used to calculate the solar position using the NREL SPA algorithm using numpy.
 
+The original NREL paper can be found here: https://www.nrel.gov/docs/fy08osti/34302.pdf
+
 This code is adapted from the package pvlib-python (bsd 3-clause)
+https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py
+
 and has been adapted to only use NumPy and also be casadi compatible.
 """
 

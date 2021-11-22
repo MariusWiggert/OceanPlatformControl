@@ -9,7 +9,7 @@ import matplotlib.dates as mdates
 import datetime
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 import bisect
-from ocean_navigation_simulator.solar_radiation.solar_rad import solar_rad
+from ocean_navigation_simulator.utils.solar_radiation.solar_rad import solar_rad
 
 
 class OceanNavSimulator:

@@ -2,7 +2,7 @@
 time, latitude, and longitude in the units W/m^2"""
 
 import casadi as ca
-import ocean_navigation_simulator.solar_radiation.spa as spa
+import ocean_navigation_simulator.utils.solar_radiation.spa as spa
 
 def solar_rad(t, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
     """
