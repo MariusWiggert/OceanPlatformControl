@@ -169,7 +169,7 @@ def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func
                              "contain either '.gif' or '.mp4' to specify the format and desired file location.")
 
 
-def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
+def plot_2D_traj_over_currents(x_traj, time, file, data_access, ctrl_seq=None, u_max=None):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
@@ -177,7 +177,8 @@ def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
     t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
                                                                     deg_around_x0_xT_box=0.5,
                                                                     temp_horizon_in_h=5)
-    grids_dict, u_data, v_data = get_current_data_subset(file, t_interval, lat_bnds, lon_bnds)
+    grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds,
+                        data_type='H', access=data_access,file=file)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, x_traj=x_traj):
@@ -202,7 +203,7 @@ def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
     plt.show()
 
 
-def plot_2D_traj_animation(traj_full, control_traj, file, u_max, html_render=None, filename=None):
+def plot_2D_traj_animation(traj_full, control_traj, file, u_max, data_access, html_render=None, filename=None):
     # extract space and time trajs
     space_traj = traj_full[:2,:]
     traj_times = traj_full[3,:]
@@ -214,7 +215,8 @@ def plot_2D_traj_animation(traj_full, control_traj, file, u_max, html_render=Non
     t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
                                                                     deg_around_x0_xT_box=0.5,
                                                                     temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
-    grids_dict, u_data, v_data = get_current_data_subset(file, t_interval, lat_bnds, lon_bnds)
+    grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds,
+                                                         data_type='H', access=data_access, file=file)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, time):

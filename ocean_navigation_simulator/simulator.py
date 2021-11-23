@@ -49,6 +49,7 @@ class OceanNavSimulator:
         self.sim_settings = sim_config_dict
         self.control_settings = control_config_dict
         self.problem = problem
+        print("Data Access for current files is ", problem.data_access)
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
         self.F_x_next = self.update_dynamics(self.problem.x_0)
@@ -80,17 +81,12 @@ class OceanNavSimulator:
             F_x_next          cassadi function with (x,u)->(x_next)
         """
         # Step 0: set up time and lat/lon bounds for data sub-setting
-        t_upper = x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"]
-        try:
-            # prevents the failure case when there is time left but it's less than the requested t_horizon_sim
-            # can only happen with local files as we assume for C3 Data Files all time-ranges are available
-            t_upper = min(t_upper, self.problem.hindcast_grid_dict['gt_t_range'][1])
-        except:
-            print("Running with C3 Data Files")
+        t_upper = min(x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
+                      self.problem.hindcast_grid_dict['gt_t_range'][1].timestamp())
 
         t_interval = (x_0[3], t_upper)
-        lon_bnds = (x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"])
-        lat_bnds = (x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"])
+        lon_interval = (x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"])
+        lat_interval = (x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"])
 
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')  # lon
@@ -103,42 +99,30 @@ class OceanNavSimulator:
         u_sim_2 = ca.MX.sym('u_2')  # header in radians
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
-        # Step 2: read the relevant subset of data
-        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(self.problem.hindcast_file,
-                                                                                   t_interval, lat_bnds, lon_bnds)
+        # Step 2.1: read the relevant subset of data
+        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(
+            t_interval, lat_interval, lon_interval, data_type='H', access=self.problem.data_access,
+            file=self.problem.local_hindcast_file)
 
-        # Step 2: get the current interpolation functions
+        # Step 2.2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
-            self.grids_dict, u_data, v_data, self.sim_settings['int_pol_type'], self.problem.fixed_time)
+            self.grids_dict, u_data, v_data, type=self.sim_settings['int_pol_type'])
 
-        # Step 3: create the x_dot dynamics function
-        if self.problem.fixed_time is None:  # time varying current
-            x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                     [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
-                                         'u_max'] + u_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) /
-                                                 self.sim_settings['conv_m_to_deg'],
-                                                 (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
-                                                     'u_max'] + v_curr_func(
-                                                     ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) / self.sim_settings[
-                                                     'conv_m_to_deg'],
-                                                 self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
-                                                 (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
-                                                 1)],
-                                     ['x', 'u'], ['x_dot'])
-        else:  # fixed current
-            x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                     [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict['u_max'] /
-                                                  + u_curr_func(ca.vertcat(x_sym[1], x_sym[0]))) / self.sim_settings[
-                                                     'conv_m_to_deg'],
-                                                 (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
-                                                     'u_max'] + v_curr_func(ca.vertcat(x_sym[1], x_sym[0]))) /
-                                                 self.sim_settings['conv_m_to_deg'],
-                                                 self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
-                                                 (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
-                                                 1)],
-                                     ['x', 'u'], ['x_dot'])
+        # Step 3: create the time varying current x_dot dynamics function
+        x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
+                                 [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
+                                     'u_max'] + u_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) /
+                                             self.sim_settings['conv_m_to_deg'],
+                                             (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
+                                                 'u_max'] + v_curr_func(
+                                                 ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) / self.sim_settings[
+                                                 'conv_m_to_deg'],
+                                             self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
+                                             (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
+                                             1)],
+                                 ['x', 'u'], ['x_dot'])
 
-        # create an integrator out of it
+        # Step 3: create an integrator out of it
         if self.sim_settings['sim_integration'] == 'rk':
             dae = {'x': x_sym, 'p': u_sym, 'ode': x_dot_func(x_sym, u_sym)}
             integ = ca.integrator('F_int', 'rk', dae, {'tf': self.sim_settings['dt']})
@@ -153,7 +137,6 @@ class OceanNavSimulator:
         else:
             raise ValueError('sim_integration: only RK4 (rk) and forward euler (ef) implemented')
 
-        # return F_next for future use
         return F_x_next
 
     def run(self, T_in_h=None, max_steps=500):
@@ -167,9 +150,9 @@ class OceanNavSimulator:
         """
         end_sim = False
 
-        if self.sim_settings['plan_on_gt']:
+        if self.problem.plan_on_gt:
             self.high_level_planner.update_forecast_file(
-                self.problem.hindcast_file)
+                self.problem.local_hindcast_file)
             # put something in so that the rest of the code runs
             current_forecast_dict_idx = 0
         else:
@@ -183,7 +166,7 @@ class OceanNavSimulator:
 
         while not end_sim:
             # Loop 1: update forecast files if new one is available
-            if (not self.sim_settings['plan_on_gt']) and self.cur_state[3] >= \
+            if (not self.problem.plan_on_gt) and self.cur_state[3] >= \
                     self.problem.forecasts_dict[current_forecast_dict_idx + 1]['t_range'][0] \
                     + self.problem.forecast_delay_in_h * 3600.:
                 self.high_level_planner.update_forecast_file(
@@ -319,16 +302,18 @@ class OceanNavSimulator:
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      file=self.problem.hindcast_file)
+                                                      file=self.problem.local_hindcast_file,
+                                                      data_access = self.problem.data_access)
             return
 
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      file=self.problem.hindcast_file,
+                                                      file=self.problem.local_hindcast_file,
                                                       ctrl_seq=self.control_traj,
-                                                      u_max=self.problem.dyn_dict['u_max'])
+                                                      u_max=self.problem.dyn_dict['u_max'],
+                                                      data_access = self.problem.data_access)
             return
 
         elif plotting_type == 'ctrl':
@@ -357,6 +342,6 @@ class OceanNavSimulator:
             plotting_utils.plot_2D_traj_animation(
                 traj_full=self.trajectory,
                 control_traj=self.control_traj,
-                file=self.problem.hindcast_file,
+                file=self.problem.local_hindcast_file, data_access=self.problem.data_access,
                 u_max=self.problem.dyn_dict['u_max'],
-                html_render=html_render, filename=vid_file_name)
+                html_render=html_render, filename=vid_file_name,)

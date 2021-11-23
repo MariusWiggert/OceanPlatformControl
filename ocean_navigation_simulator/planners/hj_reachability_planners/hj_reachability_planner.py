@@ -1,6 +1,7 @@
 from ocean_navigation_simulator.planners.planner import Planner
 import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
+from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
 import os
 from scipy.interpolate import interp1d
 import bisect
@@ -206,20 +207,22 @@ class HJPlannerBase(Planner):
                                                             deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
                                                             temp_horizon_in_h=self.specific_settings['T_goal_in_h'])
 
-        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(self.cur_forecast_file,
-                                                                                t_interval, lat_bnds, lon_bnds)
+        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
+            t_interval, lat_bnds, lon_bnds,
+            data_type='F', access=self.problem.data_access, file=self.cur_forecast_file)
 
-
-        # set absolute time in Posix time
+        # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
 
         # feed in the current data to the Platform classes
         # Note: we use a relative time grid (starts with 0 for every file)
         # because otherwise there are errors in the interpolation as jax uses float32
+        # import pdb
+        # pdb.set_trace()
         self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(
-            grids_dict['x_grid'].data,
-            grids_dict['y_grid'].data,
-            [t - self.current_data_t_0 for t in grids_dict['t_grid']],
+            grids_dict['x_grid'],
+            grids_dict['y_grid'],
+            np.array([t - self.current_data_t_0 for t in grids_dict['t_grid']]),
             water_u, water_v)
 
         # initialize the grids and dynamics to solve the PDE with
@@ -315,8 +318,8 @@ class HJReach2DPlanner(HJPlannerBase):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
         space_coeff = 1. / self.gen_settings['conv_m_to_deg']
-        return hj.systems.Platform2D_for_sim(u_max=self.dyn_dict['u_max'],
-                                             space_coeff=space_coeff, control_mode='min')
+        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'],
+                                  space_coeff=space_coeff, control_mode='min')
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""

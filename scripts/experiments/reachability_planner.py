@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 import os
 import hj_reachability as hj
 import time
-
 #%% Settings to feed into the planner
 # Set the platform configurations
 platform_config_dict = {'battery_cap': 20.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
@@ -21,8 +20,14 @@ x_T = [-88.2, 26.3]
 hindcast_file = "data/hindcast_test/" + "2021_06_1-05_hourly.nc4"
 forecast_folder = "data/forecast_test/"
 forecast_delay_in_h = 0.
-prob = Problem(x_0, x_T, t_0, hindcast_file, forecast_folder, forecast_delay_in_h=forecast_delay_in_h,
-               platform_config_dict=platform_config_dict)
+plan_on_gt=True
+prob = Problem(x_0, x_T, t_0,
+               platform_config_dict=platform_config_dict,
+               hindcast_file= hindcast_file,
+               forecast_folder=forecast_folder,
+               plan_on_gt = plan_on_gt,
+               forecast_delay_in_h=forecast_delay_in_h)
+#%%
 # # append to x_0 the posix time for the subsetting of the data
 # x_0.append(t_0.timestamp())
 #
@@ -32,11 +37,12 @@ prob = Problem(x_0, x_T, t_0, hindcast_file, forecast_folder, forecast_delay_in_
 #                      'n_time_vector': 50, 'grid_res': (100, 100), 'deg_around_xt_xT_box': 0.8,
 #                      'accuracy': 'high', 'artificial_dissipation_scheme': 'local_local'}
 #%%
+#%%
 prob.viz() # plots the current at t_0 with the start and goal position
 # # create a video of the underlying currents rendered in Jupyter, Safari or as file
 # prob.viz(video=True) # renders in Jupyter
 # prob.viz(video=True, html_render='safari')    # renders in Safari
-# prob.viz(video=True, filename='problem_animation.gif') # saves as gif file
+prob.viz(video=True, filename='new_prob.gif') # saves as gif file
 #%% Initialize planner
 # planner = HJReach2DPlanner(prob, gen_settings, specific_settings)
 # planner.cur_forecast_file = hindcast_file
@@ -49,25 +55,29 @@ prob.viz() # plots the current at t_0 with the start and goal position
 #%% Set stuff up
 sim = OceanNavSimulator(sim_config_dict="simulator.yaml", control_config_dict='reach_controller.yaml', problem=prob)
 sim.run(T_in_h=70)
+# grids_dict, water_u, water_v
+# SOMETHING IS WRONG WITH THE interpolation function
+# Maybe it's the t_grid that now is an array?
+# Maybe it's something else with the data?
+# --> need to investigate why it crashes...
 #%% Step 5: plot from Simulator
 # # plot Battery levels over time
 # sim.plot_trajectory(plotting_type='battery')
-# # plot 2D Trajectory without background currents
+# # # plot 2D Trajectory without background currents
 # sim.plot_trajectory(plotting_type='2D')
 # # plot control over time
 # sim.plot_trajectory(plotting_type='ctrl')
 # # plot 2D Trajectory with currents at t_0
-# sim.plot_trajectory(plotting_type='2D_w_currents')
+sim.plot_trajectory(plotting_type='2D_w_currents')
 # # plot 2D Trajectory with currents at t_0 and control_vec for each point
 sim.plot_trajectory(plotting_type='2D_w_currents_w_controls')
 #%% plot simulator animation
-# TODO: can add also battery level to the animation =)
 # # render in Jupyter
 # # sim.plot_trajectory(plotting_type='video')
 # render in Safari
 # sim.plot_trajectory(plotting_type='video', html_render='safari')
 # save as gif file
-sim.plot_trajectory(plotting_type='video', vid_file_name='sim_anim.gif')
+sim.plot_trajectory(plotting_type='video', vid_file_name='new_subset_not_yet_working.gif')
 #%% Plot from reachability planner
 sim.high_level_planner.plot_2D_traj()
 sim.high_level_planner.plot_ctrl_seq()

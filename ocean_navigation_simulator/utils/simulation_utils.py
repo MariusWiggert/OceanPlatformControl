@@ -225,14 +225,14 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval,
 
 # Helper functions for the general subset function
 def get_abs_time_grid_for_hycom_file(f, data_type):
-    """Helper function to extract the t_grid in POSIX time from a HYCOM File f."""
+    """Helper function to extract the t_grid in UTC POSIX time from a HYCOM File f."""
     # Get the t_grid. note that this is in hours from HYCOM data!
     t_grid = f.variables['time'][:]
     # Get the time_origin of the file (Note: this is very tailered for the HYCOM Data)
-    if data_type == 'H':
+    try:
         time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
                                         '%Y-%m-%d %H:%M:%S %z')
-    else:
+    except:
         time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
                                         'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
 

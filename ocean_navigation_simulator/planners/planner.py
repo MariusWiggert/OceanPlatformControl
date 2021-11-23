@@ -26,7 +26,8 @@ class Planner:
         self.x_0 = np.array(problem.x_0)
         self.x_T = np.array(problem.x_T)
         self.dyn_dict = problem.dyn_dict
-        self.fixed_time = problem.fixed_time
+        self.problem = problem
+        # self.fixed_time = problem.fixed_time
 
         # Note: managing the forecast fieldsets is done in the simulator
         self.cur_forecast_file = None
