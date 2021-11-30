@@ -196,9 +196,10 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval,
     tgrid_inds = add_element_front_and_back_if_possible(t_grid, tgrid_inds)
 
     # Step 3.1: create grid and use that as sanity check if any relevant data is contained in the file
+    spatial_land_mask = f.variables['water_u'][:, :, :, :].mask[0, 0, ygrid_inds, :][:, xgrid_inds]
     try:
         grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds],
-                      't_grid': t_grid[tgrid_inds]}
+                      't_grid': t_grid[tgrid_inds], 'spatial_land_mask': spatial_land_mask}
     except:
          raise ValueError("None of the requested data contained in file. Check File.")
 

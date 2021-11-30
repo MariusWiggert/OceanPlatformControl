@@ -273,18 +273,26 @@ class OceanNavSimulator:
             print("Sim terminate because state went out of sub-setted gt hindcast file.")
             return True
         # TODO: implement a way of checking for stranding!
-        # if self.cur_state in some region where there is land:
-        #     print("Sim terminated because platform stranded on land")
-        #     return True
+        if self.is_land():
+            print("Sim terminated because platform stranded on land")
+            return True
         return False
 
     def reached_goal(self):
         """Returns whether we have reached the target goal """
-
         lon, lat = self.cur_state[0][0], self.cur_state[1][0]
         lon_target, lat_target = self.problem.x_T[0], self.problem.x_T[1]
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
                self.sim_settings['slack_around_goal']
+
+    def is_land(self):
+        """Returns whether the current position is on land"""
+        spatial_land_mask = self.grids_dict['spatial_land_mask']
+        lon_grid, lat_grid = self.grids_dict['x_grid'], self.grids_dict['y_grid']
+        lon, lat = self.cur_state[0][0], self.cur_state[1][0]
+        x_idx = np.where(lon_grid == lon)[0]
+        y_idx = np.where(lat_grid == lat)[0]
+        return spatial_land_mask[y_idx, x_idx][0]
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
         """ Captures the whole trajectory - energy, position, etc over time"""
