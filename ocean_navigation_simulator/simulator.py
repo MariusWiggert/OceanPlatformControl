@@ -49,7 +49,6 @@ class OceanNavSimulator:
         self.sim_settings = sim_config_dict
         self.control_settings = control_config_dict
         self.problem = problem
-        print("Data Access for current files is ", problem.data_access)
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
         self.F_x_next = self.update_dynamics(self.problem.x_0)
@@ -84,9 +83,9 @@ class OceanNavSimulator:
         t_upper = min(x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
                       self.problem.hindcast_grid_dict['gt_t_range'][1].timestamp())
 
-        t_interval = (x_0[3], t_upper)
-        lon_interval = (x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"])
-        lat_interval = (x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"])
+        t_interval = [datetime.datetime.utcfromtimestamp(x_0[3]), datetime.datetime.utcfromtimestamp(t_upper)]
+        lon_interval = [x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"]]
+        lat_interval = [x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"]]
 
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')  # lon
@@ -101,8 +100,7 @@ class OceanNavSimulator:
 
         # Step 2.1: read the relevant subset of data
         self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(
-            t_interval, lat_interval, lon_interval, data_type='H', access=self.problem.data_access,
-            file=self.problem.local_hindcast_file)
+            t_interval, lat_interval, lon_interval, self.problem.hindcasts_dicts)
 
         # Step 2.2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
@@ -151,14 +149,14 @@ class OceanNavSimulator:
         end_sim = False
 
         if self.problem.plan_on_gt:
-            self.high_level_planner.update_forecast_file(
-                self.problem.local_hindcast_file)
+            self.high_level_planner.update_forecast_dicts(
+                self.problem.hindcasts_dicts)
             # put something in so that the rest of the code runs
             current_forecast_dict_idx = 0
         else:
             current_forecast_dict_idx = self.problem.most_recent_forecast_idx
-            self.high_level_planner.update_forecast_file(
-                self.problem.forecasts_dict[current_forecast_dict_idx]['file'])
+            self.high_level_planner.update_forecast_dicts(
+                [self.problem.forecasts_dicts[current_forecast_dict_idx]])
 
         # tracking variables
         next_planner_update = 0.
@@ -167,10 +165,10 @@ class OceanNavSimulator:
         while not end_sim:
             # Loop 1: update forecast files if new one is available
             if (not self.problem.plan_on_gt) and self.cur_state[3] >= \
-                    self.problem.forecasts_dict[current_forecast_dict_idx + 1]['t_range'][0] \
+                    self.problem.forecasts_dicts[current_forecast_dict_idx + 1]['t_range'][0].timestamp() \
                     + self.problem.forecast_delay_in_h * 3600.:
-                self.high_level_planner.update_forecast_file(
-                    self.problem.forecasts_dict[current_forecast_dict_idx + 1]['file'])
+                self.high_level_planner.update_forecast_dicts(
+                    [self.problem.forecasts_dicts[current_forecast_dict_idx + 1]])
                 current_forecast_dict_idx = current_forecast_dict_idx + 1
                 # trigger high-level planner re-planning
                 next_planner_update = self.cur_state[3]
@@ -213,7 +211,7 @@ class OceanNavSimulator:
                 or self.cur_state[1] <= y_low or self.cur_state[1] >= y_high \
                 or self.cur_state[3] >= self.grids_dict["t_grid"][-1]:
             self.update_dynamics(self.cur_state.flatten())
-            print("dynamics updated")
+            print("Sim dynamics updated")
 
     def run_step(self):
         """Run the simulator for one dt step"""
@@ -302,18 +300,16 @@ class OceanNavSimulator:
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      file=self.problem.local_hindcast_file,
-                                                      data_access = self.problem.data_access)
+                                                      file_dicts=self.problem.hindcasts_dicts)
             return
 
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      file=self.problem.local_hindcast_file,
+                                                      file_dicts=self.problem.hindcasts_dicts,
                                                       ctrl_seq=self.control_traj,
-                                                      u_max=self.problem.dyn_dict['u_max'],
-                                                      data_access = self.problem.data_access)
+                                                      u_max=self.problem.dyn_dict['u_max'])
             return
 
         elif plotting_type == 'ctrl':
@@ -342,6 +338,6 @@ class OceanNavSimulator:
             plotting_utils.plot_2D_traj_animation(
                 traj_full=self.trajectory,
                 control_traj=self.control_traj,
-                file=self.problem.local_hindcast_file, data_access=self.problem.data_access,
+                file_dicts=self.problem.hindcasts_dicts,
                 u_max=self.problem.dyn_dict['u_max'],
                 html_render=html_render, filename=vid_file_name,)

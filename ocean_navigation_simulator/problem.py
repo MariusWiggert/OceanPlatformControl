@@ -4,12 +4,11 @@ import matplotlib.pyplot as plt
 
 # import from other utils
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
-from ocean_navigation_simulator.utils.simulation_utils import convert_to_lat_lon_time_bounds, get_current_data_subset
-from ocean_navigation_simulator.utils.simulation_utils import get_abs_time_grid_for_hycom_file
+from ocean_navigation_simulator.utils.simulation_utils import convert_to_lat_lon_time_bounds, get_current_data_subset, \
+    get_grid_dict_from_file
 
 
-# Basis function for the problem class
-class BaseProblem(metaclass=abc.ABCMeta):
+class Problem:
     """A path planning problem for a Planner to solve.
 
     Attributes:
@@ -26,6 +25,14 @@ class BaseProblem(metaclass=abc.ABCMeta):
         platform_config_dict:
             A dict specifying the platform parameters, see the repos 'configs/platform.yaml' as example.
 
+        hindcasts_dicts and forecasts_dicts
+            A list of dicts ordered according to the starting time-range.
+            One dict for each hindcast/forecast file available. The dicts for each hindcast file contains:
+            {'t_range': [<datetime object>, <datetime object>], 'file': <filepath>})
+
+        plan_on_gt:
+            if True we only use hindcast data and plan on hindcasts. If False we use forecast data for the planner.
+
         # TO IMPLEMENT USAGE/FOR FUTURE
         forecast_delay_in_h:
             The hours of delay when a forecast becomes available
@@ -39,18 +46,12 @@ class BaseProblem(metaclass=abc.ABCMeta):
             # Note: not used currently as the sim config has that value too.
     """
 
-    def __init__(self, x_0, x_T, t_0, platform_config_dict, plan_on_gt=False,
-                 forecast_delay_in_h=0., noise=None, x_t_tol=0.1):
+    def __init__(self, x_0, x_T, t_0, platform_config_dict,
+                 hindcast_folder, forecast_folder,
+                 plan_on_gt=False, forecast_delay_in_h=0., noise=None, x_t_tol=0.1):
 
         # Plan on GT
         self.plan_on_gt = plan_on_gt
-
-        # Need to be derived in the child_classes
-        self.hindcast_grid_dict = None
-        self.forecasts_dicts = None
-        self.data_access = None # 'C3' or 'local'
-        self.local_hindcast_file = None
-        self.most_recent_forecast_idx = 0
 
         # Basic check of inputs
         if len(x_0) != 3 or len(x_T) != 2:
@@ -64,9 +65,18 @@ class BaseProblem(metaclass=abc.ABCMeta):
             raise ValueError("Please provide t_0 as UTC or naive datetime object.")
 
         # Log start, goal and forecast delay.
+        self.t_0 = t_0
         self.x_0 = x_0 + [t_0.timestamp()]
         self.x_T = x_T
         self.forecast_delay_in_h = forecast_delay_in_h
+
+        # Initialize the data dicts with None
+        self.hindcasts_dicts, self.hindcast_grid_dict, self.forecasts_dicts, self.most_recent_forecast_idx = [None] * 4
+        # Initialize them using the folders provided
+        self.update_data_dicts(hindcast_folder, forecast_folder)
+
+        # Check data compatibility
+        self.check_data_compatibility(t_0, [self.x_0[:2], self.x_T[:2]])
 
         # derive relative batter dynamics variables from config_dict
         # The if-clause is in case we want to specify it as path to a yaml
@@ -77,6 +87,8 @@ class BaseProblem(metaclass=abc.ABCMeta):
             with open(project_dir + '/configs/' + platform_config_dict) as f:
                 platform_config_dict = yaml.load(f, Loader=yaml.FullLoader)
         self.dyn_dict = self.derive_platform_dynamics(platform_config_dict)
+
+        print(self)
 
     def __repr__(self):
         """Returns the string representation of a Problem, to be used for debugging.
@@ -97,6 +109,43 @@ class BaseProblem(metaclass=abc.ABCMeta):
                 self.forecasts_dicts[0]['t_range'][0],
                 self.forecasts_dicts[-1]['t_range'][0])
         return Nav_string + '\n' + Sim_string + '\n' + Plan_string
+
+    def check_hindcast_comatibility(self, t, points):
+        """Helper function to check if the Hindcast files cover all points at t_0.
+        Input:
+            t       datetime_object of time
+            points  list of [lon, lat] points
+        """
+
+        # Step 1: check if t_0 is in the Hindcast time-range
+        if not (self.hindcast_grid_dict['gt_t_range'][0] < t < self.hindcast_grid_dict['gt_t_range'][1]):
+            raise ValueError("Hindcast files do not cover {}.".format(t))
+        # Step 2: check if x_0 and x_T are in the spatial coverage of the Hindcast files
+        for point in points:
+            if not (self.hindcast_grid_dict['gt_x_range'][0] < point[0] < self.hindcast_grid_dict['gt_x_range'][1]):
+                raise ValueError("Hindcast files does not contain {} in longitude range.".format(point))
+            if not (self.hindcast_grid_dict['gt_y_range'][0] < point[1] < self.hindcast_grid_dict['gt_y_range'][1]):
+                raise ValueError("Hindcast files does not contain {} in latitude range.".format(point))
+
+    def check_forecast_comatibility(self, t, points):
+        """Helper function to check if the most recent Forecast file covers all points at t_0.
+        Input:
+            t       datetime_object of time
+            points  list of [lon, lat] points
+        """
+
+        # Step 1: check if at t_0 there's a forecast available.
+        if not (self.forecasts_dicts[self.most_recent_forecast_idx]['t_range'][0] < t <
+                self.forecasts_dicts[self.most_recent_forecast_idx]['t_range'][1]):
+            raise ValueError("Most recent Forecast file does not cover {}.".format(t))
+        # Step 2: check if x_0 and x_T are in the spatial coverage of the most recent Forecast file
+        for point in points:
+            if not (self.forecasts_dicts[self.most_recent_forecast_idx]['x_range'][0] < point[0] <
+                    self.forecasts_dicts[self.most_recent_forecast_idx]['x_range'][1]):
+                raise ValueError("Most recent Forecast file does not contain {} in longitude range.".format(point))
+            if not (self.forecasts_dicts[self.most_recent_forecast_idx]['y_range'][0] < point[1] <
+                    self.forecasts_dicts[self.most_recent_forecast_idx]['y_range'][1]):
+                raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
 
     def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8,
             html_render=None, temp_horizon_viz_in_h=None):
@@ -122,11 +171,11 @@ class BaseProblem(metaclass=abc.ABCMeta):
                                                                                 deg_around_x0_xT_box=cut_out_in_deg,
                                                                                 temp_horizon_in_h=temp_horizon_viz_in_h)
 
-        print("Note only the GT file is currently visualized")
-        # Step 1: get the data_subset for plotting (flexible query can be with local or C3 file)
+        print("Note only the GT hindcast data is currently visualized")
+        # Step 1: get the data_subset for plotting
         grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_interval, lon_interval,
-                                                             data_type='H', access=self.data_access,
-                                                             file=self.local_hindcast_file)
+                                                             file_dicts=self.hindcasts_dicts,
+                                                             max_temp_in_h=120)
 
         def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
             del time
@@ -150,14 +199,94 @@ class BaseProblem(metaclass=abc.ABCMeta):
             add_ax_func(ax)
             plt.show()
 
-    def get_hindcast_grid_dict(self):
-        return None
-
-    @abc.abstractmethod
-    def get_forecast_dicts(self, forecast_folder):
-        """ Creates an list of dicts ordered according to time available, one for each forecast file available.
-        The dicts for each forecast file contains: {'t_range': [<datetime object>, T], 'file': <filepath>})
+    def derive_hindcast_grid_dict(self):
+        """Helper function to create the hindcast grid dict from a dict of multiple files self.hindcasts_dicts.
+        Note: this currently assumes all files have the same spatial coverage, needs to be changed once
+        we go for multiple regions.
         """
+
+        # Basic sanity check
+        if len(self.hindcasts_dicts) == 0:
+            raise ValueError("No Hindcast files in hindcasts_dicts.")
+
+        # get spatial coverage by reading in the first file
+        f = netCDF4.Dataset(self.hindcasts_dicts[0]['file'])
+        xgrid = f.variables['lon'][:].data
+        ygrid = f.variables['lat'][:].data
+
+        y_range = [ygrid[0], ygrid[-1]]
+        x_range = [xgrid[0], xgrid[-1]]
+
+        # get time_range
+        # If one file it's simple
+        if len(self.hindcasts_dicts) == 1:
+            time_range = self.hindcasts_dicts[0]['t_range']
+        else:  # multiple daily files
+            # get time-range by iterating over the return elements that are consecutive/exactly 1h apart
+            for idx in range(len(self.hindcasts_dicts) - 1):
+                if self.hindcasts_dicts[idx]['t_range'][1] + timedelta(hours=1) \
+                        == self.hindcasts_dicts[idx + 1]['t_range'][0]:
+                    continue
+                else:
+                    break
+            time_range = [self.hindcasts_dicts[0]['t_range'][0], self.hindcasts_dicts[idx + 1]['t_range'][1]]
+
+        return {"gt_t_range": time_range, "gt_y_range": y_range, "gt_x_range": x_range}
+
+    @staticmethod
+    def get_file_dicts(folder):
+        """ Creates an list of dicts ordered according to time available, one for each nc file available in folder.
+        The dicts for each file contains:
+        {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
+        """
+        # get a list of files from the folder
+        files_list = [folder + f for f in os.listdir(folder) if
+                      (os.path.isfile(os.path.join(folder, f)) and f != '.DS_Store')]
+
+        # iterate over all files to extract the grids and put them in an ordered list of dicts
+        list_of_dicts = []
+        for file in files_list:
+            grid_dict = get_grid_dict_from_file(file)
+            # append the file to it:
+            grid_dict['file'] = file
+            list_of_dicts.append(grid_dict)
+        # sort the list
+        list_of_dicts.sort(key=lambda dict: dict['t_range'][0])
+        return list_of_dicts
+
+    def update_data_dicts(self, hindcast_folder, forecast_folder):
+        """Derive the file dicts again and new forecast_idx and do compatibility checks.
+        Inputs:
+            hindcast_folder/forecast_folder     local path to folder where all hindcast/forecast files are
+            x_t                                 full state of simulator at current time (lon, lat, battery, POSIX time)
+        """
+        # Step 1: Update Hindcast Data
+        self.hindcasts_dicts = self.get_file_dicts(hindcast_folder)
+        self.hindcast_grid_dict = self.derive_hindcast_grid_dict()
+
+        # Forecast Data
+        if not self.plan_on_gt:
+            self.forecasts_dicts = self.get_file_dicts(forecast_folder)
+            self.most_recent_forecast_idx = self.get_most_recent_forecast_idx()
+
+    def check_data_compatibility(self, t, points):
+        """Check if given forecast and hindcasts are compatible."""
+        self.check_hindcast_comatibility(t, points)
+        if not self.plan_on_gt:
+            self.check_forecast_comatibility(t, points)
+
+    def get_most_recent_forecast_idx(self):
+        """Get the index of the most recent forecast available t_0."""
+        # Filter on the list to get all files where t_0 is contained.
+        dics_containing_t_0 = list(
+            filter(lambda dic: dic['t_range'][0] < self.t_0 < dic['t_range'][1], self.forecasts_dicts))
+        # Basic Sanity Check if this list is empty no file contains t_0
+        if len(dics_containing_t_0) == 0:
+            raise ValueError("None of the forecast files contains t_0.")
+        # As the dict is time-ordered we simple need to find the idx of the last one in the dics_containing_t_0
+        for idx, dic in enumerate(self.forecasts_dicts):
+            if dic['t_range'][0] == dics_containing_t_0[-1]['t_range'][0]:
+                return idx
 
     def derive_platform_dynamics(self, platform_specs):
         """Derives the relative battery capacity dynamics (from 0-1) based on absolute physical values.
@@ -174,160 +303,3 @@ class BaseProblem(metaclass=abc.ABCMeta):
         platform_dict = {'charge': charge_factor, 'energy': energy_coeff, 'u_max': platform_specs['u_max']}
 
         return platform_dict
-
-
-# Problem for local files
-class Problem(BaseProblem):
-    """Problem Class if the current files are available locally.
-    Input variables are same as in the Base class except two new ones:
-
-    hindcast_file           absolute path to hindcast file
-    forecast_folder         absolute path to folder containing all forecast files
-    """
-    def __init__(self, x_0, x_T, t_0, platform_config_dict, hindcast_file, forecast_folder=None,
-                 plan_on_gt=False, forecast_delay_in_h=0., noise=None, x_t_tol=0.1):
-
-        # initialize the Base Problem
-        super().__init__(x_0, x_T, t_0, platform_config_dict, plan_on_gt, forecast_delay_in_h, noise, x_t_tol)
-
-        # Derive the hindcast_grid_dict
-        self.local_hindcast_file = hindcast_file
-        self.hindcast_grid_dict = self.get_grid_dict_from_file(hindcast_file)
-
-        # Derive the list forecasts_dicts
-        if not self.plan_on_gt:
-            self.forecasts_dicts = self.get_forecast_dicts(forecast_folder)
-            self.most_recent_forecast_idx = 0
-
-        # log variables for data_acces
-        self.data_access = 'local'
-        print(self)
-
-    def get_grid_dict_from_file(self, file, data_type='H'):
-        """Helper function to create a grid dict from a local file.
-        Input: hindcast_file
-        """
-        f = netCDF4.Dataset(file)
-        # get the time coverage in POSIX
-        t_grid = get_abs_time_grid_for_hycom_file(f, data_type=data_type)
-        # create dict
-        return {"gt_t_range": [datetime.fromtimestamp(t_grid[0], timezone.utc),
-                               datetime.fromtimestamp(t_grid[-1], timezone.utc)],
-                "gt_y_range": [f.variables['lat'][:][0], f.variables['lat'][:][-1]],
-                "gt_x_range": [f.variables['lon'][:][0], f.variables['lon'][:][-1]]}
-
-    def get_forecast_dicts(self, forecast_folder):
-        """Helper function to create a list of dicts of the available forecasts from the local folder.
-        Starting from the most recent at t_0 in the future."""
-
-        # get a list of files from the folder
-        forecast_files_list = [forecast_folder + f for f in os.listdir(forecast_folder) if
-                               (os.path.isfile(os.path.join(forecast_folder, f)) and f != '.DS_Store')]
-
-        # iterate over all files to extract the t_ranges and put them in an ordered list of dicts
-        forecast_dicts = []
-        for file in forecast_files_list:
-            grid_dict = self.get_grid_dict_from_file(file, data_type='F')
-            forecast_dicts.append({'t_range': grid_dict['gt_t_range'], 'file': file})
-        # sort the list
-        forecast_dicts.sort(key=lambda dict: dict['t_range'][0])
-
-        # only retain the ones after and including the most current at t_0
-        for i, dic in enumerate(forecast_dicts):
-            if dic['t_range'][0].timestamp() > self.x_0[3] + self.forecast_delay_in_h * 3600:
-                if i == 0:
-                    raise ValueError("At t_0 there is no forecast available.")
-                else:
-                    forecast_dicts = forecast_dicts[i - 1:]
-                break
-
-        return forecast_dicts
-
-
-# Problem for C3 based data
-class C3Problem(BaseProblem):
-    def __init__(self, x_0, x_T, t_0, platform_config_dict, plan_on_gt=False,
-                 forecast_delay_in_h=0., noise=None, x_t_tol=0.1):
-
-        # initialize the Base Problem
-        super().__init__(x_0, x_T, t_0, platform_config_dict, plan_on_gt, forecast_delay_in_h, noise, x_t_tol)
-
-        # Derive the hindcast_grid_dict and the list forecast_dicts
-        self.hindcast_grid_dict = self.get_hindcast_grid_dict()
-        if not self.plan_on_gt:
-            self.forecasts_dicts = self.get_forecast_dicts()
-
-        # log variables for data_acces
-        self.data_access = 'C3'
-        print(self)
-
-    def get_hindcast_grid_dict(self):
-        """Helper function to create the hindcast grid dict from the multiple files in the C3 DB.
-        The idea is: how many consecutive daily hindcast files do we have starting from t_0.
-        """
-        # Step 1: get required file references and data from C3 file DB
-        # Step 1.1: Getting time and formatting for the db query
-        start = datetime.fromtimestamp(self.x_0[3], timezone.utc)
-
-        # Step 1.2: Getting correct range of nc files from database
-        filter_string = 'start>=' + '"' + start.strftime("%Y-%m-%d") + '"' + \
-                        ' && status==' + '"' + 'downloaded' + '"'
-        objs_list = c3.HindcastFile.fetch({'filter': filter_string, "order": "start"}).objs
-
-        # some basic sanity checks
-        if objs_list is None:
-            print("No Hindcast files in DB")
-            return {}
-        #             raise ValueError("No Hindcast files in the database for and after the selected start_time")
-
-        # get spatial coverage
-        y_range = [objs_list[0].subsetOptions.geospatialCoverage.start.latitude,
-                   objs_list[0].subsetOptions.geospatialCoverage.end.latitude]
-        x_range = [objs_list[0].subsetOptions.geospatialCoverage.start.longitude,
-                   objs_list[0].subsetOptions.geospatialCoverage.end.longitude]
-
-        # get time_range by iterating over the return elements that are consecutive/exactly 1h apart
-        starts_list = [obj.start for obj in objs_list]
-        ends_list = [obj.end for obj in objs_list]
-        for idx in range(len(starts_list) - 1):
-            if ends_list[idx] + timedelta(hours=1) == starts_list[idx + 1]:
-                continue
-            else:
-                break
-        time_range = [starts_list[0], ends_list[idx + 1]]
-
-        # greate dict
-        return {"gt_t_range": time_range, "gt_y_range": y_range, "gt_x_range": x_range}
-
-    def get_forecast_dicts(self):
-        """Helper function to create a list of dicts of the available forecasts from the C3 DB.
-        Starting from the most recent at t_0 in the future."""
-
-        t_0_as_datetime = datetime.fromtimestamp(self.x_0[3], timezone.utc)
-
-        # Step 1: get required file references and data from C3 file DB
-        # get all relevant forecasts including most recent at t_0 and all the ones after
-        from_run_onwards = t_0_as_datetime - timedelta(days=1)
-        filter_string = 'runDate>=' + '"' + from_run_onwards.strftime("%Y-%m-%dT%H:%M:%S") + '"'
-        objs_list = c3.HycomFMRC.fetch(spec={'include': "[this, fmrcFiles.file]",
-                                             'filter': filter_string,
-                                             "order": "runDate"}
-                                       ).objs
-
-        # basic sanity check
-        if objs_list is None:
-            raise ValueError("No forecast runs in the database for and after the selected start_time")
-        # check if first forecast file contains t_0
-        if not (objs_list[0].timeCoverage.start < t_0_as_datetime and objs_list[0].timeCoverage.end > t_0_as_datetime):
-            raise ValueError("First Forecast File retreived does not contain t_0.")
-
-        # Step 2: create a list of dicts with one dict for each run
-        forecast_dicts = []
-        for run in objs_list:
-            t_range = [run.timeCoverage.start, run.timeCoverage.end]
-            forecast_dicts.append({'t_range': t_range, 'file': run.fmrcFiles[0].file.url})
-
-        # sorting after t_range start (doubling because already in db query but to be safe)
-        forecast_dicts.sort(key=lambda dict: dict['t_range'][0])
-
-        return forecast_dicts

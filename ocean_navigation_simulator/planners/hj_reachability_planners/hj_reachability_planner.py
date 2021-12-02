@@ -82,7 +82,7 @@ class HJPlannerBase(Planner):
     def plan(self, x_t, trajectory=None):
         """Main function where the reachable front is computed."""
         # Step 1: read the relevant subset of data (if it changed)
-        if self.new_forecast_file:
+        if self.new_forecast_dicts:
             self.update_current_data(x_t=x_t)
 
         # Check if x_t is in the forecast times and transform to rel_time in seconds
@@ -209,7 +209,7 @@ class HJPlannerBase(Planner):
 
         grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
             t_interval, lat_bnds, lon_bnds,
-            data_type='F', access=self.problem.data_access, file=self.cur_forecast_file)
+            file_dicts=self.cur_forecast_dicts)
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
@@ -232,7 +232,7 @@ class HJPlannerBase(Planner):
         self.nondim_dynamics.characteristic_vec = self.characteristic_vec
         self.nondim_dynamics.offset_vec = self.offset_vec
         # log that we just updated the forecast_file
-        self.new_forecast_file = False
+        self.new_forecast_dicts = False
 
     def get_non_dim_state(self, state):
         """Returns the state transformed from dimensional coordinates to non_dimensional coordinates."""

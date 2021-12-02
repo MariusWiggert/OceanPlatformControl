@@ -17,13 +17,13 @@ platform_config_dict = {'battery_cap': 20.0, 'u_max': 0.1, 'motor_efficiency': 1
 t_0 = datetime(2021, 6, 1, 12, 10, 10, tzinfo=timezone.utc)
 x_0 = [-88.0, 25.0, 1]  # lon, lat, battery
 x_T = [-88.2, 26.3]
-hindcast_file = "data/hindcast_test/" + "2021_06_1-05_hourly.nc4"
+hindcast_folder = "data/hindcast_test/"
 forecast_folder = "data/forecast_test/"
 forecast_delay_in_h = 0.
 plan_on_gt=True
 prob = Problem(x_0, x_T, t_0,
                platform_config_dict=platform_config_dict,
-               hindcast_file= hindcast_file,
+               hindcast_folder= hindcast_folder,
                forecast_folder=forecast_folder,
                plan_on_gt = plan_on_gt,
                forecast_delay_in_h=forecast_delay_in_h)
@@ -42,7 +42,7 @@ prob.viz() # plots the current at t_0 with the start and goal position
 # # create a video of the underlying currents rendered in Jupyter, Safari or as file
 # prob.viz(video=True) # renders in Jupyter
 # prob.viz(video=True, html_render='safari')    # renders in Safari
-prob.viz(video=True, filename='new_prob.gif') # saves as gif file
+# prob.viz(video=True, filename='new_prob.gif') # saves as gif file
 #%% Initialize planner
 # planner = HJReach2DPlanner(prob, gen_settings, specific_settings)
 # planner.cur_forecast_file = hindcast_file
@@ -62,11 +62,11 @@ sim.run(T_in_h=70)
 # --> need to investigate why it crashes...
 #%% Step 5: plot from Simulator
 # # plot Battery levels over time
-# sim.plot_trajectory(plotting_type='battery')
+sim.plot_trajectory(plotting_type='battery')
 # # # plot 2D Trajectory without background currents
-# sim.plot_trajectory(plotting_type='2D')
+sim.plot_trajectory(plotting_type='2D')
 # # plot control over time
-# sim.plot_trajectory(plotting_type='ctrl')
+sim.plot_trajectory(plotting_type='ctrl')
 # # plot 2D Trajectory with currents at t_0
 sim.plot_trajectory(plotting_type='2D_w_currents')
 # # plot 2D Trajectory with currents at t_0 and control_vec for each point
