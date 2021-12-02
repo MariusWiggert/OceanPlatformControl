@@ -273,18 +273,18 @@ class HJPlannerBase(Planner):
                 times=self.reach_times, all_values=self.all_values)
         return np.asarray(u_out.reshape(-1, 1))
 
-    def plot_reachability(self):
+    def plot_reachability(self, type='gif'):
         """ Plot the reachable set the planner was computing last. """
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
         if self.specific_settings['direction'] == 'forward':
             hj.viz.visSet2DAnimation(
                 self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
-                type='safari', x_init=self.x_T, colorbar=False)
+                type=type, x_init=self.x_T, colorbar=False)
         else:   # backwards
             hj.viz.visSet2DAnimation(
                 self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
-                type='safari', x_init=self.x_t, colorbar=False)
+                type=type, x_init=self.x_t, colorbar=False)
 
     def get_waypoints(self):
         """Returns: a list of waypoints each containing [lon, lat, time]"""
