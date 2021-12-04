@@ -26,11 +26,12 @@ class Planner:
         self.x_0 = np.array(problem.x_0)
         self.x_T = np.array(problem.x_T)
         self.dyn_dict = problem.dyn_dict
-        self.fixed_time = problem.fixed_time
+        self.problem = problem
+        # self.fixed_time = problem.fixed_time
 
         # Note: managing the forecast fieldsets is done in the simulator
-        self.cur_forecast_file = None
-        self.new_forecast_file = True
+        self.cur_forecast_dicts = None
+        self.new_forecast_dicts = True
 
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
@@ -70,17 +71,17 @@ class Planner:
             raise ValueError('ctrl_vec must be either xy or dir')
         return u_out
 
-    def update_forecast_file(self, new_forecast_file):
+    def update_forecast_dicts(self, new_forecast_dicts):
         """ Makes sure the forecast fieldset is defined and updates it if a new one is given.
-        Input: new_forecast_file:
-            A string containing the path to the newest available forecast on which the planner should operate.
+        Input: new_forecast_dicts:
+            A list of dicts containing the infos to the newest available forecast/hindcasts on which the planner should operate.
         """
-        if new_forecast_file is not None:
-            print("updating forecast file")
-            self.cur_forecast_file = new_forecast_file
-            self.new_forecast_file = True
+        if new_forecast_dicts is not None:
+            print("updating forecast dicts")
+            self.cur_forecast_dicts = new_forecast_dicts
+            self.new_forecast_dicts = True
         else:
-            if self.cur_forecast_file is None:
+            if self.cur_forecast_dicts is None:
                 raise ValueError('No forecast file is available.')
 
     def get_next_action(self, state):

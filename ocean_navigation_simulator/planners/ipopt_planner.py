@@ -30,14 +30,12 @@ class IpoptPlanner(Planner):
     def plan(self, x_t, trajectory=None):
 
         # Step 1: read the relevant subset of data
-        if self.new_forecast_file:
+        if self.new_forecast_dicts:
             print("ipopt Planner: New forecast file so reloading data.")
-            self.grids_dict, u_data, v_data = \
-                simulation_utils.get_current_data_subset(self.cur_forecast_file,
-                                                         x_t, self.x_T,
-                                                         self.specific_settings['deg_around_x0_xT_box'],
-                                                         self.fixed_time,
-                                                         self.gen_settings["temporal_stride"])
+            t_interval, lat_bnds, lon_bnds = \
+                simulation_utils.convert_to_lat_lon_time_bounds(x_t, x_T,
+                                               deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],)
+            self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(self.cur_forecast_dicts, t_interval, lat_bnds, lon_bnds)
 
             # Step 2: get the current interpolation functions
             self.u_curr_func, self.v_curr_func = simulation_utils.get_interpolation_func(

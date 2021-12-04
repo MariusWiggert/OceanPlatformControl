@@ -6,9 +6,8 @@ import ocean_navigation_simulator.planners as planners
 import ocean_navigation_simulator.steering_controllers as steering_controllers
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import datetime
+from datetime import datetime, timezone, timedelta
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
-import bisect
 
 
 class OceanNavSimulator:
@@ -51,7 +50,9 @@ class OceanNavSimulator:
         self.problem = problem
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
-        self.F_x_next = self.initialize_dynamics()
+        self.grids_dict = None
+        self.F_x_next = None
+        self.update_dynamics(self.problem.x_0)
 
         # create instances for the high-level planner and a pointer to the waypoint tracking function
         # Step 1: initialize high-level planner
@@ -72,11 +73,22 @@ class OceanNavSimulator:
         self.trajectory = self.cur_state
         self.control_traj = np.empty((2, 0), float)
 
-    def initialize_dynamics(self):
-        """Initialize symbolic dynamics function for simulation
+    def update_dynamics(self, x_0):
+        """Update symbolic dynamics function for the simulation by sub-setting the relevant set of current data.
+        Specifically, the self.F_x_next symbolic function and the self.grid_dict
+        Args:
+            x_0: current location of agent
         Output:
             F_x_next          cassadi function with (x,u)->(x_next)
         """
+        # Step 0: set up time and lat/lon bounds for data sub-setting
+        t_upper = min(x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
+                      self.problem.hindcast_grid_dict['gt_t_range'][1].timestamp())
+
+        t_interval = [datetime.fromtimestamp(x_0[3], tz=timezone.utc), datetime.fromtimestamp(t_upper, tz=timezone.utc)]
+        lon_interval = [x_0[0] - self.sim_settings["deg_around_x_t"], x_0[0] + self.sim_settings["deg_around_x_t"]]
+        lat_interval = [x_0[1] - self.sim_settings["deg_around_x_t"], x_0[1] + self.sim_settings["deg_around_x_t"]]
+
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')  # lon
         x_sym_2 = ca.MX.sym('x2')  # lat
@@ -88,46 +100,29 @@ class OceanNavSimulator:
         u_sim_2 = ca.MX.sym('u_2')  # header in radians
         u_sym = ca.vertcat(u_sim_1, u_sim_2)
 
-        # Step 2: read the relevant subset of data
-        self.grids_dict, u_data, v_data = \
-            simulation_utils.get_current_data_subset(self.problem.hindcast_file,
-                                                     self.problem.x_0, self.problem.x_T,
-                                                     self.sim_settings['deg_around_x0_xT_box'],
-                                                     self.problem.fixed_time,
-                                                     self.sim_settings['temporal_stride'])
+        # Step 2.1: read the relevant subset of data
+        self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(
+            t_interval, lat_interval, lon_interval, self.problem.hindcasts_dicts)
 
-        # Step 2: get the current interpolation functions
+        # Step 2.2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
-            self.grids_dict, u_data, v_data, self.sim_settings['int_pol_type'], self.problem.fixed_time)
+            self.grids_dict, u_data, v_data, type=self.sim_settings['int_pol_type'])
 
-        # Step 3: create the x_dot dynamics function
-        if self.problem.fixed_time is None:  # time varying current
-            x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                     [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
-                                         'u_max'] + u_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) /
-                                                 self.sim_settings['conv_m_to_deg'],
-                                                 (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
-                                                     'u_max'] + v_curr_func(
-                                                     ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) / self.sim_settings[
-                                                     'conv_m_to_deg'],
-                                                 self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
-                                                 (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
-                                                 1)],
-                                     ['x', 'u'], ['x_dot'])
-        else:  # fixed current
-            x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
-                                     [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict['u_max'] /
-                                                  + u_curr_func(ca.vertcat(x_sym[1], x_sym[0]))) / self.sim_settings[
-                                                     'conv_m_to_deg'],
-                                                 (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
-                                                     'u_max'] + v_curr_func(ca.vertcat(x_sym[1], x_sym[0]))) /
-                                                 self.sim_settings['conv_m_to_deg'],
-                                                 self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
-                                                 (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
-                                                 1)],
-                                     ['x', 'u'], ['x_dot'])
+        # Step 3: create the time varying current x_dot dynamics function
+        x_dot_func = ca.Function('f_x_dot', [x_sym, u_sym],
+                                 [ca.vertcat((ca.cos(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
+                                     'u_max'] + u_curr_func(ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) /
+                                             self.sim_settings['conv_m_to_deg'],
+                                             (ca.sin(u_sym[1]) * u_sym[0] * self.problem.dyn_dict[
+                                                 'u_max'] + v_curr_func(
+                                                 ca.vertcat(x_sym[3], x_sym[1], x_sym[0]))) / self.sim_settings[
+                                                 'conv_m_to_deg'],
+                                             self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] *
+                                             (self.problem.dyn_dict['u_max'] * u_sym[0]) ** 3,
+                                             1)],
+                                 ['x', 'u'], ['x_dot'])
 
-        # create an integrator out of it
+        # Step 3: create an integrator out of it
         if self.sim_settings['sim_integration'] == 'rk':
             dae = {'x': x_sym, 'p': u_sym, 'ode': x_dot_func(x_sym, u_sym)}
             integ = ca.integrator('F_int', 'rk', dae, {'tf': self.sim_settings['dt']})
@@ -142,8 +137,8 @@ class OceanNavSimulator:
         else:
             raise ValueError('sim_integration: only RK4 (rk) and forward euler (ef) implemented')
 
-        # return F_next for future use
-        return F_x_next
+        # set the class variable
+        self.F_x_next = F_x_next
 
     def run(self, T_in_h=None, max_steps=500):
         """Main Loop of the simulator including replanning etc.
@@ -156,15 +151,15 @@ class OceanNavSimulator:
         """
         end_sim = False
 
-        if self.sim_settings['plan_on_gt']:
-            self.high_level_planner.update_forecast_file(
-                self.problem.hindcast_file)
+        if self.problem.plan_on_gt:
+            self.high_level_planner.update_forecast_dicts(
+                self.problem.hindcasts_dicts)
             # put something in so that the rest of the code runs
             current_forecast_dict_idx = 0
         else:
             current_forecast_dict_idx = self.problem.most_recent_forecast_idx
-            self.high_level_planner.update_forecast_file(
-                self.problem.forecasts_dict[current_forecast_dict_idx]['file'])
+            self.high_level_planner.update_forecast_dicts(
+                [self.problem.forecasts_dicts[current_forecast_dict_idx]])
 
         # tracking variables
         next_planner_update = 0.
@@ -172,11 +167,11 @@ class OceanNavSimulator:
 
         while not end_sim:
             # Loop 1: update forecast files if new one is available
-            if (not self.sim_settings['plan_on_gt']) and self.cur_state[3] >= \
-                    self.problem.forecasts_dict[current_forecast_dict_idx + 1]['t_range'][0] \
+            if (not self.problem.plan_on_gt) and self.cur_state[3] >= \
+                    self.problem.forecasts_dicts[current_forecast_dict_idx + 1]['t_range'][0].timestamp() \
                     + self.problem.forecast_delay_in_h * 3600.:
-                self.high_level_planner.update_forecast_file(
-                    self.problem.forecasts_dict[current_forecast_dict_idx + 1]['file'])
+                self.high_level_planner.update_forecast_dicts(
+                    [self.problem.forecasts_dicts[current_forecast_dict_idx + 1]])
                 current_forecast_dict_idx = current_forecast_dict_idx + 1
                 # trigger high-level planner re-planning
                 next_planner_update = self.cur_state[3]
@@ -204,8 +199,23 @@ class OceanNavSimulator:
             self.run_step()
             print("Sim step")
 
+            # check to update current data in the dynamics
+            self.check_dynamics_update()
+            # check termination
             end_sim = self.check_termination(T_in_h, max_steps)
         return self.reached_goal()
+
+    def check_dynamics_update(self):
+        """ Helper function for main loop to check if we need to load new current data into the dynamics."""
+        x_low, x_high = self.grids_dict["x_grid"][0], self.grids_dict["x_grid"][-1]
+        y_low, y_high = self.grids_dict["y_grid"][0], self.grids_dict["y_grid"][-1]
+        t_low, t_high = self.grids_dict["t_grid"][0], self.grids_dict["t_grid"][-1]
+        # check based on space and time of the currently loaded current data if new data needs to be loaded
+        if not (x_low < self.cur_state[0] < x_high) \
+            or not (y_low < self.cur_state[1] < y_high) \
+            or not (t_low < self.cur_state[3] < t_high):
+            print("Updating simulator dynamics with new current data.")
+            self.update_dynamics(self.cur_state.flatten())
 
     def run_step(self):
         """Run the simulator for one dt step"""
@@ -294,14 +304,14 @@ class OceanNavSimulator:
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      file=self.problem.hindcast_file)
+                                                      file_dicts=self.problem.hindcasts_dicts)
             return
 
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      file=self.problem.hindcast_file,
+                                                      file_dicts=self.problem.hindcasts_dicts,
                                                       ctrl_seq=self.control_traj,
                                                       u_max=self.problem.dyn_dict['u_max'])
             return
@@ -318,7 +328,7 @@ class OceanNavSimulator:
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_major_formatter(formatter)
             # plot
-            dates = [datetime.datetime.utcfromtimestamp(posix) for posix in self.trajectory[3, :]]
+            dates = [datetime.fromtimestamp(posix, tz=timezone.utc) for posix in self.trajectory[3, :]]
             ax.plot(dates, self.trajectory[2, :])
             # set axis and stuff
             ax.set_title('Battery charge over time')
@@ -332,6 +342,6 @@ class OceanNavSimulator:
             plotting_utils.plot_2D_traj_animation(
                 traj_full=self.trajectory,
                 control_traj=self.control_traj,
-                file=self.problem.hindcast_file,
+                file_dicts=self.problem.hindcasts_dicts,
                 u_max=self.problem.dyn_dict['u_max'],
-                html_render=html_render, filename=vid_file_name)
+                html_render=html_render, filename=vid_file_name,)

@@ -1,102 +1,36 @@
 import casadi as ca
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import netCDF4
 import numpy as np
-import bisect
+import math
+import warnings
 
 
-def get_current_data_subset(nc_file, x_0, x_T, deg_around_x0_xT_box, fixed_time=None,
-                            temporal_stride=1, temp_horizon_in_h=None):
-    """ Function to read a subset of the nc_file current data bounded by a box spanned by the x_0 and x_T points.
-    Note: if we want to also include time_subsampling and/or up-sampling we might look into using the function from:
-    https://oceanspy.readthedocs.io/en/latest/_modules/oceanspy/subsample.html#cutout
-    Inputs:
-        nc_file                 path to nc file
-        x_0                     [lat, lon, charge, timestamp]
-        x_T                     [lon, lat] goal locations
-        deg_around_x0_xT_box    buffer around the box in degrees
-        fixed_time              datetime object of the fixed time -> returns current grid at or before time
-        temporal_stride         if a stride of the temporal values is used
-        temp_horizon            maximum temp_horizon to look ahead of x_0 time in hours
+def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h):
     """
-    f = netCDF4.Dataset(nc_file)
+    We want to switch over to using lat-lon bounds but a lot of functions in the code already use x_0 and x_T with the
+    deg_around_x0_xT_box, so for now use this to convert.
+    Args:
+        x_0: [lat, lon, charge, timestamp]
+        x_T: [lon, lat] goal locations
+        deg_around_x0_xT_box: buffer around the box in degrees
+        temp_horizon_in_h: maximum temp_horizon to look ahead of x_0 time in hours
 
-    # extract position & time for the indexing
-    x_0_pos = x_0[:2]
-    x_0_posix_time = x_0[3]
-    x_T = x_T[:2]
-
-    # Step 1: get the grids
-    xgrid = f.variables['lon'][:]
-    ygrid = f.variables['lat'][:]
-    t_grid = f.variables['time'][:] # not this is in hours from HYCOM data!
-
-    try:
-        time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
-                                        '%Y-%m-%d %H:%M:%S %z')
-    except:
-        time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
-                                                 'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
-
-    # Step 2: find the sub-setting
-    lon_bnds = [min(x_0_pos[0], x_T[0]) - deg_around_x0_xT_box, max(x_0_pos[0], x_T[0]) + deg_around_x0_xT_box]
-    lat_bnds = [min(x_0_pos[1], x_T[1]) - deg_around_x0_xT_box, max(x_0_pos[1], x_T[1]) + deg_around_x0_xT_box]
-
-    # get indices
-    ygrid_inds = np.where((ygrid > lat_bnds[0]) & (ygrid < lat_bnds[1]))[0]
-    xgrid_inds = np.where((xgrid > lon_bnds[0]) & (xgrid < lon_bnds[1]))[0]
-
-    # for time indexing transform to POSIX time
-    abs_t_grid = [(time_origin + timedelta(hours=X)).timestamp() for X in t_grid.data]
-    # get the idx of the value left of the demanded time (for interpolation function)
-    t_start_idx = bisect.bisect_right(abs_t_grid, x_0_posix_time) - 1
-    if t_start_idx == len(abs_t_grid) - 1 or t_start_idx == -1:
-        raise ValueError("Requested subset time is outside of the nc4 file.")
-
-    # get the max time if provided as input
-    if temp_horizon_in_h is None:   # all data provided
-        t_end_idx = len(abs_t_grid)-1
+    Returns:
+        t_interval: if time-varying: [t_0, t_T] as utc datetime objects
+                                     where t_0 and t_T are the start and end respectively
+        lat_bnds: [y_lower, y_upper] in degrees
+        lon_bnds: [x_lower, x_upper] in degrees
+    """
+    if temp_horizon_in_h is None:
+        t_interval = [datetime.fromtimestamp(x_0[3], timezone.utc), None]
     else:
-        t_end_idx = bisect.bisect_right(abs_t_grid, x_0_posix_time + temp_horizon_in_h*3600.)
-        if t_end_idx == len(abs_t_grid):
-            raise ValueError("nc4 file does not contain requested temporal horizon.")
+        t_interval = [datetime.fromtimestamp(x_0[3], timezone.utc),
+                      datetime.fromtimestamp(x_0[3] + temp_horizon_in_h * 3600, timezone.utc)]
+    lat_bnds = [min(x_0[1], x_T[1]) - deg_around_x0_xT_box, max(x_0[1], x_T[1]) + deg_around_x0_xT_box]
+    lon_bnds = [min(x_0[0], x_T[0]) - deg_around_x0_xT_box, max(x_0[0], x_T[0]) + deg_around_x0_xT_box]
 
-    # fixed time logic if necessary
-    if fixed_time is None:
-        slice_for_time_dim = np.s_[t_start_idx:(t_end_idx+1):temporal_stride]
-        fixed_time_idx = None
-    else:
-        fixed_time_idx = bisect.bisect_right(abs_t_grid, fixed_time.timestamp()) - 1
-        slice_for_time_dim = np.s_[fixed_time_idx]
-
-    # Step 2: extract data
-    # [tdim, zdim, ydim, xdim]
-    if len(f.variables['water_u'].shape) == 4:  # if there is a depth dimension in the dataset
-        u_data = f.variables['water_u'][slice_for_time_dim, 0, ygrid_inds, xgrid_inds]
-        v_data = f.variables['water_v'][slice_for_time_dim, 0, ygrid_inds, xgrid_inds]
-    # [tdim, ydim, xdim]
-    elif len(f.variables['water_u'].shape) == 3:  # if there is no depth dimension in the dataset
-        u_data = f.variables['water_u'][slice_for_time_dim, ygrid_inds, xgrid_inds]
-        v_data = f.variables['water_v'][slice_for_time_dim, ygrid_inds, xgrid_inds]
-    else:
-        raise ValueError("Current data in nc file has neither 3 nor 4 dimensions. Check file.")
-
-    # create dict
-    grids_dict = {'x_grid': xgrid[xgrid_inds], 'y_grid': ygrid[ygrid_inds],
-                  't_grid': abs_t_grid[slice_for_time_dim], 'fixed_time_idx': fixed_time_idx}
-
-    if fixed_time is None:
-        print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(
-            start=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC'),
-            end=datetime.utcfromtimestamp(grids_dict['t_grid'][-1]).strftime('%Y-%m-%d %H:%M:%S UTC'),
-            n_steps=len(grids_dict['t_grid']), time=(grids_dict['t_grid'][1] - grids_dict['t_grid'][0])/3600.))
-    else:
-        print("Subsetted data to fixed time at: {time}".format(
-            time=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC')))
-
-    #TODO: we replace the masked array with fill value 0 because otherwise interpolation doesn't work.
-    # Though that means we cannot anymore detect if we're on land or not (need a way to do that/detect stranding)
-    return grids_dict, u_data.filled(fill_value=0.), v_data.filled(fill_value=0.)
+    return t_interval, lat_bnds, lon_bnds
 
 
 def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_time_index=None):
@@ -118,3 +52,216 @@ def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_tim
         v_curr_func = ca.interpolant('v_curr', type, [grids_dict['y_grid'], grids_dict['x_grid']], v_data.ravel(order='F'))
 
     return u_curr_func, v_curr_func
+
+
+# define overarching loading and sub-setting function
+def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=120):
+    """ Function to get a subset of current data from the files referenced in the files_dict.
+    Inputs:
+        t_interval              if time-varying: [t_0, t_T] in POSIX time
+                                where t_0 and t_T are the start and end timestamps respectively
+                                if t_T is None and we use a file, the full available time is returned.
+        lat_interval            [y_lower, y_upper] in degrees
+        lon_interval            [x_lower, x_upper] in degrees
+
+        file_dicts              list of file_dicts containing for each file
+                                {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
+        max_temp_in_h           As multiple daily files hindcast data can be very large, limit the time horizon if t_interval[1] is None.
+
+    Outputs:
+        grids_dict              dict containing x_grid, y_grid, t_grid
+        u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
+        v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
+    """
+    # Step 1: check if we're in the multi daily files setting or the single file setting
+    if len(file_dicts) > 1:
+        grids_dict, u_data, v_data = get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval,
+                                                                              file_dicts, max_temp_in_h=max_temp_in_h)
+    else:
+        grids_dict, u_data, v_data = get_current_data_subset_from_single_file(t_interval, lat_interval, lon_interval,
+                                                                              file_dict=file_dicts[0])
+
+    # Step 2: log what data has been subsetted
+    print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(
+        start=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC'),
+        end=datetime.utcfromtimestamp(grids_dict['t_grid'][-1]).strftime('%Y-%m-%d %H:%M:%S UTC'),
+        n_steps=len(grids_dict['t_grid']), time=(grids_dict['t_grid'][1] - grids_dict['t_grid'][0]) / 3600.))
+
+    return grids_dict, u_data, v_data
+
+
+# Helper functions for the general subset function
+def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_interval, file_dict):
+    """Subsetting data from a single file."""
+    # Step 1: Open nc file
+    f = netCDF4.Dataset(file_dict['file'])
+
+    # Step 2: Extract the grids
+    x_grid = f.variables['lon'][:].data
+    y_grid = f.variables['lat'][:].data
+    t_grid = get_abs_time_grid_from_hycom_file(f)
+
+    # Step 3: get the subsetting indices for space and time
+    ygrid_inds = np.where((lat_interval[0] <= y_grid) & (y_grid <= lat_interval[1]))[0]
+    ygrid_inds = add_element_front_and_back_if_possible(y_grid, ygrid_inds)
+    xgrid_inds = np.where((lon_interval[0] <= x_grid) & (x_grid <= lon_interval[1]))[0]
+    xgrid_inds = add_element_front_and_back_if_possible(x_grid, xgrid_inds)
+    if t_interval[1] is None:  # take full file time contained in the file from t_interval[0] onwards
+        tgrid_inds = np.where((t_grid >= t_interval[0].timestamp()))[0]
+    else:  # subset ending time
+        tgrid_inds = np.where((t_grid >= t_interval[0].timestamp()) & (t_grid <= t_interval[1].timestamp()))[0]
+    tgrid_inds = add_element_front_and_back_if_possible(t_grid, tgrid_inds)
+
+    # Step 3.1: create grid and use that as sanity check if any relevant data is contained in the file
+    grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds], 't_grid': t_grid[tgrid_inds]}
+
+    # Step 3.2: Advanced sanity check if only partial area is contained in file
+    grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval)
+
+    # Step 4: extract data
+    # Note: HYCOM is [tdim, zdim, ydim, xdim]
+    if len(f.variables['water_u'].shape) == 4:  # if there is a depth dimension in the dataset
+        u_data = f.variables['water_u'][tgrid_inds, 0, ygrid_inds, xgrid_inds].data
+        v_data = f.variables['water_v'][tgrid_inds, 0, ygrid_inds, xgrid_inds].data
+        # make nan to 0 (needed because the forecast files don't use the mask logic)
+        u_data = np.nan_to_num(u_data)
+        v_data = np.nan_to_num(v_data)
+    else:
+        raise ValueError("Current data in nc file does not have 4 dimensions. Check file.")
+
+    return grids_dict, u_data, v_data
+
+
+def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=120):
+    """Sub-setting data from a list of daily file_dicts."""
+
+    # Step 0: if None is put in, subset max_temp_in_h into the future
+    if t_interval[1] is None:
+        t_interval[1] = t_interval[0] + timedelta(hours=max_temp_in_h)
+
+    # Step 1: filter all dicts that are needed for this time interval
+    filter_func = lambda dic: not (dic['t_range'][1] < t_interval[0] or dic['t_range'][0] > t_interval[1])
+    time_interval_dicts = list(filter(filter_func, file_dicts))
+    # Basic sanity check
+    if len(time_interval_dicts) == 0:
+        raise ValueError("No files found in the file_dicts for the requested t_interval.")
+
+    # Step 2: Prepare the stacking loop by getting the x, y grids and subsetting indices in x, y
+    # Note: these stay constant across files in this case where all files have same lat-lon range
+
+    # Step 2.1: open the first file and get the x and y grid
+    f = netCDF4.Dataset(time_interval_dicts[0]['file'])
+    x_grid = f.variables['lon'][:].data
+    y_grid = f.variables['lat'][:].data
+
+    # Step 2.2: get the respective indices of the lat, lon subset from the file grids
+    ygrid_inds = np.where((y_grid >= lat_interval[0]) & (y_grid <= lat_interval[1]))[0]
+    ygrid_inds = add_element_front_and_back_if_possible(y_grid, ygrid_inds)
+    xgrid_inds = np.where((x_grid >= lon_interval[0]) & (x_grid <= lon_interval[1]))[0]
+    xgrid_inds = add_element_front_and_back_if_possible(x_grid, xgrid_inds)
+    # Step 2.3 initialze t_grid stacking variable
+    full_t_grid = []
+
+    # Step 3: iterate over all files in order and stack the current data and absolute t_grids
+    for idx in range(len(time_interval_dicts)):
+        # Step 3.0: load the current data file
+        f = netCDF4.Dataset(time_interval_dicts[idx]['file'])
+        # set the default start and end time
+        start_hr, end_hr = 0, 24
+
+        # Step 3.1: do the time-subsetting
+        # Case 1: file is first -- get data from the file from the hour before or at t_0
+        if idx == 0:
+            start_hr = math.floor(
+                (t_interval[0].timestamp() - time_interval_dicts[idx]['t_range'][0].timestamp()) / 3600)
+        # Case 2: file is last -- get data from file until or after the hour t_T
+        if idx == len(time_interval_dicts) - 1:
+            end_hr = math.ceil(
+                (t_interval[1].timestamp() - time_interval_dicts[idx]['t_range'][0].timestamp()) / 3600) + 1
+
+        # Step 3.2: extract data from the file
+        u_data = f.variables['water_u'][start_hr:end_hr, 0, ygrid_inds, xgrid_inds]
+        v_data = f.variables['water_v'][start_hr:end_hr, 0, ygrid_inds, xgrid_inds]
+
+        # Step 3.3: stack the sub-setted abs_t_grid and current data
+        full_t_grid = full_t_grid + [time_interval_dicts[idx]['t_range'][0].timestamp() + i * 3600 for i in
+                                     range(start_hr, end_hr)]
+
+        if idx == 0:
+            full_u_data = u_data
+            full_v_data = v_data
+        else:
+            full_u_data = np.concatenate((full_u_data, u_data), axis=0)
+            full_v_data = np.concatenate((full_v_data, v_data), axis=0)
+
+    # Step 4: create dict to output
+    grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds], 't_grid': np.array(full_t_grid)}
+
+    # Step 5: Advanced sanity check if only partial area is contained in file
+    grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval)
+
+    # Step 6: return the grids_dict and the stacked data
+    # TODO: currently, we just do fill_value =0 but then we can't detect if we're on land.
+    # We need a way to do that in the simulator, doing it via the currents could be one way.
+    return grids_dict, full_u_data.filled(fill_value=0.), full_v_data.filled(fill_value=0.)
+
+
+# Helper helper functions
+def get_abs_time_grid_from_hycom_file(f):
+    """Helper function to extract the t_grid in UTC POSIX time from a HYCOM File f."""
+    # Get the t_grid. note that this is in hours from HYCOM data!
+    t_grid = f.variables['time'][:]
+    # Get the time_origin of the file (Note: this is very tailered for the HYCOM Data)
+    try:
+        time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
+                                        '%Y-%m-%d %H:%M:%S %z')
+    except:
+        time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
+                                        'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
+
+    # for time indexing transform to POSIX time
+    abs_t_grid = [(time_origin + timedelta(hours=X)).timestamp() for X in t_grid.data]
+    return np.array(abs_t_grid)
+
+
+def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval):
+    """Advanced Check for warning of partially being out of bound in space or time."""
+    # collateral check
+    if len(grids_dict['x_grid']) == 0 or len(grids_dict['y_grid']) == 0:
+        raise ValueError("None of the requested spatial area is in the file.")
+    if len(grids_dict['t_grid']) == 0:
+        raise ValueError("None of the requested t_interval is in the file.")
+
+    # data partially not in it check
+    if grids_dict['y_grid'][0] > lat_interval[0] or grids_dict['y_grid'][-1] < lat_interval[1]:
+        warnings.warn("Part of the lat requested area is outside of file.", RuntimeWarning)
+    if grids_dict['x_grid'][0] > lon_interval[0] or grids_dict['x_grid'][-1] < lon_interval[1]:
+        warnings.warn("Part of the lon requested area is outside of file.", RuntimeWarning)
+    if grids_dict['t_grid'][0] > t_interval[0].timestamp():
+        raise ValueError("The starting time t_interval[0] is not in the file.")
+    if t_interval[1] is not None:
+        if grids_dict['t_grid'][-1] < t_interval[1].timestamp():
+            warnings.warn("Part of the requested time is outside of file.", RuntimeWarning)
+
+
+def get_grid_dict_from_file(file):
+    """Helper function to create a grid dict from a local nc3 file."""
+    f = netCDF4.Dataset(file)
+    # get the time coverage in POSIX
+    t_grid = get_abs_time_grid_from_hycom_file(f)
+    # create dict
+    return {"t_range": [datetime.fromtimestamp(t_grid[0], timezone.utc),
+                           datetime.fromtimestamp(t_grid[-1], timezone.utc)],
+            "y_range": [f.variables['lat'][:][0], f.variables['lat'][:][-1]],
+            "x_range": [f.variables['lon'][:][0], f.variables['lon'][:][-1]]}
+
+
+def add_element_front_and_back_if_possible(grid, grid_inds):
+    """Helper function to add the elements front and back of the indicies if possible."""
+    # insert in the front if there's space
+    if grid_inds[0] > 0:
+        grid_inds = np.insert(grid_inds, 0, grid_inds[0] - 1, axis=0)
+    # insert in the end if there's space
+    if grid_inds[-1] < len(grid) - 1:
+        grid_inds = np.insert(grid_inds, len(grid_inds), grid_inds[-1] + 1, axis=0)
+    return grid_inds

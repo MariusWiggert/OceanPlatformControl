@@ -1,6 +1,7 @@
 from ocean_navigation_simulator.planners.planner import Planner
 import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
+from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
 import os
 from scipy.interpolate import interp1d
 import bisect
@@ -81,7 +82,7 @@ class HJPlannerBase(Planner):
     def plan(self, x_t, trajectory=None):
         """Main function where the reachable front is computed."""
         # Step 1: read the relevant subset of data (if it changed)
-        if self.new_forecast_file:
+        if self.new_forecast_dicts:
             self.update_current_data(x_t=x_t)
 
         # Check if x_t is in the forecast times and transform to rel_time in seconds
@@ -200,23 +201,28 @@ class HJPlannerBase(Planner):
 
     def update_current_data(self, x_t):
         print("Reachability Planner: Loading new current data.")
-        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
-            nc_file=self.cur_forecast_file,
-            x_0=x_t, x_T=self.x_T,
-            deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
-            temporal_stride=self.gen_settings["temporal_stride"],
-            temp_horizon_in_h=self.specific_settings['T_goal_in_h'])
 
-        # set absolute time in Posix time
+        t_interval, lat_bnds, lon_bnds = \
+            simulation_utils.convert_to_lat_lon_time_bounds(x_t.flatten(), self.x_T,
+                                                            deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
+                                                            temp_horizon_in_h=self.specific_settings['T_goal_in_h'])
+
+        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
+            t_interval, lat_bnds, lon_bnds,
+            file_dicts=self.cur_forecast_dicts)
+
+        # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
 
         # feed in the current data to the Platform classes
         # Note: we use a relative time grid (starts with 0 for every file)
         # because otherwise there are errors in the interpolation as jax uses float32
+        # import pdb
+        # pdb.set_trace()
         self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(
-            grids_dict['x_grid'].data,
-            grids_dict['y_grid'].data,
-            [t - self.current_data_t_0 for t in grids_dict['t_grid']],
+            grids_dict['x_grid'],
+            grids_dict['y_grid'],
+            np.array([t - self.current_data_t_0 for t in grids_dict['t_grid']]),
             water_u, water_v)
 
         # initialize the grids and dynamics to solve the PDE with
@@ -226,7 +232,7 @@ class HJPlannerBase(Planner):
         self.nondim_dynamics.characteristic_vec = self.characteristic_vec
         self.nondim_dynamics.offset_vec = self.offset_vec
         # log that we just updated the forecast_file
-        self.new_forecast_file = False
+        self.new_forecast_dicts = False
 
     def get_non_dim_state(self, state):
         """Returns the state transformed from dimensional coordinates to non_dimensional coordinates."""
@@ -312,8 +318,8 @@ class HJReach2DPlanner(HJPlannerBase):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
         space_coeff = 1. / self.gen_settings['conv_m_to_deg']
-        return hj.systems.Platform2D_for_sim(u_max=self.dyn_dict['u_max'],
-                                             space_coeff=space_coeff, control_mode='min')
+        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'],
+                                  space_coeff=space_coeff, control_mode='min')
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""

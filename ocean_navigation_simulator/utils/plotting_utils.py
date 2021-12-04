@@ -7,8 +7,10 @@ from scipy.interpolate import interp1d
 import matplotlib.animation as animation
 from IPython.display import HTML
 from functools import partial
+import matplotlib.dates as mdates
 import numpy as np
-from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset
+from datetime import datetime, timezone
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
 import warnings
 import os
 
@@ -88,6 +90,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
         plt.show()
     else:  # return ax object to draw other things on top of this
         return ax
+
 
 def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func=None,
                           autoscale=False, interval=250, alpha=0.5, figsize=(12, 12),
@@ -169,14 +172,16 @@ def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func
                              "contain either '.gif' or '.mp4' to specify the format and desired file location.")
 
 
-def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
+def plot_2D_traj_over_currents(x_traj, time, file_dicts, ctrl_seq=None, u_max=None):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
-    grids_dict, u_data, v_data = get_current_data_subset(file, lower_left, upper_right,
-                                                         deg_around_x0_xT_box=0.5,
-                                                         temporal_stride=1,
-                                                         temp_horizon_in_h=5)
+
+    t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
+                                                                    deg_around_x0_xT_box=0.5,
+                                                                    temp_horizon_in_h=5)
+    grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds,
+                                                         file_dicts=file_dicts)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, x_traj=x_traj):
@@ -193,7 +198,6 @@ def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
             ax.quiver(x_traj[0,:-1], x_traj[1,:-1], u_vec, v_vec, color='m', scale=15, label="u_max=" + str(u_max) + "m/s")
         plt.legend(loc='upper right')
 
-
     # plot underlying currents at time
     ax = visualize_currents(time, grids_dict, u_data, v_data, autoscale=True, plot=False)
     # add the start and goal position to the plot
@@ -201,7 +205,7 @@ def plot_2D_traj_over_currents(x_traj, time, file, ctrl_seq=None, u_max=None):
     plt.show()
 
 
-def plot_2D_traj_animation(traj_full, control_traj, file, u_max, html_render=None, filename=None):
+def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, html_render=None, filename=None):
     # extract space and time trajs
     space_traj = traj_full[:2,:]
     traj_times = traj_full[3,:]
@@ -209,9 +213,11 @@ def plot_2D_traj_animation(traj_full, control_traj, file, u_max, html_render=Non
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(space_traj[0,:]), np.min(space_traj[1,:]), 0, traj_times[0]]
     upper_right = [np.max(space_traj[0, :]), np.max(space_traj[1, :])]
-    grids_dict, u_data, v_data = get_current_data_subset(file, lower_left, upper_right,
-                                                         deg_around_x0_xT_box=0.5,
-                                                         temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
+
+    t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
+                                                                    deg_around_x0_xT_box=0.5,
+                                                                    temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
+    grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds, file_dicts=file_dicts)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, time):
@@ -250,8 +256,16 @@ def plot_2D_traj(x_traj, title="Planned Trajectory"):
 
 def plot_opt_ctrl(times, ctrl_seq, title='Planned Optimal Control'):
     plt.figure(2)
-    plt.step(times, ctrl_seq[0, :], where='post', label='u_power')
-    plt.step(times, ctrl_seq[1, :], where='post', label='angle')
+    fig, ax = plt.subplots(1, 1)
+    # some stuff for flexible date axis
+    locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    # plot
+    dates = [datetime.fromtimestamp(posix, tz=timezone.utc) for posix in times]
+    ax.step(dates, ctrl_seq[0, :], where='post', label='u_power')
+    ax.step(dates, ctrl_seq[1, :], where='post', label='angle')
     plt.title(title)
     plt.ylabel('u_power and angle in units')
     plt.xlabel('time')
