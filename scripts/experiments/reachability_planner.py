@@ -75,4 +75,4 @@ sim.plot_trajectory(plotting_type='video', vid_file_name='sim_animation.gif')
 sim.high_level_planner.plot_2D_traj()
 sim.high_level_planner.plot_ctrl_seq()
 #%% Plot 2D reachable set evolution
-sim.high_level_planner.plot_reachability()
+sim.high_level_planner.plot_reachability(type='gif')
