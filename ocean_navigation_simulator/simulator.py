@@ -6,9 +6,8 @@ import ocean_navigation_simulator.planners as planners
 import ocean_navigation_simulator.steering_controllers as steering_controllers
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import datetime
+from datetime import datetime, timezone, timedelta
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
-import bisect
 
 
 class OceanNavSimulator:
@@ -51,7 +50,9 @@ class OceanNavSimulator:
         self.problem = problem
 
         # initialize the GT dynamics (currently HYCOM Hindcasts, later potentially adding noise)
-        self.F_x_next = self.update_dynamics(self.problem.x_0)
+        self.grids_dict = None
+        self.F_x_next = None
+        self.update_dynamics(self.problem.x_0)
 
         # create instances for the high-level planner and a pointer to the waypoint tracking function
         # Step 1: initialize high-level planner
@@ -73,7 +74,8 @@ class OceanNavSimulator:
         self.control_traj = np.empty((2, 0), float)
 
     def update_dynamics(self, x_0):
-        """Update symbolic dynamics function for simulation
+        """Update symbolic dynamics function for the simulation by sub-setting the relevant set of current data.
+        Specifically, the self.F_x_next symbolic function and the self.grid_dict
         Args:
             x_0: current location of agent
         Output:
@@ -83,9 +85,9 @@ class OceanNavSimulator:
         t_upper = min(x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
                       self.problem.hindcast_grid_dict['gt_t_range'][1].timestamp())
 
-        t_interval = [datetime.datetime.utcfromtimestamp(x_0[3]), datetime.datetime.utcfromtimestamp(t_upper)]
-        lon_interval = [x_0[0] - self.sim_settings["deg_around_x0"], x_0[0] + self.sim_settings["deg_around_x0"]]
-        lat_interval = [x_0[1] - self.sim_settings["deg_around_x0"], x_0[1] + self.sim_settings["deg_around_x0"]]
+        t_interval = [datetime.fromtimestamp(x_0[3], tz=timezone.utc), datetime.fromtimestamp(t_upper, tz=timezone.utc)]
+        lon_interval = [x_0[0] - self.sim_settings["deg_around_x_t"], x_0[0] + self.sim_settings["deg_around_x_t"]]
+        lat_interval = [x_0[1] - self.sim_settings["deg_around_x_t"], x_0[1] + self.sim_settings["deg_around_x_t"]]
 
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')  # lon
@@ -135,7 +137,8 @@ class OceanNavSimulator:
         else:
             raise ValueError('sim_integration: only RK4 (rk) and forward euler (ef) implemented')
 
-        return F_x_next
+        # set the class variable
+        self.F_x_next = F_x_next
 
     def run(self, T_in_h=None, max_steps=500):
         """Main Loop of the simulator including replanning etc.
@@ -206,12 +209,13 @@ class OceanNavSimulator:
         """ Helper function for main loop to check if we need to load new current data into the dynamics."""
         x_low, x_high = self.grids_dict["x_grid"][0], self.grids_dict["x_grid"][-1]
         y_low, y_high = self.grids_dict["y_grid"][0], self.grids_dict["y_grid"][-1]
-        # check based on space and time of the currently loaded current data
-        if self.cur_state[0] <= x_low or self.cur_state[0] >= x_high \
-                or self.cur_state[1] <= y_low or self.cur_state[1] >= y_high \
-                or self.cur_state[3] >= self.grids_dict["t_grid"][-1]:
+        t_low, t_high = self.grids_dict["t_grid"][0], self.grids_dict["t_grid"][-1]
+        # check based on space and time of the currently loaded current data if new data needs to be loaded
+        if not (x_low < self.cur_state[0] < x_high) \
+            or not (y_low < self.cur_state[1] < y_high) \
+            or not (t_low < self.cur_state[3] < t_high):
+            print("Updating simulator dynamics with new current data.")
             self.update_dynamics(self.cur_state.flatten())
-            print("Sim dynamics updated")
 
     def run_step(self):
         """Run the simulator for one dt step"""
@@ -324,7 +328,7 @@ class OceanNavSimulator:
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_major_formatter(formatter)
             # plot
-            dates = [datetime.datetime.utcfromtimestamp(posix) for posix in self.trajectory[3, :]]
+            dates = [datetime.fromtimestamp(posix, tz=timezone.utc) for posix in self.trajectory[3, :]]
             ax.plot(dates, self.trajectory[2, :])
             # set axis and stuff
             ax.set_title('Battery charge over time')

@@ -1,10 +1,10 @@
 import sys
 from ocean_navigation_simulator.problem import Problem
 from ocean_navigation_simulator import OceanNavSimulator
-from datetime import datetime, timezone
 from ocean_navigation_simulator.planners import HJReach2DPlanner
 import numpy as np
-from datetime import datetime, timezone
+from ocean_navigation_simulator.utils import simulation_utils
+import datetime
 import os
 import hj_reachability as hj
 import time
@@ -14,7 +14,7 @@ platform_config_dict = {'battery_cap': 20.0, 'u_max': 0.1, 'motor_efficiency': 1
                         'avg_solar_power': 10.0, 'drag_factor': 10.0}
 
 # Create the navigation problem
-t_0 = datetime(2021, 6, 1, 12, 10, 10, tzinfo=timezone.utc)
+t_0 = datetime.datetime(2021, 6, 1, 12, 10, 10, tzinfo=datetime.timezone.utc)
 x_0 = [-88.0, 25.0, 1]  # lon, lat, battery
 x_T = [-88.2, 26.3]
 hindcast_folder = "data/hindcast_test/"
@@ -37,7 +37,6 @@ prob = Problem(x_0, x_T, t_0,
 #                      'n_time_vector': 50, 'grid_res': (100, 100), 'deg_around_xt_xT_box': 0.8,
 #                      'accuracy': 'high', 'artificial_dissipation_scheme': 'local_local'}
 #%%
-#%%
 prob.viz() # plots the current at t_0 with the start and goal position
 # # create a video of the underlying currents rendered in Jupyter, Safari or as file
 # prob.viz(video=True) # renders in Jupyter
@@ -51,15 +50,9 @@ prob.viz() # plots the current at t_0 with the start and goal position
 # planner.plot_reachability()
 # planner.plot_2D_traj()
 # planner.plot_ctrl_seq()
-#%% test other functions
 #%% Set stuff up
 sim = OceanNavSimulator(sim_config_dict="simulator.yaml", control_config_dict='reach_controller.yaml', problem=prob)
 sim.run(T_in_h=70)
-# grids_dict, water_u, water_v
-# SOMETHING IS WRONG WITH THE interpolation function
-# Maybe it's the t_grid that now is an array?
-# Maybe it's something else with the data?
-# --> need to investigate why it crashes...
 #%% Step 5: plot from Simulator
 # # plot Battery levels over time
 sim.plot_trajectory(plotting_type='battery')
@@ -77,7 +70,7 @@ sim.plot_trajectory(plotting_type='2D_w_currents_w_controls')
 # render in Safari
 # sim.plot_trajectory(plotting_type='video', html_render='safari')
 # save as gif file
-sim.plot_trajectory(plotting_type='video', vid_file_name='new_subset_not_yet_working.gif')
+sim.plot_trajectory(plotting_type='video', vid_file_name='sim_animation.gif')
 #%% Plot from reachability planner
 sim.high_level_planner.plot_2D_traj()
 sim.high_level_planner.plot_ctrl_seq()

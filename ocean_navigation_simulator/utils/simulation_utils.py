@@ -258,8 +258,10 @@ def get_grid_dict_from_file(file):
 
 def add_element_front_and_back_if_possible(grid, grid_inds):
     """Helper function to add the elements front and back of the indicies if possible."""
-    # insert in the front if possible
-    grid_inds = np.insert(grid_inds, 0, max(0, grid_inds[0] - 1), axis=0)
-    # insert in the end if possible
-    grid_inds = np.insert(grid_inds, len(grid_inds), min(len(grid) - 1, grid_inds[-1] + 1), axis=0)
+    # insert in the front if there's space
+    if grid_inds[0] > 0:
+        grid_inds = np.insert(grid_inds, 0, grid_inds[0] - 1, axis=0)
+    # insert in the end if there's space
+    if grid_inds[-1] < len(grid) - 1:
+        grid_inds = np.insert(grid_inds, len(grid_inds), grid_inds[-1] + 1, axis=0)
     return grid_inds

@@ -7,7 +7,9 @@ from scipy.interpolate import interp1d
 import matplotlib.animation as animation
 from IPython.display import HTML
 from functools import partial
+import matplotlib.dates as mdates
 import numpy as np
+from datetime import datetime, timezone
 from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
 import warnings
 import os
@@ -254,8 +256,16 @@ def plot_2D_traj(x_traj, title="Planned Trajectory"):
 
 def plot_opt_ctrl(times, ctrl_seq, title='Planned Optimal Control'):
     plt.figure(2)
-    plt.step(times, ctrl_seq[0, :], where='post', label='u_power')
-    plt.step(times, ctrl_seq[1, :], where='post', label='angle')
+    fig, ax = plt.subplots(1, 1)
+    # some stuff for flexible date axis
+    locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    # plot
+    dates = [datetime.fromtimestamp(posix, tz=timezone.utc) for posix in times]
+    ax.step(dates, ctrl_seq[0, :], where='post', label='u_power')
+    ax.step(dates, ctrl_seq[1, :], where='post', label='angle')
     plt.title(title)
     plt.ylabel('u_power and angle in units')
     plt.xlabel('time')
