@@ -292,7 +292,7 @@ class OceanNavSimulator:
         lon, lat = self.cur_state[0][0], self.cur_state[1][0]
         x_idx = bisect.bisect_left(lon_grid, lon)
         y_idx = bisect.bisect_left(lat_grid, lat)
-        return spatial_land_mask[y_idx, x_idx][0]
+        return spatial_land_mask[y_idx, x_idx]
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
         """ Captures the whole trajectory - energy, position, etc over time"""
