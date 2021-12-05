@@ -1,17 +1,18 @@
 import sys
 from ocean_navigation_simulator.problem import Problem
 from ocean_navigation_simulator import OceanNavSimulator
+from datetime import datetime, timezone
 from ocean_navigation_simulator.planners import HJReach2DPlanner
 import numpy as np
-from ocean_navigation_simulator.utils import simulation_utils
-import datetime
+from datetime import datetime, timezone
 import os
 import hj_reachability as hj
 import time
+
 #%% Settings to feed into the planner
 # Set the platform configurations
 platform_config_dict = {'battery_cap': 20.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
-                        'avg_solar_power': 10.0, 'drag_factor': 10.0}
+                        'solar_panel_size': 0.5, 'solar_efficiency': 0.2, 'drag_factor': 10.0}
 
 # Create the navigation problem
 t_0 = datetime.datetime(2021, 6, 1, 12, 10, 10, tzinfo=datetime.timezone.utc)
@@ -41,7 +42,7 @@ prob.viz() # plots the current at t_0 with the start and goal position
 # # create a video of the underlying currents rendered in Jupyter, Safari or as file
 # prob.viz(video=True) # renders in Jupyter
 # prob.viz(video=True, html_render='safari')    # renders in Safari
-# prob.viz(video=True, filename='new_prob.gif') # saves as gif file
+# prob.viz(video=True, filename='problem_animation.gif') # saves as gif file
 #%% Initialize planner
 # planner = HJReach2DPlanner(prob, gen_settings, specific_settings)
 # planner.cur_forecast_file = hindcast_file

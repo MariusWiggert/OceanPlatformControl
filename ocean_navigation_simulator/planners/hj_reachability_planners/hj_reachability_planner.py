@@ -217,8 +217,6 @@ class HJPlannerBase(Planner):
         # feed in the current data to the Platform classes
         # Note: we use a relative time grid (starts with 0 for every file)
         # because otherwise there are errors in the interpolation as jax uses float32
-        # import pdb
-        # pdb.set_trace()
         self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(
             grids_dict['x_grid'],
             grids_dict['y_grid'],
