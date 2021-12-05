@@ -290,8 +290,8 @@ class OceanNavSimulator:
         spatial_land_mask = self.grids_dict['spatial_land_mask']
         lon_grid, lat_grid = self.grids_dict['x_grid'], self.grids_dict['y_grid']
         lon, lat = self.cur_state[0][0], self.cur_state[1][0]
-        x_idx = np.where(lon_grid == lon)[0]
-        y_idx = np.where(lat_grid == lat)[0]
+        x_idx = bisect.bisect_left(lon_grid, lon)
+        y_idx = bisect.bisect_left(lat_grid, lat)
         return spatial_land_mask[y_idx, x_idx][0]
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
