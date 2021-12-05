@@ -273,7 +273,7 @@ class OceanNavSimulator:
             print("Sim terminate because state went out of sub-setted gt hindcast file.")
             return True
         # TODO: implement a way of checking for stranding!
-        if self.is_land():
+        if self.platform_is_on_land():
             print("Sim terminated because platform stranded on land")
             return True
         return False
@@ -285,7 +285,7 @@ class OceanNavSimulator:
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
                self.sim_settings['slack_around_goal']
 
-    def is_land(self):
+    def platform_is_on_land(self):
         """Returns whether the current position is on land"""
         spatial_land_mask = self.grids_dict['spatial_land_mask']
         lon_grid, lat_grid = self.grids_dict['x_grid'], self.grids_dict['y_grid']
