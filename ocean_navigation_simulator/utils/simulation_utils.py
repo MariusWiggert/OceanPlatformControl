@@ -4,7 +4,7 @@ import netCDF4
 import numpy as np
 import math
 import warnings
-
+from scipy import interpolate
 
 def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h):
     """
@@ -222,6 +222,68 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval,
     # Though that means we cannot anymore detect if we're on land or not (need a way to do that/detect stranding)
     return grids_dict, u_data.filled(fill_value=0.), v_data.filled(fill_value=0.)
 
+def transform(data, x, y, xnew, ynew):
+    """Helper function to do 2d interpolation on given x,y and return the new data based on new resolution"""
+    f = interpolate.interp2d(x, y, data, kind='cubic')
+    return f(xnew, ynew)
+
+def apply_lon_interpolation(res, grids_dict, u_data, v_data):
+    """Helper function to do spatial interpolation on longitudes"""
+    if res <= 0:
+        raise ValueError("Spatial resolution must be positive")
+    lon_grid = grids_dict['x_grid']
+    lat_grid = grids_dict['y_grid']
+    new_lon_grid = np.arange(lon_grid[0], lon_grid[-1], res*0.03997803000000033)  #Based on grids dict the current
+    # resolution of lon seems to be this floating point number
+    t = u_data.shape[0]
+    new_u_data = np.array([transform(u_data[i].data, lon_grid, lat_grid, new_lon_grid, lat_grid) for i in range(t)])
+    new_v_data = np.array([transform(v_data[i].data, lon_grid, lat_grid, new_lon_grid, lat_grid) for i in range(t)])
+    return new_lon_grid, new_u_data, new_v_data
+
+def apply_lat_interpolation(res, grids_dict, u_data, v_data):
+    """Helper function to do spatial interpolation on latitudes"""
+    if res <= 0:
+        raise ValueError("Spatial resolution must be positive")
+    lon_grid = grids_dict['x_grid']
+    lat_grid = grids_dict['y_grid']
+    new_lat_grid = np.arange(lat_grid[0], lat_grid[-1], res*0.03999900817871094) ##Based on grids dict the current
+    # resolution of lat seems to be this floating point number
+    t = u_data.shape[0]
+    new_u_data = np.array([transform(u_data[i].data, lon_grid, lat_grid, lon_grid, new_lat_grid) for i in range(t)])
+    new_v_data = np.array([transform(v_data[i].data, lon_grid, lat_grid, lon_grid, new_lat_grid) for i in range(t)])
+    return new_lat_grid, new_u_data, new_v_data
+
+def apply_time_resolution(temp_res_in_h, grids_dict, u_data, v_data):
+    """Helper function to do time-wise interpolation"""
+    t_grid = np.array(grids_dict["t_grid"])
+    if temp_res_in_h <= 0:
+        raise ValueError("Temporal resolution must be positive")
+    if temp_res_in_h >= 1:  # Case 1: aggregation
+        indices = [i for i in range(len(t_grid)) if i % temp_res_in_h == 0]
+        new_t_grid = t_grid[indices]
+        new_u_data = u_data[indices]
+        new_v_data = v_data[indices]
+    else:  # Case 2: interpolation
+        new_t_grid = np.arange(t_grid[0], t_grid[-1], temp_res_in_h * 3600)
+        f_u = interpolate.interp1d(t_grid, u_data, axis=0)
+        f_v = interpolate.interp1d(t_grid, v_data, axis=0)
+        new_u_data = f_u(new_t_grid)
+        new_v_data = f_v(new_t_grid)
+
+    return new_t_grid, new_u_data, new_v_data
+
+def apply_interpolation(grids_dict, u_data, v_data, time_res=None, lat_res=None, lon_res=None):
+    """Function to do general interpolation. For each dimension where interpolation is needed, input resolution"""
+    if time_res:
+        new_t_grid, u_data, v_data = apply_time_resolution(time_res, grids_dict, u_data, v_data)
+        grids_dict['t_grid'] = new_t_grid
+    if lat_res:
+        new_lat_grid, u_data, v_data = apply_lat_interpolation(lat_res, grids_dict, u_data, v_data)
+        grids_dict['y_grid'] = new_lat_grid
+    if lon_res:
+        new_lon_grid, u_data, v_data = apply_lon_interpolation(lon_res, grids_dict, u_data, v_data)
+        grids_dict['x_grid'] = new_lon_grid
+    return grids_dict, u_data, v_data
 
 # Helper functions for the general subset function
 def get_abs_time_grid_for_hycom_file(f, data_type):

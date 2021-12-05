@@ -280,7 +280,6 @@ class OceanNavSimulator:
 
     def reached_goal(self):
         """Returns whether we have reached the target goal """
-
         lon, lat = self.cur_state[0][0], self.cur_state[1][0]
         lon_target, lat_target = self.problem.x_T[0], self.problem.x_T[1]
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
