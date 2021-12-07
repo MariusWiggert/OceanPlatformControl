@@ -172,7 +172,7 @@ def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func
                              "contain either '.gif' or '.mp4' to specify the format and desired file location.")
 
 
-def plot_2D_traj_over_currents(x_traj, time, file_dicts, ctrl_seq=None, u_max=None):
+def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, ctrl_seq=None, u_max=None):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
@@ -189,7 +189,9 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, ctrl_seq=None, u_max=No
         ax.plot(x_traj[0, :], x_traj[1, :], '-', marker='x', c='k', linewidth=5)
         # plot start and end
         ax.scatter(x_traj[0,0], x_traj[1,0], c='r', marker='o', s=200, label='start')
-        ax.scatter(x_traj[0,-1], x_traj[1,-1], c='g', marker='*', s=200, label='end')
+        ax.scatter(x_traj[0, -1], x_traj[1, -1], c='g', marker='x', s=200, label='end')
+        if x_T is not None:
+            ax.scatter(x_traj[0,-1], x_traj[1,-1], c='g', marker='*', s=200, label='goal')
         # plot control if supplied
         if ctrl_seq is not None:
             # calculate u and v direction

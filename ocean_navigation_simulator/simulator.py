@@ -309,7 +309,7 @@ class OceanNavSimulator:
         elif plotting_type == '2D_w_currents':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
-                                                      time=time_for_currents,
+                                                      time=time_for_currents, x_T=self.problem.x_T[:2],
                                                       file_dicts=self.problem.hindcasts_dicts)
             return
 
@@ -317,6 +317,7 @@ class OceanNavSimulator:
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
+                                                      x_T=self.problem.x_T[:2],
                                                       file_dicts=self.problem.hindcasts_dicts,
                                                       ctrl_seq=self.control_traj,
                                                       u_max=self.problem.dyn_dict['u_max'])
