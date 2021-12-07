@@ -69,7 +69,7 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, 
         max_temp_in_h           As multiple daily files hindcast data can be very large, limit the time horizon if t_interval[1] is None.
 
     Outputs:
-        grids_dict              dict containing x_grid, y_grid, t_grid
+        grids_dict              dict containing x_grid, y_grid, t_grid, and spatial_land_mask (2D X,Y array)
         u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
         v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
     """
@@ -121,15 +121,18 @@ def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_inter
     # Step 4: extract data
     # Note: HYCOM is [tdim, zdim, ydim, xdim]
     if len(f.variables['water_u'].shape) == 4:  # if there is a depth dimension in the dataset
-        u_data = f.variables['water_u'][tgrid_inds, 0, ygrid_inds, xgrid_inds].data
-        v_data = f.variables['water_v'][tgrid_inds, 0, ygrid_inds, xgrid_inds].data
-        # make nan to 0 (needed because the forecast files don't use the mask logic)
-        u_data = np.nan_to_num(u_data)
-        v_data = np.nan_to_num(v_data)
+        u_data = f.variables['water_u'][tgrid_inds, 0, ygrid_inds, xgrid_inds]
+        v_data = f.variables['water_v'][tgrid_inds, 0, ygrid_inds, xgrid_inds]
+        # adds a mask where there's a nan (on-land)
+        u_data = np.ma.masked_invalid(u_data)
+        v_data = np.ma.masked_invalid(v_data)
     else:
         raise ValueError("Current data in nc file does not have 4 dimensions. Check file.")
 
-    return grids_dict, u_data, v_data
+    # Step 5: add the spatial land mask
+    grids_dict['spatial_land_mask'] = u_data[0, :, :].mask
+
+    return grids_dict, u_data.filled(fill_value=0.), v_data.filled(fill_value=0.)
 
 
 def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=120):
@@ -159,6 +162,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     ygrid_inds = add_element_front_and_back_if_possible(y_grid, ygrid_inds)
     xgrid_inds = np.where((x_grid >= lon_interval[0]) & (x_grid <= lon_interval[1]))[0]
     xgrid_inds = add_element_front_and_back_if_possible(x_grid, xgrid_inds)
+
     # Step 2.3 initialze t_grid stacking variable
     full_t_grid = []
 
@@ -194,15 +198,20 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
             full_u_data = np.concatenate((full_u_data, u_data), axis=0)
             full_v_data = np.concatenate((full_v_data, v_data), axis=0)
 
-    # Step 4: create dict to output
-    grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds], 't_grid': np.array(full_t_grid)}
+    # Step 4: if any NaN's are in the dataset, mask them and get the spatial land_mask
+    full_u_data = np.ma.masked_invalid(full_u_data)
+    full_v_data = np.ma.masked_invalid(full_u_data)
 
-    # Step 5: Advanced sanity check if only partial area is contained in file
+    # Step 5: create dict to output
+    grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds], 't_grid': np.array(full_t_grid),
+                  'spatial_land_mask': full_u_data[0,:,:].mask}
+
+    # Step 6: Advanced sanity check if only partial area is contained in file
     grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval)
 
-    # Step 6: return the grids_dict and the stacked data
-    # TODO: currently, we just do fill_value =0 but then we can't detect if we're on land.
-    # We need a way to do that in the simulator, doing it via the currents could be one way.
+    # Step 7: return the grids_dict and the stacked data
+    # Note: we fill in the on-land values with 0 which is ok near shore (linear interpolation to 0).
+    #       and the simulator will recognize and get stuck if we're inside.
     return grids_dict, full_u_data.filled(fill_value=0.), full_v_data.filled(fill_value=0.)
 
 

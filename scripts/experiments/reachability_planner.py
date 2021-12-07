@@ -16,6 +16,8 @@ platform_config_dict = {'battery_cap': 400.0, 'u_max': 0.1, 'motor_efficiency': 
 # Create the navigation problem
 t_0 = datetime.datetime(2021, 6, 1, 12, 10, 10, tzinfo=datetime.timezone.utc)
 x_0 = [-88.0, 25.0, 1]  # lon, lat, battery
+# is on land so we can check the land-mask.
+# x_0 = [-88.0, 20.0, 1]  # lon, lat, battery
 x_T = [-88.2, 26.3]
 hindcast_folder = "data/hindcast_test/"
 forecast_folder = "data/forecast_test/"

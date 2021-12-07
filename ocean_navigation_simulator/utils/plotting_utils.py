@@ -172,6 +172,19 @@ def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func
                              "contain either '.gif' or '.mp4' to specify the format and desired file location.")
 
 
+def plot_land_mask(grids_dict):
+    """Plot the land-mask of the current set."""
+    if not np.all(grids_dict['spatial_land_mask']):
+        plt.imshow(np.flip(grids_dict['spatial_land_mask'], axis=0),
+                   extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
+                           grids_dict['y_grid'][0], grids_dict['y_grid'][-1]])
+        plt.xlabel('longitude in deg')
+        plt.ylabel('latitude in deg')
+        plt.show()
+    else:
+        print("No land-mask, only open-ocean in the current data subset.")
+
+
 def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, ctrl_seq=None, u_max=None):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]

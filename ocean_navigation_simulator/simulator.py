@@ -152,8 +152,6 @@ class OceanNavSimulator:
         running the high-level planner, tracking controller, simulator at their respective frequencies.
         This has 2 advantages: 1) the can run on actual frequencies and not limited by for loop, 2) speed up!
         """
-        end_sim = False
-
         if self.problem.plan_on_gt:
             self.high_level_planner.update_forecast_dicts(
                 self.problem.hindcasts_dicts)
@@ -165,6 +163,7 @@ class OceanNavSimulator:
                 [self.problem.forecasts_dicts[current_forecast_dict_idx]])
 
         # tracking variables
+        end_sim = self.check_termination(T_in_h, max_steps)
         next_planner_update = 0.
         next_tracking_controller_update = 0.
 
@@ -280,19 +279,29 @@ class OceanNavSimulator:
             (not self.grids_dict['y_grid'][0] <= self.cur_state[1] <= self.grids_dict['y_grid'][-1]):
             print("Sim terminate because state went out of sub-setted gt hindcast file.")
             return True
-        # TODO: implement a way of checking for stranding!
-        # if self.cur_state in some region where there is land:
-        #     print("Sim terminated because platform stranded on land")
-        #     return True
+        if self.platform_is_on_land():
+            print("Sim terminated because platform stranded on land")
+            return True
         return False
 
     def reached_goal(self):
         """Returns whether we have reached the target goal """
-
         lon, lat = self.cur_state[0][0], self.cur_state[1][0]
         lon_target, lat_target = self.problem.x_T[0], self.problem.x_T[1]
         return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
                self.sim_settings['slack_around_goal']
+
+    def platform_is_on_land(self):
+        """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
+        # get idx of closest grid-points
+        x_idx = (np.abs(self.grids_dict['x_grid'] - self.cur_state[0][0])).argmin()
+        y_idx = (np.abs(self.grids_dict['y_grid'] - self.cur_state[1][0])).argmin()
+        # Note: the spatial_land_mask is an array with [Y, X]
+        return self.grids_dict['spatial_land_mask'][y_idx, x_idx]
+
+    def plot_land_mask(self):
+        """Plot the land mask of the current data-subset."""
+        plotting_utils.plot_land_mask(self.grids_dict)
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
         """ Captures the whole trajectory - energy, position, etc over time"""
