@@ -4,6 +4,7 @@ import netCDF4
 import numpy as np
 import math
 import warnings
+from scipy import interpolate
 
 
 def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h):
@@ -214,6 +215,95 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     #       and the simulator will recognize and get stuck if we're inside.
     return grids_dict, full_u_data.filled(fill_value=0.), full_v_data.filled(fill_value=0.)
 
+
+# Functions to do interpolation of the current data
+# general interpolation function
+def spatio_temporal_interpolation(grids_dict, u_data, v_data,
+                                  temp_res_in_h=None, spatial_shape=None, spatial_kind='cubic'):
+    """Spatio-temporal interpolation of the current data to a new temp_res_in_h and new spatial_shape.
+    Inputs:
+    - grids_dict            containing at least x_grid', 'y_grid'
+    - u_data, v_data        [T, Y, X] matrix of the current data
+    - temp_res_in_h         desired temporal resolution of the data
+    - spatial_shape         Desired spatial shape as tuple or list e.g. (<# of y_points>, <# of x_points>)
+    - spatial_kind          which interpolation to use, options are 'cubic', 'linear'
+
+    Outputs:
+    - grids_dict                updated grids_dict
+    - u_data_new, v_data_new    defined just like input
+    """
+    # copy dict object to not inadvertantly change the original
+    new_grids_dict = grids_dict.copy()
+    if temp_res_in_h is not None:
+        new_grids_dict['t_grid'], u_data, v_data = temporal_interpolation(grids_dict, u_data, v_data, temp_res_in_h)
+    if spatial_shape is not None:
+        new_grids_dict['x_grid'], new_grids_dict['y_grid'], u_data, v_data = spatial_interpolation(grids_dict, u_data, v_data,
+                                                             target_shape=spatial_shape, kind=spatial_kind)
+    return new_grids_dict, u_data, v_data
+
+# spatial interpolation function
+def spatial_interpolation(grid_dict, u_data, v_data, target_shape, kind='cubic'):
+    """Doing spatial interpolation to a specific spatial shape e.g. (100, 100).
+    Inputs:
+    - grid_dict             containing at least x_grid', 'y_grid'
+    - u_data, v_data        [T, Y, X] matrix of the current data
+    - target_shape          Shape as tuple or list e.g. (<# of y_points>, <# of x_points>)
+    - kind                  which interpolation to use, options are 'cubic', 'linear'
+
+    Outputs:
+    - x_grid_new, x_grid_new    arrays of the new x and y grid
+    - u_data_new, v_data_new    defined just like input
+    """
+    # Step 1: create the new x and y axis vectors
+    x_grid_new = np.arange(target_shape[1]) * (grid_dict['x_grid'][-1] - grid_dict['x_grid'][0]) / (
+            target_shape[1] - 1) + grid_dict['x_grid'][0]
+    y_grid_new = np.arange(target_shape[0]) * (grid_dict['y_grid'][-1] - grid_dict['y_grid'][0]) / (
+            target_shape[0] - 1) + grid_dict['y_grid'][0]
+
+    # create the arrays to fill in with the new-resolution data
+    u_data_new = np.zeros(shape=(u_data.shape[0], target_shape[0], target_shape[1]))
+    v_data_new = np.zeros(shape=(u_data.shape[0], target_shape[0], target_shape[1]))
+
+    # Step 2: iterate over the time axis to create the new u and v data
+    for t_idx in range(u_data.shape[0]):
+        # run spatial interpolation in 2D along the new axis
+        u_data_new[t_idx, :, :] = interpolate.interp2d(grid_dict['x_grid'], grid_dict['y_grid'],
+                                                       u_data[t_idx, :, :], kind=kind)(x_grid_new, y_grid_new)
+        v_data_new[t_idx, :, :] = interpolate.interp2d(grid_dict['x_grid'], grid_dict['y_grid'],
+                                                       v_data[t_idx, :, :], kind=kind)(x_grid_new, y_grid_new)
+
+    return x_grid_new, y_grid_new, u_data_new, v_data_new
+
+# temporal interpolation function
+def temporal_interpolation(grids_dict, u_data, v_data, temp_res_in_h):
+    """Doing linear temporal interpolation of the u and v data for a specific resolution.
+       Inputs:
+       - grid_dict             containing at least x_grid', 'y_grid'
+       - u_data, v_data        [T, Y, X] matrix of the current data
+       - temp_res_in_h         desired temporal resolution in hours
+
+       Outputs:
+       - t_grid_new                arrays of the new t grid
+       - u_data_new, v_data_new    defined just like input
+       """
+    # check
+    if temp_res_in_h <= 0:
+        raise ValueError("Temporal resolution must be positive")
+    t_span_in_h = (grids_dict['t_grid'][-1] - grids_dict['t_grid'][0]) / 3600
+    # TODO: Think if we want to implement temporal aggregation
+    # # Case 1: aggregation, we need to average over the values
+    # if temp_res_in_h >= (time_span_in_s/(3600*grids_dict['t_grid'].shape[0])):
+    #     print("Not yet implemented")
+    # Case 2: interpolation
+    # get the integer of how many elements the new t_grid will have
+    n_new_t_grid = int(t_span_in_h/temp_res_in_h)
+    # get the new t_grid
+    new_t_grid = grids_dict['t_grid'][0] + np.arange(n_new_t_grid + 1) * (t_span_in_h/n_new_t_grid) * 3600
+    # perform the 1D interpolations
+    new_u_data = interpolate.interp1d(grids_dict['t_grid'], u_data, axis=0, kind='linear')(new_t_grid)
+    new_v_data = interpolate.interp1d(grids_dict['t_grid'], v_data, axis=0, kind='linear')(new_t_grid)
+    # return new t_grid and values
+    return new_t_grid, new_u_data, new_v_data
 
 # Helper helper functions
 def get_abs_time_grid_from_hycom_file(f):

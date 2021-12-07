@@ -70,12 +70,12 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     if vmax is None:
         vmax = np.max(magnitude)
     if autoscale:
-        plt.imshow(magnitude, extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
+        plt.imshow(np.flip(magnitude, axis=0), extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
                                       grids_dict['y_grid'][0], grids_dict['y_grid'][-1]],
                    aspect='auto',
                    cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha)
     else:
-        plt.imshow(magnitude, extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
+        plt.imshow(np.flip(magnitude, axis=0), extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
                                       grids_dict['y_grid'][0], grids_dict['y_grid'][-1]],
                    cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha)
 
