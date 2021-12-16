@@ -202,14 +202,20 @@ class HJPlannerBase(Planner):
     def update_current_data(self, x_t):
         print("Reachability Planner: Loading new current data.")
 
+        # get the t, lat, lon bounds for sub-setting the data
         t_interval, lat_bnds, lon_bnds = \
             simulation_utils.convert_to_lat_lon_time_bounds(x_t.flatten(), self.x_T,
                                                             deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
                                                             temp_horizon_in_h=self.specific_settings['T_goal_in_h'])
 
+        # get the data subset from the file
         grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
             t_interval, lat_bnds, lon_bnds,
             file_dicts=self.cur_forecast_dicts)
+
+        # do spatial interpolation to the desired resolution to run HJ_reachability
+        grids_dict['x_grid'], grids_dict['y_grid'], water_u, water_v = simulation_utils.spatial_interpolation(
+            grids_dict, water_u, water_v, target_shape=self.specific_settings['grid_res'], kind='linear')
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]

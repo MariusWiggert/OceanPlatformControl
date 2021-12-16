@@ -44,13 +44,10 @@ class Platform2D_for_sim(dynamics.Dynamics):
         Input Params:
         - water_u, water_v      the array comes in from HYCOM as (T, Y, X)
         """
-        # need to flip array around to fit with grid_axis in X, Y, T and dynamics
-        water_u = jnp.swapaxes(water_u, 0, 2)
-        water_v = jnp.swapaxes(water_v, 0, 2)
-        self.x_current = lambda point: interpolation.lin_interpo_3D_fields(
-            point, water_u, x_grid, y_grid, t_grid)
-        self.y_current = lambda point: interpolation.lin_interpo_3D_fields(
-            point, water_v, x_grid, y_grid, t_grid)
+
+        # create 1D interpolation functions for running in the loop of the dynamics
+        self.x_current = lambda point: interpolation.lin_interpo_1D(point, water_u, x_grid, y_grid, t_grid)
+        self.y_current = lambda point: interpolation.lin_interpo_1D(point, water_v, x_grid, y_grid, t_grid)
 
     def __call__(self, state, control, disturbance, time):
         """Implements the continuous-time dynamics ODE."""

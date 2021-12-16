@@ -54,7 +54,10 @@ prob.viz() # plots the current at t_0 with the start and goal position
 # planner.plot_ctrl_seq()
 #%% Set stuff up
 sim = OceanNavSimulator(sim_config_dict="simulator.yaml", control_config_dict='reach_controller.yaml', problem=prob)
+start = time.time()
 sim.run(T_in_h=70)
+print("Took : ", time.time() - start)
+# after doing now 1D interpolation in the loop planning time drops from 214, 209s to 46.5s
 #%% Step 5: plot from Simulator
 # # plot Battery levels over time
 sim.plot_trajectory(plotting_type='battery')
