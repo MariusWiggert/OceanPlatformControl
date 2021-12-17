@@ -3,8 +3,6 @@ import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
 from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
 import os
-from scipy.interpolate import interp1d
-import bisect
 import sys
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
@@ -49,7 +47,7 @@ class HJPlannerBase(Planner):
         # this is just a variable that persists after planning for plotting/debugging
         self.x_t = None
         # initializes variables needed for planning, they will be filled in the plan method
-        self.reach_times, self.all_values, self.times_abs, self.grid, self.diss_scheme = [None]*5
+        self.reach_times, self.all_values, self.grid, self.diss_scheme = [None]*4
         self.x_traj, self.contr_seq, self.distr_seq = [None]*3
         # initialize variables needed for solving the PDE in non_dimensional terms
         self.characteristic_vec, self.offset_vec, self.nonDimGrid, self.nondim_dynamics = [None] * 4
@@ -213,9 +211,13 @@ class HJPlannerBase(Planner):
             t_interval, lat_bnds, lon_bnds,
             file_dicts=self.cur_forecast_dicts)
 
+        # calculate target shape of the grid
+        x_n_res = int((grids_dict['x_grid'][-1] - grids_dict['x_grid'][0])/self.specific_settings['grid_res'][0])
+        y_n_res = int((grids_dict['y_grid'][-1] - grids_dict['y_grid'][0])/self.specific_settings['grid_res'][1])
+
         # do spatial interpolation to the desired resolution to run HJ_reachability
         grids_dict['x_grid'], grids_dict['y_grid'], water_u, water_v = simulation_utils.spatial_interpolation(
-            grids_dict, water_u, water_v, target_shape=self.specific_settings['grid_res'], kind='linear')
+            grids_dict, water_u, water_v, target_shape=(x_n_res, y_n_res), kind='linear')
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
@@ -327,11 +329,12 @@ class HJReach2DPlanner(HJPlannerBase):
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""
+        # initialize grid using the grids_dict x-y shape as shape
         self.grid = hj.Grid.from_grid_definition_and_initial_values(
             domain=hj.sets.Box(
                 lo=np.array([grids_dict['x_grid'][0], grids_dict['y_grid'][0]]),
                 hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1]])),
-            shape=self.specific_settings['grid_res'])
+            shape=(len(grids_dict['x_grid']), len(grids_dict['y_grid'])))
 
     def get_initial_values(self, center):
         return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
