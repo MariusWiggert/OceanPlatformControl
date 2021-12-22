@@ -33,22 +33,20 @@ class Problem:
         plan_on_gt:
             if True we only use hindcast data and plan on hindcasts. If False we use forecast data for the planner.
 
+        x_T_radius:
+            Radius around x_T that when reached counts as "target reached"
+
         # TO IMPLEMENT USAGE/FOR FUTURE
         forecast_delay_in_h:
             The hours of delay when a forecast becomes available
             e.g. forecast starts at 1st of Jan but only available from HYCOM 48h later on 3rd of January
         noise:
             # TODO: optionally implement a way to add noise to the hindcasts
-
-        # TO REVIEW/THINK ABOUT
-        x_t_tol:
-            Radius around x_T that when reached counts as "target reached"
-            # Note: not used currently as the sim config has that value too.
     """
 
     def __init__(self, x_0, x_T, t_0, platform_config_dict,
                  hindcast_folder, forecast_folder,
-                 plan_on_gt=False, forecast_delay_in_h=0., noise=None, x_t_tol=0.1):
+                 plan_on_gt=False, forecast_delay_in_h=0., x_T_radius= 0.1, noise=None):
 
         # Plan on GT
         self.plan_on_gt = plan_on_gt
@@ -68,6 +66,7 @@ class Problem:
         self.t_0 = t_0
         self.x_0 = x_0 + [t_0.timestamp()]
         self.x_T = x_T
+        self.x_T_radius = x_T_radius
         self.forecast_delay_in_h = forecast_delay_in_h
 
         # Initialize the data dicts with None

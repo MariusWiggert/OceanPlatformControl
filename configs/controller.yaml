@@ -1,11 +1,9 @@
-planner:
+PlannerConfig:
     gen_settings: {conv_m_to_deg: 111120., int_pol_type: 'bspline', temporal_stride: 5}
     name: "IpoptPlannerVarCur"
     specific_settings: {n_dec_var: 100, T_goal_in_h: 20, deg_around_x0_xT_box: 0.8}
     dt_replanning: 864000000.     # right now very high as only tested open-loop control once
-#    name: "PassiveFloating"
-#    specific_settings: {}
 
-waypoint_tracking:
+SteeringCtrlConfig:
     name: "None" #"simple_P_tracker"
     dt_replanning: 8064.0

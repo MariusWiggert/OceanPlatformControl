@@ -28,6 +28,7 @@ prob = Problem(x_0, x_T, t_0,
                hindcast_folder= hindcast_folder,
                forecast_folder=forecast_folder,
                plan_on_gt = plan_on_gt,
+               x_T_radius = 0.05,
                forecast_delay_in_h=forecast_delay_in_h)
 #%%
 # # append to x_0 the posix time for the subsetting of the data
@@ -55,7 +56,7 @@ prob.viz() # plots the current at t_0 with the start and goal position
 #%% Set stuff up
 sim = OceanNavSimulator(sim_config_dict="simulator.yaml", control_config_dict='reach_controller.yaml', problem=prob)
 start = time.time()
-sim.run(T_in_h=70)
+sim.run(T_in_h=80)
 print("Took : ", time.time() - start)
 # after doing now 1D interpolation in the loop planning time drops from 214, 209s to 46.5s
 #%% Step 5: plot from Simulator

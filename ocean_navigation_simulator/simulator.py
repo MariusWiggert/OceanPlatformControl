@@ -42,7 +42,7 @@ class OceanNavSimulator:
                 control_config_dict = yaml.load(f, Loader=yaml.FullLoader)
 
         # check if update frequencies make sense:
-        if control_config_dict['waypoint_tracking']['dt_replanning'] < sim_config_dict['dt']:
+        if control_config_dict['SteeringCtrlConfig']['dt_replanning'] < sim_config_dict['dt']:
             raise ValueError("Simulator dt needs to be smaller than tracking controller replanning dt")
 
         self.sim_settings = sim_config_dict
@@ -56,22 +56,29 @@ class OceanNavSimulator:
 
         # create instances for the high-level planner and a pointer to the waypoint tracking function
         # Step 1: initialize high-level planner
-        planner_class = getattr(planners, self.control_settings['planner']['name'])
+        planner_class = getattr(planners, self.control_settings['PlannerConfig']['name'])
         self.high_level_planner = planner_class(self.problem,
-                                                gen_settings=self.control_settings['planner']['gen_settings'],
-                                                specific_settings=self.control_settings['planner']['specific_settings'])
+                                                specific_settings=self.control_settings['PlannerConfig']['specific_settings'],
+                                                conv_m_to_deg=self.sim_settings['conv_m_to_deg'])
         # Step 2: initialize the tracking controller
-        if self.control_settings['waypoint_tracking']['name'] != 'None':
-            tracking_class = getattr(steering_controllers, self.control_settings['waypoint_tracking']['name'])
-            self.wypt_tracking_contr = tracking_class()
+        if self.control_settings['SteeringCtrlConfig']['name'] != 'None':
+            tracking_class = getattr(steering_controllers, self.control_settings['SteeringCtrlConfig']['name'])
+            self.steering_controller = tracking_class()
         else:  # do open-loop control using the get_action_function from the high-level planner
-            self.wypt_tracking_contr = self.high_level_planner
-            print("Running Open-Loop Control without a tracking controller.")
+            self.steering_controller = self.high_level_planner
+            print("Running Open-Loop Control without a steering controller.")
 
         # initiate some tracking variables
         self.cur_state = np.array(problem.x_0).reshape(4, 1)  # lon, lat, battery level, time
         self.trajectory = self.cur_state
         self.control_traj = np.empty((2, 0), float)
+
+        # termination reason
+        self.termination_reason = None
+
+    def update_problem(self, problem):
+        """Helper function to update the problem. It's used when new files need to be downloaded."""
+        self.problem = problem
 
     def update_dynamics(self, x_0):
         """Update symbolic dynamics function for the simulation by sub-setting the relevant set of current data.
@@ -143,10 +150,11 @@ class OceanNavSimulator:
         # set the class variable
         self.F_x_next = F_x_next
 
-    def run(self, T_in_h=None, max_steps=500):
+    def run(self, T_in_h=None):
         """Main Loop of the simulator including replanning etc.
-        The Loop runs with step-size dt for time T_in_h or until the goal is reached (or max_steps is reached)
-        Returns success boolean.
+        The Loop runs with step-size dt for time T_in_h or until the goal is reached or terminated because stranded.
+        Returns string of the termination reason for the simulator.
+        'goal_reached', 'stranded', 'T_max_reached', 'outside_spatial_domain_of_hindcasts', 'need_new_temporal_data
 
         # TODO: for now there is one main loop, at some point we want to have parallel processes/workers
         running the high-level planner, tracking controller, simulator at their respective frequencies.
@@ -163,9 +171,9 @@ class OceanNavSimulator:
                 [self.problem.forecasts_dicts[current_forecast_dict_idx]])
 
         # tracking variables
-        end_sim = self.check_termination(T_in_h, max_steps)
+        end_sim, self.termination_reason = self.check_termination(T_in_h)
         next_planner_update = 0.
-        next_tracking_controller_update = 0.
+        next_steering_controller_update = 0.
 
         while not end_sim:
             # Loop 1: update forecast files if new one is available
@@ -181,31 +189,31 @@ class OceanNavSimulator:
             # Loop 2: replan with high-level planner
             if self.cur_state[3] >= next_planner_update:
                 self.high_level_planner.plan(self.cur_state, trajectory=None)
-                self.wypt_tracking_contr.set_waypoints(self.high_level_planner.get_waypoints())
-                self.wypt_tracking_contr.replan(self.cur_state)
+                self.steering_controller.set_waypoints(self.high_level_planner.get_waypoints())
+                self.steering_controller.replan(self.cur_state)
                 # set new updating times
                 next_planner_update = self.cur_state[3] \
-                                      + self.control_settings['planner']['dt_replanning']
-                next_tracking_controller_update = self.cur_state[3]\
-                                                  + self.control_settings['waypoint_tracking']['dt_replanning']
+                                      + self.control_settings['PlannerConfig']['dt_replanning']
+                next_steering_controller_update = self.cur_state[3]\
+                                                  + self.control_settings['SteeringCtrlConfig']['dt_replanning']
                 print("High-level planner & tracking controller replanned")
 
             # Loop 3: replanning of Waypoint tracking
-            if self.cur_state[3] >= next_tracking_controller_update:
-                self.wypt_tracking_contr.replan(self.cur_state)
-                next_tracking_controller_update = self.cur_state[3] \
-                                                  + self.control_settings['waypoint_tracking']['dt_replanning']
-                print("Tracking controller replanned")
+            if self.cur_state[3] >= next_steering_controller_update:
+                self.steering_controller.replan(self.cur_state)
+                next_steering_controller_update = self.cur_state[3] \
+                                                  + self.control_settings['SteeringCtrlConfig']['dt_replanning']
+                print("Steering controller replanned")
 
             # simulator step
             self.run_step()
             print("Sim step")
 
+            # check termination
+            end_sim, self.termination_reason = self.check_termination(T_in_h)
             # check to update current data in the dynamics
             self.check_dynamics_update()
-            # check termination
-            end_sim = self.check_termination(T_in_h, max_steps)
-        return self.reached_goal()
+        return self.termination_reason
 
     def check_dynamics_update(self):
         """ Helper function for main loop to check if we need to load new current data into the dynamics."""
@@ -222,7 +230,7 @@ class OceanNavSimulator:
     def run_step(self):
         """Run the simulator for one dt step"""
 
-        u = self.thrust_check(self.wypt_tracking_contr.get_next_action(self.cur_state))
+        u = self.thrust_check(self.steering_controller.get_next_action(self.cur_state))
 
         # update simulator states
         self.control_traj = np.append(self.control_traj, u, axis=1)
@@ -250,46 +258,51 @@ class OceanNavSimulator:
         else:
             return u_planner
 
-    def battery_check(self, cur_state):
+    @staticmethod
+    def battery_check(cur_state):
         """Prevents battery level to go above 1."""
         if cur_state[2] > 1.:
             cur_state[2] = 1.
         return cur_state
 
-    def check_termination(self, T_in_h, max_steps):
-        """Helper function returning boolean.
-        If False: simulation is continued, if True it ends."""
+    def check_termination(self, T_in_h):
+        """Helper function returning boolean and termination string.
+        If False: simulation is continued, if True it ends
+        Termination string is any of:
+        'goal_reached', 'stranded', 'T_max_reached', 'outside_spatial_domain_of_hindcasts', 'need_new_temporal_data. """
+
         t_sim_run = (self.cur_state[3] - self.problem.x_0[3])
 
+        # Step 1: check for major termination reasons
         if self.reached_goal():
-            print("Sim terminate because goal reached")
-            return True
-        if (T_in_h is not None) and (t_sim_run/ 3600.) > T_in_h:
+            print("Sim terminate because goal reached.")
+            return True, "goal_reached"
+        if (t_sim_run/ 3600.) > T_in_h:
             print("Sim terminate because T_in_h is over")
-            return True
-        if t_sim_run > max_steps * self.sim_settings['dt']:
-            print("Sim terminate because max_steps reached")
-            return True
-        if self.cur_state[3] > self.grids_dict['t_grid'][-1]:
-            print("Sim terminate because hindcast fieldset time is over")
-            return True
-        # check if we're going outside of the current sub-setted gt hindcasts
-        # TODO: can build in a check if we can just re-do the sub-setting and keep going
-        if (not self.grids_dict['x_grid'][0] <= self.cur_state[0] <= self.grids_dict['x_grid'][-1]) or \
-            (not self.grids_dict['y_grid'][0] <= self.cur_state[1] <= self.grids_dict['y_grid'][-1]):
-            print("Sim terminate because state went out of sub-setted gt hindcast file.")
-            return True
+            return True, "T_max_reached"
         if self.platform_is_on_land():
             print("Sim terminated because platform stranded on land")
-            return True
-        return False
+            return True, "stranded"
+
+        # Step 2: check current data files to see if we can continue
+        # Step 2.1: check if simulation went over the existing data to load new data
+        if self.cur_state[3] > self.problem.hindcasts_dicts[-1]['t_range'][-1].timestamp():
+            print("Sim terminate because hindcast fieldset time is over")
+            return True, "need_new_temporal_data"
+        # check if we're going outside of the spatial data available.
+        # Note: this assumes that all hindcast files have the same spatial data range
+        if (not self.problem.hindcasts_dicts[0]['x_range'][0] <= self.cur_state[0] <= self.problem.hindcasts_dicts[0]['x_range'][-1]) \
+                or (not self.problem.hindcasts_dicts[0]['y_range'][0] <= self.cur_state[1] <= self.problem.hindcasts_dicts[0]['y_range'][-1]):
+            print("Sim terminate because state went out of the spatial domains of the hindcast files.")
+            return True, "outside_spatial_domain_of_hindcasts"
+
+        return False, "not_terminated"
 
     def reached_goal(self):
-        """Returns whether we have reached the target goal """
-        lon, lat = self.cur_state[0][0], self.cur_state[1][0]
-        lon_target, lat_target = self.problem.x_T[0], self.problem.x_T[1]
-        return abs(lon - lon_target) < self.sim_settings['slack_around_goal'] and abs(lat - lat_target) < \
-               self.sim_settings['slack_around_goal']
+        """Returns whether we have reached the target region."""
+        distance_to_center = np.sqrt((self.cur_state[0][0] - self.problem.x_T[0])**2 + (self.cur_state[1][0] - self.problem.x_T[1])**2)
+        reached = distance_to_center < self.problem.x_T_radius
+        return reached
 
     def platform_is_on_land(self):
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
@@ -318,7 +331,8 @@ class OceanNavSimulator:
         elif plotting_type == '2D_w_currents':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
-                                                      time=time_for_currents, x_T=self.problem.x_T[:2],
+                                                      time=time_for_currents,
+                                                      x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts)
             return
 
@@ -326,7 +340,7 @@ class OceanNavSimulator:
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
                                                       time=time_for_currents,
-                                                      x_T=self.problem.x_T[:2],
+                                                      x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts,
                                                       ctrl_seq=self.control_traj,
                                                       u_max=self.problem.dyn_dict['u_max'])

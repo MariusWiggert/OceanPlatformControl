@@ -184,7 +184,7 @@ def plot_land_mask(grids_dict):
         print("No land-mask, only open-ocean in the current data subset.")
 
 
-def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, ctrl_seq=None, u_max=None):
+def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=None, ctrl_seq=None, u_max=None):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
@@ -201,9 +201,11 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, ctrl_seq=None
         ax.plot(x_traj[0, :], x_traj[1, :], '-', marker='x', c='k', linewidth=5)
         # plot start and end
         ax.scatter(x_traj[0,0], x_traj[1,0], c='r', marker='o', s=200, label='start')
-        ax.scatter(x_traj[0, -1], x_traj[1, -1], c='g', marker='x', s=200, label='end')
-        if x_T is not None:
-            ax.scatter(x_traj[0,-1], x_traj[1,-1], c='g', marker='*', s=200, label='goal')
+        # ax.scatter(x_traj[0, -1], x_traj[1, -1], c='g', marker='x', s=200, label='end')
+        if x_T is not None and x_T_radius is not None:
+            goal_circle = plt.Circle((x_T[0], x_T[1]), x_T_radius, color='g', fill=True, alpha=0.5, label='goal')
+            ax.add_patch(goal_circle)
+            # ax.scatter(x_T[0], x_T[1], c='g', marker='*', s=200, label='goal')
         # plot control if supplied
         if ctrl_seq is not None:
             # calculate u and v direction

@@ -10,17 +10,13 @@ class Planner:
         problem:
             The Problem to solve containing the vector field, x_0, and x_T
 
-        gen_settings:
-            A configuration of the general settings of the Planner. Expects the keys below:
-
-            - 'conv_m_to_deg'       # a fixed factor converting m to degree only working far from the pole
-            - 'int_pol_type'        # the underlying interpolation type used by the planner to access the current fields
-
         specific_settings:
             A configuration of the settings specific for that Planner (see respective Planner docstring)
+
+        conv_m_to_deg       constant used to transform from m to deg lat, lon.
     """
 
-    def __init__(self, problem, gen_settings, specific_settings):
+    def __init__(self, problem, specific_settings, conv_m_to_deg):
 
         # extract relevant aspects from the problem
         self.x_0 = np.array(problem.x_0)
@@ -36,7 +32,7 @@ class Planner:
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
 
-        self.gen_settings = gen_settings
+        self.conv_m_to_deg = conv_m_to_deg
         self.specific_settings = specific_settings
 
     def plan(self, x_t, trajectory=None):

@@ -38,9 +38,9 @@ class HJPlannerBase(Planner):
 
         See Planner class for the rest of the attributes.
     """
-    def __init__(self, problem, gen_settings, specific_settings):
+    def __init__(self, problem, specific_settings, conv_m_to_deg):
         # initialize Planner superclass
-        super().__init__(problem, gen_settings, specific_settings)
+        super().__init__(problem, specific_settings, conv_m_to_deg)
 
         # create a variable that persists across runs of self.plan() to reference the currently reload data
         self.current_data_t_0 = None
@@ -323,7 +323,7 @@ class HJReach2DPlanner(HJPlannerBase):
     def get_dim_dynamical_system(self):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
-        space_coeff = 1. / self.gen_settings['conv_m_to_deg']
+        space_coeff = 1. / self.conv_m_to_deg
         return Platform2D_for_sim(u_max=self.dyn_dict['u_max'],
                                   space_coeff=space_coeff, control_mode='min')
 

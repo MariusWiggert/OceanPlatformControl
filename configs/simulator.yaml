@@ -7,6 +7,3 @@ sim_integration: 'ef'     # either 'rk' (a 4th order method) or forward euler 'e
 # nc4 file sub-setting configurations
 deg_around_x_t: 2          # degrees around x_0 that are read in when simulating
 t_horizon_sim: 4           # time horizon for data sub-setting in days
-
-# setting for what counts as goal reached
-slack_around_goal: 0.05   # slack around the goal in degrees (kind of doubled with in problem. Decide!)
