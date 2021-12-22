@@ -176,6 +176,8 @@ class OceanNavSimulator:
         next_steering_controller_update = 0.
 
         while not end_sim:
+            # check to update current data in the dynamics
+            self.check_dynamics_update()
             # Loop 1: update forecast files if new one is available
             if (not self.problem.plan_on_gt) and self.cur_state[3] >= \
                     self.problem.forecasts_dicts[current_forecast_dict_idx + 1]['t_range'][0].timestamp() \
@@ -211,8 +213,6 @@ class OceanNavSimulator:
 
             # check termination
             end_sim, self.termination_reason = self.check_termination(T_in_h)
-            # check to update current data in the dynamics
-            self.check_dynamics_update()
         return self.termination_reason
 
     def check_dynamics_update(self):

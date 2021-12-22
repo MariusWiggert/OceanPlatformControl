@@ -205,7 +205,6 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
         if x_T is not None and x_T_radius is not None:
             goal_circle = plt.Circle((x_T[0], x_T[1]), x_T_radius, color='g', fill=True, alpha=0.5, label='goal')
             ax.add_patch(goal_circle)
-            # ax.scatter(x_T[0], x_T[1], c='g', marker='*', s=200, label='goal')
         # plot control if supplied
         if ctrl_seq is not None:
             # calculate u and v direction

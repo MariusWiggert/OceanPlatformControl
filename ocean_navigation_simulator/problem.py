@@ -179,7 +179,8 @@ class Problem:
         def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
             del time
             ax.scatter(x_0[0], x_0[1], c='r', marker='o', s=200, label='start')
-            ax.scatter(x_T[0], x_T[1], c='g', marker='*', s=200, label='goal')
+            goal_circle = plt.Circle((x_T[0], x_T[1]), self.x_T_radius, color='g', fill=True, alpha=0.5, label='goal')
+            ax.add_patch(goal_circle)
             plt.legend(loc='upper right')
 
         # if we want to visualize with video
