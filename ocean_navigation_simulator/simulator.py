@@ -80,21 +80,21 @@ class OceanNavSimulator:
         """Helper function to update the problem. It's used when new files need to be downloaded."""
         self.problem = problem
 
-    def update_dynamics(self, x_0):
+    def update_dynamics(self, x_t):
         """Update symbolic dynamics function for the simulation by sub-setting the relevant set of current data.
         Specifically, the self.F_x_next symbolic function and the self.grid_dict
         Args:
-            x_0: current location of agent
+            x_t: current location of agent
         Output:
             F_x_next          cassadi function with (x,u)->(x_next)
         """
         # Step 0: set up time and lat/lon bounds for data sub-setting
-        t_upper = min(x_0[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
+        t_upper = min(x_t[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
                       self.problem.hindcast_grid_dict['gt_t_range'][1].timestamp())
 
-        t_interval = [datetime.fromtimestamp(x_0[3], tz=timezone.utc), datetime.fromtimestamp(t_upper, tz=timezone.utc)]
-        lon_interval = [x_0[0] - self.sim_settings["deg_around_x_t"], x_0[0] + self.sim_settings["deg_around_x_t"]]
-        lat_interval = [x_0[1] - self.sim_settings["deg_around_x_t"], x_0[1] + self.sim_settings["deg_around_x_t"]]
+        t_interval = [datetime.fromtimestamp(x_t[3], tz=timezone.utc), datetime.fromtimestamp(t_upper, tz=timezone.utc)]
+        lon_interval = [x_t[0] - self.sim_settings["deg_around_x_t"], x_t[0] + self.sim_settings["deg_around_x_t"]]
+        lat_interval = [x_t[1] - self.sim_settings["deg_around_x_t"], x_t[1] + self.sim_settings["deg_around_x_t"]]
 
         # Step 1: define variables
         x_sym_1 = ca.MX.sym('x1')  # lon
@@ -287,7 +287,7 @@ class OceanNavSimulator:
         # Step 2: check current data files to see if we can continue
         # Step 2.1: check if simulation went over the existing data to load new data
         if self.cur_state[3] > self.problem.hindcasts_dicts[-1]['t_range'][-1].timestamp():
-            print("Sim terminate because hindcast fieldset time is over")
+            print("Sim paused because hindcast fieldset time is over")
             return True, "need_new_temporal_data"
         # check if we're going outside of the spatial data available.
         # Note: this assumes that all hindcast files have the same spatial data range

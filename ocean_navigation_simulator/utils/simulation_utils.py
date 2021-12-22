@@ -56,7 +56,7 @@ def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_tim
 
 
 # define overarching loading and sub-setting function
-def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=120):
+def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=240):
     """ Function to get a subset of current data from the files referenced in the files_dict.
     Inputs:
         t_interval              if time-varying: [t_0, t_T] in POSIX time
@@ -144,7 +144,11 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
         t_interval[1] = t_interval[0] + timedelta(hours=max_temp_in_h)
 
     # Step 1: filter all dicts that are needed for this time interval
-    filter_func = lambda dic: not (dic['t_range'][1] < t_interval[0] or dic['t_range'][0] > t_interval[1])
+    filter_func = lambda dic: not (
+            # is the end time of the dict smaller than start of the time interval - 1 hour (because 1h buffer)
+            dic['t_range'][1] < t_interval[0] - timedelta(hours=1) \
+            # or is the start of the file bigger than the ending time + 1 hour (to have 1h buffer)
+            or dic['t_range'][0] > t_interval[1] + timedelta(hours=1))
     time_interval_dicts = list(filter(filter_func, file_dicts))
     # Basic sanity check
     if len(time_interval_dicts) == 0:
@@ -178,11 +182,11 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
         # Case 1: file is first -- get data from the file from the hour before or at t_0
         if idx == 0:
             start_hr = math.floor(
-                (t_interval[0].timestamp() - time_interval_dicts[idx]['t_range'][0].timestamp()) / 3600)
+                (t_interval[0] - time_interval_dicts[idx]['t_range'][0]).seconds/ 3600)
         # Case 2: file is last -- get data from file until or after the hour t_T
         if idx == len(time_interval_dicts) - 1:
             end_hr = math.ceil(
-                (t_interval[1].timestamp() - time_interval_dicts[idx]['t_range'][0].timestamp()) / 3600) + 1
+                (t_interval[1] - time_interval_dicts[idx]['t_range'][0]).seconds / 3600) + 1
 
         # Step 3.2: extract data from the file
         u_data = f.variables['water_u'][start_hr:end_hr, 0, ygrid_inds, xgrid_inds]
@@ -210,7 +214,14 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     # Step 6: Advanced sanity check if only partial area is contained in file
     grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval)
 
-    # Step 7: return the grids_dict and the stacked data
+    # Step 7: check if sizes of the data and grids work out, otherwise uninterpretable error by casadi
+    if full_u_data.shape[0] != len(grids_dict['t_grid']) \
+            or full_u_data.shape[1] != len(grids_dict['y_grid']) \
+            or full_u_data.shape[2] != len(grids_dict['x_grid']):
+        raise ValueError("Some bug in the get_current_data_subset_from_daily_files function."
+                         " Grid_dict to data sizes don't work out.")
+
+    # Step 8: return the grids_dict and the stacked data
     # Note: we fill in the on-land values with 0 which is ok near shore (linear interpolation to 0).
     #       and the simulator will recognize and get stuck if we're inside.
     return grids_dict, full_u_data.filled(fill_value=0.), full_v_data.filled(fill_value=0.)
