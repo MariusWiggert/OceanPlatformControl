@@ -43,12 +43,12 @@ class HJPlannerBase(Planner):
         super().__init__(problem, specific_settings, conv_m_to_deg)
 
         # create a variable that persists across runs of self.plan() to reference the currently reload data
-        self.current_data_t_0 = None
+        self.current_data_t_0, self.current_data_t_T = [None] * 2
         # this is just a variable that persists after planning for plotting/debugging
         self.x_t = None
         # initializes variables needed for planning, they will be filled in the plan method
-        self.reach_times, self.all_values, self.grid, self.diss_scheme = [None]*4
-        self.x_traj, self.contr_seq, self.distr_seq = [None]*3
+        self.reach_times, self.all_values, self.grid, self.diss_scheme = [None] * 4
+        self.x_traj, self.contr_seq, self.distr_seq = [None] * 3
         # initialize variables needed for solving the PDE in non_dimensional terms
         self.characteristic_vec, self.offset_vec, self.nonDimGrid, self.nondim_dynamics = [None] * 4
         self.set_diss_schema()
@@ -86,6 +86,11 @@ class HJPlannerBase(Planner):
         # Check if x_t is in the forecast times and transform to rel_time in seconds
         if x_t[3] < self.current_data_t_0:
             raise ValueError("Current time is before the start of the forecast file. This should not happen.")
+        # Check if the current_data is sufficient for planning over the specified time horizon, if not give warning.
+        if x_t[3] + 3600 * self.specific_settings['T_goal_in_h'] > self.current_data_t_T:
+            raise ValueError("Forecast file does not contain the full time-horizon from x_t  to T_goal_in_h.")
+            # warnings.warn("Part of the lat requested area is outside of file.", RuntimeWarning)
+
         x_t_rel = np.copy(x_t)
         x_t_rel[3] = x_t_rel[3] - self.current_data_t_0
 
@@ -221,6 +226,8 @@ class HJPlannerBase(Planner):
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
+        # set absolute final time in UTC Posix time
+        self.current_data_t_T = grids_dict['t_grid'][-1]
 
         # feed in the current data to the Platform classes
         # Note: we use a relative time grid (starts with 0 for every file)

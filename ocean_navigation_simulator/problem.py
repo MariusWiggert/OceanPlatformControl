@@ -77,7 +77,7 @@ class Problem:
         # Check data compatibility
         self.check_data_compatibility(t_0, [self.x_0[:2], self.x_T[:2]])
 
-        # derive relative batter dynamics variables from config_dict
+        # derive relative battery dynamics variables from config_dict
         # The if-clause is in case we want to specify it as path to a yaml
         if isinstance(platform_config_dict, str):
             # get the local project directory (assuming a specific folder structure)
@@ -192,7 +192,7 @@ class Problem:
         # otherwise plot static image
         else:
             if time is None:
-                time = datetime.fromtimestamp(self.x_0[3])
+                time = datetime.fromtimestamp(self.x_0[3], tz=timezone.utc)
             # plot underlying currents at time
             ax = plot_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data, autoscale=True, plot=False)
             # add the start and goal position to the plot
@@ -270,7 +270,7 @@ class Problem:
             self.most_recent_forecast_idx = self.get_most_recent_forecast_idx()
 
     def check_data_compatibility(self, t, points):
-        """Check if given forecast and hindcasts are compatible."""
+        """Check if given forecast and hindcasts contain all points at time t."""
         self.check_hindcast_comatibility(t, points)
         if not self.plan_on_gt:
             self.check_forecast_comatibility(t, points)

@@ -19,7 +19,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
                        autoscale=False, plot=True, reset_plot=False, figsize=(12, 12)):
     """ Function to visualize ocean currents and optionally build visualization capabilities on top.
     Inputs:
-        time                    time to plot the currents (timestamp in POSIX)
+        time                    time to plot the currents (timestamp in UTC POSIX)
         grids_dict              dict containing x_grid, y_grid, t_grid, fixed_time_idx
         u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
         v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
@@ -36,6 +36,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     Outputs:
         ax object               if plot=False an ax object is returned to add further points/lines to the plot
     """
+    print(time)
 
     # reset plot this is needed for matplotlib.animation
     if reset_plot:
@@ -51,7 +52,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     grid_lines = ax.gridlines(draw_labels=True)
     grid_lines.top_labels = False
     grid_lines.right_labels = False
-    ax.set_title("Time: " + datetime.utcfromtimestamp(time).strftime('%Y-%m-%d %H:%M:%S UTC'))
+    ax.set_title("Time: " + datetime.fromtimestamp(time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
 
     # Step 1: perform time-interpolation on the current data
     # Note: let's outsource that to utils? Especially when we do animation, makes sens to create it once.

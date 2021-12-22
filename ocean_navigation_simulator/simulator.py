@@ -76,10 +76,6 @@ class OceanNavSimulator:
         # termination reason
         self.termination_reason = None
 
-    def update_problem(self, problem):
-        """Helper function to update the problem. It's used when new files need to be downloaded."""
-        self.problem = problem
-
     def update_dynamics(self, x_t):
         """Update symbolic dynamics function for the simulation by sub-setting the relevant set of current data.
         Specifically, the self.F_x_next symbolic function and the self.grid_dict
