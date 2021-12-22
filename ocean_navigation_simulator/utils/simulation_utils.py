@@ -205,7 +205,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
 
     # Step 4: if any NaN's are in the dataset, mask them and get the spatial land_mask
     full_u_data = np.ma.masked_invalid(full_u_data)
-    full_v_data = np.ma.masked_invalid(full_u_data)
+    full_v_data = np.ma.masked_invalid(full_v_data)
 
     # Step 5: create dict to output
     grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds], 't_grid': np.array(full_t_grid),

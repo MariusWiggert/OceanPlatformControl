@@ -36,7 +36,6 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     Outputs:
         ax object               if plot=False an ax object is returned to add further points/lines to the plot
     """
-    print(time)
 
     # reset plot this is needed for matplotlib.animation
     if reset_plot:
