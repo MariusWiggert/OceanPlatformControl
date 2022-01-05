@@ -68,7 +68,7 @@ class HJPlannerBase(Planner):
         raise ValueError("get_dim_dynamical_system must be implemented in the child class")
 
     # abstractmethod: needs to be implemented for each planner
-    def get_initial_values(self, center):
+    def get_initial_values(self, center, direction):
         """Create the initial value function over the grid must be implemented by specific planner."""
         raise ValueError("get_initial_values must be implemented in the child class")
 
@@ -96,13 +96,13 @@ class HJPlannerBase(Planner):
 
         # Step 2: depending on the reachability direction run the respective algorithm
         if self.specific_settings['direction'] == 'forward':
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel),
+            self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel, direction="forward"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='forward', x_reach_end=self.get_x_from_full_state(self.x_T), stop_at_x_end=True)
             self.extract_trajectory(x_start=self.get_x_from_full_state(self.x_T), traj_rel_times_vector=None)
         elif self.specific_settings['direction'] == 'backward':
             # Note: no trajectory is extracted as the value function is used for closed-loop control
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T),
+            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T, direction="backward"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='backward')
             self.extract_trajectory(x_start=self.get_x_from_full_state(x_t_rel.flatten()), traj_rel_times_vector=None)
@@ -111,14 +111,15 @@ class HJPlannerBase(Planner):
             self.flip_value_func_to_forward_times()
         elif self.specific_settings['direction'] == 'forward-backward':
             # Step 1: run the set forward to get the earliest possible arrival time
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel),
+            self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel, direction="forward"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='forward', x_reach_end=self.get_x_from_full_state(self.x_T), stop_at_x_end=True)
             # Step 2: run the set backwards from the earliest arrival time backwards
-            t_earliest_in_h = (self.reach_times[-1] - x_t_rel[3])/3600
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T),
+            t_earliest_in_h = self.get_t_earliest_for_target_region()
+            print("earliest for target region is ", t_earliest_in_h)
+            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T, direction="backward"),
                                      t_start=x_t_rel[3],
-                                     T_max_in_h=t_earliest_in_h[0] + self.specific_settings['fwd_back_buffer_in_h'],
+                                     T_max_in_h=t_earliest_in_h + self.specific_settings['fwd_back_buffer_in_h'],
                                      dir='backward')
             self.extract_trajectory(x_start=self.get_x_from_full_state(x_t_rel.flatten()), traj_rel_times_vector=None)
             # arrange to forward times by convention for plotting and open-loop control
@@ -183,6 +184,22 @@ class HJPlannerBase(Planner):
 
         # scale up the reach_times to be dimensional_times in seconds again
         self.reach_times = non_dim_reach_times * self.nondim_dynamics.tau_c + self.nondim_dynamics.t_0
+
+    def get_t_earliest_for_target_region(self):
+        """Helper Function to get the earliest time the forward reachable set overlaps with the target region."""
+        # get target_region_mask
+        target_region_mask = self.get_initial_values(center=np.array(self.problem.x_T), direction="backward") <= 0
+
+        # check if inside in final time
+        idx = -1
+        reached = np.logical_and(target_region_mask, self.all_values[idx, ...] <= 0).any()
+        # iterate backwards to get earliest
+        while reached:
+            idx = idx - 1
+            reached = np.logical_and(target_region_mask, self.all_values[idx, ...] <= 0).any()
+        # extract relative time which is one index further than the current idx
+        T_earliest_in_h = (self.reach_times[idx + 1] - self.reach_times[0]) / 3600
+        return T_earliest_in_h
 
     def extract_trajectory(self, x_start, traj_rel_times_vector=None):
         """Backtrack the reachable front to extract a trajectory etc.
@@ -343,7 +360,12 @@ class HJReach2DPlanner(HJPlannerBase):
                 hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1]])),
             shape=(len(grids_dict['x_grid']), len(grids_dict['y_grid'])))
 
-    def get_initial_values(self, center):
-        return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                       center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
-                                       radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
+    def get_initial_values(self, center, direction):
+        if direction == "forward":
+            return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
+                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
+                                           radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
+        if direction == "backward":
+            return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
+                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
+                                           radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)

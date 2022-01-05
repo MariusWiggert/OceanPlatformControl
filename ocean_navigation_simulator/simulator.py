@@ -366,7 +366,7 @@ class OceanNavSimulator:
             dynamics=self.feasibility_planner.nondim_dynamics,
             grid=self.feasibility_planner.nonDimGrid,
             times=solve_times,
-            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel)
+            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward")
         )
 
         # scale up the reach_times to be dimensional_times in seconds again
