@@ -9,14 +9,16 @@ from functools import partial
 import matplotlib.dates as mdates
 import numpy as np
 from datetime import datetime, timezone
-from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds
+from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds, spatio_temporal_interpolation
 import warnings
 import os
 
 
 # Plotting utils for Ocean currents
 def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alpha=0.5,
-                       autoscale=False, plot=True, reset_plot=False, figsize=(12, 12)):
+                       autoscale=True, plot=True, reset_plot=False, figsize=(12, 12)):
+    #TODO: add plotting with the arrows colored (see plotfield function)
+    # https://github.com/OceanParcels/parcels/blob/master/parcels/plotting.py
     """ Function to visualize ocean currents and optionally build visualization capabilities on top.
     Inputs:
         time                    time to plot the currents (timestamp in UTC POSIX)
@@ -28,7 +30,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
         vmin                    minimum current magnitude used for colorbar (float)
         vmax                    maximum current magnitude used for colorbar (float)
         alpha                   alpha of the current magnitude color visualization
-        autoscale               True or False whether the plot is scaled to the figsize or lat-lon proportional
+        autoscale               if True if the u_data, v_data is in one dimension >100, it's automatically spatially sub-sampled
         plot                    if True: plt.show() is called directly, if False ax object is return to add things
         reset_plot              if True the current figure is resetted and no figure is created (used for animation)
         figsize                 size of the figure (per default (12,12))
@@ -40,17 +42,26 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     # reset plot this is needed for matplotlib.animation
     if reset_plot:
         plt.clf()
-    else:  # create a new figure object where it this is plotted
+    else:  # create a new figure object where this is plotted
         fig = plt.figure(figsize=figsize)
+
+    # check if we want to adapt the size for visualization purposes
+    if autoscale:
+        print("autoscale true")
+        if u_data.shape[1] > 100 or u_data.shape[2] > 100:
+            print("subsampling")
+            # new shape
+            scaling_factor = max(u_data.shape[1], u_data.shape[2])/100
+            y_target_shape = int(u_data.shape[1]/scaling_factor)
+            x_target_shape = int(u_data.shape[2] / scaling_factor)
+            grids_dict, u_data, v_data = spatio_temporal_interpolation(
+                grids_dict, u_data, v_data,
+                temp_res_in_h=None,
+                spatial_shape=(y_target_shape, x_target_shape),
+                spatial_kind='linear')
 
     # Step 0: Create the figure and cartophy axis object and things (ocean, land-boarders,grid_lines, etc.)
     ax = plt.axes(projection=ccrs.PlateCarree())
-    # ax.add_feature(cfeature.OCEAN, zorder=0)
-    ax.coastlines(resolution='50m')
-    ax.add_feature(cfeature.LAND, zorder=0, edgecolor='black')
-    grid_lines = ax.gridlines(draw_labels=True)
-    grid_lines.top_labels = False
-    grid_lines.right_labels = False
     ax.set_title("Time: " + datetime.fromtimestamp(time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
 
     # Step 1: perform time-interpolation on the current data
@@ -65,18 +76,21 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     X, Y = np.meshgrid(grids_dict['x_grid'], grids_dict['y_grid'], indexing='xy')
     plt.quiver(X, Y, u_currents, v_currents)
 
-    # Step 3: underly the current magnitude in color
+    # # Step 3: underly the current magnitude in color
     if vmax is None:
         vmax = np.max(magnitude)
-    if autoscale:
-        plt.imshow(np.flip(magnitude, axis=0), extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
-                                      grids_dict['y_grid'][0], grids_dict['y_grid'][-1]],
-                   aspect='auto',
-                   cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha)
-    else:
-        plt.imshow(np.flip(magnitude, axis=0), extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
-                                      grids_dict['y_grid'][0], grids_dict['y_grid'][-1]],
-                   cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha)
+    plt.imshow(np.flip(magnitude, axis=0), extent=[grids_dict['x_grid'][0], grids_dict['x_grid'][-1],
+                                  grids_dict['y_grid'][0], grids_dict['y_grid'][-1]],
+               # aspect='auto',
+               cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha)
+
+    # plot coastlines and land on top
+    ax.coastlines(resolution='50m', zorder=4)
+    ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
+    # ax.add_feature(cfeature.OCEAN, zorder=0)
+    grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+    grid_lines.top_labels = False
+    grid_lines.right_labels = False
 
     # Step 4: set and format colorbar
     cbar = plt.colorbar()
@@ -84,7 +98,6 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
     cbar.set_ticks(cbar.get_ticks())
     cbar.set_ticklabels(["{:.1f}".format(l) + ' m/s' for l in cbar.get_ticks().tolist()])
 
-    # plot the figure
     if plot:
         plt.show()
     else:  # return ax object to draw other things on top of this
@@ -184,13 +197,14 @@ def plot_land_mask(grids_dict):
         print("No land-mask, only open-ocean in the current data subset.")
 
 
-def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=None, ctrl_seq=None, u_max=None):
+def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=None, ctrl_seq=None, u_max=None,
+                               deg_around_x0_xT_box=0.5):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
 
     t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
-                                                                    deg_around_x0_xT_box=0.5,
+                                                                    deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                                     temp_horizon_in_h=5)
     grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds,
                                                          file_dicts=file_dicts)

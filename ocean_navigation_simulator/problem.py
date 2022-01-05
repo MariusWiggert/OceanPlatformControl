@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # import from other utils
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
 from ocean_navigation_simulator.utils.simulation_utils import convert_to_lat_lon_time_bounds, get_current_data_subset, \
-    get_grid_dict_from_file
+    get_grid_dict_from_file, spatio_temporal_interpolation
 
 
 class Problem:
@@ -147,7 +147,7 @@ class Problem:
                 raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
 
     def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8,
-            html_render=None, temp_horizon_viz_in_h=None):
+            html_render=None, temp_horizon_viz_in_h=None, return_ax=False):
         """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
 
         Input Parameters:
@@ -194,10 +194,15 @@ class Problem:
             if time is None:
                 time = datetime.fromtimestamp(self.x_0[3], tz=timezone.utc)
             # plot underlying currents at time
-            ax = plot_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data, autoscale=True, plot=False)
+            ax = plot_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data,
+                                               # figsize=figsize,
+                                               autoscale=True, plot=False)
             # add the start and goal position to the plot
             add_ax_func(ax)
-            plt.show()
+            if return_ax:
+                return ax
+            else:
+                plt.show()
 
     def derive_hindcast_grid_dict(self):
         """Helper function to create the hindcast grid dict from a dict of multiple files self.hindcasts_dicts.

@@ -230,7 +230,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
 # Functions to do interpolation of the current data
 # general interpolation function
 def spatio_temporal_interpolation(grids_dict, u_data, v_data,
-                                  temp_res_in_h=None, spatial_shape=None, spatial_kind='cubic'):
+                                  temp_res_in_h=None, spatial_shape=None, spatial_kind='linear'):
     """Spatio-temporal interpolation of the current data to a new temp_res_in_h and new spatial_shape.
     Inputs:
     - grids_dict            containing at least x_grid', 'y_grid'
@@ -253,7 +253,7 @@ def spatio_temporal_interpolation(grids_dict, u_data, v_data,
     return new_grids_dict, u_data, v_data
 
 # spatial interpolation function
-def spatial_interpolation(grid_dict, u_data, v_data, target_shape, kind='cubic'):
+def spatial_interpolation(grid_dict, u_data, v_data, target_shape, kind='linear'):
     """Doing spatial interpolation to a specific spatial shape e.g. (100, 100).
     Inputs:
     - grid_dict             containing at least x_grid', 'y_grid'
