@@ -8,6 +8,8 @@ from datetime import datetime, timezone, timedelta
 import ocean_navigation_simulator.planners as planners
 import ocean_navigation_simulator.steering_controllers as steering_controllers
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils, solar_rad
+from ocean_navigation_simulator.planners import HJReach2DPlanner
+import hj_reachability as hj
 
 
 class OceanNavSimulator:
@@ -312,7 +314,92 @@ class OceanNavSimulator:
         """Plot the land mask of the current data-subset."""
         plotting_utils.plot_land_mask(self.grids_dict)
 
-    def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None):
+    def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10):
+        #TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
+        """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle."""
+        # Specific settings to check feasibility
+        specific_settings_dict = {
+            'direction': 'forward',
+            'T_goal_in_h': T_hours_forward,
+            'initial_set_radii': [0.05, 0.05],
+            'n_time_vector': 100,
+            'grid_res': [0.04, 0.04],
+            'deg_around_xt_xT_box': deg_around_xt_xT_box,
+            'accuracy': 'high',
+            'artificial_dissipation_scheme': 'local_local'}
+
+        # Step 1: set up and run forward 2D Reachability
+        self.feasibility_planner = HJReach2DPlanner(self.problem,
+                                                    specific_settings=specific_settings_dict,
+                                                    conv_m_to_deg=self.sim_settings['conv_m_to_deg'])
+
+        # load in the ground truth data
+        self.feasibility_planner.update_forecast_dicts(self.problem.hindcasts_dicts)
+        self.feasibility_planner.update_current_data(np.array(self.problem.x_0))
+
+        # Step 2: run the hj planner
+        x_0_rel = np.copy(self.problem.x_0)
+        x_0_rel[3] = x_0_rel[3] - self.feasibility_planner.current_data_t_0
+
+        # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
+        self.feasibility_planner.nondim_dynamics.tau_c = self.feasibility_planner.specific_settings['T_goal_in_h'] * 3600
+        self.feasibility_planner.nondim_dynamics.t_0 = x_0_rel[3]
+
+        # set up the non_dimensional time-vector for which to save the value function
+        solve_times = np.linspace(0, 1, self.feasibility_planner.specific_settings['n_time_vector'] + 1)
+        self.feasibility_planner.nondim_dynamics.dimensional_dynamics.control_mode = 'max'
+
+        # set variables to stop when x_end is in the reachable set
+        stop_at_x_init = self.feasibility_planner.get_non_dim_state(
+            self.feasibility_planner.get_x_from_full_state(
+                self.feasibility_planner.x_T)
+        )
+
+        # create solver settings object
+        solver_settings = hj.SolverSettings.with_accuracy(accuracy=self.feasibility_planner.specific_settings['accuracy'],
+                                                          x_init=stop_at_x_init,
+                                                          artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
+
+        # solve the PDE in non_dimensional to get the value function V(s,t)
+        non_dim_reach_times, self.feasibility_planner.all_values = hj.solve(
+            solver_settings=solver_settings,
+            dynamics=self.feasibility_planner.nondim_dynamics,
+            grid=self.feasibility_planner.nonDimGrid,
+            times=solve_times,
+            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel)
+        )
+
+        # scale up the reach_times to be dimensional_times in seconds again
+        self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0
+
+        # check if the circular target area was reached
+        # get target_region_mask
+        target_value_function = hj.shapes.shape_ellipse(
+            grid=self.feasibility_planner.grid,
+            center=self.feasibility_planner.get_x_from_full_state(np.array(self.problem.x_T)),
+            radii=[self.problem.x_T_radius, self.problem.x_T_radius])
+        target_region_mask = target_value_function < 0
+
+        # check if inside in final time
+        idx = -1
+        reached = np.logical_and(target_region_mask, self.feasibility_planner.all_values[idx, ...] <= 0).any()
+        # iterate backwards to get earliest
+        while reached:
+            idx = idx - 1
+            reached = np.logical_and(target_region_mask, self.feasibility_planner.all_values[idx, ...] <= 0).any()
+        # extract relative time which is one index further than the current idx
+        T_earliest_in_h = (self.feasibility_planner.reach_times[idx + 1] - self.feasibility_planner.reach_times[0]) / 3600
+
+        # not reached
+        if reached == False and idx == -1:
+            print("Not_reached")
+            return False, None
+        else:
+            print("reached earliest after h: ", T_earliest_in_h)
+            return True, T_earliest_in_h
+
+    def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
+                        deg_around_x0_xT_box=0.5):
         """ Captures the whole trajectory - energy, position, etc over time"""
         # process the time that is put in the for the 2D static plots
         if time_for_currents is None:
@@ -327,6 +414,7 @@ class OceanNavSimulator:
         elif plotting_type == '2D_w_currents':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
+                                                      deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts)
@@ -335,6 +423,7 @@ class OceanNavSimulator:
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
+                                                      deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts,
