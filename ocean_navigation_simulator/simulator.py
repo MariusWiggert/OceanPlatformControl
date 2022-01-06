@@ -372,26 +372,9 @@ class OceanNavSimulator:
         # scale up the reach_times to be dimensional_times in seconds again
         self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0
 
-        # check if the circular target area was reached
-        # get target_region_mask
-        target_value_function = hj.shapes.shape_ellipse(
-            grid=self.feasibility_planner.grid,
-            center=self.feasibility_planner.get_x_from_full_state(np.array(self.problem.x_T)),
-            radii=[self.problem.x_T_radius, self.problem.x_T_radius])
-        target_region_mask = target_value_function < 0
-
-        # check if inside in final time
-        idx = -1
-        reached = np.logical_and(target_region_mask, self.feasibility_planner.all_values[idx, ...] <= 0).any()
-        # iterate backwards to get earliest
-        while reached:
-            idx = idx - 1
-            reached = np.logical_and(target_region_mask, self.feasibility_planner.all_values[idx, ...] <= 0).any()
-        # extract relative time which is one index further than the current idx
-        T_earliest_in_h = (self.feasibility_planner.reach_times[idx + 1] - self.feasibility_planner.reach_times[0]) / 3600
-
+        reached, T_earliest_in_h = self.feasibility_planner.get_t_earliest_for_target_region()
         # not reached
-        if reached == False and idx == -1:
+        if reached == False:
             print("Not_reached")
             return False, None
         else:

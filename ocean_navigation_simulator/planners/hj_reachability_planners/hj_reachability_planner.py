@@ -115,7 +115,7 @@ class HJPlannerBase(Planner):
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='forward', x_reach_end=self.get_x_from_full_state(self.x_T), stop_at_x_end=True)
             # Step 2: run the set backwards from the earliest arrival time backwards
-            t_earliest_in_h = self.get_t_earliest_for_target_region()
+            _, t_earliest_in_h = self.get_t_earliest_for_target_region()
             print("earliest for target region is ", t_earliest_in_h)
             self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T, direction="backward"),
                                      t_start=x_t_rel[3],
@@ -199,7 +199,7 @@ class HJPlannerBase(Planner):
         T_earliest_in_h = (self.reach_times[idx] - self.reach_times[0]) / 3600
         if not reached:
             print("Not reached, returning maximum time for the backwards reachability.")
-        return T_earliest_in_h
+        return reached, T_earliest_in_h
 
     def extract_trajectory(self, x_start, traj_rel_times_vector=None):
         """Backtrack the reachable front to extract a trajectory etc.
