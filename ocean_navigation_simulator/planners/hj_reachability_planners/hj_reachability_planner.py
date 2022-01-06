@@ -190,15 +190,15 @@ class HJPlannerBase(Planner):
         # get target_region_mask
         target_region_mask = self.get_initial_values(center=np.array(self.problem.x_T), direction="backward") <= 0
 
-        # check if inside in final time
-        idx = -1
-        reached = np.logical_and(target_region_mask, self.all_values[idx, ...] <= 0).any()
-        # iterate backwards to get earliest
-        while reached:
-            idx = idx - 1
+        # iterate forward to get earliest time it's inside
+        for idx in range(self.all_values.shape[0]):
             reached = np.logical_and(target_region_mask, self.all_values[idx, ...] <= 0).any()
-        # extract relative time which is one index further than the current idx
-        T_earliest_in_h = (self.reach_times[idx + 1] - self.reach_times[0]) / 3600
+            if reached:
+                break
+        # extract earliest relative time of idx
+        T_earliest_in_h = (self.reach_times[idx] - self.reach_times[0]) / 3600
+        if not reached:
+            print("Not reached, returning maximum time for the backwards reachability.")
         return T_earliest_in_h
 
     def extract_trajectory(self, x_start, traj_rel_times_vector=None):
