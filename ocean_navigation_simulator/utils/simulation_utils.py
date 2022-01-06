@@ -197,19 +197,18 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
                                      range(start_hr, end_hr)]
 
         if idx == 0:
-            full_u_data = u_data
-            full_v_data = v_data
+            full_u_data = u_data.filled(fill_value=0.)
+            full_v_data = v_data.filled(fill_value=0.)
         else:
-            full_u_data = np.concatenate((full_u_data, u_data), axis=0)
-            full_v_data = np.concatenate((full_v_data, v_data), axis=0)
+            full_u_data = np.concatenate((full_u_data, u_data.filled(fill_value=0.)), axis=0)
+            full_v_data = np.concatenate((full_v_data, v_data.filled(fill_value=0.)), axis=0)
 
-    # Step 4: if any NaN's are in the dataset, mask them and get the spatial land_mask
-    full_u_data = np.ma.masked_invalid(full_u_data)
-    full_v_data = np.ma.masked_invalid(full_v_data)
+    # Step 4: from the last sub-setting of u_data -> get the land mask!
+    land_mask = np.ma.masked_invalid(u_data[0,:,:]).mask
 
     # Step 5: create dict to output
     grids_dict = {'x_grid': x_grid[xgrid_inds], 'y_grid': y_grid[ygrid_inds], 't_grid': np.array(full_t_grid),
-                  'spatial_land_mask': full_u_data[0,:,:].mask}
+                  'spatial_land_mask': land_mask}
 
     # Step 6: Advanced sanity check if only partial area is contained in file
     grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval)
@@ -224,7 +223,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     # Step 8: return the grids_dict and the stacked data
     # Note: we fill in the on-land values with 0 which is ok near shore (linear interpolation to 0).
     #       and the simulator will recognize and get stuck if we're inside.
-    return grids_dict, full_u_data.filled(fill_value=0.), full_v_data.filled(fill_value=0.)
+    return grids_dict, full_u_data, full_v_data
 
 
 # Functions to do interpolation of the current data
