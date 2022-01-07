@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import netCDF4
 import numpy as np
 import math
+import os
 import warnings
 from scipy import interpolate
 
@@ -95,6 +96,7 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, 
 def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_interval, file_dict):
     """Subsetting data from a single file."""
     # Step 1: Open nc file
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     f = netCDF4.Dataset(file_dict['file'])
 
     # Step 2: Extract the grids
@@ -158,6 +160,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     # Note: these stay constant across files in this case where all files have same lat-lon range
 
     # Step 2.1: open the first file and get the x and y grid
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     f = netCDF4.Dataset(time_interval_dicts[0]['file'])
     x_grid = f.variables['lon'][:].data
     y_grid = f.variables['lat'][:].data
@@ -355,6 +358,7 @@ def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interv
 
 def get_grid_dict_from_file(file):
     """Helper function to create a grid dict from a local nc3 file."""
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     f = netCDF4.Dataset(file)
     # get the time coverage in POSIX
     t_grid = get_abs_time_grid_from_hycom_file(f)
