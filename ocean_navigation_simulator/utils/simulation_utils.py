@@ -135,6 +135,9 @@ def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_inter
     # Step 5: add the spatial land mask
     grids_dict['spatial_land_mask'] = u_data[0, :, :].mask
 
+    # close netCDF file
+    f.close()
+
     return grids_dict, u_data.filled(fill_value=0.), v_data.filled(fill_value=0.)
 
 
@@ -164,6 +167,9 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     f = netCDF4.Dataset(time_interval_dicts[0]['file'])
     x_grid = f.variables['lon'][:].data
     y_grid = f.variables['lat'][:].data
+
+    # close netCDF file
+    f.close()
 
     # Step 2.2: get the respective indices of the lat, lon subset from the file grids
     ygrid_inds = np.where((y_grid >= lat_interval[0]) & (y_grid <= lat_interval[1]))[0]
@@ -205,6 +211,9 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
         else:
             full_u_data = np.concatenate((full_u_data, u_data.filled(fill_value=0.)), axis=0)
             full_v_data = np.concatenate((full_v_data, v_data.filled(fill_value=0.)), axis=0)
+
+        # close netCDF file
+        f.close()
 
     # Step 4: from the last sub-setting of u_data -> get the land mask!
     land_mask = np.ma.masked_invalid(u_data[0,:,:]).mask
@@ -362,11 +371,15 @@ def get_grid_dict_from_file(file):
     f = netCDF4.Dataset(file)
     # get the time coverage in POSIX
     t_grid = get_abs_time_grid_from_hycom_file(f)
+    y_range = [f.variables['lat'][:][0], f.variables['lat'][:][-1]]
+    x_range = [f.variables['lon'][:][0], f.variables['lon'][:][-1]]
+    # close netCDF file
+    f.close()
     # create dict
     return {"t_range": [datetime.fromtimestamp(t_grid[0], timezone.utc),
                            datetime.fromtimestamp(t_grid[-1], timezone.utc)],
-            "y_range": [f.variables['lat'][:][0], f.variables['lat'][:][-1]],
-            "x_range": [f.variables['lon'][:][0], f.variables['lon'][:][-1]]}
+            "y_range": y_range,
+            "x_range": x_range}
 
 
 def add_element_front_and_back_if_possible(grid, grid_inds):
