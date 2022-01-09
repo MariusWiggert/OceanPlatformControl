@@ -382,7 +382,8 @@ class OceanNavSimulator:
             return True, T_earliest_in_h
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
-                        deg_around_x0_xT_box=0.5):
+                        deg_around_x0_xT_box=0.5, temporal_stride=1, time_interval_between_pics=200,
+                           linewidth=1.5, marker='x', linestyle='--'):
         """ Captures the whole trajectory - energy, position, etc over time"""
         # process the time that is put in the for the 2D static plots
         if time_for_currents is None:
@@ -390,13 +391,19 @@ class OceanNavSimulator:
         else:
             time_for_currents = time_for_currents.timestamp()
 
+        # check if last element is included if not add it
+        if not np.arange(self.trajectory.shape[1])[::temporal_stride][-1] == self.trajectory.shape[1] - 1:
+            x_traj = np.concatenate((self.trajectory[:, ::temporal_stride], self.trajectory[:, -1].reshape(-1, 1)),axis=1)
+        else:
+            x_traj = self.trajectory[:,::temporal_stride]
+
         if plotting_type == '2D':
-            plotting_utils.plot_2D_traj(self.trajectory[:2, :], title="Simulator Trajectory")
+            plotting_utils.plot_2D_traj(x_traj[:2, :], title="Simulator Trajectory")
             return
 
         elif plotting_type == '2D_w_currents':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
-            plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
+            plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
                                                       deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
@@ -405,17 +412,17 @@ class OceanNavSimulator:
 
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
-            plotting_utils.plot_2D_traj_over_currents(self.trajectory[:2, :],
+            plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
                                                       deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts,
-                                                      ctrl_seq=self.control_traj,
+                                                      ctrl_seq=self.control_traj[:,::temporal_stride],
                                                       u_max=self.problem.dyn_dict['u_max'])
             return
 
         elif plotting_type == 'ctrl':
-            plotting_utils.plot_opt_ctrl(self.trajectory[3, :-1], self.control_traj,
+            plotting_utils.plot_opt_ctrl(x_traj[3, :-1], self.control_traj[:,::temporal_stride],
                                          title="Simulator Control Trajectory")
 
         elif plotting_type == 'battery':
@@ -426,8 +433,8 @@ class OceanNavSimulator:
             ax.xaxis.set_major_locator(locator)
             ax.xaxis.set_major_formatter(formatter)
             # plot
-            dates = [datetime.fromtimestamp(posix, tz=timezone.utc) for posix in self.trajectory[3, :]]
-            ax.plot(dates, self.trajectory[2, :])
+            dates = [datetime.fromtimestamp(posix, tz=timezone.utc) for posix in x_traj[3, :]]
+            ax.plot(dates, x_traj[2, :])
             # set axis and stuff
             ax.set_title('Battery charge over time')
             ax.set_ylim(0., 1.1)
@@ -438,8 +445,12 @@ class OceanNavSimulator:
 
         elif plotting_type == 'video':
             plotting_utils.plot_2D_traj_animation(
-                traj_full=self.trajectory,
-                control_traj=self.control_traj,
+                traj_full=x_traj,
+                control_traj=self.control_traj[:,::temporal_stride],
                 file_dicts=self.problem.hindcasts_dicts,
                 u_max=self.problem.dyn_dict['u_max'],
-                html_render=html_render, filename=vid_file_name,)
+                deg_around_x0_xT_box=deg_around_x0_xT_box,
+                html_render=html_render, filename=vid_file_name,
+                time_interval_between_pics=time_interval_between_pics,
+                linewidth=linewidth, marker=marker, linestyle=linestyle
+            )

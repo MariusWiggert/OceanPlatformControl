@@ -105,7 +105,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
 
 
 def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func=None,
-                          autoscale=False, interval=250, alpha=0.5, figsize=(12, 12),
+                          autoscale=True, interval=250, alpha=0.5, figsize=(12, 12),
                           save_as_filename=None, html_render=None):
     """ Function to animate ocean currents.
     Inputs:
@@ -212,7 +212,7 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, x_traj=x_traj):
         # plot trajectory
-        ax.plot(x_traj[0, :], x_traj[1, :], '-', marker='x', c='k', linewidth=5)
+        ax.plot(x_traj[0, :], x_traj[1, :], '-', marker='x', c='k', linewidth=2)
         # plot start and end
         ax.scatter(x_traj[0,0], x_traj[1,0], c='r', marker='o', s=200, label='start')
         # ax.scatter(x_traj[0, -1], x_traj[1, -1], c='g', marker='x', s=200, label='end')
@@ -234,7 +234,9 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
     plt.show()
 
 
-def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, html_render=None, filename=None):
+def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, deg_around_x0_xT_box=1,
+                           html_render=None, filename=None, time_interval_between_pics=200,
+                           linewidth=1.5, marker='x', linestyle='--'):
     # extract space and time trajs
     space_traj = traj_full[:2,:]
     traj_times = traj_full[3,:]
@@ -244,7 +246,7 @@ def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, html_rend
     upper_right = [np.max(space_traj[0, :]), np.max(space_traj[1, :])]
 
     t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
-                                                                    deg_around_x0_xT_box=0.5,
+                                                                    deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                                     temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
     grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds, file_dicts=file_dicts)
 
@@ -262,13 +264,13 @@ def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, html_rend
             v_vec = control_traj[0,idx]*np.sin(control_traj[1, idx])
             ax.quiver(space_traj[0, idx], space_traj[1, idx], u_vec, v_vec, color='m', scale=10, label="u_max=" + str(u_max))
         # plot full line
-        ax.plot(space_traj[0, :], space_traj[1, :], '--', marker='x', c='k', linewidth=1)
+        ax.plot(space_traj[0, :], space_traj[1, :], linestyle, marker=marker, c='k', linewidth=linewidth)
         plt.legend(loc='upper right')
-        ax.scatter(space_traj[0, idx], space_traj[1, idx], c='m', marker='o', s=50)
+        ax.scatter(space_traj[0, idx], space_traj[1, idx], c='m', marker='o', s=20)
 
     # plot with extra function
-    viz_current_animation(traj_times, grids_dict, u_data, v_data, interval=200, ax_adding_func=add_ax_func,
-                          html_render=html_render, save_as_filename=filename)
+    viz_current_animation(traj_times, grids_dict, u_data, v_data, interval=time_interval_between_pics,
+                          ax_adding_func=add_ax_func, html_render=html_render, save_as_filename=filename)
 
 
 def plot_2D_traj(x_traj, title="Planned Trajectory"):
