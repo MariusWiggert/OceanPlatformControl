@@ -264,6 +264,11 @@ class HJPlannerBase(Planner):
         # log that we just updated the forecast_file
         self.new_forecast_dicts = False
 
+        # TODO: check if that helps
+        # clear the cache of jax otherwise we run out of RAM when replanning regularly
+        from jax.interpreters import xla
+        xla._xla_callable.cache_clear()
+
     def get_non_dim_state(self, state):
         """Returns the state transformed from dimensional coordinates to non_dimensional coordinates."""
         return (state.flatten() - self.offset_vec)/self.characteristic_vec
