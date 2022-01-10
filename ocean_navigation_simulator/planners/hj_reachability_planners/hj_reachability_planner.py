@@ -7,6 +7,7 @@ import sys
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
+from memory_profiler import profile
 
 
 class HJPlannerBase(Planner):

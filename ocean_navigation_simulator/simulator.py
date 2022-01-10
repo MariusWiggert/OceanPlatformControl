@@ -148,6 +148,7 @@ class OceanNavSimulator:
         # set the class variable
         self.F_x_next = F_x_next
 
+    # @profile
     def run(self, T_in_h=None):
         """Main Loop of the simulator including replanning etc.
         The Loop runs with step-size dt for time T_in_h or until the goal is reached or terminated because stranded.
@@ -314,6 +315,7 @@ class OceanNavSimulator:
         """Plot the land mask of the current data-subset."""
         plotting_utils.plot_land_mask(self.grids_dict)
 
+    # @profile
     def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10):
         #TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
         """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle."""
@@ -357,7 +359,7 @@ class OceanNavSimulator:
 
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(accuracy=self.feasibility_planner.specific_settings['accuracy'],
-                                                          x_init=stop_at_x_init,
+                                                          # x_init=stop_at_x_init,
                                                           artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
 
         # solve the PDE in non_dimensional to get the value function V(s,t)
@@ -368,6 +370,38 @@ class OceanNavSimulator:
             times=solve_times,
             initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward")
         )
+
+        print(self.problem.x_0[3])
+        self.problem.x_0[3] = self.problem.x_0[3] + 24 * 3600*3
+        self.feasibility_planner.update_current_data(np.array(self.problem.x_0))
+        print(self.problem.x_0[3])
+
+        # self.feasibility_planner.x_T[0] = self.feasibility_planner.x_T[0] - 0.5
+        # set variables to stop when x_end is in the reachable set
+        stop_at_x_init = self.feasibility_planner.get_non_dim_state(
+            self.feasibility_planner.get_x_from_full_state(
+                self.feasibility_planner.x_T)
+        )
+
+        # create solver settings object
+        solver_settings = hj.SolverSettings.with_accuracy(
+            accuracy=self.feasibility_planner.specific_settings['accuracy'],
+            # x_init=stop_at_x_init,
+            artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
+
+        # self.feasibility_planner.nondim_dynamics.dimensional_dynamics.control_mode = 'min'
+
+        # solve the PDE in non_dimensional to get the value function V(s,t)
+        non_dim_reach_times, self.feasibility_planner.all_values = hj.solve(
+            solver_settings=solver_settings,
+            dynamics=self.feasibility_planner.nondim_dynamics,
+            grid=self.feasibility_planner.nonDimGrid,
+            times=solve_times,
+            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward")
+        )
+
+        from jax.interpreters import xla
+        xla._xla_callable.cache_clear()
 
         # scale up the reach_times to be dimensional_times in seconds again
         self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0
