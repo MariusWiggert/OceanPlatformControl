@@ -7,11 +7,12 @@ class WaypointTrackingController:
     A waypoint consists of [lat, lon, time]
     """
 
-    def __init__(self):
+    def __init__(self, traj_data=None):
         self.waypoints = None
         self.problem = None
         self.states_traveled = []       # a list of all the states traveled
         self.actuating_towards = []     # a list of each (lon, lat) point we are actuating to at each time step
+        self.traj_data = traj_data      # the trajectory data of the 
 
     def set_waypoints(self, waypoints, problem):
         # TODO: needs to be updated so that it is general and also a MPC style tracking controller is possible

@@ -9,8 +9,8 @@ class simple_P_tracker(WaypointTrackingController):
         Inside the radius actuate: linearly decreasing actuation
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, traj_data=None):
+        super().__init__(traj_data=traj_data)
         self.waypoint_timings = None
 
     def set_waypoints(self, waypoints, problem=None):
@@ -25,7 +25,7 @@ class simple_P_tracker(WaypointTrackingController):
         Returns:
             lon, lat of waypoint that is ahead of the current time
         """
-        idx = bisect.bisect_right(self.waypoint_timings, state[3])
+        idx = bisect.bisect_right(self.waypoint_timings, state[3], hi=len(self.waypoints)-1)
         return self.waypoints[idx][0], self.waypoints[idx][1]
 
     def get_next_action(self, state):

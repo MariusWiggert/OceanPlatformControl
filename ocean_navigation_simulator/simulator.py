@@ -314,7 +314,7 @@ class OceanNavSimulator:
         """Plot the land mask of the current data-subset."""
         plotting_utils.plot_land_mask(self.grids_dict)
 
-    def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10):
+    def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False):
         #TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
         """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle."""
         # Specific settings to check feasibility
@@ -366,7 +366,8 @@ class OceanNavSimulator:
             dynamics=self.feasibility_planner.nondim_dynamics,
             grid=self.feasibility_planner.nonDimGrid,
             times=solve_times,
-            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward")
+            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward"),
+            progress_bar=progress_bar
         )
 
         # scale up the reach_times to be dimensional_times in seconds again

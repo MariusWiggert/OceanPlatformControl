@@ -8,12 +8,12 @@ class StraightLinePlanner(Planner):
     See Planner class for attributes.
     """
 
-    def __init__(self, problem, gen_settings, specific_settings):
-        super().__init__(problem, gen_settings, specific_settings)
+    def __init__(self, problem, specific_settings, conv_m_to_deg):
+        super().__init__(problem, specific_settings, conv_m_to_deg)
 
-    def run(self, x_t, new_forecast_file=None, trajectory=None):
+    def plan(self, x_t, trajectory=None):
         """This planner doesn't need any re-planning."""
-        return
+        return None
 
     def get_next_action(self, x_t):
         """Go in the direction of the target with full power. See superclass for args and return value. """
@@ -31,4 +31,6 @@ class StraightLinePlanner(Planner):
         return u_out
 
     def get_waypoints(self):
-        raise NotImplementedError
+        start = self.problem.x_0[:2] + [self.problem.x_0[-1]]
+        end = self.problem.x_T + [self.problem.x_0[-1] + 3600 * self.specific_settings['x_T_time_ahead_in_h']]
+        return [start, end]

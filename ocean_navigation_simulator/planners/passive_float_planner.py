@@ -7,9 +7,9 @@ class PassiveFloating(Planner):
     """Passively floating of the platform. For comparison reasons.
     """
 
-    def __init__(self, problem, gen_settings, specific_settings):
+    def __init__(self, problem, specific_settings, conv_m_to_deg):
         print("Instantiating passively floating (do nothing) controller.")
-        super().__init__(problem, gen_settings, specific_settings)
+        super().__init__(problem, specific_settings, conv_m_to_deg)
 
     def plan(self, x_t, new_forecast_file=None, trajectory=None):
         """This planner doesn't need any re-planning."""

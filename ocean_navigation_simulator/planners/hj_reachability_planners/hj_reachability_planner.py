@@ -180,7 +180,9 @@ class HJPlannerBase(Planner):
             dynamics=self.nondim_dynamics,
             grid=self.nonDimGrid,
             times=solve_times,
-            initial_values=initial_values)
+            initial_values=initial_values,
+            progress_bar=self.specific_settings['progress_bar']
+        )
 
         # scale up the reach_times to be dimensional_times in seconds again
         self.reach_times = non_dim_reach_times * self.nondim_dynamics.tau_c + self.nondim_dynamics.t_0
@@ -263,11 +265,6 @@ class HJPlannerBase(Planner):
         self.nondim_dynamics.offset_vec = self.offset_vec
         # log that we just updated the forecast_file
         self.new_forecast_dicts = False
-
-        # TODO: check if that helps
-        # clear the cache of jax otherwise we run out of RAM when replanning regularly
-        from jax.interpreters import xla
-        xla._xla_callable.cache_clear()
 
     def get_non_dim_state(self, state):
         """Returns the state transformed from dimensional coordinates to non_dimensional coordinates."""
