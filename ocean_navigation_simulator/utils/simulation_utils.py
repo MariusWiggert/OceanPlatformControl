@@ -75,6 +75,7 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, 
         u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
         v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
     """
+    # Step 0: if upper interval is not None
     # Step 1: check if we're in the multi daily files setting or the single file setting
     if len(file_dicts) > 1:
         grids_dict, u_data, v_data = get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval,
@@ -144,9 +145,13 @@ def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_inter
 def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=120):
     """Sub-setting data from a list of daily file_dicts."""
 
-    # Step 0: if None is put in, subset max_temp_in_h into the future
+    # Step 0.1: if None is put in, subset max_temp_in_h into the future
     if t_interval[1] is None:
         t_interval[1] = t_interval[0] + timedelta(hours=max_temp_in_h)
+
+    # Step 0.2 round up t_interval[1] to the full hour, otherwise there can be issues with the logic below.
+    if t_interval[1].minute > 0 or t_interval[1].second > 0 or t_interval[1].microsecond > 0:
+        t_interval[1] = t_interval[1].replace(microsecond=0, second=0, minute=0) + timedelta(hours=1)
 
     # Step 1: filter all dicts that are needed for this time interval
     filter_func = lambda dic: not (
