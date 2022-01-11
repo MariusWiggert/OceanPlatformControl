@@ -147,7 +147,8 @@ class Problem:
                 raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
 
     def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, add_ax_func=None,
-            html_render=None, temp_horizon_viz_in_h=None, return_ax=False, plot_start_target=True):
+            html_render=None, temp_horizon_viz_in_h=None, return_ax=False, plot_start_target=True,
+            temporal_stride=1, time_interval_between_pics=200):
         """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
 
         Input Parameters:
@@ -188,8 +189,10 @@ class Problem:
         # if we want to visualize with video
         if time is None and video:
             # create animation with extra func
-            plot_utils.viz_current_animation(grids_dict['t_grid'], grids_dict, u_data, v_data,
-                                             interval=200, ax_adding_func=add_ax_func, html_render=html_render,
+            plot_utils.viz_current_animation(grids_dict['t_grid'][::temporal_stride],
+                                             grids_dict, u_data, v_data,
+                                             interval=time_interval_between_pics,
+                                             ax_adding_func=add_ax_func, html_render=html_render,
                                              save_as_filename=filename)
         # otherwise plot static image
         else:
