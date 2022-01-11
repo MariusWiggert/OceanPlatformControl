@@ -146,7 +146,7 @@ class Problem:
                     self.forecasts_dicts[self.most_recent_forecast_idx]['y_range'][1]):
                 raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
 
-    def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8,
+    def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, add_ax_func=None,
             html_render=None, temp_horizon_viz_in_h=None, return_ax=False, plot_start_target=True):
         """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
 
@@ -176,13 +176,14 @@ class Problem:
                                                              file_dicts=self.hindcasts_dicts,
                                                              max_temp_in_h=120)
 
-        def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
-            del time
-            if plot_start_target:
-                ax.scatter(x_0[0], x_0[1], c='r', marker='o', s=200, label='start')
-                goal_circle = plt.Circle((x_T[0], x_T[1]), self.x_T_radius, color='g', fill=True, alpha=0.6, label='target')
-                ax.add_patch(goal_circle)
-                plt.legend(loc='upper right')
+        if add_ax_func is None:
+            def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
+                del time
+                if plot_start_target:
+                    ax.scatter(x_0[0], x_0[1], c='r', marker='o', s=200, label='start')
+                    goal_circle = plt.Circle((x_T[0], x_T[1]), self.x_T_radius, color='g', fill=True, alpha=0.6, label='target')
+                    ax.add_patch(goal_circle)
+                    plt.legend(loc='upper right')
 
         # if we want to visualize with video
         if time is None and video:
