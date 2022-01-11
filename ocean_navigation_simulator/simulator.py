@@ -384,7 +384,7 @@ class OceanNavSimulator:
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
                         deg_around_x0_xT_box=0.5, temporal_stride=1, time_interval_between_pics=200,
-                           linewidth=1.5, marker='x', linestyle='--'):
+                           linewidth=1.5, marker='x', linestyle='--', add_ax_func=None):
         """ Captures the whole trajectory - energy, position, etc over time"""
         # process the time that is put in the for the 2D static plots
         if time_for_currents is None:
@@ -446,6 +446,8 @@ class OceanNavSimulator:
 
         elif plotting_type == 'video':
             plotting_utils.plot_2D_traj_animation(
+                x_T=self.problem.x_T,
+                x_T_radius=self.problem.x_T_radius,
                 traj_full=x_traj,
                 control_traj=self.control_traj[:,::temporal_stride],
                 file_dicts=self.problem.hindcasts_dicts,
@@ -453,5 +455,6 @@ class OceanNavSimulator:
                 deg_around_x0_xT_box=deg_around_x0_xT_box,
                 html_render=html_render, filename=vid_file_name,
                 time_interval_between_pics=time_interval_between_pics,
-                linewidth=linewidth, marker=marker, linestyle=linestyle
+                linewidth=linewidth, marker=marker, linestyle=linestyle,
+                add_ax_func_ext=add_ax_func
             )

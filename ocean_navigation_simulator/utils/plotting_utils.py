@@ -234,9 +234,11 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
     plt.show()
 
 
-def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, deg_around_x0_xT_box=1,
+def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, x_T=None, x_T_radius=None,
+                           deg_around_x0_xT_box=1,
                            html_render=None, filename=None, time_interval_between_pics=200,
-                           linewidth=1.5, marker='x', linestyle='--'):
+                           linewidth=1.5, marker='x', linestyle='--', add_ax_func_ext=None
+                           ):
     # extract space and time trajs
     space_traj = traj_full[:2,:]
     traj_times = traj_full[3,:]
@@ -252,9 +254,16 @@ def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, deg_aroun
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, time):
+        # if there's a func plot it
+        if add_ax_func_ext is not None:
+            add_ax_func_ext(ax, time)
         # plot start position
         ax.scatter(space_traj[0, 0], space_traj[1, 0], c='r', marker='o', s=200, label='start')
-        ax.scatter(space_traj[0, -1], space_traj[1, -1], c='g', marker='*', s=200, label='end')
+        ax.scatter(space_traj[0, -1], space_traj[1, -1], c='g', marker='*', s=200, label='traj_end')
+        # plot the goal
+        if x_T is not None and x_T_radius is not None:
+            goal_circle = plt.Circle((x_T[0], x_T[1]), x_T_radius, color='g', fill=True, alpha=0.5, label='goal')
+            ax.add_patch(goal_circle)
         # plot a dot at current position (assumes same times as plotting)
         idx = np.where(traj_times == time)[0][0]
         # plot actuation vector & resulting vector after vector_addition
