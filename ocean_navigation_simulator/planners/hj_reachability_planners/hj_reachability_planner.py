@@ -3,6 +3,7 @@ import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
 from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
 import os
+import warnings
 import sys
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
@@ -305,9 +306,14 @@ class HJPlannerBase(Planner):
         if self.specific_settings['direction'] == 'forward':
             u_out = super().get_u_from_vectors(state, ctrl_vec='dir')
         else:
+            # check if time is outside times and through warning if yes but continue.
+            rel_time = state[3] - self.current_data_t_0
+            if rel_time > self.reach_times[-1]:
+                warnings.warn("Extrapolating time beyond the reach_times, should replan.", RuntimeWarning)
+                rel_time = self.reach_times[-1]
             u_out, _ = self.nondim_dynamics.dimensional_dynamics.get_opt_ctrl_from_values(
                 grid=self.grid, x=self.get_x_from_full_state(state),
-                time=state[3] - self.current_data_t_0,
+                time=rel_time,
                 times=self.reach_times, all_values=self.all_values)
         return np.asarray(u_out.reshape(-1, 1))
 
