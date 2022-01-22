@@ -148,7 +148,7 @@ class OceanNavSimulator:
         # set the class variable
         self.F_x_next = F_x_next
 
-    # @profile
+    @profile
     def run(self, T_in_h=None):
         """Main Loop of the simulator including replanning etc.
         The Loop runs with step-size dt for time T_in_h or until the goal is reached or terminated because stranded.
@@ -317,6 +317,9 @@ class OceanNavSimulator:
 
     # @profile
     def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10):
+        import psutil
+        print("RAM usage percent: ", psutil.virtual_memory().percent)
+
         #TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
         """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle."""
         # Specific settings to check feasibility
@@ -359,7 +362,7 @@ class OceanNavSimulator:
 
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(accuracy=self.feasibility_planner.specific_settings['accuracy'],
-                                                          # x_init=stop_at_x_init,
+                                                          x_init=stop_at_x_init,
                                                           artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
 
         # solve the PDE in non_dimensional to get the value function V(s,t)
@@ -370,6 +373,10 @@ class OceanNavSimulator:
             times=solve_times,
             initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward")
         )
+        from jax.interpreters import xla
+        xla._xla_callable.cache_clear()
+
+        print("RAM usage percent: ", psutil.virtual_memory().percent)
 
         print(self.problem.x_0[3])
         self.problem.x_0[3] = self.problem.x_0[3] + 24 * 3600*3
@@ -386,7 +393,7 @@ class OceanNavSimulator:
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(
             accuracy=self.feasibility_planner.specific_settings['accuracy'],
-            # x_init=stop_at_x_init,
+            x_init=stop_at_x_init,
             artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
 
         # self.feasibility_planner.nondim_dynamics.dimensional_dynamics.control_mode = 'min'
@@ -400,8 +407,7 @@ class OceanNavSimulator:
             initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward")
         )
 
-        from jax.interpreters import xla
-        xla._xla_callable.cache_clear()
+        print("RAM usage percent: ", psutil.virtual_memory().percent)
 
         # scale up the reach_times to be dimensional_times in seconds again
         self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0
