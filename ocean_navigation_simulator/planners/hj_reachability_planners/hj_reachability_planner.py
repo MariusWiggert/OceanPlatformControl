@@ -3,6 +3,7 @@ import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
 from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
 import os
+from jax.interpreters import xla
 import warnings
 import sys
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
@@ -266,6 +267,11 @@ class HJPlannerBase(Planner):
         self.nondim_dynamics.offset_vec = self.offset_vec
         # log that we just updated the forecast_file
         self.new_forecast_dicts = False
+
+        # Delete the old caches
+        print("Cache Size: ", hj.solver._solve._cache_size())
+        hj.solver._solve._clear_cache()
+        xla._xla_callable.cache_clear()
 
     def get_non_dim_state(self, state):
         """Returns the state transformed from dimensional coordinates to non_dimensional coordinates."""
