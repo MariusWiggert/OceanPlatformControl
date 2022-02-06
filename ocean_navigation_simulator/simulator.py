@@ -8,8 +8,6 @@ from datetime import datetime, timezone, timedelta
 import ocean_navigation_simulator.planners as planners
 import ocean_navigation_simulator.steering_controllers as steering_controllers
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils, solar_rad
-from ocean_navigation_simulator.planners import HJReach2DPlanner
-import hj_reachability as hj
 
 
 class OceanNavSimulator:
@@ -317,80 +315,6 @@ class OceanNavSimulator:
     def plot_land_mask(self):
         """Plot the land mask of the current data-subset."""
         plotting_utils.plot_land_mask(self.grids_dict)
-
-    def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False):
-        # TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
-        """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle."""
-        # Specific settings to check feasibility
-        specific_settings_dict = {
-            'direction': 'forward',
-            'T_goal_in_h': T_hours_forward,
-            'initial_set_radii': [0.05, 0.05],
-            'n_time_vector': 100,
-            'grid_res': [0.04, 0.04],
-            'deg_around_xt_xT_box': deg_around_xt_xT_box,
-            'accuracy': 'high',
-            'artificial_dissipation_scheme': 'local_local'}
-
-        # Step 1: set up and run forward 2D Reachability
-        self.feasibility_planner = HJReach2DPlanner(self.problem,
-                                                    specific_settings=specific_settings_dict,
-                                                    conv_m_to_deg=self.sim_settings['conv_m_to_deg'])
-
-        # load in the ground truth data
-        self.feasibility_planner.update_forecast_dicts(self.problem.hindcasts_dicts)
-        self.feasibility_planner.update_current_data(np.array(self.problem.x_0))
-
-        # Step 2: run the hj planner
-        x_0_rel = np.copy(self.problem.x_0)
-        x_0_rel[3] = x_0_rel[3] - self.feasibility_planner.current_data_t_0
-
-        # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
-        self.feasibility_planner.nondim_dynamics.tau_c = self.feasibility_planner.specific_settings[
-                                                             'T_goal_in_h'] * 3600
-        self.feasibility_planner.nondim_dynamics.t_0 = x_0_rel[3]
-
-        # set up the non_dimensional time-vector for which to save the value function
-        solve_times = np.linspace(0, 1, self.feasibility_planner.specific_settings['n_time_vector'] + 1)
-        self.feasibility_planner.nondim_dynamics.dimensional_dynamics.control_mode = 'max'
-
-        # set variables to stop when x_end is in the reachable set
-        stop_at_x_init = self.feasibility_planner.get_non_dim_state(
-            self.feasibility_planner.get_x_from_full_state(
-                self.feasibility_planner.x_T)
-        )
-
-        # create solver settings object
-        solver_settings = hj.SolverSettings.with_accuracy(
-            accuracy=self.feasibility_planner.specific_settings['accuracy'],
-            x_init=stop_at_x_init,
-            artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
-
-        # solve the PDE in non_dimensional to get the value function V(s,t)
-        non_dim_reach_times, self.feasibility_planner.all_values = hj.solve(
-            solver_settings=solver_settings,
-            dynamics=self.feasibility_planner.nondim_dynamics,
-            grid=self.feasibility_planner.nonDimGrid,
-            times=solve_times,
-            initial_values=self.feasibility_planner.get_initial_values(center=x_0_rel, direction="forward"),
-            progress_bar=progress_bar
-        )
-
-        # scale up the reach_times to be dimensional_times in seconds again
-        self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0 + self.feasibility_planner.current_data_t_0
-
-        reached, T_earliest_in_h = self.feasibility_planner.get_t_earliest_for_target_region()
-        # not reached
-        if reached == False:
-            print("Not_reached")
-            return False, None
-        else:
-            print("reached earliest after h: ", T_earliest_in_h)
-            # extract time-optimal trajectory from the run
-            self.feasibility_planner.extract_trajectory(
-                x_start=self.feasibility_planner.get_x_from_full_state(self.feasibility_planner.x_T),
-                traj_rel_times_vector=None)
-            return True, T_earliest_in_h
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
                         deg_around_x0_xT_box=0.5, temporal_stride=1, time_interval_between_pics=200,
