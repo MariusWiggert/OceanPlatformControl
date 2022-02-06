@@ -269,7 +269,7 @@ class HJPlannerBase(Planner):
         self.new_forecast_dicts = False
 
         # Delete the old caches
-        print("Cache Size: ", hj.solver._solve._cache_size())
+        # print("Cache Size: ", hj.solver._solve._cache_size())
         hj.solver._solve._clear_cache()
         xla._xla_callable.cache_clear()
 

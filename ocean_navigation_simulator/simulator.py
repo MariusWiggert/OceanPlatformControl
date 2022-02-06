@@ -60,7 +60,8 @@ class OceanNavSimulator:
         # Step 1: initialize high-level planner
         planner_class = getattr(planners, self.control_settings['PlannerConfig']['name'])
         self.high_level_planner = planner_class(self.problem,
-                                                specific_settings=self.control_settings['PlannerConfig']['specific_settings'],
+                                                specific_settings=self.control_settings['PlannerConfig'][
+                                                    'specific_settings'],
                                                 conv_m_to_deg=self.sim_settings['conv_m_to_deg'])
         # Step 2: initialize the tracking controller
         if self.control_settings['SteeringCtrlConfig']['name'] != 'None':
@@ -194,7 +195,7 @@ class OceanNavSimulator:
                 # set new updating times
                 next_planner_update = self.cur_state[3] \
                                       + self.control_settings['PlannerConfig']['dt_replanning']
-                next_steering_controller_update = self.cur_state[3]\
+                next_steering_controller_update = self.cur_state[3] \
                                                   + self.control_settings['SteeringCtrlConfig']['dt_replanning']
                 print("High-level planner & tracking controller replanned")
 
@@ -220,8 +221,8 @@ class OceanNavSimulator:
         t_low, t_high = self.grids_dict["t_grid"][0], self.grids_dict["t_grid"][-1]
         # check based on space and time of the currently loaded current data if new data needs to be loaded
         if not (x_low < self.cur_state[0] < x_high) \
-            or not (y_low < self.cur_state[1] < y_high) \
-            or not (t_low < self.cur_state[3] < t_high):
+                or not (y_low < self.cur_state[1] < y_high) \
+                or not (t_low < self.cur_state[3] < t_high):
             print("Updating simulator dynamics with new current data.")
             self.update_dynamics(self.cur_state.flatten())
 
@@ -243,15 +244,15 @@ class OceanNavSimulator:
                  * solar_rad(self.cur_state[3], self.cur_state[1], self.cur_state[0])
 
         delta_charge = charge - \
-                       self.problem.dyn_dict['energy']*(self.problem.dyn_dict['u_max'] * u_planner[0]) ** 3
+                       self.problem.dyn_dict['energy'] * (self.problem.dyn_dict['u_max'] * u_planner[0]) ** 3
 
-        next_charge = self.cur_state[2] + delta_charge*self.sim_settings['dt']
+        next_charge = self.cur_state[2] + delta_charge * self.sim_settings['dt']
 
         # if smaller than 0.: change the thrust accordingly
         if next_charge < 0.:
             energy_available = self.cur_state[2]
-            u_planner[0] = ((charge - energy_available/self.sim_settings['dt'])/\
-                    (self.problem.dyn_dict['energy']*self.problem.dyn_dict['u_max']**3))**(1./3)
+            u_planner[0] = ((charge - energy_available / self.sim_settings['dt']) / \
+                            (self.problem.dyn_dict['energy'] * self.problem.dyn_dict['u_max'] ** 3)) ** (1. / 3)
             return u_planner
         else:
             return u_planner
@@ -275,7 +276,7 @@ class OceanNavSimulator:
         if self.reached_goal():
             print("Sim terminate because goal reached.")
             return True, "goal_reached"
-        if (t_sim_run/ 3600.) > T_in_h:
+        if (t_sim_run / 3600.) > T_in_h:
             print("Sim terminate because T_in_h is over")
             return True, "T_max_reached"
         if self.platform_is_on_land():
@@ -289,8 +290,10 @@ class OceanNavSimulator:
             return True, "need_new_temporal_data"
         # check if we're going outside of the spatial data available.
         # Note: this assumes that all hindcast files have the same spatial data range
-        if (not self.problem.hindcasts_dicts[0]['x_range'][0] <= self.cur_state[0] <= self.problem.hindcasts_dicts[0]['x_range'][-1]) \
-                or (not self.problem.hindcasts_dicts[0]['y_range'][0] <= self.cur_state[1] <= self.problem.hindcasts_dicts[0]['y_range'][-1]):
+        if (not self.problem.hindcasts_dicts[0]['x_range'][0] <= self.cur_state[0] <=
+                self.problem.hindcasts_dicts[0]['x_range'][-1]) \
+                or (not self.problem.hindcasts_dicts[0]['y_range'][0] <= self.cur_state[1] <=
+                        self.problem.hindcasts_dicts[0]['y_range'][-1]):
             print("Sim terminate because state went out of the spatial domains of the hindcast files.")
             return True, "outside_spatial_domain_of_hindcasts"
 
@@ -298,7 +301,8 @@ class OceanNavSimulator:
 
     def reached_goal(self):
         """Returns whether we have reached the target region."""
-        distance_to_center = np.sqrt((self.cur_state[0][0] - self.problem.x_T[0])**2 + (self.cur_state[1][0] - self.problem.x_T[1])**2)
+        distance_to_center = np.sqrt(
+            (self.cur_state[0][0] - self.problem.x_T[0]) ** 2 + (self.cur_state[1][0] - self.problem.x_T[1]) ** 2)
         reached = distance_to_center < self.problem.x_T_radius
         return reached
 
@@ -315,7 +319,7 @@ class OceanNavSimulator:
         plotting_utils.plot_land_mask(self.grids_dict)
 
     def check_feasibility(self, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False):
-        #TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
+        # TODO: maybe this functionality should rather live somewhere else. Most of the stuff in here is not needed for it.
         """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle."""
         # Specific settings to check feasibility
         specific_settings_dict = {
@@ -342,7 +346,8 @@ class OceanNavSimulator:
         x_0_rel[3] = x_0_rel[3] - self.feasibility_planner.current_data_t_0
 
         # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
-        self.feasibility_planner.nondim_dynamics.tau_c = self.feasibility_planner.specific_settings['T_goal_in_h'] * 3600
+        self.feasibility_planner.nondim_dynamics.tau_c = self.feasibility_planner.specific_settings[
+                                                             'T_goal_in_h'] * 3600
         self.feasibility_planner.nondim_dynamics.t_0 = x_0_rel[3]
 
         # set up the non_dimensional time-vector for which to save the value function
@@ -356,9 +361,10 @@ class OceanNavSimulator:
         )
 
         # create solver settings object
-        solver_settings = hj.SolverSettings.with_accuracy(accuracy=self.feasibility_planner.specific_settings['accuracy'],
-                                                          x_init=stop_at_x_init,
-                                                          artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
+        solver_settings = hj.SolverSettings.with_accuracy(
+            accuracy=self.feasibility_planner.specific_settings['accuracy'],
+            x_init=stop_at_x_init,
+            artificial_dissipation_scheme=self.feasibility_planner.diss_scheme)
 
         # solve the PDE in non_dimensional to get the value function V(s,t)
         non_dim_reach_times, self.feasibility_planner.all_values = hj.solve(
@@ -371,7 +377,7 @@ class OceanNavSimulator:
         )
 
         # scale up the reach_times to be dimensional_times in seconds again
-        self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0
+        self.feasibility_planner.reach_times = non_dim_reach_times * self.feasibility_planner.nondim_dynamics.tau_c + self.feasibility_planner.nondim_dynamics.t_0 + self.feasibility_planner.current_data_t_0
 
         reached, T_earliest_in_h = self.feasibility_planner.get_t_earliest_for_target_region()
         # not reached
@@ -388,7 +394,7 @@ class OceanNavSimulator:
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
                         deg_around_x0_xT_box=0.5, temporal_stride=1, time_interval_between_pics=200,
-                           linewidth=1.5, marker='x', linestyle='--', add_ax_func=None):
+                        linewidth=1.5, marker='x', linestyle='--', add_ax_func=None):
         """ Captures the whole trajectory - energy, position, etc over time"""
         # process the time that is put in the for the 2D static plots
         if time_for_currents is None:
@@ -398,9 +404,10 @@ class OceanNavSimulator:
 
         # check if last element is included if not add it
         if not np.arange(self.trajectory.shape[1])[::temporal_stride][-1] == self.trajectory.shape[1] - 1:
-            x_traj = np.concatenate((self.trajectory[:, ::temporal_stride], self.trajectory[:, -1].reshape(-1, 1)),axis=1)
+            x_traj = np.concatenate((self.trajectory[:, ::temporal_stride], self.trajectory[:, -1].reshape(-1, 1)),
+                                    axis=1)
         else:
-            x_traj = self.trajectory[:,::temporal_stride]
+            x_traj = self.trajectory[:, ::temporal_stride]
 
         if plotting_type == '2D':
             plotting_utils.plot_2D_traj(x_traj[:2, :], title="Simulator Trajectory")
@@ -422,12 +429,12 @@ class OceanNavSimulator:
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts,
-                                                      ctrl_seq=self.control_traj[:,::temporal_stride],
+                                                      ctrl_seq=self.control_traj[:, ::temporal_stride],
                                                       u_max=self.problem.dyn_dict['u_max'])
             return
 
         elif plotting_type == 'ctrl':
-            plotting_utils.plot_opt_ctrl(x_traj[3, :-1], self.control_traj[:,::temporal_stride],
+            plotting_utils.plot_opt_ctrl(x_traj[3, :-1], self.control_traj[:, ::temporal_stride],
                                          title="Simulator Control Trajectory")
 
         elif plotting_type == 'battery':
@@ -453,7 +460,7 @@ class OceanNavSimulator:
                 x_T=self.problem.x_T,
                 x_T_radius=self.problem.x_T_radius,
                 traj_full=x_traj,
-                control_traj=self.control_traj[:,::temporal_stride],
+                control_traj=self.control_traj[:, ::temporal_stride],
                 file_dicts=self.problem.hindcasts_dicts,
                 u_max=self.problem.dyn_dict['u_max'],
                 deg_around_x0_xT_box=deg_around_x0_xT_box,
