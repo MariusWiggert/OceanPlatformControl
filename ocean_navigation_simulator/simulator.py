@@ -380,6 +380,10 @@ class OceanNavSimulator:
             return False, None
         else:
             print("reached earliest after h: ", T_earliest_in_h)
+            # extract time-optimal trajectory from the run
+            self.feasibility_planner.extract_trajectory(
+                x_start=self.feasibility_planner.get_x_from_full_state(self.feasibility_planner.x_T),
+                traj_rel_times_vector=None)
             return True, T_earliest_in_h
 
     def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
