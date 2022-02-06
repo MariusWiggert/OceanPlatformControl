@@ -32,6 +32,9 @@ class Planner:
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
 
+        # saving the planned trajectories for inspection purposes
+        self.planned_trajs = []
+
         self.conv_m_to_deg = conv_m_to_deg
         self.specific_settings = specific_settings
 

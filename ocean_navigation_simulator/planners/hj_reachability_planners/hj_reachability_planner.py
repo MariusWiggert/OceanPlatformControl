@@ -130,8 +130,6 @@ class HJPlannerBase(Planner):
         else:
             raise ValueError("Direction in controller YAML needs to be one of {backward, forward, forward-backward}")
 
-        # for open_loop control the times vector must be in absolute times
-        self.times = self.times + self.current_data_t_0
         # log it for plotting planned trajectory
         self.x_t = x_t
 
@@ -222,6 +220,17 @@ class HJPlannerBase(Planner):
             self.nondim_dynamics.dimensional_dynamics.backtrack_trajectory(
                 grid=self.grid, x_init=x_start, times=self.reach_times, all_values=self.all_values,
                 traj_times=traj_rel_times_vector)
+
+        # for open_loop control the times vector must be in absolute times
+        self.times = self.times + self.current_data_t_0
+
+        # log the planned trajectory for later inspection purpose
+        # Step 1: concatenate to reduce file size
+        times_vec = self.times.reshape(1, -1)
+        trajectory = np.concatenate((self.x_traj, np.ones(times_vec.shape), times_vec), axis=0)
+
+        plan_dict = {'traj':trajectory, 'ctrl':self.contr_seq}
+        self.planned_trajs.append(plan_dict)
 
     def update_current_data(self, x_t):
         print("Reachability Planner: Loading new current data.")
