@@ -4,6 +4,7 @@ from ocean_navigation_simulator.utils import simulation_utils
 from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
 import os
 from jax.interpreters import xla
+from scipy.interpolate import interp1d
 import warnings
 import sys
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
@@ -332,18 +333,26 @@ class HJPlannerBase(Planner):
                 times=self.reach_times, all_values=self.all_values)
         return np.asarray(u_out.reshape(-1, 1))
 
-    def plot_reachability(self, type='gif'):
+    def plot_reachability(self, type='gif', time=None):
         """ Plot the reachable set the planner was computing last. """
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
-        if self.specific_settings['direction'] == 'forward':
-            hj.viz.visSet2DAnimation(
-                self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
-                type=type, x_init=self.x_T, colorbar=False)
-        else:   # backwards
-            hj.viz.visSet2DAnimation(
-                self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
-                type=type, x_init=self.x_t, colorbar=False)
+        # check if fixed time
+        if time is not None:
+            # interpolate
+            # Note: this can probably be done more efficiently e.g. by initializing the function once?
+            val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(time).squeeze()
+            hj.viz.visSet(self.grid, val_at_t, level=0, color='black', colorbar=False, obstacles=None, target_set=None)
+        # else render gif
+        else:
+            if self.specific_settings['direction'] == 'forward':
+                hj.viz.visSet2DAnimation(
+                    self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
+                    type=type, x_init=self.x_T, colorbar=False)
+            else:   # backwards
+                hj.viz.visSet2DAnimation(
+                    self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
+                    type=type, x_init=self.x_t, colorbar=False)
 
     def get_waypoints(self):
         """Returns: a list of waypoints each containing [lon, lat, time]"""

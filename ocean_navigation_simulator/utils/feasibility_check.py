@@ -2,6 +2,7 @@ import numpy as np
 from ocean_navigation_simulator.planners import HJReach2DPlanner
 import hj_reachability as hj
 import bisect
+from scipy.interpolate import interp1d
 
 
 def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False,
@@ -95,3 +96,29 @@ def check_if_x_is_reachable(feasibility_planner, x, time):
         idx_start_time_closest = -bisect.bisect_right(times[::-1], time.timestamp())
 
     return feasibility_planner.grid.interpolate(feasibility_planner.all_values[idx_start_time_closest, ...], x) <= 0
+
+
+def get_bounding_square_of_reachable_set(feasibility_planner, time):
+    """Function to get the square lower and upper bounds of the reachable set at a specific time."""
+    # check if the planner was run already
+    if feasibility_planner.all_values is None:
+        raise ValueError("the reachability planner needs to be run before we can check reachability.")
+    # get the square around the reachable set
+    val_at_t = interp1d(feasibility_planner.reach_times, feasibility_planner.all_values, axis=0,
+                        kind='linear')(time.timestamp()).squeeze()
+    coordinate_vectors = feasibility_planner.grid.coordinate_vectors
+    ndim = len(val_at_t.shape)
+    bounding_dicts = []
+    for dim in range(ndim):
+        first = True
+        for idx in range(len(coordinate_vectors[dim])):
+            I = [slice(None)] * ndim
+            I[dim] = idx
+            inside = np.any(val_at_t[tuple(I)] < 0)
+            if inside and first:
+                lo = coordinate_vectors[dim][idx]
+                first = False
+            if inside and not first:
+                hi = coordinate_vectors[dim][idx]
+        bounding_dicts.append({"lo":lo, "hi":hi})
+    return bounding_dicts
