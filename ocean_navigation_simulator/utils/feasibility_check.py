@@ -1,9 +1,11 @@
 import numpy as np
 from ocean_navigation_simulator.planners import HJReach2DPlanner
 import hj_reachability as hj
+import bisect
 
 
-def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False, conv_m_to_deg=111120):
+def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False,
+                        stop_at_x_init=True, conv_m_to_deg=111120):
     """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle.
     returns feasibility (bool), T_earliest_in_h (float or None), feasibility_planner
     """
@@ -40,10 +42,13 @@ def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, p
     feasibility_planner.nondim_dynamics.dimensional_dynamics.control_mode = 'max'
 
     # set variables to stop when x_end is in the reachable set
-    stop_at_x_init = feasibility_planner.get_non_dim_state(
-        feasibility_planner.get_x_from_full_state(
-            feasibility_planner.x_T)
-    )
+    if stop_at_x_init:
+        stop_at_x_init = feasibility_planner.get_non_dim_state(
+            feasibility_planner.get_x_from_full_state(
+                feasibility_planner.x_T)
+        )
+    else:
+        stop_at_x_init = None
 
     # create solver settings object
     solver_settings = hj.SolverSettings.with_accuracy(
@@ -76,3 +81,17 @@ def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, p
             x_start=feasibility_planner.get_x_from_full_state(feasibility_planner.x_T),
             traj_rel_times_vector=None)
         return True, T_earliest_in_h, feasibility_planner
+
+
+def check_if_x_is_reachable(feasibility_planner, x, time):
+    """ Function to check if a certain point x is reachable at the datetime time using a run planner object."""
+    # check if the planner was run already
+    if feasibility_planner.all_values is None:
+        raise ValueError("the reachability planner needs to be run before we can check reachability.")
+    times = feasibility_planner.reach_times
+    if times[0] < times[-1]:  # ascending times
+        idx_start_time_closest = bisect.bisect_right(times, time.timestamp(), hi=len(times) - 1)
+    else:  # descending times
+        idx_start_time_closest = -bisect.bisect_right(times[::-1], time.timestamp())
+
+    return feasibility_planner.grid.interpolate(feasibility_planner.all_values[idx_start_time_closest, ...], x) <= 0

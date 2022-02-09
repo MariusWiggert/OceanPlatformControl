@@ -1,6 +1,7 @@
 import yaml, os, netCDF4, abc
 from datetime import datetime, timedelta, timezone
 import matplotlib.pyplot as plt
+import numpy as np
 
 # import from other utils
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
@@ -241,7 +242,21 @@ class Problem:
                     break
             time_range = [self.hindcasts_dicts[0]['t_range'][0], self.hindcasts_dicts[idx + 1]['t_range'][1]]
 
-        return {"gt_t_range": time_range, "gt_y_range": y_range, "gt_x_range": x_range}
+        # get the land mask
+        u_data = f.variables['water_u'][:, 0, :, :]
+        # adds a mask where there's a nan (on-land)
+        u_data = np.ma.masked_invalid(u_data)
+
+        return {"gt_t_range": time_range, "gt_y_range": y_range, "gt_x_range": x_range,
+                'gt_spatial_land_mask':u_data[0, :, :].mask, 'gt_x_grid': xgrid, 'gt_y_grid': ygrid}
+
+    def is_on_land(self, point):
+        """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
+        # get idx of closest grid-points
+        x_idx = (np.abs(self.hindcast_grid_dict['gt_x_grid'] - point[0])).argmin()
+        y_idx = (np.abs(self.hindcast_grid_dict['gt_y_grid'] - point[1])).argmin()
+        # Note: the spatial_land_mask is an array with [Y, X]
+        return self.hindcast_grid_dict['gt_spatial_land_mask'][y_idx, x_idx]
 
     @staticmethod
     def get_file_dicts(folder):
