@@ -116,10 +116,9 @@ class Problem:
             t       datetime_object of time
             points  list of [lon, lat] points
         """
-        # TODO: needs to be put back in!
-        # # Step 1: check if t_0 is in the Hindcast time-range
-        # if not (self.hindcast_grid_dict['gt_t_range'][0] < t < self.hindcast_grid_dict['gt_t_range'][1]):
-        #     raise ValueError("Hindcast files do not cover {}.".format(t))
+        # Step 1: check if t_0 is in the Hindcast time-range
+        if not (self.hindcast_grid_dict['gt_t_range'][0] < t < self.hindcast_grid_dict['gt_t_range'][1]):
+            raise ValueError("Hindcast files do not cover {}.".format(t))
         # Step 2: check if x_0 and x_T are in the spatial coverage of the Hindcast files
         for point in points:
             if not (self.hindcast_grid_dict['gt_x_range'][0] < point[0] < self.hindcast_grid_dict['gt_x_range'][1]):

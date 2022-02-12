@@ -68,7 +68,9 @@ def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, p
     )
 
     # scale up the reach_times to be dimensional_times in seconds again
-    feasibility_planner.reach_times = non_dim_reach_times * feasibility_planner.nondim_dynamics.tau_c + feasibility_planner.nondim_dynamics.t_0 + feasibility_planner.current_data_t_0
+    feasibility_planner.reach_times = non_dim_reach_times * feasibility_planner.nondim_dynamics.tau_c + feasibility_planner.nondim_dynamics.t_0
+    # in times log the posix time because we need it for check_if_x_is_reachable computation
+    feasibility_planner.times = feasibility_planner.reach_times + feasibility_planner.current_data_t_0
 
     reached, T_earliest_in_h = feasibility_planner.get_t_earliest_for_target_region()
     # not reached
@@ -89,7 +91,7 @@ def check_if_x_is_reachable(feasibility_planner, x, time):
     # check if the planner was run already
     if feasibility_planner.all_values is None:
         raise ValueError("the reachability planner needs to be run before we can check reachability.")
-    times = feasibility_planner.reach_times
+    times = feasibility_planner.times
     if times[0] < times[-1]:  # ascending times
         idx_start_time_closest = bisect.bisect_right(times, time.timestamp(), hi=len(times) - 1)
     else:  # descending times

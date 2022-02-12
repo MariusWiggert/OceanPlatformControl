@@ -210,12 +210,14 @@ class HJPlannerBase(Planner):
         Input Parameters:
         - x_start                   start_point for backtracking must be same dim as grid.ndim
         - traj_rel_times_vector     the times vector for which to extract trajectory points for
-                                    in seconds relative to the current forecast file.
+                                    in seconds from the start of the reachability computation t=0.
                                     Defaults to self.reach_times.
         """
         # setting default times vector for the trajectory
         if traj_rel_times_vector is None:
             traj_rel_times_vector = self.reach_times
+        else:
+            traj_rel_times_vector = traj_rel_times_vector + self.reach_times[0]
 
         self.times, self.x_traj, self.contr_seq, self.distr_seq = \
             self.nondim_dynamics.dimensional_dynamics.backtrack_trajectory(
@@ -333,15 +335,15 @@ class HJPlannerBase(Planner):
                 times=self.reach_times, all_values=self.all_values)
         return np.asarray(u_out.reshape(-1, 1))
 
-    def plot_reachability(self, type='gif', time=None):
+    def plot_reachability(self, type='gif', rel_time_in_h=None):
         """ Plot the reachable set the planner was computing last. """
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
         # check if fixed time
-        if time is not None:
+        if rel_time_in_h is not None:
             # interpolate
             # Note: this can probably be done more efficiently e.g. by initializing the function once?
-            val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(time).squeeze()
+            val_at_t = interp1d(self.reach_times - self.reach_times[0], self.all_values, axis=0, kind='linear')(rel_time_in_h*3600).squeeze()
             hj.viz.visSet(self.grid, val_at_t, level=0, color='black', colorbar=False, obstacles=None, target_set=None)
         # else render gif
         else:
