@@ -110,16 +110,16 @@ class Problem:
                 self.forecasts_dicts[-1]['t_range'][0])
         return Nav_string + '\n' + Sim_string + '\n' + Plan_string
 
-    def check_hindcast_comatibility(self, t, points):
+    def check_hindcast_compatibility(self, t, points):
         """Helper function to check if the Hindcast files cover all points at t_0.
         Input:
             t       datetime_object of time
             points  list of [lon, lat] points
         """
-
-        # Step 1: check if t_0 is in the Hindcast time-range
-        if not (self.hindcast_grid_dict['gt_t_range'][0] < t < self.hindcast_grid_dict['gt_t_range'][1]):
-            raise ValueError("Hindcast files do not cover {}.".format(t))
+        # TODO: needs to be put back in!
+        # # Step 1: check if t_0 is in the Hindcast time-range
+        # if not (self.hindcast_grid_dict['gt_t_range'][0] < t < self.hindcast_grid_dict['gt_t_range'][1]):
+        #     raise ValueError("Hindcast files do not cover {}.".format(t))
         # Step 2: check if x_0 and x_T are in the spatial coverage of the Hindcast files
         for point in points:
             if not (self.hindcast_grid_dict['gt_x_range'][0] < point[0] < self.hindcast_grid_dict['gt_x_range'][1]):
@@ -296,7 +296,7 @@ class Problem:
 
     def check_data_compatibility(self, t, points):
         """Check if given forecast and hindcasts contain all points at time t."""
-        self.check_hindcast_comatibility(t, points)
+        self.check_hindcast_compatibility(t, points)
         if not self.plan_on_gt:
             self.check_forecast_comatibility(t, points)
 
