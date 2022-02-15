@@ -106,7 +106,7 @@ def get_bounding_square_of_reachable_set(feasibility_planner, time):
     if feasibility_planner.all_values is None:
         raise ValueError("the reachability planner needs to be run before we can check reachability.")
     # get the square around the reachable set
-    val_at_t = interp1d(feasibility_planner.reach_times, feasibility_planner.all_values, axis=0,
+    val_at_t = interp1d(feasibility_planner.times, feasibility_planner.all_values, axis=0,
                         kind='linear')(time.timestamp()).squeeze()
     coordinate_vectors = feasibility_planner.grid.coordinate_vectors
     ndim = len(val_at_t.shape)
