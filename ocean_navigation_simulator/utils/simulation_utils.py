@@ -340,10 +340,10 @@ def get_abs_time_grid_from_hycom_file(f):
     t_grid = f.variables['time'][:]
     # Get the time_origin of the file (Note: this is very tailered for the HYCOM Data)
     try:
-        time_origin = datetime.strptime(f.variables['time'].__dict__['time_origin'] + ' +0000',
+        time_origin = datetime.strptime(f.variables['time'].time_origin + ' +0000',
                                         '%Y-%m-%d %H:%M:%S %z')
     except:
-        time_origin = datetime.strptime(f.variables['time'].__dict__['units'] + ' +0000',
+        time_origin = datetime.strptime(f.variables['time'].units + ' +0000',
                                         'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
 
     # for time indexing transform to POSIX time
