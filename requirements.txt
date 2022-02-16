@@ -94,3 +94,4 @@ wcwidth==0.2.5
 webencodings==0.5.1
 websocket-client==1.2.1
 zope.interface==5.4.0
+xarray==0.21.1

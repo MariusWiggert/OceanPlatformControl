@@ -10,7 +10,7 @@ conda install -c conda-forge cartopy ffmpeg
 pip install --upgrade "jax[cpu]"
 # pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_releases.html
 # install private hj_reachability library fork via token
-pip install --upgrade git+https://MariusWiggert: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@github.com/MariusWiggert/hj_reachability_c3.git
+pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git@4549bea7c3cda3b4d3bf90735bc1cba4703fb4ca
 
 # install other python requirements via pip
 pip install -r requirements.txt
