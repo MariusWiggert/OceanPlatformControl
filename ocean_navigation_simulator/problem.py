@@ -284,6 +284,7 @@ class Problem:
             hindcast_folder/forecast_folder     local path to folder where all hindcast/forecast files are
             x_t                                 full state of simulator at current time (lon, lat, battery, POSIX time)
         """
+        os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
         # Step 1: Update Hindcast Data
         self.hindcasts_dicts = self.get_file_dicts(hindcast_folder)
         self.hindcast_grid_dict = self.derive_hindcast_grid_dict()
