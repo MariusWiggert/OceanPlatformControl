@@ -1,7 +1,8 @@
 import casadi as ca
 from datetime import datetime, timedelta, timezone
 # import netCDF4
-import h5netcdf.legacyapi as netCDF4
+# import h5netcdf.legacyapi as netCDF4
+import xarray as xr
 import numpy as np
 import math
 import os
@@ -99,11 +100,11 @@ def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_inter
     """Subsetting data from a single file."""
     # Step 1: Open nc file
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    f = netCDF4.Dataset(file_dict['file'], mode='r')
+    f = xr.open_dataset(file_dict['file'])
 
     # Step 2: Extract the grids
-    x_grid = f.variables['lon'][:].data
-    y_grid = f.variables['lat'][:].data
+    x_grid = f.variables['lon'].data
+    y_grid = f.variables['lat'].data
     t_grid = get_abs_time_grid_from_hycom_file(f)
 
     # Step 3: get the subsetting indices for space and time
@@ -126,8 +127,8 @@ def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_inter
     # Step 4: extract data
     # Note: HYCOM is [tdim, zdim, ydim, xdim]
     if len(f.variables['water_u'].shape) == 4:  # if there is a depth dimension in the dataset
-        u_data = f.variables['water_u'][tgrid_inds, 0, ygrid_inds, xgrid_inds]
-        v_data = f.variables['water_v'][tgrid_inds, 0, ygrid_inds, xgrid_inds]
+        u_data = f.variables['water_u'].data[tgrid_inds, 0, ...][:, ygrid_inds, ...][..., xgrid_inds]
+        v_data = f.variables['water_v'].data[tgrid_inds, 0, ...][:, ygrid_inds, ...][..., xgrid_inds]
         # adds a mask where there's a nan (on-land)
         u_data = np.ma.masked_invalid(u_data)
         v_data = np.ma.masked_invalid(v_data)
@@ -170,9 +171,9 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
 
     # Step 2.1: open the first file and get the x and y grid
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    f = netCDF4.Dataset(time_interval_dicts[0]['file'], mode='r')
-    x_grid = f.variables['lon'][:].data
-    y_grid = f.variables['lat'][:].data
+    f = xr.open_dataset(time_interval_dicts[0]['file'])
+    x_grid = f.variables['lon'].data
+    y_grid = f.variables['lat'].data
 
     # close netCDF file
     f.close()
@@ -189,7 +190,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     # Step 3: iterate over all files in order and stack the current data and absolute t_grids
     for idx in range(len(time_interval_dicts)):
         # Step 3.0: load the current data file
-        f = netCDF4.Dataset(time_interval_dicts[idx]['file'], mode='r')
+        f = xr.open_dataset(time_interval_dicts[idx]['file'])
         # set the default start and end time
         start_hr, end_hr = 0, 24
 
@@ -204,8 +205,10 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
                 (t_interval[1] - time_interval_dicts[idx]['t_range'][0]).seconds / 3600) + 1
 
         # Step 3.2: extract data from the file
-        u_data = f.variables['water_u'][start_hr:end_hr, 0, ygrid_inds, xgrid_inds]
-        v_data = f.variables['water_v'][start_hr:end_hr, 0, ygrid_inds, xgrid_inds]
+        u_data_raw = f.variables['water_u'].data[start_hr:end_hr, 0, ygrid_inds, ...][..., xgrid_inds]
+        v_data_raw = f.variables['water_v'].data[start_hr:end_hr, 0, ygrid_inds, ...][..., xgrid_inds]
+        u_data = np.ma.masked_where(np.isnan(u_data_raw), u_data_raw)
+        v_data = np.ma.masked_where(np.isnan(v_data_raw), v_data_raw)
 
         # Step 3.3: stack the sub-setted abs_t_grid and current data
         full_t_grid = full_t_grid + [time_interval_dicts[idx]['t_range'][0].timestamp() + i * 3600 for i in
@@ -333,22 +336,13 @@ def temporal_interpolation(grids_dict, u_data, v_data, temp_res_in_h):
     # return new t_grid and values
     return new_t_grid, new_u_data, new_v_data
 
+
 # Helper helper functions
 def get_abs_time_grid_from_hycom_file(f):
     """Helper function to extract the t_grid in UTC POSIX time from a HYCOM File f."""
-    # Get the t_grid. note that this is in hours from HYCOM data!
-    t_grid = f.variables['time'][:]
-    # Get the time_origin of the file (Note: this is very tailered for the HYCOM Data)
-    try:
-        time_origin = datetime.strptime(f.variables['time'].time_origin.decode('UTF-8') + ' +0000',
-                                        '%Y-%m-%d %H:%M:%S %z')
-    except:
-        time_origin = datetime.strptime(f.variables['time'].units.decode('UTF-8') + ' +0000',
-                                        'hours since %Y-%m-%d %H:%M:%S.000 UTC %z')
-
-    # for time indexing transform to POSIX time
-    abs_t_grid = [(time_origin + timedelta(hours=X)).timestamp() for X in t_grid.data]
-    return np.array(abs_t_grid)
+    # transform from numpy datetime object to POSIX time
+    t_grid = (f.variables['time'].data - np.datetime64(0, 's'))/ np.timedelta64(1, 's')
+    return t_grid
 
 
 def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interval):
@@ -374,11 +368,11 @@ def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interv
 def get_grid_dict_from_file(file):
     """Helper function to create a grid dict from a local nc3 file."""
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    f = netCDF4.Dataset(file, mode='r')
+    f = xr.open_dataset(file)
     # get the time coverage in POSIX
     t_grid = get_abs_time_grid_from_hycom_file(f)
-    y_range = [f.variables['lat'][:][0], f.variables['lat'][:][-1]]
-    x_range = [f.variables['lon'][:][0], f.variables['lon'][:][-1]]
+    y_range = [f.variables['lat'].data[0], f.variables['lat'].data[-1]]
+    x_range = [f.variables['lon'].data[0], f.variables['lon'].data[-1]]
     # close netCDF file
     f.close()
     # create dict

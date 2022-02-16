@@ -1,8 +1,10 @@
 import yaml, os
-import h5netcdf.legacyapi as netCDF4
+# import h5netcdf.legacyapi as netCDF4
+# import netCDF4
 from datetime import datetime, timedelta, timezone
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 
 # import from other utils
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
@@ -221,9 +223,9 @@ class Problem:
             raise ValueError("No Hindcast files in hindcasts_dicts.")
 
         # get spatial coverage by reading in the first file
-        f = netCDF4.Dataset(self.hindcasts_dicts[0]['file'], mode='r')
-        xgrid = f.variables['lon'][:].data
-        ygrid = f.variables['lat'][:].data
+        f = xr.open_dataset(self.hindcasts_dicts[0]['file'])
+        xgrid = f.variables['lon'].data
+        ygrid = f.variables['lat'].data
 
         y_range = [ygrid[0], ygrid[-1]]
         x_range = [xgrid[0], xgrid[-1]]
@@ -243,7 +245,7 @@ class Problem:
             time_range = [self.hindcasts_dicts[0]['t_range'][0], self.hindcasts_dicts[idx + 1]['t_range'][1]]
 
         # get the land mask
-        u_data = f.variables['water_u'][:, 0, :, :]
+        u_data = f.variables['water_u'].data[:, 0, :, :]
         # adds a mask where there's a nan (on-land)
         u_data = np.ma.masked_invalid(u_data)
 
