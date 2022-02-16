@@ -1,4 +1,5 @@
-import yaml, os, netCDF4, abc
+import yaml, os
+import h5netcdf.legacyapi as netCDF4
 from datetime import datetime, timedelta, timezone
 import matplotlib.pyplot as plt
 import numpy as np
@@ -220,7 +221,7 @@ class Problem:
             raise ValueError("No Hindcast files in hindcasts_dicts.")
 
         # get spatial coverage by reading in the first file
-        f = netCDF4.Dataset(self.hindcasts_dicts[0]['file'])
+        f = netCDF4.Dataset(self.hindcasts_dicts[0]['file'], mode='r')
         xgrid = f.variables['lon'][:].data
         ygrid = f.variables['lat'][:].data
 

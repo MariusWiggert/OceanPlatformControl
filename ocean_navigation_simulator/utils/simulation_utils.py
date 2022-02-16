@@ -1,6 +1,7 @@
 import casadi as ca
 from datetime import datetime, timedelta, timezone
-import netCDF4
+# import netCDF4
+import h5netcdf.legacyapi as netCDF4
 import numpy as np
 import math
 import os
@@ -98,7 +99,7 @@ def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_inter
     """Subsetting data from a single file."""
     # Step 1: Open nc file
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    f = netCDF4.Dataset(file_dict['file'])
+    f = netCDF4.Dataset(file_dict['file'], mode='r')
 
     # Step 2: Extract the grids
     x_grid = f.variables['lon'][:].data
@@ -169,7 +170,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
 
     # Step 2.1: open the first file and get the x and y grid
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    f = netCDF4.Dataset(time_interval_dicts[0]['file'])
+    f = netCDF4.Dataset(time_interval_dicts[0]['file'], mode='r')
     x_grid = f.variables['lon'][:].data
     y_grid = f.variables['lat'][:].data
 
@@ -188,7 +189,7 @@ def get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_inter
     # Step 3: iterate over all files in order and stack the current data and absolute t_grids
     for idx in range(len(time_interval_dicts)):
         # Step 3.0: load the current data file
-        f = netCDF4.Dataset(time_interval_dicts[idx]['file'])
+        f = netCDF4.Dataset(time_interval_dicts[idx]['file'], mode='r')
         # set the default start and end time
         start_hr, end_hr = 0, 24
 
@@ -373,7 +374,7 @@ def grids_interval_sanity_check(grids_dict, lat_interval, lon_interval, t_interv
 def get_grid_dict_from_file(file):
     """Helper function to create a grid dict from a local nc3 file."""
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    f = netCDF4.Dataset(file)
+    f = netCDF4.Dataset(file, mode='r')
     # get the time coverage in POSIX
     t_grid = get_abs_time_grid_from_hycom_file(f)
     y_range = [f.variables['lat'][:][0], f.variables['lat'][:][-1]]
