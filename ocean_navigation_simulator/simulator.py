@@ -73,6 +73,7 @@ class OceanNavSimulator:
         self.cur_state = np.array(problem.x_0).reshape(4, 1)  # lon, lat, battery level, time
         self.trajectory = self.cur_state
         self.control_traj = np.empty((2, 0), float)
+        self.current_forecast_dict_idx = None
 
         # termination reason
         self.termination_reason = None
@@ -151,7 +152,7 @@ class OceanNavSimulator:
         """Main Loop of the simulator including replanning etc.
         The Loop runs with step-size dt for time T_in_h or until the goal is reached or terminated because stranded.
         Returns string of the termination reason for the simulator.
-        'goal_reached', 'stranded', 'T_max_reached', 'outside_spatial_domain_of_hindcasts', 'need_new_temporal_data
+        'goal_reached', 'stranded', 'T_max_reached', 'outside_spatial_domain_of_hindcasts', 'need_new_temporal_data'
 
         # TODO: for now there is one main loop, at some point we want to have parallel processes/workers
         running the high-level planner, tracking controller, simulator at their respective frequencies.
@@ -161,11 +162,11 @@ class OceanNavSimulator:
             self.high_level_planner.update_forecast_dicts(
                 self.problem.hindcasts_dicts)
             # put something in so that the rest of the code runs
-            current_forecast_dict_idx = 0
+            self.current_forecast_dict_idx = 0
         else:
-            current_forecast_dict_idx = self.problem.most_recent_forecast_idx
+            self.current_forecast_dict_idx = self.problem.most_recent_forecast_idx
             self.high_level_planner.update_forecast_dicts(
-                [self.problem.forecasts_dicts[current_forecast_dict_idx]])
+                [self.problem.forecasts_dicts[self.current_forecast_dict_idx]])
 
         # tracking variables
         end_sim, self.termination_reason = self.check_termination(T_in_h)
@@ -177,11 +178,13 @@ class OceanNavSimulator:
             self.check_dynamics_update()
             # Loop 1: update forecast files if new one is available
             if (not self.problem.plan_on_gt) and self.cur_state[3] >= \
-                    self.problem.forecasts_dicts[current_forecast_dict_idx + 1]['t_range'][0].timestamp() \
+                    self.problem.forecasts_dicts[self.current_forecast_dict_idx + 1]['t_range'][0].timestamp() \
                     + self.problem.forecast_delay_in_h * 3600.:
                 self.high_level_planner.update_forecast_dicts(
-                    [self.problem.forecasts_dicts[current_forecast_dict_idx + 1]])
-                current_forecast_dict_idx = current_forecast_dict_idx + 1
+                    [self.problem.forecasts_dicts[self.current_forecast_dict_idx + 1]])
+                self.current_forecast_dict_idx = self.current_forecast_dict_idx + 1
+                if self.current_forecast_dict_idx == len(self.problem.forecasts_dicts):
+                    raise ValueError("Not enough forecasts in the folder to complete simulation.")
                 # trigger high-level planner re-planning
                 next_planner_update = self.cur_state[3]
 
