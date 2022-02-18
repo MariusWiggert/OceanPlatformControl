@@ -5,8 +5,7 @@ import math, bisect
 
 class simple_P_tracker(WaypointTrackingController):
     """ Simple proportional controller:
-        Outside a radius r from the waypoint: actuate full power
-        Inside the radius actuate: linearly decreasing actuation
+        Actuate full power toward the next waypoint.
     """
 
     def __init__(self, traj_data=None):
