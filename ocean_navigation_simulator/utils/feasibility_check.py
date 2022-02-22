@@ -15,7 +15,7 @@ def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, p
         'direction': 'forward',
         'T_goal_in_h': T_hours_forward,
         'initial_set_radii': [0.05, 0.05],
-        'n_time_vector': 100,
+        'n_time_vector': 500,
         'grid_res': [0.04, 0.04],
         'deg_around_xt_xT_box': deg_around_xt_xT_box,
         'accuracy': 'high',
