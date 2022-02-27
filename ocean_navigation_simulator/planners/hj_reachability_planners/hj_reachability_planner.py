@@ -89,11 +89,11 @@ class HJPlannerBase(Planner):
         # Check if x_t is in the forecast times and transform to rel_time in seconds
         if x_t[3] < self.current_data_t_0:
             raise ValueError("Current time {} is before the start of the forecast file. This should not happen. Dict: {}".format(
-                datetime.utcfromtimestamp(x_t[3])), self.cur_forecast_dicts)
+                datetime.utcfromtimestamp(x_t[3][0])), self.cur_forecast_dicts)
         # Check if the current_data is sufficient for planning over the specified time horizon, if not give warning.
         if x_t[3] + 3600 * self.specific_settings['T_goal_in_h'] > self.current_data_t_T:
             raise ValueError("Forecast file in dict {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}.".format(
-                self.cur_forecast_dicts, datetime.utcfromtimestamp(x_t[3]), self.specific_settings['T_goal_in_h']))
+                self.cur_forecast_dicts, datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
 
         x_t_rel = np.copy(x_t)
         x_t_rel[3] = x_t_rel[3] - self.current_data_t_0
