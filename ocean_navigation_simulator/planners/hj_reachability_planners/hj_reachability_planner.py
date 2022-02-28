@@ -92,8 +92,14 @@ class HJPlannerBase(Planner):
                 datetime.utcfromtimestamp(x_t[3][0])), self.cur_forecast_dicts[0]['t_range'])
         # Check if the current_data is sufficient for planning over the specified time horizon, if not give warning.
         if x_t[3] + 3600 * self.specific_settings['T_goal_in_h'] > self.current_data_t_T:
-            raise ValueError("Forecast file {} with range {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}.".format(
+            # need to change the T_max_in_h to something that's within the forecast file range.
+            T_max_in_h = (self.current_data_t_T - x_t[3])/3600.
+            warnings.warn("Forecast file {} with range {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}.".format(
                 self.cur_forecast_dicts[0]['file'], self.cur_forecast_dicts[0]['t_range'], datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
+            # raise ValueError("Forecast file {} with range {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}.".format(
+            #     self.cur_forecast_dicts[0]['file'], self.cur_forecast_dicts[0]['t_range'], datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
+        else:
+            T_max_in_h = self.specific_settings['T_goal_in_h']
 
         x_t_rel = np.copy(x_t)
         x_t_rel[3] = x_t_rel[3] - self.current_data_t_0
@@ -116,7 +122,7 @@ class HJPlannerBase(Planner):
         elif self.specific_settings['direction'] == 'forward-backward':
             # Step 1: run the set forward to get the earliest possible arrival time
             self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel, direction="forward"),
-                                     t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
+                                     t_start=x_t_rel[3], T_max_in_h=T_max_in_h,
                                      dir='forward', x_reach_end=self.get_x_from_full_state(self.x_T), stop_at_x_end=True)
             # Step 2: run the set backwards from the earliest arrival time backwards
             _, t_earliest_in_h = self.get_t_earliest_for_target_region()
