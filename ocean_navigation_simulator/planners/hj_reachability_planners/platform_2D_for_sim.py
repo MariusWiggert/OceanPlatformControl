@@ -20,6 +20,7 @@ class Platform2D_for_sim(dynamics.Dynamics):
 
     def __init__(self, u_max=1.,
                  space_coeff=1./111120.,
+                 d_max=0,
                  control_mode="min",
                  disturbance_mode="max",
                  control_space=None,
@@ -36,7 +37,7 @@ class Platform2D_for_sim(dynamics.Dynamics):
             control_space = sets.Box(lo=jnp.array([0, 0]),
                                      hi=jnp.array([1., 2 * jnp.pi]))
         if disturbance_space is None:
-            disturbance_space = sets.Ball(center=jnp.zeros(2), radius=0.)
+            disturbance_space = sets.Ball(center=jnp.zeros(2), radius=d_max)
         super().__init__(control_mode, disturbance_mode, control_space, disturbance_space)
 
     def update_jax_interpolant(self, x_grid, y_grid, t_grid, water_u, water_v):
@@ -52,8 +53,8 @@ class Platform2D_for_sim(dynamics.Dynamics):
     def __call__(self, state, control, disturbance, time):
         """Implements the continuous-time dynamics ODE."""
         # calculation happens in m/s
-        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time))
-        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time))
+        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time)) + disturbance[0]
+        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time)) + disturbance[1]
         # units get transformed by space_coeff
         return self.space_coeff * jnp.array([dx1, dx2])
 
@@ -77,7 +78,7 @@ class Platform2D_for_sim(dynamics.Dynamics):
     def optimal_disturbance(self, state, time, grad_value):
         """Computes the optimal disturbance realized by the HJ PDE Hamiltonian."""
         disturbance_direction = grad_value @ self.disturbance_jacobian(state, time)
-        if self.disturbance_mode == "min":
+        if self.disturbance_mode == 'min':
             disturbance_direction = -disturbance_direction
         return self.disturbance_space.extreme_point(disturbance_direction)
 

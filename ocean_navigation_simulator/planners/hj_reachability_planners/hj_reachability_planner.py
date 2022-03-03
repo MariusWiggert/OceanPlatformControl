@@ -181,8 +181,10 @@ class HJPlannerBase(Planner):
         if dir == 'backward' or dir == 'multi-reach-back':
             solve_times = np.flip(solve_times, axis=0)
             self.nondim_dynamics.dimensional_dynamics.control_mode = 'min'
+            self.nondim_dynamics.dimensional_dynamics.disturbance_mode = 'max'
         elif dir == 'forward':
             self.nondim_dynamics.dimensional_dynamics.control_mode = 'max'
+            self.nondim_dynamics.dimensional_dynamics.disturbance_mode = 'min'
 
         # specific settings for multi-reach-back
         if dir == 'multi-reach-back':
@@ -468,8 +470,8 @@ class HJReach2DPlanner(HJPlannerBase):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
         space_coeff = 1. / self.conv_m_to_deg
-        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'],
-                                  space_coeff=space_coeff, control_mode='min')
+        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
+                                  space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""
