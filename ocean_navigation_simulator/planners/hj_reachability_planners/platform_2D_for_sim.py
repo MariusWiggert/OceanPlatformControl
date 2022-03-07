@@ -53,8 +53,8 @@ class Platform2D_for_sim(dynamics.Dynamics):
     def __call__(self, state, control, disturbance, time):
         """Implements the continuous-time dynamics ODE."""
         # calculation happens in m/s
-        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time)) + disturbance[0]
-        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time)) + disturbance[1]
+        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time))
+        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time))
         # units get transformed by space_coeff
         return self.space_coeff * jnp.array([dx1, dx2])
 
@@ -86,3 +86,17 @@ class Platform2D_for_sim(dynamics.Dynamics):
         """Computes the optimal control and disturbance realized by the HJ PDE Hamiltonian."""
         return (self.optimal_control(state, time, grad_value),
                 self.optimal_disturbance(state, time, grad_value))
+
+
+# In Multi-Reachability the inside is flat (so no gradients) that leads to problems when calculating the disturbance
+# Hence, we need to split it in a class with disturbance and one without.
+class Platform2D_for_sim_with_disturbance(Platform2D_for_sim):
+    # Just overwrite the call and not add the disturbance term
+    def __call__(self, state, control, disturbance, time):
+        """Implements the continuous-time dynamics ODE."""
+        # calculation happens in m/s
+        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time)) + disturbance[0]
+        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time)) + disturbance[1]
+        # units get transformed by space_coeff
+        return self.space_coeff * jnp.array([dx1, dx2])
+

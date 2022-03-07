@@ -1,7 +1,7 @@
 from ocean_navigation_simulator.planners.planner import Planner
 import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
-from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim
+from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim, Platform2D_for_sim_with_disturbance
 from jax.interpreters import xla
 import jax.numpy as jnp
 from functools import partial
@@ -115,7 +115,6 @@ class HJPlannerBase(Planner):
                                      dir='backward')
             self.extract_trajectory(x_start=self.get_x_from_full_state(x_t_rel.flatten()), traj_rel_times_vector=None)
             # arrange to forward times by convention for plotting and open-loop control
-            self.flip_traj_to_forward_times()
             self.flip_value_func_to_forward_times()
         elif self.specific_settings['direction'] == 'forward-backward':
             # Step 1: run the set forward to get the earliest possible arrival time
@@ -131,7 +130,6 @@ class HJPlannerBase(Planner):
                                      dir='backward')
             self.extract_trajectory(x_start=self.get_x_from_full_state(x_t_rel.flatten()), traj_rel_times_vector=None)
             # arrange to forward times by convention for plotting and open-loop control
-            self.flip_traj_to_forward_times()
             self.flip_value_func_to_forward_times()
         elif self.specific_settings['direction'] == 'multi-reach-back':
             # Step 1: run multi-reachability backwards in time
@@ -146,7 +144,6 @@ class HJPlannerBase(Planner):
             self.extract_trajectory(self.get_x_from_full_state(x_t_rel.flatten()),
                                     traj_rel_times_vector=None, termination_condn=termination_condn)
             # arrange to forward times by convention for plotting and open-loop control (aka closed-loop with this)
-            self.flip_traj_to_forward_times()
             self.flip_value_func_to_forward_times()
         else:
             raise ValueError("Direction in controller YAML needs to be one of {backward, forward, forward-backward, multi-reach-back}")
@@ -263,6 +260,9 @@ class HJPlannerBase(Planner):
 
         # for open_loop control the times vector must be in absolute times
         self.times = self.times + self.current_data_t_0
+
+        if self.specific_settings['direction'] in ['backward', 'multi-reach-back', 'forward-backward']:
+            self.flip_traj_to_forward_times()
 
         # log the planned trajectory for later inspection purpose
         # Step 1: concatenate to reduce file size
@@ -470,12 +470,13 @@ class HJReach2DPlanner(HJPlannerBase):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
         space_coeff = 1. / self.conv_m_to_deg
-        if self.specific_settings.has_key('d_max'):
-            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
+        if 'd_max' in self.specific_settings and self.specific_settings['direction'] != "multi-reach-back":
+            print("High-Level Planner: Running with d_max")
+            return Platform2D_for_sim_with_disturbance(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
                                       space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
         else:
-            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=0.0,
-                                      space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
+            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
+
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""

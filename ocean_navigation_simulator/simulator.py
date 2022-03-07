@@ -2,6 +2,7 @@ import yaml
 import glob, imageio, os
 import casadi as ca
 import numpy as np
+from functools import partial
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime, timezone, timedelta
@@ -319,9 +320,92 @@ class OceanNavSimulator:
         """Plot the land mask of the current data-subset."""
         plotting_utils.plot_land_mask(self.grids_dict)
 
-    def plot_trajectory(self, plotting_type='2D', time_for_currents=None, html_render=None, vid_file_name=None,
-                        deg_around_x0_xT_box=0.5, temporal_stride=1, time_interval_between_pics=200,
+    def create_animation_with_plans(self, plan_temporal_stride=5, alpha=0.8, with_control=True,
+                                    plan_traj_color='grey', plan_u_color='orange',
+                                    html_render=None, vid_file_name=None, deg_around_x0_xT_box=0.5,
+                                    sim_temporal_stride=1, time_interval_between_pics=200, fps=10,
+                                    linewidth=2, marker=None, linestyle='-', add_ax_func=None):
+        """Function to animate the simulated trajectory with planned currents."""
+        if not hasattr(self.high_level_planner, 'planned_trajs'):
+            raise ValueError("Selected High-Level planner does not log plans in planned_trajs.")
+
+        # Step 1: create add_ax function which plots the most recent plan on top
+        def add_current_planned_traj(ax, time, planned_trajs_dicts, temporal_stride, alpha, with_control,
+                                     plan_traj_color, plan_u_color):
+            # Step 0: check which is the current plan that is followed
+            if time >= planned_trajs_dicts[0]['traj'][3, 0]:
+                plan_idx = 0
+                for idx, plan_dict in enumerate(planned_trajs_dicts[1:]):
+                    if time >= plan_dict['traj'][3, 0]:
+                        plan_idx = idx + 1
+                    else:
+                        break
+            # % Step 1: plot that plan
+            # check if last element is included if not add it
+            planning_dict = planned_trajs_dicts[plan_idx]
+            if not np.arange(planning_dict['traj'].shape[1])[::temporal_stride][-1] == planning_dict['traj'].shape[
+                1] - 1:
+                x_traj = np.concatenate(
+                    (planning_dict['traj'][:, ::temporal_stride], planning_dict['traj'][:, -1].reshape(-1, 1)),
+                    axis=1)
+            else:
+                x_traj = planning_dict['traj'][:, ::temporal_stride]
+            ax.plot(x_traj[0, :], x_traj[1, :], '--', c=plan_traj_color, linewidth=2, alpha=alpha, label="current_plan")
+
+            # plot control if supplied
+            if with_control:
+                # calculate u and v direction
+                u_vec = planning_dict['ctrl'][0, ::temporal_stride] * np.cos(
+                    planning_dict['ctrl'][1, ::temporal_stride])
+                v_vec = planning_dict['ctrl'][0, ::temporal_stride] * np.sin(
+                    planning_dict['ctrl'][1, ::temporal_stride])
+                ax.quiver(x_traj[0, :-1], x_traj[1, :-1], u_vec, v_vec, color=plan_u_color, scale=10, alpha=alpha,
+                          label="planned_ctrl")
+
+            # add any additional axis functions
+            add_ax_func(ax, time)
+            plt.legend(loc='upper right')
+
+        # Step 2: make a partial out of the function
+        add_plan_partial = partial(add_current_planned_traj,
+                                   planned_trajs_dicts=self.high_level_planner.planned_trajs,
+                                   temporal_stride=plan_temporal_stride, alpha=alpha, with_control=with_control,
+                                   plan_traj_color=plan_traj_color, plan_u_color=plan_u_color)
+
+        self.create_animation(html_render=html_render, vid_file_name=vid_file_name,
+                              deg_around_x0_xT_box=deg_around_x0_xT_box, temporal_stride=sim_temporal_stride,
+                              time_interval_between_pics=time_interval_between_pics, fps=fps,
+                              linewidth=linewidth, marker=marker, linestyle=linestyle, add_ax_func=add_plan_partial)
+
+    def create_animation(self, html_render=None, vid_file_name=None,
+                        deg_around_x0_xT_box=0.5, temporal_stride=1, time_interval_between_pics=200, fps=10,
                         linewidth=1.5, marker='x', linestyle='--', add_ax_func=None):
+        """Function to create an animation of the simulation run."""
+
+        # check if last element is included if not add it
+        if not np.arange(self.trajectory.shape[1])[::temporal_stride][-1] == self.trajectory.shape[1] - 1:
+            x_traj = np.concatenate((self.trajectory[:, ::temporal_stride], self.trajectory[:, -1].reshape(-1, 1)),
+                                    axis=1)
+        else:
+            x_traj = self.trajectory[:, ::temporal_stride]
+
+        plotting_utils.plot_2D_traj_animation(
+            x_T=self.problem.x_T,
+            x_T_radius=self.problem.x_T_radius,
+            traj_full=x_traj,
+            control_traj=self.control_traj[:, ::temporal_stride],
+            file_dicts=self.problem.hindcasts_dicts,
+            u_max=self.problem.dyn_dict['u_max'],
+            deg_around_x0_xT_box=deg_around_x0_xT_box,
+            html_render=html_render, filename=vid_file_name,
+            time_interval_between_pics=time_interval_between_pics,
+            fps=fps,
+            linewidth=linewidth, marker=marker, linestyle=linestyle,
+            add_ax_func_ext=add_ax_func
+        )
+
+    def plot_trajectory(self, plotting_type='2D', time_for_currents=None,
+                        deg_around_x0_xT_box=0.5, temporal_stride=1, return_ax=False):
         """ Captures the whole trajectory - energy, position, etc over time"""
         # process the time that is put in the for the 2D static plots
         if time_for_currents is None:
@@ -337,28 +421,30 @@ class OceanNavSimulator:
             x_traj = self.trajectory[:, ::temporal_stride]
 
         if plotting_type == '2D':
-            plotting_utils.plot_2D_traj(x_traj[:2, :], title="Simulator Trajectory")
-            return
+            ax = plotting_utils.plot_2D_traj(x_traj[:2, :], title="Simulator Trajectory", return_ax=return_ax)
+            return ax
 
         elif plotting_type == '2D_w_currents':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
-            plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
+            ax = plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
                                                       deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
-                                                      file_dicts=self.problem.hindcasts_dicts)
-            return
+                                                      file_dicts=self.problem.hindcasts_dicts,
+                                                      return_ax=return_ax)
+            return ax
 
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
-            plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
+            ax = plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
                                                       deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                       time=time_for_currents,
                                                       x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
                                                       file_dicts=self.problem.hindcasts_dicts,
                                                       ctrl_seq=self.control_traj[:, ::temporal_stride],
-                                                      u_max=self.problem.dyn_dict['u_max'])
-            return
+                                                      u_max=self.problem.dyn_dict['u_max'],
+                                                      return_ax=return_ax)
+            return ax
 
         elif plotting_type == 'ctrl':
             plotting_utils.plot_opt_ctrl(x_traj[3, :-1], self.control_traj[:, ::temporal_stride],
@@ -382,17 +468,38 @@ class OceanNavSimulator:
             plt.show()
             return
 
-        elif plotting_type == 'video':
-            plotting_utils.plot_2D_traj_animation(
-                x_T=self.problem.x_T,
-                x_T_radius=self.problem.x_T_radius,
-                traj_full=x_traj,
-                control_traj=self.control_traj[:, ::temporal_stride],
-                file_dicts=self.problem.hindcasts_dicts,
-                u_max=self.problem.dyn_dict['u_max'],
-                deg_around_x0_xT_box=deg_around_x0_xT_box,
-                html_render=html_render, filename=vid_file_name,
-                time_interval_between_pics=time_interval_between_pics,
-                linewidth=linewidth, marker=marker, linestyle=linestyle,
-                add_ax_func_ext=add_ax_func
-            )
+    def plot_2D_traj_w_plans(self, plan_idx=None, underlying_plot_type='2D', with_control=False, alpha=0.8,
+                             plan_temporal_stride=2, true_temporal_stride=1):
+        """Function to plot the 2D true Trajectory with the planned trajectories on the way."""""
+        # Step 1: plot true trajctory leveraging existing functions
+        ax = self.plot_trajectory(plotting_type=underlying_plot_type, return_ax=True, temporal_stride=true_temporal_stride)
+        # check if the high-level planner logs the planned trajectories
+        if hasattr(self.high_level_planner, 'planned_trajs'):
+            # create a colormap
+            colors = plt.cm.RdPu(np.linspace(0, 1, len(self.high_level_planner.planned_trajs)))
+            # now plot all of them
+            if plan_idx is None:
+                to_slice = slice(None)
+            else:
+                to_slice = slice(plan_idx, plan_idx + 1)
+            for idx, planning_dict in enumerate(self.high_level_planner.planned_trajs[to_slice]):
+                # check if last element is included if not add it
+                if not np.arange(planning_dict['traj'].shape[1])[::plan_temporal_stride][-1] == planning_dict['traj'].shape[1] - 1:
+                    x_traj = np.concatenate(
+                        (planning_dict['traj'][:, ::plan_temporal_stride], planning_dict['traj'][:, -1].reshape(-1, 1)),
+                        axis=1)
+                else:
+                    x_traj = planning_dict['traj'][:, ::plan_temporal_stride]
+                ax.plot(x_traj[0, :], x_traj[1, :], '--', c=colors[idx], linewidth=2, alpha=alpha)
+                # plot control if supplied
+                if with_control:
+                    # calculate u and v direction
+                    u_vec = planning_dict['ctrl'][0, ::plan_temporal_stride] * np.cos(
+                        planning_dict['ctrl'][1, ::plan_temporal_stride])
+                    v_vec = planning_dict['ctrl'][0, ::plan_temporal_stride] * np.sin(
+                        planning_dict['ctrl'][1, ::plan_temporal_stride])
+                    ax.quiver(x_traj[0, :-1], x_traj[1, :-1], u_vec, v_vec, color=colors[idx], scale=15, alpha=alpha)
+            plt.legend(loc='upper right')
+            plt.show()
+        else:
+            raise ValueError("Selected High-Level planner does not log plans in planned_trajs.")

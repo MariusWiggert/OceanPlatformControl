@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from datetime import datetime
 from scipy.interpolate import interp1d
 import matplotlib.animation as animation
 from IPython.display import HTML
@@ -12,6 +11,20 @@ from datetime import datetime, timezone
 from ocean_navigation_simulator.utils.simulation_utils import get_current_data_subset, convert_to_lat_lon_time_bounds, spatio_temporal_interpolation
 import warnings
 import os
+
+
+#
+# self.x_current, self.y_current
+# # Step 2: extract arrows of the field
+#
+# if water_u is not None:
+#     # plot the arrows
+#     X, Y = np.meshgrid(x_grid, np.flip(y_grid, axis=0), indexing='xy')
+#     magnitude = (water_u ** 2 + water_v ** 2) ** 0.5
+#     plt.quiver(X, Y, np.flip(water_u, axis=0)[..., i], np.flip(water_v, axis=0)[..., i], zorder=1)
+#     plt.imshow(magnitude[..., i], cmap='jet', alpha=0.2, zorder=0,
+#                extent=[x_grid[0], x_grid[-1], y_grid[-1], y_grid[0]])
+
 
 
 # Plotting utils for Ocean currents
@@ -105,7 +118,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
 
 
 def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func=None,
-                          autoscale=True, interval=250, alpha=0.5, figsize=(12, 12),
+                          autoscale=True, interval=250, alpha=0.5, figsize=(12, 12), fps=10,
                           save_as_filename=None, html_render=None):
     """ Function to animate ocean currents.
     Inputs:
@@ -174,10 +187,10 @@ def viz_current_animation(plot_times, grids_dict, u_data, v_data, ax_adding_func
                 plt.close()
                 return ani_html
         elif '.gif' in save_as_filename:
-            ani.save(save_as_filename, writer=animation.PillowWriter(fps=10))
+            ani.save(save_as_filename, writer=animation.PillowWriter(fps=fps))
             plt.close()
         elif '.mp4' in save_as_filename:
-            ani.save(save_as_filename, writer=animation.FFMpegWriter(fps=10))
+            ani.save(save_as_filename, writer=animation.FFMpegWriter(fps=fps))
             plt.close()
         else:
             raise ValueError("save_as_filename can be either None (for HTML rendering) or filepath and name needs to"
@@ -198,7 +211,7 @@ def plot_land_mask(grids_dict):
 
 
 def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=None, ctrl_seq=None, u_max=None,
-                               deg_around_x0_xT_box=0.5):
+                               deg_around_x0_xT_box=0.5, return_ax=False):
     # Step 0: get respective data subset from hindcast file
     lower_left = [np.min(x_traj[0,:]), np.min(x_traj[1,:]), 0, time]
     upper_right = [np.max(x_traj[0, :]), np.max(x_traj[1, :])]
@@ -231,12 +244,15 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
     ax = visualize_currents(time, grids_dict, u_data, v_data, autoscale=True, plot=False)
     # add the start and goal position to the plot
     add_ax_func(ax)
-    plt.show()
+    if return_ax:
+        return ax
+    else:
+        plt.show()
 
 
 def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, x_T=None, x_T_radius=None,
                            deg_around_x0_xT_box=1,
-                           html_render=None, filename=None, time_interval_between_pics=200,
+                           html_render=None, filename=None, time_interval_between_pics=200, fps=10,
                            linewidth=1.5, marker='x', linestyle='--', add_ax_func_ext=None
                            ):
     # extract space and time trajs
@@ -278,20 +294,26 @@ def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, x_T=None,
         ax.scatter(space_traj[0, idx], space_traj[1, idx], c='m', marker='o', s=20)
 
     # plot with extra function
-    viz_current_animation(traj_times, grids_dict, u_data, v_data, interval=time_interval_between_pics,
+    viz_current_animation(traj_times, grids_dict, u_data, v_data, interval=time_interval_between_pics, fps=fps,
                           ax_adding_func=add_ax_func, html_render=html_render, save_as_filename=filename)
 
 
-def plot_2D_traj(x_traj, title="Planned Trajectory"):
+def plot_2D_traj(x_traj, return_ax=False, title="Planned Trajectory"):
+
     plt.figure(1)
-    plt.plot(x_traj[0, :], x_traj[1, :], '--', marker='o')
-    plt.plot(x_traj[0, 0], x_traj[1, 0], '--', marker='x', color='red')
-    plt.plot(x_traj[0, -1], x_traj[1, -1], '--', marker='x', color='green')
-    plt.title(title)
-    plt.xlabel('lon')
-    plt.ylabel('lat')
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(x_traj[0, :], x_traj[1, :], '--', marker='o')
+    ax.plot(x_traj[0, 0], x_traj[1, 0], '--', marker='x', color='red')
+    ax.plot(x_traj[0, -1], x_traj[1, -1], '--', marker='x', color='green')
+    ax.set_title(title)
+    ax.set_xlabel('lon')
+    ax.set_ylabel('lat')
     # plt.grid()
-    plt.show()
+    if return_ax:
+        return ax
+    else:
+        plt.show()
+
 
 
 def plot_opt_ctrl(times, ctrl_seq, title='Planned Optimal Control'):
