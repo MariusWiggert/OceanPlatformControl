@@ -2,18 +2,19 @@ PlannerConfig:
     name: "HJReach2DPlanner"
     dt_replanning: 3600000000000.     # right now very high as only tested open-loop control once
     specific_settings:
-      'direction': 'backward'
-      'fwd_back_buffer_in_h': 5 # this is the time added to the earliest_to_reach as buffer for forward-backward
+      'direction': 'multi-reach-back'
+      # 'fwd_back_buffer_in_h': 2 # this is the time added to the earliest_to_reach as buffer for forward-backward
       'T_goal_in_h': 100
-      'initial_set_radii': [0.05, 0.05] # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
+      # 'd_max': 0.05
+      # 'initial_set_radii': [0.05, 0.05] # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
       'n_time_vector': 100 # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
       # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
       'grid_res': !!python/tuple [0.04, 0.04] # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
       'deg_around_xt_xT_box': 2. # area over which to run HJ_reachability
       'accuracy': 'high'
       'artificial_dissipation_scheme': 'local_local'
-      'progress_bar': False
+      'progress_bar': True
 
 SteeringCtrlConfig:
-    name: "simple_P_tracker"
+    name: None #"simple_P_tracker"
     dt_replanning: 8064.0

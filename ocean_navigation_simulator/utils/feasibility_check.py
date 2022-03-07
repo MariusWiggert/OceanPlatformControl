@@ -5,8 +5,98 @@ import bisect
 from scipy.interpolate import interp1d
 
 
-def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False,
-                        stop_at_x_init=True, conv_m_to_deg=111120):
+def check_feasibility2D(problem, T_hours_forward, deg_around_xt_xT_box,
+                             progress_bar=False, conv_m_to_deg=111120, grid_res=[0.04, 0.04]):
+    # Specific settings to check feasibility
+    specific_settings_dict = {
+        'direction': 'multi-reach-back',
+        'T_goal_in_h': T_hours_forward,
+        'n_time_vector': 100,
+        'grid_res': grid_res,
+        'deg_around_xt_xT_box': deg_around_xt_xT_box,
+        'accuracy': 'high',
+        'artificial_dissipation_scheme': 'local_local'}
+
+    # Step 1: set up and run forward 2D Reachability
+    feasibility_planner = HJReach2DPlanner(problem,
+                                           specific_settings=specific_settings_dict,
+                                           conv_m_to_deg=conv_m_to_deg)
+
+    # load in the ground truth data
+    feasibility_planner.update_forecast_dicts(problem.hindcasts_dicts)
+    feasibility_planner.update_current_data(np.array(problem.x_0))
+
+    # Step 2: run the hj planner
+    x_0_rel = np.copy(problem.x_0)
+    x_0_rel[3] = x_0_rel[3] - feasibility_planner.current_data_t_0
+
+    # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
+    feasibility_planner.nondim_dynamics.tau_c = feasibility_planner.specific_settings['T_goal_in_h'] * 3600
+    feasibility_planner.nondim_dynamics.t_0 = x_0_rel[3]
+
+    # set up the non_dimensional time-vector for which to save the value function
+    solve_times = np.linspace(0, 1, feasibility_planner.specific_settings['n_time_vector'] + 1)
+    solve_times = np.flip(solve_times, axis=0)
+    feasibility_planner.nondim_dynamics.dimensional_dynamics.control_mode = 'min'
+
+    # write multi_reach hamiltonian postprocessor
+    import jax.numpy as jnp
+    from functools import partial
+    def multi_reach_step(mask, val):
+        val = jnp.where(mask <= 0, -1, val)
+        return val
+
+    initial_values = feasibility_planner.get_initial_values(center=feasibility_planner.x_T,
+                                                            direction="multi-reach-back")
+
+    # create solver settings object
+    solver_settings = hj.SolverSettings.with_accuracy(
+        accuracy=feasibility_planner.specific_settings['accuracy'],
+        artificial_dissipation_scheme=feasibility_planner.diss_scheme,
+        hamiltonian_postprocessor=partial(multi_reach_step, initial_values))
+
+    # solve the PDE in non_dimensional to get the value function V(s,t)
+    non_dim_reach_times, feasibility_planner.all_values = hj.solve(
+        solver_settings=solver_settings,
+        dynamics=feasibility_planner.nondim_dynamics,
+        grid=feasibility_planner.nonDimGrid,
+        times=solve_times,
+        initial_values=initial_values,
+        progress_bar=progress_bar
+    )
+
+    # scale up the reach_times to be dimensional_times in seconds again
+    feasibility_planner.reach_times = non_dim_reach_times * feasibility_planner.nondim_dynamics.tau_c + feasibility_planner.nondim_dynamics.t_0
+    # in times log the posix time because we need it for check_if_x_is_reachable computation
+    feasibility_planner.times = feasibility_planner.reach_times + feasibility_planner.current_data_t_0
+
+    # Step 1: Check if the initial point is reachable at all
+    non_dim_val_at_x_0 = feasibility_planner.grid.interpolate(feasibility_planner.all_values[-1, ...],
+                                                              feasibility_planner.get_x_from_full_state(
+                                                                  feasibility_planner.x_0))
+
+
+
+    if non_dim_val_at_x_0 > 0:
+        print("Not_reached")
+        return False, None, feasibility_planner
+    else:
+        # Dimensionalize the non_dim_val_at_x_0 with T_hours_forward and add T_hours_forward to get reachable time
+        T_earliest_in_h = non_dim_val_at_x_0 * T_hours_forward + T_hours_forward
+        print("reached earliest after h: ", T_earliest_in_h)
+        # extract time-optimal trajectory from the run
+
+        def termination_condn(x_target, r, x, t):
+            return np.linalg.norm(x_target - x) <= r
+        feasibility_planner.extract_trajectory(
+            x_start=feasibility_planner.get_x_from_full_state(x_0_rel.flatten()),
+            termination_condn=partial(termination_condn, feasibility_planner.x_T, feasibility_planner.problem.x_T_radius))
+        return True, T_earliest_in_h, feasibility_planner
+
+
+def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False,
+                        stop_at_x_init=True, conv_m_to_deg=111120, initial_set_radii=[0.05, 0.05],
+                        grid_res=[0.04, 0.04]):
     """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle.
     returns feasibility (bool), T_earliest_in_h (float or None), feasibility_planner
     """
@@ -14,9 +104,9 @@ def check_feasibility2D(problem, T_hours_forward=100, deg_around_xt_xT_box=10, p
     specific_settings_dict = {
         'direction': 'forward',
         'T_goal_in_h': T_hours_forward,
-        'initial_set_radii': [0.05, 0.05],
+        'initial_set_radii': initial_set_radii,
         'n_time_vector': 500,
-        'grid_res': [0.04, 0.04],
+        'grid_res': grid_res,
         'deg_around_xt_xT_box': deg_around_xt_xT_box,
         'accuracy': 'high',
         'artificial_dissipation_scheme': 'local_local'}
