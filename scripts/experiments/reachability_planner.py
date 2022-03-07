@@ -91,7 +91,7 @@ def plot_best(ax, time, x_traj_best):
     ax.plot(x_traj_best[0,:], x_traj_best[1,:], color='k', label="best in hindsight")
 
 to_add = partial(plot_best, x_traj_best=x_traj_best)
-sim.create_animation_with_plans(vid_file_name="simulation_animation_with_plans.gif",
+sim.create_animation_with_plans(vid_file_name="simulation_animation_with_plans.mp4",
                                 plan_temporal_stride=5, alpha=1, with_control=True,
                                 plan_traj_color='sienna', plan_u_color='blue', add_ax_func=to_add)
 #%% Plot the latest Plan from reachability planner
