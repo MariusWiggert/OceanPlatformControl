@@ -470,8 +470,12 @@ class HJReach2DPlanner(HJPlannerBase):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
         space_coeff = 1. / self.conv_m_to_deg
-        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
-                                  space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
+        if self.specific_settings.has_key('d_max'):
+            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
+                                      space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
+        else:
+            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=0.0,
+                                      space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""
