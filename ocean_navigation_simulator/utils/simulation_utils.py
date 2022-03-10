@@ -10,7 +10,24 @@ import warnings
 from scipy import interpolate
 
 
-def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h):
+def copernicusmarine_datastore(dataset, username, password):
+    """Helper Function to establish an opendap session with copernicus data."""
+    from pydap.client import open_url
+    from pydap.cas.get_cookies import setup_session
+    cas_url = 'https://cmems-cas.cls.fr/cas/login'
+    session = setup_session(cas_url, username, password)
+    session.cookies.set("CASTGC", session.cookies.get_dict()['CASTGC'])
+    database = ['my', 'nrt']
+    url = f'https://{database[0]}.cmems-du.eu/thredds/dodsC/{dataset}'
+    try:
+        data_store = xr.backends.PydapDataStore(open_url(url, session=session)) # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
+    except:
+        url = f'https://{database[1]}.cmems-du.eu/thredds/dodsC/{dataset}'
+        data_store = xr.backends.PydapDataStore(open_url(url, session=session)) # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
+    return data_store
+
+
+def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h=120):
     """
     We want to switch over to using lat-lon bounds but a lot of functions in the code already use x_0 and x_T with the
     deg_around_x0_xT_box, so for now use this to convert.
@@ -78,13 +95,38 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, 
         v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
     """
     # Step 0: if upper interval is not None
-    # Step 1: check if we're in the multi daily files setting or the single file setting
-    if len(file_dicts) > 1:
+    # Step 1: check in which gt data case we are
+    # If it's a dict we are in the opendap case
+    if type(file_dicts) is dict:
+        # modify t_interval to be timezone naive because that's what the opendap subsetting takes
+        t_interval_naive = [time.replace(tzinfo=None) for time in t_interval]
+        t_interval_naive[0] = t_interval_naive[0] - timedelta(hours=1)
+        t_interval_naive[1] = t_interval_naive[1] + timedelta(hours=1)
+        subsetted_frame = file_dicts['DS_object'].sel(time=slice(t_interval_naive[0], t_interval_naive[1]),
+                                                      latitude=slice(lat_interval[0], lat_interval[1]),
+                                                      longitude=slice(lon_interval[0], lon_interval[1]))
+
+        # grids_dict containing x_grid, y_grid, t_grid (in POSIX), and spatial_land_mask (2D array)
+        # u_data and v_data (122, 102, 102) (with [T, Y, X])
+        u_data_masked = np.ma.masked_invalid(subsetted_frame['uo'].data)
+        v_data_masked = np.ma.masked_invalid(subsetted_frame['vo'].data)
+        grids_dict = {'x_grid': subsetted_frame.longitude.data, 'y_grid': subsetted_frame.latitude.data,
+                      't_grid': (subsetted_frame.time.data - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's'),
+                      'spatial_land_mask': u_data_masked[0, :, :].mask}
+
+        u_data = u_data_masked.filled(fill_value=0.)
+        v_data = v_data_masked.filled(fill_value=0.)
+
+    # If it's a list with multiple files we're in the multiple daily files case
+    elif len(file_dicts) > 1:
         grids_dict, u_data, v_data = get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval,
                                                                               file_dicts, max_temp_in_h=max_temp_in_h)
-    else:
+    # else we are in the single file case
+    elif len(file_dicts) == 1:
         grids_dict, u_data, v_data = get_current_data_subset_from_single_file(t_interval, lat_interval, lon_interval,
                                                                               file_dict=file_dicts[0])
+    else:
+        raise ValueError("file_dicts is neither multi-file, nor opendap, nor single file. Check source files.")
 
     # Step 2: log what data has been subsetted
     print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(

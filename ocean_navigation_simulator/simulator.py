@@ -287,15 +287,15 @@ class OceanNavSimulator:
 
         # Step 2: check current data files to see if we can continue
         # Step 2.1: check if simulation went over the existing data to load new data
-        if self.cur_state[3] > self.problem.hindcasts_dicts[-1]['t_range'][-1].timestamp():
+        if self.cur_state[3] > self.problem.hindcast_grid_dict['gt_t_range'][-1].timestamp():
             print("Sim paused because hindcast fieldset time is over")
             return True, "need_new_temporal_data"
         # check if we're going outside of the spatial data available.
         # Note: this assumes that all hindcast files have the same spatial data range
-        if (not self.problem.hindcasts_dicts[0]['x_range'][0] <= self.cur_state[0] <=
-                self.problem.hindcasts_dicts[0]['x_range'][-1]) \
-                or (not self.problem.hindcasts_dicts[0]['y_range'][0] <= self.cur_state[1] <=
-                        self.problem.hindcasts_dicts[0]['y_range'][-1]):
+        if (not self.problem.hindcast_grid_dict['gt_x_range'][0] <= self.cur_state[0] <=
+                self.problem.hindcast_grid_dict['gt_x_range'][-1]) \
+                or (not self.problem.hindcast_grid_dict['gt_y_range'][0] <= self.cur_state[1] <=
+                        self.problem.hindcast_grid_dict['gt_y_range'][-1]):
             print("Sim terminate because state went out of the spatial domains of the hindcast files.")
             return True, "outside_spatial_domain_of_hindcasts"
 

@@ -9,7 +9,7 @@ import xarray as xr
 # import from other utils
 import ocean_navigation_simulator.utils.plotting_utils as plot_utils
 from ocean_navigation_simulator.utils.simulation_utils import convert_to_lat_lon_time_bounds, get_current_data_subset, \
-    get_grid_dict_from_file, spatio_temporal_interpolation
+    get_grid_dict_from_file, copernicusmarine_datastore
 
 
 class Problem:
@@ -18,27 +18,22 @@ class Problem:
     Attributes:
         x_0:
             The starting state, represented as (lat, lon, battery_level).
-            Note that time is implemented as absolute time in POSIX.
-        x_T:
-            The target state, represented as (lon, lat).
-            # TODO: currently we do point-2-point navigation though ultimately we'd like to do point to region
-            this to be a set representation (point-2-region) because that is the more general formulation.
         t_0:
             A timezone aware datetime object of the absolute starting time of the platform at x_0
+        x_T:
+            The spatial center of the target state, represented as (lon, lat), together with x_T_radius it's a 2D region.
+        x_T_radius:
+            Radius around x_T that when reached counts as "target reached"
+
 
         platform_config_dict:
             A dict specifying the platform parameters, see the repos 'configs/platform.yaml' as example.
-
         hindcasts_dicts and forecasts_dicts
             A list of dicts ordered according to the starting time-range.
             One dict for each hindcast/forecast file available. The dicts for each hindcast file contains:
             {'t_range': [<datetime object>, <datetime object>], 'file': <filepath>})
-
         plan_on_gt:
             if True we only use hindcast data and plan on hindcasts. If False we use forecast data for the planner.
-
-        x_T_radius:
-            Radius around x_T that when reached counts as "target reached"
 
         # TO IMPLEMENT USAGE/FOR FUTURE
         forecast_delay_in_h:
@@ -150,7 +145,7 @@ class Problem:
                 raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
 
     def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, add_ax_func=None,
-            html_render=None, temp_horizon_viz_in_h=None, return_ax=False, plot_start_target=True,
+            html_render=None, temp_horizon_viz_in_h=120, return_ax=False, plot_start_target=True,
             temporal_stride=1, time_interval_between_pics=200):
         """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
 
@@ -168,17 +163,11 @@ class Problem:
         Returns:
             None
         """
-
+        print("Note only the GT hindcast data is currently visualized")
         # Step 0: Find the time, lat, lon bounds for data_subsetting
         t_interval, lat_interval, lon_interval = convert_to_lat_lon_time_bounds(self.x_0, self.x_T,
                                                                                 deg_around_x0_xT_box=cut_out_in_deg,
                                                                                 temp_horizon_in_h=temp_horizon_viz_in_h)
-
-        print("Note only the GT hindcast data is currently visualized")
-        # Step 1: get the data_subset for plotting
-        grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_interval, lon_interval,
-                                                             file_dicts=self.hindcasts_dicts,
-                                                             max_temp_in_h=120)
 
         if add_ax_func is None:
             def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
@@ -191,6 +180,10 @@ class Problem:
 
         # if we want to visualize with video
         if time is None and video:
+            # Step 1: get the data_subset for plotting
+            grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_interval, lon_interval,
+                                                                 file_dicts=self.hindcasts_dicts,
+                                                                 max_temp_in_h=120)
             # create animation with extra func
             plot_utils.viz_current_animation(grids_dict['t_grid'][::temporal_stride],
                                              grids_dict, u_data, v_data,
@@ -199,8 +192,12 @@ class Problem:
                                              save_as_filename=filename)
         # otherwise plot static image
         else:
+            # Step 1: get the data_subset for plotting
             if time is None:
                 time = datetime.fromtimestamp(self.x_0[3], tz=timezone.utc)
+            t_interval_static = [time - timedelta(hours=8), time + timedelta(hours=8)]
+            grids_dict, u_data, v_data = get_current_data_subset(t_interval_static, lat_interval, lon_interval,
+                                                                 file_dicts=self.hindcasts_dicts)
             # plot underlying currents at time
             ax = plot_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data,
                                                # figsize=figsize,
@@ -289,8 +286,26 @@ class Problem:
         """
         os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
         # Step 1: Update Hindcast Data
-        self.hindcasts_dicts = self.get_file_dicts(hindcast_folder)
-        self.hindcast_grid_dict = self.derive_hindcast_grid_dict()
+        if isinstance(hindcast_folder, str):
+            self.hindcasts_dicts = self.get_file_dicts(hindcast_folder)
+            self.hindcast_grid_dict = self.derive_hindcast_grid_dict()
+        elif type(hindcast_folder) is dict:
+            # Step 1.1 start session with copernicus and get the DS object for the relevant data
+            data_store = copernicusmarine_datastore(hindcast_folder['DATASET_ID'], hindcast_folder['USERNAME'], hindcast_folder['PASSWORD'])
+            DS = xr.open_dataset(data_store)
+            # Step 1.2: subset to only the variables we care about
+            DS_currents = DS[['uo', 'vo']].isel(depth=0)
+            # Step 1.3 create the gt_hindcast_dict
+            gt_time_range = [
+                datetime.fromtimestamp(DS_currents.variables['time'][0].data.astype(int) * 1e-9, tz=timezone.utc),
+                datetime.fromtimestamp(DS_currents.variables['time'][-1].data.astype(int) * 1e-9, tz=timezone.utc)]
+            gt_y_grid = DS_currents.variables['latitude'].data
+            gt_x_grid = DS_currents.variables['longitude'].data
+            self.hindcast_grid_dict = {"gt_t_range": gt_time_range,
+                                     "gt_y_range": [gt_y_grid[0], gt_y_grid[-1]], "gt_x_range": [gt_x_grid[0], gt_x_grid[-1]],
+                                     'gt_spatial_land_mask': False, 'gt_x_grid': gt_x_grid, 'gt_y_grid': gt_y_grid}
+
+            self.hindcasts_dicts = {'source': 'opendap', 'DS_object': DS_currents}
 
         # Forecast Data
         if not self.plan_on_gt:

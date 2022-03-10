@@ -8,9 +8,6 @@ import datetime
 import os
 import hj_reachability as hj
 import time
-# Other Issues:
-# - all the ocean sim runs the trajs are saved in the pickle files as backwards in time...
-#   Option 1: could re-run all of them (takes  48h). Option 2: write a script to go through all runs, flip and save file again.
 #% Settings to feed into the planner
 # Set the platform configurations
 platform_config_dict = {'battery_cap': 400.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
