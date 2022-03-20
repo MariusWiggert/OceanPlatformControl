@@ -26,8 +26,8 @@ class Planner:
         # self.fixed_time = problem.fixed_time
 
         # Note: managing the forecast fieldsets is done in the simulator
-        self.cur_forecast_dicts = None
-        self.new_forecast_dicts = True
+        self.forecast_data_source = None
+        self.updated_forecast_source = True
 
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
@@ -77,10 +77,10 @@ class Planner:
         """
         if new_forecast_dicts is not None:
             print("updating forecast dicts")
-            self.cur_forecast_dicts = new_forecast_dicts
-            self.new_forecast_dicts = True
+            self.forecast_data_source = new_forecast_dicts
+            self.updated_forecast_source = True
         else:
-            if self.cur_forecast_dicts is None:
+            if self.forecast_data_source is None:
                 raise ValueError('No forecast file is available.')
 
     def get_next_action(self, state):

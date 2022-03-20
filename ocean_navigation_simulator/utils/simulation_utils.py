@@ -27,7 +27,8 @@ def copernicusmarine_datastore(dataset, username, password):
     return data_store
 
 
-def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_in_h=120):
+def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box,
+                                   temp_horizon_in_h=120, hours_to_hj_solve_timescale=3600):
     """
     We want to switch over to using lat-lon bounds but a lot of functions in the code already use x_0 and x_T with the
     deg_around_x0_xT_box, so for now use this to convert.
@@ -36,6 +37,7 @@ def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_
         x_T: [lon, lat] goal locations
         deg_around_x0_xT_box: buffer around the box in degrees
         temp_horizon_in_h: maximum temp_horizon to look ahead of x_0 time in hours
+        hours_to_hj_solve_timescale: factor to multiply hours with to get to current field temporal units.
 
     Returns:
         t_interval: if time-varying: [t_0, t_T] as utc datetime objects
@@ -47,7 +49,7 @@ def convert_to_lat_lon_time_bounds(x_0, x_T, deg_around_x0_xT_box, temp_horizon_
         t_interval = [datetime.fromtimestamp(x_0[3], timezone.utc), None]
     else:
         t_interval = [datetime.fromtimestamp(x_0[3], timezone.utc),
-                      datetime.fromtimestamp(x_0[3] + temp_horizon_in_h * 3600, timezone.utc)]
+                      datetime.fromtimestamp(x_0[3] + temp_horizon_in_h * hours_to_hj_solve_timescale, timezone.utc)]
     lat_bnds = [min(x_0[1], x_T[1]) - deg_around_x0_xT_box, max(x_0[1], x_T[1]) + deg_around_x0_xT_box]
     lon_bnds = [min(x_0[0], x_T[0]) - deg_around_x0_xT_box, max(x_0[0], x_T[0]) + deg_around_x0_xT_box]
 
@@ -76,7 +78,7 @@ def get_interpolation_func(grids_dict, u_data, v_data, type='bspline', fixed_tim
 
 
 # define overarching loading and sub-setting function
-def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, max_temp_in_h=240):
+def get_current_data_subset(t_interval, lat_interval, lon_interval, data_source, max_temp_in_h=240):
     """ Function to get a subset of current data from the files referenced in the files_dict.
     Inputs:
         t_interval              if time-varying: [t_0, t_T] in POSIX time
@@ -85,8 +87,9 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, 
         lat_interval            [y_lower, y_upper] in degrees
         lon_interval            [x_lower, x_upper] in degrees
 
-        file_dicts              list of file_dicts containing for each file
-                                {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
+        data_source             A dict object, always containing "data_source_type" and "content".
+                                See problem.init() for description.
+
         max_temp_in_h           As multiple daily files hindcast data can be very large, limit the time horizon if t_interval[1] is None.
 
     Outputs:
@@ -94,50 +97,67 @@ def get_current_data_subset(t_interval, lat_interval, lon_interval, file_dicts, 
         u_data                  [T, Y, X] matrix of the ocean currents in x direction in m/s
         v_data                  [T, Y, X] matrix of the ocean currents in y direction in m/s
     """
-    # Step 0: if upper interval is not None
-    # Step 1: check in which gt data case we are
-    # If it's a dict we are in the opendap case
-    if type(file_dicts) is dict:
-        # modify t_interval to be timezone naive because that's what the opendap subsetting takes
-        t_interval_naive = [time.replace(tzinfo=None) for time in t_interval]
-        t_interval_naive[0] = t_interval_naive[0] - timedelta(hours=1)
-        t_interval_naive[1] = t_interval_naive[1] + timedelta(hours=1)
-        subsetted_frame = file_dicts['DS_object'].sel(time=slice(t_interval_naive[0], t_interval_naive[1]),
-                                                      latitude=slice(lat_interval[0], lat_interval[1]),
-                                                      longitude=slice(lon_interval[0], lon_interval[1]))
 
-        # grids_dict containing x_grid, y_grid, t_grid (in POSIX), and spatial_land_mask (2D array)
-        # u_data and v_data (122, 102, 102) (with [T, Y, X])
-        u_data_masked = np.ma.masked_invalid(subsetted_frame['uo'].data)
-        v_data_masked = np.ma.masked_invalid(subsetted_frame['vo'].data)
-        grids_dict = {'x_grid': subsetted_frame.longitude.data, 'y_grid': subsetted_frame.latitude.data,
-                      't_grid': (subsetted_frame.time.data - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's'),
-                      'spatial_land_mask': u_data_masked[0, :, :].mask}
-
-        u_data = u_data_masked.filled(fill_value=0.)
-        v_data = v_data_masked.filled(fill_value=0.)
-
-    # If it's a list with multiple files we're in the multiple daily files case
-    elif len(file_dicts) > 1:
+    # Step 1: check in which data_source_type case we are and call the respective function
+    if data_source['data_source_type'] == 'cop_opendap':
+        grids_dict, u_data, v_data = get_current_data_subset_from_cop_opendap(t_interval, lat_interval, lon_interval,
+                                                                              data_source)
+    elif data_source['data_source_type'] == 'multiple_daily_nc_files':
         grids_dict, u_data, v_data = get_current_data_subset_from_daily_files(t_interval, lat_interval, lon_interval,
-                                                                              file_dicts, max_temp_in_h=max_temp_in_h)
-    # else we are in the single file case
-    elif len(file_dicts) == 1:
+                                                                              data_source['content'], max_temp_in_h=max_temp_in_h)
+    elif data_source['data_source_type'] == 'single_nc_file':
+        # check if forecast_idx
+        if 'current_forecast_idx' in data_source:
+            file_idx = data_source['current_forecast_idx']
+        else:
+            file_idx = 0
         grids_dict, u_data, v_data = get_current_data_subset_from_single_file(t_interval, lat_interval, lon_interval,
-                                                                              file_dict=file_dicts[0])
+                                                                              file_dict=data_source['content'][file_idx])
+    elif data_source['data_source_type'] == 'analytical_function':
+        grids_dict, u_data, v_data = data_source['content'].get_subset_from_analytical_field(t_interval, lat_interval, lon_interval)
+        grids_dict['not_plot_land'] = True
     else:
-        raise ValueError("file_dicts is neither multi-file, nor opendap, nor single file. Check source files.")
+        raise ValueError("file_dicts is neither multiple_daily_nc_files-file, nor cop_opendap, nor single_nc_file."
+                         " Check source files.")
 
     # Step 2: log what data has been subsetted
-    print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(
-        start=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC'),
-        end=datetime.utcfromtimestamp(grids_dict['t_grid'][-1]).strftime('%Y-%m-%d %H:%M:%S UTC'),
-        n_steps=len(grids_dict['t_grid']), time=(grids_dict['t_grid'][1] - grids_dict['t_grid'][0]) / 3600.))
+    if data_source['data_source_type'] != 'analytical_function':
+        print("Subsetted data from {start} to {end} in {n_steps} time steps of {time:.2f} hour(s) resolution".format(
+            start=datetime.utcfromtimestamp(grids_dict['t_grid'][0]).strftime('%Y-%m-%d %H:%M:%S UTC'),
+            end=datetime.utcfromtimestamp(grids_dict['t_grid'][-1]).strftime('%Y-%m-%d %H:%M:%S UTC'),
+            n_steps=len(grids_dict['t_grid']), time=(grids_dict['t_grid'][1] - grids_dict['t_grid'][0]) / 3600.))
+    else:
+        print("Sub-setted data from analytical_function from {start} to {end} in {n_steps} time steps".format(
+            start=grids_dict['t_grid'][0],
+            end=grids_dict['t_grid'][-1],
+            n_steps=len(grids_dict['t_grid'])))
 
     return grids_dict, u_data, v_data
 
 
 # Helper functions for the general subset function
+def get_current_data_subset_from_cop_opendap(t_interval, lat_interval, lon_interval, data_source):
+    """Helper function to get """
+    # modify t_interval to be timezone naive because that's what the opendap subsetting takes
+    t_interval_naive = [time.replace(tzinfo=None) for time in t_interval]
+    t_interval_naive[0] = t_interval_naive[0] - timedelta(hours=1)
+    t_interval_naive[1] = t_interval_naive[1] + timedelta(hours=1)
+    subsetted_frame = data_source['DS_object'].sel(time=slice(t_interval_naive[0], t_interval_naive[1]),
+                                                   latitude=slice(lat_interval[0], lat_interval[1]),
+                                                   longitude=slice(lon_interval[0], lon_interval[1]))
+
+    # grids_dict containing x_grid, y_grid, t_grid (in POSIX), and spatial_land_mask (2D array)
+    u_data_masked = np.ma.masked_invalid(subsetted_frame['uo'].data)
+    v_data_masked = np.ma.masked_invalid(subsetted_frame['vo'].data)
+    grids_dict = {'x_grid': subsetted_frame.longitude.data, 'y_grid': subsetted_frame.latitude.data,
+                  't_grid': (subsetted_frame.time.data - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1,'s'),
+                  'spatial_land_mask': u_data_masked[0, :, :].mask}
+
+    u_data = u_data_masked.filled(fill_value=0.)
+    v_data = v_data_masked.filled(fill_value=0.)
+    return grids_dict, u_data, v_data
+
+
 def get_current_data_subset_from_single_file(t_interval, lat_interval, lon_interval, file_dict):
     """Subsetting data from a single file."""
     # Step 1: Open nc file

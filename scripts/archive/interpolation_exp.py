@@ -26,8 +26,8 @@ forecast_delay_in_h = 0.
 plan_on_gt=True
 prob = Problem(x_0, x_T, t_0,
                platform_config_dict=platform_config_dict,
-               hindcast_folder= hindcast_folder,
-               forecast_folder=forecast_folder,
+               hindcast_source= hindcast_folder,
+               forecast_source=forecast_folder,
                plan_on_gt = plan_on_gt,
                forecast_delay_in_h=forecast_delay_in_h)
 
@@ -38,7 +38,7 @@ grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(
                 datetime.datetime(2021, 6, 2, 11, 0, tzinfo=datetime.timezone.utc)],
     lat_interval=[21, 22],
     lon_interval=[-87, -86],
-    file_dicts=prob.hindcasts_dicts)
+    data_source=prob.hindcast_data_source)
 
 # viz
 plotting_utils.visualize_currents(time=datetime.datetime(2021, 6, 1, 12, 0, tzinfo=datetime.timezone.utc).timestamp()

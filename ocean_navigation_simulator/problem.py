@@ -5,11 +5,7 @@ from datetime import datetime, timedelta, timezone
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-
-# import from other utils
-import ocean_navigation_simulator.utils.plotting_utils as plot_utils
-from ocean_navigation_simulator.utils.simulation_utils import convert_to_lat_lon_time_bounds, get_current_data_subset, \
-    get_grid_dict_from_file, copernicusmarine_datastore
+from ocean_navigation_simulator import utils
 
 
 class Problem:
@@ -24,14 +20,21 @@ class Problem:
             The spatial center of the target state, represented as (lon, lat), together with x_T_radius it's a 2D region.
         x_T_radius:
             Radius around x_T that when reached counts as "target reached"
-
-
         platform_config_dict:
             A dict specifying the platform parameters, see the repos 'configs/platform.yaml' as example.
-        hindcasts_dicts and forecasts_dicts
-            A list of dicts ordered according to the starting time-range.
-            One dict for each hindcast/forecast file available. The dicts for each hindcast file contains:
-            {'t_range': [<datetime object>, <datetime object>], 'file': <filepath>})
+        hindcast_source and forecast_source:
+            A dict object, always containing "data_source_type" and "data_source" which gives the information
+            where to get the data for the forecast (what the planner sees) and the hindcast (what the simulator uses).
+            Currently, we have three "data_source_type"'s implemented:
+            {"single_nc_file", "multiple_daily_nc_files", "opendap", "analytical_function"}
+            They all require different inputs for "content"
+            "single_nc_file", "multiple_daily_nc_files": expect a path to the folder of the file(s)
+            "cop_opendap": expects a dict with the specifications to establish the connection.
+                       For now only Copernicus is implemented (but HYCOM can be in the future too).
+                       {'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
+                       'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh'}
+            "analytical_function": A reference to a function with the signature u, v = analytical_function(x,y,t)
+                                   This can be packaged with functools.partial to have different random seeds.
         plan_on_gt:
             if True we only use hindcast data and plan on hindcasts. If False we use forecast data for the planner.
 
@@ -44,17 +47,16 @@ class Problem:
     """
 
     def __init__(self, x_0, x_T, t_0, platform_config_dict,
-                 hindcast_folder, forecast_folder,
-                 plan_on_gt=False, forecast_delay_in_h=0., x_T_radius= 0.1, noise=None):
-
-        # Plan on GT
-        self.plan_on_gt = plan_on_gt
+                 hindcast_source, forecast_source,
+                 plan_on_gt=False, x_T_radius=0.1):
 
         # Basic check of inputs
         if len(x_0) != 3 or len(x_T) != 2:
             raise ValueError("x_0 should be (lat, lon, battery) and x_T (lat, lon)")
 
         # check t_0
+        if hindcast_source['data_source_type'] == 'analytical_function':
+            t_0 = datetime.fromtimestamp(t_0, timezone.utc)
         if t_0.tzinfo is None:
             print("Assuming input t_0 is in UTC time.")
             t_0 = t_0.replace(tzinfo=timezone.utc)
@@ -66,12 +68,13 @@ class Problem:
         self.x_0 = x_0 + [t_0.timestamp()]
         self.x_T = x_T
         self.x_T_radius = x_T_radius
-        self.forecast_delay_in_h = forecast_delay_in_h
+        # Plan on GT
+        self.plan_on_gt = plan_on_gt
 
-        # Initialize the data dicts with None
-        self.hindcasts_dicts, self.hindcast_grid_dict, self.forecasts_dicts, self.most_recent_forecast_idx = [None] * 4
-        # Initialize them using the folders provided
-        self.update_data_dicts(hindcast_folder, forecast_folder)
+        # Initialize the data_source class variables from the inputs provided
+        self.hindcast_data_source = self.update_data_source(hindcast_source)
+        if not self.plan_on_gt:
+            self.forecast_data_source = self.update_data_source(forecast_source, forecast=True)
 
         # Check data compatibility
         self.check_data_compatibility(t_0, [self.x_0[:2], self.x_T[:2]])
@@ -94,59 +97,84 @@ class Problem:
         Returns:
             A String
         """
+        # About the task
         Nav_string = "Navigate from {} at time {} to {}.".format(
             self.x_0[:3], datetime.fromtimestamp(self.x_0[3], timezone.utc), self.x_T)
-        Sim_string = "Simulate with GT current files from {} to {}".format(
-            self.hindcast_grid_dict['gt_t_range'][0],
-            self.hindcast_grid_dict['gt_t_range'][1])
+
+        # What is used for Simulation
+        if self.hindcast_data_source['data_source_type'] != 'analytical_function':
+            Sim_string = "Simulate with GT current files from {} to {}".format(
+                self.hindcast_data_source['grid_dict']['t_range'][0],
+                self.hindcast_data_source['grid_dict']['t_range'][1])
+        else:
+            Sim_string = "Simulating with analytical current function."
+
+        # What is used for Planning
         if self.plan_on_gt:
             Plan_string = "Planning on GT."
         else:
-            Plan_string = "Planning on {} Forecast files starting from {} to {}".format(
-                len(self.forecasts_dicts),
-                self.forecasts_dicts[0]['t_range'][0],
-                self.forecasts_dicts[-1]['t_range'][0])
+            if self.forecast_data_source['data_source_type'] == 'single_nc_file':
+                Plan_string = "Planning on {} Forecast files starting from {} to {}".format(
+                    len(self.forecast_data_source['content']),
+                    self.forecast_data_source['t_forecast_coverage'][0],
+                    self.forecast_data_source['t_forecast_coverage'][1])
+            else:
+                Plan_string = "Planning on analytical forecast."
         return Nav_string + '\n' + Sim_string + '\n' + Plan_string
 
-    def check_hindcast_compatibility(self, t, points):
-        """Helper function to check if the Hindcast files cover all points at t_0.
-        Input:
-            t       datetime_object of time
-            points  list of [lon, lat] points
-        """
-        # Step 1: check if t_0 is in the Hindcast time-range
-        if not (self.hindcast_grid_dict['gt_t_range'][0] < t < self.hindcast_grid_dict['gt_t_range'][1]):
-            raise ValueError("Hindcast files do not cover {}.".format(t))
-        # Step 2: check if x_0 and x_T are in the spatial coverage of the Hindcast files
-        for point in points:
-            if not (self.hindcast_grid_dict['gt_x_range'][0] < point[0] < self.hindcast_grid_dict['gt_x_range'][1]):
-                raise ValueError("Hindcast files does not contain {} in longitude range.".format(point))
-            if not (self.hindcast_grid_dict['gt_y_range'][0] < point[1] < self.hindcast_grid_dict['gt_y_range'][1]):
-                raise ValueError("Hindcast files does not contain {} in latitude range.".format(point))
-
-    def check_forecast_comatibility(self, t, points):
-        """Helper function to check if the most recent Forecast file covers all points at t_0.
-        Input:
-            t       datetime_object of time
-            points  list of [lon, lat] points
+    def update_data_source(self, data_source, forecast=False):
+        """Set the data_source class variables for the different source type inputs.
+        Inputs:
+            hindcast_source/forecast_source     see description of init.
         """
 
-        # Step 1: check if at t_0 there's a forecast available.
-        if not (self.forecasts_dicts[self.most_recent_forecast_idx]['t_range'][0] < t <
-                self.forecasts_dicts[self.most_recent_forecast_idx]['t_range'][1]):
-            raise ValueError("Most recent Forecast file does not cover {}.".format(t))
-        # Step 2: check if x_0 and x_T are in the spatial coverage of the most recent Forecast file
-        for point in points:
-            if not (self.forecasts_dicts[self.most_recent_forecast_idx]['x_range'][0] < point[0] <
-                    self.forecasts_dicts[self.most_recent_forecast_idx]['x_range'][1]):
-                raise ValueError("Most recent Forecast file does not contain {} in longitude range.".format(point))
-            if not (self.forecasts_dicts[self.most_recent_forecast_idx]['y_range'][0] < point[1] <
-                    self.forecasts_dicts[self.most_recent_forecast_idx]['y_range'][1]):
-                raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
+        # Derive the Data Sources
+        if data_source['data_source_type'] in ['single_nc_file', 'multiple_daily_nc_files']:
+            # Step 1: get the file dict
+            file_dict = self.get_file_dicts(data_source['data_source'])
+            # Step 2: create the data_source dict
+            updated_data_source = {'data_source_type': data_source['data_source_type'],
+                                   'content': file_dict}
+            # Step 2: add grid dict to the data_source object
+            if not forecast:
+                updated_data_source['grid_dict'] = self.derive_grid_dict_from_files(updated_data_source)
+            else: # need to save more stuff in the grid_dict
+                updated_data_source['t_forecast_coverage'] = [
+                    updated_data_source['content'][0]['t_range'][0],  # t_0 of fist forecast file
+                    updated_data_source['content'][-1]['t_range'][1]] # t_final of last forecast file
+                cur_for_idx = self.get_current_forecast_idx(updated_data_source['content'])
+                updated_data_source['current_forecast_idx'] = cur_for_idx
+                updated_data_source['grid_dict'] = self.derive_grid_dict_from_files(updated_data_source)
+
+        elif data_source['data_source_type'] == 'cop_opendap':
+            # Step 1: initialize the session with the provided credentials
+            data_store = utils.simulation_utils.copernicusmarine_datastore(data_source['data_source']['DATASET_ID'],
+                                                                           data_source['data_source']['USERNAME'],
+                                                                           data_source['data_source']['PASSWORD'])
+            # Step 1.2: subset to only the variables we care about
+            DS_currents = xr.open_dataset(data_store)[['uo', 'vo']].isel(depth=0)
+            # Step 3: create the data_source dict
+            updated_data_source = {'data_source_type': data_source['data_source_type'],
+                                   'content': DS_currents,
+                                   'grid_dict': self.derive_grid_dict_from_xarray(DS_currents)}
+
+        elif data_source['data_source_type'] == 'analytical_function':
+            # Step 0: check if it's a subclass of AnalyticalField
+            if not issubclass(type(data_source['data_source']), utils.AnalyticalField):
+                raise ValueError("For analytical_function we need 'data_source' to be subclass of utils.AnalyticalField")
+
+            updated_data_source = {'data_source_type': data_source['data_source_type'],
+                                         'content': data_source['data_source'],
+                                         'grid_dict': data_source['data_source'].get_grid_dict()[0]}
+            # modify to be datetime objects
+            updated_data_source['grid_dict']['t_range'] = [datetime.fromtimestamp(rel_time[0], timezone.utc) for
+                                                                 rel_time in updated_data_source['grid_dict']['t_range']]
+
+        return updated_data_source
 
     def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, add_ax_func=None,
             html_render=None, temp_horizon_viz_in_h=120, return_ax=False, plot_start_target=True,
-            temporal_stride=1, time_interval_between_pics=200):
+            temporal_stride=1, time_interval_between_pics=200, hours_to_hj_solve_timescale=3600):
         """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
 
         Input Parameters:
@@ -159,15 +187,17 @@ class Problem:
         - html_render: render settings for html, if None then html is displayed directly (for Jupyter)
                                 if 'safari' it's opened in a safari page
         - temp_horizon_viz_in_h: if we render a video, for how long do we want the visualization to run in hours.
+        - hours_to_hj_solve_timescale: factor to multiply hours with to get to current field temporal units.
 
         Returns:
             None
         """
         print("Note only the GT hindcast data is currently visualized")
         # Step 0: Find the time, lat, lon bounds for data_subsetting
-        t_interval, lat_interval, lon_interval = convert_to_lat_lon_time_bounds(self.x_0, self.x_T,
+        t_interval, lat_interval, lon_interval = utils.simulation_utils.convert_to_lat_lon_time_bounds(self.x_0, self.x_T,
                                                                                 deg_around_x0_xT_box=cut_out_in_deg,
-                                                                                temp_horizon_in_h=temp_horizon_viz_in_h)
+                                                                                temp_horizon_in_h=temp_horizon_viz_in_h,
+                                                                                hours_to_hj_solve_timescale=hours_to_hj_solve_timescale)
 
         if add_ax_func is None:
             def add_ax_func(ax, time=None, x_0=self.x_0[:2], x_T=self.x_T[:2]):
@@ -181,11 +211,11 @@ class Problem:
         # if we want to visualize with video
         if time is None and video:
             # Step 1: get the data_subset for plotting
-            grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_interval, lon_interval,
-                                                                 file_dicts=self.hindcasts_dicts,
+            grids_dict, u_data, v_data = utils.simulation_utils.get_current_data_subset(t_interval, lat_interval, lon_interval,
+                                                                 data_source=self.hindcast_data_source,
                                                                  max_temp_in_h=120)
             # create animation with extra func
-            plot_utils.viz_current_animation(grids_dict['t_grid'][::temporal_stride],
+            utils.plotting_utils.viz_current_animation(grids_dict['t_grid'][::temporal_stride],
                                              grids_dict, u_data, v_data,
                                              interval=time_interval_between_pics,
                                              ax_adding_func=add_ax_func, html_render=html_render,
@@ -196,10 +226,10 @@ class Problem:
             if time is None:
                 time = datetime.fromtimestamp(self.x_0[3], tz=timezone.utc)
             t_interval_static = [time - timedelta(hours=8), time + timedelta(hours=8)]
-            grids_dict, u_data, v_data = get_current_data_subset(t_interval_static, lat_interval, lon_interval,
-                                                                 file_dicts=self.hindcasts_dicts)
+            grids_dict, u_data, v_data = utils.simulation_utils.get_current_data_subset(t_interval_static, lat_interval, lon_interval,
+                                                                 data_source=self.hindcast_data_source)
             # plot underlying currents at time
-            ax = plot_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data,
+            ax = utils.plotting_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data,
                                                # figsize=figsize,
                                                autoscale=True, plot=False)
             # add the start and goal position to the plot
@@ -209,53 +239,13 @@ class Problem:
             else:
                 plt.show()
 
-    def derive_hindcast_grid_dict(self):
-        """Helper function to create the hindcast grid dict from a dict of multiple files self.hindcasts_dicts.
-        Note: this currently assumes all files have the same spatial coverage, needs to be changed once
-        we go for multiple regions.
-        """
-
-        # Basic sanity check
-        if len(self.hindcasts_dicts) == 0:
-            raise ValueError("No Hindcast files in hindcasts_dicts.")
-
-        # get spatial coverage by reading in the first file
-        f = xr.open_dataset(self.hindcasts_dicts[0]['file'])
-        xgrid = f.variables['lon'].data
-        ygrid = f.variables['lat'].data
-
-        y_range = [ygrid[0], ygrid[-1]]
-        x_range = [xgrid[0], xgrid[-1]]
-
-        # get time_range
-        # If one file it's simple
-        if len(self.hindcasts_dicts) == 1:
-            time_range = self.hindcasts_dicts[0]['t_range']
-        else:  # multiple daily files
-            # get time-range by iterating over the return elements that are consecutive/exactly 1h apart
-            for idx in range(len(self.hindcasts_dicts) - 1):
-                if self.hindcasts_dicts[idx]['t_range'][1] + timedelta(hours=1) \
-                        == self.hindcasts_dicts[idx + 1]['t_range'][0]:
-                    continue
-                else:
-                    break
-            time_range = [self.hindcasts_dicts[0]['t_range'][0], self.hindcasts_dicts[idx + 1]['t_range'][1]]
-
-        # get the land mask
-        u_data = f.variables['water_u'].data[:, 0, :, :]
-        # adds a mask where there's a nan (on-land)
-        u_data = np.ma.masked_invalid(u_data)
-
-        return {"gt_t_range": time_range, "gt_y_range": y_range, "gt_x_range": x_range,
-                'gt_spatial_land_mask':u_data[0, :, :].mask, 'gt_x_grid': xgrid, 'gt_y_grid': ygrid}
-
     def is_on_land(self, point):
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
         # get idx of closest grid-points
-        x_idx = (np.abs(self.hindcast_grid_dict['gt_x_grid'] - point[0])).argmin()
-        y_idx = (np.abs(self.hindcast_grid_dict['gt_y_grid'] - point[1])).argmin()
+        x_idx = (np.abs(self.hindcast_data_source['grid_dict']['x_grid'] - point[0])).argmin()
+        y_idx = (np.abs(self.hindcast_data_source['grid_dict']['y_grid'] - point[1])).argmin()
         # Note: the spatial_land_mask is an array with [Y, X]
-        return self.hindcast_grid_dict['gt_spatial_land_mask'][y_idx, x_idx]
+        return self.hindcast_data_source['grid_dict']['spatial_land_mask'][y_idx, x_idx]
 
     @staticmethod
     def get_file_dicts(folder):
@@ -270,7 +260,7 @@ class Problem:
         # iterate over all files to extract the grids and put them in an ordered list of dicts
         list_of_dicts = []
         for file in files_list:
-            grid_dict = get_grid_dict_from_file(file)
+            grid_dict = utils.simulation_utils.get_grid_dict_from_file(file)
             # append the file to it:
             grid_dict['file'] = file
             list_of_dicts.append(grid_dict)
@@ -278,39 +268,65 @@ class Problem:
         list_of_dicts.sort(key=lambda dict: dict['t_range'][0])
         return list_of_dicts
 
-    def update_data_dicts(self, hindcast_folder, forecast_folder):
-        """Derive the file dicts again and new forecast_idx and do compatibility checks.
-        Inputs:
-            hindcast_folder/forecast_folder     local path to folder where all hindcast/forecast files are
-            x_t                                 full state of simulator at current time (lon, lat, battery, POSIX time)
-        """
-        os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-        # Step 1: Update Hindcast Data
-        if isinstance(hindcast_folder, str):
-            self.hindcasts_dicts = self.get_file_dicts(hindcast_folder)
-            self.hindcast_grid_dict = self.derive_hindcast_grid_dict()
-        elif type(hindcast_folder) is dict:
-            # Step 1.1 start session with copernicus and get the DS object for the relevant data
-            data_store = copernicusmarine_datastore(hindcast_folder['DATASET_ID'], hindcast_folder['USERNAME'], hindcast_folder['PASSWORD'])
-            DS = xr.open_dataset(data_store)
-            # Step 1.2: subset to only the variables we care about
-            DS_currents = DS[['uo', 'vo']].isel(depth=0)
-            # Step 1.3 create the gt_hindcast_dict
-            gt_time_range = [
-                datetime.fromtimestamp(DS_currents.variables['time'][0].data.astype(int) * 1e-9, tz=timezone.utc),
-                datetime.fromtimestamp(DS_currents.variables['time'][-1].data.astype(int) * 1e-9, tz=timezone.utc)]
-            gt_y_grid = DS_currents.variables['latitude'].data
-            gt_x_grid = DS_currents.variables['longitude'].data
-            self.hindcast_grid_dict = {"gt_t_range": gt_time_range,
-                                     "gt_y_range": [gt_y_grid[0], gt_y_grid[-1]], "gt_x_range": [gt_x_grid[0], gt_x_grid[-1]],
-                                     'gt_spatial_land_mask': False, 'gt_x_grid': gt_x_grid, 'gt_y_grid': gt_y_grid}
+    @staticmethod
+    def derive_grid_dict_from_files(data_source):
+        """Helper function to create the a grid dict from one or multiple files in self.hindcast_data_source."""
 
-            self.hindcasts_dicts = {'source': 'opendap', 'DS_object': DS_currents}
+        # check if forecast
+        if 'current_forecast_idx' in data_source:
+            idx_file = data_source['current_forecast_idx']
+        else:
+            idx_file = 0
 
-        # Forecast Data
-        if not self.plan_on_gt:
-            self.forecasts_dicts = self.get_file_dicts(forecast_folder)
-            self.most_recent_forecast_idx = self.get_most_recent_forecast_idx()
+        # Step 0: Checks before extracting the data
+        file_source = data_source['data_source_type'] in ['single_nc_file', 'multiple_daily_nc_files']
+        if not file_source:
+            raise ValueError("Wrong data_source_type for function derive_grid_dict_from_files. Only for nc files.")
+        if len(data_source['content']) == 0:
+            raise ValueError("No nc files found in the data_source_type folder.")
+
+        # get spatial coverage by reading in the first file
+        f = xr.open_dataset(data_source['content'][idx_file]['file'])
+        xgrid = f.variables['lon'].data
+        ygrid = f.variables['lat'].data
+
+        y_range = [ygrid[0], ygrid[-1]]
+        x_range = [xgrid[0], xgrid[-1]]
+
+        # get time_range
+        if data_source['data_source_type'] == 'single_nc_file':
+            time_range = data_source['content'][idx_file]['t_range']
+        elif data_source['data_source_type'] == 'multiple_daily_nc_files':
+            # get time-range by iterating over the return elements that are consecutive/exactly 1h apart
+            for idx in range(len(data_source['content']) - 1):
+                if data_source['content'][idx]['t_range'][1] + timedelta(hours=1) \
+                        == data_source['content'][idx + 1]['t_range'][0]:
+                    continue
+                else:
+                    break
+            time_range = [data_source['content'][0]['t_range'][0], data_source['content'][idx + 1]['t_range'][1]]
+
+        # get the land mask
+        u_data = f.variables['water_u'].data[:, 0, :, :]
+        # adds a mask where there's a nan (on-land)
+        u_data = np.ma.masked_invalid(u_data)
+
+        return {"t_range": time_range, "y_range": y_range, "x_range": x_range,
+                'spatial_land_mask':u_data[0, :, :].mask, 'x_grid': xgrid, 'y_grid': ygrid}
+
+    @staticmethod
+    def derive_grid_dict_from_xarray(DS_currents):
+        """Helper function to create the grid_dict from a opendap object"""
+        time_range = [
+            datetime.fromtimestamp(DS_currents.variables['time'][0].data.astype(int) * 1e-9, tz=timezone.utc),
+            datetime.fromtimestamp(DS_currents.variables['time'][-1].data.astype(int) * 1e-9, tz=timezone.utc)]
+        y_grid = DS_currents.variables['latitude'].data
+        x_grid = DS_currents.variables['longitude'].data
+        grid_dict = {"t_range": time_range,
+                     "y_range": [y_grid[0], y_grid[-1]], "x_range": [x_grid[0], x_grid[-1]],
+                     'spatial_land_mask': False, 'x_grid': x_grid, 'y_grid': y_grid}
+
+        return grid_dict
 
     def check_data_compatibility(self, t, points):
         """Check if given forecast and hindcasts contain all points at time t."""
@@ -318,16 +334,58 @@ class Problem:
         if not self.plan_on_gt:
             self.check_forecast_comatibility(t, points)
 
-    def get_most_recent_forecast_idx(self):
+    def check_hindcast_compatibility(self, t, points):
+        """Helper function to check if the Hindcast files cover all points at t_0.
+        Input:
+            t       datetime_object of time
+            points  list of [lon, lat] points
+        """
+        # Step 1: check if t_0 is in the Hindcast time-range
+        if not (self.hindcast_data_source['grid_dict']['t_range'][0] < t < self.hindcast_data_source['grid_dict']['t_range'][1]):
+            raise ValueError("Hindcast files do not cover {}.".format(t))
+        # Step 2: check if x_0 and x_T are in the spatial coverage of the Hindcast files
+        for point in points:
+            if not (self.hindcast_data_source['grid_dict']['x_range'][0] < point[0] < self.hindcast_data_source['grid_dict']['x_range'][1]):
+                raise ValueError("Hindcast files does not contain {} in longitude range.".format(point))
+            if not (self.hindcast_data_source['grid_dict']['y_range'][0] < point[1] < self.hindcast_data_source['grid_dict']['y_range'][1]):
+                raise ValueError("Hindcast files does not contain {} in latitude range.".format(point))
+
+    def check_forecast_comatibility(self, t, points):
+        """Helper function to check if the most recent Forecast file covers all points at t_0.
+        Input:
+            t       datetime_object of time
+            points  list of [lon, lat] points
+        """
+
+        if self.forecast_data_source['data_source_type'] == 'single_nc_file':
+            t_range = self.forecast_data_source['content'][self.forecast_data_source['current_forecast_idx']]['t_range']
+            x_range = self.forecast_data_source['content'][self.forecast_data_source['current_forecast_idx']]['x_range']
+            y_range = self.forecast_data_source['content'][self.forecast_data_source['current_forecast_idx']]['y_range']
+        else:
+            t_range = self.forecast_data_source['grid_dict']['t_range']
+            x_range = self.forecast_data_source['grid_dict']['x_range']
+            y_range = self.forecast_data_source['grid_dict']['y_range']
+
+        # Step 1: check if at t_0 there's a forecast available.
+        if not (t_range[0] < t < t_range[1]):
+            raise ValueError("Most recent Forecast file does not cover {}.".format(t))
+        # Step 2: check if x_0 and x_T are in the spatial coverage of the most recent Forecast file
+        for point in points:
+            if not (x_range[0] < point[0] < x_range[1]):
+                raise ValueError("Most recent Forecast file does not contain {} in longitude range.".format(point))
+            if not (y_range[0] < point[1] < y_range[1]):
+                raise ValueError("Most recent Forecast file does not contain {} in latitude range.".format(point))
+
+    def get_current_forecast_idx(self, forecasts_files_dicts):
         """Get the index of the most recent forecast available t_0."""
         # Filter on the list to get all files where t_0 is contained.
         dics_containing_t_0 = list(
-            filter(lambda dic: dic['t_range'][0] < self.t_0 < dic['t_range'][1], self.forecasts_dicts))
+            filter(lambda dic: dic['t_range'][0] < self.t_0 < dic['t_range'][1], forecasts_files_dicts))
         # Basic Sanity Check if this list is empty no file contains t_0
         if len(dics_containing_t_0) == 0:
             raise ValueError("None of the forecast files contains t_0.")
         # As the dict is time-ordered we simple need to find the idx of the last one in the dics_containing_t_0
-        for idx, dic in enumerate(self.forecasts_dicts):
+        for idx, dic in enumerate(forecasts_files_dicts):
             if dic['t_range'][0] == dics_containing_t_0[-1]['t_range'][0]:
                 return idx
 

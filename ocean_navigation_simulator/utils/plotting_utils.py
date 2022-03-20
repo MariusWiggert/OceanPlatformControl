@@ -74,8 +74,12 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
                 spatial_kind='linear')
 
     # Step 0: Create the figure and cartophy axis object and things (ocean, land-boarders,grid_lines, etc.)
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_title("Time: " + datetime.fromtimestamp(time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
+    if not 'not_plot_land' in grids_dict:
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        ax.set_title("Time: " + datetime.fromtimestamp(time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'))
+    else:
+        ax = plt.axes()
+        ax.set_title("Time: {time:.2f}".format(time=time))
 
     # Step 1: perform time-interpolation on the current data
     # Note: let's outsource that to utils? Especially when we do animation, makes sens to create it once.
@@ -84,6 +88,8 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
 
     # get current vector magnitude in m/s
     magnitude = (u_currents ** 2 + v_currents ** 2) ** 0.5
+
+
 
     # Step 2: plot the current vectors in black
     X, Y = np.meshgrid(grids_dict['x_grid'], grids_dict['y_grid'], indexing='xy')
@@ -97,13 +103,14 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
                # aspect='auto',
                cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha)
 
-    # plot coastlines and land on top
-    ax.coastlines(resolution='50m', zorder=4)
-    ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
-    # ax.add_feature(cfeature.OCEAN, zorder=0)
-    grid_lines = ax.gridlines(draw_labels=True, zorder=5)
-    grid_lines.top_labels = False
-    grid_lines.right_labels = False
+    if not 'not_plot_land' in grids_dict:
+        # plot coastlines and land on top
+        ax.coastlines(resolution='50m', zorder=4)
+        ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
+        # ax.add_feature(cfeature.OCEAN, zorder=0)
+        grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+        grid_lines.top_labels = False
+        grid_lines.right_labels = False
 
     # Step 4: set and format colorbar
     cbar = plt.colorbar()
@@ -220,7 +227,7 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
                                                                     deg_around_x0_xT_box=deg_around_x0_xT_box,
                                                                     temp_horizon_in_h=5)
     grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds,
-                                                         file_dicts=file_dicts)
+                                                         data_source=file_dicts)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, x_traj=x_traj):
@@ -251,7 +258,7 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
 
 
 def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, x_T=None, x_T_radius=None,
-                           deg_around_x0_xT_box=1,
+                           deg_around_x0_xT_box=1, hours_to_hj_solve_timescale=3600,
                            html_render=None, filename=None, time_interval_between_pics=200, fps=10,
                            linewidth=1.5, marker='x', linestyle='--', add_ax_func_ext=None
                            ):
@@ -263,10 +270,11 @@ def plot_2D_traj_animation(traj_full, control_traj, file_dicts, u_max, x_T=None,
     lower_left = [np.min(space_traj[0,:]), np.min(space_traj[1,:]), 0, traj_times[0]]
     upper_right = [np.max(space_traj[0, :]), np.max(space_traj[1, :])]
 
-    t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(lower_left, upper_right,
-                                                                    deg_around_x0_xT_box=deg_around_x0_xT_box,
-                                                                    temp_horizon_in_h=(traj_times[-1]-traj_times[0])/3600)
-    grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds, file_dicts=file_dicts)
+    t_interval, lat_bnds, lon_bnds = convert_to_lat_lon_time_bounds(
+        lower_left, upper_right,deg_around_x0_xT_box=deg_around_x0_xT_box,
+        temp_horizon_in_h=(traj_times[-1]-traj_times[0])/hours_to_hj_solve_timescale)
+
+    grids_dict, u_data, v_data = get_current_data_subset(t_interval, lat_bnds, lon_bnds, data_source=file_dicts)
 
     # define helper functions to add on top of current visualization
     def add_ax_func(ax, time):

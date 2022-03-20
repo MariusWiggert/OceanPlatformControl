@@ -74,7 +74,6 @@ class OceanNavSimulator:
         self.cur_state = np.array(problem.x_0).reshape(4, 1)  # lon, lat, battery level, time
         self.trajectory = self.cur_state
         self.control_traj = np.empty((2, 0), float)
-        self.current_forecast_dict_idx = None
 
         # termination reason
         self.termination_reason = None
@@ -88,8 +87,8 @@ class OceanNavSimulator:
             F_x_next          cassadi function with (x,u)->(x_next)
         """
         # Step 0: set up time and lat/lon bounds for data sub-setting
-        t_upper = min(x_t[3] + 3600 * 24 * self.sim_settings["t_horizon_sim"],
-                      self.problem.hindcast_grid_dict['gt_t_range'][1].timestamp())
+        t_upper = min(x_t[3] + self.sim_settings['hours_to_sim_timescale'] * 24 * self.sim_settings["t_horizon_sim"],
+                      self.problem.hindcast_data_source['grid_dict']['t_range'][1].timestamp())
 
         t_interval = [datetime.fromtimestamp(x_t[3], tz=timezone.utc), datetime.fromtimestamp(t_upper, tz=timezone.utc)]
         lon_interval = [x_t[0] - self.sim_settings["deg_around_x_t"], x_t[0] + self.sim_settings["deg_around_x_t"]]
@@ -108,7 +107,7 @@ class OceanNavSimulator:
 
         # Step 2.1: read the relevant subset of data
         self.grids_dict, u_data, v_data = simulation_utils.get_current_data_subset(
-            t_interval, lat_interval, lon_interval, self.problem.hindcasts_dicts)
+            t_interval, lat_interval, lon_interval, self.problem.hindcast_data_source)
 
         # Step 2.2: get the current interpolation functions
         u_curr_func, v_curr_func = simulation_utils.get_interpolation_func(
@@ -160,14 +159,9 @@ class OceanNavSimulator:
         This has 2 advantages: 1) the can run on actual frequencies and not limited by for loop, 2) speed up!
         """
         if self.problem.plan_on_gt:
-            self.high_level_planner.update_forecast_dicts(
-                self.problem.hindcasts_dicts)
-            # put something in so that the rest of the code runs
-            self.current_forecast_dict_idx = 0
+            self.high_level_planner.update_forecast_dicts(self.problem.hindcast_data_source)
         else:
-            self.current_forecast_dict_idx = self.problem.most_recent_forecast_idx
-            self.high_level_planner.update_forecast_dicts(
-                [self.problem.forecasts_dicts[self.current_forecast_dict_idx]])
+            self.high_level_planner.update_forecast_dicts(self.problem.forecast_data_source)
 
         # tracking variables
         end_sim, self.termination_reason = self.check_termination(T_in_h)
@@ -178,16 +172,17 @@ class OceanNavSimulator:
             # check to update current data in the dynamics
             self.check_dynamics_update()
             # Loop 1: update forecast files if new one is available
-            if (not self.problem.plan_on_gt) and self.cur_state[3] >= \
-                    self.problem.forecasts_dicts[self.current_forecast_dict_idx + 1]['t_range'][0].timestamp() \
-                    + self.problem.forecast_delay_in_h * 3600.:
-                self.high_level_planner.update_forecast_dicts(
-                    [self.problem.forecasts_dicts[self.current_forecast_dict_idx + 1]])
-                self.current_forecast_dict_idx = self.current_forecast_dict_idx + 1
-                if self.current_forecast_dict_idx == len(self.problem.forecasts_dicts):
-                    raise ValueError("Not enough forecasts in the folder to complete simulation.")
-                # trigger high-level planner re-planning
-                next_planner_update = self.cur_state[3]
+            if not self.problem.plan_on_gt and 'current_forecast_idx' in self.problem.forecast_data_source:
+                next_fmrc_idx = self.problem.forecast_data_source['current_forecast_idx'] + 1
+                if self.cur_state[3] >= self.problem.forecast_data_source['content'][next_fmrc_idx]['t_range'][0].timestamp():
+                    # update current_forecast_idx by + 1
+                    self.problem.forecast_data_source['current_forecast_idx'] = next_fmrc_idx
+                    # update the grid dict inside the high_level_planner
+                    self.high_level_planner.update_forecast_dicts(self.problem.forecast_data_source)
+                    if next_fmrc_idx == len(self.problem.forecast_data_source['content']):
+                        raise ValueError("Not enough forecasts in the folder to complete simulation.")
+                    # trigger high-level planner re-planning
+                    next_planner_update = self.cur_state[3]
 
             # Loop 2: replan with high-level planner
             if self.cur_state[3] >= next_planner_update:
@@ -278,7 +273,7 @@ class OceanNavSimulator:
         if self.reached_goal():
             print("Sim terminate because goal reached.")
             return True, "goal_reached"
-        if (t_sim_run / 3600.) > T_in_h:
+        if (t_sim_run / self.sim_settings['hours_to_sim_timescale']) > T_in_h:
             print("Sim terminate because T_in_h is over")
             return True, "T_max_reached"
         if self.platform_is_on_land():
@@ -287,15 +282,15 @@ class OceanNavSimulator:
 
         # Step 2: check current data files to see if we can continue
         # Step 2.1: check if simulation went over the existing data to load new data
-        if self.cur_state[3] > self.problem.hindcast_grid_dict['gt_t_range'][-1].timestamp():
+        if self.cur_state[3] > self.problem.hindcast_data_source['grid_dict']['t_range'][-1].timestamp():
             print("Sim paused because hindcast fieldset time is over")
             return True, "need_new_temporal_data"
         # check if we're going outside of the spatial data available.
         # Note: this assumes that all hindcast files have the same spatial data range
-        if (not self.problem.hindcast_grid_dict['gt_x_range'][0] <= self.cur_state[0] <=
-                self.problem.hindcast_grid_dict['gt_x_range'][-1]) \
-                or (not self.problem.hindcast_grid_dict['gt_y_range'][0] <= self.cur_state[1] <=
-                        self.problem.hindcast_grid_dict['gt_y_range'][-1]):
+        if (not self.problem.hindcast_data_source['grid_dict']['x_range'][0] <= self.cur_state[0] <=
+                self.problem.hindcast_data_source['grid_dict']['x_range'][-1]) \
+                or (not self.problem.hindcast_data_source['grid_dict']['y_range'][0] <= self.cur_state[1] <=
+                        self.problem.hindcast_data_source['grid_dict']['y_range'][-1]):
             print("Sim terminate because state went out of the spatial domains of the hindcast files.")
             return True, "outside_spatial_domain_of_hindcasts"
 
@@ -394,7 +389,7 @@ class OceanNavSimulator:
             x_T_radius=self.problem.x_T_radius,
             traj_full=x_traj,
             control_traj=self.control_traj[:, ::temporal_stride],
-            file_dicts=self.problem.hindcasts_dicts,
+            file_dicts=self.problem.hindcast_data_source,
             u_max=self.problem.dyn_dict['u_max'],
             deg_around_x0_xT_box=deg_around_x0_xT_box,
             html_render=html_render, filename=vid_file_name,
@@ -427,23 +422,23 @@ class OceanNavSimulator:
         elif plotting_type == '2D_w_currents':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             ax = plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
-                                                      deg_around_x0_xT_box=deg_around_x0_xT_box,
-                                                      time=time_for_currents,
-                                                      x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
-                                                      file_dicts=self.problem.hindcasts_dicts,
-                                                      return_ax=return_ax)
+                                                           deg_around_x0_xT_box=deg_around_x0_xT_box,
+                                                           time=time_for_currents,
+                                                           x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
+                                                           file_dicts=self.problem.hindcast_data_source,
+                                                           return_ax=return_ax)
             return ax
 
         elif plotting_type == '2D_w_currents_w_controls':
             print("Plotting 2D trajectory with the true currents at time_for_currents/t_0")
             ax = plotting_utils.plot_2D_traj_over_currents(x_traj[:2, :],
-                                                      deg_around_x0_xT_box=deg_around_x0_xT_box,
-                                                      time=time_for_currents,
-                                                      x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
-                                                      file_dicts=self.problem.hindcasts_dicts,
-                                                      ctrl_seq=self.control_traj[:, ::temporal_stride],
-                                                      u_max=self.problem.dyn_dict['u_max'],
-                                                      return_ax=return_ax)
+                                                           deg_around_x0_xT_box=deg_around_x0_xT_box,
+                                                           time=time_for_currents,
+                                                           x_T=self.problem.x_T[:2], x_T_radius=self.problem.x_T_radius,
+                                                           file_dicts=self.problem.hindcast_data_source,
+                                                           ctrl_seq=self.control_traj[:, ::temporal_stride],
+                                                           u_max=self.problem.dyn_dict['u_max'],
+                                                           return_ax=return_ax)
             return ax
 
         elif plotting_type == 'ctrl':

@@ -87,17 +87,19 @@ class HJPlannerBase(Planner):
     def plan(self, x_t, trajectory=None):
         """Main function where the reachable front is computed."""
         # Step 1: read the relevant subset of data (if it changed)
-        if self.new_forecast_dicts:
+        if self.updated_forecast_source:
             self.update_current_data(x_t=x_t)
 
         # Check if x_t is in the forecast times and transform to rel_time in seconds
         if x_t[3] < self.current_data_t_0:
             raise ValueError("Current time {} is before the start of the forecast file. This should not happen. t_range {}".format(
-                datetime.utcfromtimestamp(x_t[3][0])), self.cur_forecast_dicts[0]['t_range'])
+                datetime.utcfromtimestamp(x_t[3][0])), self.forecast_data_source['grid_dict']['t_range'])
         # Check if the current_data is sufficient for planning over the specified time horizon, if not give warning.
-        if x_t[3] + 3600 * self.specific_settings['T_goal_in_h'] > self.current_data_t_T:
+        if x_t[3] + self.specific_settings['hours_to_hj_solve_timescale'] * self.specific_settings['T_goal_in_h'] > self.current_data_t_T:
             warnings.warn("Forecast file {} with range {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}. Automatically adjusting.".format(
-                self.cur_forecast_dicts[0]['file'], self.cur_forecast_dicts[0]['t_range'], datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
+                self.forecast_data_source['content'][self.forecast_data_source['current_forecast_idx']]['file'],
+                self.forecast_data_source['grid_dict']['t_range'],
+                datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
 
         x_t_rel = np.copy(x_t)
         x_t_rel[3] = x_t_rel[3] - self.current_data_t_0
@@ -168,12 +170,12 @@ class HJPlannerBase(Planner):
             """
 
         # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
-        self.nondim_dynamics.tau_c = min(T_max_in_h * 3600, int(self.current_data_t_T - self.current_data_t_0))
+        self.nondim_dynamics.tau_c = min(T_max_in_h * self.specific_settings['hours_to_hj_solve_timescale'], int(self.current_data_t_T - self.current_data_t_0))
         self.nondim_dynamics.t_0 = t_start
 
         # set up the non_dimensional time-vector for which to save the value function
         solve_times = np.linspace(0, 1, self.specific_settings['n_time_vector'] + 1)
-        # solve_times = t_start + np.linspace(0, T_max_in_h * 3600, self.specific_settings['n_time_vector'] + 1)
+        # solve_times = t_start + np.linspace(0, T_max_in_h * self.specific_settings['hours_to_hj_solve_timescale'], self.specific_settings['n_time_vector'] + 1)
 
         if dir == 'backward' or dir == 'multi-reach-back':
             solve_times = np.flip(solve_times, axis=0)
@@ -233,7 +235,7 @@ class HJPlannerBase(Planner):
             if reached:
                 break
         # extract earliest relative time of idx
-        T_earliest_in_h = (self.reach_times[idx] - self.reach_times[0]) / 3600
+        T_earliest_in_h = (self.reach_times[idx] - self.reach_times[0]) / self.specific_settings['hours_to_hj_solve_timescale']
         if not reached:
             print("Not reached, returning maximum time for the backwards reachability.")
         return reached, T_earliest_in_h
@@ -279,20 +281,41 @@ class HJPlannerBase(Planner):
         t_interval, lat_bnds, lon_bnds = \
             simulation_utils.convert_to_lat_lon_time_bounds(x_t.flatten(), self.x_T,
                                                             deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
-                                                            temp_horizon_in_h=self.specific_settings['T_goal_in_h'])
+                                                            temp_horizon_in_h=self.specific_settings['T_goal_in_h'],
+                                                            hours_to_hj_solve_timescale=self.specific_settings['hours_to_hj_solve_timescale'])
 
-        # get the data subset from the file
-        grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
-            t_interval, lat_bnds, lon_bnds,
-            file_dicts=self.cur_forecast_dicts)
+        # if it's a forecast we need to update the grid dict
+        if 'current_forecast_idx' in self.forecast_data_source:
+            self.forecast_data_source['grid_dict'] = self.problem.derive_grid_dict_from_files(self.forecast_data_source)
 
-        # calculate target shape of the grid
-        x_n_res = int((grids_dict['x_grid'][-1] - grids_dict['x_grid'][0])/self.specific_settings['grid_res'][0])
-        y_n_res = int((grids_dict['y_grid'][-1] - grids_dict['y_grid'][0])/self.specific_settings['grid_res'][1])
+        # Step 0: check if within the spatial and temporal domain. Otherwise modify.
+        lat_bnds = [max(lat_bnds[0], self.forecast_data_source['grid_dict']['y_range'][0]),
+                    min(lat_bnds[1], self.forecast_data_source['grid_dict']['y_range'][1])]
+        lon_bnds = [max(lon_bnds[0], self.forecast_data_source['grid_dict']['x_range'][0]),
+                    min(lon_bnds[1], self.forecast_data_source['grid_dict']['x_range'][1])]
 
-        # do spatial interpolation to the desired resolution to run HJ_reachability
-        grids_dict['x_grid'], grids_dict['y_grid'], water_u, water_v = simulation_utils.spatial_interpolation(
-            grids_dict, water_u, water_v, target_shape=(x_n_res, y_n_res), kind='linear')
+        if self.forecast_data_source['data_source_type'] == 'analytical_function':
+            # calculate target shape of the grid
+            x_n_res = int((lon_bnds[-1] - lon_bnds[0]) / self.specific_settings['grid_res'][0])
+            y_n_res = int((lat_bnds[-1] - lat_bnds[0]) / self.specific_settings['grid_res'][1])
+            # get the data subset from analytical field with specific shape
+            grids_dict, water_u, water_v = self.forecast_data_source['content'].get_subset_from_analytical_field(
+                t_interval,lat_bnds, lon_bnds, spatial_shape=(x_n_res, y_n_res))
+            grids_dict['not_plot_land'] = True
+
+        else:
+            # get the data subset from the file
+            grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
+                t_interval, lat_bnds, lon_bnds,
+                data_source=self.forecast_data_source)
+
+            # calculate target shape of the grid
+            x_n_res = int((grids_dict['x_grid'][-1] - grids_dict['x_grid'][0])/self.specific_settings['grid_res'][0])
+            y_n_res = int((grids_dict['y_grid'][-1] - grids_dict['y_grid'][0])/self.specific_settings['grid_res'][1])
+
+            # do spatial interpolation to the desired resolution to run HJ_reachability
+            grids_dict['x_grid'], grids_dict['y_grid'], water_u, water_v = simulation_utils.spatial_interpolation(
+                grids_dict, water_u, water_v, target_shape=(y_n_res, x_n_res), kind='linear')
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
@@ -379,13 +402,13 @@ class HJPlannerBase(Planner):
 
         # interpolate
         val_at_t = interp1d(self.reach_times - self.reach_times[0], self.all_values, axis=0, kind='linear')(
-            rel_time_in_h * 3600).squeeze()
+            rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale']).squeeze()
 
         # If in normal reachability setting
         if not multi_reachability:
             hj.viz.visSet(self.grid, val_at_t, level=0, color='black', colorbar=False, obstacles=None, target_set=None)
         else:   # multi-reachability
-            multi_reach_rel_time = (rel_time_in_h * 3600 - self.reach_times[-1])/3600
+            multi_reach_rel_time = (rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale'] - self.reach_times[-1])/self.specific_settings['hours_to_hj_solve_timescale']
             non_dim_val_func_levels, abs_time_y_ticks, y_label = self.get_multi_reach_levels(
                 granularity_in_h, time_to_reach=time_to_reach, vmin=val_at_t.min(), abs_time_in_h=multi_reach_rel_time)
             # plot with the basic function
@@ -396,9 +419,13 @@ class HJPlannerBase(Planner):
 
             ax.scatter(self.x_0[0], self.x_0[1], color='r', marker='o')
             ax.scatter(self.x_T[0], self.x_T[1], color='g', marker='x')
-            ax.set_title("Multi-Reach at time {}".format(datetime.fromtimestamp(
-                self.reach_times[0] + rel_time_in_h * 3600 + self.current_data_t_0,
-                tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')))
+            if self.forecast_data_source['data_source_type'] == 'analytical_function':
+                ax.set_title("Multi-Reach at time {} hours".format(
+                    self.reach_times[0] + rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale'] + self.current_data_t_0))
+            else:
+                ax.set_title("Multi-Reach at time {}".format(datetime.fromtimestamp(
+                    self.reach_times[0] + rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale'] + self.current_data_t_0,
+                    tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')))
             plt.show()
 
     def plot_reachability_animation(self, type='gif', multi_reachability=False, granularity_in_h=5, time_to_reach=False):
@@ -412,11 +439,11 @@ class HJPlannerBase(Planner):
         # create the animation
         if not multi_reachability:
             hj.viz.visSet2DAnimation(
-                self.grid, self.all_values, (self.reach_times - self.reach_times[0])/3600,
+                self.grid, self.all_values, (self.reach_times - self.reach_times[0])/self.specific_settings['hours_to_hj_solve_timescale'],
                 type=type, x_init=x_init, colorbar=False)
         # Create multi-reachability animation
         else:
-            abs_time_in_h_vec = (self.reach_times - self.reach_times[0]) / 3600
+            abs_time_in_h_vec = (self.reach_times - self.reach_times[0]) / self.specific_settings['hours_to_hj_solve_timescale']
             non_dim_val_func_levels, abs_time_y_ticks, y_label = self.get_multi_reach_levels(
                 granularity_in_h, time_to_reach=time_to_reach, vmin=self.all_values.min(), abs_time_in_h=abs_time_in_h_vec[-1])
             hj.viz.visSet2DAnimation(self.grid, self.all_values, abs_time_in_h_vec,
