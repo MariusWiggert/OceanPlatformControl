@@ -23,11 +23,13 @@ t_0 = datetime.datetime(2021, 11, 22, 12, 10, 10, tzinfo=datetime.timezone.utc)
 # # short 80h start-goal Mission
 x_0 = [-88.25, 26.5, 1]  # lon, lat, battery
 x_T = [-90, 26]
-hindcast_folder = "data/single_day_hindcasts/"
-hindcast_source = {'data_source_type': 'multiple_daily_nc_files',
-                   'data_source': hindcast_folder}
-# hindcast_source = {'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
-#                    'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh'}
+# hindcast_folder = "data/single_day_hindcasts/"
+# hindcast_source = {'data_source_type': 'multiple_daily_nc_files',
+#                    'data_source': hindcast_folder}
+hindcast_source = {'data_source_type': 'cop_opendap',
+                   'data_source': {'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
+                                   'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh'}}
+
 
 forecast_folder = "data/forecast_test/"
 forecasts_source = {'data_source_type': 'single_nc_file',

@@ -142,9 +142,9 @@ def get_current_data_subset_from_cop_opendap(t_interval, lat_interval, lon_inter
     t_interval_naive = [time.replace(tzinfo=None) for time in t_interval]
     t_interval_naive[0] = t_interval_naive[0] - timedelta(hours=1)
     t_interval_naive[1] = t_interval_naive[1] + timedelta(hours=1)
-    subsetted_frame = data_source['DS_object'].sel(time=slice(t_interval_naive[0], t_interval_naive[1]),
-                                                   latitude=slice(lat_interval[0], lat_interval[1]),
-                                                   longitude=slice(lon_interval[0], lon_interval[1]))
+    subsetted_frame = data_source['content'].sel(time=slice(t_interval_naive[0], t_interval_naive[1]),
+                                                 latitude=slice(lat_interval[0], lat_interval[1]),
+                                                 longitude=slice(lon_interval[0], lon_interval[1]))
 
     # grids_dict containing x_grid, y_grid, t_grid (in POSIX), and spatial_land_mask (2D array)
     u_data_masked = np.ma.masked_invalid(subsetted_frame['uo'].data)

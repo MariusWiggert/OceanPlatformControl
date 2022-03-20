@@ -4,8 +4,8 @@ PlannerConfig:
     specific_settings:
       'direction': 'multi-reach-back'
       # 'fwd_back_buffer_in_h': 2 # this is the time added to the earliest_to_reach as buffer for forward-backward
-      'T_goal_in_h': 20
-      'hours_to_hj_solve_timescale': 1 #3600.  # if we work with analytical_currents this should be 1 for interpretability
+      'T_goal_in_h': 100
+      'hours_to_hj_solve_timescale': 3600.  # if we work with analytical_currents this should be 1 for interpretability
       # 'd_max': 0.05
       # 'initial_set_radii': [0.3, 0.3] # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
       'n_time_vector': 100 # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
