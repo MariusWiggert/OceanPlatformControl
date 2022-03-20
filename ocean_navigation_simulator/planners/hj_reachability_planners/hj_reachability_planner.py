@@ -150,6 +150,10 @@ class HJPlannerBase(Planner):
         else:
             raise ValueError("Direction in controller YAML needs to be one of {backward, forward, forward-backward, multi-reach-back}")
 
+        # check if all_values contains any Nans
+        if jnp.isnan(self.all_values).sum() > 0:
+            raise ValueError("HJ Planner has NaNs in all values. Something went wrong in solving the PDE.")
+
         # log it for plotting planned trajectory
         self.x_t = x_t
 

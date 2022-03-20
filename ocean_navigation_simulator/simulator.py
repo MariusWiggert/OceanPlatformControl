@@ -237,6 +237,9 @@ class OceanNavSimulator:
     def thrust_check(self, u_planner):
         """If the thrust would use more energy than available adjust accordingly."""
 
+        if np.isnan(u_planner).sum() > 0 :
+            raise ValueError("Planner action contains Nan, specifically u_planner=", u_planner)
+
         charge = self.problem.dyn_dict['solar_factor'] \
                  * solar_rad(self.cur_state[3], self.cur_state[1], self.cur_state[0])
 

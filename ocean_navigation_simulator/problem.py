@@ -26,7 +26,7 @@ class Problem:
             A dict object, always containing "data_source_type" and "data_source" which gives the information
             where to get the data for the forecast (what the planner sees) and the hindcast (what the simulator uses).
             Currently, we have three "data_source_type"'s implemented:
-            {"single_nc_file", "multiple_daily_nc_files", "opendap", "analytical_function"}
+            {"single_nc_file", "multiple_daily_nc_files", "cop_opendap", "analytical_function"}
             They all require different inputs for "content"
             "single_nc_file", "multiple_daily_nc_files": expect a path to the folder of the file(s)
             "cop_opendap": expects a dict with the specifications to establish the connection.
@@ -169,6 +169,9 @@ class Problem:
             # modify to be datetime objects
             updated_data_source['grid_dict']['t_range'] = [datetime.fromtimestamp(rel_time[0], timezone.utc) for
                                                                  rel_time in updated_data_source['grid_dict']['t_range']]
+        else:
+            raise ValueError("data_source[\'data_source_type\'] must be in {\"single_nc_file\","
+                             " \"multiple_daily_nc_files\", \"cop_opendap\", \"analytical_function\"}")
 
         return updated_data_source
 
