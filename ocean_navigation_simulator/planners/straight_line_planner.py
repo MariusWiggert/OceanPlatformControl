@@ -15,7 +15,7 @@ class StraightLinePlanner(Planner):
         """This planner doesn't need any re-planning."""
         return None
 
-    def get_next_action(self, x_t):
+    def get_next_action(self, x_t, trajectory):
         """Go in the direction of the target with full power. See superclass for args and return value. """
 
         lon, lat = x_t[0][0], x_t[1][0]

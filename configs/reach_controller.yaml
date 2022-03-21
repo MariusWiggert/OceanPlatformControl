@@ -1,8 +1,9 @@
 PlannerConfig:
-    name: "HJReach2DPlanner"
+    name: "HJReach2DPlannerWithErrorHeuristic"
     dt_replanning: 3600000000000.       # right now very high as only tested open-loop control once
     specific_settings:
       'direction': 'multi-reach-back'
+      'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
       # 'fwd_back_buffer_in_h': 2 # this is the time added to the earliest_to_reach as buffer for forward-backward
       'T_goal_in_h': 100
       'hours_to_hj_solve_timescale': 3600.  # if we work with analytical_currents this should be 1 for interpretability

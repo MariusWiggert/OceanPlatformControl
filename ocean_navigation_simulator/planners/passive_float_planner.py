@@ -15,7 +15,7 @@ class PassiveFloating(Planner):
         """This planner doesn't need any re-planning."""
         return
 
-    def get_next_action(self, x_t):
+    def get_next_action(self, x_t, trajectory):
         """Just return 0. """
 
         # go there full power

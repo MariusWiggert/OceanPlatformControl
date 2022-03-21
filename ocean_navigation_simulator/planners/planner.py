@@ -83,7 +83,7 @@ class Planner:
             if self.forecast_data_source is None:
                 raise ValueError('No forecast file is available.')
 
-    def get_next_action(self, state):
+    def get_next_action(self, state, trajectory):
         """ Using this function is equivalent to open-loop control without a waypoint tracker.
         It returns (thrust, header) for the next timestep.
 

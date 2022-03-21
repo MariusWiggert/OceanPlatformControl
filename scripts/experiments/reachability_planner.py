@@ -63,10 +63,42 @@ sim = OceanNavSimulator(sim_config_dict="simulator.yaml",
                         control_config_dict='reach_controller.yaml',
                         problem=prob)
 start = time.time()
-sim.run(T_in_h=100)
+sim.run(T_in_h=10)
 print("Took : ", time.time() - start)
 print("Arrived after {} h".format((sim.trajectory[3,-1] - sim.trajectory[3,0])/3600))
 # 67.0 exactly!
+#%%
+u_out = sim.high_level_planner.get_next_action(sim.cur_state)
+#%%
+# Step 1: check if EVM of forecast in last time step is above threshold
+# This is in m/s
+ds = sim.trajectory[:2,-1] - sim.trajectory[:2,-2]
+dt = sim.trajectory[3,-1] - sim.trajectory[3,-2]
+last_sensed_vec = (ds/dt) * sim.high_level_planner.conv_m_to_deg
+# correct to rel_time for querying the forecasted current
+rel_time = sim.cur_state[3] - sim.high_level_planner.current_data_t_0
+#%%
+# This is in m/s
+cur_forecasted = sim.high_level_planner.conv_m_to_deg * sim.high_level_planner.nondim_dynamics.dimensional_dynamics(
+    sim.cur_state[:2], jnp.array([0,0]), jnp.array([0,0]), rel_time
+)
+#%%
+u_straight = sim.high_level_planner.get_straight_line_action(sim.cur_state)
+#%%
+EVM_threshold = 0.05
+# compute EVM
+EVM = jnp.linalg.norm(cur_forecasted - last_sensed_vec)
+if EVM >= EVM_threshold:
+    basis = EVM + EVM_threshold
+    w_straight_line = EVM/basis
+    w_fmrc_planned = EVM_threshold/basis
+
+    angle_weighted = np.array(w_fmrc_planned*u_out[1] + w_fmrc_planned*u_straight[1])[0]
+
+    u_out = np.asarray([1, angle_weighted]).reshape(-1, 1)
+#%%
+
+
 #%% Step 5: plot results from Simulator
 # # plot Battery levels over time
 sim.plot_trajectory(plotting_type='battery')

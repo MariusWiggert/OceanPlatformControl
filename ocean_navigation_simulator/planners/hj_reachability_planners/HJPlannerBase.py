@@ -1,7 +1,6 @@
 from ocean_navigation_simulator.planners.planner import Planner
 import numpy as np
 from ocean_navigation_simulator.utils import simulation_utils
-from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim, Platform2D_for_sim_with_disturbance
 from jax.interpreters import xla
 import jax.numpy as jnp
 from functools import partial
@@ -379,7 +378,7 @@ class HJPlannerBase(Planner):
         else:
             raise ValueError("Reachability Values are already in forward time.")
 
-    def get_next_action(self, state):
+    def get_next_action(self, state, trajectory):
         """Directly getting actions for closed-loop control.
         if forward:     applying the actions from the contr_seq
         if backward:    computing the gradient/action directly from the value function
@@ -490,47 +489,3 @@ class HJPlannerBase(Planner):
         else:
             raise ValueError("artificial_dissipation_scheme is not one of {global, local, local_local}")
 
-
-class HJReach2DPlanner(HJPlannerBase):
-    """ Reachability planner for 2D (lat, lon) reachability computation."""
-
-    def get_x_from_full_state(self, x):
-        return x[:2]
-
-    def get_dim_dynamical_system(self):
-        """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        # space coefficient is fixed for now as we run in deg/s (same as the simulator)
-        space_coeff = 1. / self.conv_m_to_deg
-        if 'd_max' in self.specific_settings and self.specific_settings['direction'] != "multi-reach-back":
-            print("High-Level Planner: Running with d_max")
-            return Platform2D_for_sim_with_disturbance(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
-                                      space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
-        else:
-            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
-
-
-    def initialize_hj_grid(self, grids_dict):
-        """Initialize the dimensional grid in degrees lat, lon"""
-        # initialize grid using the grids_dict x-y shape as shape
-        self.grid = hj.Grid.from_grid_definition_and_initial_values(
-            domain=hj.sets.Box(
-                lo=np.array([grids_dict['x_grid'][0], grids_dict['y_grid'][0]]),
-                hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1]])),
-            shape=(len(grids_dict['x_grid']), len(grids_dict['y_grid'])))
-
-    def get_initial_values(self, center, direction):
-        if direction == "forward":
-            return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
-                                           radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
-        elif direction == "backward":
-            return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
-                                           radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)
-        elif direction == "multi-reach-back":
-            signed_distance = hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
-                                           radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)
-            return np.maximum(signed_distance, np.zeros(signed_distance.shape))
-        else:
-            raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")

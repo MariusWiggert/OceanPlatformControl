@@ -82,8 +82,7 @@ class Platform2D_for_sim(dynamics.Dynamics):
         disturbance_direction = grad_value @ self.disturbance_jacobian(state, time)
         if self.disturbance_mode == 'min':
             disturbance_direction = -disturbance_direction
-        # return self.disturbance_space.extreme_point(disturbance_direction)
-        return jnp.zeros(2)
+        return self.disturbance_space.extreme_point(disturbance_direction)
 
     def optimal_control_and_disturbance(self, state, time, grad_value):
         """Computes the optimal control and disturbance realized by the HJ PDE Hamiltonian."""

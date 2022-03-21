@@ -226,7 +226,7 @@ class OceanNavSimulator:
     def run_step(self):
         """Run the simulator for one dt step"""
 
-        u = self.thrust_check(self.steering_controller.get_next_action(self.cur_state))
+        u = self.thrust_check(self.steering_controller.get_next_action(self.cur_state, self.trajectory))
 
         # update simulator states
         self.control_traj = np.append(self.control_traj, u, axis=1)
