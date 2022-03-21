@@ -467,6 +467,44 @@ class HJPlannerBase(Planner):
                                      filename='2D_multi_reach_animation')
 
 
+    def vis_Value_func_along_traj(self, figsize=(12,12), return_ax=False, extra_traj=None, time_to_reach=False):
+        """Plot the Value function along the most recently planned trajectory."""
+        fig, ax = plt.subplots(figsize=figsize)
+
+        if time_to_reach:
+            all_values_dimensional = 1 + self.all_values - (self.reach_times / self.reach_times[-1]).reshape(-1, 1, 1)
+            all_values = all_values_dimensional * self.specific_settings['T_goal_in_h']
+            ylabel = "Earliest-time-to-reach"
+        else:
+            ylabel = r"$\phi(x_t)$"
+            all_values = self.all_values
+
+        reach_times = (self.reach_times - self.reach_times[0]) / self.specific_settings['hours_to_hj_solve_timescale']
+        traj_times = (self.planned_trajs[-1]['traj'][3, :] - self.current_data_t_0 - self.reach_times[0]) / \
+                     self.specific_settings['hours_to_hj_solve_timescale']
+
+        hj.viz.visValFuncTraj(ax,
+                              traj_times=traj_times,
+                              x_traj=self.planned_trajs[-1]['traj'][:2, :],
+                              all_times=reach_times,
+                              all_values=all_values, grid=self.grid,
+                              flip_times=False,
+                              ylabel=ylabel)
+        if extra_traj is not None:
+            extra_traj_times = (extra_traj[3, :] - self.current_data_t_0 - self.reach_times[0]) / \
+                               self.specific_settings['hours_to_hj_solve_timescale']
+            hj.viz.visValFuncTraj(ax,
+                                  traj_times=extra_traj_times,
+                                  x_traj=extra_traj[:2, :],
+                                  all_times=self.reach_times / self.specific_settings['hours_to_hj_solve_timescale'],
+                                  all_values=all_values, grid=self.grid,
+                                  flip_times=False,
+                                  ylabel=ylabel)
+        if return_ax:
+            return ax
+        else:
+            plt.show()
+
     @staticmethod
     def get_multi_reach_levels(granularity_in_h, vmin, abs_time_in_h, time_to_reach):
         """Helper function to determine the levels for multi-reachability plotting."""
@@ -482,8 +520,6 @@ class HJPlannerBase(Planner):
             y_label = 'HJ Value Function'
 
         return non_dim_val_func_levels, abs_time_y_ticks, y_label
-
-
 
     def get_waypoints(self):
         """Returns: a list of waypoints each containing [lon, lat, time]"""
