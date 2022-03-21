@@ -74,7 +74,7 @@ class HJPlannerBase(Planner):
         raise ValueError("get_dim_dynamical_system must be implemented in the child class")
 
     # abstractmethod: needs to be implemented for each planner
-    def get_initial_values(self, center, direction):
+    def get_initial_values(self, direction):
         """Create the initial value function over the grid must be implemented by specific planner."""
         raise ValueError("get_initial_values must be implemented in the child class")
 
@@ -102,16 +102,18 @@ class HJPlannerBase(Planner):
 
         x_t_rel = np.copy(x_t)
         x_t_rel[3] = x_t_rel[3] - self.current_data_t_0
+        # log x_t_rel for get_initial_values to access it easily
+        self.x_t = x_t_rel
 
         # Step 2: depending on the reachability direction run the respective algorithm
         if self.specific_settings['direction'] == 'forward':
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel, direction="forward"),
+            self.run_hj_reachability(initial_values=self.get_initial_values(direction="forward"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='forward', x_reach_end=self.get_x_from_full_state(self.x_T), stop_at_x_end=True)
             self.extract_trajectory(x_start=self.get_x_from_full_state(self.x_T), traj_rel_times_vector=None)
         elif self.specific_settings['direction'] == 'backward':
             # Note: no trajectory is extracted as the value function is used for closed-loop control
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T, direction="backward"),
+            self.run_hj_reachability(initial_values=self.get_initial_values(direction="backward"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='backward')
             self.extract_trajectory(x_start=self.get_x_from_full_state(x_t_rel.flatten()), traj_rel_times_vector=None)
@@ -119,13 +121,13 @@ class HJPlannerBase(Planner):
             self.flip_value_func_to_forward_times()
         elif self.specific_settings['direction'] == 'forward-backward':
             # Step 1: run the set forward to get the earliest possible arrival time
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=x_t_rel, direction="forward"),
+            self.run_hj_reachability(initial_values=self.get_initial_values(direction="forward"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='forward', x_reach_end=self.get_x_from_full_state(self.x_T), stop_at_x_end=True)
             # Step 2: run the set backwards from the earliest arrival time backwards
             _, t_earliest_in_h = self.get_t_earliest_for_target_region()
             print("earliest for target region is ", t_earliest_in_h)
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T, direction="backward"),
+            self.run_hj_reachability(initial_values=self.get_initial_values(direction="backward"),
                                      t_start=x_t_rel[3],
                                      T_max_in_h=t_earliest_in_h + self.specific_settings['fwd_back_buffer_in_h'],
                                      dir='backward')
@@ -134,7 +136,7 @@ class HJPlannerBase(Planner):
             self.flip_value_func_to_forward_times()
         elif self.specific_settings['direction'] == 'multi-reach-back':
             # Step 1: run multi-reachability backwards in time
-            self.run_hj_reachability(initial_values=self.get_initial_values(center=self.x_T, direction="multi-reach-back"),
+            self.run_hj_reachability(initial_values=self.get_initial_values(direction="multi-reach-back"),
                                      t_start=x_t_rel[3], T_max_in_h=self.specific_settings['T_goal_in_h'],
                                      dir='multi-reach-back')
 
@@ -152,9 +154,6 @@ class HJPlannerBase(Planner):
         # check if all_values contains any Nans
         if jnp.isnan(self.all_values).sum() > 0:
             raise ValueError("HJ Planner has NaNs in all values. Something went wrong in solving the PDE.")
-
-        # log it for plotting planned trajectory
-        self.x_t = x_t
 
     def run_hj_reachability(self, initial_values, t_start, T_max_in_h, dir,
                             x_reach_end=None, stop_at_x_end=False):
@@ -230,7 +229,7 @@ class HJPlannerBase(Planner):
     def get_t_earliest_for_target_region(self):
         """Helper Function to get the earliest time the forward reachable set overlaps with the target region."""
         # get target_region_mask
-        target_region_mask = self.get_initial_values(center=np.array(self.problem.x_T), direction="backward") <= 0
+        target_region_mask = self.get_initial_values(direction="backward") <= 0
 
         # iterate forward to get earliest time it's inside
         for idx in range(self.all_values.shape[0]):
@@ -398,10 +397,14 @@ class HJPlannerBase(Planner):
                 times=self.reach_times, all_values=self.all_values)
         return np.asarray(u_out.reshape(-1, 1))
 
-    def plot_reachability_snapshot(self, rel_time_in_h,  multi_reachability=False, granularity_in_h=5, time_to_reach=False):
+    def plot_reachability_snapshot(self, rel_time_in_h,  multi_reachability=False, granularity_in_h=5,
+                                   time_to_reach=False, return_ax=False, fig_size_inches=(12, 12)):
         """ Plot the reachable set the planner was computing last. """
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
+
+        # get_initial_value
+        initial_values = self.get_initial_values(direction=self.specific_settings['direction'])
 
         # interpolate
         val_at_t = interp1d(self.reach_times - self.reach_times[0], self.all_values, axis=0, kind='linear')(
@@ -409,14 +412,15 @@ class HJPlannerBase(Planner):
 
         # If in normal reachability setting
         if not multi_reachability:
-            hj.viz.visSet(self.grid, val_at_t, level=0, color='black', colorbar=False, obstacles=None, target_set=None)
+            ax = hj.viz._visSet2D(self.grid, val_at_t, level=0, color='black',
+                                  colorbar=False, obstacles=None, target_set=initial_values, return_ax=True)
         else:   # multi-reachability
             multi_reach_rel_time = (rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale'] - self.reach_times[-1])/self.specific_settings['hours_to_hj_solve_timescale']
             non_dim_val_func_levels, abs_time_y_ticks, y_label = self.get_multi_reach_levels(
                 granularity_in_h, time_to_reach=time_to_reach, vmin=val_at_t.min(), abs_time_in_h=multi_reach_rel_time)
             # plot with the basic function
             ax = hj.viz._visSet2D(self.grid, val_at_t, level=0, color='black',
-                                  colorbar=True, obstacles=None, target_set=None,
+                                  colorbar=True, obstacles=None, target_set=initial_values,
                                   val_func_levels=non_dim_val_func_levels, y_label=y_label,
                                   yticklabels=abs_time_y_ticks, return_ax=True)
 
@@ -429,6 +433,13 @@ class HJPlannerBase(Planner):
                 ax.set_title("Multi-Reach at time {}".format(datetime.fromtimestamp(
                     self.reach_times[0] + rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale'] + self.current_data_t_0,
                     tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')))
+
+        # adjust the fig_size
+        fig = plt.gcf()
+        fig.set_size_inches(fig_size_inches[0], fig_size_inches[1])
+        if return_ax:
+            return ax
+        else:
             plt.show()
 
     def plot_reachability_animation(self, type='gif', multi_reachability=False, granularity_in_h=5, time_to_reach=False):

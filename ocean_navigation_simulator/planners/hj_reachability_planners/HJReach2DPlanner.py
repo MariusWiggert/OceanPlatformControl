@@ -34,16 +34,19 @@ class HJReach2DPlanner(HJPlannerBase):
                 hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1]])),
             shape=(len(grids_dict['x_grid']), len(grids_dict['y_grid'])))
 
-    def get_initial_values(self, center, direction):
+    def get_initial_values(self, direction):
         if direction == "forward":
+            center = self.x_t
             return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
                                            center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
                                            radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
         elif direction == "backward":
+            center = self.x_T
             return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
                                            center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
                                            radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)
         elif direction == "multi-reach-back":
+            center = self.x_T
             signed_distance = hj.shapes.shape_ellipse(grid=self.nonDimGrid,
                                            center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
                                            radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)
