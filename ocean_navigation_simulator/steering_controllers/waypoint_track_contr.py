@@ -40,7 +40,7 @@ class WaypointTrackingController:
         """
         return None
 
-    def get_next_action(self, state):
+    def get_next_action(self, state, trajectory):
         """ Returns (thrust, header) for the next timestep
 
         Args:

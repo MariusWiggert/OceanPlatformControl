@@ -27,7 +27,7 @@ class simple_P_tracker(WaypointTrackingController):
         idx = bisect.bisect_right(self.waypoint_timings, state[3], hi=len(self.waypoints)-1)
         return self.waypoints[idx][0], self.waypoints[idx][1]
 
-    def get_next_action(self, state):
+    def get_next_action(self, state, trajectory):
         """ Returns (thrust, header) for the next timestep
         Args:
             state:
