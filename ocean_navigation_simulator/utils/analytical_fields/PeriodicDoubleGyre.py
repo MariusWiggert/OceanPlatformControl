@@ -25,15 +25,21 @@ class PeriodicDoubleGyre(AnalyticalField):
                 positive float of a full period time of an oscillation in time units.
         """
 
-    def __init__(self, spatial_output_shape, temporal_domain, temporal_default_length, v_amplitude, epsilon_sep, period_time):
+    def __init__(self, spatial_output_shape, temporal_domain, temporal_default_length, v_amplitude, epsilon_sep, period_time,
+                 outside_current_mag=0.5, with_buffer=True):
 
-        super().__init__(spatial_domain = [np.array([0, 0]), np.array([2, 1])],
-                         spatial_output_shape =spatial_output_shape,
+        if with_buffer:
+            spatial_domain = [np.array([-0.1, -0.1]), np.array([2.1, 1.1])]
+        else:
+            spatial_domain = [np.array([0, 0]), np.array([2, 1])]
+        super().__init__(spatial_domain=spatial_domain,
+                         spatial_output_shape=spatial_output_shape,
                          temporal_domain=temporal_domain, temporal_default_length=temporal_default_length)
 
         self.v_amplitude = v_amplitude
         self.epsilon_sep = epsilon_sep
         self.period_time = period_time
+        self.outside_current_mag = outside_current_mag
 
     def u_current_analytical(self, state, time):
         """Analytical Formula for u velocity of Periodic Double Gyre."""
@@ -43,6 +49,13 @@ class PeriodicDoubleGyre(AnalyticalField):
         f = a*jnp.power(a*state[0],2) + b*state[0]
 
         u_cur_out = -jnp.pi*self.v_amplitude*jnp.sin(jnp.pi*f)*jnp.cos(jnp.pi*state[1])
+        # if below 0 change to keep field inside
+        u_cur_out = jnp.where(state[0] < 0, -self.outside_current_mag, u_cur_out)
+        # if above 2 change to keep field inside
+        u_cur_out = jnp.where(state[0] > 2, self.outside_current_mag, u_cur_out)
+        # if outside in y direction outside return 0
+        below = (state[1] > 1) + (state[1] < 0) + (state[0] > 2) + (state[0] < 0)
+        u_cur_out = jnp.where(below == 1, 0, u_cur_out)
         return u_cur_out
 
     def v_current_analytical(self, state, time):
@@ -54,4 +67,11 @@ class PeriodicDoubleGyre(AnalyticalField):
         df_dx = 2*a*state[0] + b
 
         v_cur_out = jnp.pi*self.v_amplitude*jnp.cos(jnp.pi*f)*jnp.sin(jnp.pi*state[1])*df_dx
+        # # if below 0 change to keep field inside
+        v_cur_out = jnp.where(state[1] < 0, -self.outside_current_mag, v_cur_out)
+        # if above 1 change to keep field inside
+        v_cur_out = jnp.where(state[1] > 1, self.outside_current_mag, v_cur_out)
+        # if outside in x direction outside return 0
+        below = (state[0] > 2) + (state[0] < 0)
+        v_cur_out = jnp.where(below == 1, 0, v_cur_out)
         return v_cur_out

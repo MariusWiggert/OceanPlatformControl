@@ -245,7 +245,7 @@ def plot_2D_traj_over_currents(x_traj, time, file_dicts, x_T=None, x_T_radius=No
             u_vec = ctrl_seq[0,:] * np.cos(ctrl_seq[1,:])
             v_vec = ctrl_seq[0,:] * np.sin(ctrl_seq[1, :])
             ax.quiver(x_traj[0,:-1], x_traj[1,:-1], u_vec, v_vec, color='m', scale=15, label="u_max=" + str(u_max) + "m/s")
-        plt.legend(loc='upper right')
+        plt.legend(loc='lower right')
 
     # plot underlying currents at time
     ax = visualize_currents(time, grids_dict, u_data, v_data, autoscale=True, plot=False)

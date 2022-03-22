@@ -1,10 +1,12 @@
 import datetime
 
+import matplotlib.pyplot as plt
 import numpy as np
 import jax.numpy as jnp
 import hj_reachability as hj
 from functools import partial
 import jax
+from ocean_navigation_simulator import utils
 
 
 class AnalyticalField:
@@ -92,12 +94,16 @@ class AnalyticalField:
 
         return grid_dict, u_data, v_data
 
-
-class test_field(AnalyticalField):
-    def u_current_analytical(self, state, time):
-        """To be implemented in the child class. Note only for 2D currently."""
-        return time
-
-    def v_current_analytical(self, state, time):
-        """To be implemented in the child class. Note only for 2D currently."""
-        return -time
+    def viz_field(self, inside=True):
+        # Step 1: get default subset from analytical
+        if inside:
+            x_range = [0,2]
+            y_range = [0,1]
+        else:
+            x_range = [-5, 5]
+            y_range = [-5, 5]
+        grid_dict, u_data, v_data = self.get_subset_from_analytical_field([0, 100], y_range, x_range)
+        # Step 2: plot it
+        ax = utils.plotting_utils.visualize_currents(0, grid_dict, u_data, v_data, autoscale=False, plot=False)
+        ax.set_title("Analytical Current Field")
+        plt.show()

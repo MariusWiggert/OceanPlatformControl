@@ -148,6 +148,9 @@ class HJPlannerBase(Planner):
                                     traj_rel_times_vector=None, termination_condn=termination_condn)
             # arrange to forward times by convention for plotting and open-loop control (aka closed-loop with this)
             self.flip_value_func_to_forward_times()
+            if self.all_values.min() < -2:
+                raise ValueError(
+                    "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1.")
         else:
             raise ValueError("Direction in controller YAML needs to be one of {backward, forward, forward-backward, multi-reach-back}")
 
@@ -409,6 +412,7 @@ class HJPlannerBase(Planner):
         # interpolate
         val_at_t = interp1d(self.reach_times - self.reach_times[0], self.all_values, axis=0, kind='linear')(
             rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale']).squeeze()
+
 
         # If in normal reachability setting
         if not multi_reachability:
