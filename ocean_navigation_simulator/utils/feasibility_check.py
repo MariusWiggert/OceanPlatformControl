@@ -36,6 +36,7 @@ def check_feasibility_2D_w_sim(problem, T_hours_forward, deg_around_xt_xT_box, g
             'dt_replanning': 3600000000000.,
             'specific_settings': {
                 'direction': 'multi-reach-back',
+                'd_max': 0.,
                 'T_goal_in_h': T_hours_forward,
                 'hours_to_hj_solve_timescale': hours_to_hj_solve_timescale,
                 'n_time_vector': 100,

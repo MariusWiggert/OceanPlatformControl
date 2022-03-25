@@ -63,6 +63,9 @@ class HJPlannerBase(Planner):
         # Note: as initialized here, it's not usable, only after 'update_current_data' is called for the first time.
         self.nondim_dynamics = hj.dynamics.NonDimDynamics(dimensional_dynamics=self.get_dim_dynamical_system())
 
+        if self.specific_settings['d_max'] > 0 and self.specific_settings['direction'] == "multi-reach-back":
+            print("No disturbance implemented for multi-time reachability, only runs with d_max=0.")
+
     # abstractmethod: needs to be implemented for each planner
     def initialize_hj_grid(self, grids_dict):
         """ Initialize grid to solve PDE on. """
@@ -279,15 +282,17 @@ class HJPlannerBase(Planner):
         plan_dict = {'traj':trajectory, 'ctrl':self.contr_seq}
         self.planned_trajs.append(plan_dict)
 
-    def update_current_data(self, x_t):
-        print("Reachability Planner: Loading new current data.")
 
+    def get_data_bounds(self, x_t):
+        """Helper Funcion to get the bounds for subsetting."""
         # get the t, lat, lon bounds for sub-setting the data
         t_interval, lat_bnds, lon_bnds = \
             simulation_utils.convert_to_lat_lon_time_bounds(x_t.flatten(), self.x_T,
-                                                            deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
+                                                            deg_around_x0_xT_box=self.specific_settings[
+                                                                'deg_around_xt_xT_box'],
                                                             temp_horizon_in_h=self.specific_settings['T_goal_in_h'],
-                                                            hours_to_hj_solve_timescale=self.specific_settings['hours_to_hj_solve_timescale'])
+                                                            hours_to_hj_solve_timescale=self.specific_settings[
+                                                                'hours_to_hj_solve_timescale'])
 
         # if it's a forecast we need to update the grid dict
         if 'current_forecast_idx' in self.forecast_data_source:
@@ -299,15 +304,28 @@ class HJPlannerBase(Planner):
         lon_bnds = [max(lon_bnds[0], self.forecast_data_source['grid_dict']['x_range'][0]),
                     min(lon_bnds[1], self.forecast_data_source['grid_dict']['x_range'][1])]
 
+        return lat_bnds, lon_bnds, t_interval
+
+    def update_current_data(self, x_t):
+        print("Reachability Planner: Loading new current data.")
+
+        lat_bnds, lon_bnds, t_interval = self.get_data_bounds(x_t)
+
+        # Option 1: Data Source is an analytical field
         if self.forecast_data_source['data_source_type'] == 'analytical_function':
             # calculate target shape of the grid
             x_n_res = int((lon_bnds[-1] - lon_bnds[0]) / self.specific_settings['grid_res'][0])
             y_n_res = int((lat_bnds[-1] - lat_bnds[0]) / self.specific_settings['grid_res'][1])
-            # get the data subset from analytical field with specific shape
-            grids_dict, water_u, water_v = self.forecast_data_source['content'].get_subset_from_analytical_field(
-                t_interval,lat_bnds, lon_bnds, spatial_shape=(x_n_res, y_n_res))
+
+            # get the grid dict
+            grids_dict, _ = self.forecast_data_source['content'].get_grid_dict(
+                t_interval, lat_interval=lat_bnds, lon_interval=lon_bnds, spatial_shape=(x_n_res, y_n_res))
             grids_dict['not_plot_land'] = True
 
+            self.nondim_dynamics.dimensional_dynamics.set_currents_from_analytical(self.forecast_data_source)
+            self.forecast_data_source['content'].current_run_t_0 = grids_dict['t_grid'][0]
+
+        # Option 2: Data Source comes from a file
         else:
             # get the data subset from the file
             grids_dict, water_u, water_v = simulation_utils.get_current_data_subset(
@@ -322,19 +340,20 @@ class HJPlannerBase(Planner):
             grids_dict['x_grid'], grids_dict['y_grid'], water_u, water_v = simulation_utils.spatial_interpolation(
                 grids_dict, water_u, water_v, target_shape=(y_n_res, x_n_res), kind='linear')
 
+            # feed in the current data to the Platform classes
+            # Note: we use a relative time grid (starts with 0 for every file)
+            # because otherwise there are errors in the interpolation as jax uses float32
+            self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(
+                grids_dict['x_grid'],
+                grids_dict['y_grid'],
+                np.array([t - grids_dict['t_grid'][0] for t in grids_dict['t_grid']]),
+                water_u, water_v)
+
+
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
         # set absolute final time in UTC Posix time
         self.current_data_t_T = grids_dict['t_grid'][-1]
-
-        # feed in the current data to the Platform classes
-        # Note: we use a relative time grid (starts with 0 for every file)
-        # because otherwise there are errors in the interpolation as jax uses float32
-        self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(
-            grids_dict['x_grid'],
-            grids_dict['y_grid'],
-            np.array([t - self.current_data_t_0 for t in grids_dict['t_grid']]),
-            water_u, water_v)
 
         # initialize the grids and dynamics to solve the PDE with
         self.initialize_hj_grid(grids_dict)
@@ -345,7 +364,7 @@ class HJPlannerBase(Planner):
         # log that we just updated the forecast_file
         self.new_forecast_dicts = False
 
-        # Delete the old caches
+        # Delete the old caches (might not be necessary for analytical fields -> investigate)
         # print("Cache Size: ", hj.solver._solve._cache_size())
         hj.solver._solve._clear_cache()
         xla._xla_callable.cache_clear()

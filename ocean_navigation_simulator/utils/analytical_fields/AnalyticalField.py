@@ -15,14 +15,20 @@ class AnalyticalField:
         self.spatial_domain = hj.sets.Box(lo=spatial_domain[0], hi=spatial_domain[1])
         self.temporal_domain = hj.sets.Box(lo=np.array([temporal_domain[0]]),
                                            hi=np.array([temporal_domain[1]]))
+
         self.spatial_output_shape = spatial_output_shape
         self.temporal_output_shape = temporal_default_length
+        self.current_run_t_0 = 0.
 
         # Quick gut check
         if not (self.spatial_domain.ndim == len(spatial_output_shape) == 2):
             raise ValueError("spatial_output_shape does not fit in dimension with spatial_domain")
         if not (self.temporal_domain.ndim == 1 and isinstance(temporal_default_length, int)):
             raise ValueError("temporal_domain and temporal_output_shape must be 1D")
+
+    def get_time_relative_to_t_0(self, time):
+        """Helper function because with non-dimensionalization we run the u and v currents in relative time."""
+        return time - self.current_run_t_0
 
     def u_current_analytical(self, state, time):
         """To be implemented in the child class. Note only for 2D currently."""
@@ -34,6 +40,10 @@ class AnalyticalField:
 
     def get_grid_dict(self, t_interval=None, lat_interval=None, lon_interval=None, spatial_shape=None, temporal_res=None):
         """Helper Function to produce a grid dict."""
+
+        # Step 0.0: if t_interval is in datetime convert to relative time
+        if t_interval is not None and isinstance(t_interval[0], datetime.datetime):
+            t_interval = [time.timestamp() for time in t_interval]
 
         # Step 1: Check default or requested shape
         if spatial_shape is None:

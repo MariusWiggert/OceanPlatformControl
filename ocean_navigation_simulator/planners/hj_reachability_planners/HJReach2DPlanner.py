@@ -3,7 +3,7 @@ import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
-from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim, Platform2D_for_sim_with_disturbance
+from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim #Platform2D_for_sim_with_disturbance
 import hj_reachability as hj
 
 
@@ -16,14 +16,8 @@ class HJReach2DPlanner(HJPlannerBase):
     def get_dim_dynamical_system(self):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         # space coefficient is fixed for now as we run in deg/s (same as the simulator)
-        space_coeff = 1. / self.conv_m_to_deg
-        if 'd_max' in self.specific_settings and self.specific_settings['direction'] != "multi-reach-back":
-            print("High-Level Planner: Running with d_max")
-            return Platform2D_for_sim_with_disturbance(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
-                                      space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
-        else:
-            return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], space_coeff=space_coeff, control_mode='min', disturbance_mode='max')
-
+        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
+                                  space_coeff= 1. / self.conv_m_to_deg, control_mode='min', disturbance_mode='max')
 
     def initialize_hj_grid(self, grids_dict):
         """Initialize the dimensional grid in degrees lat, lon"""
@@ -134,7 +128,3 @@ class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
         if u_out[1] < 0:
             u_out[1] = u_out[1] + 2*np.pi
         return u_out
-
-
-
-

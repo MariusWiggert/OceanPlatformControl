@@ -2,8 +2,6 @@ import jax.lax
 import jax.numpy as jnp
 from hj_reachability import dynamics, sets, interpolation
 
-# TODO: Better way of fixing optimal disturbance to 0 as of right now it produces errors!
-
 
 class Platform2D_for_sim(dynamics.Dynamics):
     """ The 2D Ocean going Platform class on a dynamic current field.
@@ -35,6 +33,9 @@ class Platform2D_for_sim(dynamics.Dynamics):
         # initialize the current interpolants with None, they are set in the planner method
         self.x_current, self.y_current = None, None
 
+        # obstacle operator (is overwritten if analytical_current with boundary obstacles)
+        self.obstacle_operator = lambda state, time, dx_out: dx_out
+
         if control_space is None:
             control_space = sets.Box(lo=jnp.array([0, 0]),
                                      hi=jnp.array([1., 2 * jnp.pi]))
@@ -49,16 +50,28 @@ class Platform2D_for_sim(dynamics.Dynamics):
         """
 
         # create 1D interpolation functions for running in the loop of the dynamics
-        self.x_current = lambda point: interpolation.lin_interpo_1D(point, water_u, x_grid, y_grid, t_grid)
-        self.y_current = lambda point: interpolation.lin_interpo_1D(point, water_v, x_grid, y_grid, t_grid)
+        self.x_current = lambda state, time: interpolation.lin_interpo_1D(state, time, water_u, x_grid, y_grid, t_grid)
+        self.y_current = lambda state, time: interpolation.lin_interpo_1D(state, time, water_v, x_grid, y_grid, t_grid)
+
+    def set_currents_from_analytical(self, data_source):
+        """Helper functions to set the analytical equations."""
+        if data_source['data_source_type'] != "analytical_function":
+            raise ValueError("Platform2D_analytical: data_source_type is not analytical function.")
+
+        self.x_current = data_source['content'].u_current_analytical
+        self.y_current = data_source['content'].v_current_analytical
+
+        self.obstacle_operator = lambda state, time, dx_out: jnp.where(
+            data_source['content'].is_boundary(state, time), 0., dx_out)
 
     def __call__(self, state, control, disturbance, time):
         """Implements the continuous-time dynamics ODE."""
         # calculation happens in m/s
-        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time))
-        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time))
+        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(state, time) + disturbance[0]
+        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(state, time) + disturbance[1]
         # units get transformed by space_coeff
-        return self.space_coeff * jnp.array([dx1, dx2])
+        dx_out = self.space_coeff * jnp.array([dx1, dx2]).reshape(-1)
+        return self.obstacle_operator(state, time, dx_out)
 
     @staticmethod
     def disturbance_jacobian(state, time):
@@ -88,17 +101,3 @@ class Platform2D_for_sim(dynamics.Dynamics):
         """Computes the optimal control and disturbance realized by the HJ PDE Hamiltonian."""
         return (self.optimal_control(state, time, grad_value),
                 self.optimal_disturbance(state, time, grad_value))
-
-
-# In Multi-Reachability the inside is flat (so no gradients) that leads to problems when calculating the disturbance
-# Hence, we need to split it in a class with disturbance and one without.
-class Platform2D_for_sim_with_disturbance(Platform2D_for_sim):
-    # Just overwrite the call and not add the disturbance term
-    def __call__(self, state, control, disturbance, time):
-        """Implements the continuous-time dynamics ODE."""
-        # calculation happens in m/s
-        dx1 = self.u_max * control[0] * jnp.cos(control[1]) + self.x_current(jnp.append(state, time)) + disturbance[0]
-        dx2 = self.u_max * control[0] * jnp.sin(control[1]) + self.y_current(jnp.append(state, time)) + disturbance[1]
-        # units get transformed by space_coeff
-        return self.space_coeff * jnp.array([dx1, dx2])
-
