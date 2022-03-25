@@ -26,18 +26,23 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
     angle_diff = calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
     vec_corr = calc_vector_correlation(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
 
-    return {'RMSE': RMSE, 'shortest_angle_diff': angle_diff, 'vector_correlation':vec_corr}
+    return {'RMSE_velocity': RMSE, 'angle_diff': angle_diff, 'vector_correlation':vec_corr}
 
 ### HELPER FUNCTIONS
 def calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
     """Helper function to calculate the RMSE on current speed."""
-    forecast_speed = np.sqrt(u_data_forecast**2 + v_data_forecast**2)
-    hindcast_speed = np.sqrt(u_data_hindcast ** 2 + v_data_hindcast ** 2)
-    RMSE_speed = np.abs(forecast_speed - hindcast_speed).mean()
+    RMSE_speed = np.sqrt((u_data_forecast-u_data_hindcast)**2 + (v_data_forecast-v_data_hindcast)**2).mean()
     return RMSE_speed
+
+# turns out this doesn't consider the angle so it's equivalent to RMSE...
+def error_vector_magnitude(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
+    error_vector = np.stack((u_data_hindcast, v_data_hindcast)) - np.stack((u_data_forecast, v_data_forecast))
+    return np.linalg.norm(error_vector, axis=0).mean()
+
 
 def calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
     return np.abs(np.arctan2(v_data_hindcast, u_data_hindcast) - np.arctan2(v_data_forecast, u_data_forecast)).mean()
+
 
 def calc_vector_correlation(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast, print_out=False):
     # Flatten out the vectors
