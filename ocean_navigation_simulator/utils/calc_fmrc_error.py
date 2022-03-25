@@ -16,10 +16,18 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
         temp_horizon_in_h=T_horizon,
         hours_to_hj_solve_timescale=hours_to_abs_time)
 
+    ana_cur = problem.hindcast_data_source['content']
+
+    # limit it to inside
+    y_interval = [max(lat_interval[0], ana_cur.spatial_domain.lo[1] + ana_cur.boundary_buffers[1]),
+                  min(lat_interval[1], ana_cur.spatial_domain.hi[1] - ana_cur.boundary_buffers[1])]
+    x_interval = [max(lon_interval[0], ana_cur.spatial_domain.lo[0] + ana_cur.boundary_buffers[0]),
+                  min(lon_interval[1], ana_cur.spatial_domain.hi[0] - ana_cur.boundary_buffers[0])]
+
     grids_dict_hindcast, u_data_hindcast, v_data_hindcast = utils.simulation_utils.get_current_data_subset(
-        t_interval, lat_interval, lon_interval, problem.hindcast_data_source)
+        t_interval, y_interval, x_interval, problem.hindcast_data_source)
     grids_dict_forecast, u_data_forecast, v_data_forecast = utils.simulation_utils.get_current_data_subset(
-        t_interval, lat_interval, lon_interval, problem.forecast_data_source)
+        t_interval, y_interval, x_interval, problem.forecast_data_source)
 
     # Step 2: Calculate things and return them as dict
     RMSE = calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
