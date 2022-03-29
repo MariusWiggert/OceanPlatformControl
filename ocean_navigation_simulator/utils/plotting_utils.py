@@ -105,7 +105,7 @@ def visualize_currents(time, grids_dict, u_data, v_data, vmin=0, vmax=None, alph
 
     if not 'not_plot_land' in grids_dict:
         # plot coastlines and land on top
-        ax.coastlines(resolution='50m', zorder=4)
+        # ax.coastlines(resolution='50m', zorder=4)
         ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
         # ax.add_feature(cfeature.OCEAN, zorder=0)
         grid_lines = ax.gridlines(draw_labels=True, zorder=5)

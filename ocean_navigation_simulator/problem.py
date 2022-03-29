@@ -175,7 +175,7 @@ class Problem:
 
         return updated_data_source
 
-    def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, add_ax_func=None,
+    def viz(self, time=None, video=False, filename=None, cut_out_in_deg=0.8, add_ax_func=None, alpha_currents=0.5,
             html_render=None, temp_horizon_viz_in_h=120, return_ax=False, plot_start_target=True,
             temporal_stride=1, time_interval_between_pics=200, hours_to_hj_solve_timescale=3600):
         """Visualizes the Hindcast file with the ocean currents in a plot or a gif for a specific time or time range.
@@ -222,7 +222,8 @@ class Problem:
                                              grids_dict, u_data, v_data,
                                              interval=time_interval_between_pics,
                                              ax_adding_func=add_ax_func, html_render=html_render,
-                                             save_as_filename=filename)
+                                             save_as_filename=filename,
+                                             alpha=alpha_currents)
         # otherwise plot static image
         else:
             # Step 1: get the data_subset for plotting
@@ -233,7 +234,7 @@ class Problem:
                                                                  data_source=self.hindcast_data_source)
             # plot underlying currents at time
             ax = utils.plotting_utils.visualize_currents(time.timestamp(), grids_dict, u_data, v_data,
-                                               # figsize=figsize,
+                                               alpha=alpha_currents,
                                                autoscale=True, plot=False)
             # add the start and goal position to the plot
             add_ax_func(ax)
