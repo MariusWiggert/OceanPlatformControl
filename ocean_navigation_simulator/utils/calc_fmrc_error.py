@@ -11,6 +11,8 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
         raise ValueError("problem.hindcast_data_source['data_source_type'] is 'analytical_function'")
     if problem.forecast_data_source['data_source_type'] == 'analytical_function':
         raise ValueError("problem.forecast_data_source['data_source_type'] is 'analytical_function'")
+    # make sure T_horizon is an int
+    T_horizon = int(T_horizon)
 
     # Step 1: extract data from them
     t_interval, lat_interval, lon_interval = utils.simulation_utils.convert_to_lat_lon_time_bounds(
@@ -37,6 +39,9 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
             time=slice(HYCOM_Forecast['time'].data[0], HYCOM_Forecast['time'].data[0] + np.timedelta64(T_horizon, 'h')),
             lat=slice(lat_interval[0], lat_interval[1]),
             lon=slice(lon_interval[0], lon_interval[1]))
+        # check if right length
+        if HYCOM_Forecast['time'].shape[0] != T_horizon + 1:
+            continue
         # subset Hindcast to match with Forecast
         t_interval = [HYCOM_Forecast.variables['time'][0], HYCOM_Forecast.variables['time'][-1]]
         if problem.hindcast_data_source['data_source_type'] == 'cop_opendap':
@@ -59,7 +64,7 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
 
     return {'RMSE_velocity': np.array(RMSE_across_fmrc).mean(axis=0),
             'angle_diff': np.array(angle_diff_across_fmrc).mean(axis=0),
-            'vector_correlation':np.array(vec_corr_across_fmrc).mean(axis=0)}
+            'vector_correlation': np.array(vec_corr_across_fmrc).mean(axis=0)}
 
 
 def get_hindcast_from_hycom(t_interval, lat_interval, lon_interval, problem):
