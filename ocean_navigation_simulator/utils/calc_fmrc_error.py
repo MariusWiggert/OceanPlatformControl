@@ -46,7 +46,7 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
         t_interval = [HYCOM_Forecast.variables['time'][0], HYCOM_Forecast.variables['time'][-1]]
         if problem.hindcast_data_source['data_source_type'] == 'cop_opendap':
             Hindcast = get_hindcast_from_copernicus(HYCOM_Forecast, t_interval, lat_interval, lon_interval, problem)
-        elif problem.hindcast_data_source['data_source_type'] == 'single_nc_file':
+        elif problem.hindcast_data_source['data_source_type'] == 'multiple_daily_nc_files':
             Hindcast = get_hindcast_from_hycom(t_interval, lat_interval, lon_interval, problem)
         else:
             raise ValueError("Data source only opendap and single_nc_file implemented right now")
