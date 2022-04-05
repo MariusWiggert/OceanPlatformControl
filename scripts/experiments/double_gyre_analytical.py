@@ -11,26 +11,28 @@ import time
 platform_config_dict = {'battery_cap': 400.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
                         'solar_panel_size': 0.5, 'solar_efficiency': 0.2, 'drag_factor': 675}
 
+# Calculating forecast error metric
+
 
 hindcast_field = utils.analytical_fields.PeriodicDoubleGyre(
-    spatial_output_shape=(100,50),
+    spatial_output_shape=(100, 100),
     temporal_domain=[-10, 1000],
-    temporal_default_length=200,
+    temporal_default_length=100,
     v_amplitude=0.15,
     epsilon_sep=0.15,
     period_time=5,
     spatial_domain=[np.array([-0.1, -0.1]), np.array([2.1, 1.1])],
     boundary_buffers=[0.05, 0.05])
 
-# forecast_field = utils.analytical_fields.PeriodicDoubleGyre(
-#     spatial_output_shape=(50,50),
-#     temporal_domain=[-10, 1000],
-#     temporal_default_length=200,
-#     v_amplitude=0.101089,
-#     epsilon_sep=0.197969,
-#     period_time=10,
-#     outside_current_mag=0.,
-#     with_buffer=True)
+forecast_field = utils.analytical_fields.PeriodicDoubleGyre(
+    spatial_output_shape=(100,100),
+    temporal_domain=[-10, 1000],
+    temporal_default_length=100,
+    v_amplitude=0.2,
+    epsilon_sep=0.6,
+    period_time=5,
+    spatial_domain=[np.array([-0.1, -0.1]), np.array([2.1, 1.1])],
+    boundary_buffers=[0.05, 0.05])
 
 #%
 t_0 =0.
@@ -39,14 +41,14 @@ x_T = [1.5, 0.9]
 hindcast_source = {'data_source_type': 'analytical_function',
                    'data_source': hindcast_field}
 
-# forecasts_source = {'data_source_type': 'analytical_function',
-#                    'data_source': forecast_field}
+forecasts_source = {'data_source_type': 'analytical_function',
+                   'data_source': forecast_field}
 
-plan_on_gt=True
+plan_on_gt=False
 prob = Problem(x_0, x_T, t_0,
                platform_config_dict=platform_config_dict,
                hindcast_source= hindcast_source,
-               forecast_source=None,
+               forecast_source=forecasts_source,
                plan_on_gt = plan_on_gt,
                x_T_radius=0.05)
 #%%

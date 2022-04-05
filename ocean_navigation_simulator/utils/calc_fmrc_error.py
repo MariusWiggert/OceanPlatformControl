@@ -49,7 +49,7 @@ def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time
         elif problem.hindcast_data_source['data_source_type'] == 'multiple_daily_nc_files':
             Hindcast = get_hindcast_from_hycom(t_interval, lat_interval, lon_interval, problem)
         else:
-            raise ValueError("Data source only opendap and single_nc_file implemented right now")
+            raise ValueError("Data source only opendap and multiple_daily_nc_files implemented right now")
 
         # Extract data arrays for the calculation
         u_data_forecast = HYCOM_Forecast['water_u'].data

@@ -41,25 +41,118 @@ x_T = [-80.4, 24.2]
 hindcast_source = {'data_source_type': 'cop_opendap',
                    'data_source': {'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
                                    'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh'}}
-# hindcast_source = {'data_source_type': 'cop_opendap',
-#                    'data_source': {'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
-#                                    'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh'}}
 # datetime.datetime(2021, 12, 1, 12, 10, 10, tzinfo=datetime.timezone.utc)
 
 forecast_folder = "data/forecast_test/"
 forecasts_source = {'data_source_type': 'single_nc_file',
                    'data_source': forecast_folder}
 
-plan_on_gt=True
-prob = Problem(x_0, x_T, t_0,
+plan_on_gt=False
+problem = Problem(x_0, x_T, t_0,
                platform_config_dict=platform_config_dict,
                hindcast_source= hindcast_source,
                forecast_source=forecasts_source,
                plan_on_gt = plan_on_gt,
                x_T_radius=0.1)
 #%%
+deg_around_x0_xT_box = 0.5
+T_horizon = 120
+hours_to_abs_time = 3600
+
+from ocean_navigation_simulator.utils.calc_fmrc_error import calc_fmrc_errors
+# calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time=hours_to_abs_time)
+#%%
+# Step 1: extract data from them
+t_interval_global, lat_interval, lon_interval = utils.simulation_utils.convert_to_lat_lon_time_bounds(
+    problem.x_0, problem.x_T,
+    deg_around_x0_xT_box=deg_around_x0_xT_box,
+    temp_horizon_in_h=T_horizon,
+    hours_to_hj_solve_timescale=hours_to_abs_time)
+
+# Definition of the forecast error here.
+# Select the Forecast as basis
+import xarray as xr
+from datetime import datetime, timezone
+idx = 0
+print(problem.forecast_data_source['content'][idx]['t_range'][0])
+HYCOM_Forecast = xr.open_dataset(problem.forecast_data_source['content'][idx]['file'])
+HYCOM_Forecast = HYCOM_Forecast.fillna(0).isel(depth=0)
+# subset in time and space for mission
+
+HYCOM_Forecast = HYCOM_Forecast.sel(
+    time=slice(HYCOM_Forecast['time'].data[0], HYCOM_Forecast['time'].data[0] + np.timedelta64(T_horizon,'h')),
+    lat=slice(lat_interval[0], lat_interval[1]),
+    lon=slice(lon_interval[0], lon_interval[1])
+)
+#%%
+HYCOM_Forecast
+#%%
+t_interval = [HYCOM_Forecast.variables['time'][0], HYCOM_Forecast.variables['time'][-1]]
+#%%
+from datetime import timedelta
+# t_interval_naive = [time.replace(tzinfo=None) for time in t_interval]
+t_interval[0] = t_interval[0] - np.timedelta64(3, 'h')
+t_interval[1] = t_interval[1] + np.timedelta64(3, 'h')
+subsetted_frame = problem.hindcast_data_source['content'].sel(time=slice(t_interval[0], t_interval[1]),
+                                  latitude=slice(lat_interval[0], lat_interval[1]),
+                                  longitude=slice(lon_interval[0], lon_interval[1]))
+
+DS_renamed_subsetted_frame = subsetted_frame.rename({'vo': 'water_v', 'uo': 'water_u',
+                                                     'latitude': 'lat', 'longitude': 'lon'})
+DS_renamed_subsetted_frame = DS_renamed_subsetted_frame.fillna(0)
+Copernicus_right_time = DS_renamed_subsetted_frame.interp(time=HYCOM_Forecast['time'])
+# interpolate 2D in space
+Copernicus_H_final = Copernicus_right_time.interp(
+    lon=HYCOM_Forecast['lon'].data,
+    lat=HYCOM_Forecast['lat'].data, method='linear')
+
+# again fill na with 0
+Copernicus_H_final = Copernicus_H_final.fillna(0)
+
+#%%
+
+#%%
+# Interpolate Hindcast to the Forecast axis
+HYCOM_Hindcast = xr.open_mfdataset([h_dict['file'] for h_dict in problem.hindcast_data_source['content']])
+HYCOM_Hindcast = HYCOM_Hindcast.fillna(0).isel(depth=0)
+HYCOM_Hindcast["time"] = HYCOM_Hindcast["time"].dt.round("H")
+HYCOM_Hindcast = HYCOM_Hindcast.sel(
+    time=slice(t_interval[0], t_interval[1]),
+    lat=slice(lat_interval[0], lat_interval[1]),
+    lon=slice(lon_interval[0], lon_interval[1])
+)
+#%%
+u_data_forecast = HYCOM_Forecast['water_u'].data
+v_data_forecast = HYCOM_Forecast['water_v'].data
+u_data_hindcast = HYCOM_Hindcast['water_u'].data
+v_data_hindcast = HYCOM_Hindcast['water_v'].data
+#%% calculate RMSE over time
+HYCOM_Forecast_Error = (HYCOM_Hindcast - HYCOM_Forecast)
+water_u_error = HYCOM_Forecast_Error['water_u'].data
+water_v_error = HYCOM_Forecast_Error['water_v'].data
+magnitude_over_time = ((water_u_error)**2 + (water_v_error)**2)**0.5
+RMSE = magnitude_over_time.mean(axis=(1, 2)).compute()
+#%% calculate angle difference over time
+np.abs(np.arctan2(v_data_hindcast, u_data_hindcast) - np.arctan2(v_data_forecast, u_data_forecast)).mean(axis=[1,2])
+#%%
+from ocean_navigation_simulator.utils.calc_fmrc_error import calc_speed_RMSE, calc_abs_angle_difference, calc_vector_corr_over_time
+# Step 2: Calculate things and return them as dict
+RMSE = calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
+angle_diff = calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
+vec_corr = calc_vector_corr_over_time(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
+#%%
+dict_of_relevant_fmrcs = list(
+    filter(lambda dic: dic['t_range'][0] < problem.t_0 + timedelta(hours=T_horizon), problem.forecast_data_source['content']))
+print(len(dics_containing_t_0))
+
+#%%
+RMSE_mean_across_fmrc = []
+for i in range(1):
+    RMSE_mean_across_fmrc.append(np.arange(10))
+
+#%%
 prob.viz(time=datetime.datetime(2021, 11, 26, 10, 10, 10, tzinfo=datetime.timezone.utc),
-    cut_out_in_deg=1.2, plot_start_target=True) # plots the current at t_0 with the start and goal position
+    cut_out_in_deg=1.2, plot_start_target=False) # plots the current at t_0 with the start and goal position
 # # create a video of the underlying currents rendered in Jupyter, Safari or as file
 # prob.viz(video=True) # renders in Jupyter
 # prob.viz(video=True, html_render='safari')    # renders in Safari

@@ -98,10 +98,15 @@ class HJPlannerBase(Planner):
                 datetime.utcfromtimestamp(x_t[3][0])), self.forecast_data_source['grid_dict']['t_range'])
         # Check if the current_data is sufficient for planning over the specified time horizon, if not give warning.
         if x_t[3] + self.specific_settings['hours_to_hj_solve_timescale'] * self.specific_settings['T_goal_in_h'] > self.current_data_t_T:
-            warnings.warn("Forecast file {} with range {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}. Automatically adjusting.".format(
-                self.forecast_data_source['content'][self.forecast_data_source['current_forecast_idx']]['file'],
-                self.forecast_data_source['grid_dict']['t_range'],
-                datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
+            if 'current_forecast_idx' in self.forecast_data_source:
+                warnings.warn("Forecast file {} with range {} does not contain the full time-horizon from x_t {} to T_goal_in_h {}. Automatically adjusting.".format(
+                    self.forecast_data_source['content'][self.forecast_data_source['current_forecast_idx']]['file'],
+                    self.forecast_data_source['grid_dict']['t_range'],
+                    datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
+            else:
+                warnings.warn("Data for HJPlanner does {} not contain the full time-horizon from x_t {} to T_goal_in_h {}. Automatically adjusting.".format(
+                        self.forecast_data_source['grid_dict']['t_range'],
+                        datetime.utcfromtimestamp(x_t[3][0]), self.specific_settings['T_goal_in_h']))
 
         x_t_rel = np.copy(x_t)
         x_t_rel[3] = x_t_rel[3] - self.current_data_t_0
@@ -419,8 +424,8 @@ class HJPlannerBase(Planner):
                 times=self.reach_times, all_values=self.all_values)
         return np.asarray(u_out.reshape(-1, 1))
 
-    def plot_reachability_snapshot(self, rel_time_in_h,  multi_reachability=False, granularity_in_h=5,
-                                   time_to_reach=False, return_ax=False, fig_size_inches=(12, 12)):
+    def plot_reachability_snapshot(self, rel_time_in_h,  multi_reachability=False, granularity_in_h=5, alpha_color=1.,
+                                   time_to_reach=False, return_ax=False, fig_size_inches=(12, 12), input_ax=None, ):
         """ Plot the reachable set the planner was computing last. """
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
@@ -432,20 +437,20 @@ class HJPlannerBase(Planner):
         val_at_t = interp1d(self.reach_times - self.reach_times[0], self.all_values, axis=0, kind='linear')(
             rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale']).squeeze()
 
-
         # If in normal reachability setting
         if not multi_reachability:
             ax = hj.viz._visSet2D(self.grid, val_at_t, level=0, color='black',
-                                  colorbar=False, obstacles=None, target_set=initial_values, return_ax=True)
+                                  colorbar=False, obstacles=None, target_set=initial_values, return_ax=True, input_ax=input_ax)
         else:   # multi-reachability
             multi_reach_rel_time = (rel_time_in_h * self.specific_settings['hours_to_hj_solve_timescale'] - self.reach_times[-1])/self.specific_settings['hours_to_hj_solve_timescale']
             non_dim_val_func_levels, abs_time_y_ticks, y_label = self.get_multi_reach_levels(
                 granularity_in_h, time_to_reach=time_to_reach, vmin=val_at_t.min(), abs_time_in_h=multi_reach_rel_time)
             # plot with the basic function
             ax = hj.viz._visSet2D(self.grid, val_at_t, level=0, color='black',
-                                  colorbar=True, obstacles=None, target_set=initial_values,
+                                  colorbar=multi_reachability, obstacles=None, target_set=initial_values,
                                   val_func_levels=non_dim_val_func_levels, y_label=y_label,
-                                  yticklabels=abs_time_y_ticks, return_ax=True)
+                                  yticklabels=abs_time_y_ticks, return_ax=True, input_ax=input_ax,
+                                  alpha_color=alpha_color)
 
             ax.scatter(self.x_0[0], self.x_0[1], color='r', marker='o')
             ax.scatter(self.x_T[0], self.x_T[1], color='g', marker='x')
@@ -534,11 +539,11 @@ class HJPlannerBase(Planner):
 
         n_levels = abs(math.ceil(abs_time_in_h / granularity_in_h)) + 1
         non_dim_val_func_levels = np.linspace(vmin, 0, n_levels)
-        abs_time_y_ticks = np.around(np.linspace(abs_time_in_h, 0, n_levels), decimals=1)
+        abs_time_y_ticks = np.around(np.linspace(abs_time_in_h, 0, n_levels), decimals=0)
 
         if time_to_reach:
             y_label = 'Fastest Time-to-Target in hours'
-            abs_time_y_ticks = -np.flip(abs_time_y_ticks, axis=0)
+            abs_time_y_ticks = np.abs(np.flip(abs_time_y_ticks, axis=0))
         else:
             y_label = 'HJ Value Function'
 

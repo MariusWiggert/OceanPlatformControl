@@ -35,8 +35,8 @@ forecast_delay_in_h = 0.
 plan_on_gt=False
 prob = Problem(x_0, x_T, t_0,
                platform_config_dict=platform_config_dict,
-               hindcast_folder= hindcast_folder,
-               forecast_folder=forecast_folder,
+               hindcast_source= hindcast_folder,
+               forecast_source=forecast_folder,
                plan_on_gt = plan_on_gt,
                x_T_radius = 0.1,
                forecast_delay_in_h=forecast_delay_in_h)
@@ -60,7 +60,7 @@ specific_settings = {
       'artificial_dissipation_scheme': 'local_local',
       'progress_bar': True}
 planner = HJReach2DPlanner(prob, specific_settings, conv_m_to_deg=111120.)
-planner.cur_forecast_dicts = [prob.forecasts_dicts[0]]
+planner.forecast_data_source = [prob.forecast_data_source[0]]
 
 x_t = np.array(x_0 + [t_0.timestamp()])
 planner.plan(x_t)
@@ -110,7 +110,7 @@ sim.high_level_planner.plot_reachability(type='gif')
 
 #%% Setting for both & Initialize planner
 planner = HJReach2DPlanner(prob, specific_settings, conv_m_to_deg=111120.)
-planner.cur_forecast_dicts = [prob.forecasts_dicts[0]]
+planner.forecast_data_source = [prob.forecast_data_source[0]]
 #%% Forward-Backward approach
 specific_settings['direction'] = 'forward-backward'
 planner.plan(x_t)
