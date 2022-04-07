@@ -1,4 +1,4 @@
-from ocean_navigation_simulator import Problem
+from ocean_navigation_simulator.controllers.problem import Problem
 from ocean_navigation_simulator.controllers import simulator_data
 from ocean_navigation_simulator.controllers.controller import Controller
 from ocean_navigation_simulator.controllers.utils import transform_u_dir_to_u
@@ -18,10 +18,10 @@ class StraightLineController(Controller):
             problem:
             specific_settings:
             conv_m_to_deg:
-        TODO: change how it intakes the Problem
+        TODO: implement how it intakes elements from Problem
         """
-        self.x_0 = np.array(problem.x_0)
-        self.x_T = np.array(problem.x_T)
+        self.start_state = np.array(problem.start_state)
+        self.end_region = np.array(problem.end_region)
 
         self.problem = problem
 
@@ -35,7 +35,7 @@ class StraightLineController(Controller):
         x_t = observation.platform_observation.x_t
 
         lon, lat = x_t[0][0], x_t[1][0]
-        lon_target, lat_target = self.x_T[0], self.x_T[1]
+        lon_target, lat_target = self.x_T[0], self.x_T[1]  # TODO: change how this functions for complex end regions
 
         dlon = lon_target - lon
         dlat = lat_target - lat
@@ -47,6 +47,8 @@ class StraightLineController(Controller):
         return u_out
 
     def get_waypoints(self) -> list:
-        start = self.problem.x_0[:2] + [self.problem.x_0[-1]]
+        start = self.problem.x_0[:2] + [self.problem.x_0[-1]]  # TODO: make this more elegant + fit new Problem
+
+        # TODO: change how this functions for complex end regions
         end = self.problem.x_T + [self.problem.x_0[-1] + 3600 * self.specific_settings['x_T_time_ahead_in_h']]
         return [start, end]

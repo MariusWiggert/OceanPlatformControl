@@ -17,3 +17,5 @@ class Controller(abc.ABC):
         Returns:
           Controller's next action as a numpy array.
         """
+
+    # TODO: other methods needed?
