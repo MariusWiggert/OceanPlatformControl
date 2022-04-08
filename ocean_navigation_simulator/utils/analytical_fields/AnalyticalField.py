@@ -7,9 +7,10 @@ import hj_reachability as hj
 from functools import partial
 import jax
 from ocean_navigation_simulator import utils
+import abc
 
 
-class AnalyticalField:
+class AnalyticalField(abc.ABC):
 
     def __init__(self, spatial_domain, spatial_output_shape, temporal_domain, temporal_default_length):
         self.spatial_domain = hj.sets.Box(lo=spatial_domain[0], hi=spatial_domain[1])
@@ -30,10 +31,12 @@ class AnalyticalField:
         """Helper function because with non-dimensionalization we run the u and v currents in relative time."""
         return time - self.current_run_t_0
 
+    @abc.abstractmethod
     def u_current_analytical(self, state, time):
         """To be implemented in the child class. Note only for 2D currently."""
         print("TBD, u_current_analytical")
 
+    @abc.abstractmethod
     def v_current_analytical(self, state, time):
         """To be implemented in the child class. Note only for 2D currently."""
         print("TBD, v_current_analytical")
