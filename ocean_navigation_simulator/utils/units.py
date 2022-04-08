@@ -32,10 +32,12 @@ class Distance:
                meters: float = 0.0,
                km: float = 0.0,
                kilometers: float = 0.0,
-               feet: float = 0.0):
+               feet: float = 0.0,
+               deg: float = 0.0
+               ):
     # Note: distance is stored as meters.
     self._distance = (
-        m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT)
+        m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) + deg * _METERS_PER_DEG_LAT_LON
 
   @property
   def m(self) -> float:
@@ -46,6 +48,11 @@ class Distance:
   def meters(self) -> float:
     """Gets distance in meters."""
     return self.m
+
+  @property
+  def deg(self) -> float:
+    """Gets distance in meters."""
+    return self._distance / _METERS_PER_DEG_LAT_LON
 
   @property
   def km(self) -> float:
