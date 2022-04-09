@@ -200,7 +200,7 @@ class Platform:
 
         ##### Get Data #####
         start = time.time()
-        self.data = self.source.get_currents_over_area(x_interval=lon_interval, y_interval=lat_interval, t_interval=t_interval)
+        self.data = self.source.get_data_over_area(x_interval=lon_interval, y_interval=lat_interval, t_interval=t_interval)
         self.grid = [
             (self.data.coords['time'].values - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's'),
             self.data.coords['lat'].values,

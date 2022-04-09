@@ -1,8 +1,8 @@
 import datetime
 from typing import List, NamedTuple, Sequence, Optional
-import ocean_navigation_simulator.utils.units as units
+import ocean_navigation_simulator.env.utils.units as units
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
-from ocean_navigation_simulator.env.data_sources.SolarIrradiance import *
+from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import *
 import xarray as xr
 from geopy.point import Point as GeoPoint
 
@@ -16,20 +16,31 @@ from geopy.point import Point as GeoPoint
 
 
 class SolarIrradianceField(DataField):
-    """Class instantiating and holding the data sources, the forecast and hindcast current sources.
+    """Class instantiating and holding the Solar Irradiance data sources, the forecast and hindcast current sources.
   """
 
+    def __init__(self, hindcast_source_dict: dict, forecast_source_dict: Optional[dict] = None):
+        """Initialize the source objects from the respective settings dicts.
+        Args:
+          forecast_source_dict and hindcast_source_dict
+           Both are dicts with four keys:
+             'field' the kind of field the should be created e.g. OceanCurrent or SolarIrradiance
+             'source' in {opendap, hindcast_files, forecast_files}
+             'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
+             'casadi_cache_settings': e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12} for caching of 3D data
+             'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
+        """
+        super().__init__(hindcast_source_dict, forecast_source_dict)
+
     @staticmethod
-    def instantiate_source_from_dict(ocean_source_dict: dict) -> OceanCurrentSource:
+    def instantiate_source_from_dict(source_dict: dict) -> SolarIrradianceSourceXarray:
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
-        if ocean_source_dict['source'] == 'opendap':
-            return HindcastOpendapSource(ocean_source_dict)
-        elif ocean_source_dict['source'] == 'hindcast_files':
-            return HindcastFileSource(ocean_source_dict)
-        elif ocean_source_dict['source'] == 'forecast_files':
-            return ForecastFileSource(ocean_source_dict)
+        if source_dict['source'] == 'analytical':
+            return HindcastOpendapSource(source_dict)
         else:
-            ValueError("Selected source {} in the OceanCurrentSource dict is not implemented.". format(ocean_source_dict['source']))
+            raise NotImplementedError("Selected source {} in the SolarIrradianceSource dict is not implemented.".format(
+                source_dict['source']))
+
 
 
 

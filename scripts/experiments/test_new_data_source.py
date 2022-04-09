@@ -1,9 +1,13 @@
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 import numpy as np
-#%
-analytical_dict = {'source': 'analytical',
-                   'subset_time_buffer_in_s': 4000,
-                   'source_settings': {
+#%%
+source_dict = {'field': 'OceanCurrents',
+               'subset_time_buffer_in_s': 4000,
+               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12}}
+
+#%% add stuff for analytical
+source_dict['source'] = 'analytical'
+source_dict['source_settings'] = {
                        'name': 'PeriodicDoubleGyre',
                        'boundary_buffers': [0.2, 0.2],
                        'spatial_domain': [np.array([-0.1, -0.1]), np.array([2.1, 1.1])],
@@ -13,7 +17,7 @@ analytical_dict = {'source': 'analytical',
                        'v_amplitude': 2,
                        'epsilon_sep': 0.2,
                        'period_time': 10
-                   }}
+                   }
 #%%
 import ocean_navigation_simulator.env.data_sources.OceanCurrentSource.AnalyticalSource as sources
 getattr(sources, 'PeriodicDoubleGyre')
@@ -30,17 +34,17 @@ hindcast_file_config_dict = {'source': 'hindcast_files',
                    'folder': "data/single_day_hindcasts/"}, #"data/hindcast_test/"
                }
 #%%
-opendap_config_dict = {'source': 'opendap',
-               'subset_time_buffer_in_s': 4000,
-               'source_settings': {
+source_dict['source'] = 'opendap'
+source_dict['source_settings'] = {
                    'service': 'copernicus',
                    'currents': 'total', # if we want to take the normal uo, vo currents or 'total' for tide, normal added
                    'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
                    # 'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh',
-                   'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'},
-               }
+                   'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'}
 #%%
-ocean_field = OceanCurrentField(hindcast_source_dict=analytical_dict)
+ocean_field = OceanCurrentField(hindcast_source_dict=source_dict)
+#%%
+empty_arr = ocean_field.hindcast_data_source.DataArray.sel(lat=slice(-90, -85))
 #%%
 import datetime
 t_0 = datetime.datetime(2021, 11, 23, 12, 10, 10, tzinfo=datetime.timezone.utc)
