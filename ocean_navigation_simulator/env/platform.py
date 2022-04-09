@@ -16,6 +16,7 @@ import casadi as ca
 import numpy as np
 import xarray as xr
 import time
+import math
 
 from ocean_navigation_simulator import Problem
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import HindcastOpendapSource, OceanCurrentSource
@@ -184,31 +185,37 @@ class Platform:
 
         ##### Interpolation #####
         start = time.time()
-        u_curr_func = ca.interpolant('u_curr', 'linear', self.grid, self.data['water_u'].values.ravel(order='F'))
-        v_curr_func = ca.interpolant('v_curr', 'linear', self.grid, self.data['water_v'].values.ravel(order='F'))
+        sym_u_current = ca.interpolant('u_curr', 'linear', self.grid, self.data['water_u'].values.ravel(order='F'))
+        sym_v_current = ca.interpolant('v_curr', 'linear', self.grid, self.data['water_v'].values.ravel(order='F'))
         print(f'Set Up Interpolation: {time.time()-start}s')
 
         ##### Equations #####
         start = time.time()
-        sym_lon     = ca.MX.sym('x1')
-        sym_lat     = ca.MX.sym('x2')
-        sym_battery = ca.MX.sym('x3')
-        sym_time    = ca.MX.sym('t')
+        sym_lon_degree     = ca.MX.sym('lon')
+        sym_lat_degree     = ca.MX.sym('lat')
+        sym_battery = ca.MX.sym('battery')
+        sym_time    = ca.MX.sym('time')
         sym_dt      = ca.MX.sym('dt')
-        sym_u_thrust= ca.MX.sym('u_1')
-        sym_u_angle = ca.MX.sym('u_2')
+        sym_u_thrust= ca.MX.sym('u_thrust')
+        sym_u_angle = ca.MX.sym('u_angle')
 
-        sym_charge = self.charge_factor * solar_rad(sym_time, sym_lat, sym_lon)
+        sym_charge = self.charge_factor * solar_rad(sym_time, sym_lat_degree, sym_lon_degree)
         sym_u_thrust_capped = ca.fmin(sym_u_thrust, ((sym_battery + sym_charge / sym_dt) / (self.energy_coeff * self.specs.u_max.mps ** 3)) ** (1. / 3))
 
-        sym_lon_next = sym_lon + sym_dt * (ca.cos(sym_u_angle) * sym_u_thrust_capped * self.specs.u_max.mps + u_curr_func(ca.vertcat(sym_time, sym_lat, sym_lon))) / self.sim_settings['conv_m_to_deg']
-        sym_lat_next = sym_lat + sym_dt * (ca.sin(sym_u_angle) * sym_u_thrust_capped * self.specs.u_max.mps + v_curr_func(ca.vertcat(sym_time, sym_lat, sym_lon))) / self.sim_settings['conv_m_to_deg']
+        sym_lon_delta_meters = ca.cos(sym_u_angle) * sym_u_thrust_capped * self.specs.u_max.mps + sym_u_current(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        sym_lat_delta_meters = ca.sin(sym_u_angle) * sym_u_thrust_capped * self.specs.u_max.mps + sym_v_current(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+
+        sym_lon_delta_degree = 180 * sym_lon_delta_meters / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
+        sym_lat_delta_degree = 180 * sym_lat_delta_meters / math.pi / 6371000
+
+        sym_lon_next = sym_lon_degree + sym_dt * sym_lon_delta_degree
+        sym_lat_next = sym_lat_degree + sym_dt * sym_lat_delta_degree
         sym_battery_next = ca.fmin(1, ca.fmax(0, sym_battery + sym_dt * (sym_charge - self.energy_coeff * (self.specs.u_max.mps * sym_u_thrust_capped) ** 3)))
         sym_time_next = sym_time + sym_dt
 
         F_next = ca.Function(
             'F_x_next',
-            [ca.vertcat(sym_lon, sym_lat, sym_battery, sym_time), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
+            [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_battery, sym_time), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_battery_next, sym_time_next)],
         )
         print(f'Set Equations: {time.time()-start}s')
