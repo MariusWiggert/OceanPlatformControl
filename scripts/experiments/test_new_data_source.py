@@ -1,5 +1,20 @@
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 import numpy as np
+#%% Solar irradiance Test
+source_dict = {'field': 'SolarIrradiance',
+               'subset_time_buffer_in_s': 4000,
+               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*5*12}}
+source_dict['source'] = 'analytical'
+import datetime
+import numpy as np
+source_dict['source_settings'] = {
+                       'boundary_buffers': [0.2, 0.2],
+                       'spatial_domain': [np.array([-90, 24]), np.array([-80, 26])],
+                       'temporal_domain': [datetime.datetime.now().timestamp(), datetime.datetime.now().timestamp() + 3600*24*2],
+                       'spatial_resolution': 0.1,
+                       'temporal_resolution': 3600,
+                   }
+#%%
 #%%
 source_dict = {'field': 'OceanCurrents',
                'subset_time_buffer_in_s': 4000,
@@ -19,8 +34,29 @@ source_dict['source_settings'] = {
                        'period_time': 10
                    }
 #%%
-import ocean_navigation_simulator.env.data_sources.OceanCurrentSource.AnalyticalSource as sources
-getattr(sources, 'PeriodicDoubleGyre')
+import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
+solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict)
+#%%
+import datetime
+t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
+# t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
+t_interval = [t_0, t_0 + datetime.timedelta(days=1)]
+x_interval=[-82, -80]
+y_interval=[24, 26]
+x_0 = [-81.5, 23.5, 1, t_0.timestamp()]  # lon, lat, battery
+x_T = [-80, 24.2]
+vec_point = solar_field.get_forecast(point=x_T, time=t_0)
+print(vec_point)
+#%%
+area_xarray = solar_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+# area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+
+#%% Test if casadi works here
+ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
+#%%
+ocean_field.hindcast_data_source.casadi_grid_dict
+#%%
+ocean_field.hindcast_data_source.check_for_casadi_dynamics_update(x_0)
 #%%
 forecast_file_config_dict = {'source': 'forecast_files',
                'subset_time_buffer_in_s': 4000,

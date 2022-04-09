@@ -1,6 +1,6 @@
 import abc
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple
 from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
@@ -16,59 +16,90 @@ from pydap.client import open_url
 from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.data_sources.DataSources import DataSource
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource, XarraySource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.solar_rad import solar_rad
+import datetime
+import matplotlib.pyplot as plt
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple
+import numpy as np
+import jax.numpy as jnp
+import hj_reachability as hj
+from functools import partial
+import xarray as xr
+import jax
+from ocean_navigation_simulator import utils
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
+import abc
 
 
 class SolarIrradianceSource(DataSource):
     """Base class for the Solar Irradiance data sources."""
 
-    def __init__(self, source_config_dict: dict):
-        """Function to get the OceanCurrentVector at a specific point.
+    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
+        """DataSource specific function to initialize the casadi functions needed.
         Args:
-          source_config_dict: TODO: detail what needs to be specified here
-          """
+          grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
+          array:    xarray object containing the sub-setted data for the next cached round
+        """
+
+        self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['solar_irradiance'].values.ravel(order='F'))
+
+
+class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
+    """Data Source Object that accesses and manages one or many HYCOM files as source."""
+    def __init__(self, source_config_dict):
         super().__init__(source_config_dict)
-        # Casadi functions are created and maintained here but used in the platform object
         self.solar_rad_casadi = None
 
-    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
-        """DataSource specific function to initialize the casadi functions needed.
-        Args:
-          grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
-          array:    xarray object containing the sub-setted data for the next cached round
-        """
+    def solar_irradiance_analytical(self, point: List[float], time: float):
+        """To be implemented in the child class. Note only for 2D currently."""
+        return solar_rad(time, point[1], point[0])
 
-        self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['irradiance'].values.ravel(order='F'))
+    def create_xarray(self, grid_dict: dict, solar_irradiance: jnp.array) -> xr:
+        """Function to create an xarray from the data tuple and grid dict
+            Args:
+              data_tuple: tuple containing (data_u, data_v)
+              grid_dict: containing ranges and grids of x, y, t dimension
+            Returns:
+              xr     an xarray containing both the grid and data
+            """
+        # make a xarray object out of it
+        return xr.Dataset(
+            dict(solar_irradiance=(["time", "lat", "lon"], solar_irradiance)),
+            coords=dict(lon=grid_dict['x_grid'], lat=grid_dict['y_grid'],
+                        time=np.round(np.array(grid_dict['t_grid']) * 1000, 0).astype('datetime64[ms]')))
 
-    def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                           t_interval: List[datetime.datetime],
-                           spatial_resolution: Optional[float] = None,
-                           temporal_resolution: Optional[float] = None) -> xr:
-        """Function to get the the raw current data over an x, y, and t interval.
+    # TODO: check out how I can feed vectorized into the solar_rad function (see Nisha's code) or make solar_rad jax.numpy ready
+    def map_analytical_function_over_area(self, states, grid_dict):
+        """Function to map the analytical function over an area with the spatial states and grid_dict times.
+            Args:
+              states: jax.numpy array containing the desired spatial grid as states
+              grid_dict: containing ranges and grids of x, y, t dimension
+            Returns:
+              data_tuple     containing the data in tuple format as numpy array (not yet in xarray form)
+            """
+        # Step 2: Map analytical function over the area
+        solar_irradiance = lambda t: hj.utils.multivmap(partial(self.solar_irradiance_analytical, time=t), np.arange(2))(
+            jnp.transpose(states, axes=[1, 0, 2]))
+        # execute over temporal_vector
+        solar_irradiance_data = jax.vmap(solar_irradiance)(grid_dict['t_grid'])
+        return solar_irradiance_data
+
+    def get_data_at_point(self, point: List[float], time: datetime) -> float:
+        """Function to get the data at a specific point.
         Args:
-          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
-          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
-          spatial_resolution: spatial resolution in the same units as x and y interval
-          temporal_resolution: temporal resolution in seconds
+          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
+          time: absolute datetime object
         Returns:
-          data_array     in xarray format that contains the grid and the values (land is NaN)
-        """
-        # Step 1: Subset and interpolate the xarray accordingly in the DataSource Class
-        subset = super().get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
-
-        return subset
+          float of the solar irradiance in W/m^2
+          """
+        return self.solar_irradiance_analytical(point, time.timestamp())
 
 
-class AnalyticalSolarIrradiance(SolarIrradianceSourceXarray):
-    """Data Source Object that accesses and manages one or many HYCOM files as source."""
-    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
-        """DataSource specific function to initialize the casadi functions needed.
-        Args:
-          grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
-          array:    xarray object containing the sub-setted data for the next cached round
-        """
 
-        self.solar_rad_casadi = solar_rad
+
+
+
 

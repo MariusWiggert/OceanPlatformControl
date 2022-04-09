@@ -33,10 +33,10 @@ class SolarIrradianceField(DataField):
         super().__init__(hindcast_source_dict, forecast_source_dict)
 
     @staticmethod
-    def instantiate_source_from_dict(source_dict: dict) -> SolarIrradianceSourceXarray:
+    def instantiate_source_from_dict(source_dict: dict):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
         if source_dict['source'] == 'analytical':
-            return HindcastOpendapSource(source_dict)
+            return AnalyticalSolarIrradiance(source_dict)
         else:
             raise NotImplementedError("Selected source {} in the SolarIrradianceSource dict is not implemented.".format(
                 source_dict['source']))
