@@ -1,10 +1,11 @@
 import abc
 from datetime import datetime, timedelta, timezone
-from typing import List, NamedTuple, Sequence, AnyStr
-import ocean_navigation_simulator.utils.units as units
-from ocean_navigation_simulator.data_sources.DataField import DataField
+from typing import List, NamedTuple, Sequence, AnyStr, Optional
+from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
+from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import jax
 from jax import numpy as jnp
+import warnings
 import numpy as np
 import xarray as xr
 import dask.array.core
@@ -13,32 +14,29 @@ import ocean_navigation_simulator.utils as utils
 from pydap.client import open_url
 from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
-from ocean_navigation_simulator.data_sources.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
 # The fill with 0 could also be done in the HJ Planner, then we don't need to save the land grid anywhere.
 # => Land checking speed test with the mask in the data vs. with polygon checking
 # => also check if we really need the x and y grid of the data anywhere, I don't think so. => only for is_on_land checking!
 # => lets write the rest, but I have a hunch we can eliminate that soon.
-# TODO: t_interval buffer?
-# Need to check access speeds especially when using it for step function in the loop.
+# TODO: most likely we don't even need to maintain the grid_dict of the dataset or do we?
 # currently no safety mechanism build in to check if daily files or forecasts are consecutive.
 # https://stackoverflow.com/questions/68170708/counting-consecutive-days-of-temperature-data
 # Via diff in pandas and checking if consistent
-# Should build in an extra time_buffer around it (configurable) because otherwise cut-off
+# TODO: NaN handling as obstacles in the HJ planner would be really useful! (especially for analytical!)
 
 
-class OceanCurrentSource(abc.ABC):
+class OceanCurrentSource:
     """Base class for various data sources of ocean currents to handle different current sources."""
 
-    def __init__(self, source_type, config_dict):
+    def __init__(self, source_config_dict: dict):
         """Function to get the OceanCurrentVector at a specific point.
         Args:
-          source_type: TODO: specify what options are here
-          config_dict: TODO: detail what needs to be specified here
+          source_config_dict: TODO: detail what needs to be specified here
           """
-        self.source_type = source_type
-        self.config_dict = config_dict
+        self.source_config_dict = source_config_dict
         self.grid_dict, self.dask_array,  self.OceanCurrents = [None]*3
 
     def get_currents_at_point(self, point: List[float], time: datetime) -> OceanCurrentVector:
@@ -50,32 +48,48 @@ class OceanCurrentSource(abc.ABC):
           OceanCurrentVector
           """
         # Step 1: run interpolation via xarray
-        currents_at_point = self.OceanCurrents.interp(time=np.datetime64(time), lon=point[0], lat=point[1],
-                                                      method='linear')
+        currents_at_point = self.OceanCurrents.interp(time=np.datetime64(time),
+                                                      lon=point[0], lat=point[1], method='linear')
         # Step 2: make explicit
         currents_at_point = self.make_explicit(currents_at_point)
 
-        return OceanCurrentVector(u=currents_at_point['water_u'].data.item(),
-                                  v=currents_at_point['water_v'].data.item())
+        u = currents_at_point['water_u'].data.item()
+        v = currents_at_point['water_u'].data.item()
+
+        if np.any(np.isnan([u,v])):
+            raise ValueError("Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
+
+        return OceanCurrentVector(u=u, v=v)
 
     def get_currents_over_area(self, x_interval: List[float], y_interval: List[float],
-                               t_interval: List[datetime]) -> xr:
+                               t_interval: List[datetime],
+                               spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
           t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          spatial_resolution: spatial resolution in the same units as x and y interval
+          temporal_resolution: temporal resolution in seconds
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
         # Step 1: Subset the xarray accordingly
         subset = self.OceanCurrents.sel(
-            time=slice(np.datetime64(t_interval[0]), np.datetime64(t_interval[1])),
+            time=slice(t_interval[0].replace(tzinfo=None) - timedelta(seconds=self.source_config_dict['subset_time_buffer_in_s']),
+                       t_interval[1].replace(tzinfo=None) + timedelta(seconds=self.source_config_dict['subset_time_buffer_in_s'])),
             lon=slice(x_interval[0], x_interval[1]),
             lat=slice(y_interval[0], y_interval[1]))
 
         # Step 2: make explicit
         subset = self.make_explicit(subset)
+
+        # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
+        DataField.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval)
+
+        # Step 4: perform interpolation to a specific resolution if requested
+        if spatial_resolution is not None or temporal_resolution is not None:
+            subset = DataField.interpolate_in_space_and_time(subset, spatial_resolution, temporal_resolution)
 
         return subset
 
@@ -89,10 +103,10 @@ class OceanCurrentSource(abc.ABC):
 class ForecastFileSource(OceanCurrentSource):
     # TODO: Make it work with multiple Global HYCOM FMRC Files (a bit of extra logic, but possible)
     """Data Source Object that accesses and manages multiple daily HYCOM files as source."""
-    def __init__(self, source_type: AnyStr, config_dict: dict):
-        super().__init__(source_type, config_dict)
+    def __init__(self, source_config_dict: dict):
+        super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(config_dict['folder'])
+        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'])
 
         # Step 2: derive the time coverage and grid_dict for from the first file
         self.t_forecast_coverage = [
@@ -112,7 +126,8 @@ class ForecastFileSource(OceanCurrentSource):
         return super().get_currents_at_point(point, time)
 
     def get_currents_over_area(self, x_interval: List[float], y_interval: List[float],
-                               t_interval: List[datetime]) -> xr:
+                               t_interval: List[datetime],
+                               spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None) -> xr:
         # Step 1: Make sure we use the most recent forecast available
         self.check_for_most_recent_fmrc_dataframe(t_interval[0])
 
@@ -151,10 +166,10 @@ class ForecastFileSource(OceanCurrentSource):
 
 class HindcastFileSource(OceanCurrentSource):
     """Data Source Object that accesses and manages one or many HYCOM files as source."""
-    def __init__(self, source_type: AnyStr, config_dict: dict):
-        super().__init__(source_type, config_dict)
+    def __init__(self, source_config_dict: dict):
+        super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(config_dict['folder'])
+        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'])
 
         # Step 2: open the respective file as multi dataset
         self.OceanCurrents = xr.open_mfdataset([h_dict['file'] for h_dict in self.files_dicts]).isel(depth=0)
@@ -168,27 +183,27 @@ class HindcastFileSource(OceanCurrentSource):
 
 
 class HindcastOpendapSource(OceanCurrentSource):
-    def __init__(self, source_type: AnyStr, config_dict: dict):
-        super().__init__(source_type, config_dict)
+    def __init__(self,  source_config_dict: dict):
+        super().__init__(source_config_dict)
         # Step 1: establish the opendap connection with the settings in config_dict
-        if config_dict['source'] == 'copernicus':
-            self.OceanCurrents = xr.open_dataset(copernicusmarine_datastore(config_dict['DATASET_ID'],
-                                                                        config_dict['USERNAME'],
-                                                                        config_dict['PASSWORD'])).isel(depth=0)
+        if source_config_dict['source_settings']['service'] == 'copernicus':
+            self.OceanCurrents = xr.open_dataset(copernicusmarine_datastore(source_config_dict['source_settings']['DATASET_ID'],
+                                                                            source_config_dict['source_settings']['USERNAME'],
+                                                                            source_config_dict['source_settings']['PASSWORD'])).isel(depth=0)
             # for consistency we need to rename the variables in the xarray the same as in hycom
             self.OceanCurrents = self.OceanCurrents.rename({'latitude': 'lat', 'longitude': 'lon'})
-            if config_dict['currents'] == 'total':
+            if source_config_dict['source_settings']['currents'] == 'total':
                 self.OceanCurrents = self.OceanCurrents[['utotal', 'vtotal']].rename({'utotal': 'water_u', 'vtotal': 'water_v'})
-            elif config_dict['currents'] == 'normal':
+            elif source_config_dict['source_settings']['currents'] == 'normal':
                 self.OceanCurrents = self.OceanCurrents[['uo', 'vo']].rename({'uo': 'water_u', 'vo': 'water_v'})
         else:
-            raise ValueError("Only Copernicus implemented for now.")
+            raise ValueError("Only opendap Copernicus implemented for now.")
 
         # Step 2: derive the grid_dict for the xarray
         self.grid_dict = get_grid_dict_from_xr(self.OceanCurrents)
 
 
-# class AnalyticalSource(OceanCurrentSource):
+
 
 
 # Helper functions across the OceanCurrentSource objects
@@ -255,21 +270,6 @@ def get_grid_dict_from_file(file: AnyStr) -> dict:
                         datetime.fromtimestamp(t_grid[-1], timezone.utc)],
             "y_range": y_range,
             "x_range": x_range}
-
-
-def get_posix_time_from_np64(np64_time_array: np.datetime64) -> np.array:
-    """Helper function to transform """
-    # transform from numpy datetime to POSIX time
-    t_posix = (np64_time_array - np.datetime64(0, 's'))/ np.timedelta64(1, 's')
-    return t_posix
-
-
-def get_datetime_from_np64(np64_time_array: np.datetime64) -> datetime:
-    """Helper function to transform """
-    # transform from numpy datetime to datetime
-    t_posix = (np64_time_array - np.datetime64(0, 's'))/ np.timedelta64(1, 's')
-    dt_object = datetime.fromtimestamp(t_posix, timezone.utc)
-    return dt_object
 
 
 def get_grid_dict_from_xr(xrDF: xr) -> dict:

@@ -15,9 +15,9 @@ platform_config_dict = {'battery_cap': 400.0, 'u_max': 0.1, 'motor_efficiency': 
 
 
 hindcast_field = utils.analytical_fields.PeriodicDoubleGyre(
-    spatial_output_shape=(100, 100),
+    spatial_output_shape=(50, 100),
     temporal_domain=[-10, 1000],
-    temporal_default_length=100,
+    temporal_default_length=10,
     v_amplitude=0.15,
     epsilon_sep=0.15,
     period_time=5,
@@ -25,9 +25,9 @@ hindcast_field = utils.analytical_fields.PeriodicDoubleGyre(
     boundary_buffers=[0.05, 0.05])
 
 forecast_field = utils.analytical_fields.PeriodicDoubleGyre(
-    spatial_output_shape=(100,100),
+    spatial_output_shape=(50,100),
     temporal_domain=[-10, 1000],
-    temporal_default_length=100,
+    temporal_default_length=10,
     v_amplitude=0.2,
     epsilon_sep=0.6,
     period_time=5,
@@ -51,6 +51,27 @@ prob = Problem(x_0, x_T, t_0,
                forecast_source=forecasts_source,
                plan_on_gt = plan_on_gt,
                x_T_radius=0.05)
+#%% get data arrays from analytical
+grid_dict, water_u, water_v = utils.get_current_data_subset([0,100], [0.2, 1], [0, 2], prob.hindcast_data_source)
+#%%
+import xarray as xr
+import pandas as pd # T, Y, X
+# temp = 15 + 8 * np.random.randn(2, 2, 3)
+# precip = 10 * np.random.rand(2, 2, 3)
+# lon = [[-99.83, -99.32], [-99.79, -99.23]]
+# lat = [[42.25, 42.21], [42.63, 42.59]]
+ds = xr.Dataset(
+    {"water_u": (["time", "lat", "lon"], water_u),
+     "water_v": (["time", "lat", "lon"], water_v)},
+    coords={
+        "lon": grid_dict['x_grid'],
+        "lat": grid_dict['y_grid'],
+        "time": np.round(np.array(grid_dict['t_grid'])*1000,0).astype('datetime64[ms]')}
+)
+
+# np.array([0, 1577836800000]).astype('datetime64[ms]')
+#%%
+x_array = xr.DataArray(data, coords=[times, locs], dims=["time", "space"])
 #%%
 prob.viz(cut_out_in_deg=10) # plots the current at t_0 with the start and goal position
 # # create a video of the underlying currents rendered in Jupyter, Safari or as file

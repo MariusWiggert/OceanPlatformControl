@@ -15,12 +15,13 @@
 
 """Common unit conversion functions and classes."""
 
-import datetime as dt
+import datetime as datetime
 import typing
 
 import numpy as np
 
 _METERS_PER_FOOT = 0.3048
+_METERS_PER_DEG_LAT_LON = 111120
 
 
 class Distance:
@@ -85,7 +86,7 @@ class Distance:
     ...
 
   @typing.overload
-  def __truediv__(self, other: dt.timedelta) -> 'Velocity':
+  def __truediv__(self, other: datetime.timedelta) -> 'Velocity':
     # velocity = change in distance / change in time.
     ...
 
@@ -96,7 +97,7 @@ class Distance:
   def __truediv__(self, other):
     if isinstance(other, (int, float)):
       return Distance(m=self.m / other)
-    elif isinstance(other, dt.timedelta):
+    elif isinstance(other, datetime.timedelta):
       return Velocity(mps=self.m / other.total_seconds())
     elif isinstance(other, Distance):
       return self.m / other.m
@@ -176,14 +177,14 @@ class Velocity:
     else:
       raise NotImplementedError(f'Cannot subtract Velocity and {type(other)}')
 
-  def __mul__(self, other: dt.timedelta) -> Distance:
-    if isinstance(other, dt.timedelta):
+  def __mul__(self, other: datetime.timedelta) -> Distance:
+    if isinstance(other, datetime.timedelta):
       # distance = velocity * time (for constant velocity).
       return Distance(m=self.mps * other.total_seconds())
     else:
       raise NotImplementedError(f'Cannot multiply velocity with {type(other)}')
 
-  def __rmul__(self, other: dt.timedelta) -> Distance:
+  def __rmul__(self, other: datetime.timedelta) -> Distance:
     return self.__mul__(other)
 
   def __eq__(self, other: 'Velocity') -> bool:
@@ -275,13 +276,13 @@ class Power(object):
     else:
       raise NotImplementedError(f'Cannot subtract Power and {type(other)}')
 
-  def __mul__(self, other: dt.timedelta) -> Energy:
-    if isinstance(other, dt.timedelta):
+  def __mul__(self, other: datetime.timedelta) -> Energy:
+    if isinstance(other, datetime.timedelta):
       return Energy(watt_hours=self.watts * timedelta_to_hours(other))
     else:
       raise NotImplementedError(f'Cannot multiply Power with {type(other)}')
 
-  def __rmul__(self, other: dt.timedelta) -> Energy:
+  def __rmul__(self, other: datetime.timedelta) -> Energy:
     return self.__mul__(other)
 
   def __gt__(self, other: 'Power') -> bool:
@@ -379,13 +380,6 @@ class Mass(object):
     else:
       raise ValueError(f'Cannot compare Mass and {type(other)}')
 
-def distance_to_degrees(d: Distance) -> float:
-  """Converts a distance to degrees. Only (sort of) valid near the equator."""
-
-  # NOTE(scandido): 111 kilometers is about 1 degree latitude (anywhere) but
-  # this only holds for longitude at the equator.
-  return d.km / 111.0
-
 
 def relative_distance(x: Distance, y: Distance) -> Distance:
   # Assumes x, y are relative to the target, so the distance is simply the norm.
@@ -396,53 +390,11 @@ def seconds_to_hours(s: float) -> float:
   return s / 3600.0
 
 
-def timedelta_to_hours(d: dt.timedelta) -> float:
+def timedelta_to_hours(d: datetime.timedelta) -> float:
   return seconds_to_hours(d.total_seconds())
 
 
-def datetime(year: int,
-             month: int,
-             day: int,
-             hour: int = 0,
-             minute: int = 0,
-             second: int = 0,
-             microsecond: int = 0,
-             tzinfo: dt.tzinfo = dt.timezone.utc,
-             *,
-             fold: int = 0) -> dt.datetime:
-  """Creates a datetime with a default timezone of UTC.
-
-  By default, a datetime uses "naive time", which is timezone-free.
-  However, for the purposes of this simulation, this can cause errors
-  when performing operations that rely on a UNIX timestamp (e.g. solar
-  calculations). Therefore, this is the preferred way of constructing
-  datetime objects within the codebase.
-
-  Args:
-    year: The year.
-    month: The month (between 1 and 12 inclusive).
-    day: The day (must be a valid day for a given month and year).
-    hour: The hour (between 0 and 23 inclusive).
-    minute: The minute (between 0 and 59 inclusive).
-    second: The second (between 0 and 59 inclusive).
-    microsecond: The microsecond (between 0 and 999_999).
-    tzinfo: A timezone object. If None, it will default to UTC.
-    fold: A value (0 or 1) to disambiguate duplicate times caused by time
-      changes. For example, if the clocks go back an hour at 01:00 on a
-      specific day, the time 00:30 will occur twice. If fold is 0, then the
-      datetime referred to is the first occurance of the time. If it is 1,
-      it is the second occurance of the time.
-
-  Returns:
-    A timezone object.
-  """
-  # pylint: disable=g-tzinfo-datetime
-  return dt.datetime(
-      year, month, day, hour, minute, second, microsecond, tzinfo, fold=fold)
-  # pylint: enable=g-tzinfo-datetime
-
-
-def datetime_from_timestamp(timestamp: int) -> dt.datetime:
+def datetime_from_timestamp(timestamp: int) -> datetime.datetime:
   """Converts a given UTC timestamp into a datetime.
 
   The returned datetime includes timezone information.
@@ -453,4 +405,19 @@ def datetime_from_timestamp(timestamp: int) -> dt.datetime:
   Returns:
     the corresponding datetime.
   """
-  return dt.datetime.fromtimestamp(timestamp, tz=dt.timezone.utc)
+  return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+
+
+def get_posix_time_from_np64(np64_time_array: np.datetime64) -> np.array:
+  """Helper function to transform """
+  # transform from numpy datetime to POSIX time
+  t_posix = (np64_time_array - np.datetime64(0, 's')) / np.timedelta64(1, 's')
+  return t_posix
+
+
+def get_datetime_from_np64(np64_time_array: np.datetime64) -> datetime.datetime:
+  """Helper function to transform """
+  # transform from numpy datetime to datetime
+  t_posix = (np64_time_array - np.datetime64(0, 's')) / np.timedelta64(1, 's')
+  dt_object = datetime.datetime.fromtimestamp(t_posix, datetime.timezone.utc)
+  return dt_object

@@ -45,7 +45,7 @@ class PeriodicDoubleGyre(AnalyticalField):
         self.boundary_buffers = boundary_buffers  # in x and y direction
 
     def is_boundary(self, state, time):
-        """Helper function to check if a state is in the obstacle."""
+        """Helper function to check if a state is in the boundary specified in hj as obstacle."""
         del time
         x_boundary = jnp.logical_or(state[0] < self.spatial_domain.lo[0] + self.boundary_buffers[0],
                                     state[0] > self.spatial_domain.hi[0] - self.boundary_buffers[0])
