@@ -3,9 +3,9 @@ import numpy as np
 #%%
 source_dict = {'field': 'OceanCurrents',
                'subset_time_buffer_in_s': 4000,
-               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12}}
+               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*5*12}}
 
-#%% add stuff for analytical
+#% add stuff for analytical
 source_dict['source'] = 'analytical'
 source_dict['source_settings'] = {
                        'name': 'PeriodicDoubleGyre',
@@ -52,7 +52,7 @@ t_0 = datetime.datetime(2021, 11, 23, 12, 10, 10, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=1)]
 x_interval=[-82, -80]
 y_interval=[24, 26]
-x_0 = [-81.5, 23.5, 1]  # lon, lat, battery
+x_0 = [-81.5, 23.5, 1, t_0.timestamp()]  # lon, lat, battery
 x_T = [-80, 24.2]
 #%% for double gyre testing
 import datetime
@@ -61,7 +61,7 @@ t_0 = datetime.datetime.fromtimestamp(10, datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(seconds=20)]
 x_interval=[0, 2]
 y_interval=[0, 1]
-x_0 = [0, 1.5, 1]  # lon, lat, battery
+x_0 = [1.5, 0.5, 1, t_0.timestamp()]  # lon, lat, battery
 x_T = [0.1, 1.]
 #%%
 vec_point = ocean_field.get_forecast(point=x_T, time=t_0)
@@ -70,4 +70,11 @@ vec_point = ocean_field.get_ground_truth(point=x_T, time=t_0)
 print(vec_point)
 #%%
 area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
-area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+# area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+
+#%% Test if casadi works here
+ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
+#%%
+ocean_field.hindcast_data_source.casadi_grid_dict
+#%%
+ocean_field.hindcast_data_source.check_for_casadi_dynamics_update(x_0)

@@ -16,7 +16,7 @@ from pydap.client import open_url
 from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.data_sources.DataSources import XarrayDataSource
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -31,18 +31,8 @@ from ocean_navigation_simulator.env.data_sources.DataSources import XarrayDataSo
 # TODO: NaN handling as obstacles in the HJ planner would be really useful! (especially for analytical!)
 
 
-class OceanCurrentSourceXarray(XarrayDataSource):
+class OceanCurrentSource(DataSource):
     """Base class for various data sources of ocean currents to handle different current sources."""
-
-    def __init__(self, source_config_dict: dict):
-        """Function to get the OceanCurrentVector at a specific point.
-        Args:
-          source_config_dict: TODO: detail what needs to be specified here
-          """
-        super().__init__(source_config_dict)
-        self.dask_array = None
-        # Casadi functions are created and maintained here but used in the platform object
-        self.u_curr_func, self.v_curr_func = [None] * 2
 
     def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
@@ -54,26 +44,12 @@ class OceanCurrentSourceXarray(XarrayDataSource):
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
 
-    def get_currents_at_point(self, point: List[float], time: datetime) -> OceanCurrentVector:
-        """Function to get the OceanCurrentVector at a specific point.
-        Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
-        Returns:
-          OceanCurrentVector
-          """
 
-        # Step 1: get interpolated xr and make it explicit
-        currents_at_point = self.make_explicit(super().get_data_at_point(point, time))
-
-        u = currents_at_point['water_u'].data.item()
-        v = currents_at_point['water_u'].data.item()
-
-        if np.any(np.isnan([u, v])):
-            raise ValueError(
-                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
-
-        return OceanCurrentVector(u=u, v=v)
+class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
+    def __init__(self, source_config_dict: dict):
+        super().__init__(source_config_dict)
+        self.u_curr_func, self.v_curr_func = [None] * 2
+        self.dask_array = None
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],
@@ -102,6 +78,27 @@ class OceanCurrentSourceXarray(XarrayDataSource):
         if self.dask_array:
             dataframe = dataframe.compute()
         return dataframe
+
+    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> OceanCurrentVector:
+        """Function to get the OceanCurrentVector at a specific point.
+        Args:
+          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
+          time: absolute datetime object
+        Returns:
+          OceanCurrentVector
+          """
+
+        # Step 1: get interpolated xr and make it explicit
+        currents_at_point = self.make_explicit(super().get_data_at_point(point, time))
+
+        u = currents_at_point['water_u'].data.item()
+        v = currents_at_point['water_u'].data.item()
+
+        if np.any(np.isnan([u, v])):
+            raise ValueError(
+                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
+
+        return OceanCurrentVector(u=u, v=v)
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):

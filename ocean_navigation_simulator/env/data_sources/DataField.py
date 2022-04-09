@@ -39,7 +39,7 @@ class DataField(abc.ABC):
         Returns:
           A Field Data for the position in the DataField (Vector or other).
         """
-        return self.forecast_data_source.get_currents_at_point(point, time)
+        return self.forecast_data_source.get_data_at_point(point, time)
 
     def get_forecast_area(self, x_interval: List[float], y_interval: List[float], t_interval: List[datetime.datetime],
                           spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None) -> xr:
@@ -64,7 +64,7 @@ class DataField(abc.ABC):
         Returns:
           A Field Data for the position in the DataField (Vector or other).
         """
-        return self.hindcast_data_source.get_currents_at_point(point, time)
+        return self.hindcast_data_source.get_data_at_point(point, time)
 
     def get_ground_truth_area(self, x_interval: List[float], y_interval: List[float],
                               t_interval: List[datetime.datetime],

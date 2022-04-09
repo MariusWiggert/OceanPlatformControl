@@ -16,11 +16,11 @@ from pydap.client import open_url
 from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.data_sources.DataSource import XarrayDataSource
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.solar_rad import solar_rad
 
 
-class SolarIrradianceSourceXarray(XarrayDataSource):
+class SolarIrradianceSource(DataSource):
     """Base class for the Solar Irradiance data sources."""
 
     def __init__(self, source_config_dict: dict):
@@ -39,28 +39,7 @@ class SolarIrradianceSourceXarray(XarrayDataSource):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-        self.solar_rad_casadi = solar_rad
-
-    def get_currents_at_point(self, point: List[float], time: datetime) -> OceanCurrentVector:
-        """Function to get the OceanCurrentVector at a specific point.
-        Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
-        Returns:
-          OceanCurrentVector
-          """
-
-        # Step 1: get interpolated xr and make it explicit
-        currents_at_point = self.make_explicit(super().get_data_at_point(point, time))
-
-        u = currents_at_point['water_u'].data.item()
-        v = currents_at_point['water_u'].data.item()
-
-        if np.any(np.isnan([u, v])):
-            raise ValueError(
-                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
-
-        return OceanCurrentVector(u=u, v=v)
+        self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['irradiance'].values.ravel(order='F'))
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],

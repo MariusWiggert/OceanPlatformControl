@@ -1,10 +1,10 @@
 import datetime
 from typing import List, NamedTuple, Sequence, Optional
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSourceXarray
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import HindcastFileSource, HindcastOpendapSource, ForecastFileSource
-import ocean_navigation_simulator.env.data_sources.OceanCurrentSource.AnalyticalSource as AnalyticalSources
+import ocean_navigation_simulator.env.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
 import xarray as xr
 from geopy.point import Point as GeoPoint
 
@@ -27,7 +27,7 @@ class OceanCurrentField(DataField):
         super().__init__(hindcast_source_dict, forecast_source_dict)
 
     @staticmethod
-    def instantiate_source_from_dict(source_dict: dict) -> OceanCurrentSourceXarray:
+    def instantiate_source_from_dict(source_dict: dict) -> OceanCurrentSource:
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
         if source_dict['source'] == 'opendap':
             return HindcastOpendapSource(source_dict)
