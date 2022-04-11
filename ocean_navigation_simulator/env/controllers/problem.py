@@ -17,6 +17,7 @@ class Problem:
 
     def __init__(self, start_state, end_region, obstacle_regions, config):
         self.start_state = start_state
+        # polygons (shapely library) vs. interpolation (level sets, hj_reachability), which is faster
         self.end_region = end_region
         self.obstacle_regions = obstacle_regions
         self.config = config

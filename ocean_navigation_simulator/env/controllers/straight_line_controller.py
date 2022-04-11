@@ -1,7 +1,7 @@
-from ocean_navigation_simulator.controllers.problem import Problem
-from ocean_navigation_simulator.controllers import simulator_data
-from ocean_navigation_simulator.controllers.controller import Controller
-from ocean_navigation_simulator.controllers.utils import transform_u_dir_to_u
+from ocean_navigation_simulator.env.controllers.problem import Problem
+from ocean_navigation_simulator.env.controllers import simulator_data
+from ocean_navigation_simulator.env.controllers.controller import Controller
+from ocean_navigation_simulator.env.controllers.utils import transform_u_dir_to_u
 import math
 import numpy as np
 

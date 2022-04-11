@@ -9,6 +9,15 @@ class SimulatorObservation(object):
     ground truth state, and are instead noisy observations from the
     environment.
     """
-    platform_observation: platform.PlatformState
-    current_at_platform: current_field.CurrentVector
+    platform_observation: platform.PlatformState  # Jerome has this
+    current_at_platform: current_field.CurrentVector  # Marius has this
     forecasts: data.Forecast
+
+
+class SimulatorAction(object):
+    """
+    magntiude -> float, % of max
+    direction -> float, radians
+    """
+    magnitude: float
+    direction: float

@@ -21,7 +21,7 @@ class PlatformEnv(gym.Env):
     observation_space: spaces.Space[ObsType]
     _np_random: Optional[RandomNumberGenerator] = None
 
-    def __init__(self):
+    def __init__(self, problem: Problem):
         seed = 189
         self.reset()
 
