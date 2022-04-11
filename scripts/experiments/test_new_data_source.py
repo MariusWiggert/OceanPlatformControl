@@ -1,5 +1,51 @@
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 import numpy as np
+#%% Create the source dict for the ocean currents
+source_dict = {'field': 'OceanCurrents',
+               'subset_time_buffer_in_s': 4000,
+               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*5*12}}
+source_dict['source'] = 'opendap'
+source_dict['source_settings'] = {
+                   'service': 'copernicus',
+                   'currents': 'total', # if we want to take the normal uo, vo currents or 'total' for tide, normal added
+                   'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
+                   # 'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh',
+                   'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'}
+
+#%% Create the ocean Field
+ocean_field = OceanCurrentField(hindcast_source_dict=source_dict)
+#%% Use it
+import datetime
+t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
+# t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
+t_interval = [t_0, t_0 + datetime.timedelta(days=1)]
+x_interval=[-82, -80]
+y_interval=[24, 26]
+x_0 = [-81.5, 23.5, 1, t_0.timestamp()]  # lon, lat, battery
+x_T = [-80, 24.2]
+
+#%%
+vec_point = ocean_field.get_forecast(point=x_T, time=t_0)
+print(vec_point)
+vec_point = ocean_field.get_ground_truth(point=x_T, time=t_0)
+print(vec_point)
+#%% Not working some weird error but you don't need it
+# area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+# area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+#%% Passed to the platform is then the object at initialization
+data_source_in_platform = ocean_field.hindcast_data_source
+#%% Checks to run
+data_source_in_platform.update_casadi_dynamics(x_0)
+#%%
+data_source_in_platform.check_for_casadi_dynamics_update(x_0)
+#%% inside casadi dynamics
+data_source_in_platform.u_curr_func
+data_source_in_platform.v_curr_func
+
+
+
+
+#%% Other stuff which is not shareable yet
 #%% Solar irradiance Test
 source_dict = {'field': 'SolarIrradiance',
                'subset_time_buffer_in_s': 4000,
@@ -14,7 +60,6 @@ source_dict['source_settings'] = {
                        'spatial_resolution': 0.1,
                        'temporal_resolution': 3600,
                    }
-#%%
 #%%
 source_dict = {'field': 'OceanCurrents',
                'subset_time_buffer_in_s': 4000,
@@ -114,3 +159,5 @@ ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
 ocean_field.hindcast_data_source.casadi_grid_dict
 #%%
 ocean_field.hindcast_data_source.check_for_casadi_dynamics_update(x_0)
+#%%
+ocean_field.hindcast_data_source.v_curr_func
