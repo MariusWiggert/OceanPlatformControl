@@ -1,3 +1,18 @@
+# coding=utf-8
+# Copyright 2022 The Balloon Learning Environment Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Common unit conversion functions and classes."""
 
 import datetime as dt
@@ -6,9 +21,7 @@ import typing
 import numpy as np
 
 _METERS_PER_FOOT = 0.3048
-_METERS_PER_DEG_LAT_LON = 111120.
 
-# Note: for lat, lon points we use: from geopy.point import Point as GeoPoint
 
 class Distance:
   """A compact distance unit."""
@@ -19,12 +32,10 @@ class Distance:
                meters: float = 0.0,
                km: float = 0.0,
                kilometers: float = 0.0,
-               feet: float = 0.0,
-               deg: float = 0.0
-               ):
+               feet: float = 0.0):
     # Note: distance is stored as meters.
     self._distance = (
-        m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) + deg * _METERS_PER_DEG_LAT_LON
+        m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT)
 
   @property
   def m(self) -> float:
@@ -35,11 +46,6 @@ class Distance:
   def meters(self) -> float:
     """Gets distance in meters."""
     return self.m
-
-  @property
-  def deg(self) -> float:
-    """Gets distance in meters."""
-    return self._distance / _METERS_PER_DEG_LAT_LON
 
   @property
   def km(self) -> float:
@@ -237,7 +243,7 @@ class Energy(object):
     if isinstance(other, Energy):
       return self.watt_hours >= other.watt_hours
     else:
-      raise ValueError(f'Cannot compare Energy and {type(other)}')
+      return ValueError(f'Cannot compare Energy and {type(other)}')
 
 
 class Power(object):
@@ -283,88 +289,6 @@ class Power(object):
     else:
       raise ValueError(f'Cannot compare Power and {type(other)}')
 
-
-class Mass(object):
-  """A compact mass class."""
-
-  def __init__(self, *,kilograms: float = 0.0,kg: float = 0.0):
-    self._kg = kilograms + kg
-
-  @property
-  def kilograms(self) -> float:
-    return self._kg
-
-  @property
-  def kg(self) -> float:
-    return self._kg
-
-  def __add__(self, other: 'Mass') -> 'Mass':
-    if isinstance(other, Mass):
-      return Mass(kg=self.kg + other.kg)
-    else:
-      raise NotImplementedError(f'Cannot add Mass and {type(other)}')
-
-  def __sub__(self, other: 'Mass') -> 'Mass':
-    if isinstance(other, Mass):
-      return Mass(kg=self.kg - other.kg)
-    else:
-      raise NotImplementedError(f'Cannot subtract Mass and {type(other)}')
-
-  @typing.overload
-  def __truediv__(self, other: float) -> 'Mass':
-    ...
-
-  def __truediv__(self, other):
-    if isinstance(other, (int, float)):
-      return Mass(kg=self.kg / other)
-    else:
-      raise NotImplementedError(f'Cannot divide Mass by {type(other)}')
-
-  def __mul__(self, other: float) -> 'Mass':
-    if isinstance(other, (int, float)):
-      return Mass(kg=self.kg * other)
-    else:
-      raise NotImplementedError(f'Cannot multiply Mass and {type(other)}')
-
-  def __rmul__(self, other: float) -> 'Mass':
-    return self.__mul__(other)
-
-
-  def __eq__(self, other: 'Mass') -> bool:
-    if isinstance(other, Mass):
-      return abs(self.kg - other.kg) < 1e-9
-    else:
-      raise ValueError(f'Cannot compare Mass and {type(other)}')
-
-  def __neq__(self, other: 'Mass') -> bool:
-    if isinstance(other, Mass):
-      return not self.__eq__(other)
-    else:
-      raise ValueError(f'Cannot compare Mass and {type(other)}')
-
-  def __lt__(self, other: 'Mass') -> bool:
-    if isinstance(other, Mass):
-      return self.kg < other.kg
-    else:
-      raise ValueError(f'Cannot compare Mass and {type(other)}')
-
-  def __le__(self, other: 'Mass') -> bool:
-    if isinstance(other, Mass):
-      return self.kg <= other.kg
-    else:
-      raise ValueError(f'Cannot compare Mass and {type(other)}')
-
-  def __gt__(self, other: 'Mass') -> bool:
-    if isinstance(other, Mass):
-      return self.kg > other.kg
-    else:
-      raise ValueError(f'Cannot compare Mass and {type(other)}')
-
-  def __ge__(self, other: 'Mass') -> bool:
-    if isinstance(other, Mass):
-      return self.kg >= other.kg
-    else:
-      raise ValueError(f'Cannot compare Mass and {type(other)}')
 
 def distance_to_degrees(d: Distance) -> float:
   """Converts a distance to degrees. Only (sort of) valid near the equator."""
