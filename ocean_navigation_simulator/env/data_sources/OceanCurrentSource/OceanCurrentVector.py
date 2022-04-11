@@ -1,5 +1,5 @@
 from typing import List, NamedTuple, Sequence, Optional
-import ocean_navigation_simulator.utils.units as units
+import ocean_navigation_simulator.env.utils.units as units
 
 # OceanCurrentVector contains the following elements:
 #   u: Current magnitude along the x axis in meters per second.
