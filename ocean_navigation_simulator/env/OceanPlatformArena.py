@@ -4,11 +4,13 @@ A Ocean arena contains the logic for navigating a platform in the ocean.
 
 import abc
 import datetime as dt
+import dataclasses
 import math
 import time
 from typing import Callable, Optional, Union
-
-from ocean_navigation_simulator.data_sources.OceanCurrentFields import OceanCurrentField
+import jax
+import jax.numpy as jnp
+import numpy as np
 
 # from balloon_learning_environment.env import features
 # from balloon_learning_environment.env import simulator_data
@@ -20,9 +22,38 @@ from ocean_navigation_simulator.data_sources.OceanCurrentFields import OceanCurr
 # from balloon_learning_environment.utils import constants
 # from balloon_learning_environment.utils import sampling
 # from balloon_learning_environment.utils import units
-import jax
-import jax.numpy as jnp
-import numpy as np
+
+
+from ocean_navigation_simulator.data_sources.OceanCurrentFields import OceanCurrentField
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentVector
+from ocean_navigation_simulator.env.platform import Platform, PlatformState
+
+
+@dataclasses.dataclass
+class SimulatorObservation(object):
+    """
+    Specifies an observation from the simulator.
+    This differs from SimulatorState in that the observations are not
+    ground truth state, and are instead noisy observations from the
+    environment.
+    """
+    platform_observation: PlatformState     # position, time, battery
+    current_at_platform: OceanCurrentVector      # local current
+    forecasts: np.ndarray                # solar, current
+
+
+@dataclasses.dataclass
+class SimulatorAction(object):
+    """
+    magntiude -> float, % of max
+    direction -> float, radians
+    """
+    magnitude: float
+    direction: float
+
+
+@dataclasses.dataclass
+class SimulatorState(object):
 
 
 class OceanPlatformArenaInterface(abc.ABC):
@@ -43,7 +74,7 @@ class OceanPlatformArenaInterface(abc.ABC):
     """
 
     @abc.abstractmethod
-    def step(self, action: control.AltitudeControlCommand) -> np.ndarray:
+    def step(self, action: SimulatorAction) -> SimulatorObservation:
         """Steps the simulator.
     Args:
       action: The ocean platform control to apply.
@@ -52,7 +83,7 @@ class OceanPlatformArenaInterface(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_simulator_state(self) -> simulator_data.SimulatorState:
+    def get_simulator_state(self) -> SimulatorState:
         """Gets the current simulator state.
     This should return the full simulator state so that it can be used for
     checkpointing.
@@ -61,8 +92,7 @@ class OceanPlatformArenaInterface(abc.ABC):
     """
 
     @abc.abstractmethod
-    def set_simulator_state(self,
-                            new_state: simulator_data.SimulatorState) -> None:
+    def set_simulator_state(self, new_state: SimulatorState) -> None:
         """Sets the simulator state.
     This should fully restore the simulator state so that it can restore
     from a checkpoint.
@@ -71,21 +101,21 @@ class OceanPlatformArenaInterface(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_platform_state(self) -> platform.PlatformState:
+    def get_platform_state(self) -> PlatformState:
         """Gets the platform state.
     Returns:
       The current platform state.
     """
 
     @abc.abstractmethod
-    def set_platform_state(self, new_state: platform.PlatformState) -> None:
+    def set_platform_state(self, new_state: PlatformState) -> None:
         """Sets the platform state.
     Args:
       new_state: The state to set the platform to.
     """
 
     @abc.abstractmethod
-    def get_measurements(self) -> simulator_data.SimulatorObservation:
+    def get_measurements(self) -> SimulatorObservation:
         """Gets measurements from the arena.
     This is what a controller may feasibly use to control the platform.
     The feature processing happens in the gym environment.
@@ -120,7 +150,7 @@ class OceanPlatformArena(OceanPlatformArenaInterface):
     """
         self._ocean_current_field = ocean_field_instance
         self._step_duration = constants.AGENT_TIME_STEP
-        self._platform: platform.Platform  # Initialized in reset.
+        self._platform: Platform  # Initialized in reset.
 
         # We call reset here to ensure the arena can always be run without
         # an explicit call to reset. However, the preferred way to run the
@@ -150,7 +180,7 @@ class OceanPlatformArena(OceanPlatformArenaInterface):
         self.feature_constructor.observe(self.get_measurements())
         return self.feature_constructor.get_features()
 
-    def step(self, action: control.AltitudeControlCommand) -> np.ndarray:
+    def step(self, action: SimulatorAction) -> SimulatorObservation:
         """Simulates the effects of choosing the given action in the system.
     Args:
       action: The action to take in the simulator.
@@ -168,32 +198,30 @@ class OceanPlatformArena(OceanPlatformArenaInterface):
         self.feature_constructor.observe(self.get_measurements())
         return self.feature_constructor.get_features()
 
-    def get_simulator_state(self) -> simulator_data.SimulatorState:
-        return simulator_data.SimulatorState(self.get_balloon_state(),
-                                             self._wind_field,
-                                             self._atmosphere)
+    def get_simulator_state(self) -> SimulatorState:
+        return SimulatorState(self.get_balloon_state(), self._wind_field, self._atmosphere)
 
     def set_simulator_state(self,
-                            new_state: simulator_data.SimulatorState) -> None:
+                            new_state: SimulatorState) -> None:
         # TODO(joshgreaves): Restore the state of the feature constructor.
         self.set_balloon_state(new_state.balloon_state)
         self._wind_field = new_state.wind_field
         self._atmosphere = new_state.atmosphere
 
-    def get_balloon_state(self) -> balloon.BalloonState:
-        return self._balloon.state
+    def get_platform_state(self) -> PlatformState:
+        return self._platfrom.state
 
-    def set_balloon_state(self, new_state: balloon.BalloonState) -> None:
-        self._balloon.state = new_state
+    def set_platform_state(self, new_state: PlatformState) -> None:
+        self._platfrom.state = new_state
 
-    def get_measurements(self) -> simulator_data.SimulatorObservation:
+    def get_measurements(self) -> SimulatorObservation:
         # TODO(joshgreaves): Add noise to observations
-        return simulator_data.SimulatorObservation(
+        return SimulatorObservation(
             balloon_observation=self.get_balloon_state(),
             wind_at_balloon=self._get_wind_ground_truth_at_balloon())
 
     def _initialize_balloon(self,
-                            start_date_time: dt.datetime) -> balloon.Balloon:
+                            start_date_time: dt.datetime) -> Platform:
         """Initializes a balloon.
     Initializes a balloon within 200km of the target. The balloon's distance
     from the target is sampled from a beta distribution, while the direction
