@@ -17,7 +17,7 @@ import threading
 import warnings
 
 import numpy as np
-import casadi as ca
+# import casadi as ca
 
 # These functions are necessary to "casadize" the algorithm.
 def rad2deg(x):
@@ -491,7 +491,7 @@ def heliocentric_longitude(jme):
     l = rad2deg(l_rad)
 
     # TODO: verify this works correctly on negative values
-    return ca.mod(l, 360)
+    return np.mod(l, 360)
 
 
 def heliocentric_latitude(jme):
@@ -547,7 +547,7 @@ def heliocentric_radius_vector(jme):
 def geocentric_longitude(heliocentric_longitude):
     theta = heliocentric_longitude + 180.0
     # TODO: verify this works correctly on negative values
-    return ca.mod(theta, 360)
+    return np.mod(theta, 360)
     return theta % 360
 
 
@@ -659,7 +659,7 @@ def mean_sidereal_time(julian_day, julian_century):
     v0 = (280.46061837 + 360.98564736629 * (julian_day - 2451545)
           + 0.000387933 * julian_century**2 - julian_century**3 / 38710000)
     # TODO: verify this works on negatives
-    return ca.mod(v0,  360)
+    return np.mod(v0,  360)
 
 
 def apparent_sidereal_time(mean_sidereal_time, longitude_nutation,
@@ -679,7 +679,7 @@ def geocentric_sun_right_ascension(apparent_sun_longitude,
     alpha = degrees(np.arctan2(num, np.cos(
         radians(apparent_sun_longitude))))
     #TODO: check
-    return ca.mod(alpha, 360)
+    return np.mod(alpha, 360)
 
 
 def geocentric_sun_declination(apparent_sun_longitude, true_ecliptic_obliquity,
@@ -697,7 +697,7 @@ def local_hour_angle(apparent_sidereal_time, observer_longitude,
     """Measured westward from south"""
     H = apparent_sidereal_time + observer_longitude - sun_right_ascension
 
-    return ca.mod(H,360)
+    return np.mod(H,360)
 
 
 def equatorial_horizontal_parallax(earth_radius_vector):
@@ -807,12 +807,12 @@ def topocentric_astronomers_azimuth(topocentric_local_hour_angle,
              - np.tan(radians(topocentric_sun_declination))
              * np.cos(radians(observer_latitude)))
     gamma = degrees(np.arctan2(num, denom))
-    return ca.mod(gamma, 360)
+    return np.mod(gamma, 360)
 
 
 def topocentric_azimuth_angle(topocentric_astronomers_azimuth):
     phi = topocentric_astronomers_azimuth + 180
-    return ca.mod(phi, 360)
+    return np.mod(phi, 360)
 
 
 def sun_mean_longitude(julian_ephemeris_millennium):
@@ -829,7 +829,7 @@ def equation_of_time(sun_mean_longitude, geocentric_sun_right_ascension,
     E = (sun_mean_longitude - 0.0057183 - geocentric_sun_right_ascension +
          longitude_nutation * np.cos(radians(true_ecliptic_obliquity)))
     # limit between 0 and 360
-    E = ca.mod(E, 360)
+    E = np.mod(E, 360)
     # convert to minutes
     E *= 4
     greater = E > 20

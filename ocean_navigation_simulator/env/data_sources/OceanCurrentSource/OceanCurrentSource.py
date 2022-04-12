@@ -36,6 +36,7 @@ class OceanCurrentSource(DataSource):
 
     def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
+        # Note: the input to the casadi function needs to be an array of the form np.array([posix time, lat, lon])
         Args:
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
@@ -229,23 +230,6 @@ def get_file_dicts(folder: AnyStr) -> List[dict]:
     # sort the list
     list_of_dicts.sort(key=lambda dict: dict['t_range'][0])
     return list_of_dicts
-
-
-# def derive_grid_dict_from_file_dict(file_dict: dict) -> dict:
-#     """Helper function to create the a grid dict from one nc file_dict."""
-#
-#     # get spatial coverage by reading in the first file
-#     f = open_formatted_xarray(file_dict['file'])
-#     xgrid = f.variables['lon'].data
-#     ygrid = f.variables['lat'].data
-#
-#     # get the land mask
-#     u_data = f.variables['water_u'].data
-#     # adds a mask where there's a nan (on-land)
-#     u_data = np.ma.masked_invalid(u_data)
-#
-#     return {"t_range": file_dict['t_range'], "y_range": file_dict['y_range'], "x_range": file_dict['x_range'],
-#             'spatial_land_mask': u_data[0, :, :].mask, 'x_grid': xgrid, 'y_grid': ygrid}
 
 
 def open_formatted_xarray(filepath: AnyStr) -> xr:

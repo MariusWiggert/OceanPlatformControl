@@ -4,15 +4,9 @@ Implements a lot of shared functionality such as
 
 from ocean_navigation_simulator.env.utils import units
 import warnings
-import numpy as np
-import xarray as xr
 import datetime
-import matplotlib.pyplot as plt
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
 import numpy as np
-import jax.numpy as jnp
-import hj_reachability as hj
-from functools import partial
 import xarray as xr
 import abc
 
@@ -35,7 +29,8 @@ class DataSource(abc.ABC):
             """
         out_x_range = not (self.casadi_grid_dict['x_range'][0] < x_t[0] < self.casadi_grid_dict['x_range'][1])
         out_y_range = not (self.casadi_grid_dict['y_range'][0] < x_t[1] < self.casadi_grid_dict['y_range'][1])
-        out_t_range = not (self.casadi_grid_dict['t_range'][0] <= units.datetime_from_timestamp(int(x_t[3])) < self.casadi_grid_dict['t_range'][1])
+        out_t_range = not (self.casadi_grid_dict['t_range'][0] <= units.datetime_from_timestamp(int(x_t[3])) <
+                           self.casadi_grid_dict['t_range'][1])
 
         if out_x_range or out_y_range or out_t_range:
             print(f'Updating Casadi Dynamics.')
@@ -94,13 +89,15 @@ class DataSource(abc.ABC):
     def get_grid_dict_from_xr(xrDF: xr) -> dict:
         """Helper function to extract the grid dict from an xrarray"""
 
-        grid_dict = {"t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
-                     "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
-                     # 'y_grid': xrDF["lat"].data,
-                     "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
-                     # 'x_grid': xrDF["lon"].data,
-                     # 'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
-                     }
+        grid_dict = {
+            "t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
+            "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
+            'y_grid': xrDF["lat"].data,
+            "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
+            'x_grid': xrDF["lon"].data,
+            't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
+            # 'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
+            }
 
         return grid_dict
 
@@ -223,42 +220,39 @@ class AnalyticalSource(abc.ABC):
         # Step 1: Some basic initializations
         # adjust spatial domain by boundary buffer
         self.boundary_buffers = np.array(source_config_dict['source_settings']['boundary_buffers'])
-        spatial_domain = [source_config_dict['source_settings']['spatial_domain'][0] - self.boundary_buffers,
-                          source_config_dict['source_settings']['spatial_domain'][1] + self.boundary_buffers]
-
-        self.spatial_domain = hj.sets.Box(lo=spatial_domain[0],
-                                          hi=spatial_domain[1])
-        self.temporal_domain = hj.sets.Box(lo=np.array([source_config_dict['source_settings']['temporal_domain'][0]]),
-                                           hi=np.array([source_config_dict['source_settings']['temporal_domain'][1]]))
-
+        self.x_domain = [x + self.boundary_buffers[0]*(-1)**i for x, i in zip(source_config_dict['source_settings']['x_domain'], [1,2])]
+        self.y_domain = [y + self.boundary_buffers[1]*(-1)**i for y, i in zip(source_config_dict['source_settings']['y_domain'], [1,2])]
+        # set the temp_domain_posix
+        if isinstance(source_config_dict['source_settings']['temporal_domain'][0], datetime.datetime):
+            # Assume it's utc if not correct it
+            self.temp_domain_posix = [t.replace(tzinfo=datetime.timezone.utc).timestamp()
+                                 for t in source_config_dict['source_settings']['temporal_domain']]
+        else:
+            self.temp_domain_posix = source_config_dict['source_settings']['temporal_domain']
+        # Set the default resolutions (used when none is provided in get_data_over_area)
         self.spatial_resolution = source_config_dict['source_settings']['spatial_resolution']
         self.temporal_resolution = source_config_dict['source_settings']['temporal_resolution']
 
-        # Quick gut check
-        if not self.temporal_domain.ndim == 1:
-            raise ValueError("temporal_domain  must be 1D")
-
         # Step 3: derive a general grid_dict
-        self.grid_dict = self.get_grid_dict()
+        self.grid_dict = self.get_ranges_dict()
 
     @abc.abstractmethod
-    def create_xarray(self, grid_dict: dict, data_tuple: Tuple) -> xr:
+    def create_xarray(self, grids_dict: dict, data_tuple: Tuple) -> xr:
         """Function to create an xarray from the data tuple and grid dict
             Args:
               data_tuple: tuple containing the data of the source as numpy array
-              grid_dict: containing ranges and grids of x, y, t dimension
+              grids_dict: containing ranges and grids of x, y, t dimension
             Returns:
               xr     an xarray containing both the grid and data
             """
 
     @abc.abstractmethod
-    def map_analytical_function_over_area(self, states, grid_dict) -> Tuple:
+    def map_analytical_function_over_area(self, grids_dict: dict):
         """Function to map the analytical function over an area with the spatial states and grid_dict times.
             Args:
-              states: jax.numpy array containing the desired spatial grid as states
-              grid_dict: containing ranges and grids of x, y, t dimension
+              grids_dict: containing grids of x, y, t dimension
             Returns:
-              data_tuple     containing the data in tuple format as numpy array (not yet in xarray form)
+              data     containing the data in whatever format as numpy array (not yet in xarray form) e.g. Tuple
             """
 
     @abc.abstractmethod
@@ -287,87 +281,89 @@ class AnalyticalSource(abc.ABC):
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
 
-        # Step 0.0: if t_interval is in datetime convert to relative time
+        # Step 0.0: if t_interval is in datetime convert to POSIX
         if isinstance(t_interval[0], datetime.datetime):
             t_interval_posix = [time.timestamp() for time in t_interval]
         else:
             t_interval_posix = t_interval
 
-        grid_dict, data_tuple = self.get_subset_from_analytical_field(x_interval, y_interval, t_interval_posix,
-                                                                      spatial_resolution, temporal_resolution)
+        # Get the coordinate vectors to calculate the analytical function over
+        grids_dict = self.get_grid_dict(x_interval, y_interval, t_interval_posix,
+                                        spatial_resolution=spatial_resolution, temporal_resolution=temporal_resolution)
 
-        # make a xarray object out of it
-        subset = self.create_xarray(grid_dict, data_tuple)
+        data_tuple = self.map_analytical_function_over_area(grids_dict)
+
+        # make an xarray object out of it
+        subset = self.create_xarray(grids_dict, data_tuple)
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
         DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval)
 
         return subset
 
+    def get_ranges_dict(self, x_interval: Optional[List[float]] = None, y_interval: Optional[List[float]] = None,
+                        t_interval: Optional[List[float]] = None):
+        """Helper function to get a ranges dictionary bounded by the spatial and temporal domain.
+        If no input is provided this returns the ranges for data source domain.
+        Args:
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in POSIX time
+        """
+
+        # Step 1: Check default interval or bounded by the respective domain of the Data Source
+        if t_interval is None:
+            t_interval = self.temp_domain_posix
+        else:
+            t_interval = [max(t_interval[0], self.temp_domain_posix[0]),
+                          min(t_interval[1], self.temp_domain_posix[1])]
+        if x_interval is None:
+            x_interval = [self.x_domain[0], self.x_domain[1]]
+        else:
+            x_interval = [max(x_interval[0], self.x_domain[0]),
+                          min(x_interval[1], self.x_domain[1])]
+        if y_interval is None:
+            y_interval = [self.y_domain[0], self.y_domain[1]]
+        else:
+            y_interval = [max(y_interval[0], self.y_domain[0]),
+                          min(y_interval[1], self.y_domain[1])]
+
+        return {"y_range": y_interval, "x_range": x_interval,
+                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval]}
+
     def get_grid_dict(self, x_interval: Optional[List[float]] = None, y_interval: Optional[List[float]] = None,
                       t_interval: Optional[List[float]] = None,
                       spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None):
-        """Helper Function to produce a grid dict."""
 
-        # Step 1: Check default resolution or requested
+        """Helper Function to produce a grid dict."""
         if spatial_resolution is None:
             spatial_resolution = self.spatial_resolution
         if temporal_resolution is None:
             temporal_resolution = self.temporal_resolution
-        if t_interval is None:
-            t_interval = [self.temporal_domain.lo, self.temporal_domain.hi]
-        if x_interval is None:
-            x_interval = [self.spatial_domain.lo[0], self.spatial_domain.hi[0]]
-        if y_interval is None:
-            y_interval = [self.spatial_domain.lo[1], self.spatial_domain.hi[1]]
 
-        # Step 1: Calculate the coordinate vectors and spatial meshgrid
-        lo_hi_vec = [[lon, lat] for lon, lat in zip(x_interval, y_interval)]
-        temporal_vector = jnp.linspace(t_interval[0], t_interval[1], temporal_resolution)
+        # Step 1: Get the domain adjusted range dict
+        ranges_dict = self.get_ranges_dict(x_interval, y_interval, t_interval)
+
+        # Step 2: Get the grids with the respective resolutions
+        # Step 2.1 Spatial coordinate vectors with desired resolution
+        lo_hi_vec = [[lon, lat] for lon, lat in zip(ranges_dict['x_range'], ranges_dict['y_range'])]
         # The +0.01 is a hacky way to include the endpoint
-        coordinate_vectors = [jnp.arange(start=l, stop=h+0.01, step=spatial_resolution) for l, h in zip(lo_hi_vec[0], lo_hi_vec[1])]
+        spatial_vectors = [np.arange(start=l, stop=h + 0.01, step=spatial_resolution) for l, h in
+                              zip(lo_hi_vec[0], lo_hi_vec[1])]
+        # Step 2.2 Temporal grid in POSIX TIME
+        t_grid = np.arange(start=t_interval[0], stop=t_interval[1] + 1, step=temporal_resolution)
 
-        grid_dict = {"t_range": t_interval,
-                     "y_range": y_interval, "x_range": x_interval,
-                     'x_grid': coordinate_vectors[0], 'y_grid': coordinate_vectors[1],
-                     't_grid': temporal_vector.flatten()}
-        return grid_dict, coordinate_vectors
+        # The around is added because np.arange can otherwise lead to small float imprecision in the end
+        return {'x_grid': np.around(spatial_vectors[0], 6),
+                'y_grid': np.around(spatial_vectors[1], 6),
+                't_grid': np.around(t_grid, 6)}
 
-    def get_subset_from_analytical_field(self, x_interval: List[float], y_interval: List[float],
-                                         t_interval: List[float],
-                                         spatial_resolution: Optional[float] = None,
-                                         temporal_resolution: Optional[float] = None) -> xr:
-        """Returns the xarray of the requested interval and resolution.
-        """
-        # Step 0: check if within the spatial and temporal domain. Otherwise modify.
-        y_interval = [max(y_interval[0], self.spatial_domain.lo[1]),
-                      min(y_interval[1], self.spatial_domain.hi[1])]
-        x_interval = [max(x_interval[0], self.spatial_domain.lo[0]),
-                      min(x_interval[1], self.spatial_domain.hi[0])]
-
-        t_interval = [max(t_interval[0], self.temporal_domain.lo[0]), min(t_interval[1], self.temporal_domain.hi[0])]
-
-        # get the grid dict and coordinate_vectors
-        grid_dict, coordinate_vectors = self.get_grid_dict(x_interval, y_interval, t_interval,
-                                                           spatial_resolution=spatial_resolution,
-                                                           temporal_resolution=temporal_resolution)
-
-        # Step 1: Calculate the coordinate vectors and spatial meshgrid
-        states = jnp.stack(jnp.meshgrid(*coordinate_vectors, indexing="ij"), -1)
-
-        # Step 2: Map analytical function over the area
-        data_tuple = self.map_analytical_function_over_area(states, grid_dict)
-        return grid_dict, data_tuple
-
-    def is_boundary(self, point: List[float], time: float):
+    def is_boundary(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                    posix_time: Union[float, np.array]) -> Union[float, np.array]:
         """Helper function to check if a state is in the boundary specified in hj as obstacle."""
-        del time
-        x_boundary = jnp.logical_or(point[0] < self.spatial_domain.lo[0] + self.boundary_buffers[0],
-                                    point[0] > self.spatial_domain.hi[0] - self.boundary_buffers[0])
-        y_boundary = jnp.logical_or(point[1] < self.spatial_domain.lo[1] + self.boundary_buffers[1],
-                                    point[1] > self.spatial_domain.hi[1] - self.boundary_buffers[1])
+        x_boundary = np.logical_or(lon < self.x_domain[0] + self.boundary_buffers[0],
+                                    lon > self.x_domain[1] - self.boundary_buffers[0])
+        y_boundary = np.logical_or(lat < self.y_domain[0] + self.boundary_buffers[1],
+                                    lat > self.y_domain[1] - self.boundary_buffers[1])
 
-        return jnp.logical_or(x_boundary, y_boundary)
-
-
-
+        return np.logical_or(x_boundary, y_boundary)
