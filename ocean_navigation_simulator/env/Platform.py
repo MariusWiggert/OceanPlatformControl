@@ -16,7 +16,7 @@ import casadi as ca
 import numpy as np
 import time
 import math
-
+from typing import Dict
 
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import SolarIrradianceSource
@@ -54,33 +54,14 @@ class PlatformState(object):
 
 
 @dataclasses.dataclass
-class PlatformSpecs(object):
-    """A dataclass containing constants relevant to the platform state.
+class PlatformAction(object):
+    """
+    magntiude -> float, % of max
+    direction -> float, radians
+    """
+    magnitude: float
+    direction: float
 
-      Attributes:
-        date_time: The current time.
-        time_elapsed: The time elapsed in simulation from the time the object was
-            initialized.
-
-        lon:
-        lat:
-
-        solar_charging: The amount of power entering the system via solar panels.
-        power_load: The amount of power being used by the system.
-        battery_charge: The amount of energy stored on the batteries.
-
-        seaweed_mass: The amount of air being pumped by the altitude control
-            system.
-
-        last_command: The previous command executed by the balloon.
-      """
-    battery_cap: units.Energy(watt_hours=0)
-    u_max: units.Velocity(meters_per_second=0)
-    motor_efficiency: float
-
-
-#platform_config_dict = {'battery_cap': 400.0, 'u_max': 0.1, 'motor_efficiency': 1.0,
-#                        'solar_panel_size': 0.5, 'solar_efficiency': 0.2, 'drag_factor': 675}
 
 class Platform:
     """A simulation of a seaweed platform.
@@ -89,30 +70,20 @@ class Platform:
     (simulate_step) for simulating a seaweed platform.
     """
 
-    def __init__(self, state: PlatformState, specs: PlatformSpecs, ocean_source: OceanCurrentSource, solar_source: SolarIrradianceSource):
+    def __init__(self, state: PlatformState, platform_dict: Dict, ocean_source: OceanCurrentSource, solar_source: SolarIrradianceSource):
         self.state = state
-        self.specs = specs
+        self.platform_dict = platform_dict
         self.ocean_source = ocean_source
         self.solar_source = solar_source
 
-        platform_specs = {
-            'battery_cap_in_wh': 400.0,
-            'u_max_in_mps': 0.1,
-            'motor_efficiency': 1.0,
-            'solar_panel_size': 0.5,
-            'solar_efficiency': 0.2,
-            'drag_factor': 675
-        }
-        cap_in_joule = platform_specs['battery_cap_in_wh'] * 3600
-        self.energy_coeff = (platform_specs['drag_factor'] * (1 / platform_specs['motor_efficiency'])) / cap_in_joule
-        self.charge_factor =  (platform_specs['solar_panel_size'] * platform_specs['solar_efficiency']) / cap_in_joule
-        self.u_max = platform_specs['u_max_in_mps']
+        cap_in_joule = platform_dict['battery_cap_in_wh'] * 3600
+        self.energy_coeff = (platform_dict['drag_factor'] * (1 / platform_dict['motor_efficiency'])) / cap_in_joule
+        self.charge_factor =  (platform_dict['solar_panel_size'] * platform_dict['solar_efficiency']) / cap_in_joule
+        self.u_max = units.Velocity(mps=platform_dict['u_max_in_mps'])
 
     def simulate_step(
         self,
-        action: tuple[float, float],
-        time_delta: dt.timedelta,
-        intermediate_steps: int = 1,
+        action: PlatformAction
     ) -> PlatformState:
         """Steps forward the simulation.
 
@@ -125,9 +96,8 @@ class Platform:
         """
         state_numpy = np.array([self.state.lon.deg, self.state.lat.deg, self.state.date_time.timestamp(), self.state.battery_charge.watt_hours])
 
-        for i in range(intermediate_steps):
-            self.update_dynamics(state_numpy)
-            state_numpy = np.array(self.F_x_next(state_numpy, np.array(action), time_delta.seconds / intermediate_steps)).astype('float64').flatten()
+        self.update_dynamics(state_numpy)
+        state_numpy = np.array(self.F_x_next(state_numpy, np.array([action.magnitude, action.direction]), self.platform_dict['dt_in_s'])).astype('float64').flatten()
 
         self.state.lon              = units.Distance(deg=state_numpy[0])
         self.state.lat              = units.Distance(deg=state_numpy[1])
@@ -161,11 +131,11 @@ class Platform:
         sym_u_angle         = ca.MX.sym('u_angle')
 
         sym_solar_charging = self.charge_factor * self.solar_source.solar_rad_casadi(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
-        sym_u_thrust_capped = ca.fmin(sym_u_thrust, ((sym_battery + sym_solar_charging / sym_dt) / (self.energy_coeff * self.specs.u_max.mps ** 3)) ** (1. / 3))
-        sym_power_load = self.energy_coeff * (self.specs.u_max.mps * sym_u_thrust_capped) ** 3
+        sym_u_thrust_capped = ca.fmin(sym_u_thrust, ((sym_battery + sym_solar_charging / sym_dt) / (self.energy_coeff * self.u_max.mps ** 3)) ** (1. / 3))
+        sym_power_load = self.energy_coeff * (self.u_max.mps * sym_u_thrust_capped) ** 3
 
-        sym_lon_delta_meters = ca.cos(sym_u_angle) * sym_u_thrust_capped * self.specs.u_max.mps + self.ocean_source.u_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
-        sym_lat_delta_meters = ca.sin(sym_u_angle) * sym_u_thrust_capped * self.specs.u_max.mps + self.ocean_source.v_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        sym_lon_delta_meters = ca.cos(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + self.ocean_source.u_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        sym_lat_delta_meters = ca.sin(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + self.ocean_source.v_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
 
         sym_lon_delta_degree = 180 * sym_lon_delta_meters / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
         sym_lat_delta_degree = 180 * sym_lat_delta_meters / math.pi / 6371000

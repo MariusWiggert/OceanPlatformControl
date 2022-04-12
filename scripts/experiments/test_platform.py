@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 
 import numpy as np
 import xarray as xr
@@ -8,16 +8,14 @@ import time
 from ocean_navigation_simulator import Problem
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
-from ocean_navigation_simulator.env.platform import Platform, PlatformState, PlatformSpecs
+from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 
 script_start = time.time()
 
-t_0 = datetime.datetime(year=2021, month=11, day=23, hour=12, minute=10, second=10, tzinfo=datetime.timezone.utc)
-horizon = datetime.timedelta(days=5)
-stride = datetime.timedelta(hours=1)
-steps = int(horizon / stride)
+t_0 = dt.datetime(year=2021, month=11, day=23, hour=12, minute=10, second=10, tzinfo=dt.timezone.utc)
+horizon_in_s = 3600 * 24 * 5
 
 ##### Initialize Datasource #####
 start = time.time()
@@ -44,7 +42,7 @@ solar_source_dict = {
         'boundary_buffers': [0.2, 0.2],
         'x_domain': [-180, 180],
         'y_domain': [-90, 90],
-        'temporal_domain': [datetime.datetime(2020, 1, 1, 0, 0, 0), datetime.datetime(2023, 1, 10, 0, 0, 0)],
+        'temporal_domain': [dt.datetime(2020, 1, 1, 0, 0, 0), dt.datetime(2023, 1, 10, 0, 0, 0)],
         'spatial_resolution': 0.1,
         'temporal_resolution': 3600,
     }
@@ -59,24 +57,29 @@ init_state = PlatformState(
     lon=units.Distance(deg=-81.5),
     lat=units.Distance(deg=23.5)
 )
-platform_specs = PlatformSpecs(
-    battery_cap=units.Energy(watt_hours=1000),
-    u_max=units.Velocity(mps=0.1),
-    motor_efficiency=1.0
-)
-platform = Platform(state=init_state, specs=platform_specs, ocean_source=ocean_field.hindcast_data_source, solar_source=solar_field.hindcast_data_source)
+platform_dict = {
+    'battery_cap_in_wh': 400.0,
+    'u_max_in_mps': 0.1,
+    'motor_efficiency': 1.0,
+    'solar_panel_size': 0.5,
+    'solar_efficiency': 0.2,
+    'drag_factor': 675,
+    'dt_in_s': 600,
+}
+platform = Platform(state=init_state, platform_dict=platform_dict, ocean_source=ocean_field.hindcast_data_source, solar_source=solar_field.hindcast_data_source)
 print(f'Init Platform: {time.time()-start:.2f}s')
 
+steps = int(horizon_in_s / platform_dict['dt_in_s'])
 trajectory = np.zeros((steps+1, 2))
 action_sequence = np.zeros((steps, 2))
 trajectory[0] = np.array([init_state.lon.deg, init_state.lat.deg])
 
 ##### Run Simulation #####
 for step in tqdm(range(steps)):
-    action = [1,3.14/2]
-    state = platform.simulate_step(action=action, time_delta=stride, intermediate_steps=60)
+    action = PlatformAction(magnitude=1,direction=3.14/2)
+    state = platform.simulate_step(action=action)
     trajectory[step+1] = np.array([state.lon.deg, state.lat.deg])
-    action_sequence[step] = np.array(action)
+    action_sequence[step] = np.array([action.magnitude, action.direction])
 
 ##### Plotting using old Utils #####
 start = time.time()

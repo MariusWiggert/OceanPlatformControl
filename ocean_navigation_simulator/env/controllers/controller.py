@@ -1,6 +1,8 @@
 import abc
 import numpy as np
-from ocean_navigation_simulator.env import simulator_data
+
+from ocean_navigation_simulator.env.Arena import ArenaObservation
+from ocean_navigation_simulator.env.Platform import PlatformAction
 
 
 class Controller(abc.ABC):
@@ -9,7 +11,7 @@ class Controller(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_action(self, observation: simulator_data.SimulatorObservation) -> np.ndarray:
+    def get_action(self, observation: ArenaObservation) -> PlatformAction:
         """
         Given an observation, outputs the controller's next action
         Args:
