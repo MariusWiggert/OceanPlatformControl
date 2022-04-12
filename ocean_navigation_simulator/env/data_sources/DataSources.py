@@ -33,8 +33,16 @@ class DataSource(abc.ABC):
                            self.casadi_grid_dict['t_range'][1])
 
         if out_x_range or out_y_range or out_t_range:
-            print(f'Updating Casadi Dynamics.')
+            if out_x_range:
+                print(f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {x_t[0]}, {self.casadi_grid_dict["x_range"][1]}')
+            if out_y_range:
+                print(f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {x_t[1]}, {self.casadi_grid_dict["y_range"][1]}')
+            if out_t_range:
+                print(f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {units.datetime_from_timestamp(int(x_t[3]))}, {self.casadi_grid_dict["t_range"][1]}')
+
             self.update_casadi_dynamics(x_t)
+            return True
+        return False
 
     def update_casadi_dynamics(self, x_t: List[float]) -> None:
         """Function to update casadi_dynamics which means we fit an interpolant to grid data.
