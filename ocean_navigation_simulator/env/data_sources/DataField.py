@@ -33,6 +33,7 @@ class DataField(abc.ABC):
         if forecast_source_dict is None:
             print("Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
             self.forecast_data_source = self.hindcast_data_source
+        self.forecast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
 
     def get_forecast(self, point: List[float], time: datetime.datetime):
         """Returns forecast at a point in the field.
