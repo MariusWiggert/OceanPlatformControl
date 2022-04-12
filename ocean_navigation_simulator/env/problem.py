@@ -1,6 +1,7 @@
 import dataclasses
+from typing import Dict
 
-from ocean_navigation_simulator.env.platform import PlatformState
+from ocean_navigation_simulator.env.Platform import PlatformState
 
 
 @dataclasses.dataclass
@@ -21,5 +22,5 @@ class Problem:
     """
     start_state: PlatformState
     end_region: PlatformState  # TODO
-    obstacle_regions: None  # TODO
-    config: dict  # TODO
+    #obstacle_regions: None = None  # TODO
+    #config: Dict = {}  # TODO
