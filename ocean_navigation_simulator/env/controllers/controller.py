@@ -1,6 +1,6 @@
 import abc
 import numpy as np
-from ocean_navigation_simulator.env.controllers import simulator_data
+from ocean_navigation_simulator.env import simulator_data
 
 
 class Controller(abc.ABC):
