@@ -1,6 +1,6 @@
 import datetime
 import matplotlib.pyplot as plt
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
 import numpy as np
 import jax.numpy as jnp
 import hj_reachability as hj
@@ -12,6 +12,7 @@ from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrent
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
 import abc
+
 
 # TODO: How does the direction connection of the analytical function into HJ Planner work? Is it even desirable?
 # -> it's possible but I would have to give up passing OceanCurrentVectors around but rather the numbers directly.
@@ -25,45 +26,62 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
         self.current_run_t_0 = 0
 
     @abc.abstractmethod
-    def u_current_analytical(self, point: List[float], time: float):
-        """To be implemented in the child class. Note only for 2D currently."""
+    def u_current_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """Calculating the current in longitudinal direction at a specific lat, lon point at posix_time.
+        Note: this can be used for floats as input or np.arrays which are all the same shape.
+        Args:
+            lon: longitude in degree
+            lat: latitude in degree
+            posix_time: POSIX time
+        Returns:
+            u_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def v_current_analytical(self, point: List[float], time: float):
-        """To be implemented in the child class. Note only for 2D currently."""
+    def v_current_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """Calculating the current in latitudinal direction at a specific lat, lon point at posix_time.
+        Note: this can be used for floats as input or np.arrays which are all the same shape.
+        Args:
+            lon: longitude in degree
+            lat: latitude in degree
+            posix_time: POSIX time
+        Returns:
+            v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+        """
         raise NotImplementedError
 
-    def create_xarray(self, grid_dict: dict, data_tuple: Tuple) -> xr:
+    def create_xarray(self, grids_dict: dict, data_tuple: Tuple) -> xr:
         """Function to create an xarray from the data tuple and grid dict
             Args:
               data_tuple: tuple containing (data_u, data_v)
-              grid_dict: containing ranges and grids of x, y, t dimension
+              grids_dict: containing ranges and grids of x, y, t dimension
             Returns:
               xr     an xarray containing both the grid and data
             """
         # make a xarray object out of it
         return xr.Dataset(
             dict(water_u=(["time", "lat", "lon"], data_tuple[0]), water_v=(["time", "lat", "lon"], data_tuple[1])),
-            coords=dict(lon=grid_dict['x_grid'], lat=grid_dict['y_grid'],
-                        time=np.round(np.array(grid_dict['t_grid']) * 1000, 0).astype('datetime64[ms]')))
+            coords=dict(lon=grids_dict['x_grid'], lat=grids_dict['y_grid'],
+                        time=np.round(np.array(grids_dict['t_grid']) * 1000, 0).astype('datetime64[ms]')))
 
-    def map_analytical_function_over_area(self, states, grid_dict) -> Tuple:
+    def map_analytical_function_over_area(self, grids_dict: dict) -> Tuple:
         """Function to map the analytical function over an area with the spatial states and grid_dict times.
             Args:
-              states: jax.numpy array containing the desired spatial grid as states
-              grid_dict: containing ranges and grids of x, y, t dimension
+              grids_dict: containing grids of x, y, t dimension
             Returns:
               data_tuple     containing the data in tuple format as numpy array (not yet in xarray form)
             """
-        # Step 2: Map analytical function over the area
-        u_func_over_space = lambda t: hj.utils.multivmap(partial(self.u_current_analytical, time=t), np.arange(2))(
-            jnp.transpose(states, axes=[1, 0, 2]))
-        v_func_over_space = lambda t: hj.utils.multivmap(partial(self.v_current_analytical, time=t), np.arange(2))(
-            jnp.transpose(states, axes=[1, 0, 2]))
-        # execute over temporal_vector
-        u_data = jax.vmap(u_func_over_space)(grid_dict['t_grid'])
-        v_data = jax.vmap(v_func_over_space)(grid_dict['t_grid'])
+
+        # Step 1: Create the meshgrid numpy matrices for each coordinate
+        LAT, TIMES, LON = np.meshgrid(grids_dict['y_grid'], grids_dict['t_grid'], grids_dict['x_grid'])
+
+        # Step 2: Feed the arrays into the solar radiation function and return the np.array
+        u_data = self.u_current_analytical(lon=LON, lat=LAT, posix_time=TIMES)
+        v_data = self.v_current_analytical(lon=LON, lat=LAT, posix_time=TIMES)
+
         return (u_data, v_data)
 
     def get_data_at_point(self, point: List[float], time: datetime) -> xr:
@@ -74,12 +92,8 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
-        return OceanCurrentVector(u=self.u_current_analytical(point, time.timestamp()),
-                                  v=self.v_current_analytical(point, time.timestamp()))
-
-    def get_time_relative_to_t_0(self, time):
-        """Helper function because with non-dimensionalization we run the u and v currents in relative time."""
-        return time - self.current_run_t_0
+        return OceanCurrentVector(u=self.u_current_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp()),
+                                  v=self.v_current_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp()))
 
     def viz_field(self, inside: Optional[bool] = True):
         """Visualization function for the currents."""
@@ -90,13 +104,14 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
         else:
             x_range = [-5, 5]
             y_range = [-5, 5]
-        grid_dict, u_data, v_data = self.get_subset_from_analytical_field(x_interval=x_range,
-                                                                          y_interval=y_range,
-                                                                          t_interval=[0, 100])
+        xarray = self.get_data_over_area(x_interval=x_range, y_interval=y_range,
+                                         t_interval=[datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in [0, 100]])
+        grids_dict = self.get_grid_dict_from_xr(xarray)
         # Step 2: plot it
-        ax = utils.plotting_utils.visualize_currents(0, grid_dict, u_data, v_data, autoscale=False, plot=False)
+        ax = utils.plotting_utils.visualize_currents(0, grids_dict, xarray['water_u'].data, xarray['water_v'].data, autoscale=False, plot=False)
         ax.set_title("Analytical Current Field")
         plt.show()
+
 
 ### Actual implemented analytical Sources ###
 
@@ -125,28 +140,44 @@ class PeriodicDoubleGyre(OceanCurrentSourceAnalytical):
         self.epsilon_sep = source_config_dict['source_settings']['epsilon_sep']
         self.period_time = source_config_dict['source_settings']['period_time']
 
-    def u_current_analytical(self, point: List[float], time: float):
-        """Analytical Formula for u velocity of Periodic Double Gyre."""
-        time = self.get_time_relative_to_t_0(time)
-        w_angular_vel = 2 * jnp.pi / self.period_time
-        a = self.epsilon_sep * jnp.sin(w_angular_vel * time)
-        b = 1 - 2 * self.epsilon_sep * jnp.sin(w_angular_vel * time)
-        f = a * jnp.power(a * point[0], 2) + b * point[0]
+    def u_current_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """ Analytical Formula for u velocity of Periodic Double Gyre.
+            Note: this can be used for floats as input or np.arrays which are all the same shape.
+            Args:
+                lon: longitude in degree
+                lat: latitude in degree
+                posix_time: POSIX time
+            Returns:
+                u_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+            """
+        w_angular_vel = 2 * np.pi / self.period_time
+        a = self.epsilon_sep * np.sin(w_angular_vel * posix_time)
+        b = 1 - 2 * self.epsilon_sep * np.sin(w_angular_vel * posix_time)
+        f = a * np.power(a * lon, 2) + b * lon
 
-        u_cur_out = -jnp.pi * self.v_amplitude * jnp.sin(jnp.pi * f) * jnp.cos(jnp.pi * point[1])
-        return jnp.where(self.is_boundary(point, time), 0., u_cur_out)
+        u_cur_out = -np.pi * self.v_amplitude * np.sin(np.pi * f) * np.cos(np.pi * lat)
+        return np.where(self.is_boundary(lon=lon, lat=lat, posix_time=posix_time), 0., u_cur_out)
 
-    def v_current_analytical(self, point: List[float], time: float):
-        """Analytical Formula for u velocity of Periodic Double Gyre."""
-        time = self.get_time_relative_to_t_0(time)
-        w_angular_vel = 2 * jnp.pi / self.period_time
-        a = self.epsilon_sep * jnp.sin(w_angular_vel * time)
-        b = 1 - 2 * self.epsilon_sep * jnp.sin(w_angular_vel * time)
-        f = a * jnp.power(a * point[0], 2) + b * point[0]
-        df_dx = 2 * a * point[0] + b
+    def v_current_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """ Analytical Formula for v velocity of Periodic Double Gyre.
+            Note: this can be used for floats as input or np.arrays which are all the same shape.
+            Args:
+                lon: longitude in degree
+                lat: latitude in degree
+                posix_time: POSIX time
+            Returns:
+                v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+            """
+        w_angular_vel = 2 * np.pi / self.period_time
+        a = self.epsilon_sep * np.sin(w_angular_vel * posix_time)
+        b = 1 - 2 * self.epsilon_sep * np.sin(w_angular_vel * posix_time)
+        f = a * np.power(a * lon, 2) + b * lon
+        df_dx = 2 * a * lon + b
 
-        v_cur_out = jnp.pi * self.v_amplitude * jnp.cos(jnp.pi * f) * jnp.sin(jnp.pi * point[1]) * df_dx
-        return jnp.where(self.is_boundary(point, time), 0., v_cur_out)
+        v_cur_out = np.pi * self.v_amplitude * np.cos(np.pi * f) * np.sin(np.pi * lat) * df_dx
+        return np.where(self.is_boundary(lon=lon, lat=lat, posix_time=posix_time), 0., v_cur_out)
 
 
 class FixedCurrentHighwayField(OceanCurrentSourceAnalytical):
@@ -167,10 +198,30 @@ class FixedCurrentHighwayField(OceanCurrentSourceAnalytical):
         self.y_range_highway = source_config_dict['source_settings']['y_range_highway']
         self.U_cur = source_config_dict['source_settings']['U_cur']
 
-    def u_current_analytical(self, state, time):
-        u_cur_low = jnp.where(state[1] <= self.y_range_highway[1], self.U_cur, 0.)
-        u_cur_out = jnp.where(self.y_range_highway[0] <= state[1], u_cur_low, 0.)
+    def u_current_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """ Analytical Formula for u velocity.
+            Note: this can be used for floats as input or np.arrays which are all the same shape.
+            Args:
+                lon: longitude in degree
+                lat: latitude in degree
+                posix_time: POSIX time
+            Returns:
+                v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+            """
+        u_cur_low = np.where(lat <= self.y_range_highway[1], self.U_cur, 0.)
+        u_cur_out = np.where(self.y_range_highway[0] <= lat, u_cur_low, 0.)
         return u_cur_out
 
-    def v_current_analytical(self, state, time):
+    def v_current_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """ Analytical Formula for v velocity.
+            Note: this can be used for floats as input or np.arrays which are all the same shape.
+            Args:
+                lon: longitude in degree
+                lat: latitude in degree
+                posix_time: POSIX time
+            Returns:
+                v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+            """
         return 0.

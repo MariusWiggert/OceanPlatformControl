@@ -8,6 +8,9 @@ import ocean_navigation_simulator.env.utils.units as units
 # import gin # We don't use gin because it doesn't work well with the C3 Data Types. Hence, we use settings_dicts.
 import xarray as xr
 
+# TODO: need a marker to output lat lon or x and y (for analytical currents)
+# => also need to be able to switch that in the documents...
+
 
 class DataField(abc.ABC):
     """Abstract class for lookups in an DataField.

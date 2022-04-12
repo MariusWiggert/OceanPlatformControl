@@ -1,49 +1,24 @@
-import abc
-import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple
-from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
-from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
-import jax
-from jax import numpy as jnp
-import warnings
-import numpy as np
-import xarray as xr
-import dask.array.core
-import os
-import ocean_navigation_simulator.utils as utils
-from pydap.client import open_url
-from pydap.cas.get_cookies import setup_session
-from geopy.point import Point as GeoPoint
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource, XarraySource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.solar_rad import solar_rad
 import datetime
-import matplotlib.pyplot as plt
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
 import numpy as np
-import jax.numpy as jnp
-import hj_reachability as hj
-from functools import partial
 import xarray as xr
-import jax
-from ocean_navigation_simulator import utils
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
-import abc
 
 
 class SolarIrradianceSource(DataSource):
-    """Base class for the Solar Irradiance data sources."""
+    """Base class for the Solar Irradiance data sources.
+    Note: the output is always in the units W/m^2
+    """
 
     def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
+        Note: the input to the casadi function needs to be an array of the form np.array([posix time, lat, lon])
         Args:
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
         """
-
         self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['solar_irradiance'].values.ravel(order='F'))
 
 
@@ -53,11 +28,21 @@ class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
         super().__init__(source_config_dict)
         self.solar_rad_casadi = None
 
-    def solar_irradiance_analytical(self, point: List[float], time: float):
-        """To be implemented in the child class. Note only for 2D currently."""
-        return solar_rad(time, point[1], point[0])
+    @staticmethod
+    def solar_irradiance_analytical(lon: Union[float, np.array], lat: Union[float, np.array],
+                             posix_time: Union[float, np.array]) -> Union[float, np.array]:
+        """Calculating the solar Irradiance at a specific lat, lon point at posix_time.
+        Note: this can be used for floats as input or np.arrays which are all the same shape.
+        Args:
+            lon: longitude in degree
+            lat: latitude in degree
+            posix_time: POSIX time
+        Returns:
+            solar_irradiance     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+        """
+        return solar_rad(posix_time, lat, lon)
 
-    def create_xarray(self, grid_dict: dict, solar_irradiance: jnp.array) -> xr:
+    def create_xarray(self, grid_dict: dict, solar_irradiance: np.array) -> xr:
         """Function to create an xarray from the data tuple and grid dict
             Args:
               data_tuple: tuple containing (data_u, data_v)
@@ -66,26 +51,26 @@ class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
               xr     an xarray containing both the grid and data
             """
         # make a xarray object out of it
-        return xr.Dataset(
+        array = xr.Dataset(
             dict(solar_irradiance=(["time", "lat", "lon"], solar_irradiance)),
             coords=dict(lon=grid_dict['x_grid'], lat=grid_dict['y_grid'],
                         time=np.round(np.array(grid_dict['t_grid']) * 1000, 0).astype('datetime64[ms]')))
+        # add the units
+        array['solar_irradiance'].attrs = {'units': 'W/m^2'}
+        return array
 
-    # TODO: check out how I can feed vectorized into the solar_rad function (see Nisha's code) or make solar_rad jax.numpy ready
-    def map_analytical_function_over_area(self, states, grid_dict):
+    def map_analytical_function_over_area(self, grids_dict: dict) -> np.array:
         """Function to map the analytical function over an area with the spatial states and grid_dict times.
             Args:
-              states: jax.numpy array containing the desired spatial grid as states
-              grid_dict: containing ranges and grids of x, y, t dimension
+              grids_dict: containing ranges and grids of x, y, t dimension
             Returns:
-              data_tuple     containing the data in tuple format as numpy array (not yet in xarray form)
+              data_tuple     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
             """
-        # Step 2: Map analytical function over the area
-        solar_irradiance = lambda t: hj.utils.multivmap(partial(self.solar_irradiance_analytical, time=t), np.arange(2))(
-            jnp.transpose(states, axes=[1, 0, 2]))
-        # execute over temporal_vector
-        solar_irradiance_data = jax.vmap(solar_irradiance)(grid_dict['t_grid'])
-        return solar_irradiance_data
+        # Step 1: Create the meshgrid numpy matrices for each coordinate
+        LAT, TIMES, LON = np.meshgrid(grids_dict['y_grid'], grids_dict['t_grid'], grids_dict['x_grid'])
+
+        # Step 2: Feed the arrays into the solar radiation function and return the np.array
+        return self.solar_irradiance_analytical(lon=LON, lat=LAT, posix_time=TIMES)
 
     def get_data_at_point(self, point: List[float], time: datetime) -> float:
         """Function to get the data at a specific point.
@@ -95,7 +80,7 @@ class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
         Returns:
           float of the solar irradiance in W/m^2
           """
-        return self.solar_irradiance_analytical(point, time.timestamp())
+        return self.solar_irradiance_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp())
 
 
 
