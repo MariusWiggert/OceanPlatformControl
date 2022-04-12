@@ -1,15 +1,17 @@
-import gym
+import time
 from typing import Tuple, Optional, Union, Text
 import numpy as np
 import gym
 from gym import spaces
 from gym.utils.seeding import RandomNumberGenerator
 
+from ocean_navigation_simulator.env.problem_factory import ProblemFactory
+from ocean_navigation_simulator.env.simulator_data import SimulatorAction, SimulatorObservation
+
 
 class PlatformEnv(gym.Env):
     """
-    Platform Learning Environment
-    # TODO: define ActType and ObsType
+    A basic Platform Learning Environment
     """
 
     # should be set in SOME gym subclasses -> TODO: see if we need to
@@ -17,22 +19,41 @@ class PlatformEnv(gym.Env):
     reward_range = (-float("inf"), float("inf"))
     spec = None
 
-    action_space: spaces.Space[ActType]
-    observation_space: spaces.Space[ObsType]
+    action_space: spaces.Space[SimulatorAction]
+    observation_space: spaces.Space[SimulatorObservation]
     _np_random: Optional[RandomNumberGenerator] = None
 
-    def __init__(self):
-        seed = 189
+    def __init__(self, problem_factory: ProblemFactory, arena: Optional[platform_arena.PlatformArenaInterface] = None,
+                 seed: Optional[int] = None):
+        """
+        Constructs a basic Platform Learning Environment.
+
+        Args:
+            problem_factory: yields next problem when reset() is called.
+            arena: a platform arena to wrap, if None uses default arena
+            seed: PRNG seed for the environment
+
+        TODO: pass reward function as argument or innate? 
+        """
+
+        self.problem = None
+        self.problem_factory = problem_factory
+
+        if arena is None:
+            self.arena = platform_arena.PlatformArena()
+        else:
+            self.arena = arena
+
         self.reset()
 
-    def step(self, action: ActType) -> Tuple[ObsType, float, bool, dict]:
+    def step(self, action: SimulatorAction) -> Tuple[SimulatorObservation, float, bool, dict]:
         """
         Run one timestep of the environment's dynamics.
         Accepts an action and returns a tuple (observation, reward, done, info).
         Args:
-            action (ActType): an action provided by the agent
+            action (SimulatorAction): an action provided by the agent
         Returns:
-            observation (ObsType): agent's observation of the current environment
+            observation (SimulatorObservation): agent's observation of the current environment
             reward (float) : amount of reward returned after previous action
             done (bool): whether the episode has ended
             info (dict): auxiliary diagnostic information
@@ -45,7 +66,7 @@ class PlatformEnv(gym.Env):
         seed: Optional[int] = None,
         return_info: bool = False,
         options: Optional[dict] = None,
-    ) -> Union[ObsType, tuple[ObsType, dict]]:
+    ) -> Union[SimulatorObservation, tuple[SimulatorObservation, dict]]:
         """
         Resets the environment.
         This method should also reset the environment's random number
@@ -63,7 +84,16 @@ class PlatformEnv(gym.Env):
             observation (object): the initial observation.
             info (opt. dictionary): a dictionary containing extra information, returned if return_info set to True
         """
-        pass
+        self.problem = self.problem_factory.next()
+
+        observation = self.arena.reset()
+
+        if return_info:
+            simulator_state = self.arena.get_simulator_state()
+            info = simulator_state.balloon_state
+            return observation, info
+        else:
+            return observation
 
     def render(self, mode="human") -> Union[None, np.ndarray, Text]:
         """
@@ -88,5 +118,6 @@ class PlatformEnv(gym.Env):
         Returns:
             None, a numpy array of rgb data, or a string (?) object, depending on the mode.
         """
+        pass
 
 
