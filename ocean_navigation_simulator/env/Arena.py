@@ -13,6 +13,7 @@ from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import Sol
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 
+
 @dataclasses.dataclass
 class ArenaObservation:
     """

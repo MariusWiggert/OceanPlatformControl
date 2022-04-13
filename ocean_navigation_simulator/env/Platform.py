@@ -53,6 +53,8 @@ class Platform:
         self.solar_charge_factor = platform_dict['solar_panel_size'] * platform_dict['solar_efficiency']
         self.u_max = units.Velocity(mps=platform_dict['u_max_in_mps'])
 
+        self.state = None
+
     def set_state(self, state: PlatformState):
         """Helper function to set the state."""
         self.state = state
