@@ -1,5 +1,5 @@
 import datetime
-from typing import List, NamedTuple, Sequence, Optional
+from typing import List, NamedTuple, Sequence, Optional, Dict
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
@@ -13,21 +13,23 @@ class OceanCurrentField(DataField):
     """Class instantiating and holding the data sources, the forecast and hindcast current sources.
   """
 
-    def __init__(self, hindcast_source_dict: dict, forecast_source_dict: Optional[dict] = None):
+    def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None):
         """Initialize the source objects from the respective settings dicts.
         Args:
+          sim_cache_dict: containing the cache settings to use in the sources for caching of 3D data
+                          e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12}
+
           forecast_source_dict and hindcast_source_dict
            Both are dicts with four keys:
              'field' the kind of field the should be created e.g. OceanCurrent or SolarIrradiance
              'source' in {opendap, hindcast_files, forecast_files}
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
-             'casadi_cache_settings': e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12} for caching of 3D data
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
-        super().__init__(hindcast_source_dict, forecast_source_dict)
+        super().__init__(sim_cache_dict, hindcast_source_dict, forecast_source_dict)
 
     @staticmethod
-    def instantiate_source_from_dict(source_dict: dict) -> OceanCurrentSource:
+    def instantiate_source_from_dict(source_dict: Dict) -> OceanCurrentSource:
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
         if source_dict['source'] == 'opendap':
             return HindcastOpendapSource(source_dict)

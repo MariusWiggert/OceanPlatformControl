@@ -6,6 +6,7 @@ from ocean_navigation_simulator.env.utils import units
 import warnings
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
+from ocean_navigation_simulator.env.PlatformState import PlatformState
 import numpy as np
 import xarray as xr
 import abc
@@ -22,38 +23,37 @@ class DataSource(abc.ABC):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-    def check_for_casadi_dynamics_update(self, x_t: List[float]) -> None:
+    def check_for_casadi_dynamics_update(self, state: PlatformState) -> bool:
         """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
             Args:
-              x_t: state to check if we have a working casadi function [x, y, battery, posix_time]
+                state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
             """
-        out_x_range = not (self.casadi_grid_dict['x_range'][0] < x_t[0] < self.casadi_grid_dict['x_range'][1])
-        out_y_range = not (self.casadi_grid_dict['y_range'][0] < x_t[1] < self.casadi_grid_dict['y_range'][1])
-        out_t_range = not (self.casadi_grid_dict['t_range'][0] <= units.datetime_from_timestamp(int(x_t[3])) <
-                           self.casadi_grid_dict['t_range'][1])
+        out_x_range = not (self.casadi_grid_dict['x_range'][0] < state.lon.deg < self.casadi_grid_dict['x_range'][1])
+        out_y_range = not (self.casadi_grid_dict['y_range'][0] < state.lat.deg < self.casadi_grid_dict['y_range'][1])
+        out_t_range = not (self.casadi_grid_dict['t_range'][0] <= state.date_time < self.casadi_grid_dict['t_range'][1])
 
         if out_x_range or out_y_range or out_t_range:
             if out_x_range:
-                print(f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {x_t[0]}, {self.casadi_grid_dict["x_range"][1]}')
+                print(f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
             if out_y_range:
-                print(f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {x_t[1]}, {self.casadi_grid_dict["y_range"][1]}')
+                print(f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
             if out_t_range:
-                print(f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {units.datetime_from_timestamp(int(x_t[3]))}, {self.casadi_grid_dict["t_range"][1]}')
+                print(f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
 
-            self.update_casadi_dynamics(x_t)
+            self.update_casadi_dynamics(state)
             return True
         return False
 
-    def update_casadi_dynamics(self, x_t: List[float]) -> None:
+    def update_casadi_dynamics(self, state: PlatformState) -> None:
         """Function to update casadi_dynamics which means we fit an interpolant to grid data.
         Note: this can be overwritten in child-classes e.g. when an analytical function is available.
         Args:
-          x_t: state [x, y, battery, time] to update around
+          state: Platform State object containing [x, y, battery, mass, time] to update around
         """
 
         # Step 1: Create the intervals to query data for
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
-            x_T=x_t, x_0=x_t,
+            x_0=[state.lon.deg, state.lat.deg, state.date_time], x_T=[state.lon.deg, state.lat.deg],
             deg_around_x0_xT_box=self.source_config_dict['casadi_cache_settings']['deg_around_x_t'],
             temp_horizon_in_s=self.source_config_dict['casadi_cache_settings']['time_around_x_t'])
 
@@ -71,11 +71,11 @@ class DataSource(abc.ABC):
         self.initialize_casadi_functions(grid, xarray)
 
     @staticmethod
-    def convert_to_x_y_time_bounds(x_0: List[float], x_T: List[float],
+    def convert_to_x_y_time_bounds(x_0: List[Union[float, datetime.datetime]], x_T: List[float],
                                    deg_around_x0_xT_box: float, temp_horizon_in_s: float):
         """ Helper function for spatio-temporal subsetting
         Args:
-            x_0: [lat, lon, charge, timestamp]
+            x_0: [lat, lon, datetime]
             x_T: [lon, lat] goal locations
             deg_around_x0_xT_box: buffer around the box in degrees
             temp_horizon_in_s: maximum temp_horizon to look ahead of x_0 time in seconds
@@ -86,8 +86,7 @@ class DataSource(abc.ABC):
             lat_bnds: [y_lower, y_upper] in degrees
             lon_bnds: [x_lower, x_upper] in degrees
         """
-        t_interval = [datetime.datetime.fromtimestamp(x_0[3], datetime.timezone.utc),
-                      datetime.datetime.fromtimestamp(x_0[3] + temp_horizon_in_s, datetime.timezone.utc)]
+        t_interval = [x_0[2], x_0[2] + datetime.timedelta(seconds=temp_horizon_in_s)]
         lat_bnds = [min(x_0[1], x_T[1]) - deg_around_x0_xT_box, max(x_0[1], x_T[1]) + deg_around_x0_xT_box]
         lon_bnds = [min(x_0[0], x_T[0]) - deg_around_x0_xT_box, max(x_0[0], x_T[0]) + deg_around_x0_xT_box]
 
@@ -123,7 +122,7 @@ class DataSource(abc.ABC):
         if units.get_datetime_from_np64(array.coords['time'].data[0]) > t_interval[0]:
             raise ValueError("The starting time {} is not in the array.".format(t_interval[0]))
 
-        # Step 2: Data partially not in the array check
+        # Step 2: Data partially not in the array check based on resolution of
         if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
             warnings.warn("Part of the y requested area is outside of file.", RuntimeWarning)
         if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
@@ -164,14 +163,18 @@ class XarraySource(abc.ABC):
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
         # Step 1: Subset the xarray accordingly
-        t_low_w_buffer = t_interval[0].replace(tzinfo=None) - datetime.timedelta(
-            seconds=self.source_config_dict['subset_time_buffer_in_s'])
-        t_high_w_buffer = t_interval[1].replace(tzinfo=None) + datetime.timedelta(
-            seconds=self.source_config_dict['subset_time_buffer_in_s'])
+        # Step 1.1 include buffers around of the grid granularity (assuming regular grid axis)
+        dt = self.DataArray['time'][1] - self.DataArray['time'][0]
+        t_interval_extended = [np.datetime64(t_interval[0].replace(tzinfo=None)) - dt,
+                               np.datetime64(t_interval[1].replace(tzinfo=None)) + dt]
+        dlon = self.DataArray['lon'][1] - self.DataArray['lon'][0]
+        x_interval_extended = [x_interval[0] - dlon, x_interval[1] + dlon]
+        dlat = self.DataArray['lat'][1] - self.DataArray['lat'][0]
+        y_interval_extended = [y_interval[0] - dlat, y_interval[1] + dlat]
         subset = self.DataArray.sel(
-            time=slice(t_low_w_buffer, t_high_w_buffer),
-            lon=slice(x_interval[0], x_interval[1]),
-            lat=slice(y_interval[0], y_interval[1]))
+            time=slice(t_interval_extended[0], t_interval_extended[1]),
+            lon=slice(x_interval_extended[0], x_interval_extended[1]),
+            lat=slice(y_interval_extended[0], y_interval_extended[1]))
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
         DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval)
@@ -355,16 +358,15 @@ class AnalyticalSource(abc.ABC):
         # Step 2: Get the grids with the respective resolutions
         # Step 2.1 Spatial coordinate vectors with desired resolution
         lo_hi_vec = [[lon, lat] for lon, lat in zip(ranges_dict['x_range'], ranges_dict['y_range'])]
-        # The +0.01 is a hacky way to include the endpoint
-        spatial_vectors = [np.arange(start=l, stop=h + 0.01, step=spatial_resolution) for l, h in
+        # The + spatial_resolution is a hacky way to include the endpoint. We want a regular grid hence the floor to two decimals.
+        spatial_vectors = [np.arange(start=np.floor(l*100)/100, stop=h + spatial_resolution, step=spatial_resolution) for l, h in
                               zip(lo_hi_vec[0], lo_hi_vec[1])]
         # Step 2.2 Temporal grid in POSIX TIME
-        t_grid = np.arange(start=t_interval[0], stop=t_interval[1] + 1, step=temporal_resolution)
+        t_grid = np.arange(start=t_interval[0], stop=t_interval[1] + temporal_resolution, step=temporal_resolution)
 
-        # The around is added because np.arange can otherwise lead to small float imprecision in the end
-        return {'x_grid': np.around(spatial_vectors[0], 6),
-                'y_grid': np.around(spatial_vectors[1], 6),
-                't_grid': np.around(t_grid, 6)}
+        return {'x_grid': spatial_vectors[0],
+                'y_grid': spatial_vectors[1],
+                't_grid': t_grid}
 
     def is_boundary(self, lon: Union[float, np.array], lat: Union[float, np.array],
                     posix_time: Union[float, np.array]) -> Union[float, np.array]:

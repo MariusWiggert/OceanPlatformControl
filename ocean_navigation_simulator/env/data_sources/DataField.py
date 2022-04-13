@@ -1,6 +1,6 @@
 import abc
 import datetime
-from typing import List, NamedTuple, Sequence, Callable, Optional
+from typing import List, NamedTuple, Sequence, Callable, Optional, Dict
 import numpy as np
 import warnings
 import ocean_navigation_simulator.env.utils.units as units
@@ -17,23 +17,28 @@ class DataField(abc.ABC):
   Both point-based lookup (for simulation) and spatio-temporal interval lookup (for planning)
   of both ground_truth and forecasted Data (e.g. Ocean currents, solar radiation, seaweed growth)
   """
-    def __init__(self, hindcast_source_dict: dict, forecast_source_dict: Optional[dict] = None):
+    def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None):
         """Initialize the source objects from the respective settings dicts.
         Args:
+          sim_cache_dict: containing the cache settings to use in the sources for caching of 3D data
+                          e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*5} for 5 days
+
           forecast_source_dict and hindcast_source_dict
            Both are dicts with four keys:
              'field' the kind of field the should be created e.g. OceanCurrent or SolarIrradiance
+             'source' in {opendap, hindcast_files, forecast_files}
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
-             'casadi_cache_settings': e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12} for caching of 3D data
-             'source' see the class respectively for the available options
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
         # Step 1: instantiate OceanCurrentSources from their respective dicts
+        hindcast_source_dict['casadi_cache_settings'] = sim_cache_dict
         self.hindcast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
         if forecast_source_dict is None:
             print("Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
             self.forecast_data_source = self.hindcast_data_source
-        self.forecast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
+        else:
+            forecast_source_dict['casadi_cache_settings'] = sim_cache_dict
+            self.forecast_data_source = self.instantiate_source_from_dict(forecast_source_dict)
 
     def get_forecast(self, point: List[float], time: datetime.datetime):
         """Returns forecast at a point in the field.
