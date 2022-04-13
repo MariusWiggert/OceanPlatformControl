@@ -204,37 +204,37 @@ class Energy(object):
   def __init__(self, *,
                watt_hours: float = 0.0,
                joule: float = 0.0):
-    self._wh = watt_hours + joule/3600
+    self._joule = joule + watt_hours * 3600
 
   @property
   def watt_hours(self) -> float:
-    return self._wh
+    return self._joule/3600
 
   @property
   def joule(self) -> float:
-    return self._wh*3600
+    return self._joule
 
   def __add__(self, other: 'Energy') -> 'Energy':
     if isinstance(other, Energy):
-      return Energy(watt_hours=self.watt_hours + other.watt_hours)
+      return Energy(joule=self.joule + other.joule)
     else:
       raise NotImplementedError(f'Cannot add Energy and {type(other)}')
 
   def __sub__(self, other: 'Energy') -> 'Energy':
     if isinstance(other, Energy):
-      return Energy(watt_hours=self.watt_hours - other.watt_hours)
+      return Energy(joule=self.joule - other.joule)
     else:
       raise NotImplementedError(f'Cannot subtract Energy and {type(other)}')
 
   def __truediv__(self, other: 'Energy') -> float:
     if isinstance(other, Energy):
-      return self.watt_hours / other.watt_hours
+      return self.joule / other.joule
     else:
       raise NotImplementedError(f'Cannot divide Energy and {type(other)}')
 
   def __mul__(self, other: float) -> 'Energy':
     if isinstance(other, (int, float)):
-      return Energy(watt_hours=self.watt_hours * other)
+      return Energy(joule=self.joule * other)
     else:
       raise NotImplementedError(f'Cannot multiply Energy and {type(other)}')
 
@@ -243,19 +243,19 @@ class Energy(object):
 
   def __gt__(self, other: 'Energy') -> bool:
     if isinstance(other, Energy):
-      return self.watt_hours > other.watt_hours
+      return self.joule > other.joule
     else:
       raise ValueError(f'Cannot compare Energy and {type(other)}')
 
   def __eq__(self, other: 'Energy') -> bool:
     if isinstance(other, Energy):
-      return self.watt_hours == other.watt_hours
+      return self.joule == other.joule
     else:
       raise ValueError(f'Cannot compare Energy and {type(other)}')
 
   def __ge__(self, other: 'Energy') -> bool:
     if isinstance(other, Energy):
-      return self.watt_hours >= other.watt_hours
+      return self.joule >= other.joule
     else:
       raise ValueError(f'Cannot compare Energy and {type(other)}')
 
