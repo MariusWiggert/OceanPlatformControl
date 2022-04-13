@@ -14,7 +14,7 @@ from ocean_navigation_simulator.env.Platform import Platform, PlatformState, Pla
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 
 @dataclasses.dataclass
-class ArenaObservation(object):
+class ArenaObservation:
     """
     Specifies an observation from the simulator.
     This differs from SimulatorState in that the observations are not
@@ -25,24 +25,30 @@ class ArenaObservation(object):
     #current_at_platform: OceanCurrentVector  # real current at platfrom
     #forecasts: np.ndarray                # solar, current local current
 
-class Arena():
+
+class Arena:
     """A OceanPlatformArena in which an ocean platform moves through a current field."""
 
     # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
     # TODO: not sure what that should be for us, decide where to put the feature constructor
-    def __init__(self, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict ):
+    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict ):
         """OceanPlatformArena constructor.
     Args:
+        sim_cache_dict:
         platform_dict:
         ocean_dict:
         solar_dict:
     """
         self.platform_dict = platform_dict
-        self.ocean_dict = ocean_dict
-        self.solar_dict = solar_dict
+        self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
+                                             hindcast_source_dict=ocean_dict['hindcast'],
+                                             forecast_source_dict=ocean_dict['forecast'])
+        self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
+                                                hindcast_source_dict=solar_dict['hindcast'],
+                                                forecast_source_dict=solar_dict['forecast'])
 
-        self.ocean_field = OceanCurrentField(hindcast_source_dict=ocean_dict['hindcast'], forecast_source_dict=ocean_dict['forecast'])
-        self.solar_field = SolarIrradianceField(hindcast_source_dict=solar_dict['hindcast'], forecast_source_dict=solar_dict['forecast'])
+        # initialize variables for holding the platform and state
+        self.initial_state, self.platform, self.state_trajectory, self.action_trajectory = [None]*4
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
         """Resets the arena.
@@ -52,7 +58,10 @@ class Arena():
       The first observation from the newly reset simulator
     """
         self.initial_state = platform_state
-        self.platform = Platform(state=platform_state, platform_dict=self.platform_dict, ocean_source=self.ocean_field.hindcast_data_source, solar_source=self.solar_field.hindcast_data_source)
+        self.platform = Platform(platform_dict=self.platform_dict,
+                                 ocean_source=self.ocean_field.hindcast_data_source,
+                                 solar_source=self.solar_field.hindcast_data_source)
+        self.platform.set_state(self.initial_state)
         self.state_trajectory = np.array([[platform_state.lon.deg, platform_state.lat.deg]])
         self.action_trajectory = np.zeros(shape=(0, 2))
         return ArenaObservation(platform_state=platform_state)

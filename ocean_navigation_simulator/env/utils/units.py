@@ -201,12 +201,18 @@ class Velocity:
 class Energy(object):
   """A compact energy class."""
 
-  def __init__(self, *, watt_hours: float = 0.0):
-    self._wh = watt_hours
+  def __init__(self, *,
+               watt_hours: float = 0.0,
+               joule: float = 0.0):
+    self._wh = watt_hours + joule/3600
 
   @property
   def watt_hours(self) -> float:
     return self._wh
+
+  @property
+  def joule(self) -> float:
+    return self._wh*3600
 
   def __add__(self, other: 'Energy') -> 'Energy':
     if isinstance(other, Energy):
