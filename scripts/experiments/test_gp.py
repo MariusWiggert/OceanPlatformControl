@@ -60,7 +60,7 @@ ocean_current_vector = OceanCurrentVector(1.0, 1.0)
 
 #%%
 vec_point = current_field.get_forecast(point=[x.m, y.m], time=t_0)
-print("forecast:",vec_point)
+print("forecast: ",vec_point)
 pre_measurement = model.query(x, y, t_0)
 model.observe(x, y, t_0, ocean_current_vector)
 post_measurement = model.query(x, y, t_0)
