@@ -92,6 +92,7 @@ def check_feasibility2D(problem, T_hours_forward, deg_around_xt_xT_box,
         'T_goal_in_h': T_hours_forward,
         'hours_to_hj_solve_timescale': hours_to_hj_solve_timescale,
         'n_time_vector': 100,
+        'd_max': 0.,
         'grid_res': grid_res,
         'deg_around_xt_xT_box': deg_around_xt_xT_box,
         'accuracy': 'high',
@@ -173,8 +174,8 @@ def check_feasibility2D(problem, T_hours_forward, deg_around_xt_xT_box,
 
 
 def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=10, progress_bar=False,
-                        stop_at_x_init=True, conv_m_to_deg=111120, initial_set_radii=[0.05, 0.05],
-                        grid_res=[0.04, 0.04]):
+                        stop_at_x_init=False, conv_m_to_deg=111120, initial_set_radii=[0.05, 0.05],
+                        grid_res=[0.04, 0.04], hours_to_hj_solve_timescale=3600):
     """A function to run 2D time-optimal reachability and return the earliest arrival time in the x_T circle.
     returns feasibility (bool), T_earliest_in_h (float or None), feasibility_planner
     """
@@ -183,7 +184,9 @@ def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=
         'direction': 'forward',
         'T_goal_in_h': T_hours_forward,
         'initial_set_radii': initial_set_radii,
+        'hours_to_hj_solve_timescale': hours_to_hj_solve_timescale,
         'n_time_vector': 500,
+        'd_max': 0.,
         'grid_res': grid_res,
         'deg_around_xt_xT_box': deg_around_xt_xT_box,
         'accuracy': 'high',
@@ -201,9 +204,11 @@ def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=
     # Step 2: run the hj planner
     x_0_rel = np.copy(problem.x_0)
     x_0_rel[3] = x_0_rel[3] - feasibility_planner.current_data_t_0
+    # set the x_t for the feasibility planner
+    feasibility_planner.x_t = x_0_rel
 
     # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
-    feasibility_planner.nondim_dynamics.tau_c = feasibility_planner.specific_settings['T_goal_in_h'] * 3600
+    feasibility_planner.nondim_dynamics.tau_c = feasibility_planner.specific_settings['T_goal_in_h'] * hours_to_hj_solve_timescale
     feasibility_planner.nondim_dynamics.t_0 = x_0_rel[3]
 
     # set up the non_dimensional time-vector for which to save the value function
@@ -231,7 +236,7 @@ def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=
         dynamics=feasibility_planner.nondim_dynamics,
         grid=feasibility_planner.nonDimGrid,
         times=solve_times,
-        initial_values=feasibility_planner.get_initial_values(center=x_0_rel, direction="forward"),
+        initial_values=feasibility_planner.get_initial_values(direction="forward"),
         progress_bar=progress_bar
     )
 
