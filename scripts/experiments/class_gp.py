@@ -1,6 +1,6 @@
 """Class for summarizing ocean currents observations and forecast.
 We use a Gaussian Process to integrate wind observations to a basic forecast.
-This lets us query any point (x, y, p, t) in the wind field for its value,
+This lets us query any point (x, y, t) in the ocean current field for its value,
 as well as the model confidence's in this value.
 ---- Open issues
 * The forecast is not used
@@ -22,7 +22,7 @@ from ocean_navigation_simulator.env.utils import units
 _DISTANCE_SCALING = 357000  # [m]
 _TIME_SCALING = 34560  # [seconds]
 
-_SIGMA_EXP_SQUARED = 3.6 ** 2
+_SIGMA_EXP_SQUARED = 1#3.6 ** 2
 _SIGMA_NOISE_SQUARED = 0.05
 
 
@@ -31,8 +31,8 @@ class OceanCurrentGP(object):
   This object models deviations from the forecast ("errors") using a Gaussian
   process over the 3-dimensional space (x, y, time).
   New measurements are integrated into the GP. Queries return the GP's
-  prediction regarding particular 4D location's wind in u, v format, plus
-  the GP's confidence about that wind.
+  prediction regarding particular 3D location's current in u, v format, plus
+  the GP's confidence about that current.
   """
 
     def __init__(self, forecast: OceanCurrentField) -> None:
@@ -42,13 +42,16 @@ class OceanCurrentGP(object):
     environment built up and torn down per episode, or do we instead use
     reset() functions to reuse objects?
     Args:
-      forecast: the forecast wind field.
+      forecast: the forecast ocean current field.
     """
+        self.ocean_current_forecast = None
+        self.measurement_locations = None
+        self.error_values = None
         self.time_horizon = 24 * 3600  # 24 hours. TODO: VERIFY
 
         # TODO(bellemare): Add some documentation.
         # TODO(bellemare): I believe this is correct but needs to be validated.
-        # The WindGP kernel is a Matern kernel.
+        # The OceanCurrentGP kernel is a Matern kernel.
         # This rescales the inputs (or equivalently, the distance) by the given
         # scaling factors.
         # TODO(killian): Check scale x,y: _DISTANCE_SCALING
@@ -93,7 +96,6 @@ class OceanCurrentGP(object):
         forecast = self.ocean_current_forecast.get_forecast([x.meters, y.meters], time)
         error = np.array([(measurement.u - forecast.u),
                           (measurement.v - forecast.v)])
-        print("error is:",error)
         self.measurement_locations.append(location)
         self.error_values.append(error)
 
@@ -128,6 +130,7 @@ class OceanCurrentGP(object):
     Raises:
       RuntimeError: if no forecast was previously given.
     """
+        # TODO(Killian): not sure if necessary, Why are the deviations 0 if no measurements
         # Set up data for the GP.
         # TODO(bellemare): Clearly wasteful if performing multiple queries per
         # observation. Should cache. Premature optimization is the root, etc.
@@ -143,9 +146,9 @@ class OceanCurrentGP(object):
             else:
                 inputs = np.vstack(self.measurement_locations)
                 targets = np.vstack(self.error_values)
-
             # Drop any observations that are more than N hours old. This speeds up
             # computation. Only if all queries have the same time.
+            # TODO(killian): verify it is necessary!
             # TODO(bellemare): A slightly more efficient alternative is to drop the
             # data permanently, but this method has the advantage of supporting
             # queries into the past.
@@ -153,22 +156,22 @@ class OceanCurrentGP(object):
                 current_time = locations[0, -1]
                 fresh_observations = (
                         np.abs(
-                            list(map(lambda x: x.total_seconds(), inputs[:, -1] - current_time))) < self.time_horizon)
+                            list(map(lambda x: x.total_seconds(), inputs[:, -1] - current_time))
+                        ) < self.time_horizon
+                )
 
                 inputs = inputs[fresh_observations]
                 targets = targets[fresh_observations]
+            #Use a timestamp instead of datetime format
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             copy_loc = np.array(locations)
             copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
+            # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
 
             # Output should be a N x 2 set of predictions about local measurements,
             # and a N-sized vector of standard deviations.
-            # TODO(bellemare): Determine why deviations is a single number per sample,
-            # instead of two (since we have two values being predicted).
-
             means, deviations = self.model.predict(copy_loc, return_std=True)
-
             # Deviations are std.dev., convert to variance and normalize.
             # TODO(bellemare): Ask what the actual lower bound is supposed to
             # be. We can't have a 0 std.dev. due to noise. Currently it's something
@@ -210,7 +213,7 @@ class OceanCurrentGP(object):
         # In our case we don't have any third dimension like with the pressure
         # TODO(Killian): verify it is working
         # Should not be necessary as no pressure dimension
-        # assert (locations[1:, [0,1,2]] == locations[0,[0,1,2]]).all() -> Means has
+            # assert (locations[1:, [0,1,2]] == locations[0,[0,1,2]]).all() -> Means has
         #loc_date = dt.datetime.fromtimestamp(locations[0, 2])
         forecast = self.ocean_current_forecast.get_forecast(locations[0, 0:2], locations[0, 2])
         means[0, 0] += forecast[0]
