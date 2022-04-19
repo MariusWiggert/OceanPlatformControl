@@ -188,6 +188,7 @@ def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=
         'hours_to_hj_solve_timescale': hours_to_hj_solve_timescale,
         'n_time_vector': 500,
         'd_max': 0.,
+        'boundary_buffer': 0.05,
         'grid_res': grid_res,
         'deg_around_xt_xT_box': deg_around_xt_xT_box,
         'accuracy': 'high',

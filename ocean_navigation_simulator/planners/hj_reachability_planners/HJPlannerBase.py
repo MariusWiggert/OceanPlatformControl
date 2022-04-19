@@ -48,6 +48,9 @@ class HJPlannerBase(Planner):
         # initialize Planner superclass
         super().__init__(problem, specific_settings, conv_m_to_deg)
 
+        # Hacky version
+        self.specific_settings['boundary_buffer'] = 0.05
+
         # create a variable that persists across runs of self.plan() to reference the currently reload data
         self.current_data_t_0, self.current_data_t_T = [None] * 2
         # this is just a variable that persists after planning for plotting/debugging
