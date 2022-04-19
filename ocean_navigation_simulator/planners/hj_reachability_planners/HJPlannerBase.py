@@ -354,6 +354,19 @@ class HJPlannerBase(Planner):
                 np.array([t - grids_dict['t_grid'][0] for t in grids_dict['t_grid']]),
                 water_u, water_v)
 
+            # Hacky adding of obstacles at the boundary
+            # Set spatial domain
+            self.spatial_domain = hj.sets.Box(lo=np.array([grids_dict['x_grid'][0], grids_dict['y_grid'][0]]),
+                                              hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1]]))
+            self.boundary_buffers = [self.specific_settings['boundary_buffer'], self.specific_settings['boundary_buffer']]
+            self.nondim_dynamics.dimensional_dynamics.obstacle_operator = lambda state, time, dx_out: jnp.where(
+            self.is_boundary(state, time), 0., dx_out)
+
+
+
+
+
+
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = grids_dict['t_grid'][0]
@@ -548,6 +561,16 @@ class HJPlannerBase(Planner):
             y_label = 'HJ Value Function'
 
         return non_dim_val_func_levels, abs_time_y_ticks, y_label
+
+    def is_boundary(self, state, time):
+        """Helper function to check if a state is in the obstacle."""
+        del time
+        x_boundary = jnp.logical_or(state[0] < self.spatial_domain.lo[0] + self.boundary_buffers[0],
+                                    state[0] > self.spatial_domain.hi[0] - self.boundary_buffers[0])
+        y_boundary = jnp.logical_or(state[1] < self.spatial_domain.lo[1] + self.boundary_buffers[1],
+                                    state[1] > self.spatial_domain.hi[1] - self.boundary_buffers[1])
+
+        return jnp.logical_or(x_boundary, y_boundary)
 
     def get_waypoints(self):
         """Returns: a list of waypoints each containing [lon, lat, time]"""

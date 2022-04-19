@@ -43,6 +43,7 @@ def check_feasibility_2D_w_sim(problem, T_hours_forward, deg_around_xt_xT_box, g
                 'grid_res': grid_res,
                 'deg_around_xt_xT_box': deg_around_xt_xT_box,
                 'accuracy': 'high',
+                'boundary_buffer': 0.05,
                 'artificial_dissipation_scheme': 'local_local',
                 'progress_bar': False}},
 
