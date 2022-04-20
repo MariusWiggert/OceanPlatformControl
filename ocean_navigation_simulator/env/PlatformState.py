@@ -19,3 +19,30 @@ class PlatformState:
     battery_charge: units.Energy = units.Energy(watt_hours=100)
     seaweed_mass: units.Mass = units.Mass(kg=100)
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+@dataclasses.dataclass
+class SpatialPoint:
+    """A dataclass containing variables that define the spatial position.
+
+      Attributes:
+        lon: The latitude position in degree
+        lat: The longitude position in degree
+      """
+    lon: units.Distance
+    lat: units.Distance
+
+
+@dataclasses.dataclass
+class SpatioTemporalPoint:
+    # TODO: implement nice way to transform a list of those to numpy and back: https://kplauritzen.dk/2021/08/11/convert-dataclasss-np-array.html
+    """A dataclass containing SpatioTemporalPoint variables..
+
+      Attributes:
+        lon: The latitude position in degree
+        lat: The longitude position in degree
+        date_time: The current time.
+      """
+    lon: units.Distance
+    lat: units.Distance
+    date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)

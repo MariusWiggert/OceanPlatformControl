@@ -15,7 +15,7 @@ import casadi as ca
 import numpy as np
 import time
 import math
-from typing import Dict
+from typing import Dict, Optional
 
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import SolarIrradianceSource
@@ -32,6 +32,19 @@ class PlatformAction:
     magnitude: float
     direction: float
 
+    @staticmethod
+    def from_xy_propulsion(x_propulsion: float, y_propulsion: float):
+        """Helper function to initialize a PlatformAction based on xy actuation.
+        Args:
+            x_propulsion: propulsion in x direction in m/s
+            y_propulsion: propulsion in y direction in m/s
+        Returns:
+            PlatformAction object
+        """
+        thrust = np.sqrt(x_propulsion ** 2 + y_propulsion ** 2)  # Calculating thrust from distance formula on input u
+        heading = np.arctan2(y_propulsion, x_propulsion)  # Finds heading angle from input u
+        return PlatformAction(magnitude=thrust, direction=heading)
+
 
 class Platform:
     """A simulation of a seaweed platform.
@@ -40,12 +53,14 @@ class Platform:
     (simulate_step) for simulating a seaweed platform.
     """
 
-    def __init__(self, platform_dict: Dict, ocean_source: OceanCurrentSource, solar_source: SolarIrradianceSource):
+    def __init__(self, platform_dict: Dict, ocean_source: OceanCurrentSource, solar_source: SolarIrradianceSource,
+                 geographic_coordinate_system: Optional[bool] = True):
 
         # Set the major member variables
-        self.platform_dict = platform_dict
+        self.dt_in_s = platform_dict['dt_in_s']
         self.ocean_source = ocean_source
         self.solar_source = solar_source
+        self.geographic_coordinate_system = geographic_coordinate_system
 
         # Set parameters for the Platform dynamics
         self.battery_capacity = units.Energy(watt_hours=platform_dict['battery_cap_in_wh'])
@@ -74,7 +89,7 @@ class Platform:
         state_numpy = np.array([self.state.lon.deg, self.state.lat.deg, self.state.date_time.timestamp(),
                                 self.state.battery_charge.watt_hours])
         state_numpy = np.array(self.F_x_next(state_numpy, np.array([action.magnitude, action.direction]),
-                                             self.platform_dict['dt_in_s'])).astype('float64').flatten()
+                                             self.dt_in_s)).astype('float64').flatten()
 
         self.state.lon = units.Distance(deg=state_numpy[0])
         self.state.lat = units.Distance(deg=state_numpy[1])
@@ -125,9 +140,14 @@ class Platform:
             sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + self.ocean_source.v_curr_func(
             ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
 
-        # Equations for delta in latitude and longitude direction in degree
-        sym_lon_delta_degree = 180 * sym_lon_delta_meters / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
-        sym_lat_delta_degree = 180 * sym_lat_delta_meters / math.pi / 6371000
+        # Transform the delta_meters from propulsion to the global coordinate system used.
+        if self.geographic_coordinate_system:
+            # Equations for delta in latitude and longitude direction in degree
+            sym_lon_delta_degree = 180 * sym_lon_delta_meters / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
+            sym_lat_delta_degree = 180 * sym_lat_delta_meters / math.pi / 6371000
+        else: # Global coordinate system in meters
+            sym_lon_delta_degree = sym_lon_delta_meters
+            sym_lat_delta_degree = sym_lat_delta_meters
 
         # Equations for next states using the intermediate variables from above
         sym_lon_next = sym_lon_degree + sym_dt * sym_lon_delta_degree

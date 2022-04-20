@@ -5,7 +5,7 @@ from ocean_navigation_simulator.env.problem import Problem
 from ocean_navigation_simulator.env.Arena import ArenaObservation
 from ocean_navigation_simulator.env.Platform import PlatformAction
 from ocean_navigation_simulator.env.controllers.controller import Controller
-from ocean_navigation_simulator.env.controllers.utils import transform_u_dir_to_u
+
 
 class NaiveToTargetController(Controller):
     """
@@ -18,9 +18,7 @@ class NaiveToTargetController(Controller):
         Args:
             problem: the Problem the controller will run on
         """
-        self.problem = problem
-        self.start_state = problem.start_state
-        self.end_region = problem.end_region
+        super().__init__(problem)
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
         """
@@ -30,22 +28,15 @@ class NaiveToTargetController(Controller):
         Returns:
             SimulatorAction dataclass
         """
-        current_state = observation.platform_state
-
-        lon, lat = current_state.lon.deg, current_state.lat.deg
-
         # TODO: change how this functions for complex end regions (pretend it's a state for now)
-        lon_target, lat_target = self.end_region.lon.deg, self.end_region.lat.deg
 
-        dlon = lon_target - lon
-        dlat = lat_target - lat
+        # Calculate the delta lon, delta lat, and magnitude (for normalization)
+        dlon = self.problem.end_region.lon.deg - observation.platform_state.lon.deg
+        dlat = self.problem.end_region.lat.deg - observation.platform_state.lat.deg
         mag = math.sqrt(dlon * dlon + dlat * dlat)
 
-        # go there full power
-        u_dir = np.array([[dlon / mag], [dlat / mag]])
-        thrust, heading = transform_u_dir_to_u(u_dir=u_dir)
-
-        return PlatformAction(magnitude=thrust, direction=heading)
+        # go towards the center of the target with full power
+        return PlatformAction.from_xy_propulsion(x_propulsion=dlon / mag, y_propulsion=dlat / mag)
 
     def get_waypoints(self) -> list:
         """
@@ -53,8 +44,8 @@ class NaiveToTargetController(Controller):
         Returns:
             List of format [start, end], where both start and end are of format [lat, lon, time]
         """
-        start = [self.start_state.lat, self.start_state.lon, self.start_state.date_time]
+        start = [self.problem.start_state.lat, self.problem.start_state.lon, self.problem.start_state.date_time]
 
         # TODO: change how this functions for complex end regions
-        end = [self.end_region.lat, self.end_region.lon, self.end_region.date_time]
+        end = [self.problem.end_region.lat, self.problem.end_region.lon, self.problem.end_region.date_time]
         return [start, end]

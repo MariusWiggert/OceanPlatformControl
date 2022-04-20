@@ -12,6 +12,7 @@ from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanC
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
+import ocean_navigation_simulator.env.utils.units as units
 
 
 @dataclasses.dataclass
@@ -32,15 +33,19 @@ class Arena:
 
     # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
     # TODO: not sure what that should be for us, decide where to put the feature constructor
-    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict ):
+    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict,
+                 geographic_coordinate_system: Optional[bool] = True):
         """OceanPlatformArena constructor.
     Args:
         sim_cache_dict:
         platform_dict:
         ocean_dict:
         solar_dict:
+    Optional Args:
+        geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
     """
-        self.platform_dict = platform_dict
+
+        # Initialize the Data Fields from the respective dictionaries
         self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
                                              hindcast_source_dict=ocean_dict['hindcast'],
                                              forecast_source_dict=ocean_dict['forecast'])
@@ -48,8 +53,15 @@ class Arena:
                                                 hindcast_source_dict=solar_dict['hindcast'],
                                                 forecast_source_dict=solar_dict['forecast'])
 
-        # initialize variables for holding the platform and state
-        self.initial_state, self.platform, self.state_trajectory, self.action_trajectory = [None]*4
+        # Initialize the Platform Object from the dictionary
+        self.platform = Platform(platform_dict=platform_dict,
+                                 ocean_source=self.ocean_field.hindcast_data_source,
+                                 solar_source=self.solar_field.hindcast_data_source,
+                                 geographic_coordinate_system=geographic_coordinate_system)
+        self.geographic_coordinate_system = geographic_coordinate_system
+
+        # Initialize variables for holding the platform and state
+        self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
         """Resets the arena.
@@ -59,10 +71,9 @@ class Arena:
       The first observation from the newly reset simulator
     """
         self.initial_state = platform_state
-        self.platform = Platform(platform_dict=self.platform_dict,
-                                 ocean_source=self.ocean_field.hindcast_data_source,
-                                 solar_source=self.solar_field.hindcast_data_source)
         self.platform.set_state(self.initial_state)
+        # TODO: Shall we keep those trajectories as np arrays or log them also as objects which we can transfer back
+        # and forth to numpy arrays when we want to?
         self.state_trajectory = np.array([[platform_state.lon.deg, platform_state.lat.deg]])
         self.action_trajectory = np.zeros(shape=(0, 2))
         return ArenaObservation(platform_state=platform_state)

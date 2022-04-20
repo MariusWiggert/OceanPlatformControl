@@ -21,7 +21,6 @@ class SolarIrradianceSource(DataSource):
         """
         self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['solar_irradiance'].values.ravel(order='F'))
 
-
 class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
     """Data Source Object that accesses and manages one or many HYCOM files as source."""
     def __init__(self, source_config_dict):
