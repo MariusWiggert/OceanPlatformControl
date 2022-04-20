@@ -9,7 +9,7 @@ from ocean_navigation_simulator.env.controllers.controller import Controller
 
 class NaiveToTargetController(Controller):
     """
-    Straight Line, Full-power Actuation towards the goal (meant as a baseline)
+    Naive to Target, Full-power Actuation towards the goal (meant as a baseline)
     """
 
     def __init__(self, problem: Problem):
