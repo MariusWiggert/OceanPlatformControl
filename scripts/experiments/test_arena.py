@@ -3,7 +3,7 @@ import numpy as np
 
 from ocean_navigation_simulator.env.Arena import Arena, ArenaObservation
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState
-from ocean_navigation_simulator.env.controllers.naive_to_target_controller import NaiveToTargetController
+from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.problem import Problem
 
 from ocean_navigation_simulator.env.utils import units
