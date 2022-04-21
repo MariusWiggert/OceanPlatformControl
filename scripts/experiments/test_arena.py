@@ -50,14 +50,14 @@ solar_source_dict = {
         'temporal_resolution': 3600,
     }
 }
-#%%
+#%% initialize the arena (loads files or creates opendap connection)
 arena = Arena(
     sim_cache_dict=sim_cache_dict,
     platform_dict=platform_dict,
     ocean_dict={'hindcast': ocean_source_dict, 'forecast': None},
     solar_dict={'hindcast': solar_source_dict, 'forecast': None}
 )
-# %%
+# %% Initialize the Controller
 controller = NaiveToTargetController(problem=Problem(
     start_state=platform_state,
     end_region=PlatformState(
@@ -66,12 +66,12 @@ controller = NaiveToTargetController(problem=Problem(
         lat=units.Distance(deg=27.32464464432537)
     )
 ))
-
+# %% Reset the arena to a specific platform state (initializes also the casadi interpolation functions)
+# This takes around 30 seconds
 observation = arena.reset(platform_state)
-
+#%%
 for i in range(6 * 40):
     action = controller.get_action(observation)
     observation = arena.step(action)
-
 #%%
 arena.do_nice_plot(x_T=np.array([controller.problem.end_region.lon.deg, controller.problem.end_region.lat.deg]))

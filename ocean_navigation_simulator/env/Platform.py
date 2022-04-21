@@ -68,7 +68,7 @@ class Platform:
         self.solar_charge_factor = platform_dict['solar_panel_size'] * platform_dict['solar_efficiency']
         self.u_max = units.Velocity(mps=platform_dict['u_max_in_mps'])
 
-        self.state = None
+        self.state, self.F_x_next = [None]*2
 
     def set_state(self, state: PlatformState):
         """Helper function to set the state."""
@@ -98,15 +98,19 @@ class Platform:
 
         return self.state
 
-    def update_dynamics(self, state: PlatformState) -> ca.Function:
+    def initialize_dynamics(self, state: PlatformState):
+        """Run at arena.reset()"""
         start = time.time()
-        if not hasattr(self, 'F_x_next'):
-            self.solar_source.update_casadi_dynamics(state)
-            self.ocean_source.update_casadi_dynamics(state)
-            self.F_x_next = self.get_casadi_dynamics()
-            print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
-        elif self.solar_source.check_for_casadi_dynamics_update(state) \
+        self.solar_source.update_casadi_dynamics(state)
+        self.ocean_source.update_casadi_dynamics(state)
+        self.F_x_next = self.get_casadi_dynamics()
+        print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
+
+    def update_dynamics(self, state: PlatformState):
+        """Run in the step loop of arena."""
+        if self.solar_source.check_for_casadi_dynamics_update(state) \
                 or self.ocean_source.check_for_casadi_dynamics_update(state):
+            start = time.time()
             self.F_x_next = self.get_casadi_dynamics()
             print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
 
