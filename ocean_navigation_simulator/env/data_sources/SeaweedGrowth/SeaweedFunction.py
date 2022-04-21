@@ -17,67 +17,48 @@ I_opt = 180
 # gross growth rate
 u_max = 0.2
 # respiration rate 
-R_max20 = 1.5 
+R_max20 = 1.5/100
 r = 1.047
 # loss rate = erosion of biomass
 R_erosion = 0.01
 
 # TODO: Function description, typing, specifically which units the inputs are in.
 
+def irradianceFactor(I_S):
+    # Compute Irradiance Factor
+    I_ma = I_S * np.e ** (-k_w * Z_m)
+    f_Ima = I_ma / I_opt * np.e ** (1 - I_ma / I_opt)
+    return f_Ima
 
-# Full R_growth Function
-def compute_R_growth(T_W, NO_3, PO_4, I_S):  # for one point or arrays
-    # temperature
+def temperatureFactor(T_W):
+    # Compute temperature factor
     T_x = np.where(T_W <= T_opt, T_min, T_max)
-
     X_T = (T_W - T_opt) / (T_x - T_opt)
-
     f_T = np.e ** (-2.3 * (X_T ** 2))
+    return f_T
 
+def nutrientFactor(NO_3, PO_4):
+    # Compute factor of Nitrate and Phosphate
     # nutrients
     f_N = NO_3 / (K_N + NO_3)
     f_P = PO_4 / (K_P + PO_4)
     f_NP = np.minimum(f_N, f_P)
-
-    # irradiance
-    I_ma = I_S * np.e**(-k_w*Z_m)
-    f_Ima = I_ma/I_opt * np.e**(1 - I_ma/I_opt)
-
-    # gross growth rate
-    R_growth = u_max * f_T * f_NP * f_Ima
-    return R_growth
-
-
-def compute_R_growth_without_irradiance(T_W, NO_3, PO_4):   # for one point or arrays
-    # TODO: Function description, typing, specifically which units the inputs are in.
-    # temperature 
-    T_x = np.where(T_W <= T_opt, T_min, T_max)
-
-    X_T = (T_W - T_opt)/(T_x - T_opt)
-        
-    f_T = np.e**(-2.3 * (X_T**2))
-
-    # nutrients 
-    f_N = NO_3/(K_N + NO_3)
-    f_P = PO_4/(K_P + PO_4)
-    f_NP = np.minimum(f_N, f_P)
-
-    # gross growth rate
-    R_growth_wo_irradiance = u_max * f_T * f_NP
-    return R_growth_wo_irradiance
-
+    return f_NP
 
 def compute_R_resp(T_W):
     R_resp = R_max20 * r**(T_W - 20)
     return R_resp
 
+def compute_R_growth_without_irradiance(T_W, NO_3, PO_4):   # for one point or arrays
+    # TODO: Function description, typing, specifically which units the inputs are in.
+    # gross growth rate
+    R_growth_wo_irradiance = u_max * temperatureFactor(T_W) * nutrientFactor(NO_3, PO_4)
+    return R_growth_wo_irradiance
+
 
 def compute_NGR(T_W, NO_3, PO_4, I_S): # for one point
-    # Compute Irradiance Factor
-    I_ma = I_S * np.e ** (-k_w * Z_m)
-    f_Ima = I_ma / I_opt * np.e ** (1 - I_ma / I_opt)
-
-    NGR = compute_R_growth_without_irradiance(T_W, NO_3, PO_4) * f_Ima - compute_R_resp(T_W)
+    R_growth = u_max * temperatureFactor(T_W) * nutrientFactor(NO_3, PO_4) * irradianceFactor(I_S)
+    NGR = R_growth - compute_R_resp(T_W)
     return NGR 
 
 

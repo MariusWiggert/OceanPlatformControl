@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 from ocean_navigation_simulator.env.utils import units
+from typing import List
 
 
 @dataclasses.dataclass
@@ -54,6 +55,12 @@ class PlatformState:
     def to_spatio_temporal_point(self) -> SpatioTemporalPoint:
         """Helper function to just extract the spatio-temporal point."""
         return SpatioTemporalPoint(lon=self.lon, lat=self.lat, date_time=self.date_time)
+
+    def to_spatio_temporal_casadi_input(self) -> List[float]:
+        """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
+        return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
+
+
 
 
 
