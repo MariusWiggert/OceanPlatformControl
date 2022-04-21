@@ -3,10 +3,10 @@ Implements a lot of shared functionality such as
 """
 
 from ocean_navigation_simulator.env.utils import units
+from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
 import warnings
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
-from ocean_navigation_simulator.env.PlatformState import PlatformState
 import numpy as np
 import xarray as xr
 import abc
@@ -53,7 +53,7 @@ class DataSource(abc.ABC):
 
         # Step 1: Create the intervals to query data for
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
-            x_0=[state.lon.deg, state.lat.deg, state.date_time], x_T=[state.lon.deg, state.lat.deg],
+            x_0=state.to_spatio_temporal_point(), x_T=state.to_spatial_point(),
             deg_around_x0_xT_box=self.source_config_dict['casadi_cache_settings']['deg_around_x_t'],
             temp_horizon_in_s=self.source_config_dict['casadi_cache_settings']['time_around_x_t'])
 
@@ -71,24 +71,24 @@ class DataSource(abc.ABC):
         self.initialize_casadi_functions(grid, xarray)
 
     @staticmethod
-    def convert_to_x_y_time_bounds(x_0: List[Union[float, datetime.datetime]], x_T: List[float],
+    def convert_to_x_y_time_bounds(x_0: SpatioTemporalPoint, x_T: SpatialPoint,
                                    deg_around_x0_xT_box: float, temp_horizon_in_s: float):
         """ Helper function for spatio-temporal subsetting
         Args:
-            x_0: [lat, lon, datetime]
-            x_T: [lon, lat] goal locations
-            deg_around_x0_xT_box: buffer around the box in degrees
+            x_0: SpatioTemporalPoint
+            x_T: SpatialPoint goal locations
+            deg_around_x0_xT_box: buffer around the box in degree
             temp_horizon_in_s: maximum temp_horizon to look ahead of x_0 time in seconds
 
         Returns:
             t_interval: if time-varying: [t_0, t_T] as utc datetime objects
-                                         where t_0 and t_T are the start and end respectively
+                        where t_0 and t_T are the start and end respectively
             lat_bnds: [y_lower, y_upper] in degrees
             lon_bnds: [x_lower, x_upper] in degrees
         """
-        t_interval = [x_0[2], x_0[2] + datetime.timedelta(seconds=temp_horizon_in_s)]
-        lat_bnds = [min(x_0[1], x_T[1]) - deg_around_x0_xT_box, max(x_0[1], x_T[1]) + deg_around_x0_xT_box]
-        lon_bnds = [min(x_0[0], x_T[0]) - deg_around_x0_xT_box, max(x_0[0], x_T[0]) + deg_around_x0_xT_box]
+        t_interval = [x_0.date_time, x_0.date_time + datetime.timedelta(seconds=temp_horizon_in_s)]
+        lon_bnds = [min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box, max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box]
+        lat_bnds = [min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box, max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box]
 
         return t_interval, lat_bnds, lon_bnds
 
@@ -122,7 +122,7 @@ class DataSource(abc.ABC):
         if units.get_datetime_from_np64(array.coords['time'].data[0]) > t_interval[0]:
             raise ValueError("The starting time {} is not in the array.".format(t_interval[0]))
 
-        # Step 2: Data partially not in the array check based on resolution of
+        # Step 2: Data partially not in the array check
         if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
             warnings.warn("Part of the y requested area is outside of file.", RuntimeWarning)
         if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
@@ -214,8 +214,6 @@ class AnalyticalSource(abc.ABC):
             Args:
               source_config_dict: dict the key 'source_settings' to a dict with the relevant specific settings
                 The general AnalyticalSource requires the following keys, the explicit analytical currents some extra.
-                    boundary_buffers:
-                            Margin to buffer the spatial domain with obstacles as boundary conditions e.g. [0.2, 0.2]
                     spatial_domain:
                             a list e..g [np.array([-0.1, -0.1]), np.array([2.1, 1.1])],
                     temporal_domain:
@@ -224,15 +222,21 @@ class AnalyticalSource(abc.ABC):
                             a float as the default spatial_resolution
                     temporal_default_length:
                             an int of the default length of the time dimension when called
+                    boundary_buffers (Optional, Default is [0, 0]
+                            Margin to buffer the spatial domain with obstacles as boundary conditions e.g. [0.2, 0.2]
+                            Note: this is only required for OceanCurrent Analytical Sources that HJ Reachability runs stable.
         """
         self.source_config_dict = source_config_dict
         self.grid_dict, self.casadi_grid_dict = [None] * 2
 
         # Step 1: Some basic initializations
         # adjust spatial domain by boundary buffer
-        self.boundary_buffers = np.array(source_config_dict['source_settings']['boundary_buffers'])
-        self.x_domain = [x + self.boundary_buffers[0]*(-1)**i for x, i in zip(source_config_dict['source_settings']['x_domain'], [1,2])]
-        self.y_domain = [y + self.boundary_buffers[1]*(-1)**i for y, i in zip(source_config_dict['source_settings']['y_domain'], [1,2])]
+        if 'boundary_buffers' not in source_config_dict['source_settings']:
+            self.spatial_boundary_buffers = np.array([0., 0.])
+        else:
+            self.spatial_boundary_buffers = np.array(source_config_dict['source_settings']['boundary_buffers'])
+        self.x_domain = [x + self.spatial_boundary_buffers[0] * (-1) ** i for x, i in zip(source_config_dict['source_settings']['x_domain'], [1, 2])]
+        self.y_domain = [y + self.spatial_boundary_buffers[1] * (-1) ** i for y, i in zip(source_config_dict['source_settings']['y_domain'], [1, 2])]
         # set the temp_domain_posix
         if isinstance(source_config_dict['source_settings']['temporal_domain'][0], datetime.datetime):
             # Assume it's utc if not correct it
@@ -361,8 +365,8 @@ class AnalyticalSource(abc.ABC):
         # The + spatial_resolution is a hacky way to include the endpoint. We want a regular grid hence the floor to two decimals.
         spatial_vectors = [np.arange(start=np.floor(l*100)/100, stop=h + spatial_resolution, step=spatial_resolution) for l, h in
                               zip(lo_hi_vec[0], lo_hi_vec[1])]
-        # Step 2.2 Temporal grid in POSIX TIME
-        t_grid = np.arange(start=t_interval[0], stop=t_interval[1] + temporal_resolution, step=temporal_resolution)
+        # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
+        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution)*100)/100, stop=t_interval[1] + temporal_resolution, step=temporal_resolution)
 
         return {'x_grid': spatial_vectors[0],
                 'y_grid': spatial_vectors[1],
@@ -371,9 +375,9 @@ class AnalyticalSource(abc.ABC):
     def is_boundary(self, lon: Union[float, np.array], lat: Union[float, np.array],
                     posix_time: Union[float, np.array]) -> Union[float, np.array]:
         """Helper function to check if a state is in the boundary specified in hj as obstacle."""
-        x_boundary = np.logical_or(lon < self.x_domain[0] + self.boundary_buffers[0],
-                                    lon > self.x_domain[1] - self.boundary_buffers[0])
-        y_boundary = np.logical_or(lat < self.y_domain[0] + self.boundary_buffers[1],
-                                    lat > self.y_domain[1] - self.boundary_buffers[1])
+        x_boundary = np.logical_or(lon < self.x_domain[0] + self.spatial_boundary_buffers[0],
+                                    lon > self.x_domain[1] - self.spatial_boundary_buffers[0])
+        y_boundary = np.logical_or(lat < self.y_domain[0] + self.spatial_boundary_buffers[1],
+                                    lat > self.y_domain[1] - self.spatial_boundary_buffers[1])
 
         return np.logical_or(x_boundary, y_boundary)

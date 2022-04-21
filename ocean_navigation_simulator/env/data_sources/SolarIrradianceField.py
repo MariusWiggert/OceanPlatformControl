@@ -8,7 +8,7 @@ from geopy.point import Point as GeoPoint
 
 
 class SolarIrradianceField(DataField):
-    """Class instantiating and holding the Solar Irradiance data sources, the forecast and hindcast current sources.
+    """Class instantiating and holding the Solar Irradiance data sources, the forecast and hindcast sources.
   """
 
     def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None):
@@ -18,10 +18,9 @@ class SolarIrradianceField(DataField):
                           e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12}
 
           forecast_source_dict and hindcast_source_dict
-           Both are dicts with four keys:
-             'field' the kind of field the should be created e.g. OceanCurrent or SolarIrradiance
-             'source' in {opendap, hindcast_files, forecast_files}
-             'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
+           Both are dicts with three keys:
+             'field' the kind of field the should be created, here SolarIrradiance
+             'source' in {analytical} (currently no others implemented)
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
         super().__init__(sim_cache_dict, hindcast_source_dict, forecast_source_dict)

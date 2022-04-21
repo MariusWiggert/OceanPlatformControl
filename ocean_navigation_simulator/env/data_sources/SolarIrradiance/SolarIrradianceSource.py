@@ -21,9 +21,22 @@ class SolarIrradianceSource(DataSource):
         """
         self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['solar_irradiance'].values.ravel(order='F'))
 
+
 class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
     """Data Source Object that accesses and manages one or many HYCOM files as source."""
     def __init__(self, source_config_dict):
+        """ Dictionary with the three top level keys:
+             'field' the kind of field the should be created, here SolarIrradiance
+             'source' in {analytical} (currently no others implemented)
+             'source_settings':{
+                'x_domain': [-180, 180],        # in degree lat, lon
+                'y_domain': [-90, 90],          # in degree lat, lon
+                'temporal_domain': [datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                                    datetime.datetime(2023, 1, 10, 0, 0, 0, tzinfo=datetime.timezone.utc)],
+                'spatial_resolution': 0.1,      # in degree lat, lon
+                'temporal_resolution': 3600,    # in seconds
+            }
+        """
         super().__init__(source_config_dict)
         self.solar_rad_casadi = None
 

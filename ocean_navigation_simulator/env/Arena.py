@@ -10,6 +10,7 @@ from ocean_navigation_simulator import Problem
 
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
+from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 import ocean_navigation_simulator.env.utils.units as units
@@ -33,7 +34,7 @@ class Arena:
 
     # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
     # TODO: not sure what that should be for us, decide where to put the feature constructor
-    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict,
+    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict, seaweed_dict: Dict,
                  geographic_coordinate_system: Optional[bool] = True):
         """OceanPlatformArena constructor.
     Args:
@@ -52,6 +53,13 @@ class Arena:
         self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
                                                 hindcast_source_dict=solar_dict['hindcast'],
                                                 forecast_source_dict=solar_dict['forecast'])
+        # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
+        seaweed_dict['hindcast']['solar_source'] = self.solar_field.hindcast_data_source
+        if seaweed_dict['forecast'] is not None:
+            seaweed_dict['forecast']['solar_source'] = self.solar_field.forecast_data_source
+        self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
+                                                hindcast_source_dict=seaweed_dict['hindcast'],
+                                                forecast_source_dict=seaweed_dict['forecast'])
 
         # Initialize the Platform Object from the dictionary
         self.platform = Platform(platform_dict=platform_dict,
@@ -72,6 +80,7 @@ class Arena:
     """
         self.initial_state = platform_state
         self.platform.set_state(self.initial_state)
+        self.platform.initialize_dynamics(self.initial_state)
         # TODO: Shall we keep those trajectories as np arrays or log them also as objects which we can transfer back
         # and forth to numpy arrays when we want to?
         self.state_trajectory = np.array([[platform_state.lon.deg, platform_state.lat.deg]])
