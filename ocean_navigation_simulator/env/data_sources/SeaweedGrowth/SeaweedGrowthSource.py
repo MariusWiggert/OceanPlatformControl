@@ -10,7 +10,7 @@ from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, 
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import *
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedFunction import *
 from ocean_navigation_simulator.env.utils import units
-from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedNutrientsSource import *
+
 
 # TODO: How do I re-compile the casadi function when the solar_rad_casadi is updated?
 # => this works now without issues when we use a non-caching SolarIrradianceSource e.g. AnalyticalSolarIrradiance
@@ -20,6 +20,7 @@ class SeaweedGrowthSource(DataSource):
     """Base class for the Seaweed Growth data sources.
     Note: It requires input from the Solar Source in W/m^2 and
     """
+
     def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
         Args:
@@ -52,7 +53,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         source_config_dict = self.add_default_domains(source_config_dict)
         super().__init__(source_config_dict)
         # Initialize variables used to hold casadi functions.
-        self.F_NGR_per_second, self.r_growth_wo_irradiance, self.r_resp = [None]*3
+        self.F_NGR_per_second, self.r_growth_wo_irradiance, self.r_resp = [None] * 3
         self.solar_rad_casadi = source_config_dict['source_settings']['solar_source'].solar_rad_casadi
 
         # Open the nutrient dataset and calculate the derived values from it
@@ -69,7 +70,8 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         DataArray = xr.open_dataset(self.source_config_dict['source_settings']['filepath'])
         DataArray = DataArray.rename({'latitude': 'lat', 'longitude': 'lon'})
         DataArray = DataArray.assign(R_growth_wo_Irradiance=
-        compute_R_growth_without_irradiance(DataArray['Temperature'], DataArray['no3'],DataArray['po4']))
+                                     compute_R_growth_without_irradiance(DataArray['Temperature'], DataArray['no3'],
+                                                                         DataArray['po4']))
         DataArray = DataArray.assign(R_resp=compute_R_resp(DataArray['Temperature']))
         # Just to conserve RAM
         DataArray = DataArray.drop(['Temperature', 'no3', 'po4'])
@@ -116,7 +118,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         # Set up the full function
         self.F_NGR_per_second = ca.Function(
             'd_biomass_dt_in_seconds',
-            [ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)],[sym_NGR_per_second])
+            [ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)], [sym_NGR_per_second])
 
     def plot_R_growth_wo_Irradiance(self, time: datetime.datetime):
         """Helper Function to visualize the R_growth_wo_Irradiance per day at a time."""
@@ -168,7 +170,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
     def add_default_domains(source_config_dict: Dict) -> Dict:
         """Helper Function to make it work smoothly with the AnalyticalSource class."""
         source_config_dict['source_settings']['x_domain'] = [-180, 180]
-        source_config_dict['source_settings']['y_domain'] =  [-90, 90]
+        source_config_dict['source_settings']['y_domain'] = [-90, 90]
         source_config_dict['source_settings']['temporal_domain'] = [
             datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
             datetime.datetime(2024, 1, 10, 0, 0, 0, tzinfo=datetime.timezone.utc)]
@@ -179,4 +181,3 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
     def update_casadi_dynamics(self, state: PlatformState) -> None:
         pass
-
