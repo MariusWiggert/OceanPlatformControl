@@ -46,6 +46,7 @@ def nutrientFactor(NO_3, PO_4):
     return f_NP
 
 def compute_R_resp(T_W):
+    """Computes respiration rate per day."""
     R_resp = R_max20 * r**(T_W - 20)
     return R_resp
 

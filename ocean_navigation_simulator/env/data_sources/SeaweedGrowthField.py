@@ -2,7 +2,7 @@ import datetime
 from typing import List, NamedTuple, Sequence, Optional, Dict
 import ocean_navigation_simulator.env.utils.units as units
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
-from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthXarray
+from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR
 import xarray as xr
 from geopy.point import Point as GeoPoint
 
@@ -29,8 +29,8 @@ class SeaweedGrowthField(DataField):
     @staticmethod
     def instantiate_source_from_dict(source_dict: dict):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
-        if source_dict['source'] == 'GEOMAR_paper':
-            return SeaweedGrowthXarray(source_dict)
+        if source_dict['source'] == 'GEOMAR':
+            return SeaweedGrowthGEOMAR(source_dict)
         else:
             raise NotImplementedError("Selected source {} in the SeaweedGrowthSource dict is not implemented.".format(
                 source_dict['source']))
