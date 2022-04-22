@@ -39,7 +39,7 @@ ocean_source_dict = {
 }
 solar_source_dict = {
     'field': 'SolarIrradiance',
-    'source': 'analytical',
+    'source': 'analytical_w_caching',
     'source_settings': {
         'boundary_buffers': [0.2, 0.2],
         'x_domain': [-180, 180],
@@ -66,12 +66,17 @@ controller = NaiveToTargetController(problem=Problem(
         lat=units.Distance(deg=27.32464464432537)
     )
 ))
-# %% Reset the arena to a specific platform state (initializes also the casadi interpolation functions)
+# %% Reset the arena to a specific platform state (initializes also the casadi interpolation functions for the data sources)
 # This takes around 30 seconds
 observation = arena.reset(platform_state)
 #%%
+import time
+start = time.time()
 for i in range(6 * 40):
     action = controller.get_action(observation)
     observation = arena.step(action)
+print("total: ", time.time() - start)
+# Testing if solar caching or not-caching makes much of a difference
+# For 240 steps: without caching 0.056s > with caching: 0.037.
 #%%
 arena.do_nice_plot(x_T=np.array([controller.problem.end_region.lon.deg, controller.problem.end_region.lat.deg]))

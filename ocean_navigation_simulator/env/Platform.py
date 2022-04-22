@@ -19,6 +19,7 @@ from typing import Dict, Optional
 
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import SolarIrradianceSource
+from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 
@@ -53,20 +54,25 @@ class Platform:
     (simulate_step) for simulating a seaweed platform.
     """
 
-    def __init__(self, platform_dict: Dict, ocean_source: OceanCurrentSource, solar_source: SolarIrradianceSource,
+    def __init__(self, platform_dict: Dict, ocean_source: OceanCurrentSource,
+                 solar_source: Optional[SolarIrradianceSource] = None,
+                 seaweed_source: Optional[SeaweedGrowthSource] = None,
                  geographic_coordinate_system: Optional[bool] = True):
 
         # Set the major member variables
         self.dt_in_s = platform_dict['dt_in_s']
         self.ocean_source = ocean_source
         self.solar_source = solar_source
+        self.seaweed_source = seaweed_source
         self.geographic_coordinate_system = geographic_coordinate_system
 
         # Set parameters for the Platform dynamics
-        self.battery_capacity = units.Energy(watt_hours=platform_dict['battery_cap_in_wh'])
-        self.drag_factor = platform_dict['drag_factor'] / platform_dict['motor_efficiency']
-        self.solar_charge_factor = platform_dict['solar_panel_size'] * platform_dict['solar_efficiency']
         self.u_max = units.Velocity(mps=platform_dict['u_max_in_mps'])
+        # Only when energy level is modelled
+        if solar_source is not None:
+            self.battery_capacity = units.Energy(watt_hours=platform_dict['battery_cap_in_wh'])
+            self.drag_factor = platform_dict['drag_factor'] / platform_dict['motor_efficiency']
+            self.solar_charge_factor = platform_dict['solar_panel_size'] * platform_dict['solar_efficiency']
 
         self.state, self.F_x_next = [None]*2
 
@@ -115,13 +121,18 @@ class Platform:
             print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
 
     def get_casadi_dynamics(self):
+        # TODO: split up in three functions with varying level of complexities: 1) lat, lon, 2) adding battery, 3) adding seaweed mass
+        # Could also be done with subclassing of Platform.
         ##### Equations #####
         start = time.time()
         sym_lon_degree = ca.MX.sym('lon')       # in deg
         sym_lat_degree = ca.MX.sym('lat')       # in deg
-        sym_time = ca.MX.sym('time')            # in posix
         sym_battery = ca.MX.sym('battery')      # in Joule
+        sym_seaweed_mass = ca.MX.sym('battery')  # in Kg
+        sym_time = ca.MX.sym('time')            # in posix
+
         sym_dt = ca.MX.sym('dt')                # in s
+
         sym_u_thrust = ca.MX.sym('u_thrust')    # in % of u_max
         sym_u_angle = ca.MX.sym('u_angle')      # in radians
 
