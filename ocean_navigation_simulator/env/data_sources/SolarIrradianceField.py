@@ -20,7 +20,7 @@ class SolarIrradianceField(DataField):
           forecast_source_dict and hindcast_source_dict
            Both are dicts with three keys:
              'field' the kind of field the should be created, here SolarIrradiance
-             'source' in {analytical} (currently no others implemented)
+             'source' in {analytical_wo_caching, analytical_w_caching} (currently no others implemented)
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
         super().__init__(sim_cache_dict, hindcast_source_dict, forecast_source_dict)
@@ -28,8 +28,10 @@ class SolarIrradianceField(DataField):
     @staticmethod
     def instantiate_source_from_dict(source_dict: dict):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
-        if source_dict['source'] == 'analytical':
+        if source_dict['source'] == 'analytical_wo_caching':
             return AnalyticalSolarIrradiance(source_dict)
+        elif source_dict['source'] == 'analytical_w_caching':
+            return AnalyticalSolarIrradiance_w_caching(source_dict)
         else:
             raise NotImplementedError("Selected source {} in the SolarIrradianceSource dict is not implemented.".format(
                 source_dict['source']))

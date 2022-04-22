@@ -219,9 +219,9 @@ class AnalyticalSource(abc.ABC):
                     temporal_domain:
                             a list e.g. [-10, 1000] of the temporal domain in units (will internally be seconds)
                     spatial_resolution:
-                            a float as the default spatial_resolution
-                    temporal_default_length:
-                            an int of the default length of the time dimension when called
+                            a float as the default spatial_resolution in degree
+                    temporal_resolution:
+                            a float as the default temporal_resolution in seconds
                     boundary_buffers (Optional, Default is [0, 0]
                             Margin to buffer the spatial domain with obstacles as boundary conditions e.g. [0.2, 0.2]
                             Note: this is only required for OceanCurrent Analytical Sources that HJ Reachability runs stable.

@@ -1,8 +1,9 @@
 import casadi as ca
-from ocean_navigation_simulator.env.data_sources.SolarIrradiance.solar_rad import solar_rad
+from ocean_navigation_simulator.env.data_sources.SolarIrradiance.solar_rad import solar_rad, solar_rad_ca
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
 import numpy as np
+from ocean_navigation_simulator.env.PlatformState import PlatformState
 import xarray as xr
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
 
@@ -22,7 +23,7 @@ class SolarIrradianceSource(DataSource):
         self.solar_rad_casadi = ca.interpolant('irradiance', 'linear', grid, array['solar_irradiance'].values.ravel(order='F'))
 
 
-class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
+class AnalyticalSolarIrradiance_w_caching(AnalyticalSource, SolarIrradianceSource):
     """Data Source Object that accesses and manages one or many HYCOM files as source."""
     def __init__(self, source_config_dict):
         """ Dictionary with the three top level keys:
@@ -57,7 +58,7 @@ class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
     def create_xarray(self, grid_dict: dict, solar_irradiance: np.array) -> xr:
         """Function to create an xarray from the data tuple and grid dict
             Args:
-              data_tuple: tuple containing (data_u, data_v)
+              solar_irradiance: numpy array [T, Y, X] of data
               grid_dict: containing ranges and grids of x, y, t dimension
             Returns:
               xr     an xarray containing both the grid and data
@@ -93,6 +94,34 @@ class AnalyticalSolarIrradiance(AnalyticalSource, SolarIrradianceSource):
           float of the solar irradiance in W/m^2
           """
         return self.solar_irradiance_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp())
+
+
+class AnalyticalSolarIrradiance(AnalyticalSolarIrradiance_w_caching):
+    """Data Source Object that accesses and manages one or many HYCOM files as source.
+    It does not use caching and directly uses the analytical casadi function.
+    """
+    def __init__(self, source_config_dict):
+        """ Dictionary with the three top level keys:
+             'field' the kind of field the should be created, here SolarIrradiance
+             'source' in {analytical} (currently no others implemented)
+             'source_settings':{
+                'x_domain': [-180, 180],        # in degree lat, lon
+                'y_domain': [-90, 90],          # in degree lat, lon
+                'temporal_domain': [datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+                                    datetime.datetime(2023, 1, 10, 0, 0, 0, tzinfo=datetime.timezone.utc)],
+                'spatial_resolution': 0.1,      # in degree lat, lon
+                'temporal_resolution': 3600,    # in seconds
+            }
+        """
+        super().__init__(source_config_dict)
+        self.solar_rad_casadi = solar_rad_ca
+        # set the self.casadi_grid_dict to full domain
+        self.casadi_grid_dict = self.grid_dict
+
+    def update_casadi_dynamics(self, state: PlatformState):
+        """Passing the function because nothing needs to be updated."""
+        pass
+
 
 
 

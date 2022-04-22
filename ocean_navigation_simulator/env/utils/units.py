@@ -427,3 +427,16 @@ def get_datetime_from_np64(np64_time_array: np.datetime64) -> datetime.datetime:
   t_posix = (np64_time_array - np.datetime64(0, 's')) / np.timedelta64(1, 's')
   dt_object = datetime.datetime.fromtimestamp(t_posix, datetime.timezone.utc)
   return dt_object
+
+
+def posix_to_rel_seconds_in_year(posix_timestamp: float) -> float:
+  """Helper function to map a posix_timestamp to it's relative seconds for the specific year (since 1st of January).
+  This is needed because the interpolation function for the nutrients operates on relative timestamps as we take
+  the average monthly nutrients for those as input.
+  Args:
+      posix_timestamp: a posix timestamp
+  """
+  # correction for extra long years because of Schaltjahre (makes it accurate 2020-2024, otherwise a couple of days off)
+  correction_seconds = 13 * 24 * 3600
+  # Calculate the relative time of the year in seconds
+  return np.mod(posix_timestamp - correction_seconds, 365 * 24 * 3600)
