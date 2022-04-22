@@ -34,7 +34,8 @@ class Arena:
 
     # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
     # TODO: not sure what that should be for us, decide where to put the feature constructor
-    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict, solar_dict: Dict, seaweed_dict: Dict,
+    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict,
+                 solar_dict: Optional[Dict] = None, seaweed_dict: Optional[Dict] = None,
                  geographic_coordinate_system: Optional[bool] = True):
         """OceanPlatformArena constructor.
     Args:
@@ -50,16 +51,18 @@ class Arena:
         self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
                                              hindcast_source_dict=ocean_dict['hindcast'],
                                              forecast_source_dict=ocean_dict['forecast'])
-        self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
-                                                hindcast_source_dict=solar_dict['hindcast'],
-                                                forecast_source_dict=solar_dict['forecast'])
-        # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
-        seaweed_dict['hindcast']['solar_source'] = self.solar_field.hindcast_data_source
-        if seaweed_dict['forecast'] is not None:
-            seaweed_dict['forecast']['solar_source'] = self.solar_field.forecast_data_source
-        self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
-                                                hindcast_source_dict=seaweed_dict['hindcast'],
-                                                forecast_source_dict=seaweed_dict['forecast'])
+        if solar_dict is not None:
+            self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
+                                                    hindcast_source_dict=solar_dict['hindcast'],
+                                                    forecast_source_dict=solar_dict['forecast'])
+        if seaweed_dict is not None:
+            # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
+            seaweed_dict['hindcast']['solar_source'] = self.solar_field.hindcast_data_source
+            if seaweed_dict['forecast'] is not None:
+                seaweed_dict['forecast']['solar_source'] = self.solar_field.hindcast_data_source
+            self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
+                                                    hindcast_source_dict=seaweed_dict['hindcast'],
+                                                    forecast_source_dict=seaweed_dict['forecast'])
 
         # Initialize the Platform Object from the dictionary
         self.platform = Platform(platform_dict=platform_dict,
