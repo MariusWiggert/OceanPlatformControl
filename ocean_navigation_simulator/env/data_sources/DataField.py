@@ -43,7 +43,7 @@ class DataField(abc.ABC):
     def get_forecast(self, point: List[float], time: datetime.datetime):
         """Returns forecast at a point in the field.
         Args:
-          point: Point in the respective used coordinate system (lat, lon for geospherical or unitless for examples)
+          point: Point in the respective used coordinate system (lon,lat for geospherical or unitless for examples)
           time: absolute datetime object
         Returns:
           A Field Data for the position in the DataField (Vector or other).
