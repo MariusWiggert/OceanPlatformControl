@@ -5,12 +5,10 @@ from ocean_navigation_simulator.env.problem import Problem
 from ocean_navigation_simulator.env.Arena import ArenaObservation
 from ocean_navigation_simulator.env.Platform import PlatformAction
 from ocean_navigation_simulator.env.controllers.controller import Controller
-from ocean_navigation_simulator.env.controllers.utils import transform_u_dir_to_u
-
 
 class UnmotorizedController(Controller):
     """
-    Straight Line, Full-power Actuation towards the goal (meant as a baseline)
+    No action, the platform just follows the current
     """
 
     def __init__(self, problem: Problem):

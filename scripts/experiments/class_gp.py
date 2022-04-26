@@ -19,10 +19,9 @@ from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanC
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.utils import units
 
-_DISTANCE_SCALING = 357000  # [m]
 _LATITUDE_SCALING = 110574 # [m]
-_LONGITUDE_SCALING = 111321
-_TIME_SCALING = 34560  # [seconds]
+_LONGITUDE_SCALING = 111321 # [m]
+_TIME_SCALING = 34560  # [seconds] #TODO(Killian): CHECK WHY THIS VALUE!!!
 
 _SIGMA_EXP_SQUARED = 1#3.6 ** 2
 _SIGMA_NOISE_SQUARED = 0.05
@@ -55,7 +54,6 @@ class OceanCurrentGP(object):
         # The OceanCurrentGP kernel is a Matern kernel.
         # This rescales the inputs (or equivalently, the distance) by the given
         # scaling factors.
-        # TODO(killian): Check scale x,y: _DISTANCE_SCALING
         length_scale = np.array([
             _LONGITUDE_SCALING, _LATITUDE_SCALING, _TIME_SCALING])
         self.kernel = _SIGMA_EXP_SQUARED * gaussian_process.kernels.Matern(
@@ -78,8 +76,8 @@ class OceanCurrentGP(object):
         self.measurement_locations = []
         self.error_values = []
 
-        # TODO(bellemare): This may change types, as WindField is the 'true'
-        # wind field and we may instead want the 'mean' wind field (pre-wind noise).
+        # TODO(bellemare): This may change types, as OceanCurrentField is the 'true'
+        # ocean field and we may instead want the 'mean' ocean current field (pre-OC noise).
         self.ocean_current_forecast = forecast
 
     def observe(self, x: float, y: float,
@@ -136,23 +134,18 @@ class OceanCurrentGP(object):
         #print("Query batch",locations)
         #print("self.measurement:",self.measurement_locations)
         if not self.measurement_locations:
-            print("no measurement_locations")
             #print("self.measurement_loc:",self.measurement_locations)
             means = np.zeros((locations.shape[0], 2))
             deviations = np.zeros(locations.shape[0])
         else:
             if len(self.measurement_locations) == 1:
-                # Needed because hstack will leave the dims unchanged with a single
-                # row.
                 inputs = np.expand_dims(self.measurement_locations[0], axis=0)
                 targets = np.expand_dims(self.error_values[0], axis=0)
             else:
                 inputs = np.vstack(self.measurement_locations)
                 targets = np.vstack(self.error_values)
-            #print("inputs:",inputs[:,-1], type(inputs[:,-1]))
             # Drop any observations that are more than N hours old. This speeds up
             # computation. Only if all queries have the same time.
-            # TODO(killian): verify it is necessary!
             # TODO(bellemare): A slightly more efficient alternative is to drop the
             # data permanently, but this method has the advantage of supporting
             # queries into the past.
@@ -166,22 +159,15 @@ class OceanCurrentGP(object):
                 print("fresh_observations:",np.sum(fresh_observations))
                 inputs = inputs[fresh_observations]
                 targets = targets[fresh_observations]
-                #print("inputs/targets:",inputs,targets)
             #Use a timestamp instead of datetime format
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             copy_loc = np.array(locations)
             copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
-            #print("fitting_test:", inputs,targets)
-            print("fitting",inputs)
-            print("targets:",targets)
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
-            print("after fitting, before predict")
             # Output should be a N x 2 set of predictions about local measurements,
             # and a N-sized vector of standard deviations.
             means, deviations = self.model.predict(copy_loc, return_std=True)
-            print("after fitting, after predict")
-            print("output predict:",means, deviations)
             # Deviations are std.dev., convert to variance and normalize.
             # TODO(bellemare): Ask what the actual lower bound is supposed to
             # be. We can't have a 0 std.dev. due to noise. Currently it's something

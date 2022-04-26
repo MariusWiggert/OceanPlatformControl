@@ -55,20 +55,19 @@ t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
 
 #t_interval = [datetime.datetime(2021,11,28), datetime.datetime(2021,12,12)]
 t_0 = datetime.datetime(2021, 11, 26, 23, 30, tzinfo=datetime.timezone.utc)
+#t_0 = datetime.datetime(year=2021, month=11, day=20, hour=12, minute=0, second=0, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=25)]
-x_interval=[-95.053711, -89.111328]#[-95.053711, -84.111328]
-y_interval=[23.497506, 25.124313]#[23.497506, 28.124313]
+x_interval=[-95.053711, -84.111328]
+y_interval=[23.497506, 28.124313]
 
 x_0 = [-81.5, 23.5, 1, t_0.timestamp()]  # lon, lat, battery
 x_T = [-80, 24.2]
 
 
 #%%
+print("inputs_forecast_area:", x_interval,y_interval, t_interval)
 vec_point_forecast = current_field.get_forecast_area(x_interval, y_interval, t_interval)
-print(vec_point_forecast)
-#%%
-vec_point_hindcast = current_field.get_ground_truth_area(x_interval, y_interval, t_interval)
-print(vec_point_hindcast)
+print(vec_point_forecast["water_u"].max(), vec_point_forecast["water_v"].max())
 #%% Convert the data into arrays for training and testing
 array_forecast = vec_point_forecast.to_array().transpose("time","lat","lon","variable")
 array_hindcast = vec_point_forecast.to_array().transpose("time","lat","lon","variable")
@@ -84,6 +83,7 @@ model = OceanCurrentGP(current_field)
 x,y = units.Distance(m=0.0), units.Distance(m=0.0)
 t_0 = datetime.datetime.fromtimestamp(10, datetime.timezone.utc)
 t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
+t_0 = datetime.datetime(year=2021, month=11, day=20, hour=12, minute=0, second=0, tzinfo=datetime.timezone.utc)
 ocean_current_vector = OceanCurrentVector(1.0, 1.0)
 #%% Train the model:
 

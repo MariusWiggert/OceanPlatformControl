@@ -18,8 +18,12 @@ source_dict['source_settings'] = {
                        'spatial_resolution': 0.1,
                        'temporal_resolution': 3600,
                    }
+sim_cache_dict = {
+    'deg_around_x_t': 1,
+    'time_around_x_t': 3600 * 24 * 3
+}
 #%% Step 2: Instantiate the field
-solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict)
+solar_field = SolarIrradianceField.SolarIrradianceField(sim_cache_dict, hindcast_source_dict=source_dict)
 # Test settings to use it
 t_0 = datetime.datetime(2022, 4, 11, 0, 0, 0, tzinfo=datetime.timezone.utc)
 # t_0 = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=10)
