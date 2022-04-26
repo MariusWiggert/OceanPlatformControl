@@ -60,6 +60,12 @@ class PlatformState:
         """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
+    def __repr__(self):
+        return 'Platform State: lon: {x} deg, lat: {y} deg, battery_charge: {b} Joule, seaweed_mass: {m} kg, ' \
+               'date_time: {t}'.format(
+            x=self.lon.deg, y=self.lat.deg, b=self.battery_charge.joule, m=self.seaweed_mass.kg, t=self.date_time
+        )
+
 
 
 

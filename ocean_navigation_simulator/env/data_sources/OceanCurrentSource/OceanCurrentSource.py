@@ -17,6 +17,7 @@ from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -80,24 +81,23 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
             dataframe = dataframe.compute()
         return dataframe
 
-    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> OceanCurrentVector:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         """Function to get the OceanCurrentVector at a specific point.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           OceanCurrentVector
           """
 
         # Step 1: get interpolated xr and make it explicit
-        currents_at_point = self.make_explicit(super().get_data_at_point(point, time))
+        currents_at_point = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
 
         u = currents_at_point['water_u'].data.item()
         v = currents_at_point['water_u'].data.item()
 
         if np.any(np.isnan([u, v])):
             raise ValueError(
-                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
+                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(spatio_temporal_point))
 
         return OceanCurrentVector(u=u, v=v)
 

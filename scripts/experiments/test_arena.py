@@ -39,7 +39,7 @@ ocean_source_dict = {
 }
 solar_source_dict = {
     'field': 'SolarIrradiance',
-    'source': 'analytical_w_caching',
+    'source': 'analytical_wo_caching',
     'source_settings': {
         'boundary_buffers': [0.2, 0.2],
         'x_domain': [-180, 180],
@@ -69,6 +69,11 @@ controller = NaiveToTargetController(problem=Problem(
 # %% Reset the arena to a specific platform state (initializes also the casadi interpolation functions for the data sources)
 # This takes around 30 seconds
 observation = arena.reset(platform_state)
+#%%
+observation.forecasted_current_at_state.v
+#%%
+action = controller.get_action(observation)
+observation = arena.step(action)
 #%%
 import time
 start = time.time()

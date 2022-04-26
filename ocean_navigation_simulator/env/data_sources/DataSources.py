@@ -4,6 +4,7 @@ Implements a lot of shared functionality such as
 
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+import matplotlib.pyplot as plt
 import warnings
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
@@ -130,6 +131,30 @@ class DataSource(abc.ABC):
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
             warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
+    def plot_data_at_time_over_area(self, time: datetime.datetime,
+                                    x_interval: List[float], y_interval: List[float],
+                                    max_spatial_dim: Optional[float] = 100):
+        """Plot all data variables at a specific time over an area.
+        Args:
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          max_spatial_dim: maximum spatial dimensions of the data to be plotted.
+        """
+
+        # Step 1: get the area data
+        area_xarray = self.get_data_over_area(x_interval, y_interval, [time, time + datetime.timedelta(seconds=1)])
+
+        # Step 2: plot all data variables
+        all_variables = list(area_xarray.keys())
+        for variable in all_variables:
+            area_xarray[variable].interp(time=time.replace(tzinfo=None)).plot()
+            plt.title("Field: {f} \n Variable: {var} \n at Time: {t}".format(
+                f=self.source_config_dict['field'],
+                var=variable,
+                t=time))
+            plt.show()
+
 
 # Two types of data sources: analytical and xarray based ones -> need different default functions, used via mixin
 class XarraySource(abc.ABC):
@@ -138,15 +163,16 @@ class XarraySource(abc.ABC):
         self.DataArray = None  # The xarray containing the raw data (if not an analytical function)
         self.grid_dict, self.casadi_grid_dict = [None] * 2
 
-    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> xr:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
         """Function to get the data at a specific point.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
-        return self.DataArray.interp(time=np.datetime64(time), lon=point[0], lat=point[1], method='linear')
+
+        return self.DataArray.interp(time=np.datetime64(spatio_temporal_point.date_time),
+                                     lon=spatio_temporal_point.lon.deg, lat=spatio_temporal_point.lat.deg, method='linear')
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],
@@ -271,11 +297,10 @@ class AnalyticalSource(abc.ABC):
             """
 
     @abc.abstractmethod
-    def get_data_at_point(self, point: List[float], time: datetime) -> xr:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
         """Function to get the data at a specific point.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """

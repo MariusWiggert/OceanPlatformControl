@@ -1,6 +1,7 @@
 import abc
 import datetime
 from typing import List, NamedTuple, Sequence, Callable, Optional, Dict
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 import numpy as np
 import warnings
 import ocean_navigation_simulator.env.utils.units as units
@@ -40,15 +41,14 @@ class DataField(abc.ABC):
             forecast_source_dict['casadi_cache_settings'] = sim_cache_dict
             self.forecast_data_source = self.instantiate_source_from_dict(forecast_source_dict)
 
-    def get_forecast(self, point: List[float], time: datetime.datetime):
+    def get_forecast(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns forecast at a point in the field.
         Args:
-          point: Point in the respective used coordinate system (lat, lon for geospherical or unitless for examples)
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
-          A Field Data for the position in the DataField (Vector or other).
+          A Field Data for the position in the DataField (Vector or Data Object).
         """
-        return self.forecast_data_source.get_data_at_point(point, time)
+        return self.forecast_data_source.get_data_at_point(spatio_temporal_point)
 
     def get_forecast_area(self, x_interval: List[float], y_interval: List[float], t_interval: List[datetime.datetime],
                           spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None) -> xr:
@@ -65,15 +65,14 @@ class DataField(abc.ABC):
         return self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval,
                                                             spatial_resolution, temporal_resolution)
 
-    def get_ground_truth(self, point: List[float], time: datetime.datetime):
+    def get_ground_truth(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns true data at a point in the field.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
-          A Field Data for the position in the DataField (Vector or other).
+          A Field Data for the position in the DataField (Vector or Data Object).
         """
-        return self.hindcast_data_source.get_data_at_point(point, time)
+        return self.hindcast_data_source.get_data_at_point(spatio_temporal_point)
 
     def get_ground_truth_area(self, x_interval: List[float], y_interval: List[float],
                               t_interval: List[datetime.datetime],
