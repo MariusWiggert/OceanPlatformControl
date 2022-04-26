@@ -70,11 +70,6 @@ controller = NaiveToTargetController(problem=Problem(
 # This takes around 30 seconds
 observation = arena.reset(platform_state)
 #%%
-observation.forecasted_current_at_state.v
-#%%
-action = controller.get_action(observation)
-observation = arena.step(action)
-#%%
 import time
 start = time.time()
 for i in range(6 * 40):
@@ -83,5 +78,6 @@ for i in range(6 * 40):
 print("total: ", time.time() - start)
 # Testing if solar caching or not-caching makes much of a difference
 # For 240 steps: without caching 0.056s > with caching: 0.037.
+# When the observation contains the true & forecasted currents this takes an additional: 0.02
 #%%
 arena.do_nice_plot(x_T=np.array([controller.problem.end_region.lon.deg, controller.problem.end_region.lat.deg]))
