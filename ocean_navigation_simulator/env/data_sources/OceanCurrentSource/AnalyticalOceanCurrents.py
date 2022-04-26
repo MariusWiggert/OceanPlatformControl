@@ -194,6 +194,23 @@ class FixedCurrentHighwayField(OceanCurrentSourceAnalytical):
                         list representing the y-axis range of the highway current e.g. [3, 5]
                     U_cur:
                         strength of the current in space units/ time unit
+
+        Example:
+            ocean_source_dict = {
+                'field': 'OceanCurrents',
+                'source': 'analytical',
+                'source_settings': {
+                    'name': 'FixedCurrentHighwayField',
+                    'boundary_buffers': [0.2, 0.2],
+                    'x_domain': [0, 10],
+                    'y_domain': [0, 10],
+                    'temporal_domain': [0, 10],
+                    'spatial_resolution': 0.1,
+                    'temporal_resolution': 1,
+                    'y_range_highway': [4,6],
+                    'U_cur': 2,
+                },
+            }
         """
 
     def __init__(self, source_config_dict):
