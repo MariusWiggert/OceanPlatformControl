@@ -361,15 +361,18 @@ class AnalyticalSource(abc.ABC):
 
         # Step 2: Get the grids with the respective resolutions
         # Step 2.1 Spatial coordinate vectors with desired resolution
-        lo_hi_vec = [[lon, lat] for lon, lat in zip(ranges_dict['x_range'], ranges_dict['y_range'])]
         # The + spatial_resolution is a hacky way to include the endpoint. We want a regular grid hence the floor to two decimals.
-        spatial_vectors = [np.arange(start=np.floor(l*100)/100, stop=h + spatial_resolution, step=spatial_resolution) for l, h in
-                              zip(lo_hi_vec[0], lo_hi_vec[1])]
-        # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
-        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution)*100)/100, stop=t_interval[1] + temporal_resolution, step=temporal_resolution)
+        x_vector = np.arange(start=np.floor(ranges_dict['x_range'][0] * 100) / 100,
+                             stop=ranges_dict['x_range'][1] + 1.1 * spatial_resolution, step=spatial_resolution)
+        y_vector = np.arange(start=np.floor(ranges_dict['y_range'][0] * 100) / 100,
+                             stop=ranges_dict['y_range'][1] + 1.1 * spatial_resolution, step=spatial_resolution)
 
-        return {'x_grid': spatial_vectors[0],
-                'y_grid': spatial_vectors[1],
+        # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
+        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution)*100)/100,
+                           stop=t_interval[1] + 1.1 * temporal_resolution, step=temporal_resolution)
+
+        return {'x_grid': x_vector,
+                'y_grid': y_vector,
                 't_grid': t_grid}
 
     def is_boundary(self, lon: Union[float, np.array], lat: Union[float, np.array],
