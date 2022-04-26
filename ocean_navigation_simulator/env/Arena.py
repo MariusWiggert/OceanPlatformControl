@@ -36,13 +36,15 @@ class Arena:
     # TODO: not sure what that should be for us, decide where to put the feature constructor
     def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict,
                  solar_dict: Optional[Dict] = None, seaweed_dict: Optional[Dict] = None,
-                 geographic_coordinate_system: Optional[bool] = True):
+                 use_geographic_coordinate_system: Optional[bool] = True):
         """OceanPlatformArena constructor.
     Args:
         sim_cache_dict:
         platform_dict:
         ocean_dict:
         solar_dict:
+        seaweed_dict:
+        geographic_coordinate_system
     Optional Args:
         geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
     """
@@ -51,25 +53,29 @@ class Arena:
         self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
                                              hindcast_source_dict=ocean_dict['hindcast'],
                                              forecast_source_dict=ocean_dict['forecast'])
-        if solar_dict is not None:
+        if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
                                                     hindcast_source_dict=solar_dict['hindcast'],
                                                     forecast_source_dict=solar_dict['forecast'])
-        if seaweed_dict is not None:
+        else:
+            self.solar_field = None
+
+        if seaweed_dict is not None and seaweed_dict['hindcast'] is not None:
             # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
-            seaweed_dict['hindcast']['solar_source'] = self.solar_field.hindcast_data_source
+            seaweed_dict['hindcast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
             if seaweed_dict['forecast'] is not None:
-                seaweed_dict['forecast']['solar_source'] = self.solar_field.hindcast_data_source
+                seaweed_dict['forecast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
             self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
                                                     hindcast_source_dict=seaweed_dict['hindcast'],
                                                     forecast_source_dict=seaweed_dict['forecast'])
+        else:
+            self.seaweed_field = None
 
         # Initialize the Platform Object from the dictionary
         self.platform = Platform(platform_dict=platform_dict,
                                  ocean_source=self.ocean_field.hindcast_data_source,
-                                 solar_source=self.solar_field.hindcast_data_source,
-                                 geographic_coordinate_system=geographic_coordinate_system)
-        self.geographic_coordinate_system = geographic_coordinate_system
+                                 solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
+                                 seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None)
 
         # Initialize variables for holding the platform and state
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
@@ -86,8 +92,9 @@ class Arena:
         self.platform.initialize_dynamics(self.initial_state)
         # TODO: Shall we keep those trajectories as np arrays or log them also as objects which we can transfer back
         # and forth to numpy arrays when we want to?
-        self.state_trajectory = np.array([[platform_state.lon.deg, platform_state.lat.deg]])
+        self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
+
         return ArenaObservation(platform_state=platform_state)
 
     def step(self, action: PlatformAction) -> ArenaObservation:
@@ -98,16 +105,17 @@ class Arena:
         Arena Observation including platform state, true current at platform, forecasts
     """
         state = self.platform.simulate_step(action)
-        state_numpy = np.expand_dims(np.array([state.lon.deg, state.lat.deg]).squeeze(), axis=0)
-        self.state_trajectory = np.append(self.state_trajectory, state_numpy, axis=0)
-        action_numpy = np.expand_dims(np.array([action.magnitude, action.direction]).squeeze(), axis=0)
-        self.action_trajectory = np.append(self.action_trajectory, action_numpy, axis=0)
+
+        self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
+        self.action_trajectory = np.append(self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0)
+
         return ArenaObservation(platform_state=state)
 
     def do_nice_plot(self, x_T):
         data_store = simulation_utils.copernicusmarine_datastore('cmems_mod_glo_phy_anfc_merged-uv_PT1H-i', 'mmariuswiggert', 'tamku3-qetroR-guwneq')
         DS_currents = xr.open_dataset(data_store)[['uo', 'vo']].isel(depth=0)
         file_dicts = {'data_source_type': 'cop_opendap', 'content': DS_currents, 'grid_dict': Problem.derive_grid_dict_from_xarray(DS_currents)}
+
         plotting_utils.plot_2D_traj_over_currents(
             x_traj=self.state_trajectory.T,
             deg_around_x0_xT_box=0.5,
