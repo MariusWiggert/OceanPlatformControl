@@ -1,15 +1,18 @@
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint, PlatformState, SpatialPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
+from ocean_navigation_simulator.env.utils import units
+
+sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 #%% Solar irradiance Test
 # Step 1: create the specification dict
 source_dict = {'field': 'SolarIrradiance',
-               'subset_time_buffer_in_s': 4000,
-               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*1*24}}
-source_dict['source'] = 'analytical'
-source_dict['source_settings'] = {
+               'source': 'analytical_wo_caching', # can also be analytical_w_caching
+               'source_settings': {
                        'boundary_buffers': [0.2, 0.2],
                        'x_domain': [-180, 180],
                         'y_domain': [-90, 90],
@@ -17,27 +20,29 @@ source_dict['source_settings'] = {
                                            datetime.datetime(2023, 1, 10, 0, 0, 0)],
                        'spatial_resolution': 0.1,
                        'temporal_resolution': 3600,
-                   }
+                   }}
 #%% Step 2: Instantiate the field
-solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict)
-# Test settings to use it
+solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
+#%% Test settings to use it
 t_0 = datetime.datetime(2022, 4, 11, 0, 0, 0, tzinfo=datetime.timezone.utc)
 # t_0 = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=10)
 # t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=1)]
 x_interval = [-122, -120]
 y_interval = [35, 37]
-x_0 = [-120, 35, 1, t_0.timestamp()]  # lon, lat, battery
-x_T = [-122, 37]
+x_0 = PlatformState(lon=units.Distance(deg=-120), lat=units.Distance(deg=30), date_time=t_0)
+x_T = SpatialPoint(lon=units.Distance(deg=-122), lat=units.Distance(deg=37))
 #%% check it for a point
-vec_point = solar_field.get_forecast(point=x_T, time=t_0)
+vec_point = solar_field.get_forecast(spatio_temporal_point=SpatioTemporalPoint(lon=units.Distance(deg=-120),
+                                                                               lat=units.Distance(deg=30),
+                                                                               date_time=t_0))
 print(vec_point)
 #%% check it for a spatio-temporal area
 area_xarray = solar_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 #%% check if it makes sense over Berkeley
 area_xarray.isel(lat=0, lon=0)['solar_irradiance'].plot()
 plt.show()
-#%% Test if casadi works here
+#%% Test if casadi works here (only if the solar_field is a caching one)
 solar_field.hindcast_data_source.update_casadi_dynamics(x_0)
 #%%
 solar_field.hindcast_data_source.casadi_grid_dict
@@ -50,9 +55,7 @@ solar_field.hindcast_data_source.solar_rad_casadi
 
 
 #%% Create the source dict for the ocean currents
-source_dict = {'field': 'OceanCurrents',
-               'subset_time_buffer_in_s': 4000,
-               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 3600*5*12}}
+source_dict = {'field': 'OceanCurrents'}
 source_dict['source'] = 'opendap'
 source_dict['source_settings'] = {
                    'service': 'copernicus',
@@ -75,23 +78,22 @@ source_dict['source_settings'] = {
 #                }
 
 #%% Create the ocean Field
-ocean_field = OceanCurrentField(hindcast_source_dict=source_dict)
+ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
 #%% Use it
-t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
-# t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
+# t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
+t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=1)]
 x_interval=[-82, -80]
 y_interval=[24, 26]
-x_0 = [-81.5, 23.5, 1, t_0.timestamp()]  # lon, lat, battery
-x_T = [-80, 24.2]
-
+x_0 = PlatformState(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=23.5), date_time=t_0)
+x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24.2))
 #%%
-vec_point = ocean_field.get_forecast(point=x_T, time=t_0)
+vec_point = ocean_field.get_forecast(x_0.to_spatio_temporal_point())
 print(vec_point)
-vec_point = ocean_field.get_ground_truth(point=x_T, time=t_0)
-print(vec_point)
+# vec_point = ocean_field.get_ground_truth(x_0.to_spatio_temporal_point())
+# print(vec_point)
 #%% Not working some weird error but you don't need it
-# area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 # area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 #%% Passed to the platform is then the object at initialization
 data_source_in_platform = ocean_field.hindcast_data_source
@@ -102,11 +104,14 @@ data_source_in_platform.check_for_casadi_dynamics_update(x_0)
 #%% inside casadi dynamics
 data_source_in_platform.u_curr_func
 data_source_in_platform.v_curr_func
+#%% plot it
+ocean_field.hindcast_data_source.plot_data_at_time_over_area(time= t_0,x_interval=x_interval, y_interval=y_interval)
 
 
 
 
 #%% Analytical Ocean Current Example
+# NOTE: not yet adjusted to new updates!!
 source_dict = {'field': 'OceanCurrents',
                'subset_time_buffer_in_s': 4000,
                'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 500}}

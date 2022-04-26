@@ -13,6 +13,7 @@ from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import Sol
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 import ocean_navigation_simulator.env.utils.units as units
 
 
@@ -24,9 +25,9 @@ class ArenaObservation:
     ground truth state, and are instead noisy observations from the
     environment.
     """
-    platform_state: PlatformState     # position, time, battery
-    #current_at_platform: OceanCurrentVector  # real current at platfrom
-    #forecasts: np.ndarray                # solar, current local current
+    platform_state: PlatformState                       # position, time, battery
+    true_current_at_state: OceanCurrentVector           # measured current at platform_state
+    forecasted_current_at_state: OceanCurrentVector     # forecasted current at platform_state
 
 
 class Arena:
@@ -94,8 +95,12 @@ class Arena:
         # and forth to numpy arrays when we want to?
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
-
-        return ArenaObservation(platform_state=platform_state)
+        return ArenaObservation(platform_state=platform_state,
+                                true_current_at_state=self.ocean_field.get_ground_truth(
+                                    self.initial_state.to_spatio_temporal_point()),
+                                forecasted_current_at_state=self.ocean_field.get_forecast(
+                                    self.initial_state.to_spatio_temporal_point())
+                                )
 
     def step(self, action: PlatformAction) -> ArenaObservation:
         """Simulates the effects of choosing the given action in the system.
@@ -109,7 +114,11 @@ class Arena:
         self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
         self.action_trajectory = np.append(self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0)
 
-        return ArenaObservation(platform_state=state)
+        return ArenaObservation(platform_state=state,
+                                true_current_at_state=self.ocean_field.get_ground_truth(
+                                    state.to_spatio_temporal_point()),
+                                forecasted_current_at_state=self.ocean_field.get_forecast(
+                                    state.to_spatio_temporal_point()))
 
     def do_nice_plot(self, x_T):
         data_store = simulation_utils.copernicusmarine_datastore('cmems_mod_glo_phy_anfc_merged-uv_PT1H-i', 'mmariuswiggert', 'tamku3-qetroR-guwneq')

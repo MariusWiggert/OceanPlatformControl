@@ -27,7 +27,8 @@ controller = NaiveToTargetController(problem=Problem(
 for i in tqdm(range(40)):#6 * 40)):
     action = controller.get_action(observation)
     observation = arena.step(action)
-
+# Testing if solar caching or not-caching makes much of a difference
+# For 240 steps: without caching 0.056s > with caching: 0.037.
 print(arena.state_trajectory)
 
 #arena.do_nice_plot(x_T=np.array([controller.problem.end_region.lon.deg, controller.problem.end_region.lat.deg]))

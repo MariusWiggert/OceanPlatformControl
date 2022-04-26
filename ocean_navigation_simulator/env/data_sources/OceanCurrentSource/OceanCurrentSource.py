@@ -17,6 +17,7 @@ from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -29,6 +30,7 @@ from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, 
 # https://stackoverflow.com/questions/68170708/counting-consecutive-days-of-temperature-data
 # Via diff in pandas and checking if consistent
 # TODO: NaN handling as obstacles in the HJ planner would be really useful! (especially for analytical!)
+# TODO: Does not work well yet for getting the most recent forecast point data!
 
 
 class OceanCurrentSource(DataSource):
@@ -80,26 +82,15 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
             dataframe = dataframe.compute()
         return dataframe
 
-    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> OceanCurrentVector:
-        """Function to get the OceanCurrentVector at a specific point.
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        """Function to get the OceanCurrentVector at a specific point using the interpolation functions.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           OceanCurrentVector
           """
-
-        # Step 1: get interpolated xr and make it explicit
-        currents_at_point = self.make_explicit(super().get_data_at_point(point, time))
-
-        u = currents_at_point['water_u'].data.item()
-        v = currents_at_point['water_u'].data.item()
-
-        if np.any(np.isnan([u, v])):
-            raise ValueError(
-                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
-
-        return OceanCurrentVector(u=u, v=v)
+        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
@@ -122,11 +113,11 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         self.rec_file_idx = 0
         self.load_ocean_current_from_idx()
 
-    def get_currents_at_point(self, point: List[float], time: datetime.datetime) -> OceanCurrentVector:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         # Step 1: Make sure we use the most recent forecast available
-        self.check_for_most_recent_fmrc_dataframe(time)
+        self.check_for_most_recent_fmrc_dataframe(SpatioTemporalPoint.date_time)
 
-        return super().get_currents_at_point(point, time)
+        return super().get_data_at_point(spatio_temporal_point)
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],
