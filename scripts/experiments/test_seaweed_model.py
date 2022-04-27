@@ -6,7 +6,7 @@ import time
 from ocean_navigation_simulator.env.Arena import Arena, ArenaObservation
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
-from ocean_navigation_simulator.env.problem import Problem
+from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource
 
 from ocean_navigation_simulator.env.utils import units
