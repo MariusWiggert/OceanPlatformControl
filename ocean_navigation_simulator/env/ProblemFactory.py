@@ -1,5 +1,5 @@
 import abc
-from ocean_navigation_simulator.env.problem import Problem
+from ocean_navigation_simulator.env.Problem import Problem
 
 
 class ProblemFactory(abc.ABC):
