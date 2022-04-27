@@ -17,6 +17,7 @@ _DELTA_TIME_NEW_PREDICTION = datetime.timedelta(hours=1)
 _DURATION_SIMULATION = datetime.timedelta(days=3)
 _NUMBER_STEPS = int(math.ceil(_DURATION_SIMULATION.total_seconds()/_DELTA_TIME_NEW_PREDICTION.total_seconds()))
 _N_DATA_PTS = 100 #TODO: FINE TUNE THAT
+_N_BURNIN_PTS = 100 # Number of minimum pts we gather from a platform to use as observations
 
 
 
@@ -32,8 +33,8 @@ _N_DATA_PTS = 100 #TODO: FINE TUNE THAT
 #%%
 initial_position = (-90.963268, 26.519735)
 platform_state = PlatformState(
-    #date_time=datetime.datetime(year=2021, month=11, day=20, hour=12, minute=0, second=0, tzinfo=datetime.timezone.utc),
-    date_time=datetime.datetime(2021, 11, 26, 23, 30, tzinfo=datetime.timezone.utc),
+    date_time=datetime.datetime(year=2021, month=11, day=20, hour=12, minute=0, second=0, tzinfo=datetime.timezone.utc),
+    #date_time=datetime.datetime(2021, 11, 26, 23, 30, tzinfo=datetime.timezone.utc),
     lon=units.Distance(deg=initial_position[0]),
     lat=units.Distance(deg=initial_position[1]),
     seaweed_mass=units.Mass(kg=0),
@@ -89,7 +90,7 @@ forecast_file_config_dict = {'source': 'forecast_files',
 arena = Arena(
     sim_cache_dict=sim_cache_dict,
     platform_dict=platform_dict,
-    ocean_dict={'hindcast': ocean_source_dict, 'forecast': forecast_file_config_dict},
+    ocean_dict={'hindcast': ocean_source_dict, 'forecast': None},#forecast_file_config_dict},
     solar_dict={'hindcast': solar_source_dict, 'forecast': None}
 )
 
@@ -102,20 +103,36 @@ controller = UnmotorizedController(problem=Problem(
         lat=units.Distance(deg=initial_position[1])
     )
 ))
+print("controller created")
 #%%
 observation = arena.reset(platform_state)
+print("reset arena done")
 #%%
 gp = OceanCurrentGP(arena.ocean_field)
 observer = Observer(gp, arena)
-
+print("gp and observer created")
 #%%
 start = time.time()
-for i in range(_NUMBER_STEPS):
-    print("step",i)
+
+for i in range(_N_BURNIN_PTS):
     action = controller.get_action(observation)
-    arena_observation = arena.step(action)
-    observer.observe(observation.platform_state, [0.5, 0.3])
-    # Give as input to observer: arena.ocean_field.get_forecast() - Ground_truth(), position
+    arena_obs = arena.step(action)
+    true_current, forecast_current = arena_obs.true_current_at_state, arena_obs.forecasted_current_at_state
+    observer.observe(observation.platform_state, forecast_current.subtract(true_current))
+    print("Burnin step:{}/{}, position platform:{}, difference_observation:{}"
+          .format(i + 1, _N_BURNIN_PTS, arena_obs.platform_state.to_spatial_point(),
+                  forecast_current.subtract(true_current)))
+#%% Predict at each step
+
+for i in range(_NUMBER_STEPS):
+    print("step {}/{}".format(i+1,_NUMBER_STEPS))
+    action = controller.get_action(observation)
+    arena_obs = arena.step(action)
+    true_current, forecast_current = arena_obs.true_current_at_state, arena_obs.forecasted_current_at_state
+    # Give as input to observer: position and forecast-groundTruth
+    observer.observe(observation.platform_state, forecast_current.subtract(true_current))
+    forecasts = observer.fit_and_evaluate(platform_state)
+    print(forecasts)
     #get_forecasts(observation.platform_state)
 print("total: ", time.time() - start)
 # Testing if solar caching or not-caching makes much of a difference

@@ -15,6 +15,7 @@ import numpy as np
 from sklearn import gaussian_process
 from typing import List
 
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.utils import units
@@ -91,7 +92,7 @@ class OceanCurrentGP(object):
       measurement: The ocean current measured at the location.
     """
         location = np.array([x, y, time])
-        forecast = self.ocean_current_forecast.get_forecast([x, y], time)
+        forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
         error = np.array([(measurement.u - forecast.u),
                           (measurement.v - forecast.v)])
         self.measurement_locations.append(location)
@@ -205,17 +206,13 @@ class OceanCurrentGP(object):
             # Use a timestamp instead of datetime format
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             # print("fitting_test:", inputs,targets)
-            print("fitting", inputs)
-            print("targets:", targets)
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
-            print("after fitting, before predict")
 
     def query_locations(self, locations):
         #Convert to timestamp the date
         locations[:, -1] = np.array(list(map(lambda x: x.timestamp(), locations[:, -1])))
         means, deviations = self.model.predict(locations, return_std=True)
-        print("predicted:",means, deviations)
         return means, deviations
 
     def _add_forecast_to_prediction(

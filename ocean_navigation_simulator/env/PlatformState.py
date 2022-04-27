@@ -15,6 +15,18 @@ class SpatialPoint:
     lon: units.Distance
     lat: units.Distance
 
+    def __array__(self):
+        return np.array([self.lon.deg, self.lat.deg])
+
+    def __len__(self):
+        return self.__array__().shape[0]
+
+    def __getitem__(self, item):
+        return self.__array__()[item]
+
+    def __str__(self):
+        return "({}°,{}°)".format(self.lon.deg, self.lat.deg)
+
 
 @dataclasses.dataclass
 class SpatioTemporalPoint:
@@ -30,6 +42,8 @@ class SpatioTemporalPoint:
     lat: units.Distance
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
 
+    def __str__(self):
+        return "({}°,{}°,{})".format(self.lon.deg, self.lat.deg,self.date_time.strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 @dataclasses.dataclass
 class PlatformState:
