@@ -103,11 +103,13 @@ class DataSource(abc.ABC):
         grid_dict = {
             "t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
             "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
-            'y_grid': xrDF["lat"].data,
+            # 'y_grid': xrDF["lat"].data,
             "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
-            'x_grid': xrDF["lon"].data,
-            't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
+            # 'x_grid': xrDF["lon"].data,
+            # 't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
             # 'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
+            'spatial_res': xrDF["lat"].data[1] - xrDF["lat"].data[0],
+            'temporal_res': (xrDF["time"].data[1] - xrDF["time"].data[0]) / np.timedelta64(1, 's')
             }
 
         return grid_dict
@@ -163,7 +165,7 @@ class DataSource(abc.ABC):
     @staticmethod
     def set_up_geographic_ax() -> matplotlib.pyplot.axes:
         """Helper function to set up a geographic ax object to plot on."""
-        ax = plt.subplot(projection=ccrs.PlateCarree())
+        ax = plt.axes(projection=ccrs.PlateCarree())
         grid_lines = ax.gridlines(draw_labels=True, zorder=5)
         grid_lines.top_labels = False
         grid_lines.right_labels = False
@@ -383,7 +385,8 @@ class AnalyticalSource(abc.ABC):
                           min(y_interval[1], self.y_domain[1])]
 
         return {"y_range": y_interval, "x_range": x_interval,
-                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval]}
+                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval],
+                "temporal_res": self.temporal_resolution, "spatial_res": self.spatial_resolution}
 
     def get_grid_dict(self, x_interval: Optional[List[float]] = None, y_interval: Optional[List[float]] = None,
                       t_interval: Optional[List[float]] = None,

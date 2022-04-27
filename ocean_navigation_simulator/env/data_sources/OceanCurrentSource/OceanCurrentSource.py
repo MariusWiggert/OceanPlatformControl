@@ -1,6 +1,6 @@
 import abc
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Union
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Union, Tuple
 from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
@@ -48,43 +48,87 @@ class OceanCurrentSource(DataSource):
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
 
-    def plot_currents_at_time(self, time: datetime.datetime, x_interval: List[float], y_interval: List[float],
-                              plot_type: AnyStr = 'quiver', return_ax: Optional[bool] = False):
+    def plot_currents_at_time(self, time: Union[datetime.datetime, float], x_interval: List[float], y_interval: List[float],
+                              plot_type: AnyStr = 'quiver', return_ax: Optional[bool] = False,
+                              vmin: Optional[float] = 0, vmax: Optional[float] = None,
+                              alpha: Optional[float] = 0.5, target_max_n: Optional[int] = None,
+                              reset_plot: Optional[bool] = False, figsize: Tuple[int] = (6, 6)):
         """Plot all plot_streamlines_at_time over a specific area.
         Args:
-          time: datetime object for which to plot the data
+          time: timefor which to plot the data either posix or datetime.datetime object
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
           plot_type:       a string specifying the plot type: streamline or quiver
           return_ax: if True returns ax, otherwise renders plots with plt.show()
         """
+        # reset plot this is needed for matplotlib.animation
+        if reset_plot:
+            plt.clf()
+        else:  # create a new figure object where this is plotted
+            fig = plt.figure(figsize=figsize)
+
+        # format to datetime object
+        if not isinstance(time, datetime.datetime):
+            time = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+
+        # Step 0: check if we need to adjust spatial_resolution
+        spatial_res = None
+        if target_max_n is not None:
+            n_x = (x_interval[1] - x_interval[0]) / self.grid_dict['spatial_res']
+            n_y = (y_interval[1] - y_interval[0]) / self.grid_dict['spatial_res']
+            max_n = max(n_y, n_x)
+            # adjust temporal resolution
+            if max_n > target_max_n:
+                spatial_res = (max_n / target_max_n) * self.grid_dict['spatial_res']
+
         # Step 1: get the area data
         area_xarray = self.get_data_over_area(x_interval=x_interval,
                                               y_interval=y_interval,
-                                              t_interval=[time, time + datetime.timedelta(seconds=1)])
+                                              t_interval=[time, time + datetime.timedelta(seconds=1)],
+                                              spatial_resolution=spatial_res)
         # Interpolate to the specific point
         time_2D_array = area_xarray.interp(time=time.replace(tzinfo=None))
+        # calculate magnitude
+        time_2D_array = time_2D_array.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2)** 0.5)
 
         # Step 2: Create ax object
-        if self.source_config_dict['use_geographic_coordinate_system']:
+        if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
             ax = self.set_up_geographic_ax()
+            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
         else:  # Non-dimensional
-            ax = plt.subplot()
+            ax = plt.axes()
+            ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
+
+        # underly with current magnitude
+        if vmax is None:
+            vmax = np.max(time_2D_array['magnitude'].max())
+        time_2D_array['magnitude'].plot(cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        # set and format colorbar
+        cbar = ax.collections[-1].colorbar
+        cbar.ax.set_ylabel('current velocity')
+        cbar.set_ticks(cbar.get_ticks())
+        cbar.set_ticklabels(["{:.1f}".format(l) + ' m/s' for l in cbar.get_ticks().tolist()])
 
         # Plot on ax object
         if plot_type == 'streamline':
-            time_2D_array.plot.streamplot(x='lon', y='lat', u='water_u', v='water_v', ax=ax)
-            ax.set_ylim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
+            # Needed because the data needs to be perfectly equally spaced
+            time_2D_array = format_to_equally_spaced_xy_grid(time_2D_array).fillna(0)
+            time_2D_array.plot.streamplot(x='lon', y='lat', u='water_u', v='water_v', color='black', ax=ax)
+            ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
             time_2D_array.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax)
-        ax.set_title("Ocean Currents at Time: {t}".format(t=time))
+
+        # Label the title
+        if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
+            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
+        else:  # Non-dimensional
+            ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
 
         if return_ax:
             return ax
         else:
             plt.show()
-
 
 
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
@@ -304,3 +348,12 @@ def copernicusmarine_datastore(dataset, username, password):
         data_store = xr.backends.PydapDataStore(open_url(url,
                                                          session=session))  # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
     return data_store
+
+
+def format_to_equally_spaced_xy_grid(xarray):
+    """Helper Function to format an xarray to equally spaced lat, lon axis."""
+    xarray['lon'] = np.linspace(xarray['lon'].data[0], xarray['lon'].data[-1],
+                                       len(xarray['lon'].data))
+    xarray['lat'] = np.linspace(xarray['lat'].data[0], xarray['lat'].data[-1],
+                                       len(xarray['lat'].data))
+    return xarray

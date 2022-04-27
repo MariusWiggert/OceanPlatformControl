@@ -6,7 +6,6 @@ from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint, Pl
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
 from ocean_navigation_simulator.env.utils import units
-
 sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 #%% Solar irradiance Test
 # Step 1: create the specification dict
@@ -32,6 +31,9 @@ x_interval = [-122, -120]
 y_interval = [35, 37]
 x_0 = PlatformState(lon=units.Distance(deg=-120), lat=units.Distance(deg=30), date_time=t_0)
 x_T = SpatialPoint(lon=units.Distance(deg=-122), lat=units.Distance(deg=37))
+#%% Plot it
+# solar_field.plot_true_at_time_over_area(time=t_0, x_interval=x_interval, y_interval=y_interval)
+solar_field.hindcast_data_source.plot_data_at_time_over_area(time=t_0, x_interval=x_interval, y_interval=y_interval)
 #%% check it for a point
 vec_point = solar_field.get_forecast(spatio_temporal_point=SpatioTemporalPoint(lon=units.Distance(deg=-120),
                                                                                lat=units.Distance(deg=30),
@@ -50,7 +52,6 @@ solar_field.hindcast_data_source.casadi_grid_dict
 solar_field.hindcast_data_source.check_for_casadi_dynamics_update(x_0)
 #%% the casadi function for use in simulation
 solar_field.hindcast_data_source.solar_rad_casadi
-
 
 
 
@@ -87,12 +88,17 @@ x_interval=[-82, -80]
 y_interval=[24, 26]
 x_0 = PlatformState(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=23.5), date_time=t_0)
 x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24.2))
+#%% plot it
+ocean_field.hindcast_data_source.plot_currents_at_time(
+    time=t_0, x_interval=x_interval, y_interval=y_interval,
+    plot_type='streamline', return_ax=False, target_max_n=100)
 #%%
-vec_point = ocean_field.get_forecast(x_0.to_spatio_temporal_point())
+ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
+vec_point = ocean_field.get_ground_truth(x_0.to_spatio_temporal_point())
 print(vec_point)
-# vec_point = ocean_field.get_ground_truth(x_0.to_spatio_temporal_point())
+# vec_point = ocean_field.get_forecast(x_0.to_spatio_temporal_point())
 # print(vec_point)
-#%% Not working some weird error but you don't need it
+#%% Get Data over an area
 area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 # area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 #%% Passed to the platform is then the object at initialization
@@ -111,13 +117,26 @@ ocean_field.hindcast_data_source.plot_data_at_time_over_area(time= t_0,x_interva
 
 
 #%% Analytical Ocean Current Example
-# NOTE: not yet adjusted to new updates!!
-source_dict = {'field': 'OceanCurrents',
-               'subset_time_buffer_in_s': 4000,
-               'casadi_cache_settings': {'deg_around_x_t': 2, 'time_around_x_t': 500}}
-source_dict['source'] = 'analytical'
-source_dict['source_settings'] = {
-                       'name': 'PeriodicDoubleGyre',
+# ocean_source_dict = {
+#                 'field': 'OceanCurrents',
+#                 'source': 'analytical',
+#                 'source_settings': {
+#                     'name': 'FixedCurrentHighwayField',
+#                     'boundary_buffers': [0.2, 0.2],
+#                     'x_domain': [0, 10],
+#                     'y_domain': [0, 10],
+#                     'temporal_domain': [0, 10],
+#                     'spatial_resolution': 0.1,
+#                     'temporal_resolution': 1,
+#                     'y_range_highway': [4, 6],
+#                     'U_cur': 2,
+#                 }}
+
+ocean_source_dict = {
+                'field': 'OceanCurrents',
+                'source': 'analytical',
+                'source_settings': {
+                    'name': 'PeriodicDoubleGyre',
                        'boundary_buffers': [0.2, 0.2],
                         'x_domain': [-0.1, 2.1],
                         'y_domain': [-0.1, 1.1],
@@ -127,35 +146,14 @@ source_dict['source_settings'] = {
                        'v_amplitude': 1,
                        'epsilon_sep': 0.2,
                        'period_time': 10
-                   }
+                   }}
 #%% Create the ocean Field
-ocean_field = OceanCurrentField(hindcast_source_dict=source_dict)
-#%%
-ocean_field.hindcast_data_source.viz_field()
-#%% Use it
-t_0 = datetime.datetime.fromtimestamp(10, datetime.timezone.utc)
-# t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
-t_interval = [t_0, t_0 + datetime.timedelta(seconds=20)]
-x_interval=[0, 2]
-y_interval=[0, 1]
-x_0 = [1.5, 0.5, 1, t_0.timestamp()]  # lon, lat, battery
-x_T = [0.1, 1.]
-
-# Why outside area issues and why everything zero?
-#%%
-vec_point = ocean_field.get_forecast(point=x_T, time=t_0)
-print(vec_point)
-vec_point = ocean_field.get_ground_truth(point=x_T, time=t_0)
-print(vec_point)
-#%% Not working some weird error but you don't need it
-area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
-# area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
-#%% Passed to the platform is then the object at initialization
-data_source_in_platform = ocean_field.hindcast_data_source
-#%% Checks to run
-data_source_in_platform.update_casadi_dynamics(x_0)
-#%%
-data_source_in_platform.check_for_casadi_dynamics_update(x_0)
-#%% inside casadi dynamics
-data_source_in_platform.u_curr_func
-data_source_in_platform.v_curr_func
+ocean_field = OceanCurrentField(hindcast_source_dict=ocean_source_dict, sim_cache_dict=sim_cache_dict,
+                                use_geographic_coordinate_system=False)
+#%% visualize it
+ocean_field.plot_true_at_time_over_area(time=datetime.datetime.fromtimestamp(10, tz=datetime.timezone.utc),
+                                        x_interval=[0, 10], y_interval=[0, 10])
+#%% visualize currents
+ocean_field.hindcast_data_source.plot_currents_at_time(
+    time=10, x_interval=[0, 2], y_interval=[0, 1],
+    plot_type='quiver', return_ax=False, target_max_n=120)
