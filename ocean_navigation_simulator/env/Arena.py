@@ -6,6 +6,8 @@ import dataclasses
 import string
 from datetime import datetime
 from typing import Dict, Optional
+
+import matplotlib.axes
 import numpy as np
 import xarray as xr
 from matplotlib import pyplot as plt
@@ -49,7 +51,6 @@ class Arena:
         ocean_dict:
         solar_dict:
         seaweed_dict:
-        geographic_coordinate_system
     Optional Args:
         geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
     """
@@ -127,7 +128,7 @@ class Arena:
         )
 
     def quick_plot(self, end_region: Optional[SpatialPoint] = None):
-        self.plot_spatial(end_region=end_region, margin=2, background='currents')
+        self.plot_spatial(end_region=end_region, margin=2, background='currents').get_figure().show()
         #self.plot_spatial(end_region=end_region, margin=2, background='solar')
         #self.plot_spatial(end_region=end_region, margin=2, background='seaweed')
         #self.plot_battery()
@@ -141,7 +142,8 @@ class Arena:
             show_trajectory: Optional[bool] = True,
             show_control: Optional[bool] = True,
             margin: Optional[float] = 0,
-            stride: Optional[int] = 1
+            stride: Optional[int] = 1,
+            ax: Optional[matplotlib.axes.Axes] = None,
     ):
         # Intervals
         lon_interval, lat_interval = self.get_lon_lat_interval(margin=margin, end_region=end_region)
@@ -192,15 +194,17 @@ class Arena:
             v_vec = self.action_trajectory[::stride, 0] * np.sin(self.action_trajectory[::stride, 1])
             ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color='m', scale=15)
 
-        plt.show()
+        return ax
 
 
     def plot_battery(
             self,
             stride: Optional[int] = 1,
-            return_ax: Optional[bool] = False,
+            ax: Optional[matplotlib.axes.Axes] = None,
     ):
-        fig, ax = plt.subplots(1, 1)
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
+
         # some stuff for flexible date axis
         locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
         formatter = mdates.ConciseDateFormatter(locator)
@@ -212,9 +216,10 @@ class Arena:
         # set axis and stuff
         ax.set_title('Battery charge over time')
         ax.set_ylim(0., 1.1)
-        plt.xlabel('time in h')
-        plt.ylabel('Battery Charging level [0,1]')
-        plt.show()
+        ax.set_xlabel('time in h')
+        ax.set_ylabel('Battery Charging level [0,1]')
+
+        return ax
 
 
     def get_lon_lat_interval(
