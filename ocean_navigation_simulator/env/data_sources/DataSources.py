@@ -323,14 +323,14 @@ class AnalyticalSource(abc.ABC):
         raise NotImplementedError
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                           t_interval: List[datetime.datetime],
+                           t_interval: List[Union[datetime.datetime, float]],
                            spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix.
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
         Returns:
@@ -342,6 +342,7 @@ class AnalyticalSource(abc.ABC):
             t_interval_posix = [time.timestamp() for time in t_interval]
         else:
             t_interval_posix = t_interval
+            t_interval = [datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc) for posix in t_interval_posix]
 
         # Get the coordinate vectors to calculate the analytical function over
         grids_dict = self.get_grid_dict(x_interval, y_interval, t_interval_posix,
