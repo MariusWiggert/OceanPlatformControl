@@ -2,13 +2,15 @@
 Implements a lot of shared functionality such as
 """
 import matplotlib.pyplot
-
+from IPython.display import HTML
+import matplotlib.animation as animation
+import os
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
 import matplotlib.pyplot as plt
 import warnings
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union, Any
 import numpy as np
 import xarray as xr
 import abc
@@ -171,6 +173,75 @@ class DataSource(abc.ABC):
         grid_lines.right_labels = False
         ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
         return ax
+
+    def bound_spatial_temporal_resolution(self, x_interval: List[float], y_interval: List[float],
+                                         max_spatial_n: Optional[int] = None, max_temp_n: Optional[int] = None) -> \
+    Tuple[Union[float, Any], Any]:
+        """Helper Function to upper bound the resolutions for plotting.
+            Args:
+                x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+                y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+                max_spatial_n:    Per default the data_source resolution is used. If that is too much, downscaled to this.
+                max_temp_n:       Per default the data_source temp resolution is used. If too many, we downscale it.
+            Returns:
+                spatial_res:       None or adjusted spatial resolution
+                temporal_res:      None or adjusted spatial resolution
+        """
+        # Per default we leave it as None to minimize compute
+        spatial_res, temporal_res = [None] * 2
+        # Check if spatial sub-setting would give more than max_spatial_n
+        if max_spatial_n is not None:
+            n_x = (x_interval[1] - x_interval[0]) / self.grid_dict['spatial_res']
+            n_y = (y_interval[1] - y_interval[0]) / self.grid_dict['spatial_res']
+            max_data_n = max(n_y, n_x)
+            # adjust spatial resolution
+            if max_data_n > max_spatial_n:
+                spatial_res = (max_data_n / max_spatial_n) * self.grid_dict['spatial_res']
+
+        # Check if temporal sub-setting would give more than max_temp_n
+        if max_temp_n is not None:
+            n_t = (x_interval[1] - x_interval[0]) / self.grid_dict['temporal_res']
+            # adjust temporal resolution
+            if n_t > max_temp_n:
+                spatial_res = (n_t / max_temp_n) * self.grid_dict['temporal_res']
+
+        return spatial_res, temporal_res
+
+    @staticmethod
+    def render_animation(animation_object: Any, fps: int = 10, save_as_filename: AnyStr = None, html_render: AnyStr = None):
+        """Helper Function to render animations once created.
+            Args:
+                animation_object:          Matplotlib Animation object
+                fps:                Frames per Second
+                save_as_filename:   Filename when saving it to file
+                html_render:        if "safari" it's rendered in safari directly, otherwise displayed in Jupyter
+        """
+        # Now render it to a file
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if html_render is not None:
+                ani_html = HTML(animation_object.to_html5_video())
+                # Render using safari (only used because of Pycharm local testing)
+                if html_render == 'safari':
+                    with open("current_animation.html", "w") as file:
+                        file.write(ani_html.data)
+                        os.system(
+                            'open "/Applications/Safari.app" ' + '"' + os.path.realpath(
+                                "current_animation.html") + '"')
+                else:  # visualize in Jupyter directly
+                    plt.close()
+                    return ani_html
+            elif '.gif' in save_as_filename:
+                animation_object.save(save_as_filename, writer=animation.PillowWriter(fps=fps))
+                plt.close()
+            elif '.mp4' in save_as_filename:
+                animation_object.save(save_as_filename, writer=animation.FFMpegWriter(fps=fps))
+                plt.close()
+            else:
+                raise ValueError(
+                    "save_as_filename can be either None (for HTML rendering) or filepath and name needs to"
+                    "contain either '.gif' or '.mp4' to specify the format and desired file location.")
+
 
 # Two types of data sources: analytical and xarray based ones -> need different default functions, used via mixin
 class XarraySource(abc.ABC):
