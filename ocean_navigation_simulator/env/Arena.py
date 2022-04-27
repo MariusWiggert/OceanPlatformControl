@@ -49,15 +49,16 @@ class Arena:
     Optional Args:
         geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
     """
-
         # Initialize the Data Fields from the respective dictionaries
         self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
                                              hindcast_source_dict=ocean_dict['hindcast'],
-                                             forecast_source_dict=ocean_dict['forecast'])
+                                             forecast_source_dict=ocean_dict['forecast'],
+                                             use_geographic_coordinate_system=use_geographic_coordinate_system)
         if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
                                                     hindcast_source_dict=solar_dict['hindcast'],
-                                                    forecast_source_dict=solar_dict['forecast'])
+                                                    forecast_source_dict=solar_dict['forecast'],
+                                                    use_geographic_coordinate_system=use_geographic_coordinate_system)
         else:
             self.solar_field = None
 
@@ -68,7 +69,8 @@ class Arena:
                 seaweed_dict['forecast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
             self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
                                                     hindcast_source_dict=seaweed_dict['hindcast'],
-                                                    forecast_source_dict=seaweed_dict['forecast'])
+                                                    forecast_source_dict=seaweed_dict['forecast'],
+                                                    use_geographic_coordinate_system=use_geographic_coordinate_system)
         else:
             self.seaweed_field = None
 

@@ -1,10 +1,11 @@
 import abc
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Union
 from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
 import jax
+import matplotlib.pyplot as plt
 from jax import numpy as jnp
 import warnings
 import numpy as np
@@ -46,6 +47,44 @@ class OceanCurrentSource(DataSource):
 
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
+
+    def plot_currents_at_time(self, time: datetime.datetime, x_interval: List[float], y_interval: List[float],
+                              plot_type: AnyStr = 'quiver', return_ax: Optional[bool] = False):
+        """Plot all plot_streamlines_at_time over a specific area.
+        Args:
+          time: datetime object for which to plot the data
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          plot_type:       a string specifying the plot type: streamline or quiver
+          return_ax: if True returns ax, otherwise renders plots with plt.show()
+        """
+        # Step 1: get the area data
+        area_xarray = self.get_data_over_area(x_interval=x_interval,
+                                              y_interval=y_interval,
+                                              t_interval=[time, time + datetime.timedelta(seconds=1)])
+        # Interpolate to the specific point
+        time_2D_array = area_xarray.interp(time=time.replace(tzinfo=None))
+
+        # Step 2: Create ax object
+        if self.source_config_dict['use_geographic_coordinate_system']:
+            ax = self.set_up_geographic_ax()
+        else:  # Non-dimensional
+            ax = plt.subplot()
+
+        # Plot on ax object
+        if plot_type == 'streamline':
+            time_2D_array.plot.streamplot(x='lon', y='lat', u='water_u', v='water_v', ax=ax)
+            ax.set_ylim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
+            ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
+        elif plot_type == 'quiver':
+            time_2D_array.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax)
+        ax.set_title("Ocean Currents at Time: {t}".format(t=time))
+
+        if return_ax:
+            return ax
+        else:
+            plt.show()
+
 
 
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):

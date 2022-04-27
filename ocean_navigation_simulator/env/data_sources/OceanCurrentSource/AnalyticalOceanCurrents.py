@@ -245,4 +245,7 @@ class FixedCurrentHighwayField(OceanCurrentSourceAnalytical):
             Returns:
                 v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
             """
-        return np.zeros(lon.shape)
+        if type(lon) == np.ndarray:
+            return np.zeros(lon.shape)
+        else:
+            return 0.
