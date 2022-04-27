@@ -10,6 +10,8 @@ from geopy.point import Point as GeoPoint
 class SolarIrradianceField(DataField):
     """Class instantiating and holding the Solar Irradiance data sources, the forecast and hindcast sources.
   """
+    hindcast_data_source: SolarIrradianceSource = None
+    forecast_data_source: SolarIrradianceSource = None
 
     def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
                  use_geographic_coordinate_system: Optional[bool] = True):

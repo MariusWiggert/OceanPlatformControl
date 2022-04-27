@@ -12,6 +12,8 @@ from geopy.point import Point as GeoPoint
 class OceanCurrentField(DataField):
     """Class instantiating and holding the data sources, the forecast and hindcast current sources.
   """
+    hindcast_data_source: OceanCurrentSource = None
+    forecast_data_source: OceanCurrentSource = None
 
     def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
                  use_geographic_coordinate_system: Optional[bool] = True):
