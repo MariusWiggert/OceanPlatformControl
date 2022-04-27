@@ -16,5 +16,11 @@ class OceanCurrentVector(NamedTuple):
                 f'Cannot add OceanCurrentVector with {type(other)}')
         return OceanCurrentVector(self.u + other.u, self.v + other.v)
 
+    def subtract(self, other: 'OceanCurrentVector') -> 'OceanCurrentVector':
+        if not isinstance(other, OceanCurrentVector):
+            raise NotImplementedError(
+                f'Cannot add OceanCurrentVector with {type(other)}')
+        return OceanCurrentVector(self.u - other.u, self.v - other.v)
+
     def __str__(self) -> str:
         return f'({self.u}, {self.v})'

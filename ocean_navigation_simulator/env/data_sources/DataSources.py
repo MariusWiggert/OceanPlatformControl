@@ -1,19 +1,15 @@
 """The abstract base class for all Data Sources.
 Implements a lot of shared functionality such as
 """
-import matplotlib.pyplot
 
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-import matplotlib.pyplot as plt
 import warnings
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
 import numpy as np
 import xarray as xr
 import abc
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
 
 class DataSource(abc.ABC):
@@ -103,13 +99,11 @@ class DataSource(abc.ABC):
         grid_dict = {
             "t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
             "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
-            # 'y_grid': xrDF["lat"].data,
+            'y_grid': xrDF["lat"].data,
             "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
-            # 'x_grid': xrDF["lon"].data,
-            # 't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
+            'x_grid': xrDF["lon"].data,
+            't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
             # 'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
-            'spatial_res': xrDF["lat"].data[1] - xrDF["lat"].data[0],
-            'temporal_res': (xrDF["time"].data[1] - xrDF["time"].data[0]) / np.timedelta64(1, 's')
             }
 
         return grid_dict
@@ -136,41 +130,6 @@ class DataSource(abc.ABC):
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
             warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
-    def plot_data_at_time_over_area(self, time: datetime.datetime, x_interval: List[float], y_interval: List[float]):
-        """Plot all data variables of the most recent forecast at a specific time over an area.
-                Args:
-                  time: datetime object for which to plot the data
-                  x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
-                  y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-                """
-
-        # Step 1: get the area data
-        area_xarray = self.get_data_over_area(x_interval, y_interval, [time, time + datetime.timedelta(seconds=1)])
-
-        # Step 2: plot all data variables
-        all_variables = list(area_xarray.keys())
-        for variable in all_variables:
-            atTimeArray = area_xarray[variable].interp(time=time.replace(tzinfo=None))
-            if self.source_config_dict['use_geographic_coordinate_system']:
-                ax = self.set_up_geographic_ax()
-                atTimeArray.plot(ax=ax)
-            else:
-                atTimeArray.plot()
-            plt.title("Field: {f} \n Variable: {var} \n at Time: {t}".format(
-                f=self.source_config_dict['field'],
-                var=variable,
-                t=time))
-            plt.show()
-
-    @staticmethod
-    def set_up_geographic_ax() -> matplotlib.pyplot.axes:
-        """Helper function to set up a geographic ax object to plot on."""
-        ax = plt.axes(projection=ccrs.PlateCarree())
-        grid_lines = ax.gridlines(draw_labels=True, zorder=5)
-        grid_lines.top_labels = False
-        grid_lines.right_labels = False
-        ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
-        return ax
 
 # Two types of data sources: analytical and xarray based ones -> need different default functions, used via mixin
 class XarraySource(abc.ABC):
@@ -179,16 +138,15 @@ class XarraySource(abc.ABC):
         self.DataArray = None  # The xarray containing the raw data (if not an analytical function)
         self.grid_dict, self.casadi_grid_dict = [None] * 2
 
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
+    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> xr:
         """Function to get the data at a specific point.
         Args:
-          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
+          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
+          time: absolute datetime object
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
-
-        return self.DataArray.interp(time=np.datetime64(spatio_temporal_point.date_time),
-                                     lon=spatio_temporal_point.lon.deg, lat=spatio_temporal_point.lat.deg, method='linear')
+        return self.DataArray.interp(time=np.datetime64(time), lon=point[0], lat=point[1], method='linear')
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],
@@ -313,24 +271,25 @@ class AnalyticalSource(abc.ABC):
             """
 
     @abc.abstractmethod
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
+    def get_data_at_point(self, point: List[float], time: datetime) -> xr:
         """Function to get the data at a specific point.
         Args:
-          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
+          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
+          time: absolute datetime object
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
         raise NotImplementedError
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                           t_interval: List[Union[datetime.datetime, float]],
+                           t_interval: List[datetime.datetime],
                            spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix.
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
         Returns:
@@ -342,7 +301,6 @@ class AnalyticalSource(abc.ABC):
             t_interval_posix = [time.timestamp() for time in t_interval]
         else:
             t_interval_posix = t_interval
-            t_interval = [datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc) for posix in t_interval_posix]
 
         # Get the coordinate vectors to calculate the analytical function over
         grids_dict = self.get_grid_dict(x_interval, y_interval, t_interval_posix,
@@ -386,8 +344,7 @@ class AnalyticalSource(abc.ABC):
                           min(y_interval[1], self.y_domain[1])]
 
         return {"y_range": y_interval, "x_range": x_interval,
-                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval],
-                "temporal_res": self.temporal_resolution, "spatial_res": self.spatial_resolution}
+                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval]}
 
     def get_grid_dict(self, x_interval: Optional[List[float]] = None, y_interval: Optional[List[float]] = None,
                       t_interval: Optional[List[float]] = None,
@@ -404,18 +361,15 @@ class AnalyticalSource(abc.ABC):
 
         # Step 2: Get the grids with the respective resolutions
         # Step 2.1 Spatial coordinate vectors with desired resolution
+        lo_hi_vec = [[lon, lat] for lon, lat in zip(ranges_dict['x_range'], ranges_dict['y_range'])]
         # The + spatial_resolution is a hacky way to include the endpoint. We want a regular grid hence the floor to two decimals.
-        x_vector = np.arange(start=np.floor(ranges_dict['x_range'][0] * 100) / 100,
-                             stop=ranges_dict['x_range'][1] + 1.1 * spatial_resolution, step=spatial_resolution)
-        y_vector = np.arange(start=np.floor(ranges_dict['y_range'][0] * 100) / 100,
-                             stop=ranges_dict['y_range'][1] + 1.1 * spatial_resolution, step=spatial_resolution)
-
+        spatial_vectors = [np.arange(start=np.floor(l*100)/100, stop=h + spatial_resolution, step=spatial_resolution) for l, h in
+                              zip(lo_hi_vec[0], lo_hi_vec[1])]
         # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
-        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution)*100)/100,
-                           stop=t_interval[1] + 1.1 * temporal_resolution, step=temporal_resolution)
+        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution)*100)/100, stop=t_interval[1] + temporal_resolution, step=temporal_resolution)
 
-        return {'x_grid': x_vector,
-                'y_grid': y_vector,
+        return {'x_grid': spatial_vectors[0],
+                'y_grid': spatial_vectors[1],
                 't_grid': t_grid}
 
     def is_boundary(self, lon: Union[float, np.array], lat: Union[float, np.array],

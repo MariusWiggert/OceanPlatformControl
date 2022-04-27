@@ -1,21 +1,19 @@
 import time
+
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union, Dict
 import numpy as np
 import xarray as xr
 import casadi as ca
 import matplotlib.pyplot as plt
-from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import *
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedFunction import *
 from ocean_navigation_simulator.env.utils import units
 
-# TODO: Automatically handle re-initialization of the F_NGR_per_second casadi function when the solar_rad_casadi
-# in the solar_source is updated (e.g. because of caching). Needs to happen either in Arena or Platform.
+
+# TODO: How do I re-compile the casadi function when the solar_rad_casadi is updated?
 # => this works now without issues when we use a non-caching SolarIrradianceSource e.g. AnalyticalSolarIrradiance
-# From Experiments: Interpolation extrapolates outside of it's domain using the dy/dx at the boundary of the domain.
-# When the interpolation function is updated, the outside function is NOT updated! So we need to re-run set_casadi_function
-# every time the solar function does new caching!
 
 # Not used right now as different modality as other sources.
 class SeaweedGrowthSource(DataSource):
@@ -145,7 +143,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         array['F_NGR_per_second'].attrs = {'units': 'Net Growth Rate Factor per second (*Biomass to get the dMass/dt) '}
         return array
 
-    def map_analytical_function_over_area(self, grids_dict: Dict) -> np.array:
+    def map_analytical_function_over_area(self, grids_dict: Dict):
         """Function to map the analytical function over an area with the spatial states and grid_dict times.
             Args:
               grids_dict: containing grids of x, y, t dimension

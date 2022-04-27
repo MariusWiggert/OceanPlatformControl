@@ -6,10 +6,9 @@ from ocean_navigation_simulator.env.Arena import ArenaObservation
 from ocean_navigation_simulator.env.Platform import PlatformAction
 from ocean_navigation_simulator.env.controllers.controller import Controller
 
-
-class NaiveToTargetController(Controller):
+class UnmotorizedController(Controller):
     """
-    Naive to Target, Full-power Actuation towards the goal (meant as a baseline)
+    No action, the platform just follows the current
     """
 
     def __init__(self, problem: Problem):
@@ -18,7 +17,9 @@ class NaiveToTargetController(Controller):
         Args:
             problem: the Problem the controller will run on
         """
-        super().__init__(problem)
+        self.problem = problem
+        self.start_state = problem.start_state
+        self.end_region = problem.end_region
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
         """
@@ -28,15 +29,7 @@ class NaiveToTargetController(Controller):
         Returns:
             SimulatorAction dataclass
         """
-        # TODO: change how this functions for complex end regions (pretend it's a state for now)
-
-        # Calculate the delta lon, delta lat, and magnitude (for normalization)
-        dlon = self.problem.end_region.lon.deg - observation.platform_state.lon.deg
-        dlat = self.problem.end_region.lat.deg - observation.platform_state.lat.deg
-        mag = math.sqrt(dlon * dlon + dlat * dlat)
-
-        # go towards the center of the target with full power
-        return PlatformAction.from_xy_propulsion(x_propulsion=dlon / mag, y_propulsion=dlat / mag)
+        return PlatformAction(magnitude=0, direction=0)
 
     def get_waypoints(self) -> list:
         """
@@ -44,8 +37,8 @@ class NaiveToTargetController(Controller):
         Returns:
             List of format [start, end], where both start and end are of format [lat, lon, time]
         """
-        start = [self.problem.start_state.lat, self.problem.start_state.lon, self.problem.start_state.date_time]
+        start = [self.start_state.lat, self.start_state.lon, self.start_state.date_time]
 
         # TODO: change how this functions for complex end regions
-        end = [self.problem.end_region.lat, self.problem.end_region.lon, self.problem.end_region.date_time]
+        end = [self.end_region.lat, self.end_region.lon, self.end_region.date_time]
         return [start, end]

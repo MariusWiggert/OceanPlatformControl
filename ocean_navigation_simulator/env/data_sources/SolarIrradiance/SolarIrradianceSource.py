@@ -3,7 +3,7 @@ from ocean_navigation_simulator.env.data_sources.SolarIrradiance.solar_rad impor
 import datetime
 from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
 import numpy as np
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint
+from ocean_navigation_simulator.env.PlatformState import PlatformState
 import xarray as xr
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
 
@@ -85,17 +85,15 @@ class AnalyticalSolarIrradiance_w_caching(AnalyticalSource, SolarIrradianceSourc
         # Step 2: Feed the arrays into the solar radiation function and return the np.array
         return self.solar_irradiance_analytical(lon=LON, lat=LAT, posix_time=TIMES)
 
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> float:
+    def get_data_at_point(self, point: List[float], time: datetime) -> float:
         """Function to get the data at a specific point.
         Args:
-          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
+          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
+          time: absolute datetime object
         Returns:
           float of the solar irradiance in W/m^2
           """
-
-        return self.solar_irradiance_analytical(lon = spatio_temporal_point.lon.deg,
-                                                lat = spatio_temporal_point.lat.deg,
-                                                posix_time = spatio_temporal_point.date_time.timestamp())
+        return self.solar_irradiance_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp())
 
 
 class AnalyticalSolarIrradiance(AnalyticalSolarIrradiance_w_caching):
@@ -123,33 +121,6 @@ class AnalyticalSolarIrradiance(AnalyticalSolarIrradiance_w_caching):
     def update_casadi_dynamics(self, state: PlatformState):
         """Passing the function because nothing needs to be updated."""
         pass
-
-
-class FixedYRangeSolar(AnalyticalSolarIrradiance):
-    """Simple Solar field with 0 irradiance everywhere except at in a specific y range."""
-
-    def __init__(self, source_config_dict):
-        super().__init__(source_config_dict)
-
-        self.y_range_solar = source_config_dict['source_settings']['y_range_solar']
-        self.irradiance = source_config_dict['source_settings']['irradiance']
-
-    def solar_irradiance_analytical(self, lon: Union[float, np.array], lat: Union[float, np.array],
-                                    posix_time: Union[float, np.array]) -> Union[float, np.array]:
-        """Calculating the solar Irradiance at a specific lat, lon point at posix_time.
-        Note: this can be used for floats as input or np.arrays which are all the same shape.
-        Args:
-            lon: longitude in degree
-            lat: latitude in degree
-            posix_time: POSIX time
-        Returns:
-            solar_irradiance     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
-        """
-        irradiance_low = np.where(lat <= self.y_range_solar[1], self.irradiance, 0.)
-        irradiance_out = np.where(self.y_range_solar[0] <= lat, irradiance_low, 0.)
-        return irradiance_out
-
-
 
 
 
