@@ -117,43 +117,60 @@ ocean_field.hindcast_data_source.plot_data_at_time_over_area(time= t_0,x_interva
 
 
 #%% Analytical Ocean Current Example
+true_current_source = {
+                'field': 'OceanCurrents',
+                'source': 'analytical',
+                'source_settings': {
+                    'name': 'FixedCurrentHighwayField',
+                    'boundary_buffers': [0.2, 0.2],
+                    'x_domain': [0, 10],
+                    'y_domain': [0, 10],
+                    'temporal_domain': [0, 10],
+                    'spatial_resolution': 0.1,
+                    'temporal_resolution': 1,
+                    'y_range_highway': [4, 6],
+                    'U_cur': 2,
+                }}
+
+forecast_current_source = {
+                'field': 'OceanCurrents',
+                'source': 'analytical',
+                'source_settings': {
+                    'name': 'FixedCurrentHighwayField',
+                    'boundary_buffers': [0.2, 0.2],
+                    'x_domain': [0, 10],
+                    'y_domain': [0, 10],
+                    'temporal_domain': [0, 10],
+                    'spatial_resolution': 0.1,
+                    'temporal_resolution': 1,
+                    'y_range_highway': [4, 6],
+                    'U_cur': 8,
+                }}
+
 # ocean_source_dict = {
 #                 'field': 'OceanCurrents',
 #                 'source': 'analytical',
 #                 'source_settings': {
-#                     'name': 'FixedCurrentHighwayField',
-#                     'boundary_buffers': [0.2, 0.2],
-#                     'x_domain': [0, 10],
-#                     'y_domain': [0, 10],
-#                     'temporal_domain': [0, 10],
-#                     'spatial_resolution': 0.1,
-#                     'temporal_resolution': 1,
-#                     'y_range_highway': [4, 6],
-#                     'U_cur': 2,
-#                 }}
-
-ocean_source_dict = {
-                'field': 'OceanCurrents',
-                'source': 'analytical',
-                'source_settings': {
-                    'name': 'PeriodicDoubleGyre',
-                       'boundary_buffers': [0.2, 0.2],
-                        'x_domain': [-0.1, 2.1],
-                        'y_domain': [-0.1, 1.1],
-                       'temporal_domain': [-10, 1000], # will be interpreted as POSIX timestamps
-                       'spatial_resolution': 0.05,
-                       'temporal_resolution': 10,
-                       'v_amplitude': 1,
-                       'epsilon_sep': 0.2,
-                       'period_time': 10
-                   }}
+#                     'name': 'PeriodicDoubleGyre',
+#                        'boundary_buffers': [0.2, 0.2],
+#                         'x_domain': [-0.1, 2.1],
+#                         'y_domain': [-0.1, 1.1],
+#                        'temporal_domain': [-10, 1000], # will be interpreted as POSIX timestamps
+#                        'spatial_resolution': 0.05,
+#                        'temporal_resolution': 10,
+#                        'v_amplitude': 1,
+#                        'epsilon_sep': 0.2,
+#                        'period_time': 10
+#                    }}
 #%% Create the ocean Field
-ocean_field = OceanCurrentField(hindcast_source_dict=ocean_source_dict, sim_cache_dict=sim_cache_dict,
+ocean_field = OceanCurrentField(hindcast_source_dict=true_current_source,
+                                forecast_source_dict=forecast_current_source,
+                                sim_cache_dict=sim_cache_dict,
                                 use_geographic_coordinate_system=False)
 #%% visualize it
 ocean_field.plot_true_at_time_over_area(time=datetime.datetime.fromtimestamp(10, tz=datetime.timezone.utc),
                                         x_interval=[0, 10], y_interval=[0, 10])
 #%% visualize currents
-ocean_field.hindcast_data_source.plot_currents_at_time(
-    time=10, x_interval=[0, 2], y_interval=[0, 1],
-    plot_type='quiver', return_ax=False, target_max_n=120)
+ocean_field.forecast_data_source.plot_currents_at_time(
+    time=10, x_interval=[0, 10], y_interval=[0, 10],
+    plot_type='quiver', return_ax=False, target_max_n=50)
