@@ -2,6 +2,7 @@ import dataclasses
 from typing import Dict
 
 from ocean_navigation_simulator.env.Platform import PlatformState
+from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 
 
 @dataclasses.dataclass
@@ -21,6 +22,6 @@ class Problem:
             TODO: make this config into class?
     """
     start_state: PlatformState
-    end_region: PlatformState  # TODO
+    end_region: SpatialPoint  # TODO
     #obstacle_regions: None = None  # TODO
     #config: Dict = {}  # TODO
