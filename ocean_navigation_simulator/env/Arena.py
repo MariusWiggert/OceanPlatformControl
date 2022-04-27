@@ -3,25 +3,19 @@ A Ocean arena contains the logic for navigating a platform in the ocean.
 """
 
 import dataclasses
-import string
-from datetime import datetime
+import datetime as dt
 from typing import Dict, Optional
-
 import matplotlib.axes
 import numpy as np
-import xarray as xr
 from matplotlib import pyplot as plt
 
-from ocean_navigation_simulator import Problem
-from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 
+from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
-from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-import ocean_navigation_simulator.env.utils.units as units
 
 
 @dataclasses.dataclass
@@ -42,8 +36,13 @@ class Arena:
 
     # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
     # TODO: not sure what that should be for us, decide where to put the feature constructor
-    def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict,
-                 solar_dict: Optional[Dict] = None, seaweed_dict: Optional[Dict] = None):
+    def __init__(
+            self,
+            sim_cache_dict: Dict, platform_dict: Dict,
+            ocean_dict: Dict,
+            solar_dict: Optional[Dict] = None,
+            seaweed_dict: Optional[Dict] = None
+    ):
         """OceanPlatformArena constructor.
     Args:
         sim_cache_dict:
@@ -54,16 +53,20 @@ class Arena:
     Optional Args:
         geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
     """
-        # Initialize the Data Fields from the respective dictionaries
-        self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
-                                             hindcast_source_dict=ocean_dict['hindcast'],
-                                             forecast_source_dict=ocean_dict['forecast'],
-                                             use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system'])
+        self.ocean_field = OceanCurrentField(
+            sim_cache_dict=sim_cache_dict,
+            hindcast_source_dict=ocean_dict['hindcast'],
+            forecast_source_dict=ocean_dict['forecast'],
+            use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
+        )
+
         if solar_dict is not None and solar_dict['hindcast'] is not None:
-            self.solar_field = SolarIrradianceField(sim_cache_dict=sim_cache_dict,
-                                                    hindcast_source_dict=solar_dict['hindcast'],
-                                                    forecast_source_dict=solar_dict['forecast'],
-                                                    use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system'])
+            self.solar_field = SolarIrradianceField(
+                sim_cache_dict=sim_cache_dict,
+                hindcast_source_dict=solar_dict['hindcast'],
+                forecast_source_dict=solar_dict['forecast'],
+                use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
+            )
         else:
             self.solar_field = None
 
@@ -72,20 +75,22 @@ class Arena:
             seaweed_dict['hindcast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
             if seaweed_dict['forecast'] is not None:
                 seaweed_dict['forecast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
-            self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
-                                                    hindcast_source_dict=seaweed_dict['hindcast'],
-                                                    forecast_source_dict=seaweed_dict['forecast'],
-                                                    use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system'])
+            self.seaweed_field = SeaweedGrowthField(
+                sim_cache_dict=sim_cache_dict,
+                hindcast_source_dict=seaweed_dict['hindcast'],
+                forecast_source_dict=seaweed_dict['forecast'],
+                use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
+            )
         else:
             self.seaweed_field = None
 
-        # Initialize the Platform Object from the dictionary
-        self.platform = Platform(platform_dict=platform_dict,
-                                 ocean_source=self.ocean_field.hindcast_data_source,
-                                 solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
-                                 seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None)
+        self.platform = Platform(
+            platform_dict=platform_dict,
+            ocean_source=self.ocean_field.hindcast_data_source,
+            solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
+            seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
+        )
 
-        # Initialize variables for holding the platform and state
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
@@ -100,14 +105,15 @@ class Arena:
         self.platform.initialize_dynamics(self.initial_state)
         # TODO: Shall we keep those trajectories as np arrays or log them also as objects which we can transfer back
         # and forth to numpy arrays when we want to?
+
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
-        return ArenaObservation(platform_state=platform_state,
-                                true_current_at_state=self.ocean_field.get_ground_truth(
-                                    self.initial_state.to_spatio_temporal_point()),
-                                forecasted_current_at_state=self.ocean_field.get_forecast(
-                                    self.initial_state.to_spatio_temporal_point())
-                                )
+
+        return ArenaObservation(
+            platform_state=platform_state,
+            true_current_at_state=self.ocean_field.get_ground_truth(self.initial_state.to_spatio_temporal_point()),
+            forecasted_current_at_state=self.ocean_field.get_forecast(self.initial_state.to_spatio_temporal_point())
+        )
 
     def step(self, action: PlatformAction) -> ArenaObservation:
         """Simulates the effects of choosing the given action in the system.
@@ -127,23 +133,26 @@ class Arena:
             forecasted_current_at_state=self.ocean_field.get_forecast(state.to_spatio_temporal_point())
         )
 
-    def quick_plot(self, end_region: Optional[SpatialPoint] = None):
-        self.plot_spatial(end_region=end_region, margin=2, background='currents').get_figure().show()
+    def quick_plot(
+            self,
+            end_region: Optional[SpatialPoint] = None
+    ):
+        self.plot_spatial(background='currents', end_region=end_region, margin=2).get_figure().show()
         #self.plot_spatial(end_region=end_region, margin=2, background='solar')
         #self.plot_spatial(end_region=end_region, margin=2, background='seaweed')
-        #self.plot_battery()
-        # self.plot_seaweed(end_region=end_region, margin=2)
-        # self.plot_control(end_region=end_region, margin=2)
+        self.plot_battery().get_figure().show()
+        self.plot_seaweed().get_figure().show()
+        self.plot_control().get_figure().show()
 
     def plot_spatial(
-            self,
-            background: Optional[str] = 'current',
-            end_region: Optional[SpatialPoint] = None,
-            show_trajectory: Optional[bool] = True,
-            show_control: Optional[bool] = True,
-            margin: Optional[float] = 0,
-            stride: Optional[int] = 1,
-            ax: Optional[matplotlib.axes.Axes] = None,
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        background: Optional[str] = 'current',
+        end_region: Optional[SpatialPoint] = None,
+        show_trajectory: Optional[bool] = True,
+        show_control: Optional[bool] = True,
+        margin: Optional[float] = 0,
+        stride: Optional[int] = 1,
     ):
         # Intervals
         lon_interval, lat_interval = self.get_lon_lat_interval(margin=margin, end_region=end_region)
@@ -176,7 +185,7 @@ class Arena:
                 return_ax=True,
                 target_max_n=120
             )
-        else:
+        elif ax is None:
             fig, ax = plt.subplots()
 
         # Problem
@@ -198,22 +207,22 @@ class Arena:
 
 
     def plot_battery(
-            self,
-            stride: Optional[int] = 1,
-            ax: Optional[matplotlib.axes.Axes] = None,
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
     ):
         if ax is None:
-            fig, ax = plt.subplots(1, 1)
+            fig, ax = plt.subplots()
 
         # some stuff for flexible date axis
-        locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
-        formatter = mdates.ConciseDateFormatter(locator)
+        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+        formatter = matplotlib.dates.ConciseDateFormatter(locator)
         ax.xaxis.set_major_locator(locator)
         ax.xaxis.set_major_formatter(formatter)
-        # plot
-        dates = [datetime.fromtimestamp(posix, tz=datetime.timezone.utc) for posix in self.state_trajectory[::stride, 2]]
+
+        dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[::stride, 2]]
         ax.plot(dates, self.state_trajectory[::stride, 3])
-        # set axis and stuff
+
         ax.set_title('Battery charge over time')
         ax.set_ylim(0., 1.1)
         ax.set_xlabel('time in h')
@@ -221,6 +230,53 @@ class Arena:
 
         return ax
 
+    def plot_seaweed(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
+    ):
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        # some stuff for flexible date axis
+        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+        formatter = matplotlib.dates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[::stride, 2]]
+        ax.plot(dates, self.state_trajectory[::stride, 3], marker='.')
+
+        ax.set_title('Seaweed Mass over Time')
+        ax.set_ylim(0., 1.1)
+        ax.set_xlabel('time in h')
+        ax.set_ylabel('Seaweed Mass in kg')
+
+        return ax
+
+    def plot_control(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
+    ):
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+        formatter = matplotlib.dates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        # plot
+        dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[:-1:stride, 2]]
+        ax.step(dates, self.action_trajectory[::stride, 0], where='post', label='u_power')
+        ax.step(dates, self.action_trajectory[::stride, 1], where='post', label='angle')
+
+        plt.title('Simulator Control Trajectory')
+        plt.ylabel('u_power and angle in units')
+        plt.xlabel('time')
+
+        return ax
 
     def get_lon_lat_interval(
             self,
