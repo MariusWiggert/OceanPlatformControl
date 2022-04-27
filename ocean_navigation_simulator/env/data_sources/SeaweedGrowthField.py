@@ -2,7 +2,7 @@ import datetime
 from typing import List, NamedTuple, Sequence, Optional, Dict
 import ocean_navigation_simulator.env.utils.units as units
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
-from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR
+from ocean_navigation_simulator.env.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR, SeaweedGrowthSource
 import xarray as xr
 from geopy.point import Point as GeoPoint
 
@@ -10,6 +10,8 @@ from geopy.point import Point as GeoPoint
 class SeaweedGrowthField(DataField):
     """Class instantiating and holding the Seaweed Growth data sources, the forecast and hindcast sources.
   """
+    hindcast_data_source: SeaweedGrowthSource = None
+    forecast_data_source: SeaweedGrowthSource = None
 
     def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
                  use_geographic_coordinate_system: Optional[bool] = True):
