@@ -1,10 +1,10 @@
 import math
 import numpy as np
 
-from ocean_navigation_simulator.env.problem import Problem
+from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.Arena import ArenaObservation
 from ocean_navigation_simulator.env.Platform import PlatformAction
-from ocean_navigation_simulator.env.controllers.controller import Controller
+from ocean_navigation_simulator.env.controllers.Controller import Controller
 
 
 class NaiveToTargetController(Controller):
