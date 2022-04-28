@@ -22,9 +22,10 @@ controller = NaiveToTargetController(problem=Problem(
 ))
 #%%
 
-for i in tqdm(range(500)):#6 * 40)):
+for i in tqdm(range(5000)):#6 * 40)):
     action = controller.get_action(observation)
     observation = arena.step(action)
+
 
 arena.quick_plot(end_region=end_region)
 

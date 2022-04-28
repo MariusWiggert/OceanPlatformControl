@@ -4,12 +4,12 @@ sim_cache_dict:
 
 platform_dict:
     battery_cap_in_wh: 400.0
-    u_max_in_mps: 0.5
+    u_max_in_mps: 0.1
     motor_efficiency: 1.0
     solar_panel_size: 0.5
     solar_efficiency: 0.2
     drag_factor: 675.0
-    dt_in_s: 0.05
+    dt_in_s: 0.001
     use_geographic_coordinate_system: False
 
 ocean_dict:
@@ -23,10 +23,10 @@ ocean_dict:
             y_domain: [ 0, 1 ]
             temporal_domain: [ 0, 100 ]
             spatial_resolution: 0.05
-            temporal_resolution: 1
+            temporal_resolution: 0.05
             v_amplitude: 0.5
             epsilon_sep: 0
-            period_time: 10000
+            period_time: 100
     forecast: null
 
 solar_dict:
