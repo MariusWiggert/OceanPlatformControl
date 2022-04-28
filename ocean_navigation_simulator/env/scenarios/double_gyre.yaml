@@ -24,7 +24,7 @@ ocean_dict:
             temporal_domain: [ 0, 100 ]
             spatial_resolution: 0.05
             temporal_resolution: 0.05
-            v_amplitude: 0.5
+            v_amplitude: 0.3
             epsilon_sep: 0
             period_time: 100
     forecast: null
