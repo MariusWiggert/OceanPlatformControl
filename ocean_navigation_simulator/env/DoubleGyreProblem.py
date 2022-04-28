@@ -14,11 +14,11 @@ class DoubleGyreProblem(Problem):
     radius: float
 
     def is_done(self, state: PlatformState) -> bool:
-        distance = math.sqrt((self.end_region.lon.deg - state.lon.deg)** 2 + (self.end_region.lat.deg - state.lat.deg)** 2)
+        distance = state.distance(self.end_region)
         return distance <= self.radius
 
     def plot(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
         ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors='red', marker='o', s=50, label='start')
-        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), 0.1, color='green', label='goal'))
+        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), 0.1, facecolor='none', edgecolor='green', label='goal'))
 
         return ax

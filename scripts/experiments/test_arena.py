@@ -12,7 +12,7 @@ start = time.time()
 
 
 #arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='current_highway')
-arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='double_gyre')
+arena = ArenaFactory.create(scenario_name='double_gyre')
 #arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='gulf_of_mexico')
 
 #%%
