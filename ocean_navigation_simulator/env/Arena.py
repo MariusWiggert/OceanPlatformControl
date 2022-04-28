@@ -74,7 +74,7 @@ class Arena:
             self.seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict,
                                                     hindcast_source_dict=seaweed_dict['hindcast'],
                                                     forecast_source_dict=seaweed_dict['forecast'],
-                                                    use_geographic_coordinate_system=use_geographic_coordinate_system)
+                                                    use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system'])
         else:
             self.seaweed_field = None
 
