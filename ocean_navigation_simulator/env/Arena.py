@@ -139,13 +139,13 @@ class Arena:
     ):
         import time
         start = time.time()
-        self.plot_spatial(background='currents', end_region=end_region, margin=2).get_figure().show()
+        self.plot_spatial(background='currents', end_region=end_region, margin=2, control_stride=100).get_figure().show()
         #self.plot_spatial(end_region=end_region, margin=2, background='solar')
         #self.plot_spatial(end_region=end_region, margin=2, background='seaweed')
         self.plot_battery().get_figure().show()
         self.plot_seaweed().get_figure().show()
         self.plot_control().get_figure().show()
-        self.animate_spatial(end_region=end_region, show_control=False)
+        self.animate_spatial(end_region=end_region, show_control=True, control_stride=100)
 
         print("Create Plot: ", time.time() - start)
 
@@ -158,7 +158,8 @@ class Arena:
         show_trajectory: Optional[bool] = True,
         show_control: Optional[bool] = True,
         margin: Optional[float] = 0,
-        stride: Optional[int] = 1,
+        trajectory_stride: Optional[int] = 1,
+        control_stride: Optional[int] = 1,
     ):
         # Intervals
         lon_interval, lat_interval = self.get_lon_lat_interval(margin=margin, end_region=end_region)
@@ -197,7 +198,7 @@ class Arena:
         # Problem
         if end_region is not None:
             ax.scatter(self.state_trajectory[0, 0], self.state_trajectory[0, 1], c='red', marker='o', s=200, label='start')
-            ax.scatter(end_region.lon.deg, end_region.lat.deg, c='green', marker='x', s=200, label='goal')
+            ax.scatter(end_region.lon.deg, end_region.lat.deg, c='green', marker='o', s=200, label='goal')
 
         # Current Position
         if index is not None:
@@ -205,13 +206,13 @@ class Arena:
 
         # Trajectory
         if show_trajectory:
-            ax.plot(self.state_trajectory[::stride, 0], self.state_trajectory[::stride, 1], '-', marker='x', markersize=1, color='black', linewidth=2, label='trajectory')
+            ax.plot(self.state_trajectory[::trajectory_stride, 0], self.state_trajectory[::trajectory_stride, 1], '-', marker='x', markersize=1, color='black', linewidth=2, label='trajectory')
 
         # Control
         if show_control:
-            u_vec = self.action_trajectory[::stride, 0] * np.cos(self.action_trajectory[::stride, 1])
-            v_vec = self.action_trajectory[::stride, 0] * np.sin(self.action_trajectory[::stride, 1])
-            ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color='m', scale=15)
+            u_vec = self.action_trajectory[::control_stride, 0] * np.cos(self.action_trajectory[::control_stride, 1])
+            v_vec = self.action_trajectory[::control_stride, 0] * np.sin(self.action_trajectory[::control_stride, 1])
+            ax.quiver(self.state_trajectory[:-1:control_stride, 0], self.state_trajectory[:-1:control_stride, 1], u_vec, v_vec, color='m', scale=15)
 
         return ax
 
@@ -222,22 +223,22 @@ class Arena:
         show_trajectory: Optional[bool] = True,
         show_control: Optional[bool] = True,
         margin: Optional[float] = 0,
-        stride: Optional[int] = 1,
+        trajectory_stride: Optional[int] = 1,
+        control_stride: Optional[int] = 1,
     ):
         # Intervals
         lon_interval, lat_interval = self.get_lon_lat_interval(margin=margin, end_region=end_region)
         time_interval = [self.state_trajectory[0, 2], self.state_trajectory[-1, 2]]
 
         def add_ax_func(ax, posix_time):
-            if posix_time < time_interval[0]:
+            if posix_time <= time_interval[0]:
                 index = 0
-            elif posix_time > time_interval[1]:
+            elif posix_time >= time_interval[1]:
                 index = -1
             else:
                 index = np.argwhere(self.state_trajectory[:, 2]==posix_time).flatten()
                 index = 0 if index.size == 0 else int(index[0])
 
-            print(f'index: {index}')
             self.plot_spatial(
                 ax=ax,
                 index=index,
@@ -246,7 +247,8 @@ class Arena:
                 show_trajectory=show_trajectory,
                 show_control=show_control,
                 margin=margin,
-                stride=stride,
+                trajectory_stride=trajectory_stride,
+                control_stride=control_stride,
             )
 
         if background == 'current' or background == 'currents':
@@ -255,7 +257,7 @@ class Arena:
                 y_interval=lat_interval,
                 t_interval=time_interval,
                 save_as_filename='full_test.gif',
-                html_render='safari',
+                #html_render='safari',
                 max_spatial_n=50,
                 max_temp_n=50,
                 add_ax_func=add_ax_func,
