@@ -1,5 +1,5 @@
 import time
-from typing import Tuple, Optional, Union, Text, Callable
+from typing import Tuple, Optional, Union, Text, Callable, TypeVar
 import numpy as np
 import gym
 from gym import spaces
@@ -9,6 +9,9 @@ from ocean_navigation_simulator.env.Platform import PlatformAction
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
+
+ObsType = TypeVar("ObsType")
+ActType = TypeVar("ActType")
 
 
 class PlatformEnv(gym.Env):
@@ -21,37 +24,41 @@ class PlatformEnv(gym.Env):
     reward_range = (-float("inf"), float("inf"))
     spec = None
 
-    action_space: spaces.Space[PlatformAction]
-    observation_space: spaces.Space[ArenaObservation]
+    action_space: spaces.Space[ActType]
+    observation_space: spaces.Space[ObsType]
     _np_random: Optional[RandomNumberGenerator] = None
 
-    def __init__(self, problem_factory: ProblemFactory, arena: Optional[Arena] = None,
+    def __init__(self, problem_factory: ProblemFactory, arena: Arena = None,
                  reward_fn, feature_constructor, seed: Optional[int] = None):
         """
         Constructs a basic Platform Learning Environment.
+
+        actions: [magnitude, direction]
+        observation: [lat, lon, time, u_curr, v_curr]
 
         Args:
             problem_factory: yields next problem when reset() is called.
             arena: a platform arena to wrap, if None uses default arena
             seed: PRNG seed for the environment
-
-        TODO: pass reward function as argument or innate? 
+            reward_fn: function that takes in some arguments and returns the rewards
+            feature_constructor: function that takes in obs and other args and featurizes obs for model
         """
+        self.action_space = gym.spaces.Box(low=np.array([0.0, 0.0]), high=np.array([1.0, 6.3]), shape=(2,))
+        self.observation_space = gym.spaces.Box(low=-float("inf"), high=float("inf"), shape=(5,)) # TODO: consider changing bounds?
 
         self.problem = None
+        self.prev_state = None
+
         self.problem_factory = problem_factory
 
-        if arena is None:
-            self.arena = Arena()
-        else:
-            self.arena = arena
+        self.arena = arena
 
         self.reward_fn = reward_fn
         self.feature_constructor = feature_constructor
 
         self.reset()
 
-    def step(self, action: PlatformAction) -> Tuple[ArenaObservation, float, bool, dict]:
+    def step(self, action: PlatformAction) -> Tuple[np.ndarray, float, bool, dict]:
         """
         Run one timestep of the environment's dynamics.
         Accepts an action and returns a tuple (observation, reward, done, info).
@@ -63,18 +70,18 @@ class PlatformEnv(gym.Env):
             done (bool): whether the episode has ended
             info (dict): auxiliary diagnostic information
         """
-        prev_state = self.arena.state_trajectory[-1] # TODO: make getter function in arena?
+        command = PlatformAction(magnitude=action[0], direction=action[1]) # TODO: This constructor could be in another file
+        arena_obs = self.arena.step(command)
 
-        arena_obs = self.arena.step(action)
-
-        done = self.problem.is_done()
-        target = self.problem.end_region # TODO
-        reward = self.reward_fn(prev_state, arena_obs.platform_state, target, done)
+        done = self.problem.is_done(arena_obs.platform_state)
+        target = self.problem.end_region
+        reward = self.reward_fn(self.prev_state, arena_obs.platform_state, target, done)
 
         if done:
             self.reset()
 
         model_obs = self.feature_constructor(arena_obs, target)
+        self.prev_state = arena_obs.platform_state
 
         return model_obs, reward, done, None
 
@@ -98,6 +105,7 @@ class PlatformEnv(gym.Env):
         self.problem = self.problem_factory.next_problem()
 
         arena_obs = self.arena.reset()
+        self.prev_state = arena_obs.platform_state
         model_obs = self.feature_constructor(arena_obs)
 
         if return_info:

@@ -1,8 +1,8 @@
 from ocean_navigation_simulator.env import utils
-from ocean_navigation_simulator.env.PlatformState import PlatformState
+from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
 
 
-def double_gyre_reward_function(prev_state: PlatformState, curr_state: PlatformState, target: PlatformState,
+def double_gyre_reward_function(prev_state: PlatformState, curr_state: PlatformState, target: SpatialPoint,
                                 done: bool) -> float:
     """
     Reward function based on double gyre paper
@@ -15,13 +15,13 @@ def double_gyre_reward_function(prev_state: PlatformState, curr_state: PlatformS
     Returns:
         a float representing reward
     """
-    # TODO: should reward include time elapsed per timestep?
-
-    bonus = 200
+    bonus = 200  # TODO: change to make right amount
     prev_distance = utils.euclidean_distance(prev_state, target)
     curr_distance = utils.euclidean_distance(curr_state, target)
 
+    time_diff = (curr_state.date_time - prev_state.date_time).total_seconds()
+
     if done:
-        return prev_distance - curr_distance + bonus
+        return prev_distance - curr_distance - time_diff + bonus
     else:
-        return prev_distance - curr_distance
+        return prev_distance - curr_distance - time_diff
