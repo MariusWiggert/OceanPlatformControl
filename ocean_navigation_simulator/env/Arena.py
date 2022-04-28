@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 
 
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
+from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
@@ -155,6 +156,7 @@ class Arena:
         index: Optional[int] = None,
         background: Optional[str] = 'current',
         end_region: Optional[SpatialPoint] = None,
+        problem: Optional[Problem] = None,
         show_trajectory: Optional[bool] = True,
         show_control: Optional[bool] = True,
         margin: Optional[float] = 0,
@@ -196,9 +198,8 @@ class Arena:
             fig, ax = plt.subplots()
 
         # Problem
-        if end_region is not None:
-            ax.scatter(self.state_trajectory[0, 0], self.state_trajectory[0, 1], c='red', marker='o', s=200, label='start')
-            ax.scatter(end_region.lon.deg, end_region.lat.deg, c='green', marker='o', s=200, label='goal')
+        if problem is not None:
+            ax = problem.plot(ax)
 
         # Current Position
         if index is not None:
