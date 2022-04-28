@@ -58,10 +58,10 @@ class OceanCurrentSource(DataSource):
         return ax
 
     # Plotting Functions for OceanCurrents specifically
-    def plot_currents_from_xarray(self, time_idx: int, xarray: xr, plot_type: AnyStr = 'quiver',
-                                  vmin: Optional[float] = 0, vmax: Optional[float] = None,
-                                  alpha: Optional[float] = 0.5, reset_plot: Optional[bool] = False,
-                                  figsize: Tuple[int] = (6, 6)) -> matplotlib.pyplot.axes:
+    def plot_data_from_xarray(self, time_idx: int, xarray: xr, plot_type: AnyStr = 'quiver',
+                              vmin: Optional[float] = 0, vmax: Optional[float] = None,
+                              alpha: Optional[float] = 0.5, reset_plot: Optional[bool] = False,
+                              figsize: Tuple[int] = (6, 6)) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -127,109 +127,6 @@ class OceanCurrentSource(DataSource):
             ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
 
         return ax
-
-    def plot_currents_at_time(self, time: Union[datetime.datetime, float],
-                              x_interval: List[float], y_interval: List[float],
-                              max_spatial_n: Optional[int] = None,
-                              return_ax: Optional[bool] = False,
-                              **kwargs):
-        """Plot all plot_streamlines_at_time over a specific area.
-        Args:
-          time: timefor which to plot the data either posix or datetime.datetime object
-          x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
-          y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          max_spatial_n:     Controls the spatial resolution by setting the maximum number of elements in x and y dim.
-          return_ax:         if True returns ax, otherwise renders plots with plt.show()
-          **kwargs:          Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
-        """
-
-        # format to datetime object
-        if not isinstance(time, datetime.datetime):
-            time = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
-
-        # Step 0: check if we need to adjust spatial_resolution
-        spatial_res, _ = self.bound_spatial_temporal_resolution(x_interval=x_interval, y_interval=y_interval,
-                                                                max_spatial_n=max_spatial_n)
-
-        # Step 1: get the data over area
-        area_xarray = self.get_data_over_area(x_interval=x_interval,
-                                              y_interval=y_interval,
-                                              t_interval=[time, time + datetime.timedelta(seconds=1)],
-                                              spatial_resolution=spatial_res)
-
-        # Interpolate to the specific point
-        time_2D_array = area_xarray.interp(time=time.replace(tzinfo=None))
-
-        # Plot the current field
-        ax = self.plot_currents_from_xarray(time_idx=0, xarray=time_2D_array, **kwargs)
-        if return_ax:
-            return ax
-        else:
-            plt.show()
-
-    def animate_currents(self, x_interval: List[float], y_interval: List[float],
-                         t_interval: List[Union[datetime.datetime, float]],
-                         max_spatial_n: int = 200, max_temp_n: int = None,
-                         add_ax_func: Optional[Callable] = None,
-                         fps: int = 10, save_as_filename: AnyStr = "current_animation.mp4",
-                         html_render: AnyStr = None,
-                         **kwargs):
-        """Plot all plot_streamlines_at_time over a specific area.
-            Args:
-              x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
-              y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-              t_interval:       List of the lower and upper time either datetime.datetime or posix.
-              max_spatial_n:    Per default the data_source resolution is used. If that is too much, downscaled to this.
-              max_temp_n:       Per default the data_source temp resolution is used. If too many, we downscale it.
-              add_ax_func:      function handle what to add on top of the current visualization
-                                signature needs to be such that it takes an axis object and time as input
-                                e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
-              fps:              Frames per second
-              save_as_filename: Filename when saving it to file (ending determines the filetype *.mp4 or *.gif)
-              html_render:      Either "jupyter" to render in jupyter or "safari" to open with safari
-              **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
-        """
-        # Step 0: check if we need to downscale the data
-        spatial_res, temporal_res = self.bound_spatial_temporal_resolution(x_interval=x_interval, y_interval=y_interval,
-                                                                           max_spatial_n=max_spatial_n,
-                                                                           max_temp_n=max_temp_n)
-
-        # Step 1: get the data_subset for plotting
-        xarray = self.get_data_over_area(
-            x_interval=x_interval, y_interval=y_interval,
-            t_interval=t_interval, spatial_resolution=spatial_res, temporal_resolution=temporal_res)
-
-        # get rounded up vmax across the whole dataset (with ` decimals)
-        xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
-        vmax = round(xarray['magnitude'].max().item() + 0.049, 1)
-
-        # create global figure object where the animation happens
-        if 'figsize' in kwargs:
-            fig = plt.figure(figsize=kwargs['figsize'])
-        else:
-            fig = plt.figure(figsize=(12, 12))
-
-        # create a partial function with most variables already set for the animation loop to call
-        if add_ax_func is not None:
-            # define full function for rendering the frame
-            def full_plot_func(time_idx):
-                # plot underlying currents at time
-                ax = self.plot_currents_from_xarray(time_idx=time_idx, xarray=xarray,
-                                                    vmax=vmax, reset_plot=True, **kwargs)
-                # extract the posix time
-                posix_time = get_posix_time_from_np64(xarray['time'].data[time_idx])
-                # add the ax_adding_func
-                add_ax_func(ax, posix_time)
-            # create partial func from the full_function
-            render_frame = partial(full_plot_func)
-        else:
-            render_frame = partial(self.plot_currents_from_xarray, xarray=xarray, vmax=vmax, reset_plot=True , **kwargs)
-
-        # create animation function object (it's not yet executed)
-        ani = animation.FuncAnimation(fig, func=render_frame, frames=np.arange(xarray['time'].size), repeat=False)
-
-        # render the animation with the keyword arguments
-        self.render_animation(animation_object=ani, save_as_filename=save_as_filename, fps=fps, html_render=html_render)
 
 
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):

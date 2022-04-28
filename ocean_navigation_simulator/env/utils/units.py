@@ -440,3 +440,7 @@ def posix_to_rel_seconds_in_year(posix_timestamp: float) -> float:
   correction_seconds = 13 * 24 * 3600
   # Calculate the relative time of the year in seconds
   return np.mod(posix_timestamp - correction_seconds, 365 * 24 * 3600)
+
+from math import log10 , floor
+def round_to_sig_digits(x, sig_digit):
+    return round(x, sig_digit - int(floor(log10(abs(x)))) - 1)
