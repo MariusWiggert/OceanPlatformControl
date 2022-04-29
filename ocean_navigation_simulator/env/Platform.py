@@ -123,7 +123,7 @@ class Platform:
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
         self.F_x_next = self.get_casadi_dynamics()
-        print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
+        #print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
 
     def update_dynamics(self, state: PlatformState):
         """Run in the step loop of arena."""
@@ -197,5 +197,5 @@ class Platform:
             [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)],
         )
-        print(f'Set Platform Equations: {time.time() - start:.2f}s')
+        #print(f'Set Platform Equations: {time.time() - start:.2f}s')
         return F_next
