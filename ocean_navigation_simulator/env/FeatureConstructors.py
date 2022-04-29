@@ -9,7 +9,7 @@ and then convert to a numpy array that the RL model can use.
 """
 
 
-def DoubleGyreFeatureConstructor(obs: ArenaObservation, problem: DoubleGyreProblem) -> np.ndarray:
+def double_gyre_feature_constructor(obs: ArenaObservation, problem: DoubleGyreProblem) -> np.ndarray:
     """
     Converts the observation to use relative positions
     Args:
@@ -20,9 +20,9 @@ def DoubleGyreFeatureConstructor(obs: ArenaObservation, problem: DoubleGyreProbl
 
     """
     target = problem.end_region
-    lat_diff = target.lat - obs.platform_state.lat
-    lon_diff = target.lon - obs.platform_state.lon
+    lat_diff = target.lat.deg - obs.platform_state.lat.deg
+    lon_diff = target.lon.deg - obs.platform_state.lon.deg
     current = obs.true_current_at_state
     time_elapsed = (obs.platform_state.date_time - problem.start_state.date_time).total_seconds()
 
-    return np.array([lat_diff, lon_diff, time_elapsed, current.u, current.v])  # TODO: convert to numpy
+    return np.array([lat_diff, lon_diff, time_elapsed, current.u, current.v], dtype=np.float32)  # TODO: convert to numpy
