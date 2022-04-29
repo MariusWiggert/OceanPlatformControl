@@ -14,6 +14,7 @@ from ocean_navigation_simulator import Problem
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
@@ -32,7 +33,7 @@ class ArenaObservation:
     """
     platform_state: PlatformState                       # position, time, battery
     true_current_at_state: OceanCurrentVector           # measured current at platform_state
-    forecasted_current_at_state: OceanCurrentVector     # forecasted current at platform_state
+    forecast_data_source: OceanCurrentSource            # Data Source of the forecast
 
 
 class Arena:
@@ -43,16 +44,17 @@ class Arena:
     def __init__(self, sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict,
                  solar_dict: Optional[Dict] = None, seaweed_dict: Optional[Dict] = None):
         """OceanPlatformArena constructor.
-    Args:
-        sim_cache_dict:
-        platform_dict:
-        ocean_dict:
-        solar_dict:
-        seaweed_dict:
-        geographic_coordinate_system
-    Optional Args:
-        geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
-    """
+        Args:
+            sim_cache_dict:
+            platform_dict:
+            ocean_dict:
+            solar_dict:
+            seaweed_dict:
+            geographic_coordinate_system
+        Optional Args:
+            geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree,
+             if false the spatial system is in meters in x, y.
+        """
         # Initialize the Data Fields from the respective dictionaries
         self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
                                              hindcast_source_dict=ocean_dict['hindcast'],
@@ -89,11 +91,11 @@ class Arena:
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
         """Resets the arena.
-    Args:
-        platform_state
-    Returns:
-      The first observation from the newly reset simulator
-    """
+        Args:
+            platform_state
+        Returns:
+          The first observation from the newly reset simulator
+        """
         self.initial_state = platform_state
         self.platform.set_state(self.initial_state)
         self.platform.initialize_dynamics(self.initial_state)
@@ -104,17 +106,15 @@ class Arena:
         return ArenaObservation(platform_state=platform_state,
                                 true_current_at_state=self.ocean_field.get_ground_truth(
                                     self.initial_state.to_spatio_temporal_point()),
-                                forecasted_current_at_state=self.ocean_field.get_forecast(
-                                    self.initial_state.to_spatio_temporal_point())
-                                )
+                                forecast_data_source=self.ocean_field.forecast_data_source)
 
     def step(self, action: PlatformAction) -> ArenaObservation:
         """Simulates the effects of choosing the given action in the system.
-    Args:
-        action: The action to take in the simulator.
-    Returns:
-        Arena Observation including platform state, true current at platform, forecasts
-    """
+        Args:
+            action: The action to take in the simulator.
+        Returns:
+            Arena Observation including platform state, true current at platform, forecasts
+        """
         state = self.platform.simulate_step(action)
 
         self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
@@ -123,8 +123,7 @@ class Arena:
         return ArenaObservation(
             platform_state=state,
             true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
-            forecasted_current_at_state=self.ocean_field.get_forecast(state.to_spatio_temporal_point())
-        )
+            forecast_data_source=self.ocean_field.forecast_data_source)
 
     def quick_plot(self, end_region: Optional[SpatialPoint] = None):
         self.plot_spatial(end_region=end_region, margin=2, background='currents')
@@ -148,31 +147,26 @@ class Arena:
 
         # Background
         if background == 'current' or background == 'currents':
-            ax = self.ocean_field.hindcast_data_source.plot_currents_at_time(
+            ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
                 time=self.state_trajectory[0, 2],
                 x_interval=lon_interval,
                 y_interval=lat_interval,
                 plot_type='quiver',
-                return_ax=True,
-                target_max_n=120
+                return_ax=True
             )
         elif background == 'solar':
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
                 time=self.state_trajectory[0, 2],
                 x_interval=lon_interval,
                 y_interval=lat_interval,
-                plot_type='quiver',
-                return_ax=True,
-                target_max_n=120
+                return_ax=True
             )
         elif background == 'seaweed' or background == 'growth':
             ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
                 time=self.state_trajectory[0, 2],
                 x_interval=lon_interval,
                 y_interval=lat_interval,
-                plot_type='quiver',
-                return_ax=True,
-                target_max_n=120
+                return_ax=True
             )
         else:
             fig, ax = plt.subplots()
