@@ -1,18 +1,14 @@
-import time
 from typing import Tuple, Optional, Union, Text, Callable, TypeVar
 import numpy as np
 import gym
-from gym import spaces
-from gym.utils.seeding import RandomNumberGenerator
-
+# from gym.utils.seeding import RandomNumberGenerator
+from ArenaFactory import ArenaFactory
+from DoubleGyreProblemFactory import DoubleGyreProblemFactory
+from FeatureConstructors import double_gyre_feature_constructor
+from RewardFunctions import double_gyre_reward_function
 from ocean_navigation_simulator.env.Platform import PlatformAction
-from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
-
-ObsType = TypeVar("ObsType")
-ActType = TypeVar("ActType")
-
 
 class PlatformEnv(gym.Env):
     """
@@ -24,12 +20,9 @@ class PlatformEnv(gym.Env):
     reward_range = (-float("inf"), float("inf"))
     spec = None
 
-    action_space: spaces.Space[ActType]
-    observation_space: spaces.Space[ObsType]
-    _np_random: Optional[RandomNumberGenerator] = None
+    # _np_random: Optional[RandomNumberGenerator] = None
 
-    def __init__(self, problem_factory: ProblemFactory, arena: Arena = None,
-                 reward_fn, feature_constructor, seed: Optional[int] = None):
+    def __init__(self, seed: Optional[int] = None):
         """
         Constructs a basic Platform Learning Environment.
 
@@ -43,18 +36,18 @@ class PlatformEnv(gym.Env):
             reward_fn: function that takes in some arguments and returns the rewards
             feature_constructor: function that takes in obs and other args and featurizes obs for model
         """
-        self.action_space = gym.spaces.Box(low=np.array([0.0, 0.0]), high=np.array([1.0, 6.3]), shape=(2,))
+        self.action_space = gym.spaces.Box(low=np.array([0.0, 0.0]), high=np.array([1.0, 6.3]), shape=(2,)) # TODO: consider normalization to improve training
         self.observation_space = gym.spaces.Box(low=-float("inf"), high=float("inf"), shape=(5,)) # TODO: consider changing bounds?
 
         self.problem = None
         self.prev_state = None
 
-        self.problem_factory = problem_factory
+        self.problem_factory = DoubleGyreProblemFactory()
 
-        self.arena = arena
+        self.arena, _, _, _ = ArenaFactory.create(scenario_name='double_gyre')
 
-        self.reward_fn = reward_fn
-        self.feature_constructor = feature_constructor
+        self.reward_fn = double_gyre_reward_function
+        self.feature_constructor = double_gyre_feature_constructor
 
         self.reset()
 
@@ -74,16 +67,15 @@ class PlatformEnv(gym.Env):
         arena_obs = self.arena.step(command)
 
         done = self.problem.is_done(arena_obs.platform_state)
-        target = self.problem.end_region
-        reward = self.reward_fn(self.prev_state, arena_obs.platform_state, target, done)
+        reward = self.reward_fn(self.prev_state, arena_obs.platform_state, self.problem, done)
 
         if done:
             self.reset()
 
-        model_obs = self.feature_constructor(arena_obs, target)
+        model_obs = self.feature_constructor(arena_obs, self.problem)
         self.prev_state = arena_obs.platform_state
 
-        return model_obs, reward, done, None
+        return model_obs, reward, done, {}
 
     def reset(
         self,
@@ -91,7 +83,7 @@ class PlatformEnv(gym.Env):
         seed: Optional[int] = None,
         return_info: bool = False,
         options: Optional[dict] = None,
-    ) -> Union[ArenaObservation, tuple[ArenaObservation, dict]]:
+    ) -> Union[np.ndarray, tuple[np.ndarray, dict]]:
         """
         Resets the environment.
         Args:
@@ -104,9 +96,9 @@ class PlatformEnv(gym.Env):
         """
         self.problem = self.problem_factory.next_problem()
 
-        arena_obs = self.arena.reset()
+        arena_obs = self.arena.reset(self.problem.start_state)
         self.prev_state = arena_obs.platform_state
-        model_obs = self.feature_constructor(arena_obs)
+        model_obs = self.feature_constructor(arena_obs, self.problem)
 
         if return_info:
             pass
