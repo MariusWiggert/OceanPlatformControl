@@ -1,5 +1,6 @@
 import dataclasses
 import math
+from typing import Optional
 
 import matplotlib
 from matplotlib import pyplot as plt
@@ -17,8 +18,12 @@ class DoubleGyreProblem(Problem):
         distance = state.distance(self.end_region)
         return distance <= self.radius
 
-    def plot(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
-        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors='red', marker='o', s=50, label='start')
-        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), 0.1, facecolor='none', edgecolor='green', label='goal'))
+    def plot(
+        self,
+        ax: matplotlib.axes.Axes,
+        color: Optional[str] = 'green',
+    ) -> matplotlib.axes.Axes:
+        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors=color, marker='o', s=50, label='start')
+        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.radius, facecolor='none', edgecolor=color, label='goal'))
 
         return ax
