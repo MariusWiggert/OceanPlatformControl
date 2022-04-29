@@ -4,11 +4,11 @@ A Ocean arena contains the logic for navigating a platform in the ocean.
 
 import dataclasses
 import datetime as dt
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable, List
 import matplotlib.axes
 import numpy as np
 from matplotlib import pyplot as plt
-
+from traitlets import Int
 
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.Problem import Problem
@@ -134,142 +134,91 @@ class Arena:
             forecasted_current_at_state=self.ocean_field.get_forecast(state.to_spatio_temporal_point())
         )
 
-    def quick_plot(
-            self,
-            end_region: Optional[SpatialPoint] = None
-    ):
-        import time
-        start = time.time()
-        self.plot_spatial(background='currents', end_region=end_region, margin=2, control_stride=100).get_figure().show()
-        #self.plot_spatial(end_region=end_region, margin=2, background='solar')
-        #self.plot_spatial(end_region=end_region, margin=2, background='seaweed')
-        self.plot_battery().get_figure().show()
-        self.plot_seaweed().get_figure().show()
-        self.plot_control().get_figure().show()
-        self.animate_spatial(end_region=end_region, show_control=True, control_stride=100)
-
-        print("Create Plot: ", time.time() - start)
-
-    def plot_spatial(
+    def plot_control_trajectory_on_map(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
-        index: Optional[int] = None,
-        background: Optional[str] = 'current',
-        end_region: Optional[SpatialPoint] = None,
-        problem: Optional[Problem] = None,
-        show_trajectory: Optional[bool] = True,
-        show_control: Optional[bool] = True,
-        margin: Optional[float] = 0,
-        trajectory_stride: Optional[int] = 1,
-        control_stride: Optional[int] = 1,
-    ):
-        # Intervals
-        lon_interval, lat_interval = self.get_lon_lat_interval(margin=margin, end_region=end_region)
+        color = 'magenta',
+        stride: Optional[int] = 1
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the control trajectory (as arrows) on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            color: Optional[str] = 'black'
+            stride: Optional[int] = 1
 
-        # Background
-        if background == 'current' or background == 'currents':
-            ax = self.ocean_field.hindcast_data_source.plot_currents_at_time(
-                time=self.state_trajectory[0, 2],
-                x_interval=lon_interval,
-                y_interval=lat_interval,
-                plot_type='quiver',
-                return_ax=True,
-                max_spatial_n=120
-            )
-        elif background == 'solar':
-            ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[0, 2],
-                x_interval=lon_interval,
-                y_interval=lat_interval,
-                plot_type='quiver',
-                return_ax=True,
-                max_spatial_n=120
-            )
-        elif background == 'seaweed' or background == 'growth':
-            ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[0, 2],
-                x_interval=lon_interval,
-                y_interval=lat_interval,
-                plot_type='quiver',
-                return_ax=True,
-                max_spatial_n=120
-            )
-        elif ax is None:
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
             fig, ax = plt.subplots()
 
-        # Problem
-        if problem is not None:
-            ax = problem.plot(ax)
-
-        # Current Position
-        if index is not None:
-            ax.scatter(self.state_trajectory[index, 0], self.state_trajectory[index, 1], c='black', marker='o', s=500, label='position')
-
-        # Trajectory
-        if show_trajectory:
-            ax.plot(self.state_trajectory[::trajectory_stride, 0], self.state_trajectory[::trajectory_stride, 1], '-', marker='x', markersize=1, color='black', linewidth=2, label='trajectory')
-
-        # Control
-        if show_control:
-            u_vec = self.action_trajectory[::control_stride, 0] * np.cos(self.action_trajectory[::control_stride, 1])
-            v_vec = self.action_trajectory[::control_stride, 0] * np.sin(self.action_trajectory[::control_stride, 1])
-            ax.quiver(self.state_trajectory[:-1:control_stride, 0], self.state_trajectory[:-1:control_stride, 1], u_vec, v_vec, color='m', scale=15)
+        u_vec = self.action_trajectory[::stride, 0] * np.cos(self.action_trajectory[::stride, 1])
+        v_vec = self.action_trajectory[::stride, 0] * np.sin(self.action_trajectory[::stride, 1])
+        ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color=color, scale=15)
 
         return ax
 
-    def animate_spatial(
+    def plot_state_trajectory_on_map(
         self,
-        background: Optional[str] = 'current',
-        end_region: Optional[SpatialPoint] = None,
-        show_trajectory: Optional[bool] = True,
-        show_control: Optional[bool] = True,
-        margin: Optional[float] = 0,
-        trajectory_stride: Optional[int] = 1,
-        control_stride: Optional[int] = 1,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        color: Optional[str] = 'black',
+        stride: Optional[int] = 1
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the state trajectory on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            color: Optional[str] = 'black'
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        ax.plot(self.state_trajectory[::stride, 0], self.state_trajectory[::stride, 1], '-', marker='.', markersize=1, color=color, linewidth=1, label='State Trajectory')
+
+        return ax
+
+    def plot_current_position_on_map(
+        self,
+        index: int,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        color: Optional[str] = 'black'
     ):
-        # Intervals
-        lon_interval, lat_interval = self.get_lon_lat_interval(margin=margin, end_region=end_region)
-        time_interval = [self.state_trajectory[0, 2], self.state_trajectory[-1, 2]]
+        """
+        Plots the current position at the given index on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            index: int,
+            ax: Optional[matplotlib.axes.Axes]
+            color: Optional[str] = 'black'
 
-        def add_ax_func(ax, posix_time):
-            if posix_time <= time_interval[0]:
-                index = 0
-            elif posix_time >= time_interval[1]:
-                index = -1
-            else:
-                index = np.argwhere(self.state_trajectory[:, 2]==posix_time).flatten()
-                index = 0 if index.size == 0 else int(index[0])
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
 
-            self.plot_spatial(
-                ax=ax,
-                index=index,
-                background=None,
-                end_region=end_region,
-                show_trajectory=show_trajectory,
-                show_control=show_control,
-                margin=margin,
-                trajectory_stride=trajectory_stride,
-                control_stride=control_stride,
-            )
+        ax.scatter(self.state_trajectory[index, 0], self.state_trajectory[index, 1], c=color, marker='.', s=100, label='position')
 
-        if background == 'current' or background == 'currents':
-            self.ocean_field.hindcast_data_source.animate_currents(
-                x_interval=lon_interval,
-                y_interval=lat_interval,
-                t_interval=time_interval,
-                save_as_filename='full_test.gif',
-                #html_render='safari',
-                max_spatial_n=50,
-                max_temp_n=50,
-                add_ax_func=add_ax_func,
-            )
+        return ax
 
-
-    def plot_battery(
+    def plot_battery_trajectory_on_timeaxis(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         stride: Optional[int] = 1,
-    ):
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the battery capacity on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -288,11 +237,20 @@ class Arena:
 
         return ax
 
-    def plot_seaweed(
+    def plot_seaweed_trajectory_on_timeaxis(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         stride: Optional[int] = 1,
-    ):
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the seaweed mass on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -311,11 +269,20 @@ class Arena:
 
         return ax
 
-    def plot_control(
+    def plot_control_trajectory_on_timeaxis(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         stride: Optional[int] = 1,
-    ):
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the control thrust/angle on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -335,20 +302,21 @@ class Arena:
 
         return ax
 
-    def get_lon_lat_interval(
+    def get_lon_lat_time_interval(
             self,
             end_region: Optional[SpatialPoint] = None,
             margin: Optional[float] = 0,
-    ):
+    ) -> List:
         """
-        Helper function to find the interval around start/stop points.
+        Helper function to find the interval around start/trajectory/goal.
         Args:
-            end_region: SpatialPoint
-            margin: float
+            end_region: Optional[SpatialPoint]
+            margin: Optional[float]
 
         Returns:
-            lon_interval: [x_lower, x_upper] in degrees
-            lat_interval: [y_lower, y_upper] in degrees
+            lon_interval:  [x_lower, x_upper] in degrees
+            lat_interval:  [y_lower, y_upper] in degrees
+            time_interval: [t_lower, t_upper] in posix time
         """
         if end_region is None:
             lon_min = np.min(self.state_trajectory[:, 0])
@@ -361,10 +329,26 @@ class Arena:
             lat_min = min([np.min(self.state_trajectory[:, 1]), end_region.lat.deg])
             lat_max = max([np.max(self.state_trajectory[:, 1]), end_region.lat.deg])
 
-        return [lon_min - margin, lon_max + margin], [lat_min - margin, lat_max + margin]
+        return [lon_min - margin, lon_max + margin], [lat_min - margin, lat_max + margin], [self.state_trajectory[0, 2], self.state_trajectory[-1, 2]]
 
+    def get_index_from_posix_time(self, posix_time: float) -> int:
+        """
+        Helper function to find the closest trajectory index corresponding to a given posix time.
+        Args:
+            posix_time: float
 
+        Returns:
+            index: float
+        """
+        lon_interval, lat_interval, time_interval = self.get_lon_lat_time_interval()
 
+        if posix_time <= time_interval[0]:
+            index = 0
+        elif posix_time >= time_interval[1]:
+            index = -1
+        else:
+            index = np.searchsorted(a=self.state_trajectory[:, 2], v=posix_time)
+            #index = np.argwhere(self.state_trajectory[:, 2] == posix_time).flatten()
+            #index = 0 if index.size == 0 else int(index[0])
 
-
-
+        return index
