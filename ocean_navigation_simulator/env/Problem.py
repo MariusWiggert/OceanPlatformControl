@@ -7,7 +7,7 @@ import matplotlib.axes
 from ocean_navigation_simulator.env.Platform import PlatformState
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 
-
+@dataclasses.dataclass
 class Problem(abc.ABC):
     """
     A path planning problem for a Planner to solve.
@@ -29,7 +29,7 @@ class Problem(abc.ABC):
     #obstacle_regions: None = None  # TODO
     #config: Dict = {}  # TODO
 
-    @abc.abstractmethod
+    # @abc.abstractmethod
     def is_done(self) -> bool:
         """
         Yield the next problem to be used by the Gym environment.
@@ -38,6 +38,6 @@ class Problem(abc.ABC):
         """
         pass
 
-    @abc.abstractmethod
+    # @abc.abstractmethod
     def plot(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
         pass

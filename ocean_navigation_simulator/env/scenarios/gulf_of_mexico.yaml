@@ -10,7 +10,8 @@ platform_dict:
     solar_efficiency: 0.2
     drag_factor: 675.0
     dt_in_s: 600.0
-    use_geographic_coordinate_system: True
+
+use_geographic_coordinate_system: True
 
 ocean_dict:
     hindcast:

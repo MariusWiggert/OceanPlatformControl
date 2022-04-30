@@ -66,6 +66,7 @@ class Platform:
     def __init__(self,
                  platform_dict: Dict,
                  ocean_source: OceanCurrentSource,
+                 use_geographic_coordinate_system: bool,
                  solar_source: Optional[SolarIrradianceSource] = None,
                  seaweed_source: Optional[SeaweedGrowthSource] = None):
 
@@ -74,7 +75,7 @@ class Platform:
         self.ocean_source = ocean_source
         self.solar_source = solar_source
         self.seaweed_source = seaweed_source
-        self.use_geographic_coordinate_system = platform_dict['use_geographic_coordinate_system']
+        self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
         self.model_battery = self.solar_source is not None
         self.model_seaweed = self.solar_source is not None and self.seaweed_source is not None

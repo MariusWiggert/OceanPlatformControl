@@ -1,3 +1,5 @@
+use_geographic_coordinate_system: True
+
 sim_cache_dict:
     deg_around_x_t: 0.5
     time_around_x_t: 86400.0 # 3600 * 24
@@ -10,7 +12,6 @@ platform_dict:
     solar_efficiency: 0.2
     drag_factor: 675.0
     dt_in_s: 600.0
-    use_geographic_coordinate_system: True
 
 ocean_dict:
     hindcast:

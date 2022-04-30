@@ -19,6 +19,7 @@ class ArenaFactory:
             sim_cache_dict=config['sim_cache_dict'],
             platform_dict=config['platform_dict'],
             ocean_dict=config['ocean_dict'],
+            use_geographic_coordinate_system=config['use_geographic_coordinate_system'],
             solar_dict=config['solar_dict'],
             seaweed_dict=config['seaweed_dict'],
         )
