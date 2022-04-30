@@ -13,6 +13,7 @@ from traitlets import Int
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
@@ -29,7 +30,7 @@ class ArenaObservation:
     """
     platform_state: PlatformState                       # position, time, battery
     true_current_at_state: OceanCurrentVector           # measured current at platform_state
-    forecasted_current_at_state: OceanCurrentVector     # forecasted current at platform_state
+    forecast_data_source: OceanCurrentSource            # Data Source of the forecast
 
 
 class Arena:
@@ -39,34 +40,39 @@ class Arena:
     # TODO: not sure what that should be for us, decide where to put the feature constructor
     def __init__(
             self,
-            sim_cache_dict: Dict, platform_dict: Dict,
-            ocean_dict: Dict,
+            sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict,
+            use_geographic_coordinate_system: bool,
             solar_dict: Optional[Dict] = None,
-            seaweed_dict: Optional[Dict] = None
+            seaweed_dict: Optional[Dict] = None  
     ):
         """OceanPlatformArena constructor.
     Args:
         sim_cache_dict:
         platform_dict:
         ocean_dict:
+        use_geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
+    Optional Args:
         solar_dict:
         seaweed_dict:
-    Optional Args:
-        geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
     """
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=sim_cache_dict,
             hindcast_source_dict=ocean_dict['hindcast'],
             forecast_source_dict=ocean_dict['forecast'],
-            use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
+            use_geographic_coordinate_system=use_geographic_coordinate_system
         )
-
+        # Initialize the Data Fields from the respective dictionaries
+        self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
+                                             hindcast_source_dict=ocean_dict['hindcast'],
+                                             forecast_source_dict=ocean_dict['forecast'],
+                                             use_geographic_coordinate_system=use_geographic_coordinate_system)
+        
         if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(
                 sim_cache_dict=sim_cache_dict,
                 hindcast_source_dict=solar_dict['hindcast'],
                 forecast_source_dict=solar_dict['forecast'],
-                use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
+                use_geographic_coordinate_system=use_geographic_coordinate_system
             )
         else:
             self.solar_field = None
@@ -80,7 +86,7 @@ class Arena:
                 sim_cache_dict=sim_cache_dict,
                 hindcast_source_dict=seaweed_dict['hindcast'],
                 forecast_source_dict=seaweed_dict['forecast'],
-                use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
+                use_geographic_coordinate_system=use_geographic_coordinate_system
             )
         else:
             self.seaweed_field = None
@@ -88,6 +94,7 @@ class Arena:
         self.platform = Platform(
             platform_dict=platform_dict,
             ocean_source=self.ocean_field.hindcast_data_source,
+            use_geographic_coordinate_system = use_geographic_coordinate_system,
             solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
             seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
         )
@@ -96,11 +103,11 @@ class Arena:
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
         """Resets the arena.
-    Args:
-        platform_state
-    Returns:
-      The first observation from the newly reset simulator
-    """
+        Args:
+            platform_state
+        Returns:
+          The first observation from the newly reset simulator
+        """
         self.initial_state = platform_state
         self.platform.set_state(self.initial_state)
         self.platform.initialize_dynamics(self.initial_state)
@@ -110,19 +117,18 @@ class Arena:
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
 
-        return ArenaObservation(
-            platform_state=platform_state,
-            true_current_at_state=self.ocean_field.get_ground_truth(self.initial_state.to_spatio_temporal_point()),
-            forecasted_current_at_state=self.ocean_field.get_forecast(self.initial_state.to_spatio_temporal_point())
-        )
+        return ArenaObservation(platform_state=platform_state,
+                                true_current_at_state=self.ocean_field.get_ground_truth(
+                                    self.initial_state.to_spatio_temporal_point()),
+                                forecast_data_source=self.ocean_field.forecast_data_source)
 
     def step(self, action: PlatformAction) -> ArenaObservation:
         """Simulates the effects of choosing the given action in the system.
-    Args:
-        action: The action to take in the simulator.
-    Returns:
-        Arena Observation including platform state, true current at platform, forecasts
-    """
+        Args:
+            action: The action to take in the simulator.
+        Returns:
+            Arena Observation including platform state, true current at platform, forecasts
+        """
         state = self.platform.simulate_step(action)
 
         self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
@@ -131,8 +137,7 @@ class Arena:
         return ArenaObservation(
             platform_state=state,
             true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
-            forecasted_current_at_state=self.ocean_field.get_forecast(state.to_spatio_temporal_point())
-        )
+            forecast_data_source=self.ocean_field.forecast_data_source)
 
     def plot_control_trajectory_on_map(
         self,
