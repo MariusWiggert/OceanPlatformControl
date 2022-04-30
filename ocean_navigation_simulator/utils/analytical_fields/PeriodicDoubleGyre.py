@@ -60,7 +60,7 @@ class PeriodicDoubleGyre(AnalyticalField):
         w_angular_vel = 2*jnp.pi/self.period_time
         a = self.epsilon_sep*jnp.sin(w_angular_vel*time)
         b = 1 - 2*self.epsilon_sep*jnp.sin(w_angular_vel*time)
-        f = a*jnp.power(a*state[0],2) + b*state[0]
+        f = a*jnp.power(state[0],2) + b*state[0]
 
         u_cur_out = -jnp.pi*self.v_amplitude*jnp.sin(jnp.pi*f)*jnp.cos(jnp.pi*state[1])
         return jnp.where(self.is_boundary(state, time), 0., u_cur_out)
@@ -71,7 +71,7 @@ class PeriodicDoubleGyre(AnalyticalField):
         w_angular_vel = 2*jnp.pi/self.period_time
         a = self.epsilon_sep*jnp.sin(w_angular_vel*time)
         b = 1 - 2*self.epsilon_sep*jnp.sin(w_angular_vel*time)
-        f = a*jnp.power(a*state[0], 2) + b*state[0]
+        f = a*jnp.power(state[0], 2) + b*state[0]
         df_dx = 2*a*state[0] + b
 
         v_cur_out = jnp.pi*self.v_amplitude*jnp.cos(jnp.pi*f)*jnp.sin(jnp.pi*state[1])*df_dx

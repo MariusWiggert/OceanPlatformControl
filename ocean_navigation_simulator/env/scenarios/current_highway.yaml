@@ -12,23 +12,25 @@ platform_dict:
     dt_in_s: 1
     use_geographic_coordinate_system: False
 
-ocean_source_dict:
-    field: 'OceanCurrents'
-    source: 'analytical'
-    source_settings:
-        name: 'FixedCurrentHighwayField'
-        boundary_buffers: [0.2, 0.2]
-        x_domain: [0, 10]
-        y_domain: [0, 10]
-        temporal_domain: [0, 1000]
-        spatial_resolution: 0.1
-        temporal_resolution: 10
-        y_range_highway: [4.5, 5.5]
-        U_cur: 0.2
+ocean_dict:
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'analytical'
+        source_settings:
+            name: 'FixedCurrentHighwayField'
+            boundary_buffers: [0.2, 0.2]
+            x_domain: [0, 10]
+            y_domain: [0, 10]
+            temporal_domain: [0, 1000]
+            spatial_resolution: 0.1
+            temporal_resolution: 10
+            y_range_highway: [4.5, 5.5]
+            U_cur: 0.2
+    forecast: null
 
-solar_source_dict: null
+solar_dict: null
 
-seaweed_source_dict: null
+seaweed_dict: null
 
 platform_state:
     lon: 0

@@ -1,12 +1,14 @@
+import abc
 import dataclasses
 from typing import Dict
+
+import matplotlib.axes
 
 from ocean_navigation_simulator.env.Platform import PlatformState
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 
 
-@dataclasses.dataclass
-class Problem:
+class Problem(abc.ABC):
     """
     A path planning problem for a Planner to solve.
 
@@ -25,3 +27,16 @@ class Problem:
     end_region: SpatialPoint  # TODO
     #obstacle_regions: None = None  # TODO
     #config: Dict = {}  # TODO
+
+    @abc.abstractmethod
+    def is_done(self) -> bool:
+        """
+        Yield the next problem to be used by the Gym environment.
+        Returns:
+            Next problem as a Problem object
+        """
+        pass
+
+    @abc.abstractmethod
+    def plot(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
+        pass

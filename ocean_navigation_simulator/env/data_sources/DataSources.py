@@ -139,12 +139,12 @@ class DataSource(abc.ABC):
             raise ValueError("The starting time {} is not in the array.".format(t_interval[0]))
 
         # Step 2: Data partially not in the array check
-        if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
-            warnings.warn("Part of the y requested area is outside of file.", RuntimeWarning)
-        if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
-            warnings.warn("Part of the x requested area is outside of file.", RuntimeWarning)
-        if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
-            warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
+        # if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
+        #     warnings.warn(f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[-1]}, {array.coords['lat'].data[0]}], requested: [{y_interval[0]}, {y_interval[1]}]).", RuntimeWarning)
+        # if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
+        #     warnings.warn(f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[-1]}, {array.coords['lon'].data[0]}], requested: [{x_interval[0]}, {x_interval[1]}]).", RuntimeWarning)
+        # if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
+        #     warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],

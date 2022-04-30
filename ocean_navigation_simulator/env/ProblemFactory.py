@@ -1,7 +1,6 @@
 import abc
 from ocean_navigation_simulator.env.Problem import Problem
 
-
 class ProblemFactory(abc.ABC):
     """
     Interface for a problem generator.
@@ -15,10 +14,9 @@ class ProblemFactory(abc.ABC):
             Next problem as a Problem object
         """
 
+
     # @abc.abstractmethod
     # def seed(self, seed: int = None):
     #     """
     #     Set the seed for an RNG in the ProblemFactory.
     #     """
-
-    # TODO: other methods needed?
