@@ -213,7 +213,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """Helper Function to load an OceanCurrent object."""
         self.DataArray = open_formatted_xarray(self.files_dicts[self.rec_file_idx]['file'])
 
-    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> None:
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.
         Args:
@@ -221,7 +221,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """
         # check if rec_file_idx is already the last one and time is larger than its start time
         if self.rec_file_idx + 1 == len(self.files_dicts) and self.files_dicts[self.rec_file_idx]['t_range'][0] <= time:
-            return None
+            return self.rec_file_idx
 
         # otherwise check if a more recent one is available or we need to use an older one
         elif not (self.files_dicts[self.rec_file_idx]['t_range'][0] <=
@@ -238,6 +238,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                     self.rec_file_idx = idx
             # set the new self.OceanCurrent
             self.load_ocean_current_from_idx()
+            return self.rec_file_idx
 
 
 class HindcastFileSource(OceanCurrentSourceXarray):

@@ -23,5 +23,6 @@ class Problem:
     """
     start_state: PlatformState
     end_region: SpatialPoint  # TODO
+    target_radius: float
     #obstacle_regions: None = None  # TODO
     #config: Dict = {}  # TODO
