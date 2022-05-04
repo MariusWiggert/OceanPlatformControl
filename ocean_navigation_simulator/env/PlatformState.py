@@ -2,7 +2,7 @@ import dataclasses
 import datetime
 from ocean_navigation_simulator.env.utils import units
 from typing import List
-
+import numpy as np
 
 @dataclasses.dataclass
 class SpatialPoint:
@@ -25,8 +25,7 @@ class SpatialPoint:
         return self.__array__()[item]
 
     def __str__(self):
-        return "({}°,{}°)".format(self.lon.deg, self.lat.deg)
-
+        return f"({self.lon.deg:.3f}°,{self.lat.deg:.3f}°)"
 
 @dataclasses.dataclass
 class SpatioTemporalPoint:
@@ -40,10 +39,25 @@ class SpatioTemporalPoint:
       """
     lon: units.Distance
     lat: units.Distance
-    date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
+    date_time: datetime.datetime
 
-    def __str__(self):
-        return "({}°,{}°,{})".format(self.lon.deg, self.lat.deg,self.date_time.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    def __array__(self):
+        return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp()])
+
+    def __len__(self):
+        return self.__array__().shape[0]
+
+    def __getitem__(self, item):
+        return self.__array__()[item]
+
+    def to_spatial_point(self) -> SpatialPoint:
+        """Helper function to just extract the spatial point."""
+        return SpatialPoint(lon=self.lon, lat=self.lat)
+
+    def to_spatio_temporal_casadi_input(self) -> List[float]:
+        """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
+        return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
+
 
 @dataclasses.dataclass
 class PlatformState:
@@ -61,6 +75,33 @@ class PlatformState:
     battery_charge: units.Energy = units.Energy(watt_hours=100)
     seaweed_mass: units.Mass = units.Mass(kg=100)
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
+    battery_charge: units.Energy = units.Energy(joule=100)
+    seaweed_mass: units.Mass = units.Mass(kg=100)
+
+    def __array__(self):
+        return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp(), self.battery_charge.joule, self.seaweed_mass.kg])
+
+    def __len__(self):
+        return self.__array__().shape[0]
+
+    def __getitem__(self, item):
+        return self.__array__()[item]
+
+    @staticmethod
+    def from_numpy(numpy_array):
+        """Helper function to initialize a PlatformState based on numpy arraay.
+        Args:
+            numpy_array
+        Returns:
+            PlatformAction object
+        """
+        return PlatformState(
+            lon=units.Distance(deg=numpy_array[0]),
+            lat=units.Distance(deg=numpy_array[1]),
+            date_time=datetime.datetime.fromtimestamp(numpy_array[2], tz=datetime.timezone.utc),
+            battery_charge=units.Energy(joule=numpy_array[3]),
+            seaweed_mass=units.Mass(kg=numpy_array[4])
+        )
 
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
@@ -73,6 +114,12 @@ class PlatformState:
     def to_spatio_temporal_casadi_input(self) -> List[float]:
         """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
+
+    def __repr__(self):
+        return 'Platform State: lon: {x} deg, lat: {y} deg, battery_charge: {b} Joule, seaweed_mass: {m} kg, ' \
+               'date_time: {t}'.format(
+            x=self.lon.deg, y=self.lat.deg, b=self.battery_charge.joule, m=self.seaweed_mass.kg, t=self.date_time
+        )
 
 
 

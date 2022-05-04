@@ -110,7 +110,6 @@ model.query_locations(locations)
         #Shape elem: lat
         print("evaluation: time:",time.item(),i," over ", len(y_te["time"]))
         for j,lat in enumerate(y_te["lat"]):
-
             for k,long in enumerate(y_te["lon"]):
                 print("INPUTS:", long.item(),lat.item(),pd.to_datetime(time.item()))
                 #measurement,confidence = model.query(long.item(), lat.item(), pd.to_datetime(time.item()))

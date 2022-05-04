@@ -19,6 +19,7 @@ from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.utils import units
+from ocean_navigation_simulator.env.utils.units import Distance
 
 _LATITUDE_SCALING = 110574 # [m]
 _LONGITUDE_SCALING = 111321 # [m]
@@ -92,6 +93,7 @@ class OceanCurrentGP(object):
       measurement: The ocean current measured at the location.
     """
         location = np.array([x, y, time])
+        x,y = Distance(deg=x), Distance(deg=y)
         forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
         error = np.array([(measurement.u - forecast.u),
                           (measurement.v - forecast.v)])
@@ -132,10 +134,7 @@ class OceanCurrentGP(object):
         # Set up data for the GP.
         # TODO(bellemare): Clearly wasteful if performing multiple queries per
         # observation. Should cache. Premature optimization is the root, etc.
-        #print("Query batch",locations)
-        #print("self.measurement:",self.measurement_locations)
         if not self.measurement_locations:
-            #print("self.measurement_loc:",self.measurement_locations)
             means = np.zeros((locations.shape[0], 2))
             deviations = np.zeros(locations.shape[0])
         else:
@@ -189,8 +188,6 @@ class OceanCurrentGP(object):
         # Set up data for the GP.
         # TODO(bellemare): Clearly wasteful if performing multiple queries per
         # observation. Should cache. Premature optimization is the root, etc.
-        # print("Query batch",locations)
-        # print("self.measurement:",self.measurement_locations)
         if not self.measurement_locations:
             print("no measurement_locations. Nothing to fit")
         else:
@@ -205,14 +202,14 @@ class OceanCurrentGP(object):
 
             # Use a timestamp instead of datetime format
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
-            # print("fitting_test:", inputs,targets)
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
 
-    def query_locations(self, locations):
+    def query_locations(self, locations) -> Tuple[np.ndarray, np.ndarray]:
         #Convert to timestamp the date
         locations[:, -1] = np.array(list(map(lambda x: x.timestamp(), locations[:, -1])))
         means, deviations = self.model.predict(locations, return_std=True)
+        # reshape the predictions
         return means, deviations
 
     def _add_forecast_to_prediction(
@@ -227,13 +224,11 @@ class OceanCurrentGP(object):
     """
         # This checks that all x, y, and time are the same in each row.
         '''assert (locations[1:, [0, 1, 3]] == locations[0, [0, 1, 3]]).all()
-
     forecasts = self.wind_forecast.get_forecast_column(
         units.Distance(m=locations[0, 0]),
         units.Distance(m=locations[0, 1]),
         locations[:, 2],
         dt.timedelta(seconds=locations[0, 3]))
-
     for index, forecast in enumerate(forecasts):
       means[index][0] += forecast.u.meters_per_second
       means[index][1] += forecast.v.meters_per_second

@@ -26,7 +26,19 @@ ocean_dict:
             temporal_resolution: 10
             y_range_highway: [4.5, 5.5]
             U_cur: 0.2
-    forecast: null
+    forecast:
+        field: 'OceanCurrents'
+        source: 'analytical'
+        source_settings:
+            name: 'FixedCurrentHighwayField'
+            boundary_buffers: [ 0.2, 0.2 ]
+            x_domain: [ 0, 10 ]
+            y_domain: [ 0, 10 ]
+            temporal_domain: [ 0, 1000 ]
+            spatial_resolution: 0.1
+            temporal_resolution: 10
+            y_range_highway: [ 4.5, 5.5 ]
+            U_cur: 0.4
 
 solar_dict: null
 
