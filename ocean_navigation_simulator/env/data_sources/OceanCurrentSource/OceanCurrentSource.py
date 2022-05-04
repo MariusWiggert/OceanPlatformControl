@@ -1,10 +1,16 @@
 import abc
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Union, Tuple, Any, Callable
+
+import matplotlib.pyplot
+import matplotlib.animation as animation
+from IPython.display import HTML
+from functools import partial
 from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
 import jax
+import matplotlib.pyplot as plt
 from jax import numpy as jnp
 import warnings
 import numpy as np
@@ -17,6 +23,7 @@ from pydap.cas.get_cookies import setup_session
 from geopy.point import Point as GeoPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -29,6 +36,7 @@ from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, 
 # https://stackoverflow.com/questions/68170708/counting-consecutive-days-of-temperature-data
 # Via diff in pandas and checking if consistent
 # TODO: NaN handling as obstacles in the HJ planner would be really useful! (especially for analytical!)
+# TODO: Does not work well yet for getting the most recent forecast point data!
 
 
 class OceanCurrentSource(DataSource):
@@ -44,6 +52,81 @@ class OceanCurrentSource(DataSource):
 
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
+
+    def add_traj_points(self, time_idx, ax):
+        ax.scatter(time_idx)
+        return ax
+
+    # Plotting Functions for OceanCurrents specifically
+    def plot_data_from_xarray(self, time_idx: int, xarray: xr, plot_type: AnyStr = 'quiver',
+                              vmin: Optional[float] = 0, vmax: Optional[float] = None,
+                              alpha: Optional[float] = 0.5, reset_plot: Optional[bool] = False,
+                              figsize: Tuple[int] = (6, 6)) -> matplotlib.pyplot.axes:
+        """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
+        if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
+        All other functions build on top of it, it creates the ax object and returns it.
+        Args:
+            time_idx:          time-idx to select from the xarray (only if it has time dimension)
+            xarray:            xarray object containing the grids and data
+            plot_type:         a string specifying the plot type: streamline or quiver
+            vmin:              minimum current magnitude used for colorbar (float)
+            vmax:              maximum current magnitude used for colorbar (float)
+            alpha:             alpha of the current magnitude color visualization
+            reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
+            figsize:           size of the figure
+        Returns:
+            ax                 matplotlib.pyplot.axes object
+        """
+        # reset plot this is needed for matplotlib.animation
+        if reset_plot:
+            plt.clf()
+        else:  # create a new figure object where this is plotted
+            fig = plt.figure(figsize=figsize)
+
+        # Step 1: Make the data ready for plotting
+        # check if time-dimension already collapsed or not yet
+        if xarray['time'].size != 1:
+            xarray = xarray.isel(time=time_idx)
+        # calculate magnitude if not in there yet
+        if not 'magnitude' in xarray.keys():
+            xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+        time = get_datetime_from_np64(xarray['time'].data)
+
+        # Step 2: Create ax object
+        if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
+            ax = self.set_up_geographic_ax()
+            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
+        else:  # Non-dimensional
+            ax = plt.axes()
+            ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
+
+        # underly with current magnitude
+        if vmax is None:
+            vmax = np.max(xarray['magnitude'].max())
+        xarray['magnitude'].plot(cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        # set and format colorbar
+        cbar = ax.collections[-1].colorbar
+        cbar.ax.set_ylabel('current velocity')
+        cbar.set_ticks(cbar.get_ticks())
+        cbar.set_ticklabels(["{:.1f}".format(l) + ' m/s' for l in cbar.get_ticks().tolist()])
+
+        # Plot on ax object
+        if plot_type == 'streamline':
+            # Needed because the data needs to be perfectly equally spaced
+            time_2D_array = format_to_equally_spaced_xy_grid(xarray).fillna(0)
+            time_2D_array.plot.streamplot(x='lon', y='lat', u='water_u', v='water_v', color='black', ax=ax)
+            ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
+            ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
+        elif plot_type == 'quiver':
+            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax)
+
+        # Label the title
+        if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
+            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
+        else:  # Non-dimensional
+            ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
+
+        return ax
 
 
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
@@ -80,26 +163,15 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
             dataframe = dataframe.compute()
         return dataframe
 
-    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> OceanCurrentVector:
-        """Function to get the OceanCurrentVector at a specific point.
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        """Function to get the OceanCurrentVector at a specific point using the interpolation functions.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           OceanCurrentVector
           """
-
-        # Step 1: get interpolated xr and make it explicit
-        currents_at_point = self.make_explicit(super().get_data_at_point(point, time))
-
-        u = currents_at_point['water_u'].data.item()
-        v = currents_at_point['water_u'].data.item()
-
-        if np.any(np.isnan([u, v])):
-            raise ValueError(
-                "Ocean current values at {} are nan, likely requested out of bound of the dataset.".format(point))
-
-        return OceanCurrentVector(u=u, v=v)
+        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
@@ -122,11 +194,11 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         self.rec_file_idx = 0
         self.load_ocean_current_from_idx()
 
-    def get_currents_at_point(self, point: List[float], time: datetime.datetime) -> OceanCurrentVector:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         # Step 1: Make sure we use the most recent forecast available
-        self.check_for_most_recent_fmrc_dataframe(time)
+        self.check_for_most_recent_fmrc_dataframe(SpatioTemporalPoint.date_time)
 
-        return super().get_currents_at_point(point, time)
+        return super().get_data_at_point(spatio_temporal_point)
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],
@@ -141,7 +213,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """Helper Function to load an OceanCurrent object."""
         self.DataArray = open_formatted_xarray(self.files_dicts[self.rec_file_idx]['file'])
 
-    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> None:
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.
         Args:
@@ -149,7 +221,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """
         # check if rec_file_idx is already the last one and time is larger than its start time
         if self.rec_file_idx + 1 == len(self.files_dicts) and self.files_dicts[self.rec_file_idx]['t_range'][0] <= time:
-            return None
+            return self.rec_file_idx
 
         # otherwise check if a more recent one is available or we need to use an older one
         elif not (self.files_dicts[self.rec_file_idx]['t_range'][0] <=
@@ -166,6 +238,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                     self.rec_file_idx = idx
             # set the new self.OceanCurrent
             self.load_ocean_current_from_idx()
+            return self.rec_file_idx
 
 
 class HindcastFileSource(OceanCurrentSourceXarray):
@@ -274,3 +347,12 @@ def copernicusmarine_datastore(dataset, username, password):
         data_store = xr.backends.PydapDataStore(open_url(url,
                                                          session=session))  # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
     return data_store
+
+
+def format_to_equally_spaced_xy_grid(xarray):
+    """Helper Function to format an xarray to equally spaced lat, lon axis."""
+    xarray['lon'] = np.linspace(xarray['lon'].data[0], xarray['lon'].data[-1],
+                                len(xarray['lon'].data))
+    xarray['lat'] = np.linspace(xarray['lat'].data[0], xarray['lat'].data[-1],
+                                len(xarray['lat'].data))
+    return xarray

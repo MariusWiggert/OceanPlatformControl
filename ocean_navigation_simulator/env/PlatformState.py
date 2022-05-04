@@ -1,8 +1,11 @@
 import dataclasses
 import datetime
+import math
+
 from ocean_navigation_simulator.env.utils import units
 from typing import List
 import numpy as np
+
 
 @dataclasses.dataclass
 class SpatialPoint:
@@ -23,6 +26,9 @@ class SpatialPoint:
 
     def __getitem__(self, item):
         return self.__array__()[item]
+
+    def distance(self, other) -> float:
+        return math.sqrt((self.lat.deg - other.lat.deg)**2 + (self.lon.deg - other.lon.deg)**2)
 
     def __str__(self):
         return f"({self.lon.deg:.3f}°,{self.lat.deg:.3f}°)"
@@ -72,8 +78,6 @@ class PlatformState:
       """
     lon: units.Distance
     lat: units.Distance
-    battery_charge: units.Energy = units.Energy(watt_hours=100)
-    seaweed_mass: units.Mass = units.Mass(kg=100)
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
     battery_charge: units.Energy = units.Energy(joule=100)
     seaweed_mass: units.Mass = units.Mass(kg=100)
@@ -121,8 +125,5 @@ class PlatformState:
             x=self.lon.deg, y=self.lat.deg, b=self.battery_charge.joule, m=self.seaweed_mass.kg, t=self.date_time
         )
 
-
-
-
-
-
+    def distance(self, other) -> float:
+        return math.sqrt((self.lat.deg - other.lat.deg)**2 + (self.lon.deg - other.lon.deg)**2)

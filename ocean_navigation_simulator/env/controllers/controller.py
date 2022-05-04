@@ -24,7 +24,7 @@ class Controller(abc.ABC):
         """
         self.problem = problem
         # Note: managing the forecast fieldsets is done in the simulator
-        self.forecast_data_source = None
+        # self.forecast_data_source = None
         self.updated_forecast_source = True
 
         # initialize vectors for open_loop control

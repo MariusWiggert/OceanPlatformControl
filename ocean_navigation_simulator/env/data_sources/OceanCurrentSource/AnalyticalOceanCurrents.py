@@ -95,23 +95,6 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
         return OceanCurrentVector(u=self.u_current_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp()),
                                   v=self.v_current_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp()))
 
-    def viz_field(self, inside: Optional[bool] = True):
-        """Visualization function for the currents."""
-        # Step 1: get default subset from analytical
-        if inside:
-            x_range = [0, 2]
-            y_range = [0, 1]
-        else:
-            x_range = [-5, 5]
-            y_range = [-5, 5]
-        xarray = self.get_data_over_area(x_interval=x_range, y_interval=y_range,
-                                         t_interval=[datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in [0, 100]])
-        grids_dict = self.get_grid_dict_from_xr(xarray)
-        # Step 2: plot it
-        ax = utils.plotting_utils.visualize_currents(0, grids_dict, xarray['water_u'].data, xarray['water_v'].data, autoscale=False, plot=False)
-        ax.set_title("Analytical Current Field")
-        plt.show()
-
 
 ### Actual implemented analytical Sources ###
 

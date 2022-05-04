@@ -3,18 +3,16 @@ import numpy as np
 from tqdm import tqdm
 
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.Arena import Arena, ArenaObservation
-from ocean_navigation_simulator.env.Platform import PlatformState
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.Problem import Problem
-from ocean_navigation_simulator.env.utils import units
+
 #%%
 import time
 start = time.time()
 
 
-arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='current_highway')
-#arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='double_gyre_GP')
+#arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='current_highway')
+arena = ArenaFactory.create(scenario_name='double_gyre')
 #arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='gulf_of_mexico')
 
 #%%
@@ -24,11 +22,10 @@ controller = NaiveToTargetController(problem=Problem(
 ))
 #%%
 
-for i in tqdm(range(500)):#6 * 40)):
+for i in tqdm(range(5000)):#6 * 40)):
     action = controller.get_action(observation)
     observation = arena.step(action)
-# Testing if solar caching or not-caching makes much of a difference
-# For 240 steps: without caching 0.056s > with caching: 0.037.
+
 
 arena.quick_plot(end_region=end_region)
 

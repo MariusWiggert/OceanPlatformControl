@@ -1,15 +1,24 @@
 """The abstract base class for all Data Sources.
 Implements a lot of shared functionality such as
 """
+import matplotlib.pyplot
+from IPython.display import HTML
+import matplotlib.animation as animation
+import os
+from functools import partial
 
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+import matplotlib.pyplot as plt
 import warnings
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union, Any, Callable
 import numpy as np
 import xarray as xr
 import abc
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 
 class DataSource(abc.ABC):
@@ -34,11 +43,14 @@ class DataSource(abc.ABC):
 
         if out_x_range or out_y_range or out_t_range:
             if out_x_range:
-                print(f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
+                print(
+                    f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
             if out_y_range:
-                print(f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
+                print(
+                    f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
             if out_t_range:
-                print(f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
+                print(
+                    f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
 
             self.update_casadi_dynamics(state)
             return True
@@ -87,8 +99,10 @@ class DataSource(abc.ABC):
             lon_bnds: [x_lower, x_upper] in degrees
         """
         t_interval = [x_0.date_time, x_0.date_time + datetime.timedelta(seconds=temp_horizon_in_s)]
-        lon_bnds = [min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box, max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box]
-        lat_bnds = [min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box, max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box]
+        lon_bnds = [min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box,
+                    max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box]
+        lat_bnds = [min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box,
+                    max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box]
 
         return t_interval, lat_bnds, lon_bnds
 
@@ -99,12 +113,14 @@ class DataSource(abc.ABC):
         grid_dict = {
             "t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
             "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
-            'y_grid': xrDF["lat"].data,
+            # 'y_grid': xrDF["lat"].data,
             "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
-            'x_grid': xrDF["lon"].data,
-            't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
+            # 'x_grid': xrDF["lon"].data,
+            # 't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
             # 'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
-            }
+            'spatial_res': xrDF["lat"].data[1] - xrDF["lat"].data[0],
+            'temporal_res': (xrDF["time"].data[1] - xrDF["time"].data[0]) / np.timedelta64(1, 's')
+        }
 
         return grid_dict
 
@@ -123,12 +139,248 @@ class DataSource(abc.ABC):
             raise ValueError("The starting time {} is not in the array.".format(t_interval[0]))
 
         # Step 2: Data partially not in the array check
-        if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
-            warnings.warn("Part of the y requested area is outside of file.", RuntimeWarning)
-        if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
-            warnings.warn("Part of the x requested area is outside of file.", RuntimeWarning)
-        if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
-            warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
+        # if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
+        #     warnings.warn(f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[-1]}, {array.coords['lat'].data[0]}], requested: [{y_interval[0]}, {y_interval[1]}]).", RuntimeWarning)
+        # if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
+        #     warnings.warn(f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[-1]}, {array.coords['lon'].data[0]}], requested: [{x_interval[0]}, {x_interval[1]}]).", RuntimeWarning)
+        # if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
+        #     warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
+
+    def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
+                                    x_interval: List[float], y_interval: List[float],
+                                    spatial_res: Optional[float] = None,
+                                    return_ax: Optional[bool] = False,
+                                    **kwargs):
+        """Plot the data at a specific time over an area defined by the x and y intervals.
+        Args:
+          time: timefor which to plot the data either posix or datetime.datetime object
+          x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          spatial_res:      Per default (None) the data_source resolution is used otherwise the selected one.
+          return_ax:         if True returns ax, otherwise renders plots with plt.show()
+          **kwargs:          Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
+        """
+
+        # format to datetime object
+        if not isinstance(time, datetime.datetime):
+            time = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+
+        # Step 1: get the area data
+        area_xarray = self.get_data_over_area(x_interval, y_interval, [time, time + datetime.timedelta(seconds=1)],
+                                              spatial_resolution=spatial_res)
+
+        # interpolate to specific time
+        atTimeArray = area_xarray.interp(time=time.replace(tzinfo=None))
+
+        # Plot the current field
+        ax = self.plot_data_from_xarray(time_idx=0, xarray=atTimeArray, **kwargs)
+        if return_ax:
+            return ax
+        else:
+            plt.show()
+
+    @staticmethod
+    def set_up_geographic_ax() -> matplotlib.pyplot.axes:
+        """Helper function to set up a geographic ax object to plot on."""
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+        grid_lines.top_labels = False
+        grid_lines.right_labels = False
+        ax.add_feature(cfeature.LAND, zorder=3, edgecolor='black')
+        return ax
+
+    def bound_spatial_temporal_resolution(self, x_interval: List[float], y_interval: List[float],
+                                          max_spatial_n: Optional[int] = None, max_temp_n: Optional[int] = None) -> \
+            Tuple[Union[float, Any], Any]:
+        """Helper Function to upper bound the resolutions for plotting.
+            Args:
+                x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+                y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+                max_spatial_n:    Per default the data_source resolution is used. If that is too much, downscaled to this.
+                max_temp_n:       Per default the data_source temp resolution is used. If too many, we downscale it.
+            Returns:
+                spatial_res:       None or adjusted spatial resolution
+                temporal_res:      None or adjusted spatial resolution
+        """
+        # Per default we leave it as None to minimize compute
+        spatial_res, temporal_res = [None] * 2
+        # Check if spatial sub-setting would give more than max_spatial_n
+        if max_spatial_n is not None:
+            n_x = (x_interval[1] - x_interval[0]) / self.grid_dict['spatial_res']
+            n_y = (y_interval[1] - y_interval[0]) / self.grid_dict['spatial_res']
+            max_data_n = max(n_y, n_x)
+            # adjust spatial resolution
+            if max_data_n > max_spatial_n:
+                spatial_res = (max_data_n / max_spatial_n) * self.grid_dict['spatial_res']
+
+        # Check if temporal sub-setting would give more than max_temp_n
+        if max_temp_n is not None:
+            n_t = (x_interval[1] - x_interval[0]) / self.grid_dict['temporal_res']
+            # adjust temporal resolution
+            if n_t > max_temp_n:
+                spatial_res = (n_t / max_temp_n) * self.grid_dict['temporal_res']
+
+        return spatial_res, temporal_res
+
+    @staticmethod
+    def render_animation(animation_object: Any, fps: int = 10, output: AnyStr = None):
+        """Helper Function to render animations once created.
+            Args:
+                animation_object:       Matplotlib Animation object
+                fps:                    Frames per Second
+                output:                 How to output the animation. Options are either saved to file or via html in jupyter/safari.
+                                        Strings in {'*.mp4', '*.gif', 'safari', 'jupyter'}
+        """
+        # Now render it to a file
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if output in ['safari', 'jupyter']:
+                ani_html = HTML(animation_object.to_html5_video())
+                # Render using safari (only used because of Pycharm local testing)
+                if output == 'safari':
+                    with open("data_animation.html", "w") as file:
+                        file.write(ani_html.data)
+                        os.system(
+                            'open "/Applications/Safari.app" ' + '"' + os.path.realpath(
+                                "data_animation.html") + '"')
+                else:  # visualize in Jupyter directly
+                    plt.close()
+                    return ani_html
+            elif '.gif' in output:
+                animation_object.save(output, writer=animation.PillowWriter(fps=fps))
+                plt.close()
+            elif '.mp4' in output:
+                animation_object.save(output, writer=animation.FFMpegWriter(fps=fps))
+                plt.close()
+            else:
+                raise ValueError(
+                    "save_as_filename can be either None (for HTML rendering) or filepath and name needs to"
+                    "contain either '.gif' or '.mp4' to specify the format and desired file location.")
+
+    def plot_data_from_xarray(self, time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
+                              vmin: Optional[float] = None, vmax: Optional[float] = None,
+                              alpha: Optional[float] = 1., reset_plot: Optional[bool] = False,
+                              figsize: Tuple[int] = (6, 6)) -> matplotlib.pyplot.axes:
+        """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
+        if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
+        All other functions build on top of it, it creates the ax object and returns it.
+        Args:
+            time_idx:          time-idx to select from the xarray (only if it has time dimension)
+            xarray:            xarray object containing the grids and data
+            var_to_plot:       a string of the variable to plot
+            vmin:              minimum current magnitude used for colorbar (float)
+            vmax:              maximum current magnitude used for colorbar (float)
+            alpha:             alpha of the current magnitude color visualization
+            reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
+            figsize:           size of the figure
+        Returns:
+            ax                 matplotlib.pyplot.axes object
+        """
+        # reset plot this is needed for matplotlib.animation
+        if reset_plot:
+            plt.clf()
+        else:  # create a new figure object where this is plotted
+            fig = plt.figure(figsize=figsize)
+
+        # Get data variable if not provided
+        if var_to_plot is None:
+            var_to_plot = list(xarray.keys())[0]
+
+        # Step 1: Make the data ready for plotting
+        # check if time-dimension already collapsed or not yet
+        if xarray['time'].size != 1:
+            xarray = xarray.isel(time=time_idx)
+        time = units.get_datetime_from_np64(xarray['time'].data)
+
+        # Step 2: Create ax object
+        if self.source_config_dict['use_geographic_coordinate_system']:
+            ax = self.set_up_geographic_ax()
+            time_string = "Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC')
+        else:  # Non-dimensional
+            ax = plt.axes()
+            time_string = "Time: {time:.2f}".format(time=time.timestamp())
+
+        # plot data for the specific variable
+        if vmax is None:
+            vmax = xarray[var_to_plot].max()
+        if vmin is None:
+            vmin = xarray[var_to_plot].min()
+        xarray[var_to_plot].plot(cmap='viridis', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+
+        # Label the title
+        ax.set_title("Field: {f} \n Variable: {var} \n at Time: {t}".format(
+            f=self.source_config_dict['field'],
+            var=var_to_plot,
+            t=time_string))
+
+        return ax
+
+    def animate_data(self, x_interval: List[float], y_interval: List[float],
+                     t_interval: List[Union[datetime.datetime, float]],
+                     spatial_res: Optional[float] = None, temporal_res: Optional[float] = None,
+                     add_ax_func: Optional[Callable] = None,
+                     fps: int = 10, output: AnyStr = "data_animation.mp4", **kwargs):
+        """Basis function to animate data over a specific area and time interval.
+            Args:
+              x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+              y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+              t_interval:       List of the lower and upper time either datetime.datetime or posix.
+              spatial_res:      Per default (None) the data_source resolution is used otherwise the selected one.
+              temporal_res:     Per default (None) the data_source temp resolution is used otherwise the selected one.
+              add_ax_func:      function handle what to add on top of the current visualization
+                                signature needs to be such that it takes an axis object and time as input
+                                e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
+              var_to_plot:      The variable to be plotted. If None default settings for the field is used.
+              fps:              Frames per second
+              output:           How to output the animation. Options are either saved to file or via html in jupyter/safari.
+                                Strings in {'*.mp4', '*.gif', 'safari', 'jupyter'}
+              **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
+        """
+
+        # Step 1: get the data_subset for plotting
+        xarray = self.get_data_over_area(
+            x_interval=x_interval, y_interval=y_interval,
+            t_interval=t_interval, spatial_resolution=spatial_res, temporal_resolution=temporal_res)
+
+        # Calculate min and max over the full tempo-spatial array
+        if self.source_config_dict['field'] == 'OceanCurrents':
+            # get rounded up vmax across the whole dataset (with ` decimals)
+            xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+            vmax = round(xarray['magnitude'].max().item() + 0.049, 1)
+            vmin = 0
+        else:
+            vmax = units.round_to_sig_digits(xarray[list(xarray.keys())[0]].max().item(), sig_digit=2)
+            vmin = units.round_to_sig_digits(xarray[list(xarray.keys())[0]].min().item(), sig_digit=2)
+
+        # create global figure object where the animation happens
+        if 'figsize' in kwargs:
+            fig = plt.figure(figsize=kwargs['figsize'])
+        else:
+            fig = plt.figure(figsize=(12, 12))
+
+        # create a partial function with most variables already set for the animation loop to call
+        if add_ax_func is not None:
+            # define full function for rendering the frame
+            def full_plot_func(time_idx):
+                # plot underlying currents at time
+                ax = self.plot_data_from_xarray(time_idx=time_idx, xarray=xarray, vmin=vmin, vmax=vmax,
+                                                reset_plot=True, **kwargs)
+                # extract the posix time
+                posix_time = units.get_posix_time_from_np64(xarray['time'].data[time_idx])
+                # add the ax_adding_func
+                add_ax_func(ax, posix_time)
+
+            # create partial func from the full_function
+            render_frame = partial(full_plot_func)
+        else:
+            render_frame = partial(self.plot_data_from_xarray, xarray=xarray, vmin=vmin, vmax=vmax,
+                                   reset_plot=True, **kwargs)
+
+        # create animation function object (it's not yet executed)
+        ani = animation.FuncAnimation(fig, func=render_frame, frames=np.arange(xarray['time'].size), repeat=False)
+
+        # render the animation with the keyword arguments
+        self.render_animation(animation_object=ani, output=output, fps=fps)
 
 
 # Two types of data sources: analytical and xarray based ones -> need different default functions, used via mixin
@@ -138,15 +390,17 @@ class XarraySource(abc.ABC):
         self.DataArray = None  # The xarray containing the raw data (if not an analytical function)
         self.grid_dict, self.casadi_grid_dict = [None] * 2
 
-    def get_data_at_point(self, point: List[float], time: datetime.datetime) -> xr:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
         """Function to get the data at a specific point.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
-        return self.DataArray.interp(time=np.datetime64(time), lon=point[0], lat=point[1], method='linear')
+
+        return self.DataArray.interp(time=np.datetime64(spatio_temporal_point.date_time),
+                                     lon=spatio_temporal_point.lon.deg, lat=spatio_temporal_point.lat.deg,
+                                     method='linear')
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[datetime.datetime],
@@ -235,13 +489,15 @@ class AnalyticalSource(abc.ABC):
             self.spatial_boundary_buffers = np.array([0., 0.])
         else:
             self.spatial_boundary_buffers = np.array(source_config_dict['source_settings']['boundary_buffers'])
-        self.x_domain = [x + self.spatial_boundary_buffers[0] * (-1) ** i for x, i in zip(source_config_dict['source_settings']['x_domain'], [1, 2])]
-        self.y_domain = [y + self.spatial_boundary_buffers[1] * (-1) ** i for y, i in zip(source_config_dict['source_settings']['y_domain'], [1, 2])]
+        self.x_domain = [x + self.spatial_boundary_buffers[0] * (-1) ** i for x, i in
+                         zip(source_config_dict['source_settings']['x_domain'], [1, 2])]
+        self.y_domain = [y + self.spatial_boundary_buffers[1] * (-1) ** i for y, i in
+                         zip(source_config_dict['source_settings']['y_domain'], [1, 2])]
         # set the temp_domain_posix
         if isinstance(source_config_dict['source_settings']['temporal_domain'][0], datetime.datetime):
             # Assume it's utc if not correct it
             self.temp_domain_posix = [t.replace(tzinfo=datetime.timezone.utc).timestamp()
-                                 for t in source_config_dict['source_settings']['temporal_domain']]
+                                      for t in source_config_dict['source_settings']['temporal_domain']]
         else:
             self.temp_domain_posix = source_config_dict['source_settings']['temporal_domain']
         # Set the default resolutions (used when none is provided in get_data_over_area)
@@ -271,25 +527,24 @@ class AnalyticalSource(abc.ABC):
             """
 
     @abc.abstractmethod
-    def get_data_at_point(self, point: List[float], time: datetime) -> xr:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
         """Function to get the data at a specific point.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
         raise NotImplementedError
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                           t_interval: List[datetime.datetime],
+                           t_interval: List[Union[datetime.datetime, float]],
                            spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix.
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
         Returns:
@@ -301,6 +556,8 @@ class AnalyticalSource(abc.ABC):
             t_interval_posix = [time.timestamp() for time in t_interval]
         else:
             t_interval_posix = t_interval
+            t_interval = [datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc) for posix in
+                          t_interval_posix]
 
         # Get the coordinate vectors to calculate the analytical function over
         grids_dict = self.get_grid_dict(x_interval, y_interval, t_interval_posix,
@@ -344,7 +601,8 @@ class AnalyticalSource(abc.ABC):
                           min(y_interval[1], self.y_domain[1])]
 
         return {"y_range": y_interval, "x_range": x_interval,
-                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval]}
+                "t_range": [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in t_interval],
+                "temporal_res": self.temporal_resolution, "spatial_res": self.spatial_resolution}
 
     def get_grid_dict(self, x_interval: Optional[List[float]] = None, y_interval: Optional[List[float]] = None,
                       t_interval: Optional[List[float]] = None,
@@ -361,23 +619,26 @@ class AnalyticalSource(abc.ABC):
 
         # Step 2: Get the grids with the respective resolutions
         # Step 2.1 Spatial coordinate vectors with desired resolution
-        lo_hi_vec = [[lon, lat] for lon, lat in zip(ranges_dict['x_range'], ranges_dict['y_range'])]
         # The + spatial_resolution is a hacky way to include the endpoint. We want a regular grid hence the floor to two decimals.
-        spatial_vectors = [np.arange(start=np.floor(l*100)/100, stop=h + spatial_resolution, step=spatial_resolution) for l, h in
-                              zip(lo_hi_vec[0], lo_hi_vec[1])]
-        # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
-        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution)*100)/100, stop=t_interval[1] + temporal_resolution, step=temporal_resolution)
+        x_vector = np.arange(start=np.floor(ranges_dict['x_range'][0] * 100) / 100,
+                             stop=ranges_dict['x_range'][1] + 1.1 * spatial_resolution, step=spatial_resolution)
+        y_vector = np.arange(start=np.floor(ranges_dict['y_range'][0] * 100) / 100,
+                             stop=ranges_dict['y_range'][1] + 1.1 * spatial_resolution, step=spatial_resolution)
 
-        return {'x_grid': spatial_vectors[0],
-                'y_grid': spatial_vectors[1],
+        # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
+        t_grid = np.arange(start=np.floor((t_interval[0] - temporal_resolution) * 100) / 100,
+                           stop=t_interval[1] + 1.1 * temporal_resolution, step=temporal_resolution)
+
+        return {'x_grid': x_vector,
+                'y_grid': y_vector,
                 't_grid': t_grid}
 
     def is_boundary(self, lon: Union[float, np.array], lat: Union[float, np.array],
                     posix_time: Union[float, np.array]) -> Union[float, np.array]:
         """Helper function to check if a state is in the boundary specified in hj as obstacle."""
         x_boundary = np.logical_or(lon < self.x_domain[0] + self.spatial_boundary_buffers[0],
-                                    lon > self.x_domain[1] - self.spatial_boundary_buffers[0])
+                                   lon > self.x_domain[1] - self.spatial_boundary_buffers[0])
         y_boundary = np.logical_or(lat < self.y_domain[0] + self.spatial_boundary_buffers[1],
-                                    lat > self.y_domain[1] - self.spatial_boundary_buffers[1])
+                                   lat > self.y_domain[1] - self.spatial_boundary_buffers[1])
 
         return np.logical_or(x_boundary, y_boundary)
