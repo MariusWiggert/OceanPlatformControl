@@ -23,4 +23,4 @@ class OceanCurrentVector(NamedTuple):
         return OceanCurrentVector(self.u - other.u, self.v - other.v)
 
     def __str__(self) -> str:
-        return f'({self.u}, {self.v})'
+        return f'({self.u:.4}, {self.v:.4})'

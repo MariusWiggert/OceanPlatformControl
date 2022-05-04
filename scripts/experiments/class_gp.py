@@ -21,11 +21,11 @@ from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import Ocean
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Distance
 
-_LATITUDE_SCALING = 110574 # [m]
-_LONGITUDE_SCALING = 111321 # [m]
-_TIME_SCALING = 34560  # [seconds] #TODO(Killian): CHECK WHY THIS VALUE!!!
+_LATITUDE_SCALING = 1 # [m]
+_LONGITUDE_SCALING = 1 # [m]
+_TIME_SCALING = 50  # [seconds]
 
-_SIGMA_EXP_SQUARED = 1#3.6 ** 2
+_SIGMA_EXP_SQUARED = 3.6 ** 2
 _SIGMA_NOISE_SQUARED = 0.05
 
 
@@ -57,9 +57,10 @@ class OceanCurrentGP(object):
         # This rescales the inputs (or equivalently, the distance) by the given
         # scaling factors.
         length_scale = np.array([
-            _LONGITUDE_SCALING, _LATITUDE_SCALING, _TIME_SCALING])
+            _LATITUDE_SCALING, _LONGITUDE_SCALING, _TIME_SCALING])
         self.kernel = _SIGMA_EXP_SQUARED * gaussian_process.kernels.Matern(
-            length_scale=length_scale, length_scale_bounds='fixed', nu=0.5)
+            length_scale=length_scale,
+            length_scale_bounds='fixed', nu=0.5)
 
         self.model = gaussian_process.GaussianProcessRegressor(
             kernel=self.kernel,  # Matern kernel.
@@ -84,19 +85,19 @@ class OceanCurrentGP(object):
 
     def observe(self, x: float, y: float,
                 time: dt.datetime,
-                measurement: OceanCurrentSource.OceanCurrentVector) -> None:
+                error: OceanCurrentSource.OceanCurrentVector) -> None:
         """Adds the given measurement to the Gaussian Process.
     Args:
-      x: longitude coordinate
-      y: latitude coordinate
+      x: latitude coordinate
+      y: longitude coordinate
       time: datetime of the measurement.
-      measurement: The ocean current measured at the location.
+      error: The ocean current error at the location.
     """
         location = np.array([x, y, time])
         x,y = Distance(deg=x), Distance(deg=y)
-        forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
-        error = np.array([(measurement.u - forecast.u),
-                          (measurement.v - forecast.v)])
+        #forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
+        #error = np.array([(measurement.u - forecast.u),
+        #                  (measurement.v - forecast.v)])
         self.measurement_locations.append(location)
         self.error_values.append(error)
 
@@ -204,9 +205,10 @@ class OceanCurrentGP(object):
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
+            #print("values fitted:", len(inputs), inputs, targets)
 
-    def query_locations(self, locations) -> Tuple[np.ndarray, np.ndarray]:
-        #Convert to timestamp the date
+    def query_locations(self, locations: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # Convert the date to a timestamp
         locations[:, -1] = np.array(list(map(lambda x: x.timestamp(), locations[:, -1])))
         means, deviations = self.model.predict(locations, return_std=True)
         # reshape the predictions
