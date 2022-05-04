@@ -5,7 +5,7 @@ import gym
 from gym import spaces
 from gym.utils.seeding import RandomNumberGenerator
 
-from ocean_navigation_simulator.env.problem_factory import ProblemFactory
+from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.env.simulator_data import SimulatorAction, SimulatorObservation
 
 

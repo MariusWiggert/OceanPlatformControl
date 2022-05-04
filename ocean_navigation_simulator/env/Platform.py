@@ -23,7 +23,7 @@ from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 
 
-@dataclasses.dataclass
+@dataclass
 class PlatformAction:
     """
     magntiude -> float, % of max
