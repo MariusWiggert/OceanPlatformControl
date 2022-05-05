@@ -1,12 +1,15 @@
 import datetime
+from typing import List, Tuple
 
 import matplotlib
 import numpy as np
 import time
 import math
 import xarray as xr
+from DateTime import DateTime
 from matplotlib import pyplot as plt, cm
 import matplotlib.cm as cmx
+from matplotlib.widgets import Slider
 
 from ocean_navigation_simulator.env.Arena import Arena, ArenaObservation
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
@@ -35,14 +38,38 @@ _MAX_STEPS_PREDICTION = 5000
 EVAL_ONLY_AROUND_PLATFORM = False
 IGNORE_WARNINGS = False
 
+WAIT_KEYBOARD_INPUT_FOR_PLOT = False
+INTERVAL_PAUSE_PLOTS = 5
 
-def plot3d(data: xr.DataArray, past_predictions, stride=1, other_plots=None):
+
+def plot3d(data: List[Tuple[DateTime,dict[str,any]]], past_predictions, stride=1):
+    def update_line(idx):
+        # Plot the wirefram of the GP
+        ax.clear()
+        time, dic = data[idx]
+        ax.plot_wireframe(**dic)
+        ax.set_title(f"Error prediction\nCurrent time:{np.datetime_as_string(data[0][0], unit='s')}\n Prediction time:{np.datetime_as_string(time, unit='s')}")
+        plt.draw()
+
+        # Plot the trajectory of the boat:
+        MAP = 'winter'
+        cm = plt.get_cmap(MAP)
+        cs = past_predictions[::stride, 2]
+        cNorm = matplotlib.colors.Normalize(vmin=min(cs), vmax=max(cs))
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+        ax.plot(past_predictions[::stride, 0], past_predictions[::stride, 1], past_predictions[::stride, 3], c='black')
+        ax.scatter(past_predictions[::stride, 0], past_predictions[::stride, 1], past_predictions[::stride, 3],
+                   marker=".",
+                   c=scalarMap.to_rgba(cs))
+
+
     plt.figure()
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(projection='3d')
-    ax.plot_wireframe(*np.meshgrid(data["lat"], data["lon"]), data.sel({'u_v': "u"}).to_numpy())
-    for plot in other_plots:
-        ax.plot_wireframe(**plot)
+    #ax.plot_wireframe(*np.meshgrid(data["lat"], data["lon"]), data.sel({'u_v': "u"}).to_numpy())
+    update_line(0)
+    # for plot in other_plots:
+    #     ax.plot_wireframe(**plot)
     ax.set_xlabel("lat")
     ax.set_ylabel("lon")
     ax.set_zlabel("error")
@@ -52,19 +79,21 @@ def plot3d(data: xr.DataArray, past_predictions, stride=1, other_plots=None):
     #z = np.linspace(data.sel(u_v="u").min(), data.sel(u_v="u").max(), 2)
     #ax.plot([lon.deg] * 2, [lat.deg] * 2, z, 'go--', linewidth=2, markersize=12)
 
-    MAP = 'winter'
-    cm = plt.get_cmap(MAP)
-    cs = past_predictions[::stride, 2]
-    cNorm = matplotlib.colors.Normalize(vmin=min(cs), vmax=max(cs))
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
-    ax.plot(past_predictions[::stride, 0], past_predictions[::stride, 1], past_predictions[::stride, 3],c='black')
-    ax.scatter(past_predictions[::stride, 0], past_predictions[::stride, 1], past_predictions[::stride, 3], marker=".",
-            c=scalarMap.to_rgba(cs))
 
+    # Plot the Slider
+    plt.subplots_adjust(bottom=.25)
+    ax_slider = plt.axes([.1, .1, .8, .05], facecolor='teal')
+    slider = Slider(ax_slider, "Time", valmin=0, valmax=len(data)-1, valinit=0, valstep=1)
+    slider.on_changed(update_line)
 
     print("show plot")
     plt.show()
-    plt.pause(10)
+    if WAIT_KEYBOARD_INPUT_FOR_PLOT:
+        keyboard_click = False
+        while not keyboard_click:
+            keyboard_click = plt.waitforbuttonpress()
+    else:
+        plt.pause(INTERVAL_PAUSE_PLOTS)
 
 
 def get_error(forecast: OceanCurrentVector, true_current: OceanCurrentVector) -> OceanCurrentVector:
@@ -172,13 +201,16 @@ for i in range(min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION)):
                                                end_region=problem.end_region)[:2],
                                            delta=datetime.timedelta(seconds=-20))
         #Add older plots
-        other_plots = []
-        for j in range(2):
-            x, y, z = *np.meshgrid(mean.isel(time=j)["lat"], mean.isel(time=j)["lon"]), mean.isel(time=j).sel({'u_v': "u"}).to_numpy()
-            other_plots.append({"X": x,"Y": y, "Z": z, "colors": "rgy"[j], "alpha": .25})
+        predictions_per_time = []
 
-        #Initial plot
-        plot3d(forecasts_error.isel(time=0), np.array(past_pred), other_plots=other_plots)
+        for j in range(5):
+            elem = mean.isel(time=j)
+            x, y, z = *np.meshgrid(elem["lat"], elem["lon"]), elem.sel({'u_v': "u"}).to_numpy()
+            time = elem["time"].to_numpy()
+            print("time:",time)
+            predictions_per_time.append((time,{"X": x, "Y": y, "Z": z}))#, "colors": "rgy"[j], "alpha": .25})
+
+        plot3d(predictions_per_time, np.array(past_pred))
     if error == OceanCurrentVector(u=0, v=0):
         means_no_noise.append(forecasts_error)
         stds_no_noise.append(forecast_std)
