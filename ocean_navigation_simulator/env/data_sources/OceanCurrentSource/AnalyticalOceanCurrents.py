@@ -8,6 +8,7 @@ from functools import partial
 import xarray as xr
 import jax
 from ocean_navigation_simulator import utils
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, AnalyticalSource
@@ -84,16 +85,19 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
 
         return (u_data, v_data)
 
-    def get_data_at_point(self, point: List[float], time: datetime) -> xr:
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
         """Function to get the data at a specific point.
         Args:
-          point: Point in the respective used coordinate system e.g. [lon, lat] for geospherical or unitless for examples
-          time: absolute datetime object
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
         Returns:
           xr object that is then processed by the respective data source for its purpose
           """
-        return OceanCurrentVector(u=self.u_current_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp()),
-                                  v=self.v_current_analytical(lon=point[0], lat=point[1], posix_time=time.timestamp()))
+        return OceanCurrentVector(u=self.u_current_analytical(lon=spatio_temporal_point.lon.deg,
+                                                              lat=spatio_temporal_point.lat.deg,
+                                                              posix_time=spatio_temporal_point.date_time.timestamp()),
+                                  v=self.v_current_analytical(lon=spatio_temporal_point.lon.deg,
+                                                              lat=spatio_temporal_point.lat.deg,
+                                                              posix_time=spatio_temporal_point.date_time.timestamp()))
 
 
 ### Actual implemented analytical Sources ###
@@ -207,4 +211,7 @@ class FixedCurrentHighwayField(OceanCurrentSourceAnalytical):
             Returns:
                 v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
             """
-        return 0.
+        if type(lon) == np.ndarray:
+            return np.zeros(lon.shape)
+        else:
+            return 0.

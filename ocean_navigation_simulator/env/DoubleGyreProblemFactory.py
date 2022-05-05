@@ -37,5 +37,5 @@ class DoubleGyreProblemFactory(ProblemFactory):
         return DoubleGyreProblem(
             start_state=start_state,
             end_region=end_region,
-            radius=radius,
+            target_radius=radius,
         )

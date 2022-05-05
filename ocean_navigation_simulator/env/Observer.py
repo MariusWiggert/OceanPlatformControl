@@ -56,7 +56,6 @@ class Observer:
     '''
 
     def evaluate(self,point: SpatioTemporalPoint) -> Tuple[np.ndarray, np.ndarray]:
-        print("evaluation at:",point.to_spatial_point(),point.date_time)
         return self.model.query_locations(np.array([[point.lat.deg, point.lon.deg, point.date_time]]))
 
     def fit_and_evaluate(self, platform_state: PlatformState, x_y_intervals=None, delta=datetime.timedelta(seconds=0)) -> Tuple[xr.DataArray, xr.DataArray]:
@@ -71,9 +70,9 @@ class Observer:
         mean, std = self.model.query_locations(locations)
         reshape_dims = (*coords.shape[:-1], 2)
         mean, std = mean.reshape(reshape_dims), std.reshape(reshape_dims)
-        mean_xr = xr.DataArray(data=mean, dims=["time", "lat", "lon", "u_v"],
+        mean_xr = xr.DataArray(data=mean, dims=["time", "lon", "lat", "u_v"],
                                coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
-        std_xr = xr.DataArray(data=std, dims=["time", "lat", "lon", "u_v"],
+        std_xr = xr.DataArray(data=std, dims=["time", "lon", "lat", "u_v"],
                               coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
         return mean_xr, std_xr
 

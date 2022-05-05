@@ -31,7 +31,7 @@ class SpatialPoint:
         return math.sqrt((self.lat.deg - other.lat.deg)**2 + (self.lon.deg - other.lon.deg)**2)
 
     def __str__(self):
-        return f"({self.lon.deg:.3f}°,{self.lat.deg:.3f}°)"
+        return f"({self.lon.deg:.4f}°,{self.lat.deg:.4f}°)"
 
 @dataclasses.dataclass
 class SpatioTemporalPoint:

@@ -35,15 +35,22 @@ class ArenaObservation:
 
 class Arena:
     """A OceanPlatformArena in which an ocean platform moves through a current field."""
+    ocean_field: OceanCurrentField = None
+    solar_field: SolarIrradianceField = None
+    seaweed_field: SeaweedGrowthField = None
+    platform: Platform = None
 
     # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
     # TODO: not sure what that should be for us, decide where to put the feature constructor
     def __init__(
             self,
-            sim_cache_dict: Dict, platform_dict: Dict, ocean_dict: Dict,
+            sim_cache_dict: Dict,
+            platform_dict: Dict,
+            ocean_dict: Dict,
             use_geographic_coordinate_system: bool,
             solar_dict: Optional[Dict] = None,
-            seaweed_dict: Optional[Dict] = None  
+            seaweed_dict: Optional[Dict] = None,
+            spatial_boundary: Optional[Dict] = None,
     ):
         """OceanPlatformArena constructor.
     Args:
@@ -99,6 +106,8 @@ class Arena:
             seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
         )
 
+        self.spatial_boundary = spatial_boundary
+
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
@@ -138,6 +147,19 @@ class Arena:
             platform_state=state,
             true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
             forecast_data_source=self.ocean_field.forecast_data_source)
+
+    def is_inside_arena(self) -> bool:
+        if self.spatial_boundary is not None:
+            inside_x = self.spatial_boundary['x'][0] < \
+                       self.platform.state.lon.deg and \
+                       self.platform.state.lon.deg < self.spatial_boundary[
+                           'x'][1]
+            inside_y = self.spatial_boundary['y'][0] < \
+                       self.platform.state.lat.deg and \
+                       self.platform.state.lat.deg < self.spatial_boundary[
+                           'y'][1]
+            return inside_x and inside_y
+        return True
 
     def plot_control_trajectory_on_map(
         self,

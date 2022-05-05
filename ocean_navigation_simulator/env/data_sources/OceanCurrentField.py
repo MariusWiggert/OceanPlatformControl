@@ -12,8 +12,11 @@ from geopy.point import Point as GeoPoint
 class OceanCurrentField(DataField):
     """Class instantiating and holding the data sources, the forecast and hindcast current sources.
   """
+    hindcast_data_source: OceanCurrentSource = None
+    forecast_data_source: OceanCurrentSource = None
 
-    def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None):
+    def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
+                 use_geographic_coordinate_system: Optional[bool] = True):
         """Initialize the source objects from the respective settings dicts.
         Args:
           sim_cache_dict: containing the cache settings to use in the sources for caching of 3D data
@@ -26,7 +29,7 @@ class OceanCurrentField(DataField):
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
-        super().__init__(sim_cache_dict, hindcast_source_dict, forecast_source_dict)
+        super().__init__(sim_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system)
 
     @staticmethod
     def instantiate_source_from_dict(source_dict: Dict) -> OceanCurrentSource:

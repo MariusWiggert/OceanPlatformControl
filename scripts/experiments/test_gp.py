@@ -65,7 +65,6 @@ x_T = [-80, 24.2]
 
 
 #%%
-print("inputs_forecast_area:", x_interval,y_interval, t_interval)
 vec_point_forecast = current_field.get_forecast_area(x_interval, y_interval, t_interval)
 print(vec_point_forecast["water_u"].max(), vec_point_forecast["water_v"].max())
 #%% Convert the data into arrays for training and testing

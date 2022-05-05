@@ -10,6 +10,7 @@ import matplotlib.cm as cmx
 
 from ocean_navigation_simulator.env.Arena import Arena, ArenaObservation
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.env.HighwayProblemFactory import HighwayProblemFactory
 from ocean_navigation_simulator.env.Observer import Observer
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
@@ -19,6 +20,7 @@ from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.utils import units
+from ocean_navigation_simulator.env.utils.units import Distance
 from scripts.experiments.class_gp import OceanCurrentGP
 
 # %%
@@ -79,15 +81,35 @@ if IGNORE_WARNINGS:
     warnings.filterwarnings('ignore')
 # %%
 
-arena, platform_state, arena_obs, end_region = ArenaFactory.create(scenario_name='current_highway_GP')
+# arena, platform_state, arena_obs, end_region = ArenaFactory.create(scenario_name='current_highway_GP')
+# arena, platform_state, arena_obs, end_region = ArenaFactory.create(scenario_name='current_highway_GP')
 # arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='double_gyre_GP')
 # arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='gulf_of_mexico')
 
+problemFactory = HighwayProblemFactory(
+    [(SpatialPoint(Distance(meters=0),Distance(meters=0)),SpatialPoint(Distance(deg=10), Distance(deg=10)))])
+arenas = []
+problems = []
+success = []
+# while problemFactory.has_problems_remaining():
+#     problem = problemFactory.next_problem()
+#     arena = ArenaFactory.create(scenario_name="current_highway_GP")
+#     arenas.append(arena)
+#     observation = arena.reset(problem.start_state)
+#
+#     controller = NaiveToTargetController(problem=problem)
+#     is_done = False
 
-controller = NaiveToTargetController(problem=Problem(
-    start_state=platform_state,
-    end_region=end_region
-))
+problem = problemFactory.next_problem()
+arena = ArenaFactory.create(scenario_name="current_highway_GP")
+arenas.append(arena)
+# %%
+print(problem.start_state)
+arena_obs = arena.reset(problem.start_state)
+controller = NaiveToTargetController(problem=problem)
+is_done = False
+
+
 print("controller created")
 # %%
 gp = OceanCurrentGP(arena.ocean_field)
@@ -100,11 +122,13 @@ start = time.time()
 for i in range(_N_BURNIN_PTS):
     action = controller.get_action(arena_obs)
     arena_obs = arena.step(action)
-    true_current, forecast_current = arena_obs.true_current_at_state, arena_obs.forecasted_current_at_state
-    observer.observe(arena_obs.platform_state, get_error(forecast_current, true_current))
-    past_pred.append((np.concatenate((arena_obs.platform_state.to_spatio_temporal_point(), get_error(forecast_current, true_current)), axis=0)))
+    platform_state = arena_obs.platform_state
+    true_current = arena_obs.true_current_at_state
+    forecast_current = arena_obs.forecast_data_source.get_data_at_point(platform_state.to_spatio_temporal_point())
+    observer.observe(platform_state, get_error(forecast_current, true_current))
+    past_pred.append((np.concatenate((platform_state.to_spatio_temporal_point(), get_error(forecast_current, true_current)), axis=0)))
     print("Burnin step:{}/{}, position platform:{}, difference_observation:{}"
-          .format(i + 1, _N_BURNIN_PTS, arena_obs.platform_state.to_spatial_point(),
+          .format(i + 1, _N_BURNIN_PTS, (platform_state.to_spatial_point().lat.m, platform_state.to_spatial_point().lon.m),
                   get_error(forecast_current, true_current)))
 print("end of burnin time.")
 #arena.quick_plot(end_region)
@@ -117,16 +141,18 @@ i=0
 for i in range(min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION)):
     action = controller.get_action(arena_obs)
     arena_obs = arena.step(action)
-    true_current, forecast_current = arena_obs.true_current_at_state, arena_obs.forecasted_current_at_state
+    platform_state = arena_obs.platform_state
+    true_current = arena_obs.true_current_at_state
+    forecast_current = arena_obs.forecast_data_source.get_data_at_point(platform_state.to_spatio_temporal_point())
     error = get_error(forecast_current, true_current)
     print("error{}, forecast:{}, true_current:{}".format(error, forecast_current, true_current))
     # Give as input to observer: position and forecast-groundTruth
-    observer.observe(arena_obs.platform_state, error)
-    forecasts_error, forecast_std = observer.fit_and_evaluate(arena_obs.platform_state,
-                                                              x_y_intervals=arena.get_lon_lat_interval(
-                                                                  end_region=end_region))
-    past_pred.append((np.concatenate((arena_obs.platform_state.to_spatio_temporal_point(), error), axis=0)))
-    print("\n\nstep {}/{}: noise:{}, forecasted mean:{}, abs mean:{}, forecasted_std:{}"
+    observer.observe(platform_state, error)
+    forecasts_error, forecast_std = observer.fit_and_evaluate(platform_state,
+                                                              x_y_intervals=arena.get_lon_lat_time_interval(
+                                                                  end_region=problem.end_region)[:2])
+    past_pred.append((np.concatenate((platform_state.to_spatio_temporal_point(), error), axis=0)))
+    print("step {}/{}: noise:{}, forecasted mean:{}, abs mean:{}, forecasted_std:{}"
           .format(i + 1,
                   min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION),
                   error,
@@ -142,8 +168,8 @@ for i in range(min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION)):
     if i % 10 == 0:
         # Plot values at other time instances
         mean, _ = observer.fit_and_evaluate(arena_obs.platform_state,
-                                           x_y_intervals=arena.get_lon_lat_interval(
-                                               end_region=end_region),
+                                           x_y_intervals=arena.get_lon_lat_time_interval(
+                                               end_region=problem.end_region)[:2],
                                            delta=datetime.timedelta(seconds=-20))
         #Add older plots
         other_plots = []
@@ -175,7 +201,7 @@ if len(means_noise):
 # For 240 steps: without caching 0.056s > with caching: 0.037.
 # %%
 # arena.do_nice_plot(x_T=np.array([controller.problem.end_region.lon.deg, controller.problem.end_region.lat.deg]))
-arena.quick_plot(end_region=end_region)
+#arena.quick_plot(end_region=problem.end_region)
 
 # %%
 print("over")

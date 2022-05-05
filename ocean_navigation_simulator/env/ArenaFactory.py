@@ -23,4 +23,3 @@ class ArenaFactory:
             solar_dict=config['solar_dict'],
             seaweed_dict=config['seaweed_dict'],
         )
-
