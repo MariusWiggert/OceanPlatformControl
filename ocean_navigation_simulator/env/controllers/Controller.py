@@ -8,8 +8,6 @@ from ocean_navigation_simulator.env.Platform import PlatformAction
 from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.Platform import PlatformState
 
-# TODO: other methods needed?
-
 
 class Controller(abc.ABC):
     """

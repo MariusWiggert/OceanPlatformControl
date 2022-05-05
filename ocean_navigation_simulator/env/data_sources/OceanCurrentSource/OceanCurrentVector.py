@@ -1,6 +1,7 @@
 from typing import List, NamedTuple, Sequence, Optional
 import ocean_navigation_simulator.env.utils.units as units
 
+
 # OceanCurrentVector contains the following elements:
 #   u: Current magnitude along the x axis in meters per second.
 #   v: Current magnitude along the y axis in meters per second.
@@ -18,3 +19,13 @@ class OceanCurrentVector(NamedTuple):
 
     def __str__(self) -> str:
         return f'({self.u}, {self.v})'
+
+    @staticmethod
+    def from_numpy(arr):
+        """
+        Helper function to initialize a OceanCurrentVector based on numpy arraay.
+        """
+        return OceanCurrentVector(
+            u=units.Velocity(mps=arr[0]),
+            v=units.Velocity(mps=arr[1])
+        )
