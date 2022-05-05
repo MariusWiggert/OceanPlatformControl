@@ -22,4 +22,5 @@ class ArenaFactory:
             use_geographic_coordinate_system=config['use_geographic_coordinate_system'],
             solar_dict=config['solar_dict'],
             seaweed_dict=config['seaweed_dict'],
+            spatial_boundary=config['spatial_boundary']
         )

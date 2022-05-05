@@ -13,6 +13,10 @@ platform_dict:
 
 use_geographic_coordinate_system: False
 
+spatial_boundary:
+    x: [ 0, 2 ]
+    y: [ 0, 1 ]
+
 ocean_dict:
     hindcast:
         field: 'OceanCurrents'
