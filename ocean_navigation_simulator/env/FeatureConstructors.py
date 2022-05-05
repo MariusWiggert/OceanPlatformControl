@@ -17,7 +17,7 @@ def double_gyre_feature_constructor(obs: ArenaObservation, problem: DoubleGyrePr
         obs: current platform observation
 
     Returns:
-
+        numpy array containing relative lat pos, relative lon pos, elapsed time, u_curr, v_curr
     """
     target = problem.end_region
     lat_diff = target.lat.deg - obs.platform_state.lat.deg
@@ -25,4 +25,4 @@ def double_gyre_feature_constructor(obs: ArenaObservation, problem: DoubleGyrePr
     current = obs.true_current_at_state
     time_elapsed = (obs.platform_state.date_time - problem.start_state.date_time).total_seconds()
 
-    return np.array([lat_diff, lon_diff, time_elapsed, current.u, current.v], dtype=np.float32)  # TODO: convert to numpy
+    return np.array([lat_diff, lon_diff, time_elapsed, current.u, current.v], dtype=np.float32)

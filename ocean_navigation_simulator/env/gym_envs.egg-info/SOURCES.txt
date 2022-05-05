@@ -10,7 +10,6 @@ ProblemFactory.py
 RewardFunctions.py
 __init__.py
 setup.py
-utils.py
 controllers/Controller.py
 controllers/NaiveToTarget.py
 controllers/__init__.py

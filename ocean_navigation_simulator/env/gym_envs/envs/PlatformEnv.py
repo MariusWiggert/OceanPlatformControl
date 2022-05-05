@@ -1,4 +1,4 @@
-from typing import Tuple, Optional, Union, Text, Callable, TypeVar
+from typing import Tuple, Optional, Union, Text
 import numpy as np
 import gym
 # from gym.utils.seeding import RandomNumberGenerator
@@ -7,8 +7,7 @@ from DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from FeatureConstructors import double_gyre_feature_constructor
 from RewardFunctions import double_gyre_reward_function
 from ocean_navigation_simulator.env.Platform import PlatformAction
-from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
+
 
 class PlatformEnv(gym.Env):
     """
@@ -30,14 +29,12 @@ class PlatformEnv(gym.Env):
         observation: [lat, lon, time, u_curr, v_curr]
 
         Args:
-            problem_factory: yields next problem when reset() is called.
-            arena: a platform arena to wrap, if None uses default arena
             seed: PRNG seed for the environment
-            reward_fn: function that takes in some arguments and returns the rewards
-            feature_constructor: function that takes in obs and other args and featurizes obs for model
         """
-        self.action_space = gym.spaces.Box(low=np.array([0.0, 0.0]), high=np.array([1.0, 6.3]), shape=(2,)) # TODO: consider normalization to improve training
-        self.observation_space = gym.spaces.Box(low=-float("inf"), high=float("inf"), shape=(5,)) # TODO: consider changing bounds?
+        self.action_space = gym.spaces.Box(low=np.array([0.0, 0.0]), high=np.array([1.0, 6.3]),
+                                           shape=(2,))  # TODO: consider normalization to improve training
+        self.observation_space = gym.spaces.Box(low=-float("inf"), high=float("inf"),
+                                                shape=(5,))  # TODO: consider changing bounds?
 
         self.problem = None
         self.prev_state = None
@@ -51,7 +48,7 @@ class PlatformEnv(gym.Env):
 
         self.reset()
 
-    def step(self, action: PlatformAction) -> Tuple[np.ndarray, float, bool, dict]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         """
         Run one timestep of the environment's dynamics.
         Accepts an action and returns a tuple (observation, reward, done, info).
@@ -63,7 +60,13 @@ class PlatformEnv(gym.Env):
             done (bool): whether the episode has ended
             info (dict): auxiliary diagnostic information
         """
-        command = PlatformAction(magnitude=action[0], direction=action[1]) # TODO: This constructor could be in another file
+        env_steps_per_arena_steps = 100  # TODO: this could be argument to environment or in init
+
+        command = PlatformAction(magnitude=action[0], direction=action[1])
+
+        for i in range(env_steps_per_arena_steps - 1):
+            self.arena.step(command)
+
         arena_obs = self.arena.step(command)
 
         done = self.problem.is_done(arena_obs.platform_state)
@@ -78,11 +81,11 @@ class PlatformEnv(gym.Env):
         return model_obs, reward, done, {}
 
     def reset(
-        self,
-        *,
-        seed: Optional[int] = None,
-        return_info: bool = False,
-        options: Optional[dict] = None,
+            self,
+            *,
+            seed: Optional[int] = None,
+            return_info: bool = False,
+            options: Optional[dict] = None,
     ) -> Union[np.ndarray, tuple[np.ndarray, dict]]:
         """
         Resets the environment.
@@ -132,5 +135,3 @@ class PlatformEnv(gym.Env):
             None, a numpy array of rgb data, or a string (?) object, depending on the mode.
         """
         return self.problem.renderer.render(mode)
-
-

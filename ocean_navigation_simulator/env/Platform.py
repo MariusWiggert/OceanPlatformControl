@@ -125,7 +125,7 @@ class Platform:
         self.F_x_next = self.get_casadi_dynamics()
         print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
 
-    def update_dynamics(self, state: PlatformState):
+    def update_dynamics(self, state: PlatformState, verbose: bool = False):
         """Run in the step loop of arena."""
         start = time.time()
         ocean_change = (self.ocean_source is not None and self.ocean_source.check_for_casadi_dynamics_update(state))
@@ -134,9 +134,10 @@ class Platform:
             if solar_change:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
-            print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
+            if verbose:
+                print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
 
-    def get_casadi_dynamics(self):
+    def get_casadi_dynamics(self, verbose: bool = False):
         # TODO: split up in three functions with varying level of complexities: 1) lat, lon, 2) adding battery, 3) adding seaweed mass
         # Could also be done with subclassing of Platform.
         ##### Equations #####
@@ -197,5 +198,6 @@ class Platform:
             [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)],
         )
-        print(f'Set Platform Equations: {time.time() - start:.2f}s')
+        if verbose:
+            print(f'Set Platform Equations: {time.time() - start:.2f}s')
         return F_next
