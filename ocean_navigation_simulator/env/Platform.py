@@ -62,6 +62,10 @@ class Platform:
     This class holds the system state vector and equations of motion
     (simulate_step) for simulating a seaweed platform.
     """
+    ocean_source: OceanCurrentSource = None
+    solar_source: SolarIrradianceSource = None
+    seaweed_source: SeaweedGrowthSource = None
+    state: PlatformState = None
 
     def __init__(self,
                  platform_dict: Dict,
