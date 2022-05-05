@@ -29,15 +29,26 @@ class Problem(abc.ABC):
     #obstacle_regions: None = None  # TODO
     #config: Dict = {}  # TODO
 
-    # @abc.abstractmethod
-    def is_done(self) -> bool:
+    @abc.abstractmethod
+    def is_done(self, state: PlatformState) -> bool:
         """
-        Yield the next problem to be used by the Gym environment.
+        Checks whether the problem is solved. Needs to get the current
+        platform state.
+        Args:
+            state: PlatformState
         Returns:
-            Next problem as a Problem object
+            bool
         """
         pass
 
-    # @abc.abstractmethod
+    @abc.abstractmethod
     def plot(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
+        """
+        Plots a specific problem on a map using a given maplotlib axis. The
+        Idea here is that each problem might have a specific way of
+        illustration. Plotting the problem in the problem class allows to
+        have tailored illustrations.
+        Returns:
+            Matplot lib Axes
+        """
         pass

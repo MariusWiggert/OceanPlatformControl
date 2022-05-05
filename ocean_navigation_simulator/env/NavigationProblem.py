@@ -1,22 +1,25 @@
 import dataclasses
+import datetime
 import math
 from typing import Optional
 
 import matplotlib
 from matplotlib import pyplot as plt
+from numpy import Inf
 
 from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
 from ocean_navigation_simulator.env.Problem import Problem
 
 @dataclasses.dataclass
-class DoubleGyreProblem(Problem):
+class NavigationProblem(Problem):
     start_state: PlatformState
     end_region: SpatialPoint
-    radius: float
+    target_radius: float
+    timeout: datetime.datetime = None # TODO: implement timeout
 
     def is_done(self, state: PlatformState) -> bool:
         distance = state.distance(self.end_region)
-        return distance <= self.radius
+        return distance <= self.target_radius
 
     def plot(
         self,
@@ -24,6 +27,6 @@ class DoubleGyreProblem(Problem):
         color: Optional[str] = 'green',
     ) -> matplotlib.axes.Axes:
         ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors=color, marker='o', s=50, label='start')
-        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.radius, facecolor='none', edgecolor=color, label='goal'))
+        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.target_radius, facecolor='none', edgecolor=color, label='goal'))
 
         return ax
