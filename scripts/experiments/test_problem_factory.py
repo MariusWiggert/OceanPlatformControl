@@ -3,22 +3,26 @@ from tqdm import tqdm
 import time
 
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.env.CurrentHighwayProblemFactory import \
+    CurrentHighwayProblemFactory
 from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 
 
 start = time.time()
 
-factory = DoubleGyreProblemFactory()
+#factory = DoubleGyreProblemFactory()
+factory = CurrentHighwayProblemFactory()
 arenas = []
 problems = []
 success = []
 
-for j in tqdm(range(5)):
+for j in tqdm(range(50)):
     problem = factory.next_problem()
     problems.append(problem)
 
-    arena = ArenaFactory.create(scenario_name='double_gyre')
+    #arena = ArenaFactory.create(scenario_name='double_gyre')
+    arena = ArenaFactory.create(scenario_name='current_highway')
     observation = arena.reset(problem.start_state)
     arenas.append(arena)
 
@@ -30,6 +34,8 @@ for j in tqdm(range(5)):
         observation = arena.step(action)
         if problem.is_done(observation.platform_state):
             is_done = True
+            break
+        if not arena.is_inside_arena():
             break
 
     success.append(is_done)
@@ -55,6 +61,11 @@ def add_colored_trajecotry_and_problem(ax, posix_time):
             ax=ax,
             color=color,
         )
+        if not success[i]:
+            ax = arena.plot_control_trajectory_on_map(
+                ax=ax,
+                stride=20,
+            )
         ax = arena.plot_current_position_on_map(
             index=index,
             ax=ax,
@@ -69,23 +80,23 @@ def add_colored_trajecotry_and_problem(ax, posix_time):
 # Static
 ax = arenas[0].ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=0,
-    x_interval = [0,2],
-    y_interval = [0,1],
-    return_ax=True
+    x_interval = arena.spatial_boundary['x'],
+    y_interval = arena.spatial_boundary['y'],
+    return_ax=True,
 )
 add_colored_trajecotry_and_problem(ax, 0)
 ax.get_figure().show()
 
 # Animation
-arenas[0].ocean_field.hindcast_data_source.animate_data(
-    x_interval=[-0.2,2.2],
-    y_interval=[-0.1,1.1],
-    t_interval=[0,20],
-    temporal_res=0.1,
-    spatial_res=0.1,
-    output='safari',
-    add_ax_func=add_colored_trajecotry_and_problem,
-)
+# arenas[0].ocean_field.hindcast_data_source.animate_data(
+#     x_interval=[-0.2,2.2],
+#     y_interval=[-0.1,1.1],
+#     t_interval=[0,20],
+#     temporal_res=0.1,
+#     spatial_res=0.1,
+#     output='safari',
+#     add_ax_func=add_colored_trajecotry_and_problem,
+# )
 
 
 print("Total Script Time: ", time.time() - start)
