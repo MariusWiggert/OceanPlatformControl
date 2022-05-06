@@ -110,7 +110,10 @@ class Arena:
 
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
 
-    def reset(self, platform_state: PlatformState) -> ArenaObservation:
+    def reset(
+        self,
+        platform_state: PlatformState
+    ) -> ArenaObservation:
         """Resets the arena.
         Args:
             platform_state
@@ -131,7 +134,10 @@ class Arena:
                                     self.initial_state.to_spatio_temporal_point()),
                                 forecast_data_source=self.ocean_field.forecast_data_source)
 
-    def step(self, action: PlatformAction) -> ArenaObservation:
+    def step(
+        self,
+        action: PlatformAction
+    ) -> ArenaObservation:
         """Simulates the effects of choosing the given action in the system.
         Args:
             action: The action to take in the simulator.
@@ -148,7 +154,9 @@ class Arena:
             true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
             forecast_data_source=self.ocean_field.forecast_data_source)
 
-    def is_inside_arena(self) -> bool:
+    def is_inside_arena(
+        self
+    ) -> bool:
         if self.spatial_boundary is not None:
             inside_x = self.spatial_boundary['x'][0] < \
                        self.platform.state.lon.deg and \
@@ -214,7 +222,7 @@ class Arena:
         index: int,
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = 'black'
-    ):
+    ) -> matplotlib.axes.Axes:
         """
         Plots the current position at the given index on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
         Args:
@@ -230,6 +238,96 @@ class Arena:
 
         ax.scatter(self.state_trajectory[index, 0], self.state_trajectory[index, 1], c=color, marker='.', s=100, label='position')
 
+        return ax
+
+    def plot_problem_on_map(
+        self,
+        problem: Problem,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        color: Optional[str] = 'black',
+    ) -> matplotlib.axes.Axes:
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        return problem.plot(ax=ax, color=color)
+
+    def plot_all_on_map(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        background: Optional[str] = 'current',
+
+        index: Optional[int] = None,
+        current_position_color: Optional[str] = 'black',
+
+        show_state_trajectory: Optional[bool] = True,
+        state_color: Optional[str] = 'black',
+
+        show_control_trajectory: Optional[bool] = True,
+        control_color: Optional[str] = 'magenta',
+        control_stride: Optional[int] = 1,
+
+        problem: Optional[Problem] = None,
+        problem_color: Optional[str] = 'black',
+
+        margin: Optional[int] = 0,
+    ) -> matplotlib.axes.Axes:
+        x_interval, y_interval, t_interval = self.get_lon_lat_time_interval(
+            end_region=problem.end_region if problem is not None else None, margin=margin)
+
+        # Background
+        if ax is not None:
+            pass
+        elif 'current' in background:
+            ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+                time=t_interval[0] if index is None else self.state_trajectory[index, 2],
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
+        elif 'solar' in background:
+            ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
+                time=t_interval[0] if index is None else self.state_trajectory[index, 2],
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
+        elif 'seaweed' in background or 'growth' in background:
+            ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
+                time=t_interval[0] if index is None else self.state_trajectory[index, 2],
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
+        else:
+            fig, ax = plt.subplots()
+
+        # State Trajectory
+        if show_state_trajectory:
+            self.plot_state_trajectory_on_map(
+                ax=ax,
+                color=state_color,
+            )
+        # Control Trajectory
+        if show_control_trajectory:
+            self.plot_control_trajectory_on_map(
+                ax=ax,
+                color=control_color,
+                stride=control_stride,
+            )
+        # Current Position
+        if index is not None:
+            self.plot_current_position_on_map(
+                index=index,
+                ax=ax,
+                color=current_position_color,
+            )
+        # Problem
+        if problem is not None:
+            self.plot_problem_on_map(
+                problem=problem,
+                ax=ax,
+                color=problem_color,
+            )
         return ax
 
     def plot_battery_trajectory_on_timeaxis(
@@ -329,6 +427,70 @@ class Arena:
 
         return ax
 
+    def plot_control_thrust_on_timeaxis(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the control thrust/angle on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+        formatter = matplotlib.dates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        # plot
+        dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[:-1:stride, 2]]
+        ax.step(dates, self.action_trajectory[::stride, 0], where='post', label='u_power')
+
+        plt.title('Simulator Control Trajectory')
+        plt.ylabel('u_power and angle in units')
+        plt.xlabel('time')
+
+        return ax
+
+    def plot_control_angle_on_timeaxis(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the control thrust/angle on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+        formatter = matplotlib.dates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        # plot
+        dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[:-1:stride, 2]]
+        ax.step(dates, self.action_trajectory[::stride, 1], where='post', label='angle')
+
+        plt.title('Simulator Control Trajectory')
+        plt.ylabel('u_power and angle in units')
+        plt.xlabel('time')
+
+        return ax
+
     def get_lon_lat_time_interval(
             self,
             end_region: Optional[SpatialPoint] = None,
@@ -358,7 +520,10 @@ class Arena:
 
         return [lon_min - margin, lon_max + margin], [lat_min - margin, lat_max + margin], [self.state_trajectory[0, 2], self.state_trajectory[-1, 2]]
 
-    def get_index_from_posix_time(self, posix_time: float) -> int:
+    def get_index_from_posix_time(
+        self,
+        posix_time: float
+    ) -> int:
         """
         Helper function to find the closest trajectory index corresponding to a given posix time.
         Args:
