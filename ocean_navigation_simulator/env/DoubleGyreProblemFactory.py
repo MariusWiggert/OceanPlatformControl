@@ -12,30 +12,48 @@ from ocean_navigation_simulator.env.utils import units
 
 
 class DoubleGyreProblemFactory(ProblemFactory):
-    def __init__(self, seed: Optional[float] = 2021):
+    def __init__(
+        self,
+        seed: Optional[float] = 2022,
+        scenario_name: Optional[str] = 'paper'
+    ):
         self.rng = np.random.default_rng(seed)
+        self.scenario_name = scenario_name
+
+        print(f'Problem Factory initialized with seed {seed}')
 
     def next_problem(self) -> NavigationProblem:
-        length = np.sqrt(self.rng.uniform(0, 1))
-        angle = np.pi * self.rng.uniform(0, 2)
+        if self.scenario_name == 'paper':
+            length = np.sqrt(self.rng.uniform(0, 1))
+            angle = np.pi * self.rng.uniform(0, 2)
 
-        start_state = PlatformState(
-            lon=units.Distance(deg=1.5+0.25 * length * np.cos(angle)),
-            lat=units.Distance(deg=0.5+0.25 * length * np.sin(angle)),
-            date_time=dt.datetime.fromtimestamp(0, tz=dt.timezone.utc),
-        )
+            start_x = 1.5+0.25 * length * np.cos(angle)
+            start_y = 0.5+0.25 * length * np.sin(angle)
 
-        length = np.sqrt(self.rng.uniform(0, 1))
-        angle = np.pi * self.rng.uniform(0, 2)
+            length = np.sqrt(self.rng.uniform(0, 1))
+            angle = np.pi * self.rng.uniform(0, 2)
 
-        end_region = SpatialPoint(
-            lon=units.Distance(deg=0.5+0.25 * length * np.cos(angle)),
-            lat=units.Distance(deg=0.5+0.25 * length * np.sin(angle)),
-        )
-        target_radius = 1/50
+            goal_x = 0.5 + 0.25 * length * np.cos(angle)
+            goal_y = 0.5 + 0.25 * length * np.sin(angle)
+        elif self.scenario_name == 'simplified':
+            start_x = 0.5 #self.rng.uniform(0, 2)
+            start_y = 0.5 #self.rng.uniform(0, 1)
+
+            goal_x = 0.25
+            goal_y = 0.5
+        else:
+            raise NotImplementedError(f'Scenario {self.scenario_name} not implemented!')
 
         return NavigationProblem(
-            start_state=start_state,
-            end_region=end_region,
-            target_radius=target_radius,
+            start_state=PlatformState(
+                lon=units.Distance(deg=start_x),
+                lat=units.Distance(deg=start_y),
+                date_time=dt.datetime.fromtimestamp(0, tz=dt.timezone.utc),
+            ),
+            end_region=SpatialPoint(
+                lon=units.Distance(deg=goal_x),
+                lat=units.Distance(deg=goal_y),
+            ),
+            target_radius=1/50,
+            timeout=20
         )
