@@ -1,49 +1,53 @@
-from ocean_navigation_simulator.planners.hj_reachability_planners.HJPlannerBase import HJPlannerBase
 import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
-from ocean_navigation_simulator.planners.hj_reachability_planners.platform_2D_for_sim import Platform2D_for_sim #Platform2D_for_sim_with_disturbance
+from ocean_navigation_simulator.env.controllers.HjPlanners.platform_2D_for_sim import Platform2dForSim
+from ocean_navigation_simulator.env.controllers.HjPlanners.HJPlannerBase import HJPlannerBase
+from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
 import hj_reachability as hj
+import xarray as xr
+from typing import Union
 
 
 class HJReach2DPlanner(HJPlannerBase):
     """ Reachability planner for 2D (lat, lon) reachability computation."""
 
-    def get_x_from_full_state(self, x):
-        return x[:2]
+    def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
+        return jnp.array(x)[:2]
 
-    def get_dim_dynamical_system(self):
+    def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        # space coefficient is fixed for now as we run in deg/s (same as the simulator)
-        return Platform2D_for_sim(u_max=self.dyn_dict['u_max'], d_max=self.specific_settings['d_max'],
-                                  space_coeff= 1. / self.conv_m_to_deg, control_mode='min', disturbance_mode='max')
+        return Platform2dForSim(
+            u_max=self.specific_settings['platform_dict']['u_max_in_mps'], d_max=self.specific_settings['d_max'],
+            use_geographic_coordinate_system= self.specific_settings['use_geographic_coordinate_system'],
+            control_mode='min', disturbance_mode='max')
 
-    def initialize_hj_grid(self, grids_dict):
+    def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
         # initialize grid using the grids_dict x-y shape as shape
         self.grid = hj.Grid.from_grid_definition_and_initial_values(
             domain=hj.sets.Box(
-                lo=np.array([grids_dict['x_grid'][0], grids_dict['y_grid'][0]]),
-                hi=np.array([grids_dict['x_grid'][-1], grids_dict['y_grid'][-1]])),
-            shape=(len(grids_dict['x_grid']), len(grids_dict['y_grid'])))
+                lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item()]),
+                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item()])),
+            shape=(xarray['lon'].size, xarray['lat'].size))
 
-    def get_initial_values(self, direction):
+    def get_initial_values(self, direction) -> jnp.ndarray:
         if direction == "forward":
             center = self.x_t
             return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
+                                           center=self._get_non_dim_state(self.get_x_from_full_state(center)),
                                            radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
         elif direction == "backward":
-            center = self.x_T
+            center = self.problem.end_region
             return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
-                                           radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)
-        elif direction == "multi-reach-back":
-            center = self.x_T
+                                           center=self._get_non_dim_state(self.get_x_from_full_state(center)),
+                                           radii=[self.problem.target_radius, self.problem.target_radius] / self.characteristic_vec)
+        elif direction == "multi-time-reach-back":
+            center = self.problem.end_region
             signed_distance = hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self.get_non_dim_state(self.get_x_from_full_state(center.flatten())),
-                                           radii=[self.problem.x_T_radius, self.problem.x_T_radius] / self.characteristic_vec)
+                                                      center=self._get_non_dim_state(self.get_x_from_full_state(center)),
+                                                      radii=[self.problem.target_radius, self.problem.target_radius] / self.characteristic_vec)
             return np.maximum(signed_distance, np.zeros(signed_distance.shape))
         else:
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")

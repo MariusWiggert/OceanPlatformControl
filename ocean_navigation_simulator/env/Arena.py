@@ -4,7 +4,7 @@ A Ocean arena contains the logic for navigating a platform in the ocean.
 
 import dataclasses
 import datetime as dt
-from typing import Dict, Optional, Callable, List
+from typing import Dict, Optional, Callable, List, Union, Tuple
 import matplotlib.axes
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,7 +13,8 @@ from traitlets import Int
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSourceXarray, OceanCurrentSource
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import OceanCurrentSourceAnalytical
 from ocean_navigation_simulator.env.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.env.Platform import Platform, PlatformState, PlatformAction
@@ -30,7 +31,7 @@ class ArenaObservation:
     """
     platform_state: PlatformState                       # position, time, battery
     true_current_at_state: OceanCurrentVector           # measured current at platform_state
-    forecast_data_source: OceanCurrentSource            # Data Source of the forecast
+    forecast_data_source: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]            # Data Source of the forecast
 
 
 class Arena:
@@ -55,17 +56,13 @@ class Arena:
         solar_dict:
         seaweed_dict:
     """
+        # Initialize the Data Fields from the respective dictionaries
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=sim_cache_dict,
             hindcast_source_dict=ocean_dict['hindcast'],
             forecast_source_dict=ocean_dict['forecast'],
             use_geographic_coordinate_system=use_geographic_coordinate_system
         )
-        # Initialize the Data Fields from the respective dictionaries
-        self.ocean_field = OceanCurrentField(sim_cache_dict=sim_cache_dict,
-                                             hindcast_source_dict=ocean_dict['hindcast'],
-                                             forecast_source_dict=ocean_dict['forecast'],
-                                             use_geographic_coordinate_system=use_geographic_coordinate_system)
         
         if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(
@@ -111,8 +108,6 @@ class Arena:
         self.initial_state = platform_state
         self.platform.set_state(self.initial_state)
         self.platform.initialize_dynamics(self.initial_state)
-        # TODO: Shall we keep those trajectories as np arrays or log them also as objects which we can transfer back
-        # and forth to numpy arrays when we want to?
 
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
@@ -311,7 +306,7 @@ class Arena:
             self,
             end_region: Optional[SpatialPoint] = None,
             margin: Optional[float] = 0,
-    ) -> List:
+    ) -> Tuple:
         """
         Helper function to find the interval around start/trajectory/goal.
         Args:
