@@ -31,13 +31,14 @@ class Problem(abc.ABC):
 
     @abc.abstractmethod
     def is_done(self, state: PlatformState) -> bool:
-        """
-        Checks whether the problem is solved. Needs to get the current
+        """ Checks whether the problem is solved or became unsolvable. Needs to get the current
         platform state.
         Args:
             state: PlatformState
         Returns:
-            bool
+          1: problem successfully solved
+          0: problem not yet solved
+          -1: problem cannot be solved anymore (e.g. timeout)
         """
         pass
 

@@ -1,17 +1,13 @@
-import datetime
 import string
-from typing import Tuple
-
 import yaml
 
-from ocean_navigation_simulator.env.Arena import Arena, ArenaObservation
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.env.utils import units
+
+from ocean_navigation_simulator.env.Arena import Arena
 
 
 class ArenaFactory:
     @staticmethod
-    def create(scenario_name: string) -> tuple[Arena, PlatformState, ArenaObservation, SpatialPoint]:
+    def create(scenario_name: string) -> Arena:
         with open(f'ocean_navigation_simulator/env/scenarios/{scenario_name}.yaml') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
