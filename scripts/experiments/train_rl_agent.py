@@ -56,7 +56,6 @@ config = {
         "fcnet_hiddens": [64, 64],
         "fcnet_activation": "relu",
     },
-
     # Set up a separate evaluation worker set for the
     # `trainer.evaluate()` call after training (see below).
     "evaluation_num_workers": 1,

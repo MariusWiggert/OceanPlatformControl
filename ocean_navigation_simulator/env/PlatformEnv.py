@@ -1,7 +1,6 @@
 from typing import Tuple, Optional, Union, Text, Callable
 import numpy as np
 import gym
-from numpy import Inf
 
 from ocean_navigation_simulator.env.Arena import Arena
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
@@ -109,7 +108,7 @@ class PlatformEnv(gym.Env):
             seed: Optional[int] = None,
             return_info: bool = False,
             options: Optional[dict] = None,
-    ) -> Union[np.ndarray, tuple[np.ndarray, dict]]:
+    ):
         """
         Resets the environment.
         Args:

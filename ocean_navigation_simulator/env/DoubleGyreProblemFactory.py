@@ -36,8 +36,8 @@ class DoubleGyreProblemFactory(ProblemFactory):
             goal_x = 0.5 + 0.25 * length * np.cos(angle)
             goal_y = 0.5 + 0.25 * length * np.sin(angle)
         elif self.scenario_name == 'simplified':
-            start_x = 0.5 #self.rng.uniform(0, 2)
-            start_y = 0.5 #self.rng.uniform(0, 1)
+            start_x = self.rng.uniform(0, 2)
+            start_y = self.rng.uniform(0, 1)
 
             goal_x = 0.25
             goal_y = 0.5

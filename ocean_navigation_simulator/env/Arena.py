@@ -8,7 +8,7 @@ from typing import Dict, Optional, Callable, List
 import matplotlib.axes
 import numpy as np
 from matplotlib import pyplot as plt
-from traitlets import Int
+
 
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.Problem import Problem

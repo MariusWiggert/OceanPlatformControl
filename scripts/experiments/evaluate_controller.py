@@ -44,10 +44,10 @@ success = []
 # controller = NaiveToTargetController(problem=problem)
 config = pickle.load(open("ocean_navigation_simulator/models/simplified_double_gyre/config.p", "rb"))
 agent = PPOTrainer(config=config)
-agent.restore('ocean_navigation_simulator/models/simplified_double_gyre/checkpoint_000020/checkpoint-20')
+agent.restore('ocean_navigation_simulator/models/simplified_double_gyre/checkpoint_000090/checkpoint-90')
 controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=double_gyre_simple_feature_constructor)
 
-for j in tqdm(range(5)):
+for j in tqdm(range(50)):
     problem = factory.next_problem()
     problems.append(problem)
 

@@ -2,11 +2,6 @@ import abc
 import datetime
 from typing import List, NamedTuple, Sequence, Callable, Optional, Dict
 from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import numpy as np
-import warnings
-import ocean_navigation_simulator.env.utils.units as units
 
 # import gin # We don't use gin because it doesn't work well with the C3 Data Types. Hence, we use settings_dicts.
 import xarray as xr
