@@ -3,6 +3,7 @@ import dataclasses
 from typing import Dict
 
 import matplotlib.axes
+import matplotlib.pyplot as plt
 
 from ocean_navigation_simulator.env.Platform import PlatformState
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
@@ -39,5 +40,11 @@ class Problem(abc.ABC):
         pass
 
     # @abc.abstractmethod
-    def plot(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
-        pass
+    def plot_on_currents(self, ax: matplotlib.axes.Axes, data_source) -> matplotlib.axes.Axes:
+        """Helper Function to plot the problem on an existing ax."""
+        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, c='r', marker='o', s=100, label='start')
+        goal_circle = plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg),
+                                self.target_radius, color='g', fill=True, alpha=0.6, label='target')
+        ax.add_patch(goal_circle)
+        ax.legend(loc='upper right')
+        return ax

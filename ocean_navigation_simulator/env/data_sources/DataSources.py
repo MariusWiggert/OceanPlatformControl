@@ -10,6 +10,7 @@ from functools import partial
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
 import warnings
 import datetime
@@ -139,12 +140,12 @@ class DataSource(abc.ABC):
             raise ValueError("The starting time {} is not in the array.".format(t_interval[0]))
 
         # Step 2: Data partially not in the array check
-        # if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
-        #     warnings.warn(f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[-1]}, {array.coords['lat'].data[0]}], requested: [{y_interval[0]}, {y_interval[1]}]).", RuntimeWarning)
-        # if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
-        #     warnings.warn(f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[-1]}, {array.coords['lon'].data[0]}], requested: [{x_interval[0]}, {x_interval[1]}]).", RuntimeWarning)
-        # if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
-        #     warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
+        if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
+            warnings.warn(f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}]).", RuntimeWarning)
+        if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
+            warnings.warn(f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).", RuntimeWarning)
+        if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
+            warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
@@ -337,7 +338,7 @@ class DataSource(abc.ABC):
               **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
         """
 
-        # Step 1: get the data_subset for plotting
+        # Step 1: get the data_subset for animation
         xarray = self.get_data_over_area(
             x_interval=x_interval, y_interval=y_interval,
             t_interval=t_interval, spatial_resolution=spatial_res, temporal_resolution=temporal_res)
@@ -382,6 +383,16 @@ class DataSource(abc.ABC):
         # render the animation with the keyword arguments
         self.render_animation(animation_object=ani, output=output, fps=fps)
 
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+        """Helper function to check update the self.OceanCurrent if a new forecast is available at
+        the specified input time.
+        Args:
+          time: datetime object
+        Output:
+           an integer representing the last file index on which it has planned
+        """
+        return 0
+
 
 # Two types of data sources: analytical and xarray based ones -> need different default functions, used via mixin
 class XarraySource(abc.ABC):
@@ -403,28 +414,31 @@ class XarraySource(abc.ABC):
                                      method='linear')
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                           t_interval: List[datetime.datetime],
+                           t_interval: List[Union[datetime.datetime, int]],
                            spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix float
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
+        # format to datetime object
+        if not isinstance(t_interval[0], datetime.datetime):
+            t_interval = [datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc) for time in t_interval]
         # Step 1: Subset the xarray accordingly
         # Step 1.1 include buffers around of the grid granularity (assuming regular grid axis)
         dt = self.DataArray['time'][1] - self.DataArray['time'][0]
         t_interval_extended = [np.datetime64(t_interval[0].replace(tzinfo=None)) - dt,
                                np.datetime64(t_interval[1].replace(tzinfo=None)) + dt]
         dlon = self.DataArray['lon'][1] - self.DataArray['lon'][0]
-        x_interval_extended = [x_interval[0] - dlon, x_interval[1] + dlon]
+        x_interval_extended = [x_interval[0] - 1.5*dlon.item(), x_interval[1] + 1.5*dlon.item()]
         dlat = self.DataArray['lat'][1] - self.DataArray['lat'][0]
-        y_interval_extended = [y_interval[0] - dlat, y_interval[1] + dlat]
+        y_interval_extended = [y_interval[0] - 1.5*dlat.item(), y_interval[1] + 1.5*dlat.item()]
         subset = self.DataArray.sel(
             time=slice(t_interval_extended[0], t_interval_extended[1]),
             lon=slice(x_interval_extended[0], x_interval_extended[1]),
