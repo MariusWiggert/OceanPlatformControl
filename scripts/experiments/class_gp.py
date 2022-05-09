@@ -13,16 +13,13 @@ from typing import Tuple
 
 import numpy as np
 from sklearn import gaussian_process
-from typing import List
 
-from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Distance
 
-_LATITUDE_SCALING = 1 # [m]
-_LONGITUDE_SCALING = 1 # [m]
+_LATITUDE_SCALING = 1  # [m]
+_LONGITUDE_SCALING = 1  # [m]
 _TIME_SCALING = 50  # [seconds]
 
 _SIGMA_EXP_SQUARED = 3.6 ** 2
@@ -94,9 +91,9 @@ class OceanCurrentGP(object):
       error: The ocean current error at the location.
     """
         location = np.array([x, y, time])
-        x,y = Distance(deg=x), Distance(deg=y)
-        #forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
-        #error = np.array([(measurement.u - forecast.u),
+        x, y = Distance(deg=x), Distance(deg=y)
+        # forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
+        # error = np.array([(measurement.u - forecast.u),
         #                  (measurement.v - forecast.v)])
         self.measurement_locations.append(location)
         self.error_values.append(error)
@@ -157,10 +154,10 @@ class OceanCurrentGP(object):
                             list(map(lambda x: x.total_seconds(), inputs[:, -1] - np.array(current_time)))
                         ) < self.time_horizon
                 )
-                print("fresh_observations:",np.sum(fresh_observations))
+                print("fresh_observations:", np.sum(fresh_observations))
                 inputs = inputs[fresh_observations]
                 targets = targets[fresh_observations]
-            #Use a timestamp instead of datetime format
+            # Use a timestamp instead of datetime format
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             copy_loc = np.array(locations)
             copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
@@ -205,7 +202,6 @@ class OceanCurrentGP(object):
             inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
-            #print("values fitted:", len(inputs), inputs, targets)
 
     def query_locations(self, locations: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         # Convert the date to a timestamp
@@ -238,8 +234,8 @@ class OceanCurrentGP(object):
         # In our case we don't have any third dimension like with the pressure
         # TODO(Killian): verify it is working
         # Should not be necessary as no pressure dimension
-            # assert (locations[1:, [0,1,2]] == locations[0,[0,1,2]]).all() -> Means has
-        #loc_date = dt.datetime.fromtimestamp(locations[0, 2])
+        # assert (locations[1:, [0,1,2]] == locations[0,[0,1,2]]).all() -> Means has
+        # loc_date = dt.datetime.fromtimestamp(locations[0, 2])
         forecast = self.ocean_current_forecast.get_forecast(locations[0, 0:2], locations[0, 2])
         means[0, 0] += forecast[0]
         means[0, 1] += forecast[1]

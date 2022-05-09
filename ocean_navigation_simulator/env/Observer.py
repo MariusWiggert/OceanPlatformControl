@@ -1,12 +1,12 @@
 import datetime
-from typing import List, Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 from ocean_navigation_simulator.env.Arena import Arena
-from ocean_navigation_simulator.env.PlatformState import SpatialPoint, PlatformState, SpatioTemporalPoint
+from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Distance
@@ -33,10 +33,10 @@ class Observer:
         return fn(*x_y_intervals, [platform_state.date_time + datetime.timedelta(seconds=self.temporal_resolution),
                                    platform_state.date_time + _T_HORIZON])
 
-    def __get_forecasts_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
-        return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)
+    # def __get_forecasts_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
+    #     return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)
 
-    def __get_ground_truth_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
+    def get_ground_truth_around_platform(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
         return self.__get_area(platform_state, False, x_y_intervals=x_y_intervals)
 
     # Probably useless
@@ -55,15 +55,13 @@ class Observer:
             )
     '''
 
-    def evaluate(self,point: SpatioTemporalPoint) -> Tuple[np.ndarray, np.ndarray]:
-        return self.model.query_locations(np.array([[point.lat.deg, point.lon.deg, point.date_time]]))
+    def get_forecast_around_platform(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
+        return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)
 
-    def fit_and_evaluate(self, platform_state: PlatformState, x_y_intervals=None, delta=datetime.timedelta(seconds=0)) -> Tuple[xr.DataArray, xr.DataArray]:
-        # 1) Fit the model
-        self.model.fitting_GP()
-
-        # 2) Query the whole grid around the platform
-        area = self.__get_forecasts_area(platform_state, x_y_intervals=x_y_intervals)
+    def evaluate(self, platform_state: PlatformState, x_y_interval: Optional[np.ndarray] = None,
+                 delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[np.ndarray, np.ndarray]:
+        # 2) Query the whole grid around the platform if x_y_interval given
+        area = self.get_forecast_around_platform(platform_state, x_y_intervals=x_y_interval)
         coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).T
         locations = coords.reshape((-1, 3))
         locations[:, 2] = pd.to_datetime(locations[:, 2]) + delta
@@ -75,6 +73,9 @@ class Observer:
         std_xr = xr.DataArray(data=std, dims=["time", "lon", "lat", "u_v"],
                               coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
         return mean_xr, std_xr
+
+    def fit(self) -> None:
+        self.model.fitting_GP()
 
     def observe(self, platform_state: PlatformState, difference_forecast_gt: OceanCurrentVector):
         self.model.observe(platform_state.lat.deg, platform_state.lon.deg, platform_state.date_time,
