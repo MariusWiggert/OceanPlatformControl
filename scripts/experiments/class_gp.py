@@ -54,7 +54,7 @@ class OceanCurrentGP(object):
         # This rescales the inputs (or equivalently, the distance) by the given
         # scaling factors.
         length_scale = np.array([
-            _LATITUDE_SCALING, _LONGITUDE_SCALING, _TIME_SCALING])
+            _LONGITUDE_SCALING, _LATITUDE_SCALING, _TIME_SCALING])
         self.kernel = _SIGMA_EXP_SQUARED * gaussian_process.kernels.Matern(
             length_scale=length_scale,
             length_scale_bounds='fixed', nu=0.5)
@@ -85,8 +85,8 @@ class OceanCurrentGP(object):
                 error: OceanCurrentSource.OceanCurrentVector) -> None:
         """Adds the given measurement to the Gaussian Process.
     Args:
-      x: latitude coordinate
-      y: longitude coordinate
+      x: longitude coordinate
+      y: latitude coordinate
       time: datetime of the measurement.
       error: The ocean current error at the location.
     """

@@ -9,13 +9,26 @@ from ocean_navigation_simulator.env.Arena import Arena
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.utils import units
-from ocean_navigation_simulator.env.utils.units import Distance
+from ocean_navigation_simulator.env.utils.units import Velocity, Distance
 from scripts.experiments.class_gp import OceanCurrentGP
 
-_DT_LAT, _DT_LONG = units.Distance(deg=0.5), units.Distance(deg=0.5)
 # TODO: Change that such that the value is a function depending on the source of the hindcast
-_LAT_DEG_PER_CELL_HINDCAST, _LONG_DEG_PER_CELL_HINDCAST = Distance(deg=0.04), Distance(deg=0.04)
-_T_HORIZON = datetime.timedelta(hours=1)
+# 3600 = 1m/s * 24 * 60 * 60 =(Avg speed)* #seconds in the horizon
+# _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
+_TIME_HORIZON_PREDICTIONS = datetime.timedelta(seconds=24)
+# _VELOCITY_FOR_AREA = Velocity(meters_per_second=1)
+_VELOCITY_FOR_AREA = Velocity(meters_per_second=units._METERS_PER_DEG_LAT_LON / 12)
+_RADIUS_AREA_AROUND_PLATFORM = _VELOCITY_FOR_AREA * _TIME_HORIZON_PREDICTIONS
+print(
+    f"dimension area around platform:{_RADIUS_AREA_AROUND_PLATFORM.m}m x {_RADIUS_AREA_AROUND_PLATFORM.m}m={_RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
+
+
+def get_intervals_position_around_platform(platform_state: PlatformState, margin: Distance = Distance(m=0)) -> Tuple[
+    np.ndarray, np.ndarray]:
+    return (np.asarray([(platform_state.lon - _RADIUS_AREA_AROUND_PLATFORM - margin).deg,
+                        (platform_state.lon + _RADIUS_AREA_AROUND_PLATFORM + margin).deg]),
+            np.asarray([(platform_state.lat - _RADIUS_AREA_AROUND_PLATFORM - margin).deg,
+                        (platform_state.lat + _RADIUS_AREA_AROUND_PLATFORM + margin).deg]))
 
 
 class Observer:
@@ -24,45 +37,33 @@ class Observer:
         self.arena = arena
         self.temporal_resolution = arena.ocean_field.forecast_data_source.temporal_resolution
 
-    def __get_area(self, platform_state: PlatformState, forecast: bool, x_y_intervals=None) -> xr:
+    def __get_area(self, platform_state: PlatformState, forecast: bool,
+                   x_y_intervals: Optional[np.ndarray] = None) -> xr:
         fn = self.arena.ocean_field.get_forecast_area if forecast else self.arena.ocean_field.get_ground_truth_area
         if x_y_intervals is None:
-            x_y_intervals = ([(platform_state.lon - _DT_LONG).deg, (platform_state.lon + _DT_LONG).deg],
-                             [(platform_state.lat - _DT_LAT).deg, (platform_state.lat + _DT_LAT).deg])
+            x_y_intervals = get_intervals_position_around_platform(platform_state)
 
         return fn(*x_y_intervals, [platform_state.date_time + datetime.timedelta(seconds=self.temporal_resolution),
-                                   platform_state.date_time + _T_HORIZON])
+                                   platform_state.date_time + _TIME_HORIZON_PREDICTIONS])
 
     # def __get_forecasts_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
     #     return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)
 
-    def get_ground_truth_around_platform(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
-        return self.__get_area(platform_state, False, x_y_intervals=x_y_intervals)
+    def get_ground_truth_around_platform(self, platform_state: PlatformState,
+                                         x_y_intervals: Optional[np.ndarray] = None) -> xr:
+        return self.__get_area(platform_state, forecast=False, x_y_intervals=x_y_intervals)
 
-    # Probably useless
-    '''
-    def __get_closest_point_platform(self, platform_state: PlatformState, only_around_platform=True):
-        lon, lat, t = platform_state.lon, platform_state.lat, platform_state.date_time
-        if only_around_platform:
-            return self.arena.ocean_field.get_ground_truth_area(
-                [(lon - _LONG_DEG_PER_CELL_HINDCAST / 2).deg, (lon - _LONG_DEG_PER_CELL_HINDCAST / 2).deg],
-                [(lat - _LAT_DEG_PER_CELL_HINDCAST / 2).deg, (lat + _LAT_DEG_PER_CELL_HINDCAST / 2).deg],
-                [t - datetime.timedelta(days=1), t])
-        # we return the predictions for the whole grid (Used in simulation mode)
-        else:
-            return self.arena.ocean_field.get_ground_truth_area(
-                [self.arena.seaweed_field.forecast_data_source]
-            )
-    '''
-
-    def get_forecast_around_platform(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
-        return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)
+    def get_forecast_around_platform(self, platform_state: PlatformState,
+                                     x_y_intervals: Optional[np.ndarray] = None) -> xr:
+        return self.__get_area(platform_state, forecast=True, x_y_intervals=x_y_intervals)
 
     def evaluate(self, platform_state: PlatformState, x_y_interval: Optional[np.ndarray] = None,
                  delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[np.ndarray, np.ndarray]:
         # 2) Query the whole grid around the platform if x_y_interval given
         area = self.get_forecast_around_platform(platform_state, x_y_intervals=x_y_interval)
-        coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).T
+        coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).transpose((3, 1, 2, 0))
+        # Meshgrid shape before tranpose: 3,lon,lat,time
+        # Coords shape = time, lon, lat, 3=(#number dims meshgrid)
         locations = coords.reshape((-1, 3))
         locations[:, 2] = pd.to_datetime(locations[:, 2]) + delta
         mean, std = self.model.query_locations(locations)
@@ -77,6 +78,6 @@ class Observer:
     def fit(self) -> None:
         self.model.fitting_GP()
 
-    def observe(self, platform_state: PlatformState, difference_forecast_gt: OceanCurrentVector):
-        self.model.observe(platform_state.lat.deg, platform_state.lon.deg, platform_state.date_time,
+    def observe(self, platform_state: PlatformState, difference_forecast_gt: OceanCurrentVector) -> None:
+        self.model.observe(platform_state.lon.deg, platform_state.lat.deg, platform_state.date_time,
                            difference_forecast_gt)

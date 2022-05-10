@@ -1,10 +1,11 @@
 import dataclasses
 import datetime
 import math
+from typing import List
+
+import numpy as np
 
 from ocean_navigation_simulator.env.utils import units
-from typing import List
-import numpy as np
 
 
 @dataclasses.dataclass
@@ -28,10 +29,11 @@ class SpatialPoint:
         return self.__array__()[item]
 
     def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg)**2 + (self.lon.deg - other.lon.deg)**2)
+        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
 
     def __str__(self):
-        return f"({self.lon.deg:.4f}°,{self.lat.deg:.4f}°)"
+        return f"({self.lon.deg:5f}°,{self.lat.deg:.5f}°)"
+
 
 @dataclasses.dataclass
 class SpatioTemporalPoint:
@@ -83,7 +85,8 @@ class PlatformState:
     seaweed_mass: units.Mass = units.Mass(kg=100)
 
     def __array__(self):
-        return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp(), self.battery_charge.joule, self.seaweed_mass.kg])
+        return np.array(
+            [self.lon.deg, self.lat.deg, self.date_time.timestamp(), self.battery_charge.joule, self.seaweed_mass.kg])
 
     def __len__(self):
         return self.__array__().shape[0]
@@ -126,4 +129,4 @@ class PlatformState:
         )
 
     def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg)**2 + (self.lon.deg - other.lon.deg)**2)
+        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
