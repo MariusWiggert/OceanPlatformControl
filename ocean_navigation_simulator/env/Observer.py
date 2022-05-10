@@ -17,14 +17,15 @@ from scripts.experiments.class_gp import OceanCurrentGP
 # _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
 _TIME_HORIZON_PREDICTIONS = datetime.timedelta(seconds=24)
 # _VELOCITY_FOR_AREA = Velocity(meters_per_second=1)
-_VELOCITY_FOR_AREA = Velocity(meters_per_second=units._METERS_PER_DEG_LAT_LON / 12)
+_VELOCITY_FOR_AREA = Velocity(meters_per_second=units.METERS_PER_DEG_LAT_LON / 12)
 _RADIUS_AREA_AROUND_PLATFORM = _VELOCITY_FOR_AREA * _TIME_HORIZON_PREDICTIONS
 print(
-    f"dimension area around platform:{_RADIUS_AREA_AROUND_PLATFORM.m}m x {_RADIUS_AREA_AROUND_PLATFORM.m}m={_RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
+    f"dimension area around platform:{_RADIUS_AREA_AROUND_PLATFORM.m}m x {_RADIUS_AREA_AROUND_PLATFORM.m}m=" +
+    f"{_RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
 
 
-def get_intervals_position_around_platform(platform_state: PlatformState, margin: Distance = Distance(m=0)) -> Tuple[
-    np.ndarray, np.ndarray]:
+def get_intervals_position_around_platform(platform_state: PlatformState, margin: Distance = Distance(m=0)) \
+        -> Tuple[np.ndarray, np.ndarray]:
     return (np.asarray([(platform_state.lon - _RADIUS_AREA_AROUND_PLATFORM - margin).deg,
                         (platform_state.lon + _RADIUS_AREA_AROUND_PLATFORM + margin).deg]),
             np.asarray([(platform_state.lat - _RADIUS_AREA_AROUND_PLATFORM - margin).deg,
@@ -35,7 +36,6 @@ class Observer:
     def __init__(self, prediction_model: OceanCurrentGP, arena: Arena):
         self.model = prediction_model
         self.arena = arena
-        self.temporal_resolution = arena.ocean_field.forecast_data_source.temporal_resolution
 
     def __get_area(self, platform_state: PlatformState, forecast: bool,
                    x_y_intervals: Optional[np.ndarray] = None) -> xr:
@@ -43,8 +43,7 @@ class Observer:
         if x_y_intervals is None:
             x_y_intervals = get_intervals_position_around_platform(platform_state)
 
-        return fn(*x_y_intervals, [platform_state.date_time + datetime.timedelta(seconds=self.temporal_resolution),
-                                   platform_state.date_time + _TIME_HORIZON_PREDICTIONS])
+        return fn(*x_y_intervals, [platform_state.date_time, platform_state.date_time + _TIME_HORIZON_PREDICTIONS])
 
     # def __get_forecasts_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
     #     return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)
@@ -58,11 +57,11 @@ class Observer:
         return self.__get_area(platform_state, forecast=True, x_y_intervals=x_y_intervals)
 
     def evaluate(self, platform_state: PlatformState, x_y_interval: Optional[np.ndarray] = None,
-                 delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[np.ndarray, np.ndarray]:
+                 delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[xr.DataArray, xr.DataArray]:
         # 2) Query the whole grid around the platform if x_y_interval given
         area = self.get_forecast_around_platform(platform_state, x_y_intervals=x_y_interval)
         coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).transpose((3, 1, 2, 0))
-        # Meshgrid shape before tranpose: 3,lon,lat,time
+        # Meshgrid shape before transpose: 3,lon,lat,time
         # Coords shape = time, lon, lat, 3=(#number dims meshgrid)
         locations = coords.reshape((-1, 3))
         locations[:, 2] = pd.to_datetime(locations[:, 2]) + delta

@@ -1,7 +1,7 @@
 import datetime
 import math
 import time
-from typing import Tuple, Optional, Dict, Any, List
+from typing import Tuple, Optional, Dict, Any
 
 import matplotlib
 import matplotlib.cm as cmx
@@ -43,27 +43,29 @@ INTERVAL_PAUSE_PLOTS = 5
 
 
 def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, stride: int = 1,
-           x_y_intervals: Optional[Tuple[List, List]] = None):
+           x_y_intervals: Optional[Tuple[np.ndarray, np.ndarray]] = None):
     # create list to plot
     data = []
     for j in range(len(expected_errors)):
         elem = expected_errors.isel(time=j)
-        x, y, z = *np.meshgrid(elem["lon"], elem["lat"]), elem.sel({'u_v': "u"}).to_numpy()
+        x, y = np.meshgrid(elem["lon"], elem["lat"])
+        z = elem.sel({'u_v': "u"}).to_numpy()
         times = elem["time"].to_numpy()
         data.append((times, {"X": x, "Y": y, "Z": z}))  # , "colors": "rgy"[j], "alpha": .25})
 
     def update_line(idx):
-        # Plot the wirefram of the GP
+        # Plot the wireframe of the GP
         ax.clear()
-        time, dic = data[idx]
+        t, dic = data[idx]
         ax.plot_wireframe(**dic)
         ax.set_title(
-            f"Error prediction\nCurrent time:{np.datetime_as_string(data[0][0], unit='s')}\n Prediction time:{np.datetime_as_string(time, unit='s')}")
+            f"Error prediction\nCurrent time:{np.datetime_as_string(data[0][0], unit='s')}\n" +
+            f"Prediction time:{np.datetime_as_string(t, unit='s')}")
         plt.draw()
 
         # Plot the trajectory of the boat:
-        map = 'winter'
-        cm = plt.get_cmap(map)
+        map_color = 'winter'
+        cm = plt.get_cmap(map_color)
         cs = platform_old_positions[::stride, 2]
         c_norm = matplotlib.colors.Normalize(vmin=min(cs), vmax=max(cs))
         scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=cm)
@@ -100,7 +102,7 @@ def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, strid
     if WAIT_KEYBOARD_INPUT_FOR_PLOT:
         keyboard_click = False
         while not keyboard_click:
-            print("wainting for keyboard input to continue")
+            print("waiting for keyboard input to continue")
             keyboard_click = plt.waitforbuttonpress()
             print("continue scenario")
     else:
@@ -124,7 +126,7 @@ def get_losses(true_currents: ndarray, predictions: ndarray, centered_around_pla
 
     # todo: MODIFY THAT
     pearsonr_correlation = pearsonr(predictions.flatten(), true_currents.flatten())
-    losses["pearson_correl"]: pearsonr_correlation
+    losses["pearson_correlation"]: pearsonr_correlation
 
     if centered_around_platform:
         # Compute the weights for weighted rmse:
@@ -209,7 +211,8 @@ def evaluate_predictions(current_platform_state: PlatformState, observer_platfor
         print("\n\n\nplatform position:", current_platform_state.to_spatial_point())
         print("positions forecasts:", forecasts["lon"], forecasts["lat"])
         print(
-            f"averages: lon{(forecasts['lon'][0] + forecasts['lon'][-1]) / 2}, lat:{(forecasts['lon'][0] + forecasts['lon'][-1]) / 2}")
+            f"averages: lon{(forecasts['lon'][0] + forecasts['lon'][-1]) / 2}," +
+            f"lat:{(forecasts['lon'][0] + forecasts['lon'][-1]) / 2}")
     forecasts_error_predicted, _ = observer.evaluate(current_platform_state, x_y_interval=area_to_evaluate)
     forecasts_error_np = forecasts_error_predicted.transpose("time", "lon", "lat", "u_v").to_numpy()
     predictions = get_prediction_currents(forecasts_np, forecasts_error_np)
@@ -279,7 +282,6 @@ for i in range(n_steps):
     if i % _N_STEPS_BETWEEN_PLOTS == 0 or i == n_steps - 1:
         # Plot values at other time instances
         mean, _ = observer.evaluate(arena_obs.platform_state, None)
-
         x_y_interval_platform = get_intervals_position_around_platform(arena_obs.platform_state,
                                                                        margin=_MARGIN_AREA_PLOT)
         plot3d(mean, np.array(trajectory_platform),
