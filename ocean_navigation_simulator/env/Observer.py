@@ -68,9 +68,9 @@ class Observer:
         mean, std = self.model.query_locations(locations)
         reshape_dims = (*coords.shape[:-1], 2)
         mean, std = mean.reshape(reshape_dims), std.reshape(reshape_dims)
-        mean_xr = xr.DataArray(data=mean, dims=["time", "lon", "lat", "u_v"],
+        mean_xr = xr.DataArray(data=mean, dims=["time", "lat", "lon", "u_v"],
                                coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
-        std_xr = xr.DataArray(data=std, dims=["time", "lon", "lat", "u_v"],
+        std_xr = xr.DataArray(data=std, dims=["time", "lat", "lon", "u_v"],
                               coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
         return mean_xr, std_xr
 

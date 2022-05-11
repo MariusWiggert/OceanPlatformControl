@@ -20,7 +20,7 @@ from ocean_navigation_simulator.env.utils.units import Distance
 
 _LATITUDE_SCALING = 1  # [m]
 _LONGITUDE_SCALING = 1  # [m]
-_TIME_SCALING = 50  # [seconds]
+_TIME_SCALING = 200  # [seconds]
 
 _SIGMA_EXP_SQUARED = 3.6 ** 2
 _SIGMA_NOISE_SQUARED = 0.05
@@ -58,6 +58,7 @@ class OceanCurrentGP(object):
         self.kernel = _SIGMA_EXP_SQUARED * gaussian_process.kernels.Matern(
             length_scale=length_scale,
             length_scale_bounds='fixed', nu=0.5)
+        # self.kernel = gaussian_process.kernels.ConstantKernel()
 
         self.model = gaussian_process.GaussianProcessRegressor(
             kernel=self.kernel,  # Matern kernel.

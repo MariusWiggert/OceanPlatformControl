@@ -20,12 +20,12 @@ ocean_dict:
     source_settings:
       name: 'FixedCurrentHighwayField'
       boundary_buffers: [ 0.2, 0.2 ]
-      x_domain: [ 0, 10 ]
-      y_domain: [ 0, 10 ]
+      x_domain: [ 0, 25 ]
+      y_domain: [ 0, 25 ]
       temporal_domain: [ 0, 1000 ]
-      spatial_resolution: .01
+      spatial_resolution: .05
       temporal_resolution: 10
-      y_range_highway: [ 2, 5 ]
+      y_range_highway: [ 2, 6 ]
       U_cur: 0.2
   forecast:
     field: 'OceanCurrents'
@@ -33,12 +33,12 @@ ocean_dict:
     source_settings:
       name: 'FixedCurrentHighwayField'
       boundary_buffers: [ 0.2, 0.2 ]
-      x_domain: [ 0, 10 ]
-      y_domain: [ 0, 10 ]
+      x_domain: [ 0, 25 ]
+      y_domain: [ 0, 25 ]
       temporal_domain: [ 0, 1000 ]
-      spatial_resolution: .01
+      spatial_resolution: .05
       temporal_resolution: 10
-      y_range_highway: [ 2, 5 ]
+      y_range_highway: [ 2, 6 ]
       U_cur: 0.6
 
 solar_dict: null
