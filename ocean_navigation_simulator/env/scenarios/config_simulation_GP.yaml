@@ -12,7 +12,7 @@ testing:
   delta_between_predictions_in_sec: 1
   duration_simulation_in_sec: 72
 
-  scenario_used: "current_highway_GP"
+  scenario_used: "gulf_of_mexico_files"#"current_highway_GP"
 
 model:
   gaussian_process:

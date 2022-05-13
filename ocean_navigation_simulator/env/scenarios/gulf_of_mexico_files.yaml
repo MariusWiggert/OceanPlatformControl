@@ -1,34 +1,34 @@
 use_geographic_coordinate_system: True
 
 sim_cache_dict:
-    deg_around_x_t: 1.5
-    time_around_x_t: 432000. # 3600 * 24 * 5
+  deg_around_x_t: 1.5
+  time_around_x_t: 432000. # 3600 * 24 * 5
 
 platform_dict:
-    battery_cap_in_wh: 400.0
-    u_max_in_mps: 0.1
-    motor_efficiency: 1.0
-    solar_panel_size: 0.5
-    solar_efficiency: 0.2
-    drag_factor: 675.0
-    dt_in_s: 600.0
+  battery_cap_in_wh: 400.0
+  u_max_in_mps: 0.1
+  motor_efficiency: 1.0
+  solar_panel_size: 0.5
+  solar_efficiency: 0.2
+  drag_factor: 675.0
+  dt_in_s: 600.0
 
 ocean_dict:
-    hindcast:
-        field: 'OceanCurrents'
-        source: 'hindcast_files'
-        source_settings:
-            'folder': "data/single_day_hindcasts/" #"data/hindcast_test/"
-    forecast: null
-#        field: 'OceanCurrents'
-#        source: 'forecast_files'
-#        source_settings:
-#            'folder': "data/forecast_test/"# "data/cop_fmrc/"
+  hindcast:
+    field: 'OceanCurrents'
+    source: 'hindcast_files'
+    source_settings:
+      'folder': "data/single_day_hindcasts/" #"data/hindcast_test/"
+  forecast:
+    field: 'OceanCurrents'
+    source: 'forecast_files'
+    source_settings:
+      'folder': "data/forecast_test/"# "data/cop_fmrc/"
 
 solar_dict:
-    hindcast: null
-    forecast: null
+  hindcast: null
+  forecast: null
 
 seaweed_dict:
-    hindcast: null
-    forecast: null
+  hindcast: null
+  forecast: null

@@ -15,14 +15,15 @@ from xarray import DataArray
 
 from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.HighwayProblemFactory import HighwayProblemFactory
 from ocean_navigation_simulator.env.Observer import Observer
-from ocean_navigation_simulator.env.PlatformState import SpatialPoint, PlatformState
+from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.controllers.Controller import Controller
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.models.GaussianProcess import OceanCurrentGP
 from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
+from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Distance
 from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_over_time
 
@@ -199,10 +200,10 @@ if IGNORE_WARNINGS:
 # arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='double_gyre_GP')
 # arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='gulf_of_mexico')
 
-problemFactory = HighwayProblemFactory(
-    [(SpatialPoint(Distance(meters=0), Distance(meters=0)), SpatialPoint(Distance(deg=10), Distance(deg=10)))])
+# problemFactory = HighwayProblemFactory(
+#    [(SpatialPoint(Distance(meters=0), Distance(meters=0)), SpatialPoint(Distance(deg=10), Distance(deg=10)))])
 arenas = []
-problems = []
+# problems = []
 success = []
 # while problemFactory.has_problems_remaining():
 #     problem = problemFactory.next_problem()
@@ -213,8 +214,13 @@ success = []
 #     controller = NaiveToTargetController(problem=problem)
 #     is_done = False
 
-problem = problemFactory.next_problem()
-arena = ArenaFactory.create(scenario_name="current_highway_GP")
+# problem = Problem(start_state=,)  # problemFactory.next_problem()
+# %% Specify Problem
+x_0 = PlatformState(lon=units.Distance(deg=-82), lat=units.Distance(deg=25),
+                    date_time=datetime.datetime(2021, 11, 22, 12, 0, tzinfo=datetime.timezone.utc))
+x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24))
+problem = Problem(start_state=x_0, end_region=x_T, target_radius=0.1)
+arena = ArenaFactory.create(scenario_name=variables["scenario_used"])
 arenas.append(arena)
 # %%
 print(problem.start_state)
@@ -331,8 +337,8 @@ for i in range(n_steps):
 print("duration: ", time.time() - start)
 l1 = plt.plot(times, r2_losses, label="r2 losses")
 # l2 = plt.plot(times, correlation_losses, label="vector correlation averages")
-l3 = plt.plot(times, np.absolute(np.array(correlation_losses) - 1),
-              label="abs(vector_correl-1) 1=strong correlation, 0=no correlation")
+l3 = plt.plot(times, correlation_losses,
+              label="vector_correl")
 plt.legend()
 
 mean, _ = observer.evaluate(arena_obs.platform_state, None)

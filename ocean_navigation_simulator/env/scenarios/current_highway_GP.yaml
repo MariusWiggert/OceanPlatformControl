@@ -13,33 +13,44 @@ platform_dict:
 
 use_geographic_coordinate_system: False
 
+#ocean_dict:
+#  hindcast:
+#    field: 'OceanCurrents'
+#    source: 'analytical'
+#    source_settings:
+#      name: 'FixedCurrentHighwayField'
+#      boundary_buffers: [ 0.2, 0.2 ]
+#      x_domain: [ 0, 25 ]
+#      y_domain: [ 0, 25 ]
+#      temporal_domain: [ 0, 1000 ]
+#      spatial_resolution: .05
+#      temporal_resolution: 10
+#      y_range_highway: [ 2, 6 ]
+#      U_cur: 0.2
+#  forecast:
+#    field: 'OceanCurrents'
+#    source: 'analytical'
+#    source_settings:
+#      name: 'FixedCurrentHighwayField'
+#      boundary_buffers: [ 0.2, 0.2 ]
+#      x_domain: [ 0, 25 ]
+#      y_domain: [ 0, 25 ]
+#      temporal_domain: [ 0, 1000 ]
+#      spatial_resolution: .05
+#      temporal_resolution: 10
+#      y_range_highway: [ 2, 6 ]
+#      U_cur: 0.6
 ocean_dict:
   hindcast:
     field: 'OceanCurrents'
-    source: 'analytical'
+    source: 'hindcast_files'
     source_settings:
-      name: 'FixedCurrentHighwayField'
-      boundary_buffers: [ 0.2, 0.2 ]
-      x_domain: [ 0, 25 ]
-      y_domain: [ 0, 25 ]
-      temporal_domain: [ 0, 1000 ]
-      spatial_resolution: .05
-      temporal_resolution: 10
-      y_range_highway: [ 2, 6 ]
-      U_cur: 0.2
+      'folder': "data/single_day_hindcasts/" #"data/hindcast_test/"
   forecast:
     field: 'OceanCurrents'
-    source: 'analytical'
+    source: 'forecast_files'
     source_settings:
-      name: 'FixedCurrentHighwayField'
-      boundary_buffers: [ 0.2, 0.2 ]
-      x_domain: [ 0, 25 ]
-      y_domain: [ 0, 25 ]
-      temporal_domain: [ 0, 1000 ]
-      spatial_resolution: .05
-      temporal_resolution: 10
-      y_range_highway: [ 2, 6 ]
-      U_cur: 0.6
+      'folder': "data/forecast_test/"# "data/cop_fmrc/"
 
 solar_dict: null
 

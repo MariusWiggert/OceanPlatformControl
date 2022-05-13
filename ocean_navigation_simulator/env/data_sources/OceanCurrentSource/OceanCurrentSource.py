@@ -1,30 +1,21 @@
-import abc
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Union, Tuple, Any, Callable
+import os
+from typing import List, AnyStr, Optional, Union, Tuple
 
-import matplotlib.pyplot
-import matplotlib.animation as animation
-from IPython.display import HTML
-from functools import partial
-from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
-import jax
+import dask.array.core
+import matplotlib.pyplot
 import matplotlib.pyplot as plt
-from jax import numpy as jnp
-import warnings
 import numpy as np
 import xarray as xr
-import dask.array.core
-import os
-import ocean_navigation_simulator.utils as utils
-from pydap.client import open_url
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
-from geopy.point import Point as GeoPoint
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from pydap.client import open_url
+
 from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -201,7 +192,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         # Step 1: Make sure we use the most recent forecast available
-        self.check_for_most_recent_fmrc_dataframe(SpatioTemporalPoint.date_time)
+        self.check_for_most_recent_fmrc_dataframe(spatio_temporal_point.date_time)
 
         return super().get_data_at_point(spatio_temporal_point)
 
