@@ -1,5 +1,5 @@
 import datetime
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -8,42 +8,43 @@ import xarray as xr
 from ocean_navigation_simulator.env.Arena import Arena
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.env.models.GaussianProcess import OceanCurrentGP
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Velocity, Distance
-from scripts.experiments.class_gp import OceanCurrentGP
-
-# TODO: Change that such that the value is a function depending on the source of the hindcast
-# 3600 = 1m/s * 24 * 60 * 60 =(Avg speed)* #seconds in the horizon
-# _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
-_TIME_HORIZON_PREDICTIONS = datetime.timedelta(seconds=24)
-# _VELOCITY_FOR_AREA = Velocity(meters_per_second=1)
-_VELOCITY_FOR_AREA = Velocity(meters_per_second=units.METERS_PER_DEG_LAT_LON / 12)
-_RADIUS_AREA_AROUND_PLATFORM = _VELOCITY_FOR_AREA * _TIME_HORIZON_PREDICTIONS
-print(
-    f"dimension area around platform:{_RADIUS_AREA_AROUND_PLATFORM.m}m x {_RADIUS_AREA_AROUND_PLATFORM.m}m=" +
-    f"{_RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
-
-
-def get_intervals_position_around_platform(platform_state: PlatformState, margin: Distance = Distance(m=0)) \
-        -> Tuple[np.ndarray, np.ndarray]:
-    return (np.asarray([(platform_state.lon - _RADIUS_AREA_AROUND_PLATFORM - margin).deg,
-                        (platform_state.lon + _RADIUS_AREA_AROUND_PLATFORM + margin).deg]),
-            np.asarray([(platform_state.lat - _RADIUS_AREA_AROUND_PLATFORM - margin).deg,
-                        (platform_state.lat + _RADIUS_AREA_AROUND_PLATFORM + margin).deg]))
 
 
 class Observer:
-    def __init__(self, prediction_model: OceanCurrentGP, arena: Arena):
+    def __init__(self, prediction_model: OceanCurrentGP, arena: Arena, config: Dict[str, Any]):
         self.model = prediction_model
         self.arena = arena
+        self.config = config
+
+        # TODO: Change that such that the value is a function depending on the source of the hindcast
+        # 3600 = 1m/s * 24 * 60 * 60 =(Avg speed)* #seconds in the horizon
+        # _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
+        self._TIME_HORIZON_PREDICTIONS = datetime.timedelta(
+            seconds=self.config["time_horizon_predictions_for_area_radius_in_sec"])
+        # _VELOCITY_FOR_AREA = Velocity(meters_per_second=1)
+        self.velocity_for_area = Velocity(meters_per_second=units.METERS_PER_DEG_LAT_LON / 12)
+        self._RADIUS_AREA_AROUND_PLATFORM = self.velocity_for_area * self._TIME_HORIZON_PREDICTIONS
+        print(
+            f"dimension area around platform:{self._RADIUS_AREA_AROUND_PLATFORM.m}m x {self._RADIUS_AREA_AROUND_PLATFORM.m}m=" +
+            f"{self._RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
+
+    def get_intervals_position_around_platform(self, platform_state: PlatformState, margin: Distance = Distance(m=0)) \
+            -> Tuple[np.ndarray, np.ndarray]:
+        return (np.asarray([(platform_state.lon - self._RADIUS_AREA_AROUND_PLATFORM - margin).deg,
+                            (platform_state.lon + self._RADIUS_AREA_AROUND_PLATFORM + margin).deg]),
+                np.asarray([(platform_state.lat - self._RADIUS_AREA_AROUND_PLATFORM - margin).deg,
+                            (platform_state.lat + self._RADIUS_AREA_AROUND_PLATFORM + margin).deg]))
 
     def __get_area(self, platform_state: PlatformState, forecast: bool,
                    x_y_intervals: Optional[np.ndarray] = None) -> xr:
         fn = self.arena.ocean_field.get_forecast_area if forecast else self.arena.ocean_field.get_ground_truth_area
         if x_y_intervals is None:
-            x_y_intervals = get_intervals_position_around_platform(platform_state)
+            x_y_intervals = self.get_intervals_position_around_platform(platform_state)
 
-        return fn(*x_y_intervals, [platform_state.date_time, platform_state.date_time + _TIME_HORIZON_PREDICTIONS])
+        return fn(*x_y_intervals, [platform_state.date_time, platform_state.date_time + self._TIME_HORIZON_PREDICTIONS])
 
     # def __get_forecasts_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
     #     return self.__get_area(platform_state, True, x_y_intervals=x_y_intervals)

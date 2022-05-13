@@ -6,42 +6,59 @@ from typing import Tuple, Optional, Dict, Any
 import matplotlib
 import matplotlib.cm as cmx
 import numpy as np
+import yaml
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 from numpy import ndarray
 from scipy.stats import pearsonr
 from xarray import DataArray
 
-from ocean_navigation_simulator.env.Arena import ArenaObservation
+from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.env.HighwayProblemFactory import HighwayProblemFactory
-from ocean_navigation_simulator.env.Observer import Observer, get_intervals_position_around_platform
+from ocean_navigation_simulator.env.Observer import Observer
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint, PlatformState
 from ocean_navigation_simulator.env.controllers.Controller import Controller
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.env.models.GaussianProcess import OceanCurrentGP
+from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
 from ocean_navigation_simulator.env.utils.units import Distance
 from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_over_time
-from scripts.experiments.class_gp import OceanCurrentGP
 
+# %%
+simulation_config = "config_simulation_GP"
+with open(f'ocean_navigation_simulator/env/scenarios/{simulation_config}.yaml') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+    variables = config["testing"]
+    plots_config = variables["plots"]
 # %%
 # _DELTA_TIME_NEW_PREDICTION = datetime.timedelta(hours=1)
 # _DURATION_SIMULATION = datetime.timedelta(days=3)
-_DELTA_TIME_NEW_PREDICTION = datetime.timedelta(seconds=1)
+_DELTA_TIME_NEW_PREDICTION = datetime.timedelta(seconds=variables["delta_between_predictions_in_sec"])
 
-_DURATION_SIMULATION = datetime.timedelta(seconds=72)
+_DURATION_SIMULATION = datetime.timedelta(seconds=variables["duration_simulation_in_sec"])
 _NUMBER_STEPS = int(math.ceil(_DURATION_SIMULATION.total_seconds() / _DELTA_TIME_NEW_PREDICTION.total_seconds()))
 # _N_DATA_PTS_MAX_USED = 100
-_N_BURNIN_PTS = 30  # 100 # Number of minimum pts we gather from a platform to use as observations
-_MAX_STEPS_PREDICTION = 5000
-_N_STEPS_BETWEEN_PLOTS = 5
-_MARGIN_AREA_PLOT = Distance(deg=.02)
-EVAL_ONLY_AROUND_PLATFORM = False
-IGNORE_WARNINGS = True
+_N_BURNIN_PTS = variables[
+    "number_burnin_steps"]  # 100 # Number of minimum pts we gather from a platform to use as observations
+_MAX_STEPS_PREDICTION = variables["maximum_steps"]
+IGNORE_WARNINGS = variables["ignore_warnings"]
 
-DISPLAY_3D_PLOTS = False
-WAIT_KEYBOARD_INPUT_FOR_PLOT = True
-INTERVAL_PAUSE_PLOTS = 5
+DISPLAY_INTERMEDIARY_3D_PLOTS = plots_config["display_intermediary_3d_plots"]
+WAIT_KEYBOARD_INPUT_FOR_PLOT = plots_config["wait_keyboard_input_to_continue"]
+DURATION_INTERACTION_WITH_PLOTS_IN_SEC = plots_config["duration_interaction_with_plots_in_sec"]
+_N_STEPS_BETWEEN_PLOTS = plots_config["num_steps_between_plots"]
+_MARGIN_AREA_PLOT = Distance(deg=plots_config["margin_for_area_to_plot_in_deg"])
+
+
+# Todo: develop an abstract class Model.
+def get_model(arena: Arena, config_file: Dict[str, Any]) -> OceanCurrentsModel:
+    print(config_file)
+    dic_model = config_file["model"]
+    if "gaussian_process" in dic_model:
+        return OceanCurrentGP(arena.ocean_field, dic_model["gaussian_process"])
+    raise NotImplementedError("Only Gaussian Process supported right now")
 
 
 def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, stride: int = 1,
@@ -107,7 +124,7 @@ def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, strid
             keyboard_click = plt.waitforbuttonpress()
             print("continue scenario")
     else:
-        plt.pause(INTERVAL_PAUSE_PLOTS)
+        plt.pause(DURATION_INTERACTION_WITH_PLOTS_IN_SEC)
 
 
 def get_error_ocean_current_vector(forecast: OceanCurrentVector,
@@ -207,8 +224,8 @@ is_done = False
 
 print("controller created")
 # %%
-gp = OceanCurrentGP(arena.ocean_field)
-observer = Observer(gp, arena)
+model = get_model(arena, config)
+observer = Observer(model, arena, config["observer"])
 trajectory_platform = []
 x_y_interval = arena.get_lon_lat_time_interval(end_region=problem.end_region)[:2]
 print("end region:", problem.end_region, " x_y_interval:", x_y_interval)
@@ -300,25 +317,30 @@ for i in range(n_steps):
 
     means.append(forecasts_error.to_numpy())
     stds.append(forecast_std.to_numpy())
-    if DISPLAY_3D_PLOTS and (i % _N_STEPS_BETWEEN_PLOTS == 0 or i == n_steps - 1):
+    if DISPLAY_INTERMEDIARY_3D_PLOTS and (i % _N_STEPS_BETWEEN_PLOTS == 0 or i == n_steps - 1):
         # Plot values at other time instances
         mean, _ = observer.evaluate(arena_obs.platform_state, None)
-        x_y_interval_platform = get_intervals_position_around_platform(arena_obs.platform_state,
-                                                                       margin=_MARGIN_AREA_PLOT)
+        x_y_interval_platform = observer.get_intervals_position_around_platform(arena_obs.platform_state,
+                                                                                margin=_MARGIN_AREA_PLOT)
         plot3d(mean, np.array(trajectory_platform),
                x_y_intervals=x_y_interval_platform)
 
-# %% Once the loop is over, we print the averages.
+# %% Once the loop is over, we print the results.
+
+
 print("duration: ", time.time() - start)
 l1 = plt.plot(times, r2_losses, label="r2 losses")
-l2 = plt.plot(times, correlation_losses, label="vector correlation averages")
+# l2 = plt.plot(times, correlation_losses, label="vector correlation averages")
+l3 = plt.plot(times, np.absolute(np.array(correlation_losses) - 1),
+              label="abs(vector_correl-1) 1=strong correlation, 0=no correlation")
 plt.legend()
 
 mean, _ = observer.evaluate(arena_obs.platform_state, None)
-x_y_interval_platform = get_intervals_position_around_platform(arena_obs.platform_state,
-                                                               margin=_MARGIN_AREA_PLOT)
+x_y_interval_platform = observer.get_intervals_position_around_platform(arena_obs.platform_state,
+                                                                        margin=_MARGIN_AREA_PLOT)
 plot3d(mean, np.array(trajectory_platform),
        x_y_intervals=x_y_interval_platform)
+
 # if len(means):
 #    print(f"average mean:{np.array(means).mean(axis=(0, 1))}, average stds:{np.array(stds).mean(axis=(0, 1))}")
 

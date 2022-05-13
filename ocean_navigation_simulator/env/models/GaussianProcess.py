@@ -9,24 +9,26 @@ source: https://github.com/google/balloon-learning-environment/blob/cdb2e582f2b0
 """
 
 import datetime as dt
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
 import numpy as np
 from sklearn import gaussian_process
+from sklearn.gaussian_process.kernels import Kernel
 
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
 from ocean_navigation_simulator.env.utils.units import Distance
 
-_LATITUDE_SCALING = 1  # [m]
-_LONGITUDE_SCALING = 1  # [m]
-_TIME_SCALING = 200  # [seconds]
+# _LATITUDE_SCALING = 1  # [m]
+# _LONGITUDE_SCALING = 1  # [m]
+# _TIME_SCALING = 20  # [seconds]
 
 _SIGMA_EXP_SQUARED = 3.6 ** 2
 _SIGMA_NOISE_SQUARED = 0.05
 
 
-class OceanCurrentGP(object):
+class OceanCurrentGP(OceanCurrentsModel):
     """Wrapper around a Gaussian Process that handles ocean currents.
   This object models deviations from the forecast ("errors") using a Gaussian
   process over the 3-dimensional space (x, y, time).
@@ -35,7 +37,7 @@ class OceanCurrentGP(object):
   the GP's confidence about that current.
   """
 
-    def __init__(self, forecast: OceanCurrentField) -> None:
+    def __init__(self, forecast: OceanCurrentField, config_file: Dict[str, Any]) -> None:
         """Constructor for the OceanCurrentGP.
     TODO(bellemare): Currently a forecast is required. This simplifies the
     code somewhat. Whether we keep this depends on a design choice: is a new
@@ -47,25 +49,47 @@ class OceanCurrentGP(object):
         self.ocean_current_forecast = None
         self.measurement_locations = None
         self.error_values = None
+        self.config_file = config_file
         # TODO: VERIFY time
         self.time_horizon = 24 * 3600  # 24 hours.
 
         # The OceanCurrentGP kernel is a Matern kernel.
         # This rescales the inputs (or equivalently, the distance) by the given
         # scaling factors.
-        length_scale = np.array([
-            _LONGITUDE_SCALING, _LATITUDE_SCALING, _TIME_SCALING])
-        self.kernel = _SIGMA_EXP_SQUARED * gaussian_process.kernels.Matern(
-            length_scale=length_scale,
-            length_scale_bounds='fixed', nu=0.5)
+        # self.kernel = _SIGMA_EXP_SQUARED * gaussian_process.kernels.Matern(
+        #     length_scale=length_scale,
+        #     length_scale_bounds='fixed', nu=0.5)
         # self.kernel = gaussian_process.kernels.ConstantKernel()
-
-        self.model = gaussian_process.GaussianProcessRegressor(
-            kernel=self.kernel,  # Matern kernel.
-            alpha=_SIGMA_NOISE_SQUARED,  # Add a term to the diagonal of the kernel.
-            optimizer=None,  # No optimization.
-        )
+        params_model = {}
+        if "kernel" in self.config_file:
+            params_model["kernel"] = self.__get_kernel(self.config_file["kernel"])
+            print(params_model["kernel"])
+        if "sigma_exp_squared" in self.config_file:
+            params_model["alpha"] = self.config_file["sigma_noise_squared"]
+        if "optimizer" in self.config_file:
+            params_model["optimizer"] = self.config_file["optimizer"]
+        self.model = gaussian_process.GaussianProcessRegressor(**params_model)
         self.reset(forecast=forecast)
+
+    def __get_kernel(self, dic_config: dict[str, Any]) -> Kernel:
+        type_kernel = str(dic_config["type"])
+        factor = self.config_file.get("sigma_exp_squared", 1)
+        params = dic_config.get("parameters", {})
+
+        if "scaling" in dic_config:
+            scales = dic_config["scaling"]
+            params["length_scale"] = np.array([
+                scales.get("longitude", 1), scales.get("latitude", 1), scales.get("time", 1)])
+        print(params)
+        if type_kernel.lower() == "rbf":
+            return factor * gaussian_process.kernels.RBF(**params)
+        if type_kernel.lower() == "matern":
+            return factor * gaussian_process.kernels.Matern(**params)
+        if type_kernel.lower() == "constantkernel":
+            factor * gaussian_process.kernels.ConstantKernel(**params)
+
+        print("No kernel specified in the yaml file.")
+        return factor * gaussian_process.kernels.ConstantKernel()
 
     def reset(self, forecast: OceanCurrentField) -> None:
         """Resets the the OceanCurrentGP, effectively erasing previous measurements.
