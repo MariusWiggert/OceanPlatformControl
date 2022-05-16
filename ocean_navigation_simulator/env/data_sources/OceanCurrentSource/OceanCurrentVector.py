@@ -1,5 +1,9 @@
-from typing import List, NamedTuple, Sequence, Optional
+from typing import NamedTuple
+
+import numpy as np
+
 import ocean_navigation_simulator.env.utils.units as units
+
 
 # OceanCurrentVector contains the following elements:
 #   u: Current magnitude along the x axis in meters per second.
@@ -21,6 +25,9 @@ class OceanCurrentVector(NamedTuple):
             raise NotImplementedError(
                 f'Cannot subtract OceanCurrentVector with {type(other)}')
         return OceanCurrentVector(self.u - other.u, self.v - other.v)
+
+    def __array__(self) -> np.ndarray:
+        return np.array([self.u, self.v]).squeeze()
 
     def __str__(self) -> str:
         return f'({self.u:.4}, {self.v:.4})'

@@ -14,24 +14,25 @@ from ocean_navigation_simulator.env.utils.units import Velocity, Distance
 
 
 class Observer:
-    def __init__(self, prediction_model: OceanCurrentGP, arena: Arena, config: Dict[str, Any]):
+    def __init__(self, prediction_model: OceanCurrentGP, arena: Arena, config: Dict[str, Any],
+                 general_config_file: Dict[str, Any] = {}):
         self.model = prediction_model
         self.arena = arena
-        self.config = config
 
         # TODO: Change that such that the value is a function depending on the source of the hindcast
         # 3600 = 1m/s * 24 * 60 * 60 =(Avg speed)* #seconds in the horizon
         # _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
         self._TIME_HORIZON_PREDICTIONS = datetime.timedelta(
-            seconds=self.config["time_horizon_predictions_for_area_radius_in_sec"])
-        # _VELOCITY_FOR_AREA = Velocity(meters_per_second=1)
-        self.velocity_for_area = Velocity(meters_per_second=units.METERS_PER_DEG_LAT_LON / 12)
+            seconds=config["time_horizon_predictions_for_area_radius_in_sec"])
+
+        self.velocity_for_area = Velocity(meters_per_second=1 if general_config_file.get("use_real_data", True) else (
+                units.METERS_PER_DEG_LAT_LON / 12))
         self._RADIUS_AREA_AROUND_PLATFORM = self.velocity_for_area * self._TIME_HORIZON_PREDICTIONS
         print(
             f"dimension area around platform:{self._RADIUS_AREA_AROUND_PLATFORM.m}m x {self._RADIUS_AREA_AROUND_PLATFORM.m}m=" +
             f"{self._RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
 
-    def get_intervals_position_around_platform(self, platform_state: PlatformState, margin: Distance = Distance(m=0)) \
+    def get_area_around_platform(self, platform_state: PlatformState, margin: Distance = Distance(m=0)) \
             -> Tuple[np.ndarray, np.ndarray]:
         return (np.asarray([(platform_state.lon - self._RADIUS_AREA_AROUND_PLATFORM - margin).deg,
                             (platform_state.lon + self._RADIUS_AREA_AROUND_PLATFORM + margin).deg]),
@@ -42,7 +43,7 @@ class Observer:
                    x_y_intervals: Optional[np.ndarray] = None) -> xr:
         fn = self.arena.ocean_field.get_forecast_area if forecast else self.arena.ocean_field.get_ground_truth_area
         if x_y_intervals is None:
-            x_y_intervals = self.get_intervals_position_around_platform(platform_state)
+            x_y_intervals = self.get_area_around_platform(platform_state)
 
         return fn(*x_y_intervals, [platform_state.date_time, platform_state.date_time + self._TIME_HORIZON_PREDICTIONS])
 
@@ -59,7 +60,7 @@ class Observer:
 
     def evaluate(self, platform_state: PlatformState, x_y_interval: Optional[np.ndarray] = None,
                  delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[xr.DataArray, xr.DataArray]:
-        # 2) Query the whole grid around the platform if x_y_interval given
+        # Query the whole grid around the platform if x_y_interval given
         area = self.get_forecast_around_platform(platform_state, x_y_intervals=x_y_interval)
         coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).transpose((3, 1, 2, 0))
         # Meshgrid shape before transpose: 3,lon,lat,time
@@ -79,5 +80,5 @@ class Observer:
         self.model.fitting_GP()
 
     def observe(self, platform_state: PlatformState, difference_forecast_gt: OceanCurrentVector) -> None:
-        self.model.observe(platform_state.lon.deg, platform_state.lat.deg, platform_state.date_time,
+        self.model.observe(platform_state.to_spatio_temporal_point(),
                            difference_forecast_gt)

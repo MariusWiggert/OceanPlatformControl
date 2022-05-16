@@ -6,6 +6,7 @@ import pandas as pd
 
 import ocean_navigation_simulator.env.data_sources.OceanCurrentField as OceanCurrentField
 # Step 1: create the specification dict
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.models.GaussianProcess import OceanCurrentGP
 from ocean_navigation_simulator.env.utils import units
@@ -121,9 +122,10 @@ print("rmse:", np.array(diff).mean())
 
 vec_point_forecast = current_field.get_forecast(point=[x.m, y.m], time=t_0)
 print('forecast: ', vec_point_forecast)
-pre_measurement = model.query(x, y, t_0)
-model.observe(x, y, t_0, ocean_current_vector)
-post_measurement = model.query(x, y, t_0)
+point = SpatioTemporalPoint(x, y, t_0)
+pre_measurement = model.query(point)
+model.observe(point, ocean_current_vector)
+post_measurement = model.query(point)
 print('results:', pre_measurement, post_measurement)
 
 ocean_field = OceanCurrentField(hindcast_source_dict=source_dict | hindcast_file_config_dict)

@@ -4,16 +4,17 @@ testing:
     display_intermediary_3d_plots: False
     duration_interaction_with_plots_in_sec: 5
     num_steps_between_plots: 5
-    margin_for_area_to_plot_in_deg: 0.02
+    margin_for_area_to_plot_in_deg: 0
 
-  use_real_data: False
+  use_real_data: True
   ignore_warnings: True
-  number_burnin_steps: 30
-  maximum_steps: 5000
-  delta_between_predictions_in_sec: 1
-  duration_simulation_in_sec: 72
+  #number_burnin_steps: 50
+  number_burnin_steps: 100
+  maximum_steps: 80
+  delta_between_predictions_in_sec: 3600
+  duration_simulation_in_sec: 360000
 
-  scenario_used: "current_highway_GP"
+  scenario_used: "gulf_of_mexico_files"
 
 model:
   gaussian_process:
@@ -24,17 +25,17 @@ model:
       #      type: "RBF"
 
       scaling:
-        latitude: 1
-        longitude: 1
-        time: 200
+        latitude: 357000 # [m]
+        longitude: 357000 # [m]
+        time: 34560 # [m]
       type: "matern"
       parameters:
         length_scale_bounds: "fixed"
       #type: "rbf"
 
     # 24*3600=86400
-    time_horizon_predictions_in_sec: 86400
+    time_horizon_predictions_in_sec: 3600
 
 observer:
-  time_horizon_predictions_for_area_radius_in_sec: 24
+  time_horizon_predictions_for_area_radius_in_sec: 86400 # 24 *3600
 

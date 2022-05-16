@@ -161,21 +161,28 @@ def calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast,
         axis=(1, 2))
 
 
-def calc_vector_corr_over_time(forecast, hindcast, sigma_diag=0):
+def calc_vector_corr_over_time(forecast, hindcast, sigma_diag=0, remove_nans: bool = False):
     # run it over a for loop
     vec_corr_over_time = []
     for time_idx in range(forecast.shape[0]):
-        vec_corr = calc_vector_correlation(forecast[time_idx, ...], hindcast[time_idx, ...], sigma_diag=sigma_diag)
+        vec_corr = calc_vector_correlation(forecast[time_idx, ...], hindcast[time_idx, ...], sigma_diag=sigma_diag,
+                                           remove_nans=remove_nans)
         vec_corr_over_time.append(vec_corr)
     # compile it to a np array
     return np.array(vec_corr_over_time)
 
 
-def calc_vector_correlation(forecast: np.ndarray, hindcast: np.ndarray, print_out: bool = False, sigma_diag: float = 0):
+def calc_vector_correlation(forecast: np.ndarray, hindcast: np.ndarray, print_out: bool = False, sigma_diag: float = 0,
+                            remove_nans: bool = False):
     # shape for forecast and hindcast: (lon, lat,2)
     # Flatten out the vectors
-    forecast_vec = forecast.reshape((2, -1))
-    hindcast_vec = hindcast.reshape((2, -1))
+    forecast_vec = np.swapaxes(forecast, -1, 0).reshape((2, -1))
+    hindcast_vec = np.swapaxes(hindcast, -1, 0).reshape((2, -1))
+    if remove_nans:
+        m = np.bitwise_or.reduce(np.logical_or(np.isnan(forecast_vec), np.isnan(hindcast_vec)), axis=0)
+        forecast_vec = forecast_vec[:, ~m]
+        hindcast_vec = hindcast_vec[:, ~m]
+
     # Step 1: calculate the correlation matrix
     full_variable_vec = np.vstack((forecast_vec, hindcast_vec))
     Covariance_matrix = np.cov(full_variable_vec)

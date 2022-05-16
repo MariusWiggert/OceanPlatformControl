@@ -8,17 +8,16 @@ as well as the model confidence's in this value.
 source: https://github.com/google/balloon-learning-environment/blob/cdb2e582f2b03c41f037bf76142d31611f5e0316/balloon_learning_environment/env/wind_gp.py
 """
 
-import datetime as dt
 from typing import Tuple, Dict, Any
 
 import numpy as np
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Kernel
 
+from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentVector
 from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
-from ocean_navigation_simulator.env.utils.units import Distance
 
 # _LATITUDE_SCALING = 1  # [m]
 # _LONGITUDE_SCALING = 1  # [m]
@@ -51,7 +50,7 @@ class OceanCurrentGP(OceanCurrentsModel):
         self.error_values = None
         self.config_file = config_file
         # TODO: VERIFY time
-        self.time_horizon = 24 * 3600  # 24 hours.
+        self.time_horizon = config_file.get("time_horizon_predictions_in_sec", 24 * 3600)  # 24 hours.
 
         # The OceanCurrentGP kernel is a Matern kernel.
         # This rescales the inputs (or equivalently, the distance) by the given
@@ -105,27 +104,25 @@ class OceanCurrentGP(OceanCurrentsModel):
         # ocean field and we may instead want the 'mean' ocean current field (pre-OC noise).
         self.ocean_current_forecast = forecast
 
-    def observe(self, x: float, y: float,
-                time: dt.datetime,
-                error: OceanCurrentSource.OceanCurrentVector) -> None:
+    # def observe(self, x: float, y: float,
+    #            time: dt.datetime,
+    #            error: OceanCurrentSource.OceanCurrentVector) -> None:
+    def observe(self, position: SpatioTemporalPoint, error: OceanCurrentVector):
         """Adds the given measurement to the Gaussian Process.
     Args:
-      x: longitude coordinate
-      y: latitude coordinate
-      time: datetime of the measurement.
+      position: Position of the observation
       error: The ocean current error at the location.
     """
-        location = np.array([x, y, time])
-        x, y = Distance(deg=x), Distance(deg=y)
         # forecast = self.ocean_current_forecast.get_forecast(SpatioTemporalPoint(lon=x, lat=y, date_time=time))
         # error = np.array([(measurement.u - forecast.u),
         #                  (measurement.v - forecast.v)])
-        self.measurement_locations.append(location)
+        self.measurement_locations.append(np.array(position))
         self.error_values.append(error)
 
-    def query(self, x: float, y: float, t_0: dt.datetime) -> Tuple[np.ndarray, np.ndarray]:
+    def query(self, position: SpatioTemporalPoint) -> Tuple[np.ndarray, np.ndarray]:
         """Returns the GP's ocean current prediction at the given location.
     Args:
+      position: The SpatioTemproalPoint to query
       x: the x query coordinate = longitude.
       y: the y query coordinate = latitude.
       t_0: the time at which to query the GP.
@@ -134,8 +131,7 @@ class OceanCurrentGP(OceanCurrentsModel):
       v: the mean ocean current direction in y.
       confidence: the GP's confidence in these values.
     """
-        query_as_array = np.array(
-            [[x, y, t_0]])
+        query_as_array = np.expand_dims(np.array(position), axis=0)
         outputs = self.query_batch(query_as_array)
         # Remove the batch dimension.
         return outputs[0][0], outputs[1][0]
@@ -183,9 +179,9 @@ class OceanCurrentGP(OceanCurrentsModel):
                 inputs = inputs[fresh_observations]
                 targets = targets[fresh_observations]
             # Use a timestamp instead of datetime format
-            inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
+            # inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             copy_loc = np.array(locations)
-            copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
+            # copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
             # Output should be a N x 2 set of predictions about local measurements,
@@ -224,7 +220,7 @@ class OceanCurrentGP(OceanCurrentsModel):
                 targets = np.vstack(self.error_values)
 
             # Use a timestamp instead of datetime format
-            inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
+            # inputs[:, -1] = np.array(list(map(lambda x: x.timestamp(), inputs[:, -1])))
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
 
