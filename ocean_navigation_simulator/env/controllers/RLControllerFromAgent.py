@@ -4,6 +4,7 @@ from collections import Callable
 import numpy as np
 from ray.rllib.agents.ppo import ppo
 
+from ocean_navigation_simulator.env.FeatureConstructors import FeatureConstructor
 from ocean_navigation_simulator.env.Problem import Problem
 from ocean_navigation_simulator.env.Arena import ArenaObservation
 from ocean_navigation_simulator.env.Platform import PlatformAction
@@ -19,7 +20,7 @@ class RLControllerFromAgent(Controller):
         self,
         problem: Problem,
         agent,
-        feature_constructor: Callable,
+        feature_constructor: FeatureConstructor,
     ):
         """
         StraightLineController constructor
@@ -39,8 +40,9 @@ class RLControllerFromAgent(Controller):
         Returns:
             SimulatorAction dataclass
         """
-        obs = self.feature_constructor(observation, self.problem)
-        action = self.agent.compute_action(obs)
+        obs = self.feature_constructor.get_features_from_state(obs=observation, problem=self.problem)
+        action = self.agent.compute_action(observation=obs, explore=False)
 
         # go towards the center of the target with full power
         return PlatformAction(magnitude=1, direction=action[0])
+

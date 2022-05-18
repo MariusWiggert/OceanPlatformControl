@@ -1,54 +1,70 @@
 #%%
 
-import matplotlib.pyplot as plt
-from ray.rllib.agents.ppo import PPOTrainer
+import numpy as np
+import pickle
 import ray.rllib.utils
+from matplotlib import pyplot as plt
+from ray.rllib.agents.ppo import PPOTrainer
+from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from tqdm import tqdm
 import time
-import pickle
+import os
+import datetime as dt
+import tensorflow as tf
 
-
-import gym
-
-from ocean_navigation_simulator.env.Arena import Arena
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.CurrentHighwayProblemFactory import \
-    CurrentHighwayProblemFactory
 from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.env.FeatureConstructors import \
-    double_gyre_simple_feature_constructor
+from ocean_navigation_simulator.env.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
 from ocean_navigation_simulator.env.PlatformEnv import PlatformEnv
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.controllers.RLControllerFromAgent import RLControllerFromAgent
+from scripts.experiments import clean_ray_results
 
-start = time.time()
+script_start_time = time.time()
 
-gym.envs.register(
-    id='DoubleGyre-v0',
-    entry_point='ocean_navigation_simulator.env.PlatformEnv:PlatformEnv',
-    kwargs={
-        'seed': 2022,
-        'env_steps_per_arena_steps': 1,
-    },
-    max_episode_steps=1000,
-)
-env = gym.make('DoubleGyre-v0')
-ray.tune.registry.register_env("DoubleGyre-v0", lambda config: PlatformEnv())
+rng = np.random.default_rng(2022)
 
-factory = DoubleGyreProblemFactory(scenario_name='simplified')
-#factory = CurrentHighwayProblemFactory(scenar)
+def env_creator(env_config):
+    return PlatformEnv(config={
+        'seed': env_config.worker_index * (env_config.vector_index+1),
+        'arena_steps_per_env_step': 1,
+    })
+
+ray.tune.registry.register_env("PlatformEnv", env_creator)
+
+factory = DoubleGyreProblemFactory(scenario_name='simplified', seed=2022)
+
+episode = 400
+model_name = 'angle_feature_simple_nn_with_currents'
+#model_name = 'last'
+
+experiment_path = 'ocean_navigation_simulator/models/simplified_double_gyre/'
+experiments = os.listdir(experiment_path)
+experiments = [x for x in experiments if not x.startswith('.')]
+experiments = [os.path.join(experiment_path, f) for f in experiments]
+experiments.sort(key=lambda x: os.path.getmtime(x))
+last = experiments[-1]
+model_path = last+'/' if model_name == 'last' else 'ocean_navigation_simulator/models/simplified_double_gyre/'+model_name+'/'
+
+config = pickle.load(open(model_path+'config.p', "rb"))
+config['num_workers'] = 1
+config['explore'] = False
+config["in_evaluation"] = True,
+agent = PPOTrainer(config=config)
+agent.restore(model_path + f'checkpoints/checkpoint_{episode:06d}/checkpoint-{episode}')
+controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=DoubleGyreFeatureConstructor())
+
+#
+# tf_model = agent.get_policy().model.base_model
+# tf_model(tf.tensor([]))
+
 arenas = []
 problems = []
 success = []
 
-# controller = NaiveToTargetController(problem=problem)
-config = pickle.load(open("ocean_navigation_simulator/models/simplified_double_gyre/config.p", "rb"))
-agent = PPOTrainer(config=config)
-agent.restore('ocean_navigation_simulator/models/simplified_double_gyre/checkpoint_000090/checkpoint-90')
-controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=double_gyre_simple_feature_constructor)
-
-for j in tqdm(range(50)):
+for j in tqdm(range(100)):
     problem = factory.next_problem()
+    # controller = NaiveToTargetController(problem=problem)
     problems.append(problem)
 
     arena = ArenaFactory.create(scenario_name='double_gyre')
@@ -74,15 +90,21 @@ for j in tqdm(range(50)):
 success_rate = sum([1 if s else 0 for s in success]) / len(success)
 print(f'Success Rate: {success_rate:.1%}')
 
+plot_folder=model_path+'plots/'
+import os
+if not os.path.isdir(plot_folder):
+    os.mkdir(plot_folder)
+
 # Control/Battery/Seaweed
-fig, axs = plt.subplots(2, 2)
-for i, arena in enumerate(arenas):
-    arena.plot_battery_trajectory_on_timeaxis(ax=axs[0,0])
-    arena.plot_seaweed_trajectory_on_timeaxis(ax=axs[0,1])
-    arena.plot_control_thrust_on_timeaxis(ax=axs[1,0])
-    arena.plot_control_angle_on_timeaxis(ax=axs[1,1])
-plt.tight_layout()
-fig.show()
+# fig, axs = plt.subplots(2, 2)
+# for i, arena in enumerate(arenas):
+#     arena.plot_battery_trajectory_on_timeaxis(ax=axs[0,0])
+#     arena.plot_seaweed_trajectory_on_timeaxis(ax=axs[0,1])
+#     arena.plot_control_thrust_on_timeaxis(ax=axs[1,0])
+#     arena.plot_control_angle_on_timeaxis(ax=axs[1,1])
+# plt.tight_layout()
+# fig.show()
+# fig.savefig(plot_folder+f'{episode}_battery.pdf')
 
 def add_colored_trajecotry_and_problem(ax, posix_time):
     for i, arena in enumerate(arenas):
@@ -93,7 +115,7 @@ def add_colored_trajecotry_and_problem(ax, posix_time):
             index=index,
             current_position_color=color,
             state_color=color,
-            control_stride=50,
+            control_stride=5,
             problem=problems[i],
             problem_color=color,
         )
@@ -107,18 +129,21 @@ ax = arenas[0].ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 )
 add_colored_trajecotry_and_problem(ax, 0)
 ax.get_figure().show()
+ax.get_figure().savefig(plot_folder+f'{episode}_static.pdf')
 
 # Animation
-# arenas[0].ocean_field.hindcast_data_source.animate_data(
-#     x_interval=[-0.2,2.2],
-#     y_interval=[-0.1,1.1],
-#     t_interval=[0,20],
-#     temporal_res=0.1,
-#     spatial_res=0.1,
-#     output='safari',
-#     add_ax_func=add_colored_trajecotry_and_problem,
-# )
+arenas[0].ocean_field.hindcast_data_source.animate_data(
+    x_interval=[-0.2,2.2],
+    y_interval=[-0.1,1.1],
+    t_interval=[0,20],
+    temporal_res=0.1,
+    spatial_res=0.1,
+    output='safari',
+    add_ax_func=add_colored_trajecotry_and_problem,
+)
+
+clean_ray_results.run(iteration_limit=10, delete=True, filter_string='PPOTrainer', ignore_last=False)
 
 
-print("Total Script Time: ", time.time() - start)
+print(f"Total Script Time: {time.time()-script_start_time:.2f}s = {(time.time()-script_start_time)/60:.2f}min")
 

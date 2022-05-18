@@ -21,7 +21,7 @@ def double_gyre_reward_function(
         a float representing reward
     """
     bonus = 200
-    penalty = -200
+    penalty = -1000
 
     prev_distance = prev_state.distance(problem.end_region)
     curr_distance = curr_state.distance(problem.end_region)
@@ -29,4 +29,6 @@ def double_gyre_reward_function(
 
     time_diff = (curr_state.date_time - prev_state.date_time).total_seconds()
 
-    return - time_diff + 100 * distance_improvement + (bonus if solved else 0) + (penalty if crashed else 0)
+    # return - 10 * time_diff + (bonus if solved else 0) + (penalty if crashed else 0)
+    return - 10 * time_diff + 50 * distance_improvement + (bonus if solved else 0) + (penalty if crashed else 0)
+    # return distance_improvement

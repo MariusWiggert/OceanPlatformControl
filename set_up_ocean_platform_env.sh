@@ -1,5 +1,8 @@
-#!/usr/bin/env zsh
-conda init zsh
+#!/bin/bash
+
+conda init bash
+
+conda deactivate
 
 # create a conda environment called ocean_platform
 conda create -n ocean_platform python=3.9.*

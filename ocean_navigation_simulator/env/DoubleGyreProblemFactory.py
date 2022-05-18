@@ -20,7 +20,7 @@ class DoubleGyreProblemFactory(ProblemFactory):
         self.rng = np.random.default_rng(seed)
         self.scenario_name = scenario_name
 
-        print(f'Problem Factory initialized with seed {seed}')
+        #print(f'Problem Factory initialized with seed {seed}')
 
     def next_problem(self) -> NavigationProblem:
         if self.scenario_name == 'paper':
@@ -39,7 +39,7 @@ class DoubleGyreProblemFactory(ProblemFactory):
             start_x = self.rng.uniform(0, 2)
             start_y = self.rng.uniform(0, 1)
 
-            goal_x = 0.25
+            goal_x = 0.5
             goal_y = 0.5
         else:
             raise NotImplementedError(f'Scenario {self.scenario_name} not implemented!')
@@ -55,5 +55,5 @@ class DoubleGyreProblemFactory(ProblemFactory):
                 lat=units.Distance(deg=goal_y),
             ),
             target_radius=1/50,
-            timeout=20
+            timeout=200
         )
