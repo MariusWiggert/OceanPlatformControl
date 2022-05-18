@@ -5,7 +5,8 @@ import gym
 from ocean_navigation_simulator.env.Arena import Arena
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.env.FeatureConstructors import double_gyre_feature_constructor, double_gyre_simple_feature_constructor
+from ocean_navigation_simulator.env.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
+from ocean_navigation_simulator.env.FeatureConstructors import FeatureConstructor
 from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
@@ -21,21 +22,20 @@ class PlatformEnv(gym.Env):
     # should be set in SOME gym subclasses -> TODO: see if we need to
     metadata = {"render_modes": []}
     reward_range = (-float("inf"), float("inf"))
-    spec = None
+    spec = None # might use for max_episode_steps
 
     problem_factory: ProblemFactory = None
     problem: NavigationProblem = None
     arena: Arena = None
     prev_state: PlatformState = None
     reward_fn: Callable = None
-    feature_constructor: Callable= None
+    feature_constructor: FeatureConstructor = None
 
     # _np_random: Optional[RandomNumberGenerator] = None
 
     def __init__(
         self,
-        seed: Optional[int] = 2022,
-        env_steps_per_arena_steps: Optional[int] = 10,
+        config,
     ):
         """
         Constructs a basic Platform Learning Environment.
@@ -46,25 +46,23 @@ class PlatformEnv(gym.Env):
         Args:
             seed: PRNG seed for the environment
         """
-        self.seed = seed
-        self.env_steps_per_arena_steps = env_steps_per_arena_steps
+        self._seed = config['seed'] if 'seed' in config else 2022
+        self.arena_steps_per_env_step = config['arena_steps_per_env_step'] if 'arena_steps_per_env_step' in config else 1
 
-        self.action_space = gym.spaces.Box(
-            low=np.array([0.0]),
-            high=np.array([2 * np.pi]),
-            shape=(1,)
-        )  # TODO: consider normalization to improve training
+        #print(f'arena_steps_per_env_step: {self.arena_steps_per_env_step}')
 
-        self.observation_space = gym.spaces.Box(
-            low=-float("inf"),
-            high=float("inf"),
-            shape=(3,)
-        )  # TODO: consider changing bounds?
-
-        self.problem_factory = DoubleGyreProblemFactory(seed=seed, scenario_name='simplified')
+        self.problem_factory = DoubleGyreProblemFactory(seed=self._seed, scenario_name='simplified')
         self.arena = ArenaFactory.create(scenario_name='double_gyre')
         self.reward_fn = double_gyre_reward_function
-        self.feature_constructor = double_gyre_simple_feature_constructor
+        self.feature_constructor = DoubleGyreFeatureConstructor()
+
+        self.action_space = gym.spaces.Box(
+            low=np.array([-np.pi], dtype=np.float32),
+            high=np.array([np.pi], dtype=np.float32),
+            shape=(1,)
+        )
+        # self.action_space = gym.spaces.Discrete(360)
+        self.observation_space = self.feature_constructor.get_observation_space()
 
         self.reset()
 
@@ -80,9 +78,10 @@ class PlatformEnv(gym.Env):
             done (bool): whether the episode has ended
             info (dict): auxiliary diagnostic information
         """
+        # command = PlatformAction(magnitude=1, direction=action[0])
         command = PlatformAction(magnitude=1, direction=action[0])
 
-        for i in range(self.env_steps_per_arena_steps):
+        for i in range(self.arena_steps_per_env_step):
             arena_obs = self.arena.step(command)
 
         problem_status = self.problem.is_done(arena_obs.platform_state)
@@ -94,10 +93,11 @@ class PlatformEnv(gym.Env):
 
         reward = self.reward_fn(self.prev_state, arena_obs.platform_state, self.problem, solved, crashed)
 
-        if terminate:
-            self.reset()
+        # if terminate:
+        #     print('terminate')
+        #     self.reset()
 
-        model_obs = self.feature_constructor(arena_obs, self.problem)
+        model_obs = self.feature_constructor.get_features_from_state(obs=arena_obs, problem=self.problem)
         self.prev_state = arena_obs.platform_state
 
         return model_obs, reward, terminate, {}
@@ -121,9 +121,11 @@ class PlatformEnv(gym.Env):
         """
         self.problem = self.problem_factory.next_problem()
 
+        #print('arena reset')
+
         arena_obs = self.arena.reset(self.problem.start_state)
         self.prev_state = arena_obs.platform_state
-        model_obs = self.feature_constructor(arena_obs, self.problem)
+        model_obs = self.feature_constructor.get_features_from_state(obs=arena_obs, problem=self.problem)
 
         if return_info:
             pass
