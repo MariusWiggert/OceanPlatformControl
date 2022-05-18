@@ -1,37 +1,51 @@
 testing:
   plots:
-    wait_keyboard_input_to_continue: False
+    wait_keyboard_input_to_continue: True
     display_intermediary_3d_plots: False
     duration_interaction_with_plots_in_sec: 5
     num_steps_between_plots: 5
     margin_for_area_to_plot_in_deg: 0
+    plot_initial_world_map: False
+    plot_map_when_evaluate: False
 
-  use_real_data: True
   ignore_warnings: True
+
+
   #number_burnin_steps: 50
   number_burnin_steps: 100
-  maximum_steps: 80
-  delta_between_predictions_in_sec: 3600
-  duration_simulation_in_sec: 360000
+  maximum_steps: 390
+  delta_between_predictions_in_sec: 3600 #1h
+  duration_simulation_in_sec: 36000000
 
+
+  use_real_data: True
   scenario_used: "gulf_of_mexico_files"
+  initial_position:
+    lon_in_deg: -86
+    lat_in_deg: 24.86
+    datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
+  target:
+    lon_in_deg: -88.61
+    lat_in_deg: 26.36
+    radius_in_m: 1
 
 model:
   gaussian_process:
-    sigma_noise_squared: 0.05
+    sigma_noise_squared: 0.000005
     # 3.6 ** 2 = 12.96
-    sigma_exp_squared: 12.96
+    sigma_exp_squared: 100 #12.96
     kernel:
-      #      type: "RBF"
+      #type: "RBF"
 
       scaling:
-        latitude: 357000 # [m]
-        longitude: 357000 # [m]
-        time: 34560 # [m]
+        latitude: 1 # [m]
+        longitude: 1 # [m]
+        time: 10000 # [s]
       type: "matern"
       parameters:
         length_scale_bounds: "fixed"
       #type: "rbf"
+      #type: "constantkernel"
 
     # 24*3600=86400
     time_horizon_predictions_in_sec: 3600

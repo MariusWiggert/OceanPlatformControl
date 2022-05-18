@@ -19,13 +19,6 @@ from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanC
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentVector
 from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
 
-# _LATITUDE_SCALING = 1  # [m]
-# _LONGITUDE_SCALING = 1  # [m]
-# _TIME_SCALING = 20  # [seconds]
-
-_SIGMA_EXP_SQUARED = 3.6 ** 2
-_SIGMA_NOISE_SQUARED = 0.05
-
 
 class OceanCurrentGP(OceanCurrentsModel):
     """Wrapper around a Gaussian Process that handles ocean currents.
@@ -63,7 +56,7 @@ class OceanCurrentGP(OceanCurrentsModel):
         if "kernel" in self.config_file:
             params_model["kernel"] = self.__get_kernel(self.config_file["kernel"])
             print(params_model["kernel"])
-        if "sigma_exp_squared" in self.config_file:
+        if "sigma_noise_squared" in self.config_file:
             params_model["alpha"] = self.config_file["sigma_noise_squared"]
         if "optimizer" in self.config_file:
             params_model["optimizer"] = self.config_file["optimizer"]
@@ -85,7 +78,7 @@ class OceanCurrentGP(OceanCurrentsModel):
         if type_kernel.lower() == "matern":
             return factor * gaussian_process.kernels.Matern(**params)
         if type_kernel.lower() == "constantkernel":
-            factor * gaussian_process.kernels.ConstantKernel(**params)
+            return factor * gaussian_process.kernels.ConstantKernel(**params)
 
         print("No kernel specified in the yaml file.")
         return factor * gaussian_process.kernels.ConstantKernel()
@@ -175,7 +168,6 @@ class OceanCurrentGP(OceanCurrentsModel):
                             list(map(lambda x: x.total_seconds(), inputs[:, -1] - np.array(current_time)))
                         ) < self.time_horizon
                 )
-                print("fresh_observations:", np.sum(fresh_observations))
                 inputs = inputs[fresh_observations]
                 targets = targets[fresh_observations]
             # Use a timestamp instead of datetime format
@@ -184,6 +176,7 @@ class OceanCurrentGP(OceanCurrentsModel):
             # copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
             self.model.fit(inputs, targets)
+            self.model.fit(inputs, targets)
             # Output should be a N x 2 set of predictions about local measurements,
             # and a N-sized vector of standard deviations.
             means, deviations = self.model.predict(copy_loc, return_std=True)
@@ -191,7 +184,7 @@ class OceanCurrentGP(OceanCurrentsModel):
             # TODO(bellemare): Ask what the actual lower bound is supposed to
             # be. We can't have a 0 std.dev. due to noise. Currently it's something
             # like 0.07 from the GP, but that doesn't seem to match the Loon code.
-            deviations = deviations ** 2 / _SIGMA_EXP_SQUARED
+            deviations = deviations ** 2 / self.config_file["sigma_exp_squared"]
 
             # TODO(bellemare): Sal says this needs normalizing so that the lower bound
             # is really zero.

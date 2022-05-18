@@ -23,7 +23,8 @@ ocean_dict:
     field: 'OceanCurrents'
     source: 'forecast_files'
     source_settings:
-      'folder': "data/forecast_test/"# "data/cop_fmrc/"
+      #'folder': "data/forecast_test/"# "data/cop_fmrc/"
+      'folder': "data/unique_forecast_test/"
 
 solar_dict:
   hindcast: null

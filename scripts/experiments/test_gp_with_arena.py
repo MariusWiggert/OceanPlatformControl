@@ -3,6 +3,7 @@ import math
 import time
 from typing import Tuple, Optional, Dict, Any
 
+import dateutil
 import matplotlib
 import matplotlib.cm as cmx
 import numpy as np
@@ -27,21 +28,18 @@ from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Distance
 from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_over_time
 
-# %%
+# %% Load the config file
 # simulation_config = "config_simulation_GP"
 simulation_config = "config_real_data_GP"
 with open(f'ocean_navigation_simulator/env/scenarios/{simulation_config}.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
     variables = config["testing"]
     plots_config = variables["plots"]
-# %%
-# _DELTA_TIME_NEW_PREDICTION = datetime.timedelta(hours=1)
-# _DURATION_SIMULATION = datetime.timedelta(days=3)
+# %% Setup the constants
 _DELTA_TIME_NEW_PREDICTION = datetime.timedelta(seconds=variables["delta_between_predictions_in_sec"])
 
 _DURATION_SIMULATION = datetime.timedelta(seconds=variables["duration_simulation_in_sec"])
 _NUMBER_STEPS = int(math.ceil(_DURATION_SIMULATION.total_seconds() / _DELTA_TIME_NEW_PREDICTION.total_seconds()))
-# _N_DATA_PTS_MAX_USED = 100
 _N_BURNIN_PTS = variables[
     "number_burnin_steps"]  # 100 # Number of minimum pts we gather from a platform to use as observations
 _MAX_STEPS_PREDICTION = variables["maximum_steps"]
@@ -63,22 +61,36 @@ def get_model(arena: Arena, config_file: Dict[str, Any]) -> OceanCurrentsModel:
     raise NotImplementedError("Only Gaussian Process supported right now")
 
 
-def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, stride: int = 1,
+# Todo: Not working, to fix (with real_errors)
+def plot3d(expected_errors: DataArray, real_errors: Optional[DataArray] = None,
+           platform_old_positions: Optional[np.ndarray] = None,
+           stride: Optional[int] = 1,
            x_y_intervals: Optional[Tuple[np.ndarray, np.ndarray]] = None):
     # create list to plot
-    data = []
+    data, data_error = [], []
     for j in range(len(expected_errors)):
         elem = expected_errors.isel(time=j)
         x, y = np.meshgrid(elem["lon"], elem["lat"])
-        z = elem.sel({'u_v': "u"}).to_numpy()
+        z = np.sqrt(elem["water_u"].to_numpy() ** 2 + elem["water_v"].to_numpy() ** 2)
         times = elem["time"].to_numpy()
         data.append((times, {"X": x, "Y": y, "Z": z}))  # , "colors": "rgy"[j], "alpha": .25})
+
+        if real_errors is not None:
+            elem2 = real_errors.isel(time=j)
+            x, y = np.meshgrid(elem["lon"], elem["lat"])
+            z = np.sqrt(elem["water_u"].to_numpy() ** 2 + elem["water_v"].to_numpy() ** 2)
+            times = elem["time"].to_numpy()
+            data_error.append((times, {"X": x, "Y": y, "Z": z}))  # , "colors": "rgy"[j], "alpha": .25})
 
     def update_line(idx: int, x_y_lim: Optional[Tuple[np.ndarray, np.ndarray]] = None):
         # Plot the wireframe of the GP
         ax.clear()
         t, dic = data[idx]
         ax.plot_wireframe(**dic)
+        plt.draw()
+        if len(data_error):
+            t2, dic2 = data_error[idx]
+            ax.plot_wireframe(**dic2, alpha=0.5, color='g')
         ax.set_title(
             f"Error prediction\nCurrent time:{np.datetime_as_string(data[0][0], unit='s')}\n" +
             f"Prediction time:{np.datetime_as_string(t, unit='s')}")
@@ -88,18 +100,20 @@ def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, strid
         plt.draw()
 
         # Plot the trajectory of the boat:
-        map_color = 'winter'
-        cm = plt.get_cmap(map_color)
-        cs = platform_old_positions[::stride, 2]
-        c_norm = matplotlib.colors.Normalize(vmin=min(cs), vmax=max(cs))
-        scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=cm)
-        magnitude_error = np.sqrt(platform_old_positions[::stride, 3] ** 2 + platform_old_positions[::stride, 4] ** 2)
-        ax.plot(platform_old_positions[::stride, 0], platform_old_positions[::stride, 1],
-                magnitude_error, c='black')
-        ax.scatter(platform_old_positions[::stride, 0], platform_old_positions[::stride, 1],
-                   magnitude_error,
-                   marker=".",
-                   c=scalar_map.to_rgba(cs))
+        if platform_old_positions is not None:
+            map_color = 'winter'
+            cm = plt.get_cmap(map_color)
+            cs = platform_old_positions[::stride, 2]
+            c_norm = matplotlib.colors.Normalize(vmin=min(cs), vmax=max(cs))
+            scalar_map = cmx.ScalarMappable(norm=c_norm, cmap=cm)
+            magnitude_error = np.sqrt(
+                platform_old_positions[::stride, 3] ** 2 + platform_old_positions[::stride, 4] ** 2)
+            ax.plot(platform_old_positions[::stride, 0], platform_old_positions[::stride, 1],
+                    magnitude_error, c='black')
+            ax.scatter(platform_old_positions[::stride, 0], platform_old_positions[::stride, 1],
+                       magnitude_error,
+                       marker=".",
+                       c=scalar_map.to_rgba(cs))
 
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(projection='3d')
@@ -130,6 +144,32 @@ def plot3d(expected_errors: DataArray, platform_old_positions: np.ndarray, strid
         plt.pause(DURATION_INTERACTION_WITH_PLOTS_IN_SEC)
 
 
+def visualize_currents(platform_state: PlatformState, arena: Arena, model_predictions: ndarray, x_y_intervals: ndarray,
+                       trajectory_platform: Optional[ndarray] = None) -> None:
+    print("visualize_currents")
+    ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(platform_state.date_time, *x_y_intervals,
+                                                                            return_ax=True)
+    x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
+    ax.plot(trajectory_platform[:, 0], trajectory_platform[:, 1], color='y', marker='+')
+    ax.set_xlim(x_lim), ax.set_ylim(y_lim)
+    ax.set_title("True currents")
+
+    ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(platform_state.date_time, *x_y_intervals,
+                                                                            return_ax=True)
+    x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
+    ax.plot(trajectory_platform[:, 0], trajectory_platform[:, 1], color='y', marker='+')
+    ax.set_xlim(x_lim), ax.set_ylim(y_lim)
+    ax.set_title("Initial forecasts")
+
+    ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(platform_state.date_time, *x_y_intervals,
+                                                                            return_ax=True,
+                                                                            error_to_incorporate=model_predictions)
+    x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
+    ax.plot(trajectory_platform[:, 0], trajectory_platform[:, 1], color='y', marker='+')
+    ax.set_xlim(x_lim), ax.set_ylim(y_lim)
+    ax.set_title("Improved forecasts")
+
+
 def get_error_ocean_current_vector(forecast: OceanCurrentVector,
                                    true_current: OceanCurrentVector) -> OceanCurrentVector:
     return forecast.subtract(true_current)
@@ -141,6 +181,10 @@ def get_error_forecasts_true_currents_for_area(forecasts: np.ndarray, true_curre
 
 def get_prediction_currents(forecast: ndarray, error: ndarray) -> ndarray:
     return forecast - error
+
+
+def get_forecast_currents(ground_truth: ndarray, error_forecast: ndarray) -> ndarray:
+    return ground_truth + error_forecast
 
 
 # Todo: fix if using it because it's not adapted for the shape
@@ -163,18 +207,19 @@ def compute_weighted_rmse(true_currents: ndarray, predictions: ndarray, lambda_t
     return np.sqrt(np.average(np.array((true_currents - predictions) ** 2), weights=weights))
 
 
-def get_losses(true_currents: ndarray, predictions_currents: ndarray, error_without_model: ndarray,
+def get_losses(true_currents: ndarray, improved_predictions_currents: ndarray, initial_forecast_error: ndarray,
                centered_around_platform: bool = True) -> dict[str, Any]:
-    # TODO: Define how we should manage nans...
     losses = dict()
 
     cond_not_nan = np.repeat(
-        np.logical_not(np.isnan((true_currents - predictions_currents).sum(axis=-1)))[..., np.newaxis], 2, axis=-1)
-    print("percent of nans:", cond_not_nan[..., 0].sum() / np.prod(true_currents.shape) * 100, "%")
+        np.logical_not(np.isnan((true_currents - improved_predictions_currents).sum(axis=-1)))[..., np.newaxis],
+        repeats=2, axis=-1)
+    if cond_not_nan.sum() != np.prod(true_currents.shape):
+        print("Nans in the area:", (1 - cond_not_nan.sum() / np.prod(true_currents.shape)) * 100, "%")
 
-    true_currents_flattened, predictions_currents_flattened = true_currents[cond_not_nan].reshape((-1, 2)), \
-                                                              predictions_currents[cond_not_nan].reshape((-1, 2))
-    error_without_model = error_without_model[cond_not_nan]
+    true_currents_flattened = true_currents[cond_not_nan].reshape((-1, 2))
+    predictions_currents_flattened = improved_predictions_currents[cond_not_nan].reshape((-1, 2))
+    initial_forecast_error_flattened = initial_forecast_error[cond_not_nan].reshape((-1, 2))
     rmse = np.sqrt(np.mean((true_currents_flattened - predictions_currents_flattened) ** 2))
     losses["rmse"] = rmse
 
@@ -184,14 +229,19 @@ def get_losses(true_currents: ndarray, predictions_currents: ndarray, error_with
 
     # Compute R2
     losses["r2"] = 1 - ((true_currents_flattened - predictions_currents_flattened) ** 2).sum() / (
-            error_without_model ** 2).sum()
+            initial_forecast_error_flattened ** 2).sum()
     print("variance model:", ((true_currents_flattened - predictions_currents_flattened) ** 2).sum())
-    print("variance forecast:", (error_without_model ** 2).sum(), " avg:", (error_without_model ** 2).mean())
+    print("variance forecast:", (initial_forecast_error_flattened ** 2).sum(), " avg:",
+          (initial_forecast_error_flattened ** 2).mean())
 
     # Compute Vector correlation
     # Todo: check if mean() is relevant here
-    losses["vector_correlation"] = calc_vector_corr_over_time(predictions_currents, true_currents,
+    losses["vector_correlation"] = calc_vector_corr_over_time(improved_predictions_currents, true_currents,
                                                               sigma_diag=0, remove_nans=True).mean()
+    losses["vector_correlation_ref"] = calc_vector_corr_over_time(
+        get_forecast_currents(true_currents, initial_forecast_error), true_currents,
+        sigma_diag=0, remove_nans=True).mean()
+    losses["vector_correlation_ratio"] = losses["vector_correlation"] / losses["vector_correlation_ref"]
 
     # Todo: fix compute_weighted_rmse if we want to use it
     # if centered_around_platform:
@@ -206,13 +256,7 @@ if IGNORE_WARNINGS:
     import warnings
 
     warnings.filterwarnings('ignore')
-# %%
-
-# arena, platform_state, arena_obs, end_region = ArenaFactory.create(scenario_name='current_highway_GP')
-# arena, platform_state, arena_obs, end_region = ArenaFactory.create(scenario_name='current_highway_GP')
-# arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='double_gyre_GP')
-# arena, platform_state, observation, end_region = ArenaFactory.create(scenario_name='gulf_of_mexico')
-
+# %% Create the problem and the arena
 problemFactory = HighwayProblemFactory(
     [(SpatialPoint(Distance(meters=0), Distance(meters=0)), SpatialPoint(Distance(deg=10), Distance(deg=10)))])
 arenas = []
@@ -221,32 +265,46 @@ success = []
 use_real_data = variables["use_real_data"]
 if use_real_data:
     # Specify Problem
-    x_0 = PlatformState(lon=units.Distance(deg=-82), lat=units.Distance(deg=25),
-                        date_time=datetime.datetime(2021, 11, 22, 12, 0, tzinfo=datetime.timezone.utc))
-    x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24))
-    problem = Problem(start_state=x_0, end_region=x_T, target_radius=0.1)
+    init_pos = variables["initial_position"]
+    x_0 = PlatformState(lon=units.Distance(deg=init_pos["lon_in_deg"]), lat=units.Distance(deg=init_pos["lat_in_deg"]),
+                        date_time=dateutil.parser.isoparse(init_pos["datetime"]))
+    target_point = variables["target"]
+    x_T = SpatialPoint(lon=units.Distance(deg=target_point["lon_in_deg"]),
+                       lat=units.Distance(deg=target_point["lat_in_deg"]))
+    problem = Problem(start_state=x_0, end_region=x_T, target_radius=target_point["radius_in_m"])
 else:
     problem = problemFactory.next_problem()
 arena = ArenaFactory.create(scenario_name=variables["scenario_used"])
 
 arenas.append(arena)
-# %%
+# %% Create the model, the observer, the controller
 print(problem.start_state)
 arena_obs = arena.reset(problem.start_state)
 controller = NaiveToTargetController(problem=problem)
-is_done = False
 
-print("controller created")
-# %%
 model = get_model(arena, config)
 observer = Observer(model, arena, config["observer"], )
 trajectory_platform = []
 x_y_interval = arena.get_lon_lat_time_interval(end_region=problem.end_region)[:2]
 print("end region:", problem.end_region, " x_y_interval:", x_y_interval)
-print("gp and observer created")
+
+# %% print the number of points in the area around the platform
+forecast = observer.get_forecast_around_platform(arena_obs.platform_state)
+print(
+    f"Number of points around the platform: {len(forecast['lat'])}x{len(forecast['lon'])}={len(forecast['lat']) * len(forecast['lon'])}")
+
+# %% visualize the all ocean
+if plots_config.get("plot_initial_world_map"):
+    ax = arena.ocean_field.forecast_data_source. \
+        plot_data_at_time_over_area(arena_obs.platform_state.date_time,
+                                    *observer.get_area_around_platform(arena_obs.platform_state, Distance(deg=0.5)),
+                                    error_to_incorporate=arena.ocean_field.hindcast_data_source,
+                                    return_ax=True, vmin=-1, vmax=1)
+
+    ax.set_title("difference currents")
+    plt.pause(1)
 
 
-# %%
 def evaluate_predictions(current_platform_state: PlatformState, observer_platform: Observer,
                          area_to_evaluate: Optional[np.ndarray] = None) -> Dict[str, Any]:
     forecasts = observer_platform.get_forecast_around_platform(current_platform_state, x_y_intervals=area_to_evaluate)
@@ -261,19 +319,21 @@ def evaluate_predictions(current_platform_state: PlatformState, observer_platfor
     # forecasts_np = forecasts.transpose("time", "lon", "lat").to_array().to_numpy()
     forecasts_np = np.moveaxis(forecasts.transpose("time", "lon", "lat").to_array().to_numpy(), 0, -1)
     forecasts_error_predicted, _ = observer.evaluate(current_platform_state, x_y_interval=area_to_evaluate)
-    forecasts_error_np = forecasts_error_predicted.transpose("time", "lon", "lat", "u_v").to_numpy()
+    forecasts_error_np = forecasts_error_predicted.to_array(dim="u_v").transpose("time", "lon", "lat", "u_v").to_numpy()
     predictions = get_prediction_currents(forecasts_np, forecasts_error_np)
     initial_error = get_error_forecasts_true_currents_for_area(forecasts_np, gt_np)
 
     # Plot mat:
-    if False:
-        f = plt.figure()
-        ax = f.add_subplot(111)
+    if plots_config.get("plot_map_when_evaluate", False):
+        f = plt.figure(3)
+        f.clear()
+        ax = f.add_subplot()
         a = gt_np[0, :, :, 0]
         masked_array = np.ma.array(a, mask=np.isnan(a))
         cmap = matplotlib.cm.jet
         cmap.set_bad('white', 1.)
         ax.imshow(masked_array, interpolation='nearest', cmap=cmap)
+        # plt.pause(1)
 
     return get_losses(gt_np, predictions, initial_error)
 
@@ -309,8 +369,8 @@ start = time.time()
 for i in range(_N_BURNIN_PTS):
     arena_obs, _, _ = step_simulation(controller, observer, arena_obs, trajectory_platform, fit_model=False)
     position = arena_obs.platform_state.to_spatial_point()
-    print(
-        f"Burnin step:{i + 1}/{_N_BURNIN_PTS}, position platform:{(position.lat.m, position.lon.m)}")
+    # print(
+    #     f"Burnin step:{i + 1}/{_N_BURNIN_PTS}, position platform:{(position.lat.m, position.lon.m)}")
 
 print("end of burnin time.")
 # %%  Prediction at each step of the error
@@ -319,6 +379,8 @@ means, stds = [], []
 times = []
 r2_losses = []
 correlation_losses = []
+correlation_losses_ref = []
+ratio_correlation = []
 i = 0
 
 # %% Now we run the algorithm
@@ -326,7 +388,8 @@ n_steps = min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION)
 for i in range(n_steps):
     arena_obs, forecasts_error, forecast_std = step_simulation(controller, observer, arena_obs, trajectory_platform,
                                                                area_to_evaluate=None)
-    forecast_around_platform_error, forecast_around_platform_std = observer.evaluate(arena_obs.platform_state)
+    forecast_error, forecast_std = forecasts_error.to_array(), forecast_std.to_array()
+    forecast_error_around_platform, forecast_std_around_platform = observer.evaluate(arena_obs.platform_state)
 
     print("step {}/{}: forecasted mean:{}, abs mean:{}, forecasted_std:{}"
           .format(i + 1,
@@ -343,35 +406,60 @@ for i in range(n_steps):
     times.append(arena_obs.platform_state.date_time)
     r2_losses.append(res_around_platform["r2"])
     correlation_losses.append(res_around_platform["vector_correlation"])
+    correlation_losses_ref.append(res_around_platform["vector_correlation_ref"])
+    ratio_correlation.append(res_around_platform["vector_correlation_ratio"])
 
-    means.append(forecasts_error.to_numpy())
+    # Plot the currents
+
+    means.append(forecasts_error.to_array().to_numpy())
     stds.append(forecast_std.to_numpy())
     if DISPLAY_INTERMEDIARY_3D_PLOTS and (i % _N_STEPS_BETWEEN_PLOTS == 0 or i == n_steps - 1):
         # Plot values at other time instances
-        mean, _ = observer.evaluate(arena_obs.platform_state, None)
+        mean, _ = observer.evaluate(arena_obs.platform_state)
         x_y_interval_platform = observer.get_area_around_platform(arena_obs.platform_state,
                                                                   margin=_MARGIN_AREA_PLOT)
-        plot3d(mean, np.array(trajectory_platform),
-               x_y_intervals=x_y_interval_platform)
+        plot3d(mean, x_y_intervals=x_y_interval_platform)
+        real_errors = get_error_forecasts_true_currents_for_area(
+            observer.get_forecast_around_platform(arena_obs.platform_state),
+            observer.get_ground_truth_around_platform(arena_obs.platform_state))
+        print("real errors:", real_errors)
+        plot3d(real_errors, x_y_intervals=x_y_interval_platform)
 
 # %% Once the loop is over, we print the results.
 
 
 print("duration: ", time.time() - start)
-l1 = plt.plot(times, r2_losses, label="r2 losses")
-# l2 = plt.plot(times, correlation_losses, label="vector correlation averages")
-l3 = plt.plot(times, correlation_losses,
-              label="vector_correl")
+fig, axs = plt.subplots(2, 2)
+axs[0, 0].plot(times, r2_losses, label="r2_loss")
+axs[0, 0].set_title("r2_loss")
+axs[1, 0].plot(times, ratio_correlation, label="vector_correlation_ratio")
+axs[1, 0].set_title("vector correlation_ratio")
+axs[0, 1].plot(times, correlation_losses,
+               label="vector_correl")
+axs[0, 1].set_title("vector correlation model")
+axs[1, 1].plot(times, correlation_losses_ref,
+               label="vector_correl_ref")
+axs[1, 1].set_title("vector correlation reference")
 plt.legend()
 
-mean, _ = observer.evaluate(arena_obs.platform_state, None)
-x_y_interval_platform = observer.get_area_around_platform(arena_obs.platform_state,
-                                                          margin=_MARGIN_AREA_PLOT)
-plot3d(mean, np.array(trajectory_platform),
+print(
+    f"Mean r2_loss: {np.array(r2_losses).mean()}, mean r2_loss_without first 100 items: {np.array(r2_losses[100:]).mean()}")
+
+# %% Visualize the currents
+
+visualize_currents(arena_obs.platform_state, arena, forecast_error_around_platform,
+                   observer.get_area_around_platform(arena_obs.platform_state),
+                   trajectory_platform=np.array(trajectory_platform)[:, :2])
+
+# %% Plot the mean prediction around
+mean, _ = observer.evaluate(arena_obs.platform_state)
+forecasts = observer.get_forecast_around_platform(arena_obs.platform_state)
+hindcasts = observer.get_ground_truth_around_platform(arena_obs.platform_state)
+real_errors = get_error_forecasts_true_currents_for_area(forecasts, hindcasts)
+x_y_interval_platform = observer.get_area_around_platform(arena_obs.platform_state, margin=_MARGIN_AREA_PLOT)
+plot3d(mean,  # platform_old_positions=np.array(trajectory_platform),
        x_y_intervals=x_y_interval_platform)
-
-# if len(means):
-#    print(f"average mean:{np.array(means).mean(axis=(0, 1))}, average stds:{np.array(stds).mean(axis=(0, 1))}")
-
-# %%
+plt.figure()
+plot3d(real_errors,  # platform_old_positions=np.array(trajectory_platform),
+       x_y_intervals=x_y_interval_platform)
 print("over")

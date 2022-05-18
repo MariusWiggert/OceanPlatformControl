@@ -25,7 +25,10 @@ class Observer:
         self._TIME_HORIZON_PREDICTIONS = datetime.timedelta(
             seconds=config["time_horizon_predictions_for_area_radius_in_sec"])
 
-        self.velocity_for_area = Velocity(meters_per_second=1 if general_config_file.get("use_real_data", True) else (
+        # self.velocity_for_area = Velocity(meters_per_second=1 if general_config_file.get("use_real_data", True) else (
+        #        units.METERS_PER_DEG_LAT_LON / 12))
+        # todo: Remove because too small (only for testing)
+        self.velocity_for_area = Velocity(meters_per_second=.06 if general_config_file.get("use_real_data", True) else (
                 units.METERS_PER_DEG_LAT_LON / 12))
         self._RADIUS_AREA_AROUND_PLATFORM = self.velocity_for_area * self._TIME_HORIZON_PREDICTIONS
         print(
@@ -44,7 +47,6 @@ class Observer:
         fn = self.arena.ocean_field.get_forecast_area if forecast else self.arena.ocean_field.get_ground_truth_area
         if x_y_intervals is None:
             x_y_intervals = self.get_area_around_platform(platform_state)
-
         return fn(*x_y_intervals, [platform_state.date_time, platform_state.date_time + self._TIME_HORIZON_PREDICTIONS])
 
     # def __get_forecasts_area(self, platform_state: PlatformState, x_y_intervals=None) -> xr:
@@ -59,7 +61,7 @@ class Observer:
         return self.__get_area(platform_state, forecast=True, x_y_intervals=x_y_intervals)
 
     def evaluate(self, platform_state: PlatformState, x_y_interval: Optional[np.ndarray] = None,
-                 delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[xr.DataArray, xr.DataArray]:
+                 delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[xr.Dataset, xr.Dataset]:
         # Query the whole grid around the platform if x_y_interval given
         area = self.get_forecast_around_platform(platform_state, x_y_intervals=x_y_interval)
         coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).transpose((3, 1, 2, 0))
@@ -70,10 +72,22 @@ class Observer:
         mean, std = self.model.query_locations(locations)
         reshape_dims = (*coords.shape[:-1], 2)
         mean, std = mean.reshape(reshape_dims), std.reshape(reshape_dims)
-        mean_xr = xr.DataArray(data=mean, dims=["time", "lat", "lon", "u_v"],
-                               coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
-        std_xr = xr.DataArray(data=std, dims=["time", "lat", "lon", "u_v"],
-                              coords={"time": area["time"], "lon": area["lon"], "lat": area["lat"], "u_v": ["u", "v"]})
+        mean_xr = xr.Dataset(
+            {"water_u": (["time", "lat", "lon"], mean[..., 0]),
+             "water_v": (["time", "lat", "lon"], mean[..., 1])},
+            coords={
+                "lon": area['lon'],
+                "lat": area['lat'],
+                "time": area["time"]}
+        )
+        std_xr = xr.Dataset(
+            {"water_u": (["time", "lat", "lon"], std[..., 0]),
+             "water_v": (["time", "lat", "lon"], std[..., 1])},
+            coords={
+                "lon": area['lon'],
+                "lat": area['lat'],
+                "time": area["time"]}
+        )
         return mean_xr, std_xr
 
     def fit(self) -> None:

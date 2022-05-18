@@ -1,25 +1,24 @@
 """The abstract base class for all Data Sources.
 Implements a lot of shared functionality such as
 """
-import matplotlib.pyplot
-from IPython.display import HTML
-import matplotlib.animation as animation
-import os
-from functools import partial
-
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.env.utils import units
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import matplotlib.pyplot as plt
-import warnings
-import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union, Any, Callable
-import numpy as np
-import xarray as xr
 import abc
+import datetime
+import os
+import warnings
+from functools import partial
+from typing import List, AnyStr, Optional, Tuple, Union, Any, Callable
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.animation as animation
+import matplotlib.pyplot
+import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+from IPython.display import HTML
+
+from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from ocean_navigation_simulator.env.utils import units
 
 
 class DataSource(abc.ABC):
@@ -141,23 +140,30 @@ class DataSource(abc.ABC):
 
         # Step 2: Data partially not in the array check
         if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
-            warnings.warn(f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}]).", RuntimeWarning)
+            warnings.warn(
+                f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}]).",
+                RuntimeWarning)
         if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
-            warnings.warn(f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).", RuntimeWarning)
+            warnings.warn(
+                f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).",
+                RuntimeWarning)
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
             warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
                                     spatial_res: Optional[float] = None,
+                                    error_to_incorporate: Optional[Union[xr.DataArray, 'DataSource']] = None,
                                     return_ax: Optional[bool] = False,
                                     **kwargs):
         """Plot the data at a specific time over an area defined by the x and y intervals.
         Args:
-          time: timefor which to plot the data either posix or datetime.datetime object
+          time: time for which to plot the data either posix or datetime.datetime object
           x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
           spatial_res:      Per default (None) the data_source resolution is used otherwise the selected one.
+          error_to_incorporate: The error to add to the forecast. It assumes to have the correct shape and resolution if
+                                it is a xr.DataArray or it can simply be a datasource.
           return_ax:         if True returns ax, otherwise renders plots with plt.show()
           **kwargs:          Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
         """
@@ -170,11 +176,19 @@ class DataSource(abc.ABC):
         area_xarray = self.get_data_over_area(x_interval, y_interval, [time, time + datetime.timedelta(seconds=1)],
                                               spatial_resolution=spatial_res)
 
-        # interpolate to specific time
-        atTimeArray = area_xarray.interp(time=time.replace(tzinfo=None))
+        if error_to_incorporate is not None:
+            if isinstance(error_to_incorporate, DataSource):
+                error_to_incorporate = error_to_incorporate.get_data_over_area(x_interval, y_interval,
+                                                                               [time,
+                                                                                time + datetime.timedelta(seconds=1)],
+                                                                               spatial_resolution=spatial_res)
 
+            area_xarray -= area_xarray - error_to_incorporate
+        # interpolate to specific time
+        at_time_array = area_xarray.interp(time=time.replace(tzinfo=None))
         # Plot the current field
-        ax = self.plot_data_from_xarray(time_idx=0, xarray=atTimeArray, **kwargs)
+        ax = self.plot_data_from_xarray(time_idx=0, xarray=at_time_array, **kwargs)
+
         if return_ax:
             return ax
         else:
@@ -436,9 +450,9 @@ class XarraySource(abc.ABC):
         t_interval_extended = [np.datetime64(t_interval[0].replace(tzinfo=None)) - dt,
                                np.datetime64(t_interval[1].replace(tzinfo=None)) + dt]
         dlon = self.DataArray['lon'][1] - self.DataArray['lon'][0]
-        x_interval_extended = [x_interval[0] - 1.5*dlon.item(), x_interval[1] + 1.5*dlon.item()]
+        x_interval_extended = [x_interval[0] - 1.5 * dlon.item(), x_interval[1] + 1.5 * dlon.item()]
         dlat = self.DataArray['lat'][1] - self.DataArray['lat'][0]
-        y_interval_extended = [y_interval[0] - 1.5*dlat.item(), y_interval[1] + 1.5*dlat.item()]
+        y_interval_extended = [y_interval[0] - 1.5 * dlat.item(), y_interval[1] + 1.5 * dlat.item()]
         subset = self.DataArray.sel(
             time=slice(t_interval_extended[0], t_interval_extended[1]),
             lon=slice(x_interval_extended[0], x_interval_extended[1]),
