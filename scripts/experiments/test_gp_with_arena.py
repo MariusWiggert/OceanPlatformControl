@@ -75,12 +75,12 @@ def plot3d(expected_errors: DataArray, real_errors: Optional[DataArray] = None,
         times = elem["time"].to_numpy()
         data.append((times, {"X": x, "Y": y, "Z": z}))  # , "colors": "rgy"[j], "alpha": .25})
 
-        if real_errors is not None:
-            elem2 = real_errors.isel(time=j)
-            x, y = np.meshgrid(elem["lon"], elem["lat"])
-            z = np.sqrt(elem["water_u"].to_numpy() ** 2 + elem["water_v"].to_numpy() ** 2)
-            times = elem["time"].to_numpy()
-            data_error.append((times, {"X": x, "Y": y, "Z": z}))  # , "colors": "rgy"[j], "alpha": .25})
+        # if real_errors is not None:
+        #     elem2 = real_errors.isel(time=j)
+        #     x, y = np.meshgrid(elem["lon"], elem["lat"])
+        #     z = np.sqrt(elem["water_u"].to_numpy() ** 2 + elem["water_v"].to_numpy() ** 2)
+        #     times = elem["time"].to_numpy()
+        #     data_error.append((times, {"X": x, "Y": y, "Z": z}))  # , "colors": "rgy"[j], "alpha": .25})
 
     def update_line(idx: int, x_y_lim: Optional[Tuple[np.ndarray, np.ndarray]] = None):
         # Plot the wireframe of the GP
