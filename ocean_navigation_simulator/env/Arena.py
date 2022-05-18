@@ -190,7 +190,7 @@ class Arena:
 
         u_vec = self.action_trajectory[::stride, 0] * np.cos(self.action_trajectory[::stride, 1])
         v_vec = self.action_trajectory[::stride, 0] * np.sin(self.action_trajectory[::stride, 1])
-        ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color=color, scale=15)
+        ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color=color, scale=15, angles='xy')
 
         return ax
 
