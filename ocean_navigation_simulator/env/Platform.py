@@ -75,6 +75,7 @@ class Platform:
                  seaweed_source: Optional[SeaweedGrowthSource] = None):
 
         # Set the major member variables
+        self.platform_dict = platform_dict
         self.dt_in_s = platform_dict['dt_in_s']
         self.ocean_source = ocean_source
         self.solar_source = solar_source
@@ -172,17 +173,17 @@ class Platform:
         # Equations for m/s in latitude and longitude direction
         u_curr = self.ocean_source.u_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
         v_curr = self.ocean_source.v_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
-        sym_lon_delta_meters = ca.cos(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + u_curr
-        sym_lat_delta_meters = ca.sin(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + v_curr
+        sym_lon_delta_meters_per_s = ca.cos(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + u_curr
+        sym_lat_delta_meters_per_s = ca.sin(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + v_curr
 
         # Transform the delta_meters from propulsion to the global coordinate system used.
         if self.use_geographic_coordinate_system:
             # Equations for delta in latitude and longitude direction in degree
-            sym_lon_delta = 180 * sym_lon_delta_meters / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
-            sym_lat_delta = 180 * sym_lat_delta_meters / math.pi / 6371000
+            sym_lon_delta_deg_per_s = 180 * sym_lon_delta_meters_per_s / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
+            sym_lat_delta_deg_per_s = 180 * sym_lat_delta_meters_per_s / math.pi / 6371000
         else: # Global coordinate system in meters
-            sym_lon_delta = sym_lon_delta_meters
-            sym_lat_delta = sym_lat_delta_meters
+            sym_lon_delta_deg_per_s = sym_lon_delta_meters_per_s
+            sym_lat_delta_deg_per_s = sym_lat_delta_meters_per_s
 
         # Model Seaweed Growth
         if self.model_seaweed:
@@ -191,8 +192,8 @@ class Platform:
             sym_growth_factor = 0
 
         # Equations for next states using the intermediate variables from above
-        sym_lon_next = sym_lon_degree + sym_dt * sym_lon_delta
-        sym_lat_next = sym_lat_degree + sym_dt * sym_lat_delta
+        sym_lon_next = sym_lon_degree + sym_dt * sym_lon_delta_deg_per_s
+        sym_lat_next = sym_lat_degree + sym_dt * sym_lat_delta_deg_per_s
         sym_battery_next = ca.fmin(self.battery_capacity.joule,
                                    ca.fmax(0, sym_battery + sym_dt * (sym_solar_charging - sym_power_consumption)))
         sym_time_next = sym_time + sym_dt

@@ -89,9 +89,9 @@ y_interval=[24, 26]
 x_0 = PlatformState(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=23.5), date_time=t_0)
 x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24.2))
 #%% plot it
-ocean_field.hindcast_data_source.plot_currents_at_time(
+ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=t_0, x_interval=x_interval, y_interval=y_interval,
-    plot_type='streamline', return_ax=False, target_max_n=100)
+    plot_type='streamline', return_ax=False)
 #%%
 ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
 vec_point = ocean_field.get_ground_truth(x_0.to_spatio_temporal_point())
@@ -101,6 +101,8 @@ print(vec_point)
 #%% Get Data over an area
 area_xarray = ocean_field.get_forecast_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 # area_xarray = ocean_field.get_ground_truth_area(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
+#%%
+area_xarray['water_u']
 #%% Passed to the platform is then the object at initialization
 data_source_in_platform = ocean_field.hindcast_data_source
 #%% Checks to run

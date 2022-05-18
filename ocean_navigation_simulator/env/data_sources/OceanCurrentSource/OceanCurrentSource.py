@@ -1,29 +1,21 @@
-import abc
 import datetime
-from typing import List, NamedTuple, Sequence, AnyStr, Optional, Union, Tuple, Any, Callable
+import os
+from typing import List, AnyStr, Optional, Union, Tuple
 
-import matplotlib.pyplot
-import matplotlib.animation as animation
-from IPython.display import HTML
-from functools import partial
-from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
-from ocean_navigation_simulator.env.data_sources.DataField import DataField
 import casadi as ca
-import jax
+import dask.array.core
+import matplotlib.pyplot
 import matplotlib.pyplot as plt
-from jax import numpy as jnp
-import warnings
 import numpy as np
 import xarray as xr
-import dask.array.core
-import os
-import ocean_navigation_simulator.utils as utils
-from pydap.client import open_url
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
-from geopy.point import Point as GeoPoint
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from pydap.client import open_url
+
 from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
+from ocean_navigation_simulator.env.data_sources.DataSources import DataSource, XarraySource
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.env.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -61,7 +53,7 @@ class OceanCurrentSource(DataSource):
     def plot_data_from_xarray(self, time_idx: int, xarray: xr, plot_type: AnyStr = 'quiver',
                               vmin: Optional[float] = 0, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, reset_plot: Optional[bool] = False,
-                              figsize: Tuple[int] = (6, 6)) -> matplotlib.pyplot.axes:
+                              figsize: Tuple[int] = (6, 6), colorbar: bool = True) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -74,6 +66,7 @@ class OceanCurrentSource(DataSource):
             alpha:             alpha of the current magnitude color visualization
             reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
             figsize:           size of the figure
+            colorbar:          if to plot the colorbar or not
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
@@ -103,13 +96,15 @@ class OceanCurrentSource(DataSource):
         # underly with current magnitude
         if vmax is None:
             vmax = np.max(xarray['magnitude'].max())
-        xarray['magnitude'].plot(cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        im = xarray['magnitude'].plot(cmap='jet', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False)
         # set and format colorbar
-        cbar = ax.collections[-1].colorbar
-        cbar.ax.set_ylabel('current velocity')
-        cbar.set_ticks(cbar.get_ticks())
-        cbar.set_ticklabels(["{:.1f}".format(l) + ' m/s' for l in cbar.get_ticks().tolist()])
-
+        if colorbar:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
+            cbar = plt.colorbar(im, orientation="vertical", cax=cax)
+            cbar.ax.set_ylabel('current velocity in m/s')
+            cbar.set_ticks(cbar.get_ticks())
+            cbar.set_ticklabels(['{:.1f}'.format(l) for l in cbar.get_ticks().tolist()])
         # Plot on ax object
         if plot_type == 'streamline':
             # Needed because the data needs to be perfectly equally spaced
@@ -118,7 +113,7 @@ class OceanCurrentSource(DataSource):
             ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
-            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax)
+            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
 
         # Label the title
         if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
@@ -176,6 +171,7 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
 
 class ForecastFileSource(OceanCurrentSourceXarray):
     # TODO: Make it work with multiple Global HYCOM FMRC Files (a bit of extra logic, but possible)
+    # TODO: Make it such that we can specify from which fmrc index we want the data.
     """Data Source Object that accesses and manages multiple daily HYCOM files as source."""
 
     def __init__(self, source_config_dict: dict):
@@ -196,18 +192,23 @@ class ForecastFileSource(OceanCurrentSourceXarray):
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         # Step 1: Make sure we use the most recent forecast available
-        self.check_for_most_recent_fmrc_dataframe(SpatioTemporalPoint.date_time)
+        self.check_for_most_recent_fmrc_dataframe(spatio_temporal_point.date_time)
 
         return super().get_data_at_point(spatio_temporal_point)
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                           t_interval: List[datetime.datetime],
+                           t_interval: List[Union[datetime.datetime, int]],
                            spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None) -> xr:
+        # format to datetime object
+        if not isinstance(t_interval[0], datetime.datetime):
+            t_interval = [datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc) for time in t_interval]
         # Step 1: Make sure we use the most recent forecast available
         self.check_for_most_recent_fmrc_dataframe(t_interval[0])
 
-        return super().get_data_over_area(x_interval, y_interval, t_interval)
+        return super().get_data_over_area(x_interval, y_interval, t_interval,
+                                          spatial_resolution=spatial_resolution,
+                                          temporal_resolution=temporal_resolution)
 
     def load_ocean_current_from_idx(self):
         """Helper Function to load an OceanCurrent object."""
