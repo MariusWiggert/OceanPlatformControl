@@ -183,7 +183,7 @@ class DataSource(abc.ABC):
                                                                                 time + datetime.timedelta(seconds=1)],
                                                                                spatial_resolution=spatial_res)
 
-            area_xarray -= area_xarray - error_to_incorporate
+            area_xarray -= error_to_incorporate
         # interpolate to specific time
         at_time_array = area_xarray.interp(time=time.replace(tzinfo=None))
         # Plot the current field
