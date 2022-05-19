@@ -166,7 +166,7 @@ class OceanCurrentGP(OceanCurrentsModel):
                 fresh_observations = (
                         np.abs(
                             list(map(lambda x: x.total_seconds(), inputs[:, -1] - np.array(current_time)))
-                        ) < self.time_horizon
+                        ) < self.time_horizon3
                 )
                 inputs = inputs[fresh_observations]
                 targets = targets[fresh_observations]
@@ -175,7 +175,6 @@ class OceanCurrentGP(OceanCurrentsModel):
             copy_loc = np.array(locations)
             # copy_loc[:, -1] = np.array(list(map(lambda x: x.timestamp(), copy_loc[:, -1])))
             # We fit here the [x, y, t] coordinates with the error between forecasts and hindcasts
-            self.model.fit(inputs, targets)
             self.model.fit(inputs, targets)
             # Output should be a N x 2 set of predictions about local measurements,
             # and a N-sized vector of standard deviations.
@@ -195,7 +194,7 @@ class OceanCurrentGP(OceanCurrentsModel):
         self._add_forecast_to_prediction(locations, means)
         return means, deviations
 
-    def fitting_GP(self):
+    def fit(self) -> None:
         # TODO(Killian): not sure if necessary, Why are the deviations 0 if no measurements
         # Set up data for the GP.
         # TODO(bellemare): Clearly wasteful if performing multiple queries per

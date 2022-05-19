@@ -51,5 +51,5 @@ model:
     time_horizon_predictions_in_sec: 3600
 
 observer:
-  time_horizon_predictions_for_area_radius_in_sec: 86400 # 24 *3600
+  time_horizon_predictions_in_sec: 86400 # 24 *3600
 

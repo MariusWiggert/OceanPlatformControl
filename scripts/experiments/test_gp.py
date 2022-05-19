@@ -8,7 +8,7 @@ import ocean_navigation_simulator.env.data_sources.OceanCurrentField as OceanCur
 # Step 1: create the specification dict
 from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.models.GaussianProcess import OceanCurrentGP
+from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP
 from ocean_navigation_simulator.env.utils import units
 
 # %% create the source dict for the ocean currents
@@ -102,7 +102,7 @@ locations = np.array(np.meshgrid(y_te["lon"], y_te["lat"], pd.to_datetime(y_te["
 locations[:, 2] = pd.to_datetime(locations[:, 2])
 locations = locations[:100, :]
 # model.query_batch(locations)
-model.fitting_GP()
+model.fit()
 model.query_locations(locations)
 '''for i,time in enumerate(y_te["time"]):
     if i < 5:
