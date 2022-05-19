@@ -384,6 +384,7 @@ class DataSource(abc.ABC):
         # render the animation with the keyword arguments
         self.render_animation(animation_object=ani, output=output, fps=fps)
 
+    @staticmethod
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.

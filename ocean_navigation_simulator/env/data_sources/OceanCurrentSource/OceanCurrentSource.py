@@ -241,6 +241,10 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             self.load_ocean_current_from_idx()
             return self.rec_file_idx
 
+        else:
+            return self.rec_file_idx
+
+
 
 class HindcastFileSource(OceanCurrentSourceXarray):
     """Data Source Object that accesses and manages one or many HYCOM files as source."""
@@ -308,7 +312,7 @@ def get_file_dicts(folder: AnyStr) -> List[dict]:
 
 def open_formatted_xarray(filepath: AnyStr) -> xr:
     data_frame = xr.open_dataset(filepath).isel(depth=0)
-    if 'HYCOM' in data_frame.attrs['source']:
+    if 'source' not in data_frame.attrs or 'HYCOM' in data_frame.attrs['source']:
         return data_frame
     elif 'MERCATOR' in data_frame.attrs['source']:
         # for consistency we need to rename the variables in the xarray the same as in hycom
