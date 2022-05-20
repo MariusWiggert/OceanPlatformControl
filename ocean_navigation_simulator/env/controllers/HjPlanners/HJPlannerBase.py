@@ -121,15 +121,18 @@ class HJPlannerBase(Controller):
             # data and logging variables need to be initialized at first round
             self.last_fmrc_idx_planned_with = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
                 time=observation.platform_state.date_time)
+            print(f'No Forecast Index (New: {self.last_fmrc_idx_planned_with}).')
             return True
         # Check for re-planning with new forecast
         elif self.specific_settings['replan_on_new_fmrc']:
             if self._new_forecast_data_available(observation):
+                print('New Forecast available.')
                 return True
         # Check for re-planning after fixed time intervals
         elif self.specific_settings['replan_every_X_seconds'] is not None:
             if self.last_planning_posix + self.specific_settings['replan_every_X_seconds'] \
                     >= observation.platform_state.date_time.timestamp():
+                print('Periodic Replanning.')
                 return True
 
         return False
