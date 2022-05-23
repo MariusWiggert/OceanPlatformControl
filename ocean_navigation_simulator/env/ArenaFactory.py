@@ -11,7 +11,7 @@ class ArenaFactory:
     @staticmethod
     def create(scenario_name: string):# -> Arena:
         print('test')
-        print(__file__)
+        # print(__file__)
         # print(Path(__file__).parent.resolve())
         # print(Path(__file__).parent)
         # print(dirname(abspath(__file__)))
