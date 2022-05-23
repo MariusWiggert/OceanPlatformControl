@@ -12,12 +12,12 @@ class ArenaFactory:
     def create(scenario_name: string):# -> Arena:
         print('test')
         print(__file__)
-        print(Path(__file__).parent.resolve())
-        print(Path(__file__).parent)
-        print(dirname(abspath(__file__)))
-
-        print(Path().resolve())
-        print(abspath(os.getcwd()))
+        # print(Path(__file__).parent.resolve())
+        # print(Path(__file__).parent)
+        # print(dirname(abspath(__file__)))
+        #
+        # print(Path().resolve())
+        # print(abspath(os.getcwd()))
 
         # with open(f'{dirname(abspath(__file__))}/scenarios/{scenario_name}.yaml') as f:
         #     config = yaml.load(f, Loader=yaml.FullLoader)
