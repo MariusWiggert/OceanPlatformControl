@@ -1,6 +1,6 @@
 import string
 import yaml
-
+from pathlib import Path
 
 from ocean_navigation_simulator.env.Arena import Arena
 
@@ -8,7 +8,7 @@ from ocean_navigation_simulator.env.Arena import Arena
 class ArenaFactory:
     @staticmethod
     def create(scenario_name: string) -> Arena:
-        with open(f'scenarios/{scenario_name}.yaml') as f:
+        with open(f'{Path(__file__).parent}/scenarios/{scenario_name}.yaml') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         return Arena(

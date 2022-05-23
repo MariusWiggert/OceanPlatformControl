@@ -7,7 +7,7 @@ from ocean_navigation_simulator import env
 
 
 # specify version (for pip installation)
-__version__ = "Jerome_value_function_imitation_0.1.1"
+__version__ = "Jerome_value_function_imitation_0.1.2"
 __all__ = (
     "steering_controllers",
     "planners",
