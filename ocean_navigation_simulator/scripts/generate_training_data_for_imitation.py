@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d, interp2d
 import os
+import gc
 
 from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
@@ -158,6 +159,14 @@ def generate_training_data_for_imitation(
         np.save(f, x_mission)
     with open(f'{mission_folder}/y_mission.npy', 'wb') as f:
         np.save(f, y_mission)
+
+    # Delete Objects
+    del planner_hycom
+    del planner_copernicus
+    del x_mission
+    del y_mission
+    del trajectory
+    gc.collect()
 
 
 if __name__ == "__main__":
