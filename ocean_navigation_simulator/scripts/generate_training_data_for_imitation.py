@@ -104,7 +104,7 @@ def generate_training_data_for_imitation(
             ).squeeze()
 
             # Debug Information
-            if verbose > 0 and t % plot_after == 0:
+            if verbose > 0 and t > 0 and t % plot_after == 0:
                 print(f'Time Scale: {(planner.current_data_t_T - planner.current_data_t_0) / 3600}h')
                 print(f'Reach Times: [{planner.reach_times[0]}, {planner.reach_times[1]}, ..., {planner.reach_times[-1]}]')
                 print(f'Relative Time:{observation.platform_state.date_time.timestamp() - planner.current_data_t_0}')
@@ -118,8 +118,10 @@ def generate_training_data_for_imitation(
                 plt.clabel(CS, inline=True, fontsize=10)
                 plt.scatter(x=point['lon'], y=point['lat'], c='r', marker='o')
                 plt.scatter(planner.grid.states[..., 0].flatten(), planner.grid.states[..., 1].flatten(), s=0.05)
-                plot_x, plot_y = np.meshgrid(grid_x, grid_y)
-                plt.scatter(plot_x, plot_y, s=0.05, c='r')
+                plot_x, plot_y = np.meshgrid(in_grid_x, in_grid_y)
+                plt.scatter(out_grid_x, plot_y, s=0.05, c='g')
+                plot_x, plot_y = np.meshgrid(out_grid_x, out_grid_y)
+                plt.scatter(out_grid_x, plot_y, s=0.05, c='r')
                 plt.title(f'{name} ({mission_folder}): Iteration {t})')
                 plt.show()
 
