@@ -392,7 +392,7 @@ class DataSource(abc.ABC):
         Output:
            an integer representing the last file index on which it has planned
         """
-        return 0
+        return 1
 
 
 # Two types of data sources: analytical and xarray based ones -> need different default functions, used via mixin

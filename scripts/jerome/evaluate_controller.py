@@ -3,22 +3,17 @@
 import numpy as np
 import pickle
 import ray.rllib.utils
-from matplotlib import pyplot as plt
 from ray.rllib.agents.ppo import PPOTrainer
-from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from tqdm import tqdm
 import time
 import os
-import datetime as dt
-import tensorflow as tf
 
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from ocean_navigation_simulator.env.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
 from ocean_navigation_simulator.env.PlatformEnv import PlatformEnv
-from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.controllers.RLControllerFromAgent import RLControllerFromAgent
-from scripts.experiments import clean_ray_results
+from scripts.jerome import clean_ray_results
 
 script_start_time = time.time()
 

@@ -147,7 +147,8 @@ class Arena:
         return ArenaObservation(
             platform_state=state,
             true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
-            forecast_data_source=self.ocean_field.forecast_data_source)
+            forecast_data_source=self.ocean_field.forecast_data_source
+        )
 
     def is_inside_arena(
         self
