@@ -22,7 +22,7 @@ from shapely.geometry import Point, box
 
 
 class DrifterData():
-    def __init__(self, config: Dict):
+    def __init__(self, config: Dict, read_only=False):
         self.dataset = config['dataset']
         self.data_dir = config['data_dir']
         self.overlap_type = config['area_overlap_type']
@@ -31,9 +31,10 @@ class DrifterData():
         self.usr = config["usr"]
         self.pas = config["pas"]
         self.index_data: pd = None
-
-        # download index files
-        self.downloadIndexFiles(self.usr, self.pas)
+        
+        if not read_only:
+            # download index files
+            self.downloadIndexFiles(self.usr, self.pas)
         # load and join index files
         self.index_data = self.getIndexFileInfo()
 
@@ -160,7 +161,10 @@ class DrifterData():
             remotefile = file_link
             # localfile = os.path.join(os.getcwd(), "data", "nc_files", remotefile.split("/")[-1])
             localfile = os.path.join(self.data_dir, "drifter_data", "nc_files", remotefile.split("/")[-1])
-            ftp_host.download(remotefile, localfile)
+            if not os.path.exists(localfile):
+                ftp_host.download(remotefile, localfile)
+            else:
+                return None
 
         return remotefile.split("/")[-1]
 
