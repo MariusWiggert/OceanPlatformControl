@@ -6,9 +6,15 @@ from ocean_navigation_simulator.env.Arena import Arena
 
 class ArenaFactory:
     @staticmethod
-    def create(scenario_name: string) -> Arena:
-        with open(f'{dirname(abspath(__file__))}/scenarios/{scenario_name}.yaml') as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+    def create(scenario_name: string = None, file: string = None) -> Arena:
+        if scenario_name:
+            with open(f'{dirname(abspath(__file__))}/scenarios/{scenario_name}.yaml') as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+        elif file:
+            with open(file) as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            raise ValueError('Specify scenario name or file.')
 
         return Arena(
             sim_cache_dict=config['sim_cache_dict'],
