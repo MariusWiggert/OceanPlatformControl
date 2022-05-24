@@ -124,10 +124,15 @@ class Arena:
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
 
-        return ArenaObservation(platform_state=platform_state,
-                                true_current_at_state=self.ocean_field.get_ground_truth(
-                                    self.initial_state.to_spatio_temporal_point()),
-                                forecast_data_source=self.ocean_field.forecast_data_source)
+        true_current = self.ocean_field.get_ground_truth( self.initial_state.to_spatio_temporal_point())
+        return ArenaObservation(
+            platform_state=platform_state,
+            true_current_at_state= OceanCurrentVector(
+                u=true_current.u.__float__(),
+                v=true_current.v.__float__(),
+            ),
+            forecast_data_source=self.ocean_field.forecast_data_source
+        )
 
     def step(
         self,
@@ -144,9 +149,13 @@ class Arena:
         self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
         self.action_trajectory = np.append(self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0)
 
+        true_current = self.ocean_field.get_ground_truth(state.to_spatio_temporal_point())
         return ArenaObservation(
             platform_state=state,
-            true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
+            true_current_at_state=OceanCurrentVector(
+                u=true_current.u.__float__(),
+                v=true_current.v.__float__(),
+            ),
             forecast_data_source=self.ocean_field.forecast_data_source
         )
 

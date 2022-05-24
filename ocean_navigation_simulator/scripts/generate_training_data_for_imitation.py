@@ -61,8 +61,10 @@ def generate_training_data_for_imitation(
     TTR_MAP_OUT_WIDTH_DEG = 0.25/5
 
     trajectory = []
-    x_mission = []
-    y_mission = []
+
+    x_mission = np.zeros((0, TRUE_CURRENT_LENGTH * 4 + TTR_MAP_IN_WIDTH * TTR_MAP_IN_WIDTH))
+    y_mission = np.zeros((0, 3 * 3))
+
     observation = arena.reset(platform_state=problem.start_state)
 
     for t in tqdm(range(steps), disable=verbose<1):
@@ -81,7 +83,7 @@ def generate_training_data_for_imitation(
             'lon': observation.platform_state.lon.deg,
             'lat': observation.platform_state.lat.deg,
             'u_true': observation.true_current_at_state.u,
-            'v_true': observation.true_current_at_state.v
+            'v_true': observation.true_current_at_state.v,
         }
         trajectory.append(point)
 
@@ -136,12 +138,12 @@ def generate_training_data_for_imitation(
         if t >= TRUE_CURRENT_LENGTH:
             val_hycom = get_value_function_grid(planner_hycom, 'HYCOM', TTR_MAP_IN_WIDTH, TTR_MAP_IN_WIDTH_DEG, save_to_csv=False)
             val_copernicus = get_value_function_grid(planner_copernicus, 'Copernicus', TTR_MAP_OUT_WIDTH, TTR_MAP_OUT_WIDTH_DEG, save_to_csv=False)
-            true_currents = np.array([[t['lon'], t['lat'], t['u_true'], t['v_true']] for t in trajectory[-TRUE_CURRENT_LENGTH:]])
+            true_currents = np.array([np.array([t['lon'], t['lat'], t['u_true'], t['v_true']]) for t in trajectory[-TRUE_CURRENT_LENGTH:]])
 
             x_train, y_train = get_x_y_train(val_hycom, val_copernicus, true_currents)
 
-            x_mission.append(x_train)
-            y_mission.append(y_train)
+            x_mission = np.append(x_mission, np.expand_dims(x_train.squeeze(), axis=0), axis=0)
+            y_mission = np.append(y_mission, np.expand_dims(y_train.squeeze(), axis=0), axis=0)
 
         # Simulation Termination
         prolem_status = problem.is_done(observation.platform_state)
@@ -151,9 +153,9 @@ def generate_training_data_for_imitation(
     # Save Data
     pd.DataFrame(trajectory).to_csv(f'{mission_folder}/trajectory.csv')
     with open(f'{mission_folder}/x_mission.npy', 'wb') as f:
-        np.save(f, np.array(x_mission))
+        np.save(f, x_mission)
     with open(f'{mission_folder}/y_mission.npy', 'wb') as f:
-        np.save(f, np.array(y_mission))
+        np.save(f, y_mission)
 
 
 if __name__ == "__main__":

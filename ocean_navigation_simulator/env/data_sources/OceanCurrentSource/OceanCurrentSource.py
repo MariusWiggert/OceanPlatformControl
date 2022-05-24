@@ -165,8 +165,10 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         Returns:
           OceanCurrentVector
           """
-        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
+        return OceanCurrentVector(
+            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input())
+        )
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):

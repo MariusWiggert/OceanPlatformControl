@@ -118,10 +118,11 @@ class HJPlannerBase(Controller):
         """
         # For the first round for sure
         if self.last_fmrc_idx_planned_with is None:
+            old = self.last_fmrc_idx_planned_with
             # data and logging variables need to be initialized at first round
             self.last_fmrc_idx_planned_with = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
                 time=observation.platform_state.date_time)
-            print(f'No Forecast Index (New: {self.last_fmrc_idx_planned_with}).')
+            print(f'No Forecast Index (Old: {old}, New: {self.last_fmrc_idx_planned_with}).')
             return True
         # Check for re-planning with new forecast
         elif self.specific_settings['replan_on_new_fmrc']:
