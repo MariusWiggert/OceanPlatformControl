@@ -23,12 +23,11 @@ class OceanCurrentGP(OceanCurrentModel):
     def __init__(self, config_file: Dict[str, Any]):
         """Constructor for the OceanCurrentGP.
 
-    Args:
-      forecast: the config file that setups the parameters for the Gaussian Processing
-    """
+        Args:
+          config_file: the config file that setups the parameters for the Gaussian Processing
+        """
         super().__init__()
         self.config_file = config_file
-        # TODO: VERIFY time
         self.life_span_observations_in_sec = config_file.get("life_span_observations_in_sec", 24 * 3600)  # 24 hours.
 
         parameters_model = {}
@@ -42,6 +41,13 @@ class OceanCurrentGP(OceanCurrentModel):
         print(f"Gaussian Process created: {self.model}")
 
     def __get_kernel(self, dic_config: dict[str, Any]) -> Kernel:
+        """Get the GP kernel based on the dictionary generated based on the Yaml file.
+        Args:
+            dic_config: Dictionary containing the hyper-parameters of the kernel that will be used by the GP.
+
+        Returns:
+            The created kernel. If the kernel specified is not supported, the constant kernel is returned
+        """
         type_kernel = str(dic_config["type"])
         factor = self.config_file.get("sigma_exp_squared", 1)
         params = dic_config.get("parameters", {})
@@ -61,6 +67,9 @@ class OceanCurrentGP(OceanCurrentModel):
         return factor * gaussian_process.kernels.ConstantKernel()
 
     def fit(self) -> None:
+        """Fit the Gaussian process using the observations(self.measurement_locations and self.errors). Remove
+        definitely the observations that are more than life_span_observations_in_sec older than the most recent one.
+        """
         if not len(self.measurement_locations):
             print("no measurement_locations. Nothing to fit")
             return
@@ -82,10 +91,19 @@ class OceanCurrentGP(OceanCurrentModel):
         self.model.fit(measurement_locations, errors)
 
     def reset(self) -> None:
-        self.measurement_locations = []
-        self.errors = []
+        """ Resetting the GP consist in removing all the observations.
+        """
+        super().reset()
 
     def get_predictions(self, locations: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """ Compute the predictions for the given locations
+
+        Args:
+            locations: (N,3) ndarray that contains all the points we want to predict. Each point should be described by:
+                       (lon in degree, lat in degree, time in datetime.datetime format).
+        Returns:
+            the predictions (N,3) and the std of these predictions (N,3).
+        """
         locations[:, -1] = np.array(list(map(lambda x: x.timestamp(), locations[:, -1])))
 
         if not len(self.measurement_locations):
@@ -95,11 +113,9 @@ class OceanCurrentGP(OceanCurrentModel):
             return means, deviations
         means, deviations = self.model.predict(locations, return_std=True)
         # Deviations are std.dev., convert to variance and normalize.
-        # TODO(bellemare): Ask what the actual lower bound is supposed to
+        # TODO: Check what the actual lower bound is supposed to
         # be. We can't have a 0 std.dev. due to noise. Currently it's something
         # like 0.07 from the GP, but that doesn't seem to match the Loon code.
         deviations = deviations ** 2 / self.config_file.get("sigma_exp_squared", 1)
-
-        assert len(means.shape) == 2, means.shape[1] == 2
 
         return means, deviations

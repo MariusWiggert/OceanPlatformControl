@@ -45,7 +45,7 @@ _DURATION_SIMULATION = datetime.timedelta(seconds=variables["duration_simulation
 _NUMBER_STEPS = int(math.ceil(_DURATION_SIMULATION.total_seconds() / _DELTA_TIME_BETWEEN_PREDICTIONS.total_seconds()))
 _N_BURNIN_PTS = variables[
     "number_burnin_steps"]  # 100 # Number of minimum pts we gather from a platform to use as observations
-_MAX_STEPS_PREDICTION = variables["maximum_steps"]
+_MAX_STEPS_PREDICTION = variables["number_steps_prediction"]
 IGNORE_WARNINGS = variables["ignore_warnings"]
 
 DISPLAY_INTERMEDIARY_3D_PLOTS = plots_config["display_intermediary_3d_plots"]

@@ -9,7 +9,7 @@ testing:
   use_real_data: False
   ignore_warnings: True
   number_burnin_steps: 30
-  maximum_steps: 5000
+  number_steps_prediction: 5000
   delta_between_predictions_in_sec: 1
   duration_simulation_in_sec: 72
 

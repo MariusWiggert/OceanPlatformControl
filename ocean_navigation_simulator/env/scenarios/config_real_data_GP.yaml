@@ -17,7 +17,7 @@ experiment_runner:
 
     #number_burnin_steps: 50
   number_burnin_steps: 100
-  maximum_steps: 390
+  number_steps_prediction: 390
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
   duration_simulation_in_sec: 36000000

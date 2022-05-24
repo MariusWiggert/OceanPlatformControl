@@ -1,5 +1,4 @@
 import datetime
-import time
 from typing import Union, Tuple, List, Dict, Any
 
 import dateutil
@@ -20,25 +19,39 @@ from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTarg
 from ocean_navigation_simulator.env.utils.units import Distance
 
 
-def _plot_metrics(dict: Dict[str, any]):
+def _plot_metrics(metrics: Dict[str, any]) -> None:
+    """
+    Plot the r2 and vector correlations over time on 4 different sub-plots.
+    Args:
+        metrics: dictionary containing the name of the metrics, and it's given value for each timestep in a ndarray
+    """
     fig, axs = plt.subplots(2, 2)
-    axs[0, 0].plot(dict["time"], dict["r2"], label="r2_loss")
+    t = [datetime.datetime.fromtimestamp(time) for time in metrics["time"]]
+    axs[0, 0].plot(t, metrics["r2"], label="r2_loss")
     axs[0, 0].set_title("r2_loss")
-    axs[1, 0].plot(dict["time"], dict["vector_correlation_ratio"], label="vector_correlation_ratio")
+    axs[1, 0].plot(t, metrics["vector_correlation_ratio"], label="vector_correlation_ratio")
     axs[1, 0].set_title("vector correlation ratio")
-    axs[0, 1].plot(dict["time"], dict["vector_correlation_improved"],
+    axs[0, 1].plot(t, metrics["vector_correlation_improved"],
                    label="vector correlation improved")
     axs[0, 1].set_title("vector correlation model")
-    axs[1, 1].plot(dict["time"], dict["vector_correlation_initial"], label="vector_correl_ref")
+    axs[1, 1].plot(t, metrics["vector_correlation_initial"], label="vector_correlation_ref")
     axs[1, 1].set_title("vector correlation initial")
     plt.legend()
 
-    print(f"Mean r2_loss: {dict['r2'].mean()}")
+    print(f"Mean r2_loss: {metrics['r2'].mean()}")
 
 
 class ExperimentRunner:
+    """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
     def __init__(self, yaml_file_config: str):
+        """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
+        get results represented by metrics
+
+        Args:
+            yaml_file_config: the name (without path or extension) of the Yaml file that will be read in the folder:
+            "ocean_navigation_simulator/env/scenarios/"
+        """
         with open(f'ocean_navigation_simulator/env/scenarios/{yaml_file_config}.yaml') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
             self.variables = config["experiment_runner"]
@@ -53,9 +66,9 @@ class ExperimentRunner:
                                     lat=Distance(deg=init_pos["lat_in_deg"]),
                                     date_time=dateutil.parser.isoparse(init_pos["datetime"]))
                 target_point = problem_dic["target"]
-                x_T = SpatialPoint(lon=Distance(deg=target_point["lon_in_deg"]),
+                x_t = SpatialPoint(lon=Distance(deg=target_point["lon_in_deg"]),
                                    lat=Distance(deg=target_point["lat_in_deg"]))
-                problems.append(Problem(start_state=x_0, end_region=x_T, target_radius=target_point["radius_in_m"]))
+                problems.append(Problem(start_state=x_0, end_region=x_t, target_radius=target_point["radius_in_m"]))
             self.problem_factory = NaiveProblemFactory(problems)
         else:
             self.problem_factory = HighwayProblemFactory(
@@ -67,6 +80,12 @@ class ExperimentRunner:
         self.last_observation, self.last_prediction_ground_truth = None, None
 
     def run_all_problems(self) -> List[Dict[str, any]]:
+        """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
+        provide the metrics computed for each problem
+
+        Returns: List of dictionaries where the i-th item of the list is a dict with all the metrics computed for the
+        i-th problem.
+        """
         results = []
         while self.problem_factory.has_problems_remaining():
             results.append(self.run_next_problem())
@@ -77,6 +96,13 @@ class ExperimentRunner:
         return results
 
     def run_next_problem(self) -> Dict[str, Any]:
+        """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
+        observer. Gather "number_burnin_steps" observations without fitting the model and then start predicting the
+        model at each timestep and evaluate for that timestep the prediction compared to the hindcast.
+
+        Returns:
+            dictionary with the pairs: (metric_name, 1d array containing the output from that metric at each timestep)
+        """
         if not self.problem_factory.has_problems_remaining():
             raise StopIteration()
 
@@ -85,9 +111,8 @@ class ExperimentRunner:
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
 
-        start = time.time()
         for i in range(self.variables.get("number_burnin_steps", 0)):
-            self.step_simulation(controller, fit_model=False)
+            self.__step_simulation(controller, fit_model=False)
             # position = arena_obs.platform_state.to_spatial_point()
         print(f"End of burnin ({self.variables.get('number_burnin_steps', 0)} steps)")
         print("start predicting")
@@ -97,46 +122,58 @@ class ExperimentRunner:
         results = []
 
         # Now we run the algorithm
-        for i in range(self.variables["maximum_steps"]):
-            last_prediction = self.step_simulation(controller, fit_model=True)
+        for i in range(self.variables["number_steps_prediction"]):
+            last_prediction = self.__step_simulation(controller, fit_model=True)
             results.append(self.last_prediction_ground_truth)
 
-            print(
-                f"step {i + 1}/{self.variables['maximum_steps']}:"
-                f" error mean:{last_prediction['mean_error_u'].mean(dim=['lon', 'lat', 'time']).to_numpy()}, "
-                f"abs error mean:{abs(last_prediction['mean_error_u']).mean(dim=['lon', 'lat', 'time']).to_numpy()}, "
-                f"forecasted_std:{last_prediction['std_error_u'].mean().item() if 'std_error_u' in last_prediction.keys() else 'NA'}")
-
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
-                *self._get_lon_lat_time_intervals())
-            differences_predictions_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
-            self.last_prediction_ground_truth = differences_predictions_ground_truth
-            metric = differences_predictions_ground_truth.compute_metrics()
+                *self.__get_lon_lat_time_intervals())
+            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
+
+            metric = self.last_prediction_ground_truth.compute_metrics()
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
 
-            metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, last_prediction["time"][0]))
+            metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0,
+                                     self.last_observation.platform_state.date_time.timestamp()))
+
+            print(
+                f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
+
         metrics = np.array(metrics)
         return {name: metrics[:, i] for i, name in enumerate(metrics_names)}
 
-    def step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
+    def __step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
+        """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
+         model. We save the last observation.
+
+        Args:
+            controller: Controller that tells use which action to apply
+            fit_model: Whether we should just gather observations or also predict the improved forecast around the
+                        platform position
+
+        Returns:
+            The xarray dataset containing the initial and improved forecasts, the errors and also the uncertainty if
+            it is provided by the observer depending on the OceanCurrentModel used.
+        """
         action_to_apply = controller.get_action(self.last_observation)
         self.last_observation = self.arena.step(action_to_apply)
         self.observer.observe(self.last_observation)
 
-        # TODO: modify input to respect interface design
         predictions = None
         if fit_model:
             self.observer.fit()
-            # todo: find how to get the intervals
-
-            predictions = self.observer.get_data_over_area(*self._get_lon_lat_time_intervals())
+            predictions = self.observer.get_data_over_area(*self.__get_lon_lat_time_intervals())
 
         return predictions
 
-    def _get_lon_lat_time_intervals(self) -> Tuple[
+    def __get_lon_lat_time_intervals(self) -> Tuple[
         List[float], List[float], Union[List[float], List[datetime.datetime]]]:
-        m = self.variables.get("radius_area_around_platform", 1)
+        """ Internal method to get the area around the platforms
+
+        Returns:
+            longitude, latitude and time intervals packed as tuples and each interval as a list of 2 elements
+        """
         point = self.last_observation.platform_state.to_spatio_temporal_point()
         t, lat, lon = self.last_observation.forecast_data_source. \
             convert_to_x_y_time_bounds(point, point, self.variables.get("radius_area_around_platform", 1),
@@ -144,8 +181,12 @@ class ExperimentRunner:
         return lon, lat, t
 
     def visualize_currents(self) -> None:
+        """Visualize the initial and improved forecasts and the hindcast around the platform based on the time of the
+        last observation.
+
+        """
         print("visualize_currents")
-        x_y_intervals = self._get_lon_lat_time_intervals()[:2]
+        x_y_intervals = self.__get_lon_lat_time_intervals()[:2]
         # todo: make it adaptable by taking min max over the 3 sources
         vmin, vmax = -1, 1
         ax1 = self.arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -177,5 +218,3 @@ class ExperimentRunner:
         ax3.plot(trajectory_x, trajectory_y, color='y', marker='+')
         ax3.set_xlim(x_lim), ax3.set_ylim(y_lim)
         ax3.set_title("Improved forecasts")
-
-        vmin = min(ax1.g)
