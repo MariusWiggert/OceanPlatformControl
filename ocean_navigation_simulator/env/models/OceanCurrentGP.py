@@ -17,10 +17,10 @@ from sklearn.gaussian_process.kernels import Kernel
 from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentVector
-from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
+from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel_old
 
 
-class OceanCurrentGP(OceanCurrentsModel):
+class OceanCurrentGP_old(OceanCurrentsModel_old):
     """Wrapper around a Gaussian Process that handles ocean currents.
   This object models deviations from the forecast ("errors") using a Gaussian
   process over the 3-dimensional space (x, y, time).
@@ -29,7 +29,7 @@ class OceanCurrentGP(OceanCurrentsModel):
   the GP's confidence about that current.
   """
 
-    def __init__(self, forecast: OceanCurrentField, config_file: Dict[str, Any]) -> None:
+    def __init__(self, forecast: OceanCurrentField, config_file: Dict[str, Any]):
         """Constructor for the OceanCurrentGP.
     TODO(bellemare): Currently a forecast is required. This simplifies the
     code somewhat. Whether we keep this depends on a design choice: is a new

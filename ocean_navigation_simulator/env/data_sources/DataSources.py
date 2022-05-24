@@ -153,7 +153,7 @@ class DataSource(abc.ABC):
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
                                     spatial_res: Optional[float] = None,
-                                    error_to_incorporate: Optional[Union[xr.DataArray, 'DataSource']] = None,
+                                    error_to_incorporate: Optional[Union['xr', 'DataSource']] = None,
                                     return_ax: Optional[bool] = False,
                                     **kwargs):
         """Plot the data at a specific time over an area defined by the x and y intervals.
@@ -184,6 +184,7 @@ class DataSource(abc.ABC):
                                                                                spatial_resolution=spatial_res)
 
             area_xarray -= error_to_incorporate
+
         # interpolate to specific time
         at_time_array = area_xarray.interp(time=time.replace(tzinfo=None))
         # Plot the current field

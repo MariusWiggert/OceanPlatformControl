@@ -23,8 +23,8 @@ from ocean_navigation_simulator.env.controllers.Controller import Controller
 from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP
-from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel
+from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP_old
+from ocean_navigation_simulator.env.models.OceanCurrentsModel import OceanCurrentsModel_old
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Distance
 from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_over_time
@@ -34,8 +34,10 @@ from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_ov
 simulation_config = "config_real_data_GP"
 with open(f'ocean_navigation_simulator/env/scenarios/{simulation_config}.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
-    variables = config["testing"]
+    variables = config["experiment_runner"]
     plots_config = variables["plots"]
+
+np.random.seed(0)
 # %% Setup the constants
 _DELTA_TIME_BETWEEN_PREDICTIONS = datetime.timedelta(seconds=variables["delta_between_predictions_in_sec"])
 
@@ -54,11 +56,12 @@ _MARGIN_AREA_PLOT = Distance(deg=plots_config["margin_for_area_to_plot_in_deg"])
 
 
 # Todo: develop an abstract class Model.
-def get_model(arena: Arena, config_file: Dict[str, Any]) -> OceanCurrentsModel:
+def get_model(arena: Arena, config_file: Dict[str, Any]) -> OceanCurrentsModel_old:
     print(config_file)
-    dic_model = config_file["model"]
+    dic_model = config_file["observer"]["model"]
     if "gaussian_process" in dic_model:
-        return OceanCurrentGP(arena.ocean_field, dic_model["gaussian_process"])
+        print("model:", OceanCurrentGP_old(arena.ocean_field, dic_model["gaussian_process"]))
+        return OceanCurrentGP_old(arena.ocean_field, dic_model["gaussian_process"])
     raise NotImplementedError("Only Gaussian Process supported right now")
 
 
@@ -267,10 +270,10 @@ success = []
 use_real_data = variables["use_real_data"]
 if use_real_data:
     # Specify Problem
-    init_pos = variables["initial_position"]
+    init_pos = variables["problems"][0]["initial_position"]
     x_0 = PlatformState(lon=units.Distance(deg=init_pos["lon_in_deg"]), lat=units.Distance(deg=init_pos["lat_in_deg"]),
                         date_time=dateutil.parser.isoparse(init_pos["datetime"]))
-    target_point = variables["target"]
+    target_point = variables["problems"][0]["target"]
     x_T = SpatialPoint(lon=units.Distance(deg=target_point["lon_in_deg"]),
                        lat=units.Distance(deg=target_point["lat_in_deg"]))
     problem = Problem(start_state=x_0, end_region=x_T, target_radius=target_point["radius_in_m"])
@@ -309,9 +312,11 @@ if plots_config.get("plot_initial_world_map"):
 
 def evaluate_predictions(current_platform_state: PlatformState, observer_platform: Observer,
                          area_to_evaluate: Optional[np.ndarray] = None) -> Dict[str, Any]:
-    forecasts = observer_platform.get_forecast_around_platform(current_platform_state, x_y_intervals=area_to_evaluate)
+    forecasts = observer_platform.get_forecast_around_platform(current_platform_state, x_y_intervals=area_to_evaluate,
+                                                               temporal_resolution=_DELTA_TIME_BETWEEN_PREDICTIONS.seconds)
     ground_truth = observer_platform.get_ground_truth_around_platform(current_platform_state,
-                                                                      x_y_intervals=area_to_evaluate)
+                                                                      x_y_intervals=area_to_evaluate,
+                                                                      temporal_resolution=_DELTA_TIME_BETWEEN_PREDICTIONS.seconds)
 
     # put the current dimension as the last one
     # gt_np = ground_truth.transpose("time", "lon", "lat").to_array().to_numpy()
@@ -388,7 +393,7 @@ ratio_correlation = []
 i = 0
 
 # %% Now we run the algorithm
-n_steps = min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION)
+n_steps = 200  # min(_NUMBER_STEPS, _MAX_STEPS_PREDICTION)
 for i in range(n_steps):
     arena_obs, forecast_error, forecast_std = step_simulation(controller, observer, arena_obs, trajectory_platform,
                                                               area_to_evaluate=None)

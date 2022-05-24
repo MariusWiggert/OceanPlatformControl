@@ -8,13 +8,13 @@ import xarray as xr
 from ocean_navigation_simulator.env.Arena import Arena
 from ocean_navigation_simulator.env.PlatformState import PlatformState
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP
+from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP_old
 from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.utils.units import Velocity, Distance
 
 
 class Observer:
-    def __init__(self, prediction_model: OceanCurrentGP, arena: Arena, config: Dict[str, Any],
+    def __init__(self, prediction_model: OceanCurrentGP_old, arena: Arena, config: Dict[str, Any],
                  general_config_file: Dict[str, Any] = {}):
         self.model = prediction_model
         self.arena = arena
@@ -23,7 +23,7 @@ class Observer:
         # 3600 = 1m/s * 24 * 60 * 60 =(Avg speed)* #seconds in the horizon
         # _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
         self._TIME_HORIZON_PREDICTIONS = datetime.timedelta(
-            seconds=config["time_horizon_predictions_in_sec"])
+            seconds=config["life_span_observations_in_sec"])
 
         # velocity_for_area = Velocity(meters_per_second=1 if general_config_file.get("use_real_data", True) else (
         #        units.METERS_PER_DEG_LAT_LON / 12))
@@ -33,6 +33,7 @@ class Observer:
         self._RADIUS_AREA_AROUND_PLATFORM = velocity_for_area * self._TIME_HORIZON_PREDICTIONS
         print(
             f"dimension area around platform:{self._RADIUS_AREA_AROUND_PLATFORM.m}m x {self._RADIUS_AREA_AROUND_PLATFORM.m}m=" +
+            f"dimension area around platform:{self._RADIUS_AREA_AROUND_PLATFORM.deg}deg x {self._RADIUS_AREA_AROUND_PLATFORM.deg}deg=" +
             f"{self._RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
 
     def get_area_around_platform(self, platform_state: PlatformState, margin: Distance = Distance(m=0)) \
