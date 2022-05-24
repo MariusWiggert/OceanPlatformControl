@@ -129,24 +129,27 @@ class DrifterData():
     def spatialOverlap(self, row, targeted_bbox: List[str], overlap_type: str='contains'):
         # Checks if a file contains data in the specified area (targeted_bbox)
 
+        def fix_negs(longitude):
+            if longitude < 0:
+                return longitude + 360
+            else:
+                return longitude
+
         result = False
         try:
             geospatial_lat_min = float(row['geospatial_lat_min'])
             geospatial_lat_max = float(row['geospatial_lat_max'])
-            geospatial_lon_min = float(row['geospatial_lon_min'])
-            geospatial_lon_max = float(row['geospatial_lon_max'])
-            targeted_bounding_box = box(targeted_bbox[0], targeted_bbox[1], targeted_bbox[2], targeted_bbox[3])
-            bounding_box = box(geospatial_lon_min, geospatial_lat_min,geospatial_lon_max, geospatial_lat_max)
+            geospatial_lon_min = fix_negs(float(row['geospatial_lon_min']))
+            geospatial_lon_max = fix_negs(float(row['geospatial_lon_max']))
+            targeted_bounding_box = box(fix_negs(targeted_bbox[0]), targeted_bbox[1], fix_negs(targeted_bbox[2]), targeted_bbox[3])
+            bounding_box = box(geospatial_lon_min, geospatial_lat_min, geospatial_lon_max, geospatial_lat_max)
+
             if overlap_type == "contains":
                 if targeted_bounding_box.contains(bounding_box):  # check other rules on https://shapely.readthedocs.io/en/stable/manual.html
                     result = True
-                else:
-                    result = False
             elif overlap_type == "intersects":
                 if targeted_bounding_box.intersects(bounding_box):  # check other rules on https://shapely.readthedocs.io/en/stable/manual.html
                     result = True
-                else:
-                    result = False
 
         except Exception as e:
             print("spatialOverlap error!\n", e)
