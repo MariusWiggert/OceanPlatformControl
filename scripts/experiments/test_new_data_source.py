@@ -34,6 +34,8 @@ x_T = SpatialPoint(lon=units.Distance(deg=-122), lat=units.Distance(deg=37))
 #%% Plot it
 # solar_field.plot_true_at_time_over_area(time=t_0, x_interval=x_interval, y_interval=y_interval)
 solar_field.hindcast_data_source.plot_data_at_time_over_area(time=t_0, x_interval=x_interval, y_interval=y_interval)
+#%%
+solar_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 #%% check it for a point
 vec_point = solar_field.get_forecast(spatio_temporal_point=SpatioTemporalPoint(lon=units.Distance(deg=-120),
                                                                                lat=units.Distance(deg=30),
@@ -71,12 +73,10 @@ source_dict['source_settings'] = {
 #                'source_settings': {
 #                    'folder': "data/forecast_test/"# "data/cop_fmrc/"
 #                }}
-# #%% Hindcast file dict (if in local folder)
-# hindcast_file_config_dict = {'source': 'hindcast_files',
-#                'subset_time_buffer_in_s': 4000,
-#                'source_settings': {
-#                    'folder': "data/single_day_hindcasts/"}, #"data/hindcast_test/"
-#                }
+# #% Hindcast file dict (if in local folder)
+# source_dict['source'] = 'hindcast_files'
+# source_dict['source_settings'] = {
+#                    'folder': "data/single_day_hindcasts/"} #"data/hindcast_test/"
 
 #%% Create the ocean Field
 ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
@@ -92,6 +92,8 @@ x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24.2))
 ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=t_0, x_interval=x_interval, y_interval=y_interval,
     plot_type='streamline', return_ax=False)
+#%%
+ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 #%%
 ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
 vec_point = ocean_field.get_ground_truth(x_0.to_spatio_temporal_point())

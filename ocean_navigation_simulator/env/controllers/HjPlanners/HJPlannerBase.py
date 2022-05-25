@@ -514,14 +514,15 @@ class HJPlannerBase(Controller):
         else:
             raise ValueError("Reachability Values are already in forward time.")
 
-    def plot_reachability_snapshot(self, rel_time_in_seconds: float, input_ax: plt.Axes = None,
+    # PLOTTING FUNCTIONS #
+    def plot_reachability_snapshot(self, rel_time_in_seconds: float = 0, ax: plt.Axes = None,
                                    return_ax: bool = False, fig_size_inches: Tuple[int, int] = (12, 12),
                                    alpha_color: float = 1., time_to_reach: bool = False,
                                    granularity_in_h: float = 5, plot_in_h: bool = True, **kwargs):
         """ Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds.
         Args:
             rel_time_in_seconds:    the relative time for which to plot the snapshot since last replan
-            input_ax:               axis object to plot on top of
+            ax:                     Optional: axis object to plot on top of
             return_ax:              if true, function returns ax object for more plotting
             fig_size_inches:        Figure size
             ### Rest only relevant for multi-time-reach-back
@@ -533,17 +534,24 @@ class HJPlannerBase(Controller):
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
 
+        # create the axis object if not fed in
+        if ax is None:
+            if self.specific_settings['use_geographic_coordinate_system']:
+                ax = self.last_data_source.set_up_geographic_ax()
+            else:
+                ax = plt.axes()
+
         # get_initial_value
         initial_values = self.get_initial_values(direction=self.specific_settings['direction'])
 
-        # interpolate
-        val_at_t = interp1d(self.reach_times - self.reach_times[0], self.all_values, axis=0, kind='linear')(
-            rel_time_in_seconds).squeeze()
+        # interpolate the value function to the specific time
+        val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
+            max(self.reach_times[0], min(self.reach_times[-1], rel_time_in_seconds + self.reach_times[0]))).squeeze()
 
         # If in normal reachability setting
         is_multi_reach = 'multi-time-reach-back' == self.specific_settings['direction']
-        if is_multi_reach:  # some pre-computations before plotting
-            multi_reach_rel_time = rel_time_in_seconds - self.reach_times[-1]
+        if is_multi_reach and 'val_func_levels' not in kwargs:  # value function pre-computations before plotting
+            multi_reach_rel_time = rel_time_in_seconds - self.reach_times[-1]  # this is normally negative
             non_dim_val_func_levels, abs_time_y_ticks, y_label = self._get_multi_reach_levels(
                 granularity_in_h, time_to_reach=time_to_reach, vmin=val_at_t.min(),
                 abs_time_in_h=multi_reach_rel_time / 3600 if plot_in_h else multi_reach_rel_time)
@@ -551,13 +559,11 @@ class HJPlannerBase(Controller):
             kwargs.update(
                 {'val_func_levels': non_dim_val_func_levels, 'y_label': y_label, 'yticklabels': abs_time_y_ticks})
 
-        if self.last_data_source.source_config_dict['use_geographic_coordinate_system'] and input_ax is None:
-            input_ax = self.last_data_source.set_up_geographic_ax()
-
-        # plot the set
+        # plot the set on top of ax
         ax = hj.viz._visSet2D(self.grid, val_at_t, plot_level=0, color_level='black',
                               colorbar=is_multi_reach, obstacles=None, target_set=initial_values, return_ax=True,
-                              input_ax=input_ax, alpha_colorbar=alpha_color, **kwargs)
+                              input_ax=ax, alpha_colorbar=alpha_color,
+                              **kwargs)
 
         ax.scatter(self.problem.start_state.lon.deg, self.problem.start_state.lat.deg, color='r', marker='o')
         ax.scatter(self.problem.end_region.lon.deg, self.problem.end_region.lat.deg, color='g', marker='x')
@@ -578,34 +584,50 @@ class HJPlannerBase(Controller):
         else:
             plt.show()
 
-    def plot_reachability_animation(self, type='mp4', granularity_in_h=5, time_to_reach=False, plot_in_h: bool = True):
+    def plot_reachability_snapshot_over_currents(self, rel_time_in_seconds: float = 0, ax: plt.Axes = None, **kwargs):
+        """ Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds over the currents.
+            Args:
+                rel_time_in_seconds:    the relative time for which to plot the snapshot since last replan
+                ax:                     Optional: axis object to plot on top of
+                kwargs:                 See plot_reachability_snapshot for further arguments
+        """
+        # plot currents on ax
+        ax = self.last_data_source.plot_data_at_time_over_area(time=self.current_data_t_0 + rel_time_in_seconds,
+                                                               x_interval=[self.grid.domain.lo[0],
+                                                                           self.grid.domain.hi[0]],
+                                                               y_interval=[self.grid.domain.lo[1],
+                                                                           self.grid.domain.hi[1]],
+                                                               return_ax=True, colorbar=False, ax=ax)
+        # add reachability snapshot on top
+        return self.plot_reachability_snapshot(rel_time_in_seconds=rel_time_in_seconds, ax=ax, plot_in_h=True,
+                                               display_colorbar=True, mask_above_zero=True, **kwargs)
+
+    def plot_reachability_animation(self, plot_in_h: bool = True, granularity_in_h: int = 1,
+                                    time_to_reach: bool = False, filename: AnyStr = 'reachability_animation.mp4',
+                                    **kwargs):
         """Create an animation of the reachability computation."""
-        # Some pre-computation to adapt the plots accordingly
-        is_multi_reach = 'multi-time-reach-back' == self.specific_settings['direction']
-        abs_time_vec = (self.reach_times - self.reach_times[0]) / 3600 if plot_in_h else (
+        if 'multi-time-reach-back' == self.specific_settings['direction'] and not time_to_reach:
+            abs_time_vec = (self.reach_times - self.reach_times[0]) / 3600 if plot_in_h else (
                     self.reach_times - self.reach_times[0])
-        kwargs = {}
-        if is_multi_reach:
             non_dim_val_func_levels, abs_time_y_ticks, y_label = self._get_multi_reach_levels(
                 granularity_in_h, time_to_reach=time_to_reach, vmin=self.all_values.min(),
                 abs_time_in_h=abs_time_vec[-1])
             # package them in kwargs
-            kwargs = {'val_func_levels': non_dim_val_func_levels, 'y_label': y_label,
-                      'color_yticklabels': abs_time_y_ticks}
+            kwargs.update({'val_func_levels': non_dim_val_func_levels, 'y_label': y_label,
+                           'yticklabels': abs_time_y_ticks})
 
-        # Determine x_init and direction
-        if self.specific_settings['direction'] == 'forward':
-            x_init = np.array(self.problem.end_region)[:2]
-            values_to_plot = self.all_values
-        else:  # backwards
-            x_init = np.array(self.x_t)[:2]
-            abs_time_vec = jnp.flip(abs_time_vec)
-            values_to_plot = jnp.flip(self.all_values, axis=0)
+        def add_reachability_snapshot(ax, time):
+            ax = self.plot_reachability_snapshot(
+                rel_time_in_seconds=time - self.current_data_t_0, granularity_in_h=granularity_in_h, alpha_color=1,
+                mask_above_zero=True, return_ax=True, fig_size_inches=(12, 12), time_to_reach=time_to_reach,
+                ax=ax, plot_in_h=plot_in_h, display_colorbar=True, **kwargs)
 
-        # create the animation
-        hj.viz.visSet2DAnimation(
-            self.grid, values_to_plot, times=abs_time_vec, filename="2D_reachability_animation",
-            type=type, x_init=x_init, colorbar=is_multi_reach, **kwargs)
+        self.last_data_source.animate_data(x_interval=[self.grid.domain.lo[0], self.grid.domain.hi[0]],
+                                           y_interval=[self.grid.domain.lo[1], self.grid.domain.hi[1]],
+                                           t_interval=[self.current_data_t_0 + rel_time for rel_time in
+                                                       [self.reach_times[0], self.reach_times[-1]]],
+                                           forward_time=self.specific_settings['direction'] == 'forward',
+                                           add_ax_func=add_reachability_snapshot, colorbar=False, output=filename)
 
     def vis_value_func_along_traj(self, figsize=(12, 12), return_ax=False, extra_traj=None, time_to_reach=False):
         """Plot the Value function along the most recently planned trajectory."""
@@ -653,8 +675,12 @@ class HJPlannerBase(Controller):
         """Helper function to determine the levels for multi-reachability plotting."""
 
         n_levels = abs(math.ceil(abs_time_in_h / granularity_in_h)) + 1
-        non_dim_val_func_levels = np.linspace(vmin, 0, n_levels)
-        abs_time_y_ticks = np.around(np.linspace(abs_time_in_h, 0, n_levels), decimals=0)
+        if vmin == 0 or n_levels == 1:
+            non_dim_val_func_levels = np.array([0, 1e-10])
+            abs_time_y_ticks = np.array([0., 0.])
+        else:
+            non_dim_val_func_levels = np.linspace(vmin, 0, n_levels)
+            abs_time_y_ticks = np.around(np.linspace(abs_time_in_h, 0, n_levels), decimals=0)
 
         if time_to_reach:
             y_label = 'Fastest Time-to-Target in hours'

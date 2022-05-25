@@ -1,24 +1,25 @@
 """The abstract base class for all Data Sources.
 Implements a lot of shared functionality such as
 """
-import abc
-import datetime
-import os
-import warnings
-from functools import partial
-from typing import List, AnyStr, Optional, Tuple, Union, Any, Callable
-
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import matplotlib.animation as animation
 import matplotlib.pyplot
+from IPython.display import HTML
+import matplotlib.animation as animation
+import os
+from functools import partial
+
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.env.utils import units
+from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
+import warnings
+import datetime
+from typing import List, NamedTuple, Sequence, AnyStr, Optional, Tuple, Union, Any, Callable
 import numpy as np
 import xarray as xr
-from IPython.display import HTML
-
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-from ocean_navigation_simulator.env.utils import units
+import abc
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 
 class DataSource(abc.ABC):
@@ -153,19 +154,17 @@ class DataSource(abc.ABC):
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
                                     spatial_res: Optional[float] = None,
-                                    error_to_incorporate: Optional[Union['xr', 'DataSource']] = None,
-                                    return_ax: Optional[bool] = False,
+                                    return_ax: Optional[bool] = False, ax = None,
                                     **kwargs):
         """Plot the data at a specific time over an area defined by the x and y intervals.
         Args:
-          time: time for which to plot the data either posix or datetime.datetime object
+          time:             time for which to plot the data either posix or datetime.datetime object
           x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
           spatial_res:      Per default (None) the data_source resolution is used otherwise the selected one.
-          error_to_incorporate: The error to add to the forecast. It assumes to have the correct shape and resolution if
-                                it is a xr.DataArray or it can simply be a datasource.
-          return_ax:         if True returns ax, otherwise renders plots with plt.show()
-          **kwargs:          Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
+          return_ax:        if True returns ax, otherwise renders plots with plt.show()
+          ax:               input axis object to plot on top of
+          **kwargs:         Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
         """
 
         # format to datetime object
@@ -176,20 +175,11 @@ class DataSource(abc.ABC):
         area_xarray = self.get_data_over_area(x_interval, y_interval, [time, time + datetime.timedelta(seconds=1)],
                                               spatial_resolution=spatial_res)
 
-        if error_to_incorporate is not None:
-            if isinstance(error_to_incorporate, DataSource):
-                error_to_incorporate = error_to_incorporate.get_data_over_area(x_interval, y_interval,
-                                                                               [time,
-                                                                                time + datetime.timedelta(seconds=1)],
-                                                                               spatial_resolution=spatial_res)
-
-            area_xarray -= error_to_incorporate
-
         # interpolate to specific time
-        at_time_array = area_xarray.interp(time=time.replace(tzinfo=None))
-        # Plot the current field
-        ax = self.plot_data_from_xarray(time_idx=0, xarray=at_time_array, **kwargs)
+        atTimeArray = area_xarray.interp(time=time.replace(tzinfo=None))
 
+        # Plot the current field
+        ax = self.plot_xarray_for_animation(time_idx=0, xarray=atTimeArray, **kwargs)
         if return_ax:
             return ax
         else:
@@ -273,10 +263,39 @@ class DataSource(abc.ABC):
                     "save_as_filename can be either None (for HTML rendering) or filepath and name needs to"
                     "contain either '.gif' or '.mp4' to specify the format and desired file location.")
 
-    def plot_data_from_xarray(self, time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
+    def plot_xarray_for_animation(self, time_idx: int, xarray: xr, reset_plot: Optional[bool] = False,
+                                  figsize: Tuple[int] = (6, 6), ax: matplotlib.pyplot.axes = None, **kwargs) -> matplotlib.pyplot.axes:
+        """Helper function for animations adding plot resets, figure size and automatically generating the axis.
+            See plot_data_from_xarray for other optional keyword arguments.
+            Args:
+                time_idx:          time-idx to select from the xarray (only if it has time dimension)
+                xarray:            xarray object containing the grids and data
+                reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
+                figsize:           figure size
+                ax:                Optional an axis object as input to plot on top of.
+            Returns:
+                ax                 matplotlib.pyplot.axes object
+        """
+
+        # reset plot this is needed for matplotlib.animation
+        if reset_plot:
+            plt.clf()
+        else:  # create a new figure object where this is plotted
+            fig = plt.figure(figsize=figsize)
+
+        # Step 2: Create ax object
+        if ax is None:
+            if self.source_config_dict['use_geographic_coordinate_system']:
+                ax = self.set_up_geographic_ax()
+            else:
+                ax = plt.axes()
+
+        return self.plot_data_from_xarray(time_idx=time_idx, xarray=xarray, ax=ax, **kwargs)
+
+    @staticmethod
+    def plot_data_from_xarray(time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
                               vmin: Optional[float] = None, vmax: Optional[float] = None,
-                              alpha: Optional[float] = 1., reset_plot: Optional[bool] = False,
-                              figsize: Tuple[int] = (6, 6)) -> matplotlib.pyplot.axes:
+                              alpha: Optional[float] = 1., ax=None) -> matplotlib.pyplot.axes:
         """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -287,16 +306,10 @@ class DataSource(abc.ABC):
             vmin:              minimum current magnitude used for colorbar (float)
             vmax:              maximum current magnitude used for colorbar (float)
             alpha:             alpha of the current magnitude color visualization
-            reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
-            figsize:           size of the figure
+            ax:                Optional for feeding in an axis object to plot the figure on.
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
-        # reset plot this is needed for matplotlib.animation
-        if reset_plot:
-            plt.clf()
-        else:  # create a new figure object where this is plotted
-            fig = plt.figure(figsize=figsize)
 
         # Get data variable if not provided
         if var_to_plot is None:
@@ -308,13 +321,8 @@ class DataSource(abc.ABC):
             xarray = xarray.isel(time=time_idx)
         time = units.get_datetime_from_np64(xarray['time'].data)
 
-        # Step 2: Create ax object
-        if self.source_config_dict['use_geographic_coordinate_system']:
-            ax = self.set_up_geographic_ax()
-            time_string = "Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC')
-        else:  # Non-dimensional
+        if ax is None:
             ax = plt.axes()
-            time_string = "Time: {time:.2f}".format(time=time.timestamp())
 
         # plot data for the specific variable
         if vmax is None:
@@ -323,11 +331,10 @@ class DataSource(abc.ABC):
             vmin = xarray[var_to_plot].min()
         xarray[var_to_plot].plot(cmap='viridis', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
 
-        # Label the title
-        ax.set_title("Field: {f} \n Variable: {var} \n at Time: {t}".format(
-            f=self.source_config_dict['field'],
+        # Label the plot
+        ax.set_title("Variable: {var} \n at Time: {t}".format(
             var=var_to_plot,
-            t=time_string))
+            t="Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC')))
 
         return ax
 
@@ -335,7 +342,7 @@ class DataSource(abc.ABC):
                      t_interval: List[Union[datetime.datetime, float]],
                      spatial_res: Optional[float] = None, temporal_res: Optional[float] = None,
                      add_ax_func: Optional[Callable] = None,
-                     fps: int = 10, output: AnyStr = "data_animation.mp4", **kwargs):
+                     fps: int = 10, output: AnyStr = "data_animation.mp4", forward_time: bool = True,  **kwargs):
         """Basis function to animate data over a specific area and time interval.
             Args:
               x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
@@ -350,6 +357,7 @@ class DataSource(abc.ABC):
               fps:              Frames per second
               output:           How to output the animation. Options are either saved to file or via html in jupyter/safari.
                                 Strings in {'*.mp4', '*.gif', 'safari', 'jupyter'}
+              forward_time:     If True, animation is forward in time, if false backwards
               **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
         """
 
@@ -379,8 +387,8 @@ class DataSource(abc.ABC):
             # define full function for rendering the frame
             def full_plot_func(time_idx):
                 # plot underlying currents at time
-                ax = self.plot_data_from_xarray(time_idx=time_idx, xarray=xarray, vmin=vmin, vmax=vmax,
-                                                reset_plot=True, **kwargs)
+                ax = self.plot_xarray_for_animation(time_idx=time_idx, xarray=xarray, vmin=vmin, vmax=vmax,
+                                                    reset_plot=True, **kwargs)
                 # extract the posix time
                 posix_time = units.get_posix_time_from_np64(xarray['time'].data[time_idx])
                 # add the ax_adding_func
@@ -389,11 +397,13 @@ class DataSource(abc.ABC):
             # create partial func from the full_function
             render_frame = partial(full_plot_func)
         else:
-            render_frame = partial(self.plot_data_from_xarray, xarray=xarray, vmin=vmin, vmax=vmax,
+            render_frame = partial(self.plot_xarray_for_animation, xarray=xarray, vmin=vmin, vmax=vmax,
                                    reset_plot=True, **kwargs)
 
+        # set time direction of the animation
+        frames_vector = np.where(forward_time, np.arange(xarray['time'].size), np.flip(np.arange(xarray['time'].size)))
         # create animation function object (it's not yet executed)
-        ani = animation.FuncAnimation(fig, func=render_frame, frames=np.arange(xarray['time'].size), repeat=False)
+        ani = animation.FuncAnimation(fig, func=render_frame, frames=frames_vector, repeat=False)
 
         # render the animation with the keyword arguments
         self.render_animation(animation_object=ani, output=output, fps=fps)

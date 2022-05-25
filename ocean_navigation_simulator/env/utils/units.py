@@ -21,7 +21,7 @@ import typing
 import numpy as np
 
 _METERS_PER_FOOT = 0.3048
-METERS_PER_DEG_LAT_LON = 111120
+_METERS_PER_DEG_LAT_LON = 111120
 
 
 class Distance:
@@ -36,30 +36,28 @@ class Distance:
                  feet: float = 0.0,
                  deg: float = 0.0
                  ):
-        # Note: distance is stored as meters.
-        self._distance = (
-                                 m + meters + (
-                                     km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) + deg * METERS_PER_DEG_LAT_LON
+        # Note: distance is stored as degree (because that's how it is used almost always)
+        self._distance = (m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) / _METERS_PER_DEG_LAT_LON + deg
 
     @property
     def m(self) -> float:
         """Gets distance in meters."""
-        return self._distance
+        return self._distance * _METERS_PER_DEG_LAT_LON
 
     @property
     def meters(self) -> float:
         """Gets distance in meters."""
-        return self.m
+        return self.m * _METERS_PER_DEG_LAT_LON
 
     @property
     def deg(self) -> float:
-        """Gets distance in meters."""
-        return self._distance / METERS_PER_DEG_LAT_LON
+        """Gets distance in degree."""
+        return self._distance
 
     @property
     def km(self) -> float:
         """Gets distance in kilometers."""
-        return self._distance / 1000.0
+        return self._distance * _METERS_PER_DEG_LAT_LON / 1000.0
 
     @property
     def kilometers(self) -> float:
@@ -68,17 +66,17 @@ class Distance:
 
     @property
     def feet(self) -> float:
-        return self._distance / _METERS_PER_FOOT
+        return self._distance * _METERS_PER_DEG_LAT_LON / _METERS_PER_FOOT
 
     def __add__(self, other: 'Distance') -> 'Distance':
         if isinstance(other, Distance):
-            return Distance(m=self.m + other.m)
+            return Distance(deg=self.deg + other.deg)
         else:
             raise NotImplementedError(f'Cannot add Distance and {type(other)}')
 
     def __sub__(self, other: 'Distance') -> 'Distance':
         if isinstance(other, Distance):
-            return Distance(m=self.m - other.m)
+            return Distance(deg=self.deg - other.deg)
         else:
             raise NotImplementedError(f'Cannot subtract Distance and {type(other)}')
 
@@ -97,17 +95,17 @@ class Distance:
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
-            return Distance(m=self.m / other)
+            return Distance(deg=self.deg / other)
         elif isinstance(other, datetime.timedelta):
             return Velocity(mps=self.m / other.total_seconds())
         elif isinstance(other, Distance):
-            return self.m / other.m
+            return self.deg / other.deg
         else:
             raise NotImplementedError(f'Cannot divide distance by {type(other)}')
 
     def __mul__(self, other: float) -> 'Distance':
         if isinstance(other, (int, float)):
-            return Distance(m=self.m * other)
+            return Distance(deg=self.deg * other)
         else:
             raise NotImplementedError(f'Cannot multiply Distance and {type(other)}')
 
@@ -403,14 +401,14 @@ def timedelta_to_hours(d: datetime.timedelta) -> float:
 def datetime_from_timestamp(timestamp: int) -> datetime.datetime:
     """Converts a given UTC timestamp into a datetime.
 
-    The returned datetime includes timezone information.
+  The returned datetime includes timezone information.
 
-    Args:
-      timestamp: the timestamp (unix epoch; implicitly UTC).
+  Args:
+    timestamp: the timestamp (unix epoch; implicitly UTC).
 
-    Returns:
-      the corresponding datetime.
-    """
+  Returns:
+    the corresponding datetime.
+  """
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
 
 
@@ -431,11 +429,11 @@ def get_datetime_from_np64(np64_time_array: np.datetime64) -> datetime.datetime:
 
 def posix_to_rel_seconds_in_year(posix_timestamp: float) -> float:
     """Helper function to map a posix_timestamp to it's relative seconds for the specific year (since 1st of January).
-    This is needed because the interpolation function for the nutrients operates on relative timestamps as we take
-    the average monthly nutrients for those as input.
-    Args:
-        posix_timestamp: a posix timestamp
-    """
+  This is needed because the interpolation function for the nutrients operates on relative timestamps as we take
+  the average monthly nutrients for those as input.
+  Args:
+      posix_timestamp: a posix timestamp
+  """
     # correction for extra long years because of Schaltjahre (makes it accurate 2020-2024, otherwise a couple of days off)
     correction_seconds = 13 * 24 * 3600
     # Calculate the relative time of the year in seconds
@@ -443,7 +441,8 @@ def posix_to_rel_seconds_in_year(posix_timestamp: float) -> float:
 
 
 from math import log10, floor
-
-
 def round_to_sig_digits(x, sig_digit):
-    return round(x, sig_digit - int(floor(log10(abs(x)))) - 1)
+    if x == 0:
+        return 0
+    else:
+        return round(x, sig_digit - int(floor(log10(abs(x)))) - 1)

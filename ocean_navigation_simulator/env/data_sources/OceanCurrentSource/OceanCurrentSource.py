@@ -50,10 +50,11 @@ class OceanCurrentSource(DataSource):
         return ax
 
     # Plotting Functions for OceanCurrents specifically
-    def plot_data_from_xarray(self, time_idx: int, xarray: xr, plot_type: AnyStr = 'quiver',
-                              vmin: Optional[float] = 0, vmax: Optional[float] = None,
-                              alpha: Optional[float] = 0.5, reset_plot: Optional[bool] = False,
-                              figsize: Tuple[int] = (6, 6), colorbar: bool = True) -> matplotlib.pyplot.axes:
+    @staticmethod
+    def plot_data_from_xarray(time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
+                              vmin: Optional[float] = None, vmax: Optional[float] = None,
+                              alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
+                              colorbar: bool = True, ax=None) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -64,18 +65,11 @@ class OceanCurrentSource(DataSource):
             vmin:              minimum current magnitude used for colorbar (float)
             vmax:              maximum current magnitude used for colorbar (float)
             alpha:             alpha of the current magnitude color visualization
-            reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
-            figsize:           size of the figure
             colorbar:          if to plot the colorbar or not
+            ax:                Optional for feeding in an axis object to plot the figure on.
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
-        # reset plot this is needed for matplotlib.animation
-        if reset_plot:
-            plt.clf()
-        else:  # create a new figure object where this is plotted
-            fig = plt.figure(figsize=figsize)
-
         # Step 1: Make the data ready for plotting
         # check if time-dimension already collapsed or not yet
         if xarray['time'].size != 1:
@@ -86,12 +80,9 @@ class OceanCurrentSource(DataSource):
         time = get_datetime_from_np64(xarray['time'].data)
 
         # Step 2: Create ax object
-        if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
-            ax = self.set_up_geographic_ax()
-            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
-        else:  # Non-dimensional
+        if ax is None:
             ax = plt.axes()
-            ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
+        ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
 
         # underly with current magnitude
         if vmax is None:
@@ -114,12 +105,6 @@ class OceanCurrentSource(DataSource):
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
             xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
-
-        # Label the title
-        if self.source_config_dict['use_geographic_coordinate_system'] and plot_type == 'quiver':
-            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
-        else:  # Non-dimensional
-            ax.set_title("Time: {time:.2f}".format(time=time.timestamp()))
 
         return ax
 
