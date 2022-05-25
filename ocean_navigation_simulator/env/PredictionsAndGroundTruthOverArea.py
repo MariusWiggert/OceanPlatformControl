@@ -60,8 +60,7 @@ class PredictionsAndGroundTruthOverArea:
         fig.suptitle("Metrics")
         # todo: make it adaptable by taking min max over the 3 sources
         vmin = 0
-        vmax = max(self.initial_forecast.max(), self.improved_forecast.max(), self.ground_truth_area.max(),
-                   abs(self.initial_forecast - self.improved_forecast).max())
+        vmax = max(self.initial_forecast.max(), self.improved_forecast.max(), self.ground_truth_area.max())
 
         ax1 = OceanCurrentSource.plot_data_from_xarray(0, self.ground_truth, vmin=vmin, vmax=vmax, ax=ax[0, 1])
         trajectory_x, trajectory_y = state_trajectory[:, 0], state_trajectory[:, 1]
@@ -96,6 +95,7 @@ class PredictionsAndGroundTruthOverArea:
         ax4.set_title("Error predicted *(-1)")
 
         plt.pause(1)
+        print("ERROR:", error_reformated.isel(time=0).to_array())
 
     def plot_3d(self, variable_to_plot: str) -> None:
         """We plot in 3d the new forecasted values
@@ -106,10 +106,10 @@ class PredictionsAndGroundTruthOverArea:
         """
         label = variable_to_plot
         if variable_to_plot is "ground_truth":
-            dataset_to_use = self.predictions_over_area
-        else:
             dataset_to_use = self.ground_truth
             variable_to_plot = "water"
+        else:
+            dataset_to_use = self.predictions_over_area
 
         # create list to plot
         data, data_error = [], []
@@ -117,7 +117,6 @@ class PredictionsAndGroundTruthOverArea:
                          [min(dataset_to_use["lat"]), max(dataset_to_use["lat"])])
         for j in range(len(dataset_to_use["time"])):
             elem = dataset_to_use.isel(time=j)
-
             x, y = np.meshgrid(elem["lon"], elem["lat"])
             z = np.sqrt(elem[variable_to_plot + "_u"].to_numpy() ** 2 + elem[variable_to_plot + "_v"].to_numpy() ** 2)
             times = elem["time"].to_numpy()
