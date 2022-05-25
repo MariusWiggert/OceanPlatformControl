@@ -51,10 +51,9 @@ class OceanCurrentSource(DataSource):
 
     # Plotting Functions for OceanCurrents specifically
     @staticmethod
-    def plot_data_from_xarray(time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
-                              vmin: Optional[float] = None, vmax: Optional[float] = None,
+    def plot_data_from_xarray(time_idx: int, xarray: xr, vmin: Optional[float] = None, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
-                              colorbar: bool = True, ax=None) -> matplotlib.pyplot.axes:
+                              colorbar: bool = True, ax=None, fill_nan: bool = True) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -70,6 +69,8 @@ class OceanCurrentSource(DataSource):
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
+        if fill_nan:
+            xarray = xarray.fillna(0)
         # Step 1: Make the data ready for plotting
         # check if time-dimension already collapsed or not yet
         if xarray['time'].size != 1:

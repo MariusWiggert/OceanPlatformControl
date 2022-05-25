@@ -179,7 +179,7 @@ class DataSource(abc.ABC):
         atTimeArray = area_xarray.interp(time=time.replace(tzinfo=None))
 
         # Plot the current field
-        ax = self.plot_xarray_for_animation(time_idx=0, xarray=atTimeArray, **kwargs)
+        ax = self.plot_xarray_for_animation(time_idx=0, xarray=atTimeArray, ax=ax, **kwargs)
         if return_ax:
             return ax
         else:
@@ -295,7 +295,8 @@ class DataSource(abc.ABC):
     @staticmethod
     def plot_data_from_xarray(time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
                               vmin: Optional[float] = None, vmax: Optional[float] = None,
-                              alpha: Optional[float] = 1., ax=None) -> matplotlib.pyplot.axes:
+                              alpha: Optional[float] = 1., ax: plt.axes = None,
+                              fill_nan: bool = True) -> matplotlib.pyplot.axes:
         """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -307,10 +308,12 @@ class DataSource(abc.ABC):
             vmax:              maximum current magnitude used for colorbar (float)
             alpha:             alpha of the current magnitude color visualization
             ax:                Optional for feeding in an axis object to plot the figure on.
+            fill_nan:          Optional if True we fill nan values with 0 otherwise leave them as nans.
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
-
+        if fill_nan:
+            xarray = xarray.fillna(0)
         # Get data variable if not provided
         if var_to_plot is None:
             var_to_plot = list(xarray.keys())[0]
