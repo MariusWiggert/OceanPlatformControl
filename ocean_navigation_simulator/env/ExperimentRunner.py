@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.env.HighwayProblemFactory import HighwayProblemFactory
 from ocean_navigation_simulator.env.NaiveProblemFactory import NaiveProblemFactory
-from ocean_navigation_simulator.env.Observer_rebased import Observer
+from ocean_navigation_simulator.env.Observer import Observer
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint, PlatformState
 from ocean_navigation_simulator.env.PredictionsAndGroundTruthOverArea import PredictionsAndGroundTruthOverArea
 from ocean_navigation_simulator.env.Problem import Problem
@@ -20,8 +20,8 @@ from ocean_navigation_simulator.env.utils.units import Distance
 
 
 def _plot_metrics(metrics: Dict[str, any]) -> None:
-    """
-    Plot the r2 and vector correlations over time on 4 different sub-plots.
+    """Plot the r2 and vector correlations over time on 4 different sub-plots.
+    
     Args:
         metrics: dictionary containing the name of the metrics, and it's given value for each timestep in a ndarray
     """
@@ -55,7 +55,6 @@ class ExperimentRunner:
         with open(f'ocean_navigation_simulator/env/scenarios/{yaml_file_config}.yaml') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
             self.variables = config["experiment_runner"]
-            self.plots_config = self.variables["plots"]
 
         if self.variables.get("use_real_data", True):
             problems = []
@@ -89,9 +88,7 @@ class ExperimentRunner:
         results = []
         while self.problem_factory.has_problems_remaining():
             results.append(self.run_next_problem())
-            _plot_metrics(results[-1])
-            self.last_prediction_ground_truth.visualize_improved_error(self.arena.state_trajectory)
-            plt.pause(1)
+            self.__create_plots(results[-1])
             print("problem results:", {name: metric.mean() for name, metric in results[-1].items()})
         return results
 
@@ -130,7 +127,7 @@ class ExperimentRunner:
                 *self.__get_lon_lat_time_intervals())
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
 
-            metric = self.last_prediction_ground_truth.compute_metrics()
+            metric = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
 
@@ -142,6 +139,15 @@ class ExperimentRunner:
 
         metrics = np.array(metrics)
         return {name: metrics[:, i] for i, name in enumerate(metrics_names)}
+
+    def __create_plots(self, last_metrics: np.ndarray):
+        plots_dict = self.variables.get("plots", {})
+        if plots_dict.get("visualize_metrics", False):
+            _plot_metrics(last_metrics)
+        if plots_dict.get("visualize_currents", False):
+            self.last_prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
+        for variable in plots_dict.get("plot_3d", []):
+            self.last_prediction_ground_truth.plot_3d(variable)
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the

@@ -1,27 +1,21 @@
 experiment_runner:
   plots:
-    wait_keyboard_input_to_continue: True
-    display_intermediary_3d_plots: False
-    duration_interaction_with_plots_in_sec: 5
-    num_steps_between_plots: 5
-    margin_for_area_to_plot_in_deg: 0
-    plot_initial_world_map: False
-    plot_map_when_evaluate: False
-
-  ignore_warnings: True
-
+    visualize_currents: True
+    plot_3d:
+      [ "mean_error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
+    visualize_metrics: True
   metrics:
     - "rmse"
     - "r2"
     - "vector_correlation"
 
-    #number_burnin_steps: 50
+  #number_burnin_steps: 50
   number_burnin_steps: 100
   number_steps_prediction: 390
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
   duration_simulation_in_sec: 36000000
-  radius_area_around_platform: 0.02332613
+  radius_area_around_platform: 0.04665226
 
 
   use_real_data: True
@@ -35,17 +29,16 @@ experiment_runner:
         lon_in_deg: -88.61
         lat_in_deg: 26.36
         radius_in_m: 1
-    - initial_position:
-        lon_in_deg: -82
-        lat_in_deg: 24.86
-        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
-      target:
-        lon_in_deg: -84.61
-        lat_in_deg: 26.36
-        radius_in_m: 1
+#    - initial_position:
+#        lon_in_deg: -82
+#        lat_in_deg: 24.86
+#        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
+#      target:
+#        lon_in_deg: -84.61
+#        lat_in_deg: 26.36
+#        radius_in_m: 1
 
 observer:
-  #time_horizon_predictions_in_sec: 86400 # 24 *3600
   life_span_observations_in_sec: 86400 # 24 * 3600
 
   model:
@@ -66,5 +59,4 @@ observer:
         #type: "rbf"
         #type: "constantkernel"
 
-      # 24*3600=86400
       time_horizon_predictions_in_sec: 3600

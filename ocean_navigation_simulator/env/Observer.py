@@ -1,103 +1,125 @@
+from __future__ import annotations
+
 import datetime
-from typing import Tuple, Optional, Dict, Any
+from typing import Dict, Any, List, Union, Optional, Tuple
 
 import numpy as np
-import pandas as pd
+import xarray
 import xarray as xr
 
-from ocean_navigation_simulator.env.Arena import Arena
-from ocean_navigation_simulator.env.PlatformState import PlatformState
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP_old
-from ocean_navigation_simulator.env.utils import units
-from ocean_navigation_simulator.env.utils.units import Velocity, Distance
+from ocean_navigation_simulator.env.Arena import ArenaObservation
+from ocean_navigation_simulator.env.models.OceanCurrentGP import OceanCurrentGP
+from ocean_navigation_simulator.env.models.OceanCurrentModel import OceanCurrentModel
 
 
 class Observer:
-    def __init__(self, prediction_model: OceanCurrentGP_old, arena: Arena, config: Dict[str, Any],
-                 general_config_file: Dict[str, Any] = {}):
-        self.model = prediction_model
-        self.arena = arena
+    """Class that represent the observer. It will receive observations and is then responsible to return predictions for
+    the given areas.
+    """
 
-        # TODO: Change that such that the value is a function depending on the source of the hindcast
-        # 3600 = 1m/s * 24 * 60 * 60 =(Avg speed)* #seconds in the horizon
-        # _TIME_HORIZON_PREDICTIONS = datetime.timedelta(hours=24)
-        self._TIME_HORIZON_PREDICTIONS = datetime.timedelta(
-            seconds=config["life_span_observations_in_sec"])
+    def __init__(self, config: Dict[str, Any]):
+        """Create the observer object
+        Args:
+            config: dictionary from the yaml file used to specify the parameters of the prediction model.
+        """
+        self.prediction_model = self.instantiate_model_from_dict(config.get("model"))
+        print("Model: ", self.prediction_model)
+        self.forecast_data_source = None
 
-        # velocity_for_area = Velocity(meters_per_second=1 if general_config_file.get("use_real_data", True) else (
-        #        units.METERS_PER_DEG_LAT_LON / 12))
-        # todo: Remove because too small (only for testing)
-        velocity_for_area = Velocity(meters_per_second=.06 if general_config_file.get("use_real_data", True) else (
-                units.METERS_PER_DEG_LAT_LON / 12))
-        self._RADIUS_AREA_AROUND_PLATFORM = velocity_for_area * self._TIME_HORIZON_PREDICTIONS
-        print(
-            f"dimension area around platform:{self._RADIUS_AREA_AROUND_PLATFORM.m}m x {self._RADIUS_AREA_AROUND_PLATFORM.m}m=" +
-            f"dimension area around platform:{self._RADIUS_AREA_AROUND_PLATFORM.deg}deg x {self._RADIUS_AREA_AROUND_PLATFORM.deg}deg=" +
-            f"{self._RADIUS_AREA_AROUND_PLATFORM.m ** 2}m2")
+    @staticmethod
+    def instantiate_model_from_dict(source_dict: Dict[str, Any]) -> OceanCurrentModel:
+        """Helper function to instantiate an OceanCurrentSource object from the dict
+        Args:
+            source_dict: dictionary that contains the model type and its parameters.
 
-    def get_area_around_platform(self, platform_state: PlatformState, margin: Distance = Distance(m=0)) \
-            -> Tuple[np.ndarray, np.ndarray]:
-        return (np.asarray([(platform_state.lon - self._RADIUS_AREA_AROUND_PLATFORM - margin).deg,
-                            (platform_state.lon + self._RADIUS_AREA_AROUND_PLATFORM + margin).deg]),
-                np.asarray([(platform_state.lat - self._RADIUS_AREA_AROUND_PLATFORM - margin).deg,
-                            (platform_state.lat + self._RADIUS_AREA_AROUND_PLATFORM + margin).deg]))
+        Returns:
+            The OceanCurrentModel generated.
+        Raises:
+             Value error if the model selected with source_dict is not supported (yet).
+        """
+        if "gaussian_process" in source_dict:
+            return OceanCurrentGP(source_dict["gaussian_process"])
 
-    def __get_area(self, platform_state: PlatformState, forecast: bool,
-                   x_y_intervals: Optional[np.ndarray] = None, temporal_resolution: Optional[float] = None) -> xr:
-        fn = self.arena.ocean_field.get_forecast_area if forecast else self.arena.ocean_field.get_ground_truth_area
-        if x_y_intervals is None:
-            x_y_intervals = self.get_area_around_platform(platform_state)
-        return fn(*x_y_intervals, [platform_state.date_time, platform_state.date_time + self._TIME_HORIZON_PREDICTIONS],
-                  temporal_resolution=temporal_resolution)
+        raise ValueError(f"Selected model: {source_dict} in the OceanCurrentModel is not implemented.")
 
-    def get_ground_truth_around_platform(self, platform_state: PlatformState,
-                                         x_y_intervals: Optional[np.ndarray] = None,
-                                         temporal_resolution: Optional[float] = None) -> xr:
-        return self.__get_area(platform_state, forecast=False, x_y_intervals=x_y_intervals,
-                               temporal_resolution=temporal_resolution)
+    @staticmethod
+    def _convert_prediction_model_output(data: np.ndarray, reference_xr: xr,
+                                         names_variables: Tuple[str, str]) -> xr:
+        """Helper function to build a dataset given data in a numpy format and a xarray object as a reference for the
+        dimensions and a tuple containing the name of the two variables that we include in the dataset.
 
-    def get_forecast_around_platform(self, platform_state: PlatformState,
-                                     x_y_intervals: Optional[np.ndarray] = None,
-                                     temporal_resolution: Optional[float] = None) -> xr:
-        return self.__get_area(platform_state, forecast=True, x_y_intervals=x_y_intervals,
-                               temporal_resolution=temporal_resolution)
+        Args:
+            data: array that contains the values we want to use as variables for the dataset we will generate
+            reference_xr: xarray that is used to get the lon, lat and time axis
+            names_variables: name of the two variables that will be added to the returned dataset
 
-    def evaluate(self, platform_state: PlatformState, x_y_interval: Optional[np.ndarray] = None,
-                 temporal_resolution: Optional[float] = None,
-                 delta: datetime.timedelta = datetime.timedelta(seconds=0)) -> Tuple[xr.Dataset, xr.Dataset]:
-        # Query the whole grid around the platform if x_y_interval given
-        area = self.get_forecast_around_platform(platform_state, x_y_intervals=x_y_interval,
-                                                 temporal_resolution=temporal_resolution)
-        coords = np.array(np.meshgrid(area["lon"], area["lat"], pd.to_datetime(area["time"]))).transpose((3, 1, 2, 0))
-        # Meshgrid shape before transpose: 3,lon,lat,time
-        # Coords shape = time, lon, lat, 3=(#number dims meshgrid)
-        locations = coords.reshape((-1, 3))
-        locations[:, 2] = pd.to_datetime(locations[:, 2]) + delta
-        mean, std = self.model.query_locations(locations)
-        reshape_dims = (*coords.shape[:-1], 2)
-        mean, std = mean.reshape(reshape_dims), std.reshape(reshape_dims)
-        mean_xr = xr.Dataset(
-            {"water_u": (["time", "lat", "lon"], mean[..., 0]),
-             "water_v": (["time", "lat", "lon"], mean[..., 1])},
-            coords={
-                "lon": area['lon'],
-                "lat": area['lat'],
-                "time": area["time"]}
-        )
-        std_xr = xr.Dataset(
-            {"water_u": (["time", "lat", "lon"], std[..., 0]),
-             "water_v": (["time", "lat", "lon"], std[..., 1])},
-            coords={
-                "lon": area['lon'],
-                "lat": area['lat'],
-                "time": area["time"]}
-        )
-        return mean_xr, std_xr
+        Returns:
+            The xr dataset generated with time lat and lon as the dimensions and names_variables as the variables
+            computed using the 'data' array
+        """
+        data = data.reshape((len(reference_xr["lon"]), len(reference_xr["lat"]), len(reference_xr["time"]), 2))
+        return xr.Dataset({names_variables[0]: (["time", "lat", "lon"], data[..., 0].swapaxes(0, 2)),
+                           names_variables[1]: (["time", "lat", "lon"], data[..., 0].swapaxes(0, 2))},
+                          coords={
+                              "time": reference_xr['time'],
+                              "lat": reference_xr['lat'],
+                              "lon": reference_xr['lon']})
+
+    # Todo: change the interface
+    def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
+                           t_interval: List[Union[datetime.datetime, int]], spatial_resolution: Optional[float] = None,
+                           temporal_resolution: Optional[float] = None) -> xarray:
+        """Computes the xarray dataset that contains the prediction errors, the new forecasts (water_u & water_v), the
+        old forecasts (renamed: initial_forecast_u & initial_forecast_v) and also std_error_u & std_error_v for the u
+        and v directions respectively if the OceanCurrentModel output these values
+        Args:
+            x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+            y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+            t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+            spatial_resolution: spatial resolution in the same units as x and y interval
+            temporal_resolution: temporal resolution in seconds
+        Returns:
+            the computed xarray
+        """
+        forecasts = self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution,
+                                                                 temporal_resolution)
+        # Get all the points that we will query to the model as a 2D array. Coord field act like np.meshgrid but is
+        # flattened
+        coords = forecasts.stack(coord=["lon", "lat", "time"])["coord"].to_numpy()
+        coords = np.array([*coords])
+
+        prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
+        predictions_dataset = xr.merge(
+            [self._convert_prediction_model_output(prediction_errors, forecasts, ("mean_error_u", "mean_error_v")),
+             self._convert_prediction_model_output(prediction_std, forecasts, ("std_error_u", "std_error_v")),
+             forecasts.rename(dict(water_u="initial_forecast_u", water_v="initial_forecast_v"))])
+
+        predictions_dataset = predictions_dataset.assign(
+            water_u=lambda x: x.initial_forecast_u - x.mean_error_u)
+        predictions_dataset = predictions_dataset.assign(
+            water_v=lambda x: x.initial_forecast_v - x.mean_error_v)
+        return predictions_dataset
 
     def fit(self) -> None:
-        self.model.fit()
+        """Fit the inner prediction model using the observations recorded by the observer
+        """
+        self.prediction_model.fit()
 
-    def observe(self, platform_state: PlatformState, difference_forecast_gt: OceanCurrentVector) -> None:
-        self.model.observe(platform_state.to_spatio_temporal_point(),
-                           difference_forecast_gt)
+    def reset(self) -> None:
+        """Reset the observer and its prediction model
+        """
+        self.prediction_model.reset()
+
+    def observe(self, arena_observation: ArenaObservation) -> None:
+        """Add the error at the position of the arena_observation and also dave the forecast if it has not been done
+        already
+        Args:
+            arena_observation: Observation where we compute the error and add to the observations
+        """
+        if self.forecast_data_source is None:
+            self.forecast_data_source = arena_observation.forecast_data_source
+
+        position_forecast = arena_observation.platform_state.to_spatio_temporal_point()
+        error = arena_observation.forecast_data_source.get_data_at_point(
+            position_forecast).subtract(arena_observation.true_current_at_state)
+        self.prediction_model.observe(position_forecast, error)
