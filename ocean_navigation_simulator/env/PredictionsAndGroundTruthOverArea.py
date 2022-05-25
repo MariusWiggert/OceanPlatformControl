@@ -95,7 +95,6 @@ class PredictionsAndGroundTruthOverArea:
         ax4.set_title("Error predicted *(-1)")
 
         plt.pause(1)
-        print("ERROR:", error_reformated.isel(time=0).to_array())
 
     def plot_3d(self, variable_to_plot: str) -> None:
         """We plot in 3d the new forecasted values
