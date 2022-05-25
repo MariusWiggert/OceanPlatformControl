@@ -159,23 +159,19 @@ class DrifterData():
         '''
         receives file_link from index files and downloads the NC file
         '''
-        file_link = "/".join(file_link.split("/")[3:])
-        with ftputil.FTPHost(self.dataset["host"], self.usr, self.pas) as ftp_host:  # connect to CMEMS FTP
-            remotefile = file_link
-            # localfile = os.path.join(os.getcwd(), "data", "nc_files", remotefile.split("/")[-1])
-            localfile = os.path.join(self.data_dir, "drifter_data", "nc_files", remotefile.split("/")[-1])
-            if not os.path.exists(localfile):
+        remotefile = "/".join(file_link.split("/")[3:])
+        localfile = os.path.join(self.data_dir, "drifter_data", "nc_files", remotefile.split("/")[-1])
+        if not os.path.isfile(localfile):
+            with ftputil.FTPHost(self.dataset["host"], self.usr, self.pas) as ftp_host:  # connect to CMEMS FTP
+                print(f"downloading {localfile.split('/')[-1]}")
                 ftp_host.download(remotefile, localfile)
-            else:
-                return None
 
         return remotefile.split("/")[-1]
 
     @staticmethod
     def readNCFile(path2file: str) -> xr:
-        ds = xr.open_dataset(path2file)
-        ds.close()
-        return ds
+        with xr.open_dataset(path2file) as ds:
+            return ds.load()
 
     def concatNCFiles(self, file_link_list: List[str]) -> xr.Dataset:
         if len(file_link_list) != 0:
