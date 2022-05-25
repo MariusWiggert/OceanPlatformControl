@@ -30,4 +30,4 @@ class OceanCurrentVector(NamedTuple):
         return np.array([self.u, self.v]).squeeze()
 
     def __str__(self) -> str:
-        return f'({self.u:.4}, {self.v:.4})'
+        return f'({self.u}, {self.v})'

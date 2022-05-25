@@ -7,10 +7,18 @@ from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
 
 
 class HighwayProblemFactory(ProblemFactory):
+    """ Problem factory class that creates Highway Problems gor a given list of pair of points
+    """
+
     def __init__(self, positions: List[Tuple[SpatialPoint, SpatialPoint]]):
         self.iter = iter(positions)
 
     def next_problem(self) -> HighwayProblem:
+        """ Get the next highway problem
+
+        Returns:
+            the next problem
+        """
         positions = next(self.iter)
         if positions is None:
             raise StopIteration()
@@ -27,4 +35,9 @@ class HighwayProblemFactory(ProblemFactory):
         )
 
     def has_problems_remaining(self) -> bool:
+        """ tells us if the factory can still create problems
+
+        Returns:
+            True iff the factory can still create problems
+        """
         return self.iter.__length_hint__() > 0
