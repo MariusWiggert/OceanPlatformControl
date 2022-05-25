@@ -1,5 +1,5 @@
 import datetime
-from typing import Union, Tuple, List, Dict, Any
+from typing import Union, Tuple, List, Dict, Any, Optional
 
 import dateutil
 import numpy as np
@@ -140,9 +140,13 @@ class ExperimentRunner:
         metrics = np.array(metrics)
         return {name: metrics[:, i] for i, name in enumerate(metrics_names)}
 
-    def __create_plots(self, last_metrics: np.ndarray):
+    def __create_plots(self, last_metrics: Optional[np.ndarray] = None):
+        """ Create the different plots based on the yaml file to know which one to display
+        Args:
+            last_metrics: the metrics to display
+        """
         plots_dict = self.variables.get("plots", {})
-        if plots_dict.get("visualize_metrics", False):
+        if plots_dict.get("visualize_metrics", False) and last_metrics is not None:
             _plot_metrics(last_metrics)
         if plots_dict.get("visualize_currents", False):
             self.last_prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
@@ -173,8 +177,8 @@ class ExperimentRunner:
 
         return predictions
 
-    def __get_lon_lat_time_intervals(self) -> Tuple[
-        List[float], List[float], Union[List[float], List[datetime.datetime]]]:
+    def __get_lon_lat_time_intervals(self) -> Tuple[List[float],
+                                                    List[float], Union[List[float], List[datetime.datetime]]]:
         """ Internal method to get the area around the platforms
 
         Returns:
