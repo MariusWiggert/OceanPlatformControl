@@ -1,3 +1,4 @@
+import datetime
 import math
 import numpy as np
 
@@ -39,5 +40,6 @@ class NaiveToTargetController(Controller):
         start = [self.problem.start_state.lat, self.problem.start_state.lon, self.problem.start_state.date_time]
 
         # TODO: change how this functions for complex end regions
-        end = [self.problem.end_region.lat, self.problem.end_region.lon, self.problem.end_region.date_time]
+        end = [self.problem.end_region.lat, self.problem.end_region.lon,
+               self.problem.start_state.date_time + datetime.timedelta(days=10)]
         return [start, end]

@@ -44,6 +44,14 @@ class Controller(abc.ABC):
           Controller's next action as a numpy array.
         """
 
+    @abc.abstractmethod
+    def get_waypoints(self) -> list:
+        """
+        Output start and end waypoints for the planner.
+        Returns:
+            List of format [start, end], where both start and end are of format [lat, lon, time]
+        """
+
     def get_open_loop_control_from_plan(self, state: PlatformState) -> PlatformAction:
         """ Indexing into the planned open_loop control sequence using the time from state.
         Args:
