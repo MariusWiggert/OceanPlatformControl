@@ -24,7 +24,7 @@ from ocean_navigation_simulator.env.PlatformState import PlatformState
 
 
 @dataclass
-class PlatformAction():
+class PlatformAction:
     """
     magntiude -> float, % of max
     direction -> float, radians

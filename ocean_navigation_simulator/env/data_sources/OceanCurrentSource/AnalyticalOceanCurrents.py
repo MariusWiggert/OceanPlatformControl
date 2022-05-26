@@ -167,8 +167,8 @@ class PeriodicDoubleGyre(OceanCurrentSourceAnalytical):
         return np.where(self.is_boundary(lon=lon, lat=lat, posix_time=posix_time), 0., v_cur_out)
 
 
-class FixedCurrentHighwayField(OceanCurrentSourceAnalytical):
-    """ The Highway current Field.
+class FixedCurrentHighway(OceanCurrentSourceAnalytical):
+    """ The Highway current with fixed current velocity.
 
         Args:
         source_config_dict: dict the key 'source_settings' to a dict with the relevant specific settings

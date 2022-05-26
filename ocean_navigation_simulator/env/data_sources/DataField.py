@@ -68,7 +68,8 @@ class DataField(abc.ABC):
           data_array                    in xarray format that contains the grid and the values
         """
         return self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval,
-                                                            spatial_resolution, temporal_resolution)
+                                                            spatial_resolution=spatial_resolution,
+                                                            temporal_resolution=temporal_resolution)
 
     def get_ground_truth(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns true data at a point in the field.

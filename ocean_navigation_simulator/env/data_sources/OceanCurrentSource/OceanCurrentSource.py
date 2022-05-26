@@ -1,6 +1,6 @@
 import datetime
 import os
-from typing import List, AnyStr, Optional, Union, Tuple
+from typing import List, AnyStr, Optional, Union
 
 import casadi as ca
 import dask.array.core
@@ -96,7 +96,10 @@ class OceanCurrentSource(DataSource):
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
             cbar.ax.set_ylabel('current velocity in m/s')
             cbar.set_ticks(cbar.get_ticks())
-            cbar.set_ticklabels(['{:.1f}'.format(l) for l in cbar.get_ticks().tolist()])
+            precision = 1
+            if vmin is None or vmax is None or int(vmin * 10) == int(vmax * 10):
+                precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
+            cbar.set_ticklabels(['{:.{prec}f}'.format(l, prec=precision) for l in cbar.get_ticks().tolist()])
         # Plot on ax object
         if plot_type == 'streamline':
             # Needed because the data needs to be perfectly equally spaced
