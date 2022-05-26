@@ -15,7 +15,7 @@ from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import \
     OceanCurrentSourceAnalytical
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSourceXarray, \
+from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSourceXarray,\
     OceanCurrentSource
 from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
@@ -53,14 +53,14 @@ class Arena:
             use_geographic_coordinate_system: bool,
             solar_dict: Optional[Dict] = None,
             seaweed_dict: Optional[Dict] = None,
-            spatial_boundary: Optional[Dict] = None,
     ):
         """OceanPlatformArena constructor.
     Args:
         sim_cache_dict:
         platform_dict:
         ocean_dict:
-        use_geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree, if false the spatial system is in meters in x, y.
+        use_geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree,
+                                          if false the spatial system is in meters in x, y.
     Optional Args:
         solar_dict:
         seaweed_dict:
@@ -105,8 +105,6 @@ class Arena:
             seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
         )
 
-        self.spatial_boundary = spatial_boundary
-
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
 
     def reset(self, platform_state: PlatformState) -> ArenaObservation:
@@ -143,34 +141,16 @@ class Arena:
         self.action_trajectory = np.append(self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0),
                                            axis=0)
 
-        # The step function here returns the forecast from Arena.ocean_field
-        # But the casadi is initialized in Platform.ocean_source.update_casadi_dynamics
         return ArenaObservation(
             platform_state=state,
             true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
             forecast_data_source=self.ocean_field.forecast_data_source)
 
-    def is_inside_arena(self) -> bool:
-        if self.spatial_boundary is not None:
-            inside_x = self.spatial_boundary['x'][0] < \
-                       self.platform.state.lon.deg and \
-                       self.platform.state.lon.deg < self.spatial_boundary[
-                           'x'][1]
-            inside_y = self.spatial_boundary['y'][0] < \
-                       self.platform.state.lat.deg and \
-                       self.platform.state.lat.deg < self.spatial_boundary[
-                           'y'][1]
-            return inside_x and inside_y
-        return True
-
-    def plot_control_trajectory_on_map(
-            self,
-            ax: Optional[matplotlib.axes.Axes] = None,
-            color='magenta',
-            stride: Optional[int] = 1
-    ) -> matplotlib.axes.Axes:
+    def plot_control_trajectory_on_map(self, ax: Optional[matplotlib.axes.Axes] = None,
+                                       color='magenta', stride: Optional[int] = 1) -> matplotlib.axes.Axes:
         """
-        Plots the control trajectory (as arrows) on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
+        Plots the control trajectory (as arrows) on a spatial map. Passing in an axis is optional.
+         Otherwise a new figure is created.
         Args:
             ax: Optional[matplotlib.axes.Axes]
             color: Optional[str] = 'black'
@@ -189,12 +169,8 @@ class Arena:
 
         return ax
 
-    def plot_state_trajectory_on_map(
-            self,
-            ax: Optional[matplotlib.axes.Axes] = None,
-            color: Optional[str] = 'black',
-            stride: Optional[int] = 1
-    ) -> matplotlib.axes.Axes:
+    def plot_state_trajectory_on_map(self, ax: Optional[matplotlib.axes.Axes] = None,
+                                     color: Optional[str] = 'black', stride: Optional[int] = 1) -> matplotlib.axes.Axes:
         """
         Plots the state trajectory on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
         Args:
@@ -213,14 +189,11 @@ class Arena:
 
         return ax
 
-    def plot_current_position_on_map(
-            self,
-            index: int,
-            ax: Optional[matplotlib.axes.Axes] = None,
-            color: Optional[str] = 'black'
-    ):
+    def plot_current_position_on_map(self, index: int, ax: Optional[matplotlib.axes.Axes] = None,
+                                     color: Optional[str] = 'black'):
         """
-        Plots the current position at the given index on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
+        Plots the current position at the given index on a spatial map. Passing in an axis is optional.
+         Otherwise a new figure is created.
         Args:
             index: int,
             ax: Optional[matplotlib.axes.Axes]
@@ -237,11 +210,8 @@ class Arena:
 
         return ax
 
-    def plot_battery_trajectory_on_timeaxis(
-            self,
-            ax: Optional[matplotlib.axes.Axes] = None,
-            stride: Optional[int] = 1,
-    ) -> matplotlib.axes.Axes:
+    def plot_battery_trajectory_on_timeaxis(self, ax: Optional[matplotlib.axes.Axes] = None,
+                                            stride: Optional[int] = 1) -> matplotlib.axes.Axes:
         """
         Plots the battery capacity on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
         Args:
@@ -269,11 +239,8 @@ class Arena:
 
         return ax
 
-    def plot_seaweed_trajectory_on_timeaxis(
-            self,
-            ax: Optional[matplotlib.axes.Axes] = None,
-            stride: Optional[int] = 1,
-    ) -> matplotlib.axes.Axes:
+    def plot_seaweed_trajectory_on_timeaxis(self, ax: Optional[matplotlib.axes.Axes] = None,
+                                            stride: Optional[int] = 1) -> matplotlib.axes.Axes:
         """
         Plots the seaweed mass on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
         Args:
@@ -301,13 +268,11 @@ class Arena:
 
         return ax
 
-    def plot_control_trajectory_on_timeaxis(
-            self,
-            ax: Optional[matplotlib.axes.Axes] = None,
-            stride: Optional[int] = 1,
-    ) -> matplotlib.axes.Axes:
+    def plot_control_trajectory_on_timeaxis(self, ax: Optional[matplotlib.axes.Axes] = None,
+                                            stride: Optional[int] = 1) -> matplotlib.axes.Axes:
         """
-        Plots the control thrust/angle on a time axis. Passing in an axis is optional. Otherwise a new figure is created.
+        Plots the control thrust/angle on a time axis. Passing in an axis is optional.
+         Otherwise a new figure is created.
         Args:
             ax: Optional[matplotlib.axes.Axes]
             stride: Optional[int] = 1
@@ -334,11 +299,8 @@ class Arena:
 
         return ax
 
-    def get_lon_lat_time_interval(
-            self,
-            end_region: Optional[SpatialPoint] = None,
-            margin: Optional[float] = 0,
-    ) -> Tuple:
+    def get_lon_lat_time_interval(self, end_region: Optional[SpatialPoint] = None,
+                                  margin: Optional[float] = 0) -> Tuple:
         """
         Helper function to find the interval around start/trajectory/goal.
         Args:
