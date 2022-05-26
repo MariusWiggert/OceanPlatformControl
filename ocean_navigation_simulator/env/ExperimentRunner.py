@@ -27,8 +27,8 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
     """
     fig, axs = plt.subplots(2, 2)
     t = [datetime.datetime.fromtimestamp(time) for time in metrics["time"]]
-    axs[0, 0].plot(t, metrics["r2"], label="r2_loss")
-    axs[0, 0].set_title("r2_loss")
+    axs[0, 0].plot(t, metrics["r2"], label="r2")
+    axs[0, 0].set_title("r2 score")
     axs[1, 0].plot(t, metrics["vector_correlation_ratio"], label="vector_correlation_ratio")
     axs[1, 0].set_title("vector correlation ratio")
     axs[0, 1].plot(t, metrics["vector_correlation_improved"],
