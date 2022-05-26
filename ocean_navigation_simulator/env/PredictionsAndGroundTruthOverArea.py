@@ -87,7 +87,11 @@ class PredictionsAndGroundTruthOverArea:
         # multiplied by -1 to get error + forecast = hindcast -> Better visually
         error_reformated = self.predictions_over_area[["mean_error_u", "mean_error_v"]] \
                                .rename(mean_error_u="water_u", mean_error_v="water_v") * -1
+        magnitude = error_reformated.isel(time=0).assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)[
+            "magnitude"]
         ax4 = OceanCurrentSource.plot_data_from_xarray(0, error_reformated,
+                                                       vmin=magnitude.min(),
+                                                       vmax=magnitude.max(),
                                                        ax=ax[1, 0])
         x_lim, y_lim = ax4.get_xlim(), ax4.get_ylim()
         ax4.plot(trajectory_x, trajectory_y, color='y', marker='+')
