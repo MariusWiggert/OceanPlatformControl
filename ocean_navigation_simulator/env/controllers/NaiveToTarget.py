@@ -12,14 +12,6 @@ class NaiveToTargetController(Controller):
     Naive to Target, Full-power Actuation towards the goal (meant as a baseline)
     """
 
-    def __init__(self, problem: Problem):
-        """
-        StraightLineController constructor
-        Args:
-            problem: the Problem the controller will run on
-        """
-        super().__init__(problem)
-
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
         """
         Return action that goes in the direction of the target with full power.
