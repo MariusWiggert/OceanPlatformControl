@@ -32,7 +32,7 @@ ocean_source_dict = {
         'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i',
     },
 }
-ocean_field = OceanCurrentField({}, hindcast_source_dict=ocean_source_dict)
+ocean_field = OceanCurrentField(sim_cache_dict={}, hindcast_source_dict=ocean_source_dict)
 solar_source_dict = {
     'field': 'SolarIrradiance',
     'subset_time_buffer_in_s': 4000,
@@ -47,7 +47,7 @@ solar_source_dict = {
         'temporal_resolution': 3600,
     }
 }
-solar_field = SolarIrradianceField({}, hindcast_source_dict=solar_source_dict)
+solar_field = SolarIrradianceField(sim_cache_dict={}, hindcast_source_dict=solar_source_dict)
 print(f'Init Sources: {time.time()-start:.2f}s')
 
 ##### Initialize Platform #####

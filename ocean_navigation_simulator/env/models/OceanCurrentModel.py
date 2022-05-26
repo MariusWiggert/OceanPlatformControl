@@ -15,7 +15,7 @@ class OceanCurrentModel(ABC):
     do """
 
     def __init__(self):
-        self.measurement_locations, self.errors = None, None
+        self.measurement_locations, self.measured_current_errors = None, None
         self.reset()
 
     def get_prediction(self, lon: float, lat: float, time: datetime.datetime) \
@@ -56,14 +56,14 @@ class OceanCurrentModel(ABC):
         """Reset by deleting the observations by default
         """
         self.measurement_locations = list()
-        self.errors = list()
+        self.measured_current_errors = list()
 
-    def observe(self, measurement: SpatioTemporalPoint, error: OceanCurrentVector) -> None:
+    def observe(self, measurement_location: SpatioTemporalPoint, measured_current_error: OceanCurrentVector) -> None:
         """Add an observation at the position measurement that will be used when fitting the model.
         
         Args:
-            measurement: Position of the observation
-            error: difference between the forecast and the ground truth at that position
+            measurement_location: Position of the observation
+            measured_current_error: difference between the forecast and the ground truth currents at that position
         """
-        self.measurement_locations.append(np.array(measurement))
-        self.errors.append(np.array(error))
+        self.measurement_locations.append(np.array(measurement_location))
+        self.measured_current_errors.append(np.array(measured_current_error))

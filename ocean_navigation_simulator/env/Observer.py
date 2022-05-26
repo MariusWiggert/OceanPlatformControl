@@ -65,7 +65,6 @@ class Observer:
                               "lat": reference_xr['lat'],
                               "lon": reference_xr['lon']})
 
-    # Todo: change the interface
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[Union[datetime.datetime, int]], spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None) -> xarray:
@@ -119,7 +118,7 @@ class Observer:
         if self.forecast_data_source is None:
             self.forecast_data_source = arena_observation.forecast_data_source
 
-        position_forecast = arena_observation.platform_state.to_spatio_temporal_point()
-        error = arena_observation.forecast_data_source.get_data_at_point(
-            position_forecast).subtract(arena_observation.true_current_at_state)
-        self.prediction_model.observe(position_forecast, error)
+        observation_location = arena_observation.platform_state.to_spatio_temporal_point()
+        measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
+            observation_location).subtract(arena_observation.true_current_at_state)
+        self.prediction_model.observe(observation_location, measured_current_error)
