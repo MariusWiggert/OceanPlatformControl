@@ -1,9 +1,0 @@
-PlannerConfig:
-    name: "StraightLinePlanner"
-    dt_replanning: 3600000000000.     # right now very high as only tested open-loop control once
-    specific_settings:
-      'x_T_time_ahead_in_h': 400
-
-SteeringCtrlConfig:
-    name: None #"simple_P_tracker"
-    dt_replanning: 8064.0
