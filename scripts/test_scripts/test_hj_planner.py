@@ -60,6 +60,7 @@ observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 #%% Plot the problem on the map
 problem.plot(data_source=arena.ocean_field.hindcast_data_source)
+plt.show()
 #%% Various plotting of the reachability computations
 # planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5,
 #                                    alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
@@ -83,5 +84,6 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     y_interval = y_int,
     return_ax=True)
 arena.plot_state_trajectory_on_map(ax=ax)
-problem.plot_on_currents(ax=ax, data_source=None)
+arena.plot_control_trajectory_on_map(ax=ax)
+problem.plot(ax=ax, data_source=None)
 plt.show()

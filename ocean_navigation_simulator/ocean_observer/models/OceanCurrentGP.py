@@ -8,7 +8,7 @@ import numpy as np
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Kernel
 
-from ocean_navigation_simulator.env.models.OceanCurrentModel import OceanCurrentModel
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
 
 
 class OceanCurrentGP(OceanCurrentModel):

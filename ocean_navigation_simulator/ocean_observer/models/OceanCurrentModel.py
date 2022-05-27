@@ -6,8 +6,8 @@ from typing import Tuple, Union
 
 import numpy as np
 
-from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint
-from ocean_navigation_simulator.env.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
+from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 
 
 class OceanCurrentModel(ABC):

@@ -44,7 +44,7 @@ class Problem(abc.ABC):
         pass
 
     def plot(self, ax: matplotlib.axes.Axes = None, data_source: DataSource = None,
-             margin: float = 1) -> matplotlib.axes.Axes:
+             margin: float = 1, return_ax: bool = False) -> matplotlib.axes.Axes:
         """Helper Function to plot the problem on an existing ax."""
         if data_source:
             _, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
@@ -62,4 +62,7 @@ class Problem(abc.ABC):
                                  self.target_radius, color='g', fill=True, alpha=0.6, label='target')
         ax.add_patch(goal_circle)
         ax.legend(loc='upper right')
-        return ax
+        if return_ax:
+            return ax
+        else:
+            plt.show()

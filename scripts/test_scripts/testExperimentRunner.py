@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.env.ExperimentRunner import ExperimentRunner
+from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
 
 
 def main():

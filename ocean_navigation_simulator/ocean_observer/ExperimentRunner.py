@@ -52,7 +52,7 @@ class ExperimentRunner:
             yaml_file_config: the name (without path or extension) of the Yaml file that will be read in the folder:
             "ocean_navigation_simulator/env/scenarios/"
         """
-        with open(f'ocean_navigation_simulator/env/scenarios/{yaml_file_config}.yaml') as f:
+        with open(f'scenarios/ocean_observer/{yaml_file_config}.yaml') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
             self.variables = config["experiment_runner"]
 
