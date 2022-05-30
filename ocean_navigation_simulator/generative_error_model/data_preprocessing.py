@@ -4,6 +4,7 @@ to spatio-temporal points for buoy data
 """
 
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.data_sources import OceanCurrentField
 from ocean_navigation_simulator.utils import units
 from DrifterData import DrifterData
 
@@ -11,10 +12,14 @@ import numpy as np
 import casadi as ca
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import Dict, List, Optional 
+from typing import Dict, List, Optional
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
+# TODO: to create pd.DataFrame need information from DrifterData class
+# to interpolate also need objects from the OceanCurrentField (for the hindcasts)
+# how to make this easier to deal with.
+# TODO: ensure space-time range is adequate for interpolation (PlatformState)
 
 def aggregate_buoy_files(file_list: List[str], config: Dict) -> pd.DataFrame:
     """
@@ -65,7 +70,7 @@ def plot_buoy_data(df: pd.DataFrame):
         ax.scatter(df[df["buoy"] == buoy_name]["lon"], df[df["buoy"] == buoy_name]["lat"], marker=".")
     plt.show()
 
-def interp_hindcast_xarray(df: pd.DataFrame, n: int=10) -> pd.DataFrame: 
+def interp_hindcast_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, n: int=10) -> pd.DataFrame: 
     """
     Interpolates the hindcast data to spatio-temporal points of buoy measurements
     """
