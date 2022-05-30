@@ -107,8 +107,10 @@ class DrifterData():
         # Checks if a file contains data in the specified time range (targeted_time_range)
         try:
             date_format = "%Y-%m-%dT%H:%M:%SZ"
-            targeted_ini = datetime.datetime.strptime(targeted_time_range.split('/')[0], date_format)
-            targeted_end = datetime.datetime.strptime(targeted_time_range.split('/')[1], date_format)
+            # targeted_ini = datetime.datetime.strptime(targeted_time_range.split('/')[0], date_format)
+            # targeted_end = datetime.datetime.strptime(targeted_time_range.split('/')[1], date_format)
+            targeted_ini = targeted_time_range[0]
+            targeted_end = targeted_time_range[1]
             time_start = datetime.datetime.strptime(row['time_coverage_start'],date_format)
             time_end = datetime.datetime.strptime(row['time_coverage_end'],date_format)
             Range = namedtuple('Range', ['start', 'end'])

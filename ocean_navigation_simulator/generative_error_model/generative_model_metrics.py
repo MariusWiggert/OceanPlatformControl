@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-# TODO: def function to compute all metrics and plot them
+# TODO: function to compute all metrics and plot them
 
 def calc_speed_mean(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured):
     mean_speed = (u_data_hindcast - u_data_measured)*np.cos(np.pi/4) + (v_data_hindcast - v_data_measured)*np.cos(np.pi/4)
