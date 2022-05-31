@@ -23,7 +23,7 @@ cmake -DWITH_PYTHON=ON -DWITH_PYTHON3=ON ..
 make
 sudo make install
 cd ../..
-sudo rm -r ./build/
+sudo rm -r ./casadi/
 sudo rm -r ./netcdf4-python/
 
 echo 'Environment installed'
