@@ -19,6 +19,16 @@ from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTarg
 from ocean_navigation_simulator.env.utils.units import Distance
 
 
+def _plot_metrics_per_h(metrics: dict[str, any]) -> None:
+    r, c = 5, 5
+    fig, axs = plt.subplots(r, c)
+    t = [datetime.datetime.fromtimestamp(time[0]) for time in metrics["time"]]
+    r2_per_h = metrics["r2_per_h"]
+    for i in range(r2_per_h.shape[1]):
+        axs[i // c, i % c].plot(t, r2_per_h[:, i], label="r2")
+        axs[i // c, i % c].set_title(f"r2 score, index: +{i} hours")
+
+
 def _plot_metrics(metrics: Dict[str, any]) -> None:
     """Plot the r2 and vector correlations over time on 4 different sub-plots.
     
@@ -86,9 +96,12 @@ class ExperimentRunner:
         i-th problem.
         """
         results = []
+        results_per_h = []
         while self.problem_factory.has_problems_remaining():
-            results.append(self.run_next_problem())
-            self.__create_plots(results[-1])
+            res, res_per_h = self.run_next_problem()
+            results.append(res)
+            results_per_h.append(res_per_h)
+            self.__create_plots(results[-1], results_per_h[-1])
             print("problem results:", {name: metric.mean() for name, metric in results[-1].items()})
         return results
 
@@ -115,7 +128,9 @@ class ExperimentRunner:
         print("start predicting")
 
         metrics_names = []
+        metrics_per_h_names = []
         metrics = []
+        metrics_per_h = []
         results = []
 
         # Now we run the algorithm
@@ -124,23 +139,39 @@ class ExperimentRunner:
             results.append(self.last_prediction_ground_truth)
 
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
-                *self.__get_lon_lat_time_intervals())
+                *self.__get_lon_lat_time_intervals(),
+                temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
+            # todo: quick fix, solve this issue correctly
+            if len(ground_truth["time"]) > 25:
+                ground_truth = ground_truth.isel(time=range(25))
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
 
             metric = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
+            metric_per_hour = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None),
+                                                                                per_hour=True)
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
+                metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
 
             metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0,
                                      self.last_observation.platform_state.date_time.timestamp()))
+            values_per_h = np.stack(list(metric_per_hour.values()))
+            # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
+            #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
+            times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
+                                   ndmin=2)
+            metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
 
             print(
                 f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
 
         metrics = np.array(metrics)
-        return {name: metrics[:, i] for i, name in enumerate(metrics_names)}
+        metrics_per_h = np.array(metrics_per_h)
+        return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, {name: metrics_per_h[:, i, :] for i, name
+                                                                               in enumerate(metrics_per_h_names)}
 
-    def __create_plots(self, last_metrics: Optional[np.ndarray] = None):
+    def __create_plots(self, last_metrics: Optional[np.ndarray] = None,
+                       last_metrics_per_h: Optional[np.ndarray] = None):
         """ Create the different plots based on the yaml file to know which one to display
         Args:
             last_metrics: the metrics to display
@@ -148,6 +179,7 @@ class ExperimentRunner:
         plots_dict = self.variables.get("plots", {})
         if plots_dict.get("visualize_metrics", False) and last_metrics is not None:
             _plot_metrics(last_metrics)
+            _plot_metrics_per_h(last_metrics_per_h)
         if plots_dict.get("visualize_currents", False):
             self.last_prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
         for variable in plots_dict.get("plot_3d", []):
@@ -169,11 +201,16 @@ class ExperimentRunner:
         action_to_apply = controller.get_action(self.last_observation)
         self.last_observation = self.arena.step(action_to_apply)
         self.observer.observe(self.last_observation)
-
+        print("time:", self.last_observation.platform_state.date_time)
         predictions = None
         if fit_model:
             self.observer.fit()
-            predictions = self.observer.get_data_over_area(*self.__get_lon_lat_time_intervals())
+            predictions = self.observer.get_data_over_area(*self.__get_lon_lat_time_intervals(),
+                                                           temporal_resolution=self.variables.get(
+                                                               "delta_between_predictions_in_sec", None))
+            # todo: quick fix, Find why the predictions are not always the same shape:
+            if len(predictions["time"]) > 25:
+                predictions = predictions.isel(time=range(25))
 
         return predictions
 

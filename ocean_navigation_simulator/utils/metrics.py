@@ -1,4 +1,6 @@
-from typing import Dict, Callable, Any
+from __future__ import annotations
+
+from typing import Dict, Callable, Any, Optional, Tuple
 
 import numpy as np
 from numpy import ndarray
@@ -16,7 +18,8 @@ def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float,
     return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse}
 
 
-def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray) -> Dict[str, float]:
+def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, per_hour: bool = False) -> \
+        Dict[str, float]:
     """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
        the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
        initial forecast.
@@ -29,12 +32,13 @@ def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions
     Returns:
         The r2 coefficient as a dictionary
     """
-    return {"r2": 1 - ((ground_truth - improved_predictions) ** 2).sum() / (
-            (initial_predictions - ground_truth) ** 2).sum()}
+    axis = (1, 2) if per_hour else None
+    return {("r2_per_h" if per_hour else "r2"): 1 - ((ground_truth - improved_predictions) ** 2).sum(axis=axis) / (
+            (initial_predictions - ground_truth) ** 2).sum(axis=axis)}
 
 
 def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
-                       sigma_ratio=0.00001) -> Dict[str, float]:
+                       sigma_ratio=0.00001, per_hour: bool = False) -> Dict[str, float]:
     """Compute the vector correlation between 1) ground_truth and improved_predictions, 2) ground_truth and
     initial_predictions and also the ratio between these two values
 
@@ -47,6 +51,9 @@ def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, ini
     Returns:
         The 3 values as a dictionary
     """
+    if per_hour:
+        print("vector correlation per hour is not implemented")
+        return {}
     correlations = dict()
     correlations["vector_correlation_improved"] = calc_vector_corr_over_time(improved_predictions, ground_truth,
                                                                              sigma_diag=0, remove_nans=True).mean()
@@ -57,7 +64,8 @@ def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, ini
     return correlations
 
 
-def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, sigma_ratio=0.00001) -> \
+def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, sigma_ratio=0.00001,
+         per_hour: bool = False) -> \
         Dict[str, float]:
     """Compute the rmse between 1) ground_truth and improved_predictions, 2) ground_truth and initial_predictions and
     also the ratio between these two values
@@ -72,14 +80,17 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
         The 3 values as a dictionary
     """
     rmses = dict()
-    rmses["rmse_improved"] = __rmse(ground_truth, improved_predictions)
-    rmses["rmse_initial"] = __rmse(ground_truth, initial_predictions)
-    rmses["rmse_ratio"] = rmses["rmse_improved"] / (rmses["rmse_initial"] + sigma_ratio)
+    extension_str = "_per_h" if per_hour else ""
+    axis = (1, 2) if per_hour else None
+    rmses["rmse_improved" + extension_str] = __rmse(ground_truth, improved_predictions, axis=axis)
+    rmses["rmse_initial" + extension_str] = __rmse(ground_truth, initial_predictions, axis=axis)
+    rmses["rmse_ratio" + extension_str] = rmses["rmse_improved" + extension_str] / (
+            rmses["rmse_initial" + extension_str] + sigma_ratio)
 
     return rmses
 
 
-def __rmse(v1: ndarray, v2: ndarray) -> float:
+def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
     """ Internal function to compute the rmse
 
     Args:
@@ -89,4 +100,4 @@ def __rmse(v1: ndarray, v2: ndarray) -> float:
     Returns:
         rmse between the two vectors v1 and v2
     """
-    return np.sqrt(np.mean((v1 - v2) ** 2))
+    return np.sqrt(np.mean((v1 - v2) ** 2, axis=axis))
