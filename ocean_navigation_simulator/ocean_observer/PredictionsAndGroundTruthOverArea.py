@@ -7,6 +7,7 @@ from matplotlib.widgets import Slider
 
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics
+from ocean_navigation_simulator.utils import units
 
 
 class PredictionsAndGroundTruthOverArea:
@@ -59,7 +60,8 @@ class PredictionsAndGroundTruthOverArea:
             spatial_res: Spatial resolution of the plots
         """
         fig, ax = plt.subplots(2, 2)
-        # todo: make it adaptable by taking min max over the 3 sources
+        fig.suptitle('At time {}'.format(
+            units.get_datetime_from_np64(self.predictions_over_area['time'][-1])), fontsize=14)
         vmin = 0
         vmax = max(self.initial_forecast.max(), self.improved_forecast.max(), self.ground_truth_area.max())
 

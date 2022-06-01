@@ -100,20 +100,20 @@ class ExperimentRunner:
 
         # Now we run the algorithm
         for i in range(self.variables["number_steps_prediction"]):
-            last_prediction = self.__step_simulation(controller, fit_model=True)
-            results.append(self.last_prediction_ground_truth)
-
+            model_prediction = self.__step_simulation(controller, fit_model=True)
+            # get ground truth
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
                 *self.__get_lon_lat_time_intervals(ground_truth=True))
-            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
 
+            # compute the metrics and log the results
+            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
+            results.append(self.last_prediction_ground_truth)
             metric = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
 
             metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0,
                                      self.last_observation.platform_state.date_time.timestamp()))
-
             print(
                 f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
 
@@ -135,26 +135,6 @@ class ExperimentRunner:
             self.last_prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
         for variable in plots_dict.get("plot_3d", []):
             self.last_prediction_ground_truth.plot_3d(variable)
-
-    def __plot_metrics(self, metrics: Dict[str, any]):
-        if self.variables.get("metrics") is not None:
-            # create appropriately sized subplot
-            X_LABELSIZE = 8
-            t = [datetime.datetime.fromtimestamp(time) for time in metrics["time"]]
-            # Subplots are organized in a Rows x 2 Grid
-            Tot = len(self.variables.get("metrics"))
-            if Tot == 1:
-                pass    # only one plot
-
-            # Compute Rows required
-            Rows = Tot // 2
-            Rows += Tot % 2
-
-            # Create a Position index
-            Position = range(1, Tot + 1)
-
-
-
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
