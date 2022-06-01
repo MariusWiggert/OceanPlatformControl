@@ -67,7 +67,9 @@ class BuoyDataSource(ABC):
     def interpolate_forecast(self, ocean_field: OceanCurrentField):
         """
         Uses an OceanCurrentField object and interpolates the data to the
-        spatio-temporal points of the buoy data
+        spatio-temporal points of the buoy data.
+
+        The ocean_field can be a hincast or a forecast.
         """
 
         self.data = interp_hindcast_xarray(self.data, ocean_field)
@@ -85,8 +87,8 @@ class BuoyDataCopernicus(BuoyDataSource):
         downloads NetCDF files if it contains data points in range, and finally
         the files are read and data is concatenated into a DataFrame.
         """
-        read_only = True
-        if not read_only:
+        download_index_files = self.data_config["dataset"]["download_index_files"]
+        if download_index_files:
             self.download_index_files(data_config["usr"], data_config["pas"])
         self.index_data = self.get_index_file_info()
 
@@ -287,6 +289,7 @@ class BuoyDataCopernicus(BuoyDataSource):
 
 
 class BuoyDataSofar(BuoyDataSource):
+    # TODO: setting reminder here to implement this when we have data from Sofar
     """
     Class to handle data from Sofar
     """
@@ -308,3 +311,7 @@ class BuoyDataSofar(BuoyDataSource):
         in the config. This also help speeds up interpolation.
         """
         pass
+
+class BuoyDataNOOA(BuoyDataSource):
+    # TODO: implement this using ftp (look at Copernicus class for this)
+    pass
