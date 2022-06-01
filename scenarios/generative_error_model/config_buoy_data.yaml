@@ -13,7 +13,7 @@ data_config:
       # product: "INSITU_GLO_UV_NRT_OBSERVATIONS_013_048"
       # name: "argo"
       # index_files: ["index_latest.txt"]
-    time_range: "2022-01-01T00:00:00Z/2022-01-31T23:59:59Z" # in ISO8601 format
+    time_range: "2021-01-01T00:00:00Z/2021-01-31T23:59:59Z" # in ISO8601 format
     lat_range: [25.0, 30.0]
     lon_range: [-120, -130]
     area_overlap_type: "intersects"

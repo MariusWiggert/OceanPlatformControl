@@ -79,18 +79,20 @@ class BuoyDataCopernicus(BuoyDataSource):
         super().__init__(config, source)
 
     def get_data(self, data_config: Dict):
+        """
+        Main method which returns the data in the specified spatio-temporal range.
+        It downloads the index files, combines index files into one xarray object,
+        downloads NetCDF files if it contains data points in range, and finally
+        the files are read and data is concatenated into a DataFrame.
+        """
         read_only = True
         if not read_only:
-            # download index files
             self.download_index_files(data_config["usr"], data_config["pas"])
-        # load and join index files
         self.index_data = self.get_index_file_info()
 
-        # download files from index files
-        nc_files = self.index_data["file_name"].tolist()
-        self.download_all_NC_files(nc_files)
+        nc_links = self.index_data["file_name"].tolist()
+        self.download_all_NC_files(nc_links)
 
-        # aggregate downloaded data
         file_list = [os.path.join(self.data_config["data_dir"], "drifter_data", "nc_files", file_link.split('/')[-1]) for file_link in nc_links]
         self.data = self.concat_buoy_data(file_list)
 
@@ -120,8 +122,8 @@ class BuoyDataCopernicus(BuoyDataSource):
             # change time column to datetime
             df["time"] = pd.to_datetime(df["time"])
 
-            # filtering conditions TODO: fix issue with -ve values for lon
-            lon_cond = ((df_temp["lon"] <= self.targeted_bbox[0]) & (df_temp["lon"] >= self.targeted_bbox[2]))
+            # filtering conditions
+            lon_cond = ((df_temp["lon"] >= min(self.targeted_bbox[0], self.targeted_bbox[2])) & (df_temp["lon"] <= max(self.targeted_bbox[0], self.targeted_bbox[2])))
             lat_cond = ((df_temp["lat"] >= self.targeted_bbox[1]) & (df_temp["lat"] <= self.targeted_bbox[3]))
             time_cond = ((df_temp["time"] >= np.datetime64(self.targeted_time_range.get_start())) & (df_temp["time"] <= np.datetime64(self.targeted_time_range.get_end())))
 
@@ -279,7 +281,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         for file in file_list:
             self._download_NC_file(file)
 
-    def _read_NC_file(path2file: str) -> xr:
+    def _read_NC_file(self, path2file: str) -> xr:
         with xr.open_dataset(path2file) as ds:
             return ds.load()
 
@@ -292,4 +294,17 @@ class BuoyDataSofar(BuoyDataSource):
         super().__init(config)
 
     def get_data(self, config: Dict):
+        pass
+
+    def read_csv_files(self):
+        """
+        Reads in all csv files which Sofar provides
+        """
+        pass
+
+    def filter_data(self):
+        """
+        Filters buoy data to only have spatio-temporal points as specified
+        in the config. This also help speeds up interpolation.
+        """
         pass
