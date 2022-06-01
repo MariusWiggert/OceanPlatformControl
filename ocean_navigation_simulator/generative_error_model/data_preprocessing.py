@@ -6,7 +6,6 @@ to spatio-temporal points for buoy data
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
 from ocean_navigation_simulator.environment.data_sources import OceanCurrentField
 from ocean_navigation_simulator.utils import units
-from DrifterData import DrifterData
 
 import numpy as np
 import casadi as ca
@@ -16,47 +15,7 @@ from typing import Dict, List, Optional
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-# TODO: to create pd.DataFrame need information from DrifterData class
-# to interpolate also need objects from the OceanCurrentField (for the hindcasts)
-# how to make this easier to deal with.
 # TODO: ensure space-time range is adequate for interpolation (PlatformState)
-
-def aggregate_buoy_files(file_list: List[str], config: Dict) -> pd.DataFrame:
-    """
-    reads in all .nc files in the file_list
-    filters data for desired time and space interval 
-    creates a pandas.DataFrame
-    """
-    column_names = ["time", "lon", "lat", "u", "v", "buoy"]
-    df = pd.DataFrame(columns = column_names)
-
-    for file_path in file_list:
-        ds = DrifterData.readNCFile(file_path)
-
-        # select specific data
-        time = ds["TIME"].values
-        lon = ds["LONGITUDE"].values
-        lat = ds["LATITUDE"].values
-        u = ds["NSCT"].isel(DEPTH=-1).values
-        v = ds["EWCT"].isel(DEPTH=-1).values
-        buoy = [file_path.split("/")[-1].split(".")[0] for i in range(len(time))]
-        df_temp = pd.DataFrame({"time":time, "lon":lon, "lat":lat, "u":u, "v":v, "buoy":buoy})
-
-        # change time column to datetime
-        df["time"] = pd.to_datetime(df["time"])
-
-        # filtering conditions TODO: fix issue with -ve values for lon
-        targeted_bbox = config["targeted_bbox"]
-        targeted_time_range = config["targeted_time_range"]
-        lon_cond = ((df_temp["lon"] <= targeted_bbox[0]) & (df_temp["lon"] >= targeted_bbox[2]))
-        lat_cond = ((df_temp["lat"] >= targeted_bbox[1]) & (df_temp["lat"] <= targeted_bbox[3]))
-        time_cond = ((df_temp["time"] >= np.datetime64(targeted_time_range[0])) & (df_temp["time"] <= np.datetime64(targeted_time_range[1])))
-
-        # filtering and concat to df
-        df_temp = df_temp.loc[(lon_cond & lat_cond & time_cond)]
-        df = pd.concat([df, df_temp])
-
-    return df
 
 def plot_buoy_data(df: pd.DataFrame):
     fig = plt.figure(figsize=(12,12))
