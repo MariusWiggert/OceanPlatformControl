@@ -1,0 +1,27 @@
+data_config:
+  copernicus:
+    data_dir: "/home/jonas/Documents/Thesis/OceanPlatformControl/data"
+    dataset:
+      # drifter
+      host: "nrt.cmems-du.eu"
+      product: "INSITU_GLO_UV_NRT_OBSERVATIONS_013_048"
+      name: "drifter"
+      index_files: ["index_latest.txt", "index_monthly.txt", "index_history.txt"]
+      index_platform: "index_platform.txt"
+      # # argo
+      # host: "nrt.cmems-du.eu"
+      # product: "INSITU_GLO_UV_NRT_OBSERVATIONS_013_048"
+      # name: "argo"
+      # index_files: ["index_latest.txt"]
+    time_range: "2022-01-01T00:00:00Z/2022-01-31T23:59:59Z" # in ISO8601 format
+    lat_range: [25.0, 30.0]
+    lon_range: [-120, -130]
+    area_overlap_type: "intersects"
+    usr: "mmariuswiggert"
+    pas: "tamku3-qetroR-guwneq"
+
+  sofar:
+    data_dir: ""
+    time_range: ""
+    lat_range: [0,0]
+    lon_range: [0,0]
