@@ -5,7 +5,7 @@ import dateutil
 import numpy as np
 import xarray
 import yaml
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import HighwayProblemFactory
@@ -17,28 +17,8 @@ from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.controllers import Controller
 from ocean_navigation_simulator.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.utils.units import Distance
-
-
-def _plot_metrics(metrics: Dict[str, any]) -> None:
-    """Plot the r2 and vector correlations over time on 4 different sub-plots.
-    
-    Args:
-        metrics: dictionary containing the name of the metrics, and it's given value for each timestep in a ndarray
-    """
-    fig, axs = plt.subplots(2, 2)
-    t = [datetime.datetime.fromtimestamp(time) for time in metrics["time"]]
-    axs[0, 0].plot(t, metrics["r2"], label="r2")
-    axs[0, 0].set_title("r2 score")
-    axs[1, 0].plot(t, metrics["vector_correlation_ratio"], label="vector_correlation_ratio")
-    axs[1, 0].set_title("vector correlation ratio")
-    axs[0, 1].plot(t, metrics["vector_correlation_improved"],
-                   label="vector correlation improved")
-    axs[0, 1].set_title("vector correlation model")
-    axs[1, 1].plot(t, metrics["vector_correlation_initial"], label="vector_correlation_ref")
-    axs[1, 1].set_title("vector correlation initial")
-    plt.legend()
-
-    print(f"Mean r2_loss: {metrics['r2'].mean()}")
+from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
+import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 
 
 class ExperimentRunner:
@@ -124,7 +104,7 @@ class ExperimentRunner:
             results.append(self.last_prediction_ground_truth)
 
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
-                *self.__get_lon_lat_time_intervals())
+                *self.__get_lon_lat_time_intervals(ground_truth=True))
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
 
             metric = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
@@ -146,12 +126,35 @@ class ExperimentRunner:
             last_metrics: the metrics to display
         """
         plots_dict = self.variables.get("plots", {})
-        if plots_dict.get("visualize_metrics", False) and last_metrics is not None:
-            _plot_metrics(last_metrics)
+        if plots_dict.get("metrics_to_visualize", False) and last_metrics is not None:
+            for metrics_str in plots_dict.get("metrics_to_visualize"):
+                fig, ax = plt.subplots()
+                getattr(plot_metrics, "plot_" + metrics_str)(last_metrics, ax)
+                plt.show()
         if plots_dict.get("visualize_currents", False):
             self.last_prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
         for variable in plots_dict.get("plot_3d", []):
             self.last_prediction_ground_truth.plot_3d(variable)
+
+    def __plot_metrics(self, metrics: Dict[str, any]):
+        if self.variables.get("metrics") is not None:
+            # create appropriately sized subplot
+            X_LABELSIZE = 8
+            t = [datetime.datetime.fromtimestamp(time) for time in metrics["time"]]
+            # Subplots are organized in a Rows x 2 Grid
+            Tot = len(self.variables.get("metrics"))
+            if Tot == 1:
+                pass    # only one plot
+
+            # Compute Rows required
+            Rows = Tot // 2
+            Rows += Tot % 2
+
+            # Create a Position index
+            Position = range(1, Tot + 1)
+
+
+
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
@@ -177,15 +180,22 @@ class ExperimentRunner:
 
         return predictions
 
-    def __get_lon_lat_time_intervals(self) -> Tuple[List[float],
+    def __get_lon_lat_time_intervals(self, ground_truth: bool = False) -> Tuple[List[float],
                                                     List[float], Union[List[float], List[datetime.datetime]]]:
         """ Internal method to get the area around the platforms
-
+        Args:
+            ground_truth: If we request the area for ground truth we request a larger area so that interpolation
+                          to the predicted area works and does not need to extrapolate.
         Returns:
             longitude, latitude and time intervals packed as tuples and each interval as a list of 2 elements
         """
         point = self.last_observation.platform_state.to_spatio_temporal_point()
-        t, lat, lon = self.last_observation.forecast_data_source. \
-            convert_to_x_y_time_bounds(point, point, self.variables.get("radius_area_around_platform", 1),
-                                       self.variables.get("time_horizon_predictions_in_sec", 86400))
+        deg_around_x0_xT_box = self.variables.get("radius_area_around_platform", 1)
+        temp_horizon_in_s = self.variables.get("time_horizon_predictions_in_sec", 86400)
+        if ground_truth:
+            deg_around_x0_xT_box += self.variables.get("gt_additional_area", 0.5)
+            temp_horizon_in_s += self.variables.get("gt_additional_time", 3600) * 2
+            point.date_time = point.date_time - datetime.timedelta(seconds=self.variables.get("gt_additional_time", 3600))
+        t, lat, lon = DataSource.convert_to_x_y_time_bounds(
+            x_0=point, x_T=point, deg_around_x0_xT_box=deg_around_x0_xT_box, temp_horizon_in_s=temp_horizon_in_s)
         return lon, lat, t

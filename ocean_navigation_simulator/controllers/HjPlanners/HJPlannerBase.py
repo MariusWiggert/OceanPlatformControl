@@ -5,6 +5,7 @@ from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.utils import units
 from typing import Tuple, Dict, List, AnyStr, Union, Callable
@@ -17,6 +18,7 @@ from datetime import datetime, timezone
 import matplotlib.pyplot as plt
 import warnings
 import math
+from ocean_navigation_simulator.ocean_observer.Observer import Observer
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
@@ -98,11 +100,13 @@ class HJPlannerBase(Controller):
         """
         # Step 1: Check if we should re-plan based on specified criteria
         if self._check_for_replanning(observation):
-            print("Reachability Planner: Planning")
             # log x_t and data_source for plotting and easier access later
             self.x_t = observation.platform_state
             self.last_data_source = observation.forecast_data_source
-            # Update the data
+            # If the data_source is an observer, fit the model with the most recent data
+            if isinstance(self.last_data_source, Observer):
+                self.last_data_source.fit()
+            # Update the data used in the HJ Reachability Planning
             self._update_current_data(observation=observation)
             self._plan(observation.platform_state)
 
@@ -121,15 +125,19 @@ class HJPlannerBase(Controller):
                 time=observation.platform_state.date_time)
             return True
         # Check for re-planning with new forecast
-        elif self.specific_settings['replan_on_new_fmrc']:
+        if self.specific_settings['replan_on_new_fmrc']:
             if self._new_forecast_data_available(observation):
+                # If the data_source is an observer, delete all error measurements from the old forecast.
+                if isinstance(self.last_data_source, Observer):
+                    self.last_data_source.reset()
+                print("Reachability Planner: Planning because of new Forecast.")
                 return True
         # Check for re-planning after fixed time intervals
-        elif self.specific_settings['replan_every_X_seconds'] is not None:
-            if self.last_planning_posix + self.specific_settings['replan_every_X_seconds'] \
-                    >= observation.platform_state.date_time.timestamp():
+        if self.specific_settings['replan_every_X_seconds'] is not None:
+            if observation.platform_state.date_time.timestamp() - self.last_planning_posix >= \
+                    self.specific_settings['replan_every_X_seconds']:
+                print("Reachability Planner: Planning because of fixed time interval.")
                 return True
-
         return False
 
     def _new_forecast_data_available(self, observation: ArenaObservation) -> bool:
@@ -430,7 +438,7 @@ class HJPlannerBase(Controller):
         print("Reachability Planner: Loading new current data.")
 
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
-        t_interval, y_interval, x_interval = observation.forecast_data_source.convert_to_x_y_time_bounds(
+        t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
             x_0=observation.platform_state.to_spatio_temporal_point(), x_T=self.problem.end_region,
             deg_around_x0_xT_box=self.specific_settings['deg_around_xt_xT_box'],
             temp_horizon_in_s=self.specific_settings['T_goal_in_seconds'])

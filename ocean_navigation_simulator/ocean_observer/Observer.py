@@ -89,19 +89,20 @@ class Observer:
 
         prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
         predictions_dataset = xr.merge(
-            [self._convert_prediction_model_output(prediction_errors, forecasts, ("mean_error_u", "mean_error_v")),
+            [self._convert_prediction_model_output(prediction_errors, forecasts, ("error_u", "error_v")),
              self._convert_prediction_model_output(prediction_std, forecasts, ("std_error_u", "std_error_v")),
              forecasts.rename(dict(water_u="initial_forecast_u", water_v="initial_forecast_v"))])
 
         predictions_dataset = predictions_dataset.assign(
-            water_u=lambda x: x.initial_forecast_u - x.mean_error_u)
+            water_u=lambda x: x.initial_forecast_u - x.error_u)
         predictions_dataset = predictions_dataset.assign(
-            water_v=lambda x: x.initial_forecast_v - x.mean_error_v)
+            water_v=lambda x: x.initial_forecast_v - x.error_v)
         return predictions_dataset
 
     def fit(self) -> None:
         """Fit the inner prediction model using the observations recorded by the observer
         """
+        print("Observer: fitting model with {} measurements.".format(len(self.prediction_model.measurement_locations)))
         self.prediction_model.fit()
 
     def reset(self) -> None:
@@ -122,3 +123,12 @@ class Observer:
         measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
             observation_location).subtract(arena_observation.true_current_at_state)
         self.prediction_model.observe(observation_location, measured_current_error)
+
+    # Forwarding functions as it replaces the forecast_data_source
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+        """Helper function to check update the self.OceanCurrent if a new forecast is available at
+        the specified input time.
+        Args:
+          time: datetime object
+        """
+        return self.forecast_data_source.check_for_most_recent_fmrc_dataframe(time=time)

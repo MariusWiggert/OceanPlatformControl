@@ -18,6 +18,7 @@
 import datetime as datetime
 import typing
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 _METERS_PER_FOOT = 0.3048
@@ -446,3 +447,11 @@ def round_to_sig_digits(x, sig_digit):
         return 0
     else:
         return round(x, sig_digit - int(floor(log10(abs(x)))) - 1)
+
+import matplotlib
+def format_datetime_x_axis(ax: plt.axis):
+    """Helper function for better formatting the x_axis for datetimes."""
+    locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+    formatter = matplotlib.dates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)

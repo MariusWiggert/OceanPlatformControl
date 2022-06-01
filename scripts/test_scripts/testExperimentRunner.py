@@ -6,10 +6,12 @@ def main():
     Run an experiment
     """
     # np.random.seed(0)
-    exp = ExperimentRunner("config_real_data_GP")
+    exp = ExperimentRunner("config_GP_for_failed_case")
     results = exp.run_all_problems()
     print("final results:", results)
 
-#%%
 if __name__ == "__main__":
     main()
+
+
+#%%

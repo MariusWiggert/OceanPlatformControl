@@ -1,33 +1,38 @@
 experiment_runner:
   plots:
     visualize_currents: True
-    plot_3d:
-      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
-    visualize_metrics: True
+    # plot_3d:
+    #  [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
+    metrics_to_visualize:
+      - "rmse"
+      - "r2"
+      - "vector_correlation"
   metrics:
     - "rmse"
     - "r2"
     - "vector_correlation"
 
-  #number_burnin_steps: 50
-  number_burnin_steps: 100
-  number_steps_prediction: 390
+  number_burnin_steps: 0
+  number_steps_prediction: 120
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
-  duration_simulation_in_sec: 36000000
+#  duration_simulation_in_sec: 432000 # 3600*24*5
   radius_area_around_platform: 0.04665226
-
+  # settings for extra margin around platform for getting true currents
+  # -> Needed because we need to interpolate it to predictions axis
+  gt_additional_area: 1.
+  gt_additional_time: 10800
 
   use_real_data: True
-  scenario_used: "gulf_of_mexico_files"
+  scenario_used: "multi_reach_fails_test"
   problems:
     - initial_position:
-        lon_in_deg: -86
-        lat_in_deg: 24.86
-        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
+        lon_in_deg: -81.749
+        lat_in_deg: 18.839
+        datetime: "2021-11-24T12:10:00Z" #In iso8601 format!
       target:
-        lon_in_deg: -88.61
-        lat_in_deg: 26.36
+        lon_in_deg: -83.178
+        lat_in_deg: 18.946
         radius_in_m: 1
 #    - initial_position:
 #        lon_in_deg: -82
@@ -50,8 +55,8 @@ observer:
         #type: "RBF"
 
         scaling:
-          latitude: 1 # [m]
-          longitude: 1 # [m]
+          latitude: 3 # [m]
+          longitude: 3 # [m]
           time: 10000 # [s]
         type: "matern"
         parameters:

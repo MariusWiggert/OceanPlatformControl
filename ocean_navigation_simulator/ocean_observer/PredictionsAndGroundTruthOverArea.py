@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.ocean_observer.observer_metrics import get_metrics
+from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics
 
 
 class PredictionsAndGroundTruthOverArea:
@@ -16,6 +16,8 @@ class PredictionsAndGroundTruthOverArea:
 
     def __init__(self, predictions_over_area: xr, ground_truth: xr):
         """Create the object using the prediction and ground_truth xarray Datasets
+        Specifically, the variables initial_forecast, improved_forecast, and ground_truth_area are calculated as
+        3D numpy arrays with T x lat*lon x 2 (water_u and water_v) for metric calculation.
 
         Args:
             predictions_over_area: xarray Dataset that contains the forecasts, improved forecasts and potentially
@@ -24,12 +26,13 @@ class PredictionsAndGroundTruthOverArea:
         """
         reshape_dims = (len(predictions_over_area["time"]), -1, 2)
         self.predictions_over_area = predictions_over_area
-        self.ground_truth = ground_truth
+        # interpolate ground_truth to same grid as the predictions
+        self.ground_truth = ground_truth.interp_like(predictions_over_area, method='linear')
         self.initial_forecast = np.moveaxis(predictions_over_area[["initial_forecast_u", "initial_forecast_v"]]
                                             .to_array().to_numpy(), 0, -1).reshape(reshape_dims)
         self.improved_forecast = np.moveaxis(predictions_over_area[["water_u", "water_v"]].to_array().to_numpy(), 0,
                                              -1).reshape(reshape_dims)
-        self.ground_truth_area = np.moveaxis(ground_truth[["water_u", "water_v"]].to_array().to_numpy(), 0, -1).reshape(
+        self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]].to_array().to_numpy(), 0, -1).reshape(
             reshape_dims)
 
     def compute_metrics(self, metrics: Union[Set[str], str, None] = None) -> Dict[str, any]:
@@ -56,8 +59,6 @@ class PredictionsAndGroundTruthOverArea:
             spatial_res: Spatial resolution of the plots
         """
         fig, ax = plt.subplots(2, 2)
-        fig.tight_layout()
-        fig.suptitle("Metrics")
         # todo: make it adaptable by taking min max over the 3 sources
         vmin = 0
         vmax = max(self.initial_forecast.max(), self.improved_forecast.max(), self.ground_truth_area.max())
@@ -85,8 +86,8 @@ class PredictionsAndGroundTruthOverArea:
         ax3.set_title("Improved forecasts")
 
         # multiplied by -1 to get error + forecast = hindcast -> Better visually
-        error_reformated = self.predictions_over_area[["mean_error_u", "mean_error_v"]] \
-                               .rename(mean_error_u="water_u", mean_error_v="water_v") * -1
+        error_reformated = self.predictions_over_area[["error_u", "error_v"]] \
+                               .rename(error_u="water_u", error_v="water_v") * -1
         magnitude = error_reformated.isel(time=0).assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)[
             "magnitude"]
         ax4 = OceanCurrentSource.plot_data_from_xarray(0, error_reformated,
@@ -97,6 +98,7 @@ class PredictionsAndGroundTruthOverArea:
         ax4.plot(trajectory_x, trajectory_y, color='y', marker='+')
         ax4.set_xlim(x_lim), ax4.set_ylim(y_lim)
         ax4.set_title("Error predicted *(-1)")
+        fig.tight_layout()
 
         plt.pause(1)
 
@@ -105,7 +107,7 @@ class PredictionsAndGroundTruthOverArea:
 
         Args:
             variable_to_plot: The name of the field from the dataset that we want to plot.
-            Could be [mean_error, std_error, initial_forecast, water (for improved forecast), ground_truth]
+            Could be [error, std_error, initial_forecast, water (for improved forecast), ground_truth]
         """
         label = variable_to_plot
         if variable_to_plot is "ground_truth":

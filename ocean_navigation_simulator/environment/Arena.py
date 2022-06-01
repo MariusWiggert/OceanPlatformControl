@@ -20,6 +20,7 @@ from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.Ocea
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.environment.data_sources.SeaweedGrowthField import SeaweedGrowthField
 from ocean_navigation_simulator.environment.data_sources.SolarIrradianceField import SolarIrradianceField
+from ocean_navigation_simulator.utils.units import format_datetime_x_axis
 
 
 @dataclasses.dataclass
@@ -224,10 +225,7 @@ class Arena:
         if ax is None:
             fig, ax = plt.subplots()
 
-        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
-        formatter = matplotlib.dates.ConciseDateFormatter(locator)
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(formatter)
+        format_datetime_x_axis(ax)
 
         dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[::stride, 2]]
         ax.plot(dates, self.state_trajectory[::stride, 3])
@@ -252,11 +250,7 @@ class Arena:
         """
         if ax is None:
             fig, ax = plt.subplots()
-
-        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
-        formatter = matplotlib.dates.ConciseDateFormatter(locator)
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(formatter)
+        format_datetime_x_axis(ax)
 
         dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[::stride, 2]]
         ax.plot(dates, self.state_trajectory[::stride, 3], marker='.')
@@ -283,10 +277,7 @@ class Arena:
         if ax is None:
             fig, ax = plt.subplots()
 
-        locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
-        formatter = matplotlib.dates.ConciseDateFormatter(locator)
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(formatter)
+        format_datetime_x_axis(ax)
 
         # plot
         dates = [dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc) for posix in self.state_trajectory[:-1:stride, 2]]
