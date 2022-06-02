@@ -9,7 +9,7 @@ platform_dict:
     solar_panel_size: 0.5
     solar_efficiency: 0.2
     drag_factor: 675.0
-    dt_in_s: 60.0
+    dt_in_s: 600.0
 
 use_geographic_coordinate_system: True
 
@@ -29,7 +29,7 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'forecast_files'
         source_settings:
-            'folder': "data/single_day_forecast/"
+            'folder': "data/HYCOM/"
 
 solar_dict:
     hindcast: null

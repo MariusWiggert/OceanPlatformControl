@@ -18,7 +18,6 @@ from ocean_navigation_simulator.env.utils import units
 from ocean_navigation_simulator.env.controllers.HjPlanners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.problem import Problem
 
-
 def generate_training_data_for_imitation(
     arena: Arena,
     problem: Problem,
@@ -27,10 +26,7 @@ def generate_training_data_for_imitation(
     verbose: int=1,
     plot_after: int=100,
 ):
-    # Generate Folder
-    if not os.path.exists(mission_folder):
-        os.mkdir(mission_folder)
-
+    start = time.time()
     # Instantiate the HJ Planners
     specific_settings = {
         'replan_on_new_fmrc': True,
@@ -51,6 +47,7 @@ def generate_training_data_for_imitation(
         # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
         'platform_dict': arena.platform.platform_dict
     }
+    global planner_hycom
     planner_hycom = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
     planner_copernicus = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 
@@ -68,7 +65,10 @@ def generate_training_data_for_imitation(
 
     observation = arena.reset(platform_state=problem.start_state)
 
+    print(f'Planner created: ({time.time() - start:.1f}s)')
+
     for t in tqdm(range(steps), disable=verbose<1):
+        start = time.time()
         action = planner_hycom.get_action(observation=observation)
         planner_copernicus.get_action(
             observation=ArenaObservation(
@@ -77,7 +77,11 @@ def generate_training_data_for_imitation(
                 forecast_data_source = arena.ocean_field.hindcast_data_source
             )
         )
+        print(f'Planner get action: ({time.time() - start:.2f}s)')
+        start = time.time()
         observation = arena.step(action)
+        print(f'Arena step: ({time.time() - start:.2f}s)')
+        start = time.time()
 
         point = {
             'datetime': observation.platform_state.date_time,
@@ -148,17 +152,21 @@ def generate_training_data_for_imitation(
             x_mission = np.append(x_mission, np.expand_dims(x_train.squeeze(), axis=0), axis=0)
             y_mission = np.append(y_mission, np.expand_dims(y_train.squeeze(), axis=0), axis=0)
 
+        print(f'Data generation: ({time.time() - start:.2f}s)')
+
         # Simulation Termination
         prolem_status = problem.is_done(observation.platform_state)
         if prolem_status == 1 or prolem_status == -1 or not arena.is_inside_arena():
             break
 
     # Save Data
-    pd.DataFrame(trajectory).to_csv(f'{mission_folder}/trajectory.csv')
-    with open(f'{mission_folder}/x_mission.npy', 'wb') as f:
-        np.save(f, x_mission)
-    with open(f'{mission_folder}/y_mission.npy', 'wb') as f:
-        np.save(f, y_mission)
+    # if not os.path.exists(mission_folder):
+    #     os.mkdir(mission_folder)
+    # pd.DataFrame(trajectory).to_csv(f'{mission_folder}/trajectory.csv')
+    # with open(f'{mission_folder}/x_mission.npy', 'wb') as f:
+    #     np.save(f, x_mission)
+    # with open(f'{mission_folder}/y_mission.npy', 'wb') as f:
+    #     np.save(f, y_mission)
 
     # Delete Objects
     del planner_hycom
@@ -191,7 +199,7 @@ if __name__ == "__main__":
     generate_training_data_for_imitation(
         arena=arena,
         problem=problem,
-        mission_folder='data/value_function_learning/mission_0',
+        mission_folder='data/value_function_learning/test_mission',
         steps=10,
         verbose=1,
         plot_after=100,
@@ -211,7 +219,7 @@ if __name__ == "__main__":
 #     y_interval=y_interval,
 #     return_ax=True,
 #     colorbar=False
-# )
+# # )
 # ax = planner_hycom.plot_reachability_snapshot(rel_time_in_seconds = 0, granularity_in_h = 5,
 #                                    alpha_color = 1, time_to_reach=True,
 #                                    return_ax = True, fig_size_inches=(12, 12),

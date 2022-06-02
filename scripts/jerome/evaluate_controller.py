@@ -12,6 +12,7 @@ from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from ocean_navigation_simulator.env.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
 from ocean_navigation_simulator.env.PlatformEnv import PlatformEnv
+from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
 from ocean_navigation_simulator.env.controllers.RLControllerFromAgent import RLControllerFromAgent
 from scripts.jerome import clean_ray_results
 
@@ -41,13 +42,13 @@ experiments.sort(key=lambda x: os.path.getmtime(x))
 last = experiments[-1]
 model_path = last+'/' if model_name == 'last' else 'ocean_navigation_simulator/models/simplified_double_gyre/'+model_name+'/'
 
-config = pickle.load(open(model_path+'config.p', "rb"))
-config['num_workers'] = 1
-config['explore'] = False
-config["in_evaluation"] = True,
-agent = PPOTrainer(config=config)
-agent.restore(model_path + f'checkpoints/checkpoint_{episode:06d}/checkpoint-{episode}')
-controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=DoubleGyreFeatureConstructor())
+# config = pickle.load(open(model_path+'config.p', "rb"))
+# config['num_workers'] = 1
+# config['explore'] = False
+# config["in_evaluation"] = True,
+# agent = PPOTrainer(config=config)
+# agent.restore(model_path + f'checkpoints/checkpoint_{episode:06d}/checkpoint-{episode}')
+# controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=DoubleGyreFeatureConstructor())
 
 #
 # tf_model = agent.get_policy().model.base_model
@@ -59,11 +60,11 @@ success = []
 
 for j in tqdm(range(100)):
     problem = factory.next_problem()
-    # controller = NaiveToTargetController(problem=problem)
+    controller = NaiveToTargetController(problem=problem)
     problems.append(problem)
 
-    arena = ArenaFactory.create(scenario_name='double_gyre')
-    #arena = ArenaFactory.create(scenario_name='current_highway')
+    # arena = ArenaFactory.create(scenario_name='double_gyre')
+    arena = ArenaFactory.create(scenario_name='current_highway')
     observation = arena.reset(problem.start_state)
     arenas.append(arena)
 

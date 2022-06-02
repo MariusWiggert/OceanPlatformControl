@@ -12,8 +12,8 @@ conda activate ocean_platform
 conda install -c conda-forge cartopy ffmpeg
 
 # install jax library for cpu or gpu
-pip install --upgrade "jax[cpu]"
-# pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_releases.html
+pip install --upgrade "jax[cpu]==0.2.24"
+pip install --upgrade "jax[cuda]==0.2.24" -f https://storage.googleapis.com/jax-releases/jax_releases.html
 
 pip install ray[rllib]==1.12.0
 

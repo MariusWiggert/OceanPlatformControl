@@ -8,6 +8,7 @@ from typing import Dict, Optional, Callable, List, Union, Tuple
 import matplotlib.axes
 import numpy as np
 from matplotlib import pyplot as plt
+import time
 
 
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
@@ -52,6 +53,7 @@ class Arena:
             solar_dict: Optional[Dict] = None,
             seaweed_dict: Optional[Dict] = None,
             spatial_boundary: Optional[Dict] = None,
+            collect_trajectory: Optional[bool] = None,
     ):
         """OceanPlatformArena constructor.
     Args:
@@ -63,6 +65,7 @@ class Arena:
         solar_dict:
         seaweed_dict:
     """
+        start = time.time()
         # Initialize the Data Fields from the respective dictionaries
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=sim_cache_dict,
@@ -95,6 +98,8 @@ class Arena:
         else:
             self.seaweed_field = None
 
+        print(f'- Generate Ocean Source ({time.time() - start:.1f}s)')
+
         self.platform = Platform(
             platform_dict=platform_dict,
             ocean_source=self.ocean_field.hindcast_data_source,
@@ -104,6 +109,7 @@ class Arena:
         )
 
         self.spatial_boundary = spatial_boundary
+        self.collect_trajectory = collect_trajectory
 
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
 
@@ -146,8 +152,9 @@ class Arena:
         """
         state = self.platform.simulate_step(action)
 
-        self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
-        self.action_trajectory = np.append(self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0)
+        if self.collect_trajectory:
+            self.state_trajectory = np.append(self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0)
+            self.action_trajectory = np.append(self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0)
 
         true_current = self.ocean_field.get_ground_truth(state.to_spatio_temporal_point())
         return ArenaObservation(
