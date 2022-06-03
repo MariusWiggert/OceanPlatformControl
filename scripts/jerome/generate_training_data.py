@@ -51,5 +51,5 @@ def generate_data_for_mission(index):
 mission_df = pd.read_csv('./data/value_function_learning/missions.csv', index_col=0)
 number_of_missions = len(mission_df.index)
 
-for index in range(108, number_of_missions):
+for index in range(108, 109):
     generate_data_for_mission(index)

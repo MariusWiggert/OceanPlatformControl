@@ -49,8 +49,12 @@ def generate_training_data_for_imitation(
     }
     global planner_hycom
     planner_hycom = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
+    print(f'Planner HYCOM created: ({time.time() - start:.1f}s)')
+    start = time.time()
     planner_copernicus = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
+    print(f'Planner Copernicus created: ({time.time() - start:.1f}s)')
 
+    start = time.time()
     # Feature Settings
     TRUE_CURRENT_LENGTH = 5
     TTR_MAP_IN_WIDTH = 15
@@ -64,12 +68,14 @@ def generate_training_data_for_imitation(
     y_mission = np.zeros((0, 3 * 3))
 
     observation = arena.reset(platform_state=problem.start_state)
+    print(f'Arena reset: ({time.time() - start:.1f}s)')
 
-    print(f'Planner created: ({time.time() - start:.1f}s)')
 
     for t in tqdm(range(steps), disable=verbose<1):
         start = time.time()
         action = planner_hycom.get_action(observation=observation)
+        print(f'Planner HYCOM get action: ({time.time() - start:.2f}s)')
+        start = time.time()
         planner_copernicus.get_action(
             observation=ArenaObservation(
                 platform_state = observation.platform_state,
@@ -77,7 +83,7 @@ def generate_training_data_for_imitation(
                 forecast_data_source = arena.ocean_field.hindcast_data_source
             )
         )
-        print(f'Planner get action: ({time.time() - start:.2f}s)')
+        print(f'Planner Copernicus get action: ({time.time() - start:.2f}s)')
         start = time.time()
         observation = arena.step(action)
         print(f'Arena step: ({time.time() - start:.2f}s)')
@@ -160,13 +166,13 @@ def generate_training_data_for_imitation(
             break
 
     # Save Data
-    # if not os.path.exists(mission_folder):
-    #     os.mkdir(mission_folder)
-    # pd.DataFrame(trajectory).to_csv(f'{mission_folder}/trajectory.csv')
-    # with open(f'{mission_folder}/x_mission.npy', 'wb') as f:
-    #     np.save(f, x_mission)
-    # with open(f'{mission_folder}/y_mission.npy', 'wb') as f:
-    #     np.save(f, y_mission)
+    if not os.path.exists(mission_folder):
+        os.mkdir(mission_folder)
+    pd.DataFrame(trajectory).to_csv(f'{mission_folder}/trajectory.csv')
+    with open(f'{mission_folder}/x_mission.npy', 'wb') as f:
+        np.save(f, x_mission)
+    with open(f'{mission_folder}/y_mission.npy', 'wb') as f:
+        np.save(f, y_mission)
 
     # Delete Objects
     del planner_hycom

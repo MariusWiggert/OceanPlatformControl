@@ -63,7 +63,7 @@ def generate_data_for_mission(index):
 mission_df = pd.read_csv('./data/value_function_learning/missions.csv', index_col=0)
 number_of_missions = 1 #len(mission_df.index)
 
-futures = [generate_data_for_mission.remote(i) for i in range(number_of_missions)]
+futures = [generate_data_for_mission.remote(i) for i in range(108, 109)]
 print(futures)
 
 print('Starting ray ...')
