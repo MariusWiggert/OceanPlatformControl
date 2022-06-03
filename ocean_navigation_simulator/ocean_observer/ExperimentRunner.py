@@ -2,23 +2,24 @@ import datetime
 from typing import Union, Tuple, List, Dict, Any, Optional
 
 import dateutil
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 import yaml
-import matplotlib.pyplot as plt
 
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import HighwayProblemFactory
-from ocean_navigation_simulator.problem_factories.NaiveProblemFactory import NaiveProblemFactory
-from ocean_navigation_simulator.ocean_observer.Observer import Observer
-from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import PredictionsAndGroundTruthOverArea
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
-from ocean_navigation_simulator.environment.Problem import Problem
+import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 from ocean_navigation_simulator.controllers import Controller
 from ocean_navigation_simulator.controllers.NaiveToTarget import NaiveToTargetController
-from ocean_navigation_simulator.utils.units import Distance
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
+from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
-import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
+from ocean_navigation_simulator.ocean_observer.Observer import Observer
+from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import \
+    PredictionsAndGroundTruthOverArea
+from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import HighwayProblemFactory
+from ocean_navigation_simulator.problem_factories.NaiveProblemFactory import NaiveProblemFactory
+from ocean_navigation_simulator.utils.units import Distance
 
 
 def _plot_metrics_per_h(metrics: dict[str, any]) -> None:
@@ -64,6 +65,8 @@ class ExperimentRunner:
             yaml_file_config: the name (without path or extension) of the Yaml file that will be read in the folder:
             "ocean_navigation_simulator/env/scenarios/"
         """
+        import os
+        print(os.getcwd())
         with open(f'scenarios/ocean_observer/{yaml_file_config}.yaml') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
             self.variables = config["experiment_runner"]
@@ -140,13 +143,12 @@ class ExperimentRunner:
             model_prediction = self.__step_simulation(controller, fit_model=True)
             # get ground truth
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
-                *self.__get_lon_lat_time_intervals(ground_truth=True))
-                *self.__get_lon_lat_time_intervals(),
+                *self.__get_lon_lat_time_intervals(ground_truth=True),
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
             # todo: quick fix, solve this issue correctly
             if len(ground_truth["time"]) > 25:
                 ground_truth = ground_truth.isel(time=range(25))
-            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(last_prediction, ground_truth)
+            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
 
             # compute the metrics and log the results
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
@@ -175,7 +177,8 @@ class ExperimentRunner:
         return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, {name: metrics_per_h[:, i, :] for i, name
                                                                                in enumerate(metrics_per_h_names)}
 
-    def __create_plots(self, last_metrics: Optional[np.ndarray] = None):
+    def __create_plots(self, last_metrics: Optional[np.ndarray] = None,
+                       last_metrics_per_h: Optional[np.ndarray] = None):
         """ Create the different plots based on the yaml file to know which one to display
         Args:
             last_metrics: the metrics to display
@@ -224,7 +227,8 @@ class ExperimentRunner:
         return predictions
 
     def __get_lon_lat_time_intervals(self, ground_truth: bool = False) -> Tuple[List[float],
-                                                    List[float], Union[List[float], List[datetime.datetime]]]:
+                                                                                List[float], Union[List[float], List[
+        datetime.datetime]]]:
         """ Internal method to get the area around the platforms
         Args:
             ground_truth: If we request the area for ground truth we request a larger area so that interpolation
@@ -238,7 +242,8 @@ class ExperimentRunner:
         if ground_truth:
             deg_around_x0_xT_box += self.variables.get("gt_additional_area", 0.5)
             temp_horizon_in_s += self.variables.get("gt_additional_time", 3600) * 2
-            point.date_time = point.date_time - datetime.timedelta(seconds=self.variables.get("gt_additional_time", 3600))
+            point.date_time = point.date_time - datetime.timedelta(
+                seconds=self.variables.get("gt_additional_time", 3600))
         t, lat, lon = DataSource.convert_to_x_y_time_bounds(
             x_0=point, x_T=point, deg_around_x0_xT_box=deg_around_x0_xT_box, temp_horizon_in_s=temp_horizon_in_s)
         return lon, lat, t
