@@ -1,14 +1,8 @@
-import math
-from collections import Callable
-
-import numpy as np
-from ray.rllib.agents.ppo import ppo
-
-from ocean_navigation_simulator.env.FeatureConstructors import FeatureConstructor
-from ocean_navigation_simulator.env.Problem import Problem
-from ocean_navigation_simulator.env.Arena import ArenaObservation
-from ocean_navigation_simulator.env.Platform import PlatformAction
-from ocean_navigation_simulator.env.controllers.Controller import Controller
+from ocean_navigation_simulator.controllers.Controller import Controller
+from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
 class RLControllerFromAgent(Controller):
@@ -45,4 +39,3 @@ class RLControllerFromAgent(Controller):
 
         # go towards the center of the target with full power
         return PlatformAction(magnitude=1, direction=action[0])
-

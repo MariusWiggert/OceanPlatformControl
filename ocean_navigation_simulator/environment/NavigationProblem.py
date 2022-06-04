@@ -1,14 +1,12 @@
 import dataclasses
-import datetime
-import math
 from typing import Optional
 
 import matplotlib
 from matplotlib import pyplot as plt
-from numpy import Inf
 
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.env.Problem import Problem
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.environment.Problem import Problem
+
 
 @dataclasses.dataclass
 class NavigationProblem(Problem):

@@ -331,7 +331,7 @@ config = {
 results = []
 model_name = 'angle_feature_simple_nn_with_currents'
 # model_name = 'test'
-model_path = 'ocean_navigation_simulator/models/simplified_double_gyre/' + model_name + '/'
+model_path = 'models/simplified_double_gyre/' + model_name + '/'
 check_point_path = model_path + 'checkpoints/'
 if os.path.exists(model_path):
     shutil.rmtree(model_path)

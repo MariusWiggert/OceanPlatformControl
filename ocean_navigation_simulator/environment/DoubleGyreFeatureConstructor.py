@@ -3,9 +3,9 @@ import math
 import gym
 import numpy as np
 
-from ocean_navigation_simulator.env.Arena import ArenaObservation
-from ocean_navigation_simulator.env.FeatureConstructors import FeatureConstructor
-from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 
 """
 Feature Constructors should take in the ArenaObservation and other relavant information, make any featurization changes,

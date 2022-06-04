@@ -1,6 +1,7 @@
-import string
 import time
 import datetime
+from typing import Optional
+
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
@@ -9,19 +10,75 @@ from scipy.interpolate import interp1d, interp2d
 import os
 import gc
 
-from ocean_navigation_simulator.env.Arena import ArenaObservation, Arena
-from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.Platform import PlatformState
-from ocean_navigation_simulator.env.PlatformState import SpatialPoint
-from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.env.utils import units
-from ocean_navigation_simulator.env.controllers.HjPlanners.HJReach2DPlanner import HJReach2DPlanner
-from ocean_navigation_simulator.problem import Problem
+from ocean_navigation_simulator.environment.Arena import ArenaObservation, Arena
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.Platform import PlatformState
+from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, SpatioTemporalPoint
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.controllers.HjPlanners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.environment.Problem import Problem
+
+
+def get_value_function_grid(
+        planner,
+        point: SpatioTemporalPoint,
+        width: int,
+        width_deg: float,
+        plot_title: Optional[str] = None,
+):
+    # Interpolate Temporal
+    val_at_t = interp1d(planner.reach_times, planner.all_values, axis=0, kind='linear')(
+        point.date_time.timestamp() - planner.current_data_t_0
+    ).squeeze()
+    val_at_t = (val_at_t - val_at_t.min()) * (planner.current_data_t_T - planner.current_data_t_0) / 3600
+
+    # Interpolate Spacial
+    in_grid_x = planner.grid.states[:, 0, 0]
+    in_grid_y = planner.grid.states[0, :, 1]
+    out_grid_x = np.linspace(point.lon.deg - width_deg, point.lon.deg + width_deg, width)
+    out_grid_y = np.linspace(point.lat.deg - width_deg, point.lat.deg + width_deg, width)
+    val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(
+        out_grid_y, out_grid_x
+    ).squeeze()
+
+    # Debug Information
+    if plot_title is not None:
+        print(f'Time Scale: {(planner.current_data_t_T - planner.current_data_t_0) / 3600}h')
+        print(f'Reach Times: [{planner.reach_times[0]}, {planner.reach_times[1]}, ..., {planner.reach_times[-1]}]')
+        print(f'Relative Time:{point.date_time.timestamp() - planner.current_data_t_0}')
+
+        min_index = np.unravel_index(np.argmin(val_at_t, axis=None), val_at_t.shape)
+        max_index = np.unravel_index(np.argmax(val_at_t, axis=None), val_at_t.shape)
+        print(f'Minimum: {val_at_t.min()} @ ({planner.grid.states[min_index]})')
+        print(f'Minimum: {val_at_t.max()} @ ({planner.grid.states[max_index]})')
+
+        CS = plt.contour(planner.grid.states[..., 0], planner.grid.states[..., 1], val_at_t, levels=np.arange(0, 400, 10))
+        plt.clabel(CS, inline=True, fontsize=10)
+        plt.scatter(x=point['lon'], y=point['lat'], c='r', marker='o')
+        plt.scatter(planner.grid.states[..., 0].flatten(), planner.grid.states[..., 1].flatten(), s=0.05)
+        plot_x, plot_y = np.meshgrid(in_grid_x, in_grid_y)
+        plt.scatter(out_grid_x, plot_y, s=0.05, c='g')
+        plot_x, plot_y = np.meshgrid(out_grid_x, out_grid_y)
+        plt.scatter(out_grid_x, plot_y, s=0.05, c='r')
+        plt.title(plot_title)
+        plt.show()
+
+    return val_at_xy
+
+def get_x_train(val_hycom, true_currents):
+    true_currents[:, :2] = true_currents[:, :2] - np.ones((5, 2)) * true_currents[-1, :2]
+    return np.concatenate((true_currents.flatten(), val_hycom.flatten()))
+
+def get_y_train(val_hycom, val_copernicus, true_currents):
+    ttr_map_out = val_copernicus - val_hycom[7:10, 7:10]
+    return ttr_map_out.flatten()
+
 
 def generate_training_data_for_imitation(
     arena: Arena,
     problem: Problem,
-    mission_folder: string,
+    mission_folder: str,
     steps: int=600,
     verbose: int=1,
     plot_after: int=100,
@@ -98,62 +155,22 @@ def generate_training_data_for_imitation(
         }
         trajectory.append(point)
 
-        def get_value_function_grid(planner, name, width, width_deg, save_to_csv=True):
-            # Interpolate Temporal
-            val_at_t = interp1d(planner.reach_times, planner.all_values, axis=0, kind='linear')(
-                observation.platform_state.date_time.timestamp() - planner.current_data_t_0
-            ).squeeze()
-            val_at_t = (val_at_t - val_at_t.min()) * (planner.current_data_t_T - planner.current_data_t_0) / 3600
-
-            # Interpolate Spacial
-            in_grid_x = planner.grid.states[:, 0, 0]
-            in_grid_y = planner.grid.states[0, :, 1]
-            out_grid_x = np.linspace(point['lon'] - width_deg, point['lon'] + width_deg, width)
-            out_grid_y = np.linspace(point['lat'] - width_deg, point['lat'] + width_deg, width)
-            val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(
-                out_grid_y, out_grid_x
-            ).squeeze()
-
-            # Debug Information
-            if verbose > 0 and t > 0 and t % plot_after == 0:
-                print(f'Time Scale: {(planner.current_data_t_T - planner.current_data_t_0) / 3600}h')
-                print(f'Reach Times: [{planner.reach_times[0]}, {planner.reach_times[1]}, ..., {planner.reach_times[-1]}]')
-                print(f'Relative Time:{observation.platform_state.date_time.timestamp() - planner.current_data_t_0}')
-
-                min_index = np.unravel_index(np.argmin(val_at_t, axis=None), val_at_t.shape)
-                max_index = np.unravel_index(np.argmax(val_at_t, axis=None), val_at_t.shape)
-                print(f'Minimum: {val_at_t.min()} @ ({planner.grid.states[min_index]})')
-                print(f'Minimum: {val_at_t.max()} @ ({planner.grid.states[max_index]})')
-
-                CS = plt.contour(planner.grid.states[..., 0], planner.grid.states[..., 1], val_at_t, levels=np.arange(0,400,10))
-                plt.clabel(CS, inline=True, fontsize=10)
-                plt.scatter(x=point['lon'], y=point['lat'], c='r', marker='o')
-                plt.scatter(planner.grid.states[..., 0].flatten(), planner.grid.states[..., 1].flatten(), s=0.05)
-                plot_x, plot_y = np.meshgrid(in_grid_x, in_grid_y)
-                plt.scatter(out_grid_x, plot_y, s=0.05, c='g')
-                plot_x, plot_y = np.meshgrid(out_grid_x, out_grid_y)
-                plt.scatter(out_grid_x, plot_y, s=0.05, c='r')
-                plt.title(f'{name} ({mission_folder}): Iteration {t})')
-                plt.show()
-
-            return val_at_xy
-
-        def get_x_y_train(val_hycom, val_copernicus, true_currents):
-            true_currents[:, :2] = true_currents[:, :2] - np.ones((5, 2)) * true_currents[-1, :2]
-            ttr_map_out = val_copernicus - val_hycom[7:10, 7:10]
-
-            x = np.concatenate((true_currents.flatten(), val_hycom.flatten()))
-            y = ttr_map_out.flatten()
-
-            return x, y
-
         # Generate Training Data
         if t >= TRUE_CURRENT_LENGTH:
-            val_hycom = get_value_function_grid(planner_hycom, 'HYCOM', TTR_MAP_IN_WIDTH, TTR_MAP_IN_WIDTH_DEG, save_to_csv=False)
-            val_copernicus = get_value_function_grid(planner_copernicus, 'Copernicus', TTR_MAP_OUT_WIDTH, TTR_MAP_OUT_WIDTH_DEG, save_to_csv=False)
+            point = SpatioTemporalPoint(lat=t['lat'], lon=t['lon'], date_time=t['date_time'])
+            plot = verbose > 0 and t > 0 and t % plot_after == 0
+            val_hycom = get_value_function_grid(
+                planner_hycom, point, TTR_MAP_IN_WIDTH, TTR_MAP_IN_WIDTH_DEG,
+                f'YCOM ({mission_folder}): Iteration {t})' if plot else None
+            )
+            val_copernicus = get_value_function_grid(
+                planner_copernicus, point, TTR_MAP_OUT_WIDTH, TTR_MAP_OUT_WIDTH_DEG,
+                f'Copernicus ({mission_folder}): Iteration {t})' if plot else None
+            )
             true_currents = np.array([np.array([t['lon'], t['lat'], t['u_true'], t['v_true']]) for t in trajectory[-TRUE_CURRENT_LENGTH:]])
 
-            x_train, y_train = get_x_y_train(val_hycom, val_copernicus, true_currents)
+            x_train  = get_x_train(val_hycom, true_currents)
+            y_train  = get_y_train(val_hycom, val_copernicus, true_currents)
 
             x_mission = np.append(x_mission, np.expand_dims(x_train.squeeze(), axis=0), axis=0)
             y_mission = np.append(y_mission, np.expand_dims(y_train.squeeze(), axis=0), axis=0)
@@ -187,6 +204,7 @@ if __name__ == "__main__":
     script_start_time = time.time()
 
     arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast')
+    # arena = ArenaFactory.create(scenario_name='gulf_of_mexico_files')
 
     problem = NavigationProblem(
         start_state=PlatformState(

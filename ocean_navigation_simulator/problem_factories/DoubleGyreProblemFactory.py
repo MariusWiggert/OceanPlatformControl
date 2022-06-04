@@ -1,13 +1,15 @@
 import abc
 import datetime as dt
+from abc import ABC
 from typing import Optional
-
 import numpy as np
 
-from ocean_navigation_simulator.problem_factories.DoubleGyreProblem import DoubleGyreProblem
+
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
 from ocean_navigation_simulator.problem_factories.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.utils import units
+
 
 class DoubleGyreProblemFactory(ProblemFactory):
     def __init__(
@@ -55,3 +57,6 @@ class DoubleGyreProblemFactory(ProblemFactory):
             target_radius=1/50,
             timeout=200
         )
+
+    def has_problems_remaining(self) -> bool:
+        return True

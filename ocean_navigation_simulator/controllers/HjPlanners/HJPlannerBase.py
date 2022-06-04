@@ -67,7 +67,19 @@ class HJPlannerBase(Controller):
                     If True we use the Geographic coordinate system in lat, lon degree (divide by fixed amount to convert)
                     If False then the coordinate system and speeds of the agent are in m/s.
         """
-        super().__init__(problem, specific_settings)
+        super().__init__(problem)
+
+        # Note: managing the forecast fieldsets is done in the simulator
+        # self.forecast_data_source = None
+        self.updated_forecast_source = True
+
+        # initialize vectors for open_loop control
+        self.times, self.x_traj, self.contr_seq = None, None, None
+
+        # saving the planned trajectories for inspection purposes
+        self.planned_trajs = []
+
+        self.specific_settings = specific_settings
 
         # create a variable that persists across runs of self.plan() to reference the currently reload data
         self.current_data_t_0, self.current_data_t_T = [None] * 2
@@ -90,6 +102,23 @@ class HJPlannerBase(Controller):
 
         if self.specific_settings['d_max'] > 0 and self.specific_settings['direction'] == "multi-time-reach-back":
             print("No disturbance implemented for multi-time reachability, only runs with d_max=0.")
+
+    def get_open_loop_control_from_plan(self, state: PlatformState) -> PlatformAction:
+        """ Indexing into the planned open_loop control sequence using the time from state.
+        Args:
+            state    PlatformState containing [lat, lon, battery_level, date_time]
+        Returns:
+            PlatformAction object
+        """
+        # an easy way of finding for each time, which index of control signal to apply
+        idx = bisect.bisect_right(self.times, state.date_time.timestamp()) - 1
+        if idx == len(self.times) - 1:
+            idx = idx - 1
+            print("Controller Warning: continuing using last control although not planned as such")
+
+        # extract right element from ctrl vector
+        return PlatformAction(magnitude=self.contr_seq[0, idx], direction=self.contr_seq[1, idx])
+
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
         """ Main interface function for the simulation, so all the logic to trigger re-planning is inside here.

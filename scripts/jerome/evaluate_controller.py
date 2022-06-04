@@ -1,19 +1,19 @@
 #%%
+import pickle
 
 import numpy as np
-import pickle
 import ray.rllib.utils
 from ray.rllib.agents.ppo import PPOTrainer
 from tqdm import tqdm
 import time
 import os
 
-from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.env.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
-from ocean_navigation_simulator.env.PlatformEnv import PlatformEnv
-from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
-from ocean_navigation_simulator.env.controllers.RLControllerFromAgent import RLControllerFromAgent
+from ocean_navigation_simulator.controllers.RLControllerFromAgent import RLControllerFromAgent
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
+from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
+from ocean_navigation_simulator.environment.PlatformEnv import PlatformEnv
+from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
 from scripts.jerome import clean_ray_results
 
 script_start_time = time.time()
@@ -24,6 +24,7 @@ def env_creator(env_config):
     return PlatformEnv(config={
         'seed': env_config.worker_index * (env_config.vector_index+1),
         'arena_steps_per_env_step': 1,
+        'scenario_name': 'double_gyre',
     })
 
 ray.tune.registry.register_env("PlatformEnv", env_creator)
@@ -34,21 +35,21 @@ episode = 400
 model_name = 'angle_feature_simple_nn_with_currents'
 #model_name = 'last'
 
-experiment_path = 'ocean_navigation_simulator/models/simplified_double_gyre/'
+experiment_path = 'models/simplified_double_gyre/'
 experiments = os.listdir(experiment_path)
 experiments = [x for x in experiments if not x.startswith('.')]
 experiments = [os.path.join(experiment_path, f) for f in experiments]
 experiments.sort(key=lambda x: os.path.getmtime(x))
 last = experiments[-1]
-model_path = last+'/' if model_name == 'last' else 'ocean_navigation_simulator/models/simplified_double_gyre/'+model_name+'/'
+model_path = last+'/' if model_name == 'last' else experiment_path+model_name+'/'
 
-# config = pickle.load(open(model_path+'config.p', "rb"))
-# config['num_workers'] = 1
-# config['explore'] = False
-# config["in_evaluation"] = True,
-# agent = PPOTrainer(config=config)
-# agent.restore(model_path + f'checkpoints/checkpoint_{episode:06d}/checkpoint-{episode}')
-# controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=DoubleGyreFeatureConstructor())
+config = pickle.load(open(model_path+'config.p', "rb"))
+config['num_workers'] = 1
+config['explore'] = False
+config["in_evaluation"] = True,
+agent = PPOTrainer(config=config)
+agent.restore(model_path + f'checkpoints/checkpoint_{episode:06d}/checkpoint-{episode}')
+controller = RLControllerFromAgent(problem=factory.next_problem(), agent=agent, feature_constructor=DoubleGyreFeatureConstructor())
 
 #
 # tf_model = agent.get_policy().model.base_model
@@ -60,11 +61,11 @@ success = []
 
 for j in tqdm(range(100)):
     problem = factory.next_problem()
-    controller = NaiveToTargetController(problem=problem)
+    # controller = NaiveToTargetController(problem=problem)
     problems.append(problem)
 
-    # arena = ArenaFactory.create(scenario_name='double_gyre')
-    arena = ArenaFactory.create(scenario_name='current_highway')
+    arena = ArenaFactory.create(scenario_name='double_gyre')
+    #arena = ArenaFactory.create(scenario_name='current_highway')
     observation = arena.reset(problem.start_state)
     arenas.append(arena)
 

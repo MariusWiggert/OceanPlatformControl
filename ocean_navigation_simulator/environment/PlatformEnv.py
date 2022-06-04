@@ -2,22 +2,17 @@ from typing import Tuple, Optional, Union, Text, Callable
 import numpy as np
 import gym
 
-# TODO: @jerome -> this doesn't work yet...
-
-from ocean_navigation_simulator.env.Arena import Arena
-from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.env.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
-from ocean_navigation_simulator.env.FeatureConstructors import FeatureConstructor
-from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.env.PlatformState import PlatformState
-from ocean_navigation_simulator.env.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.env.RewardFunctions import double_gyre_reward_function
-from ocean_navigation_simulator.env.Platform import PlatformAction
-
+from ocean_navigation_simulator.environment.Arena import Arena
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
+from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.RewardFunctions import double_gyre_reward_function
+from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 
 from ocean_navigation_simulator.problem_factories.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.env.simulator_data import SimulatorAction, SimulatorObservation
 
 
 class PlatformEnv(gym.Env):
@@ -25,7 +20,6 @@ class PlatformEnv(gym.Env):
     A basic Platform Learning Environment
     """
 
-    # should be set in SOME gym subclasses -> TODO: see if we need to
     metadata = {"render_modes": []}
     reward_range = (-float("inf"), float("inf"))
     spec = None # might use for max_episode_steps
@@ -42,6 +36,7 @@ class PlatformEnv(gym.Env):
     def __init__(
         self,
         config,
+        scenario_name = 'double_gyre',
     ):
         """
         Constructs a basic Platform Learning Environment.
@@ -58,7 +53,7 @@ class PlatformEnv(gym.Env):
         #print(f'arena_steps_per_env_step: {self.arena_steps_per_env_step}')
 
         self.problem_factory = DoubleGyreProblemFactory(seed=self._seed, scenario_name='simplified')
-        self.arena = ArenaFactory.create(scenario_name='double_gyre')
+        self.arena = ArenaFactory.create(scenario_name=scenario_name)
         self.reward_fn = double_gyre_reward_function
         self.feature_constructor = DoubleGyreFeatureConstructor()
 

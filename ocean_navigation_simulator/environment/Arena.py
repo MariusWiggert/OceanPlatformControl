@@ -4,7 +4,7 @@ A Ocean arena contains the logic for navigating a platform in the ocean.
 
 import dataclasses
 import datetime as dt
-from typing import Dict, Optional, Callable, List, Union, Tuple
+from typing import Dict, Optional, Union, Tuple, List
 import matplotlib.axes
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,6 +13,7 @@ import time
 
 from ocean_navigation_simulator.environment.Platform import Platform, PlatformAction
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
+from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import \
     OceanCurrentSourceAnalytical
@@ -55,7 +56,8 @@ class Arena:
             solar_dict: Optional[Dict] = None,
             seaweed_dict: Optional[Dict] = None,
             spatial_boundary: Optional[Dict] = None,
-            collect_trajectory: Optional[bool] = None,
+            collect_trajectory: Optional[bool] = True,
+            timing: Optional[bool] = False,
     ):
         """OceanPlatformArena constructor.
     Args:
@@ -101,7 +103,8 @@ class Arena:
         else:
             self.seaweed_field = None
 
-        print(f'- Generate Ocean Source ({time.time() - start:.1f}s)')
+        if timing:
+            print(f'- Generate Ocean Source ({time.time() - start:.1f}s)')
 
         self.platform = Platform(
             platform_dict=platform_dict,
@@ -287,31 +290,39 @@ class Arena:
         problem: Optional[Problem] = None,
         problem_color: Optional[str] = 'black',
 
+        x_interval: Optional[List] = None,
+        y_interval: Optional[List] = None,
         margin: Optional[int] = 0,
     ) -> matplotlib.axes.Axes:
-        x_interval, y_interval, t_interval = self.get_lon_lat_time_interval(
-            end_region=problem.end_region if problem is not None else None, margin=margin)
+        if x_interval is None or y_interval is None:
+            x_interval, y_interval, t_interval = self.get_lon_lat_time_interval(
+                end_region=problem.end_region if problem is not None else None,
+                margin=margin
+            )
+            t_0 = t_interval[0]
+        else:
+            t_0 = self.state_trajectory[0, 2]
 
         # Background
         if ax is not None:
             pass
         elif 'current' in background:
             ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=t_interval[0] if index is None else self.state_trajectory[index, 2],
+                time=t_0 if index is None else self.state_trajectory[index, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
             )
         elif 'solar' in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=t_interval[0] if index is None else self.state_trajectory[index, 2],
+                time=t_0 if index is None else self.state_trajectory[index, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
             )
         elif 'seaweed' in background or 'growth' in background:
             ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=t_interval[0] if index is None else self.state_trajectory[index, 2],
+                time=t_0 if index is None else self.state_trajectory[index, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,

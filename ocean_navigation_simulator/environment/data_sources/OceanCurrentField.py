@@ -43,8 +43,3 @@ class OceanCurrentField(DataField):
             return specific_analytical_current(source_dict)
         else:
             raise ValueError("Selected source {} in the OceanCurrentSource dict is not implemented.". format(source_dict['source']))
-
-
-
-
-

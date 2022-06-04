@@ -22,7 +22,7 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'analytical'
         source_settings:
-            name: 'FixedCurrentHighwayField'
+            name: 'FixedCurrentHighway'
             boundary_buffers: [0.2, 0.2]
             x_domain: [0, 10]
             y_domain: [0, 10]

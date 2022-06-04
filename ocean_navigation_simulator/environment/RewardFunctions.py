@@ -1,5 +1,5 @@
-from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.env.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
 
 def double_gyre_reward_function(
