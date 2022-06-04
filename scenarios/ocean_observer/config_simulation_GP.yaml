@@ -1,0 +1,40 @@
+testing:
+  plots:
+    wait_keyboard_input_to_continue: False
+    display_intermediary_3d_plots: False
+    duration_interaction_with_plots_in_sec: 5
+    num_steps_between_plots: 5
+    margin_for_area_to_plot_in_deg: 0.02
+
+  use_real_data: False
+  ignore_warnings: True
+  number_burnin_steps: 30
+  number_steps_prediction: 5000
+  delta_between_predictions_in_sec: 1
+  duration_simulation_in_sec: 72
+
+  scenario_used: "current_highway_GP"
+
+model:
+  gaussian_process:
+    sigma_noise_squared: 0.05
+    # 3.6 ** 2 = 12.96
+    sigma_exp_squared: 12.96
+    kernel:
+      #      type: "RBF"
+
+      scaling:
+        latitude: 1
+        longitude: 1
+        time: 200
+      type: "matern"
+      parameters:
+        length_scale_bounds: "fixed"
+      #type: "rbf"
+
+    # 24*3600=86400
+    time_horizon_predictions_in_sec: 86400
+
+observer:
+  time_horizon_predictions_for_area_radius_in_sec: 24
+
