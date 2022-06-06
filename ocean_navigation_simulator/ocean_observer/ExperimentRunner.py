@@ -81,8 +81,9 @@ class ExperimentRunner:
 
         Returns:
             A tuple composed of:
-                a dictionary with the pairs: (metric_name, 1d array containing the output from that metric at each timestep)
-                a 2d ndarray of all the PredictionsAndGroundTruthOverArea objects based on the last step of the problem
+                a dictionary with the pairs: (metric_name, 1d array containing the output from that metric at each
+                    timestep)
+                a 1d ndarray containing the thePredictionsAndGroundTruthOverArea objects computed at each step
         """
         if not self.problem_factory.has_problems_remaining():
             raise StopIteration()
