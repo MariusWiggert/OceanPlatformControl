@@ -29,9 +29,11 @@ def plot_buoy_data(df: pd.DataFrame):
         ax.scatter(df[df["buoy"] == buoy_name]["lon"], df[df["buoy"] == buoy_name]["lat"], marker=".")
     plt.show()
 
-def interp_hindcast_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, n: int=10) -> pd.DataFrame: 
+def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source: str, n: int=10) -> pd.DataFrame: 
     """
     Interpolates the hindcast data to spatio-temporal points of buoy measurements
+
+    data_source: str {hindcast, forecast}
     """
 
     from tqdm import tqdm
@@ -44,7 +46,7 @@ def interp_hindcast_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, n: 
         # hindcast_interp = ds_hind.interp(time=df.iloc[i:i+n]["time"],
         #                                 lon=df.iloc[i:i+n]["lon"],
         #                                 lat=df.iloc[i:i+n]["lat"])
-        hindcast_interp = ocean_field.hindcast_data_source.DataArray.interp(time=df.iloc[i:i+n]["time"],
+        hindcast_interp = getattr(ocean_field, data_source).DataArray.interp(time=df.iloc[i:i+n]["time"],
                                                                             lon=df.iloc[i:i+n]["lon"],
                                                                             lat=df.iloc[i:i+n]["lat"])
         # add columns to dataframe

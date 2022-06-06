@@ -4,9 +4,15 @@ All the metrics for used for evaluating the forecast - buoy error
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
-# TODO: function to compute all metrics and plot them
+def plot_all_metrics():
+    # TODO: function to compute all metrics and plot them
+    fig, axs = plt.subplots(3,figsize=(20,6))
+    fig.suptitle("Ocean Current Error Metrics")
+    axs[0].plot()
+    pass
 
 def calc_speed_mean(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured):
     mean_speed = (u_data_hindcast - u_data_measured)*np.cos(np.pi/4) + (v_data_hindcast - v_data_measured)*np.cos(np.pi/4)
@@ -38,17 +44,20 @@ def calc_vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v
     Sigma_21 = Covariance_matrix[2:,:2]
     # Matrix multiplications
     epsilon = 0
-    vector_correlation = np.trace(np.linalg.inv(Sigma_11) @ Sigma_12 @ np.linalg.inv(Sigma_22) @ Sigma_21)
-    while np.isnan(vector_correlation):
-        epsilon += 5e-5
-        vector_correlation = np.trace(np.linalg.inv(Sigma_11 + epsilon*np.eye(2)) @ Sigma_12 @ np.linalg.inv(Sigma_22 + epsilon*np.eye(2)) @ Sigma_21)
-        if epsilon > 1e-1:
-            break
+    try:
+        vector_correlation = np.trace(np.linalg.inv(Sigma_11) @ Sigma_12 @ np.linalg.inv(Sigma_22) @ Sigma_21)
+    except:
+        vector_correlation = np.NaN
+        while np.isnan(vector_correlation):
+            epsilon += 5e-5
+            vector_correlation = np.trace(np.linalg.inv(Sigma_11 + epsilon*np.eye(2)) @ Sigma_12 @ np.linalg.inv(Sigma_22 + epsilon*np.eye(2)) @ Sigma_21)
+            if epsilon > 1e-1:
+                break
     return vector_correlation
 
 def get_vector_correlation_per_day(df_day):
     """
-    Calculates the vector correlation per day per buoy and takes the average for that day
+    Calculates the vector correlation per day for each buoy and takes the average over all buoys
 
     Expects a dataframe with data from one or more buoys over one day
     """
@@ -80,13 +89,12 @@ def get_vector_correlation_over_time(df):
     df_vec_corr = pd.DataFrame({"day": days, "vec_corr": vec_corr})
     return df_vec_corr
 
-def plot_metric(time, metric):
+def plot_metric(time, metric, supress_nth_label = 24):
     fig, ax = plt.subplots(figsize=(20,6))
     plt.plot(time, metric)
 
     # to supress most labels
-    every_nth = 24
     for n, label in enumerate(ax.xaxis.get_ticklabels()):
-        if n % every_nth != 0:
+        if n % supress_nth_label != 0:
             label.set_visible(False)
     plt.show()

@@ -1,5 +1,5 @@
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from data_preprocessing import interp_hindcast_xarray
+from data_preprocessing import interp_xarray
 
 import datetime
 import dateutil
@@ -55,16 +55,18 @@ class BuoyDataSource(ABC):
                                      self.data_config["lat_range"][0],
                                      self.data_config["lat_range"][1]).get_bbox()
         self.targeted_time_range = TargetedTimeRange(self.data_config["time_range"])
-        self.data = self.get_data(self.data_config)
+        self.data = self.get_buoy_data(self.data_config)
 
     @abstractmethod
-    def get_data(self, data_config: Dict) -> pd.DataFrame:
+    def get_buoy_data(self, data_config: Dict) -> pd.DataFrame:
         """
         Returns the buoy data points as a pandas DataFrame
         """
         pass
 
     def interpolate_forecast(self, ocean_field: OceanCurrentField):
+        # TODO: need to ensure that buoy data and forecast/hindcast data overlap appropriately
+
         """
         Uses an OceanCurrentField object and interpolates the data to the
         spatio-temporal points of the buoy data.
@@ -72,15 +74,31 @@ class BuoyDataSource(ABC):
         The ocean_field can be a hincast or a forecast.
         """
 
-        self.data = interp_hindcast_xarray(self.data, ocean_field)
+        self.data = interp_xarray(self.data, ocean_field, "forecast_data_source")
+        print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hind']).sum()/self.data.shape[0]}%")
         return self.data
+
+    def interpolate_hindcast(self, data_config: Dict) -> pd.DataFrame:
+        """
+        Uses an OceanCurrentField object and interpolates the data to the
+        spatio-temporal points of the buoy data.
+
+        The ocean_field can be a hincast or a forecast.
+        """
+
+        self.data = interp_xarray(self.data, ocean_field, "hindcast_data_source")
+        print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hind']).sum()/self.data.shape[0]}%")
+        return self.data    
+
+    def _interpolation_inside_bounds(self):
+        pass
 
 
 class BuoyDataCopernicus(BuoyDataSource):
     def __init__(self, config: Dict, source="copernicus"):
         super().__init__(config, source)
 
-    def get_data(self, data_config: Dict):
+    def get_buoy_data(self, data_config: Dict):
         """
         Main method which returns the data in the specified spatio-temporal range.
         It downloads the index files, combines index files into one xarray object,
@@ -284,7 +302,7 @@ class BuoyDataCopernicus(BuoyDataSource):
             self._download_NC_file(file)
 
     def _read_NC_file(self, path2file: str) -> xr:
-        with xr.open_dataset(path2file) as ds:
+        with xr.open_dataset(path2file, engine="netcdf4") as ds:
             return ds.load()
 
 
