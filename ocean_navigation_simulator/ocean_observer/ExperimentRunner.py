@@ -2,23 +2,24 @@ import datetime
 from typing import Union, Tuple, List, Dict, Any, Optional
 
 import dateutil
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 import yaml
-import matplotlib.pyplot as plt
 
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import HighwayProblemFactory
-from ocean_navigation_simulator.problem_factories.NaiveProblemFactory import NaiveProblemFactory
-from ocean_navigation_simulator.ocean_observer.Observer import Observer
-from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import PredictionsAndGroundTruthOverArea
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
-from ocean_navigation_simulator.environment.Problem import Problem
+import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 from ocean_navigation_simulator.controllers import Controller
 from ocean_navigation_simulator.controllers.NaiveToTarget import NaiveToTargetController
-from ocean_navigation_simulator.utils.units import Distance
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
+from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
-import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
+from ocean_navigation_simulator.ocean_observer.Observer import Observer
+from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import \
+    PredictionsAndGroundTruthOverArea
+from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import HighwayProblemFactory
+from ocean_navigation_simulator.problem_factories.NaiveProblemFactory import NaiveProblemFactory
+from ocean_navigation_simulator.utils.units import Distance
 
 
 class ExperimentRunner:
@@ -56,7 +57,7 @@ class ExperimentRunner:
 
         self.observer = Observer(config["observer"])
         self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"])
-        self.last_observation, self.last_prediction_ground_truth = None, None
+        self.last_observation = None
 
     def run_all_problems(self) -> List[Dict[str, any]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
@@ -65,20 +66,23 @@ class ExperimentRunner:
         Returns: List of dictionaries where the i-th item of the list is a dict with all the metrics computed for the
         i-th problem.
         """
-        results = []
+        results_metrics = []
         while self.problem_factory.has_problems_remaining():
-            results.append(self.run_next_problem())
-            self.__create_plots(results[-1])
-            print("problem results:", {name: metric.mean() for name, metric in results[-1].items()})
-        return results
+            metrics, predictions = self.run_next_problem()
+            results_metrics.append(metrics)
+            self.__create_plots(results_metrics[-1], predictions[-1])
+            print("problem results:", {name: metric.mean() for name, metric in results_metrics[-1].items()})
+        return results_metrics
 
-    def run_next_problem(self) -> Dict[str, Any]:
+    def run_next_problem(self) -> Tuple[Dict[str, Any], np.ndarray]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
         observer. Gather "number_burnin_steps" observations without fitting the model and then start predicting the
         model at each timestep and evaluate for that timestep the prediction compared to the hindcast.
 
         Returns:
-            dictionary with the pairs: (metric_name, 1d array containing the output from that metric at each timestep)
+            A tuple composed of:
+                a dictionary with the pairs: (metric_name, 1d array containing the output from that metric at each timestep)
+                a 2d ndarray of all the PredictionsAndGroundTruthOverArea objects based on the last step of the problem
         """
         if not self.problem_factory.has_problems_remaining():
             raise StopIteration()
@@ -106,24 +110,27 @@ class ExperimentRunner:
                 *self.__get_lon_lat_time_intervals(ground_truth=True))
 
             # compute the metrics and log the results
-            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
-            results.append(self.last_prediction_ground_truth)
-            metric = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
+            last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
+            results.append(last_prediction_ground_truth)
+            metric = last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
 
-            metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0,
-                                     self.last_observation.platform_state.date_time.timestamp()))
+            metrics.append(np.concatenate(([self.last_observation.platform_state.date_time.timestamp()],
+                                           np.fromiter(metric.values(), dtype=float))))
             print(
                 f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
 
         metrics = np.array(metrics)
-        return {name: metrics[:, i] for i, name in enumerate(metrics_names)}
+        return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, np.array(results)
 
-    def __create_plots(self, last_metrics: Optional[np.ndarray] = None):
+    def __create_plots(self, last_metrics: Optional[np.ndarray] = None,
+                       prediction_ground_truth: Optional[PredictionsAndGroundTruthOverArea] = None):
         """ Create the different plots based on the yaml file to know which one to display
         Args:
             last_metrics: the metrics to display
+            prediction_ground_truth: The PredictionsAndGroundTruthOverArea object that has the prediction and ground
+                truth to plot.
         """
         plots_dict = self.variables.get("plots", {})
         if plots_dict.get("metrics_to_visualize", False) and last_metrics is not None:
@@ -131,10 +138,11 @@ class ExperimentRunner:
                 fig, ax = plt.subplots()
                 getattr(plot_metrics, "plot_" + metrics_str)(last_metrics, ax)
                 plt.show()
-        if plots_dict.get("visualize_currents", False):
-            self.last_prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
-        for variable in plots_dict.get("plot_3d", []):
-            self.last_prediction_ground_truth.plot_3d(variable)
+        if prediction_ground_truth is not None:
+            if plots_dict.get("visualize_currents", False):
+                prediction_ground_truth.visualize_improvement_forecasts(self.arena.state_trajectory)
+            for variable in plots_dict.get("plot_3d", []):
+                prediction_ground_truth.plot_3d(variable)
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
@@ -160,8 +168,8 @@ class ExperimentRunner:
 
         return predictions
 
-    def __get_lon_lat_time_intervals(self, ground_truth: bool = False) -> Tuple[List[float],
-                                                    List[float], Union[List[float], List[datetime.datetime]]]:
+    def __get_lon_lat_time_intervals(self, ground_truth: bool = False) \
+            -> Tuple[List[float], List[float], Union[List[float], List[datetime.datetime]]]:
         """ Internal method to get the area around the platforms
         Args:
             ground_truth: If we request the area for ground truth we request a larger area so that interpolation
@@ -175,7 +183,8 @@ class ExperimentRunner:
         if ground_truth:
             deg_around_x0_xT_box += self.variables.get("gt_additional_area", 0.5)
             temp_horizon_in_s += self.variables.get("gt_additional_time", 3600) * 2
-            point.date_time = point.date_time - datetime.timedelta(seconds=self.variables.get("gt_additional_time", 3600))
+            point.date_time = point.date_time - datetime.timedelta(
+                seconds=self.variables.get("gt_additional_time", 3600))
         t, lat, lon = DataSource.convert_to_x_y_time_bounds(
             x_0=point, x_T=point, deg_around_x0_xT_box=deg_around_x0_xT_box, temp_horizon_in_s=temp_horizon_in_s)
         return lon, lat, t
