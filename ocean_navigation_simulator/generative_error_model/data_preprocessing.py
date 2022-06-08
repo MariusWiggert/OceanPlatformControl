@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+from tqdm import tqdm
 
 # TODO: ensure space-time range is adequate for interpolation (PlatformState)
 
@@ -36,7 +37,6 @@ def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source:
     data_source: str {hindcast, forecast}
     """
 
-    from tqdm import tqdm
     df["u_hind"] = 0
     df["v_hind"] = 0
     # convert time column to datetime
@@ -54,24 +54,27 @@ def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source:
         df["v_hind"][i:i+n] = hindcast_interp["water_v"].values.diagonal().diagonal()
     return df
 
-def interp_hincast_casadi(hindcast_x_interval: float, hindcast_y_interval: float, hincast_date_time: np.datetime64,
-                        buoy_time: List[float], buoy_lat: List[float], buoy_lon: List[float]) -> List[float]:
+def interp_hincast_casadi(df: pd.DataFrame, hindcast_x_interval: List[float], hindcast_y_interval: List[float],
+                        hindcast_date_time: np.datetime64, ocean_field: OceanCurrentField) -> pd.DataFrame:
     """
-    Interpolates the hindcast data to spatio-temporal points of buoy measurements
+    Interpolates the hindcast data to spatio-temporal points of buoy measurements.
     """
 
-    platform_state = PlatformState(lon=units.Distance(deg=np.mean(hincast_x_interval)),
+    platform_state = PlatformState(lon=units.Distance(deg=np.mean(hindcast_x_interval)),
                                     lat=units.Distance(deg=np.mean(hindcast_y_interval)),
-                                    date_time=hincast_date_time)                     
+                                    date_time=hindcast_date_time)                     
     ocean_field.hindcast_data_source.update_casadi_dynamics(state=platform_state)
 
     # convert buoy time axis to posix
-    time_posix = units.get_posix_time_from_np64(buoy_time)
-    spatio_temporal_points = np.array([time_posix, buoy_lat, buoy_lon]).T
+    time_posix = units.get_posix_time_from_np64(df["time"])
+    spatio_temporal_points = np.array([time_posix, df["lat"], df["lon"]]).T
 
     interp_u = []
     interp_v = []
-    for i in range(spatio_temporal_points.shape[0]):
-        interp_u.append(ocean_field.hindcast_data_source.u_curr_func(spatio_temporal_points[i]))
-        interp_v.append(ocean_field.hindcast_data_source.v_curr_func(spatio_temporal_points[i]))
-    return interp_u, interp_v
+    for i in tqdm(range(spatio_temporal_points.shape[0])):
+        interp_u.append(float(ocean_field.hindcast_data_source.u_curr_func(spatio_temporal_points[i])))
+        interp_v.append(float(ocean_field.hindcast_data_source.v_curr_func(spatio_temporal_points[i])))
+    
+    df["u_hind"] = interp_u
+    df["v_hind"] = interp_v
+    return df

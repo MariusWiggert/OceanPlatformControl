@@ -1,5 +1,5 @@
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from data_preprocessing import interp_xarray
+from data_preprocessing import interp_xarray, interp_hincast_casadi
 
 import datetime
 import dateutil
@@ -39,7 +39,10 @@ class TargetedTimeRange:
         return dateutil.parser.isoparse(self.time_range.split("/")[1])
 
 
-# TODO: Use DataField as inspiration here
+# TODO: interpolating forecast and hindcast should add differnent columns
+# right now both add "u_hind" and "v_hind"
+
+# TODO: directly obtain forecast/hindcast so one can call the interp func directly
 class BuoyDataSource(ABC):
     """
     Abstract class that describes functionality of buoy data sources
@@ -64,34 +67,39 @@ class BuoyDataSource(ABC):
         """
         pass
 
-    def interpolate_forecast(self, ocean_field: OceanCurrentField):
+    def interpolate_forecast(self, ocean_field: OceanCurrentField) -> pd.DataFrame:
         # TODO: need to ensure that buoy data and forecast/hindcast data overlap appropriately
 
         """
         Uses an OceanCurrentField object and interpolates the data to the
         spatio-temporal points of the buoy data.
 
-        The ocean_field can be a hincast or a forecast.
+        The ocean_field is a forecast.
         """
 
         self.data = interp_xarray(self.data, ocean_field, "forecast_data_source")
         print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hind']).sum()/self.data.shape[0]}%")
         return self.data
 
-    def interpolate_hindcast(self, data_config: Dict) -> pd.DataFrame:
+    def interpolate_hindcast(self, ocean_field: OceanCurrentField) -> pd.DataFrame:
         """
         Uses an OceanCurrentField object and interpolates the data to the
         spatio-temporal points of the buoy data.
 
-        The ocean_field can be a hincast or a forecast.
+        The ocean_field is a hincast.
         """
 
         self.data = interp_xarray(self.data, ocean_field, "hindcast_data_source")
         print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hind']).sum()/self.data.shape[0]}%")
-        return self.data    
+        return self.data
 
-    def _interpolation_inside_bounds(self):
-        pass
+    def interpolate_casadi(self, ocean_field: OceanCurrentField) -> pd.DataFrame:
+        t_0 = dateutil.parser.isoparse(self.data_config["time_range"].split("/")[0])
+        self.data = interp_hincast_casadi(self.data, self.data_config["lon_range"], self.data_config["lat_range"], t_0, ocean_field)
+        return self.data
+
+    def _interpolation_inside_bounds(self) -> bool:
+        return False
 
 
 class BuoyDataCopernicus(BuoyDataSource):
