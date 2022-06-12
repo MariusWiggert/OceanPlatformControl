@@ -20,6 +20,11 @@ from ocean_navigation_simulator.utils.units import Distance
 from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 
+# TODO: think through what to do when a new forecast becomes available. The old current error measurements
+# are not valid anymore (because they are samples from an old error function). So shall we throw them away
+# or maybe log the observations of the currents (not the error) which should still contain information
+# that's useful to improve the new forecast.
+
 
 class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""

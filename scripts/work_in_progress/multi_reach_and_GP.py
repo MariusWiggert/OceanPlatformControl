@@ -2,12 +2,12 @@ import datetime
 import numpy as np
 from tqdm import tqdm
 
-# %%
-import xarray as xr
-path = "data/Copernicus_Hindcast/2021_11_20-30_Copernicus.nc"
-folder = "data/Copernicus_Hindcast/"
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import get_file_dicts
-files_dicts = get_file_dicts(folder)
+# # %%
+# import xarray as xr
+# path = "data/Copernicus_Hindcast/2021_11_20-30_Copernicus.nc"
+# folder = "data/Copernicus_Hindcast/"
+# from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import get_file_dicts
+# files_dicts = get_file_dicts(folder)
 #%%
 # # Step 2: open the respective file as multi dataset
 # DataArray = xr.open_mfdataset([h_dict['file'] for h_dict in files_dicts]).isel(depth=0)
@@ -110,7 +110,7 @@ observer = Observer(observer_config)
 action = planner.get_action(observation=observation)
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, filename="new_true.mp4")
 # %% Now use the observer for planning instead of the
-for i in tqdm(range(int(3600 * 24 * 0.2 / 600))):  # 720*10 min = 5 days
+for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 720*10 min = 5 days
     # modify the observation, now coming from the observer for data to the planner
     observer.observe(observation)
     observation.forecast_data_source = observer
