@@ -38,7 +38,7 @@ class OceanCurrentGP(OceanCurrentModel):
         if "optimizer" in self.config_dict:
             parameters_model["optimizer"] = self.config_dict["optimizer"]
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
-        print(f"Gaussian Process created: {self.model}")
+        print(f"Gaussian Process created: {self.model}, with the kernel: {parameters_model.get('kernel', 'undefined')}")
 
     def __get_kernel(self, dic_config: dict[str, Any]) -> Kernel:
         """Get the GP kernel based on the dictionary generated based on the Yaml file.
@@ -62,6 +62,10 @@ class OceanCurrentGP(OceanCurrentModel):
             return factor * gaussian_process.kernels.Matern(**params)
         if type_kernel.lower() == "constantkernel":
             return factor * gaussian_process.kernels.ConstantKernel(**params)
+        if type_kernel.lower() == "rationalquadratic":
+            print("kernel: ", gaussian_process.kernels.RationalQuadratic(**params))
+            print("*f", factor * gaussian_process.kernels.RationalQuadratic(**params))
+            return factor * gaussian_process.kernels.RationalQuadratic(**params)
 
         print("No kernel specified in the yaml file. The constant kernel is used")
         return factor * gaussian_process.kernels.ConstantKernel()

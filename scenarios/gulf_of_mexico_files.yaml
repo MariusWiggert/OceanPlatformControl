@@ -18,13 +18,13 @@ ocean_dict:
     field: 'OceanCurrents'
     source: 'hindcast_files'
     source_settings:
-      'folder': "data/single_day_hindcasts/" #"data/hindcast_test/"
+      'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
   forecast:
     field: 'OceanCurrents'
     source: 'forecast_files'
     source_settings:
       #'folder': "data/forecast_test/"# "data/cop_fmrc/"
-      'folder': "data/unique_forecast_test/"
+      'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
 
 solar_dict:
   hindcast: null

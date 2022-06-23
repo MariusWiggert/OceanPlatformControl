@@ -23,7 +23,7 @@ experiment_runner:
     - initial_position:
         lon_in_deg: -86
         lat_in_deg: 24.86
-        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
+        datetime: "2021-11-24T12:00:00Z" #In iso8601 format!
       target:
         lon_in_deg: -88.61
         lat_in_deg: 26.36

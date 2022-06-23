@@ -57,7 +57,7 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
 class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
-    def __init__(self, yaml_file_config: str):
+    def __init__(self, yaml_file_config: Union[str, Dict[str, any]]):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
 
@@ -65,10 +65,12 @@ class ExperimentRunner:
             yaml_file_config: the name (without path or extension) of the Yaml file that will be read in the folder:
             "ocean_navigation_simulator/env/scenarios/"
         """
-        import os
-        print(os.getcwd())
-        with open(f'scenarios/ocean_observer/{yaml_file_config}.yaml') as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+        if type(yaml_file_config) is str:
+            with open(f'scenarios/ocean_observer/{yaml_file_config}.yaml') as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+                self.variables = config["experiment_runner"]
+        else:
+            config = yaml_file_config
             self.variables = config["experiment_runner"]
 
         if self.variables.get("use_real_data", True):
