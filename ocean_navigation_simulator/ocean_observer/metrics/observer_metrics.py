@@ -18,7 +18,8 @@ def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float,
     return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse}
 
 
-def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, per_hour: bool = False) -> \
+def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, per_hour: bool = False,
+       sigma_square_division: float = 1e-6) -> \
         Dict[str, float]:
     """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
        the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
@@ -34,7 +35,7 @@ def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions
     """
     axis = (1, 2) if per_hour else None
     return {("r2_per_h" if per_hour else "r2"): 1 - ((ground_truth - improved_predictions) ** 2).sum(axis=axis) / (
-            (initial_predictions - ground_truth) ** 2).sum(axis=axis)}
+            ((initial_predictions - ground_truth) ** 2).sum(axis=axis) + sigma_square_division)}
 
 
 def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,

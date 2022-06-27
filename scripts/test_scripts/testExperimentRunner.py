@@ -32,7 +32,7 @@ search_space = {
 def train(config):
     import os
     os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
-    yaml_file_config = "/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/scenarios/ocean_observer/config_GP_for_failed_case.yaml"
+    yaml_file_config = "/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/scenarios/ocean_observer/config_real_data_GP.yaml"
     # print("dir:", directory)
     with open(yaml_file_config) as f:
         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
@@ -62,7 +62,7 @@ def main():
     Run an experiment
     """
     # np.random.seed(0)
-    exp = ExperimentRunner("config_GP_for_failed_case")
+    exp = ExperimentRunner("config_real_data_GP")
     results = exp.run_all_problems()
     print("final results:", results)
 

@@ -59,12 +59,11 @@ class OceanCurrentGP(OceanCurrentModel):
         if type_kernel.lower() == "rbf":
             return factor * gaussian_process.kernels.RBF(**params)
         if type_kernel.lower() == "matern":
+            print("params:", params)
             return factor * gaussian_process.kernels.Matern(**params)
         if type_kernel.lower() == "constantkernel":
             return factor * gaussian_process.kernels.ConstantKernel(**params)
         if type_kernel.lower() == "rationalquadratic":
-            print("kernel: ", gaussian_process.kernels.RationalQuadratic(**params))
-            print("*f", factor * gaussian_process.kernels.RationalQuadratic(**params))
             return factor * gaussian_process.kernels.RationalQuadratic(**params)
 
         print("No kernel specified in the yaml file. The constant kernel is used")

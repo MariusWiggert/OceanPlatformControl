@@ -1,21 +1,22 @@
 """The abstract base class for all Data Sources. Implements a lot of shared functionality"""
-import matplotlib.pyplot
-from IPython.display import HTML
-import matplotlib.animation as animation
-import os
-from functools import partial
-
-from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-import matplotlib.pyplot as plt
-import warnings
-import datetime
-from typing import List, AnyStr, Optional, Tuple, Union, Any, Callable
-import numpy as np
-import xarray as xr
 import abc
+import datetime
+import os
+import warnings
+from functools import partial
+from typing import List, AnyStr, Optional, Tuple, Union, Any, Callable
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.animation as animation
+import matplotlib.pyplot
+import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+from IPython.display import HTML
+
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from ocean_navigation_simulator.utils import units
 
 
 class DataSource(abc.ABC):
@@ -145,12 +146,13 @@ class DataSource(abc.ABC):
                 f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).",
                 RuntimeWarning)
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
+            print("time:", t_interval[1])
             warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
                                     spatial_res: Optional[float] = None,
-                                    return_ax: Optional[bool] = False, ax = None,
+                                    return_ax: Optional[bool] = False, ax=None,
                                     **kwargs):
         """Plot the data at a specific time over an area defined by the x and y intervals.
         Args:
@@ -245,7 +247,7 @@ class DataSource(abc.ABC):
                         file.write(ani_html.data)
                         os.system(
                             'open "/Applications/Safari.app" ' + '"' + os.path.realpath(folder_to_save_in +
-                                "data_animation.html") + '"')
+                                                                                        "data_animation.html") + '"')
                 else:  # visualize in Jupyter directly
                     plt.close()
                     return ani_html
@@ -261,7 +263,8 @@ class DataSource(abc.ABC):
                     "contain either '.gif' or '.mp4' to specify the format and desired file location.")
 
     def plot_xarray_for_animation(self, time_idx: int, xarray: xr, reset_plot: Optional[bool] = False,
-                                  figsize: Tuple[int] = (6, 6), ax: matplotlib.pyplot.axes = None, **kwargs) -> matplotlib.pyplot.axes:
+                                  figsize: Tuple[int] = (6, 6), ax: matplotlib.pyplot.axes = None,
+                                  **kwargs) -> matplotlib.pyplot.axes:
         """Helper function for animations adding plot resets, figure size and automatically generating the axis.
             See plot_data_from_xarray for other optional keyword arguments.
             Args:
@@ -342,7 +345,7 @@ class DataSource(abc.ABC):
                      t_interval: List[Union[datetime.datetime, float]],
                      spatial_res: Optional[float] = None, temporal_res: Optional[float] = None,
                      add_ax_func: Optional[Callable] = None,
-                     fps: int = 10, output: AnyStr = "data_animation.mp4", forward_time: bool = True,  **kwargs):
+                     fps: int = 10, output: AnyStr = "data_animation.mp4", forward_time: bool = True, **kwargs):
         """Basis function to animate data over a specific area and time interval.
             Args:
               x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]

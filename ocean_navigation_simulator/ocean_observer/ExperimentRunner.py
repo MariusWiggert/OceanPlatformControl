@@ -170,7 +170,7 @@ class ExperimentRunner:
             times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
                                    ndmin=2)
             metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
-
+            print("number steps: ", self.variables['number_steps_prediction'])
             print(
                 f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
 
@@ -223,8 +223,8 @@ class ExperimentRunner:
                                                            temporal_resolution=self.variables.get(
                                                                "delta_between_predictions_in_sec", None))
             # todo: quick fix, Find why the predictions are not always the same shape:
-            if len(predictions["time"]) > 25:
-                predictions = predictions.isel(time=range(25))
+            if len(predictions["time"]) > 24:
+                predictions = predictions.isel(time=range(24))
 
         return predictions
 

@@ -11,7 +11,7 @@ experiment_runner:
 
   #number_burnin_steps: 50
   number_burnin_steps: 6
-  number_steps_prediction: 77
+  number_steps_prediction: 60 #77
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
   radius_area_around_platform: 0.04665226
@@ -23,7 +23,7 @@ experiment_runner:
     - initial_position:
         lon_in_deg: -86
         lat_in_deg: 24.86
-        datetime: "2021-11-24T12:00:00Z" #In iso8601 format!
+        datetime: "2021-11-22T12:00:00Z" #In iso8601 format!
       target:
         lon_in_deg: -88.61
         lat_in_deg: 26.36
@@ -54,7 +54,7 @@ observer:
           time: 10000 # [s]
         type: "matern"
         parameters:
-          length_scale_bounds: "fixed"
+          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
         #type: "rbf"
         #type: "constantkernel"
 

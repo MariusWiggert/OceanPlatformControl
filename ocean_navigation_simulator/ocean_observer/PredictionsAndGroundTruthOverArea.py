@@ -33,8 +33,8 @@ class PredictionsAndGroundTruthOverArea:
                                             .to_array().to_numpy(), 0, -1).reshape(reshape_dims)
         self.improved_forecast = np.moveaxis(predictions_over_area[["water_u", "water_v"]].to_array().to_numpy(), 0,
                                              -1).reshape(reshape_dims)
-        self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]].to_array().to_numpy(), 0, -1).reshape(
-            reshape_dims)
+        self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]].to_array().to_numpy(), 0,
+                                             -1).reshape(reshape_dims)
 
     def compute_metrics(self, metrics: Union[Set[str], str, None] = None, per_hour: bool = False) -> Dict[str, any]:
         """ Compute and return the metrics provided or all if none is provided.
