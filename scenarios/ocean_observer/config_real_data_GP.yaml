@@ -1,13 +1,13 @@
 experiment_runner:
-  plots:
-    visualize_currents: True
-    plot_3d:
-      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
-    visualize_metrics: True
+  #  plots:
+  #    visualize_currents: True
+  #    plot_3d:
+  #      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
+  #    visualize_metrics: True
   metrics:
     - "rmse"
     - "r2"
-    - "vector_correlation"
+    #- "vector_correlation"
 
   #number_burnin_steps: 50
   number_burnin_steps: 6
@@ -15,6 +15,7 @@ experiment_runner:
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
   radius_area_around_platform: 0.04665226
+  number_steps_to_predict: 12
 
 
   use_real_data: True
@@ -47,12 +48,11 @@ observer:
       sigma_exp_squared: 100 #12.96
       kernel:
         #type: "RBF"
-
+        type: "matern"
         scaling:
           latitude: 1 # [m]
           longitude: 1 # [m]
           time: 10000 # [s]
-        type: "matern"
         parameters:
           length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
         #type: "rbf"

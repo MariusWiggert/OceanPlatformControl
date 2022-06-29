@@ -1,4 +1,5 @@
 import datetime
+import math
 from typing import Union, Tuple, List, Dict, Any, Optional
 
 import dateutil
@@ -23,7 +24,8 @@ from ocean_navigation_simulator.utils.units import Distance
 
 
 def _plot_metrics_per_h(metrics: dict[str, any]) -> None:
-    r, c = 5, 5
+    c = 5
+    r = math.ceil(len(metrics["time"][0]) / c)
     fig, axs = plt.subplots(r, c)
     t = [datetime.datetime.fromtimestamp(time[0]) for time in metrics["time"]]
     r2_per_h = metrics["r2_per_h"]
@@ -148,8 +150,9 @@ class ExperimentRunner:
                 *self.__get_lon_lat_time_intervals(ground_truth=True),
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
             # todo: quick fix, solve this issue correctly
-            if len(ground_truth["time"]) > 25:
-                ground_truth = ground_truth.isel(time=range(25))
+            n_steps = self.variables.get("number_steps_to_predict", 12) + 1
+            if len(ground_truth["time"]) > n_steps:
+                ground_truth = ground_truth.isel(time=range(n_steps))
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
 
             # compute the metrics and log the results
@@ -223,8 +226,9 @@ class ExperimentRunner:
                                                            temporal_resolution=self.variables.get(
                                                                "delta_between_predictions_in_sec", None))
             # todo: quick fix, Find why the predictions are not always the same shape:
-            if len(predictions["time"]) > 24:
-                predictions = predictions.isel(time=range(24))
+            n_steps = self.variables.get("number_steps_to_predict", 12)
+            if len(predictions["time"]) > n_steps:
+                predictions = predictions.isel(time=range(n_steps))
 
         return predictions
 

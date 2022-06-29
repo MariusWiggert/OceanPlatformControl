@@ -37,8 +37,9 @@ class OceanCurrentGP(OceanCurrentModel):
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
             parameters_model["optimizer"] = self.config_dict["optimizer"]
+        print("PARAMETERS_MODEL:", parameters_model)
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
-        print(f"Gaussian Process created: {self.model}, with the kernel: {parameters_model.get('kernel', 'undefined')}")
+        print(f"Gaussian Process created: {self.model}")
 
     def __get_kernel(self, dic_config: dict[str, Any]) -> Kernel:
         """Get the GP kernel based on the dictionary generated based on the Yaml file.
@@ -52,19 +53,25 @@ class OceanCurrentGP(OceanCurrentModel):
         factor = self.config_dict.get("sigma_exp_squared", 1)
         params = dic_config.get("parameters", {})
 
-        if "scaling" in dic_config:
+        if "scaling" in dic_config and dic_config["scaling"] is not None:
             scales = dic_config["scaling"]
             params["length_scale"] = np.array([
                 scales.get("longitude", 1), scales.get("latitude", 1), scales.get("time", 1)])
         if type_kernel.lower() == "rbf":
             return factor * gaussian_process.kernels.RBF(**params)
         if type_kernel.lower() == "matern":
-            print("params:", params)
             return factor * gaussian_process.kernels.Matern(**params)
         if type_kernel.lower() == "constantkernel":
             return factor * gaussian_process.kernels.ConstantKernel(**params)
         if type_kernel.lower() == "rationalquadratic":
             return factor * gaussian_process.kernels.RationalQuadratic(**params)
+        if type_kernel.lower() == "expsinesquared":
+            return factor * gaussian_process.kernels.ExpSineSquared(**params)
+        # Not supported yet
+        # if type_kernel.lower() == "sum":
+        #     return self.__get_kernel(dic_config["kernel_1"]) + self.__get_kernel(dic_config["kernel_2"])
+        # if type_kernel.lower() == "product":
+        #     return self.__get_kernel(dic_config["kernel_1"]) + self.__get_kernel(dic_config["kernel_2"])
 
         print("No kernel specified in the yaml file. The constant kernel is used")
         return factor * gaussian_process.kernels.ConstantKernel()
