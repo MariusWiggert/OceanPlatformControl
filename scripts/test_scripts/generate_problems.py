@@ -19,7 +19,7 @@ area_coordinates = [(lon_left, lat_top), (lon_right, lat_top), (lon_left, lat_bo
                     (lon_right, lat_bottom)]  # tl, tr, bl, br (lon, lat)
 start_date = datetime.datetime(2021, 11, 22, 12, 00, 00)
 end_date = datetime.datetime(2021, 11, 28, 12, 00, 00)
-duration_simulation = datetime.timedelta(days=5)
+duration_simulation = datetime.timedelta(days=3)  # Change to 5 days when we have more files
 max_velocity = Velocity(mps=1)
 distance_start_end_point = max_velocity * duration_simulation
 
@@ -43,8 +43,10 @@ def generate_random_date(start, end):
     objects.
     """
     delta = end - start
-    int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
+    n_sec_per_day = 24 * 60 * 60
+    int_delta = (delta.days * n_sec_per_day) + delta.seconds
     random_second = random.randrange(int_delta)
+    random_second = (random_second // n_sec_per_day) * n_sec_per_day
     return start + datetime.timedelta(seconds=random_second)
 
 
@@ -84,7 +86,8 @@ def check_if_square_margin_to_shore(prob, point, margin_to_shore):
 
 def point_to_dict(point: Union[SpatialPoint, SpatioTemporalPoint], radius_in_m: int = 1) -> dict[str, any]:
     return {"lon_in_deg": point.lon.deg, "lat_in_deg": point.lat.deg} | \
-           ({"datetime": point.date_time.isoformat()} if isinstance(point, SpatioTemporalPoint) else {
+           ({"datetime": point.date_time.strftime('%Y-%m-%dT%H:%M:%SZ')} if isinstance(point,
+                                                                                       SpatioTemporalPoint) else {
                "radius_in_m": radius_in_m})
 
 
@@ -117,7 +120,7 @@ def main(dir_name=None, filename=None):
         problems.append((start, end))
 
     path = problems_to_yaml(problems, dir_name=dir_name, filename=filename)
-    print(f"problems exported to {os.path.abspath(path)}")
+    print(f"problems exported to {path} = {os.path.abspath(path)}")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ def objective(config):
 
 
 def conditional_parameters(str_accepted: list[str], to_return):
-    return tune.sample_from(lambda s: to_return if s in str_accepted else None)
+    return tune.sample_from(lambda s: to_return if s.config.kernel in str_accepted else None)
 
 
 search_space = {
@@ -100,11 +100,12 @@ def train(config):
              # if expsinesquared:
              "parameters": config
              }  # | search_space
-        print(config_yaml["observer"]["model"]["gaussian_process"]["kernel"])
+
+        print("kernel:", config_yaml["observer"]["model"]["gaussian_process"]["kernel"])
         exp = ExperimentRunner(config_yaml)
         results = exp.run_all_problems()
         # return {"r2_avg": np.array([r["r2"] for r in results]).mean()}
-        return {"rmse_avg": np.array([r["rmse_improved"] for r in results]).mean()}, "min"
+        return {"rmse_avg": np.array([r["rmse_improved"] for r in results]).mean()}
 
     # variables = config["experiment_runner"]
 
@@ -126,7 +127,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    main_tune()
+    main()
+    # main_tune()
 
 # %%

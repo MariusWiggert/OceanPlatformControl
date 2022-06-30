@@ -77,8 +77,14 @@ class ExperimentRunner:
 
         if self.variables.get("use_real_data", True):
             problems = []
+
+            if "problems_file" in self.variables.keys():
+                with open(self.variables["problems_file"]) as f:
+                    yaml_problems = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                yaml_problems = self.variables
             # Specify Problem
-            for problem_dic in self.variables.get("problems", []):
+            for problem_dic in yaml_problems.get("problems", []):
                 init_pos = problem_dic["initial_position"]
                 x_0 = PlatformState(lon=Distance(deg=init_pos["lon_in_deg"]),
                                     lat=Distance(deg=init_pos["lat_in_deg"]),
@@ -173,7 +179,6 @@ class ExperimentRunner:
             times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
                                    ndmin=2)
             metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
-            print("number steps: ", self.variables['number_steps_prediction'])
             print(
                 f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
 

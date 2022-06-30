@@ -102,7 +102,6 @@ class Observer:
     def fit(self) -> None:
         """Fit the inner prediction model using the observations recorded by the observer
         """
-        print("Observer: fitting model with {} measurements.".format(len(self.prediction_model.measurement_locations)))
         self.prediction_model.fit()
 
     def reset(self) -> None:
