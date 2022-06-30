@@ -1,3 +1,4 @@
+import csv
 import os
 
 import numpy as np
@@ -19,7 +20,7 @@ def conditional_parameters(str_accepted: list[str], to_return):
 search_space = {
     # product and sum are not supported yet
     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
-    "kernel": tune.choice(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+    "kernel": tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
     # if matern or rbf
     "scaling": conditional_parameters(["matern", "rbf"], {
         "lat_scale": tune.loguniform(1, 1e6),
@@ -70,8 +71,23 @@ search_space = {
 # print("runtime_env:", runtime_env)
 # ray.init(runtime_env=runtime_env)
 
+def write_row_csv(path, row):
+    # open the file in the write mode
+    f = open(path, 'a')
+
+    # create the csv writer
+    writer = csv.writer(f)
+
+    # write a row to the csv file
+    writer.writerow(row)
+
+    # close the file
+    f.close()
+
 
 def train(config):
+    # Create a file for the log of all the results
+    file_csv = os.path.join(os.path.dirname(os.getcwd()), "results.csv")
     os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
     yaml_file_config = "./scenarios/ocean_observer/config_real_data_GP.yaml"
     config = {k: v for k, v in config.items() if v is not None}
@@ -103,7 +119,19 @@ def train(config):
 
         print("kernel:", config_yaml["observer"]["model"]["gaussian_process"]["kernel"])
         exp = ExperimentRunner(config_yaml)
-        results = exp.run_all_problems()
+        results, results_per_h, merged = exp.run_all_problems()
+
+        # Save the results in the csv file
+        merged_mean = {}
+        for k in merged.keys():
+            if k != "time":
+                merged_mean["mean_" + str(k)] = np.array(merged[k]).mean()
+        merged_mean |= merged
+        merged_mean = {"kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"])} | merged_mean
+        if not os.path.exists(file_csv):
+            write_row_csv(file_csv, merged_mean.keys())
+        write_row_csv(file_csv, merged_mean.values())
+
         # return {"r2_avg": np.array([r["r2"] for r in results]).mean()}
         return {"rmse_avg": np.array([r["rmse_improved"] for r in results]).mean()}
 
@@ -111,7 +139,7 @@ def train(config):
 
 
 def main_tune():
-    res = tune.run(train, config=search_space, num_samples=10)
+    res = tune.run(train, config=search_space, num_samples=5)
     # return res.get_best_config(metric="r2_avg", mode="max")
     return res.get_best_config(metric="rmse_avg", mode="min")
 
@@ -122,7 +150,7 @@ def main():
     """
     # np.random.seed(0)
     exp = ExperimentRunner("config_real_data_GP")
-    results = exp.run_all_problems()
+    results, results_per_h, merged = exp.run_all_problems()
     print("final results:", results)
 
 

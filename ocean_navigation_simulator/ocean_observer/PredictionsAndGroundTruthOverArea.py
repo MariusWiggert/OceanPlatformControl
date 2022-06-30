@@ -36,7 +36,9 @@ class PredictionsAndGroundTruthOverArea:
         self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]].to_array().to_numpy(), 0,
                                              -1).reshape(reshape_dims)
 
-    def compute_metrics(self, metrics: Union[Set[str], str, None] = None, per_hour: bool = False) -> Dict[str, any]:
+    def compute_metrics(self, metrics: Union[Set[str], str, None] = None, directions: list[str] = ['uv'],
+                        per_hour: bool = False) -> \
+            Dict[str, any]:
         """ Compute and return the metrics provided or all if none is provided.
 
         Args:
@@ -47,8 +49,10 @@ class PredictionsAndGroundTruthOverArea:
         """
         res = dict()
         for s, f in get_metrics().items():
-            if metrics is None or s in metrics:
-                res |= f(self.ground_truth_area, self.improved_forecast, self.initial_forecast, per_hour=per_hour)
+            if metrics is None or s in set(metrics):
+                for d in directions:
+                    res |= f(self.ground_truth_area, self.improved_forecast, self.initial_forecast, per_hour=per_hour,
+                             current=d)
         return res
 
     def visualize_improvement_forecasts(self, state_trajectory: np.ndarray, spatial_res=None) -> None:

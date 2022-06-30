@@ -18,8 +18,16 @@ def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float,
     return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse}
 
 
+def __get_axis_current(current) -> Tuple[list[int], str]:
+    if current == "u":
+        return [0], "_u"
+    if current == "v":
+        return [1], "_v"
+    return [0, 1], ""
+
+
 def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, per_hour: bool = False,
-       sigma_square_division: float = 1e-6) -> \
+       sigma_square_division: float = 1e-6, current=['uv']) -> \
         Dict[str, float]:
     """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
        the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
@@ -34,8 +42,13 @@ def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions
         The r2 coefficient as a dictionary
     """
     axis = (1, 2) if per_hour else None
-    return {("r2_per_h" if per_hour else "r2"): 1 - ((ground_truth - improved_predictions) ** 2).sum(axis=axis) / (
-            ((initial_predictions - ground_truth) ** 2).sum(axis=axis) + sigma_square_division)}
+    axis_current, extension_name = __get_axis_current(current)
+    return {("r2_per_h" if per_hour else "r2") + extension_name: 1 - (
+            (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2).sum(axis=axis) / (
+                                                                         ((initial_predictions[..., axis_current] -
+                                                                           ground_truth[
+                                                                               ..., axis_current]) ** 2).sum(
+                                                                             axis=axis) + sigma_square_division)}
 
 
 def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
@@ -66,7 +79,7 @@ def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, ini
 
 
 def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, sigma_ratio=0.00001,
-         per_hour: bool = False) -> \
+         per_hour: bool = False, current=["uv"]) -> \
         Dict[str, float]:
     """Compute the rmse between 1) ground_truth and improved_predictions, 2) ground_truth and initial_predictions and
     also the ratio between these two values
@@ -83,8 +96,12 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
     rmses = dict()
     extension_str = "_per_h" if per_hour else ""
     axis = (1, 2) if per_hour else None
-    rmses["rmse_improved" + extension_str] = __rmse(ground_truth, improved_predictions, axis=axis)
-    rmses["rmse_initial" + extension_str] = __rmse(ground_truth, initial_predictions, axis=axis)
+    axis_current, extension_str_2 = __get_axis_current(current)
+    extension_str += extension_str_2
+    rmses["rmse_improved" + extension_str] = __rmse(ground_truth[..., axis_current],
+                                                    improved_predictions[..., axis_current], axis=axis)
+    rmses["rmse_initial" + extension_str] = __rmse(ground_truth[..., axis_current],
+                                                   initial_predictions[..., axis_current], axis=axis)
     rmses["rmse_ratio" + extension_str] = rmses["rmse_improved" + extension_str] / (
             rmses["rmse_initial" + extension_str] + sigma_ratio)
 

@@ -1,5 +1,6 @@
 import datetime
 import math
+from collections import defaultdict
 from typing import Union, Tuple, List, Dict, Any, Optional
 
 import dateutil
@@ -103,7 +104,7 @@ class ExperimentRunner:
         self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"])
         self.last_observation, self.last_prediction_ground_truth = None, None
 
-    def run_all_problems(self) -> List[Dict[str, any]]:
+    def run_all_problems(self) -> Tuple[List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
         provide the metrics computed for each problem
 
@@ -118,7 +119,18 @@ class ExperimentRunner:
             results_per_h.append(res_per_h)
             self.__create_plots(results[-1], results_per_h[-1])
             print("problem results:", {name: metric.mean() for name, metric in results[-1].items()})
-        return results
+
+        merged = defaultdict(list)
+        for key in results[-1].keys():
+            merged[key] = [r[key].mean() for r in results]
+        for key in results_per_h[-1].keys():
+            if key is "time":
+                continue
+            for r in results_per_h:
+                all_hours = r[key].mean(axis=0)
+                for h in range(len(all_hours)):
+                    merged[key + "_" + str(h)] += [all_hours[h]]
+        return results, results_per_h, merged
 
     def run_next_problem(self) -> Dict[str, Any]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
@@ -164,8 +176,10 @@ class ExperimentRunner:
             # compute the metrics and log the results
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
             results.append(self.last_prediction_ground_truth)
-            metric = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None))
-            metric_per_hour = self.last_prediction_ground_truth.compute_metrics(self.variables.get("metrics", None),
+            name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
+            directions = self.variables.get("direction_current", ["uv"])
+            metric = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions)
+            metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
                                                                                 per_hour=True)
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
@@ -184,6 +198,9 @@ class ExperimentRunner:
 
         metrics = np.array(metrics)
         metrics_per_h = np.array(metrics_per_h)
+        {name: metrics_per_h[:, i, :] for i, name in enumerate(metrics_per_h_names)}
+        print("names:", metrics_names, "\nmetrics:", metrics)
+        {name: metrics[:, i] for i, name in enumerate(metrics_names)}
         return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, {name: metrics_per_h[:, i, :] for i, name
                                                                                in enumerate(metrics_per_h_names)}
 
