@@ -139,7 +139,7 @@ def train(config):
 
 
 def main_tune():
-    res = tune.run(train, config=search_space, num_samples=5)
+    res = tune.run(train, config=search_space, num_samples=25)
     # return res.get_best_config(metric="r2_avg", mode="max")
     return res.get_best_config(metric="rmse_avg", mode="min")
 
@@ -155,7 +155,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-    # main_tune()
+    # main()
+    main_tune()
 
 # %%

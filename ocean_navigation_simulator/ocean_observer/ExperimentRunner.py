@@ -118,7 +118,6 @@ class ExperimentRunner:
             results.append(res)
             results_per_h.append(res_per_h)
             self.__create_plots(results[-1], results_per_h[-1])
-            print("problem results:", {name: metric.mean() for name, metric in results[-1].items()})
 
         merged = defaultdict(list)
         for key in results[-1].keys():
@@ -198,9 +197,6 @@ class ExperimentRunner:
 
         metrics = np.array(metrics)
         metrics_per_h = np.array(metrics_per_h)
-        {name: metrics_per_h[:, i, :] for i, name in enumerate(metrics_per_h_names)}
-        print("names:", metrics_names, "\nmetrics:", metrics)
-        {name: metrics[:, i] for i, name in enumerate(metrics_names)}
         return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, {name: metrics_per_h[:, i, :] for i, name
                                                                                in enumerate(metrics_per_h_names)}
 

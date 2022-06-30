@@ -21,24 +21,24 @@ experiment_runner:
 
   use_real_data: True
   scenario_used: "gulf_of_mexico_files"
-  #problems_file: "./scenarios/ocean_observer/all_problems.yaml"
-  problems:
-    - initial_position:
-        lon_in_deg: -86
-        lat_in_deg: 24.86
-        datetime: "2021-11-22T12:00:00Z" #In iso8601 format!
-      target:
-        lon_in_deg: -88.61
-        lat_in_deg: 26.36
-        radius_in_m: 1
-    - initial_position:
-        lon_in_deg: -82
-        lat_in_deg: 24.86
-        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
-      target:
-        lon_in_deg: -84.61
-        lat_in_deg: 26.36
-        radius_in_m: 1
+  problems_file: "./scenarios/ocean_observer/all_problems.yaml"
+#  problems:
+#    - initial_position:
+#        lon_in_deg: -86
+#        lat_in_deg: 24.86
+#        datetime: "2021-11-22T12:00:00Z" #In iso8601 format!
+#      target:
+#        lon_in_deg: -88.61
+#        lat_in_deg: 26.36
+#        radius_in_m: 1
+#    - initial_position:
+#        lon_in_deg: -82
+#        lat_in_deg: 24.86
+#        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
+#      target:
+#        lon_in_deg: -84.61
+#        lat_in_deg: 26.36
+#        radius_in_m: 1
 
 observer:
   life_span_observations_in_sec: 86400 # 24 * 3600
