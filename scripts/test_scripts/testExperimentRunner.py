@@ -21,11 +21,12 @@ search_space = {
     # product and sum are not supported yet
     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
     "kernel": tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+    "sigma_exp": tune.qrandn(1, 1, 0.0001),
     # if matern or rbf
     "scaling": conditional_parameters(["matern", "rbf"], {
-        "lat_scale": tune.loguniform(1, 1e6),
-        "lon_scale": tune.loguniform(1, 1e6),
-        "time_scale": tune.loguniform(1, 1e6)}),
+        "latitude": tune.loguniform(1, 1e6),
+        "longitude": tune.loguniform(1, 1e6),
+        "time": tune.loguniform(1, 1e6)}),
     # "lon_scale": tune.loguniform(1, 1e6),
     # "time_scale": tune.loguniform(1, 1e6),
     # if matern
@@ -95,7 +96,8 @@ def train(config):
     # print("dir:", directory)
     with open(yaml_file_config) as f:
         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
-        type = config.pop("kernel")
+        type_kernel = config.pop("kernel")
+        sigma_exp_squared = abs(config.pop("sigma_exp"))
         # Not supported yet
         # if type in ["product", "sum"]:
         #     config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
@@ -105,8 +107,9 @@ def train(config):
         #     }
         scaling = config.pop("scaling", None)
         config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = \
-            {"type": type,
+            {"type": type_kernel,
              "scaling": scaling,
+             "sigma_exp_squared": sigma_exp_squared,
              # if matern
              # "scaling": {"longitude": config["lon_scale"], "latitude": config["lat_scale"],
              #            "time": config["time_scale"], "nu": config["nu"]},

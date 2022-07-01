@@ -86,6 +86,7 @@ class Observer:
         # flattened
         coords = forecasts.stack(coord=["lon", "lat", "time"])["coord"].to_numpy()
         coords = np.array([*coords])
+        # print("coords:", len(forecasts["lon"]), len(forecasts["lat"]))
 
         prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
         predictions_dataset = xr.merge(

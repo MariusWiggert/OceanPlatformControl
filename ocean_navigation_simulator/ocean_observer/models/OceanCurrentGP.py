@@ -50,11 +50,10 @@ class OceanCurrentGP(OceanCurrentModel):
             The created kernel. If the kernel specified is not supported, the constant kernel is returned
         """
         type_kernel = str(dic_config["type"])
-        factor = self.config_dict.get("sigma_exp_squared", 1)
+        factor = dic_config.get("sigma_exp_squared", 1)
         params = dic_config.get("parameters", {})
-
-        if "scaling" in dic_config and dic_config["scaling"] is not None:
-            scales = dic_config["scaling"]
+        scales = dic_config.get("scaling", None)
+        if scales is not None:
             params["length_scale"] = np.array([
                 scales.get("longitude", 1), scales.get("latitude", 1), scales.get("time", 1)])
         if type_kernel.lower() == "rbf":

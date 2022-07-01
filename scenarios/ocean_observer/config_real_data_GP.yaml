@@ -14,9 +14,10 @@ experiment_runner:
   number_burnin_steps: 6
   number_steps_prediction: 60 #77
   delta_between_predictions_in_sec: 3600 #1h
-  time_horizon_predictions_in_sec: 86400 # 24 *3600
-  radius_area_around_platform: 0.04665226
+  time_horizon_predictions_in_sec: 43200 # 24 *3600
+  radius_area_around_platform: 0.04665226 #3.89189189
   number_steps_to_predict: 12
+  gt_additional_area: 0
 
 
   use_real_data: True
@@ -41,7 +42,7 @@ experiment_runner:
 #        radius_in_m: 1
 
 observer:
-  life_span_observations_in_sec: 86400 # 24 * 3600
+  life_span_observations_in_sec: 43200 # 12 * 3600
 
   model:
     gaussian_process:
@@ -60,4 +61,4 @@ observer:
         #type: "rbf"
         #type: "constantkernel"
 
-      time_horizon_predictions_in_sec: 3600
+      time_horizon_predictions_in_sec: 43200
