@@ -15,7 +15,7 @@ experiment_runner:
   number_steps_prediction: 60 #77
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 43200 # 24 *3600
-  radius_area_around_platform: 0.04665226 #3.89189189
+  radius_area_around_platform: 2 #0.04665226 #3.89189189
   number_steps_to_predict: 12
   gt_additional_area: 0
 
