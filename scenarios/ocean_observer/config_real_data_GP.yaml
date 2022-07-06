@@ -17,8 +17,9 @@ experiment_runner:
   time_horizon_predictions_in_sec: 43200 # 24 *3600
   radius_area_around_platform: 2 #0.04665226 #3.89189189
   number_steps_to_predict: 12
-  gt_additional_area: 0
-
+  gt_additional_area: 1.
+  gt_additional_time: 10800
+  clear_observations_when_new_file: True
 
   use_real_data: True
   scenario_used: "gulf_of_mexico_files"

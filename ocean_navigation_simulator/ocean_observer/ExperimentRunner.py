@@ -103,6 +103,7 @@ class ExperimentRunner:
         self.observer = Observer(config["observer"])
         self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"])
         self.last_observation, self.last_prediction_ground_truth = None, None
+        self.last_file_used = None
 
     def run_all_problems(self) -> Tuple[List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
@@ -166,10 +167,7 @@ class ExperimentRunner:
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
                 *self.__get_lon_lat_time_intervals(ground_truth=True),
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
-            # todo: quick fix, solve this issue correctly
-            n_steps = self.variables.get("number_steps_to_predict", 12) + 1
-            if len(ground_truth["time"]) > n_steps:
-                ground_truth = ground_truth.isel(time=range(n_steps))
+            ground_truth = ground_truth.assign_coords(depth=model_prediction.depth.to_numpy().tolist())
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
 
             # compute the metrics and log the results
@@ -233,10 +231,17 @@ class ExperimentRunner:
             The xarray dataset containing the initial and improved forecasts, the errors and also the uncertainty if
             it is provided by the observer depending on the OceanCurrentModel used.
         """
+        if self.variables.get("clear_observations_when_new_file", False) and (
+                self.last_file_used is None or self.last_file_used !=
+                self.last_observation.forecast_data_source.DataArray.encoding['source']):
+            print("clearing observations", self.last_observation.forecast_data_source.DataArray.encoding['source'],
+                  "\n",
+                  self.last_file_used)
+            self.last_file_used = self.last_observation.forecast_data_source.DataArray.encoding['source']
+            self.observer.reset()
         action_to_apply = controller.get_action(self.last_observation)
         self.last_observation = self.arena.step(action_to_apply)
         self.observer.observe(self.last_observation)
-
         predictions = None
         if fit_model:
             self.observer.fit()

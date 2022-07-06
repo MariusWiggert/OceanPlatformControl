@@ -11,15 +11,15 @@ import yaml
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.utils.units import Velocity, Distance
 
-number_problems = 100
+number_problems = 10
 seed = 30031996
-lon_left, lon_right = -96.362841, -84.766062
-lat_bottom, lat_top = 23.366677, 28.279219
+lon_left, lon_right = -95.362841, -85.766062
+lat_bottom, lat_top = 22.0, 27
 area_coordinates = [(lon_left, lat_top), (lon_right, lat_top), (lon_left, lat_bottom),
                     (lon_right, lat_bottom)]  # tl, tr, bl, br (lon, lat)
-start_date = datetime.datetime(2021, 11, 22, 12, 00, 00)
-end_date = datetime.datetime(2021, 11, 28, 12, 00, 00)
-duration_simulation = datetime.timedelta(days=3)  # Change to 5 days when we have more files
+start_date = datetime.datetime(2022, 4, 1, 12, 00, 00)
+end_date = datetime.datetime(2022, 4, 30, 12, 00, 00)
+duration_simulation = datetime.timedelta(days=5)
 max_velocity = Velocity(mps=1)
 distance_start_end_point = max_velocity * duration_simulation
 

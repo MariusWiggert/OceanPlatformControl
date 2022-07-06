@@ -43,11 +43,12 @@ def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions
     """
     axis = (1, 2) if per_hour else None
     axis_current, extension_name = __get_axis_current(current)
-    return {("r2_per_h" if per_hour else "r2") + extension_name: 1 - (
-            (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2).sum(axis=axis) / (
-                                                                         ((initial_predictions[..., axis_current] -
-                                                                           ground_truth[
-                                                                               ..., axis_current]) ** 2).sum(
+    return {("r2_per_h" if per_hour else "r2") + extension_name: 1 - np.nansum(
+        (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2, axis=axis) / (
+                                                                         np.nansum(
+                                                                             ((initial_predictions[..., axis_current] -
+                                                                               ground_truth[
+                                                                                   ..., axis_current]) ** 2),
                                                                              axis=axis) + sigma_square_division)}
 
 
@@ -98,6 +99,10 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
     axis = (1, 2) if per_hour else None
     axis_current, extension_str_2 = __get_axis_current(current)
     extension_str += extension_str_2
+
+    if np.any(np.isnan(ground_truth[..., axis_current] - improved_predictions[..., axis_current])):
+        print("contain NaNs. ground_truth:", np.isnan(ground_truth[..., axis_current]).sum(), "\tforecast:",
+              np.isnan(improved_predictions[..., axis_current]).sum())
     rmses["rmse_improved" + extension_str] = __rmse(ground_truth[..., axis_current],
                                                     improved_predictions[..., axis_current], axis=axis)
     rmses["rmse_initial" + extension_str] = __rmse(ground_truth[..., axis_current],
@@ -118,4 +123,4 @@ def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = Non
     Returns:
         rmse between the two vectors v1 and v2
     """
-    return np.sqrt(np.mean((v1 - v2) ** 2, axis=axis))
+    return np.sqrt(np.nanmean((v1 - v2) ** 2, axis=axis))
