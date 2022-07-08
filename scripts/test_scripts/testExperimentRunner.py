@@ -70,7 +70,7 @@ search_space = {
 #
 # runtime_env = {"working_dir": os.getcwd()}
 # print("runtime_env:", runtime_env)
-# ray.init(runtime_env=runtime_env)
+
 
 def write_row_csv(path, row):
     # open the file in the write mode
@@ -142,7 +142,9 @@ def train(config):
 
 
 def main_tune():
-    res = tune.run(train, config=search_space, num_samples=2)
+    # import ray
+    # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
+    res = tune.run(train, config=search_space, num_samples=100, resources_per_trial={"cpu": 2})
     # return res.get_best_config(metric="r2_avg", mode="max")
     return res.get_best_config(metric="rmse_avg", mode="min")
 
@@ -158,7 +160,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-    # main_tune()
+    # main()
+    main_tune()
 
 # %%

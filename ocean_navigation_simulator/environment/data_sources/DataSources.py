@@ -465,19 +465,21 @@ class XarraySource(abc.ABC):
         dlon = self.DataArray['lon'][1] - self.DataArray['lon'][0]
         x_interval_extended = [x_interval[0] - 1.5 * dlon.item(), x_interval[1] + 1.5 * dlon.item()]
         dlat = self.DataArray['lat'][1] - self.DataArray['lat'][0]
+        # print("dlat:", dlat)
         y_interval_extended = [y_interval[0] - 1.5 * dlat.item(), y_interval[1] + 1.5 * dlat.item()]
+        # print("y_interval_extended:", y_interval_extended)
         subset = self.DataArray.sel(
             time=slice(t_interval_extended[0], t_interval_extended[1]),
             lon=slice(x_interval_extended[0], x_interval_extended[1]),
             lat=slice(y_interval_extended[0], y_interval_extended[1]))
-
+        # print("subset:", subset)
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
         DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval)
 
         # Step 4: perform interpolation to a specific resolution if requested
         if spatial_resolution is not None or temporal_resolution is not None:
             subset = self.interpolate_in_space_and_time(subset, spatial_resolution, temporal_resolution)
-
+        # print("subset after: ", subset)
         return subset
 
     @staticmethod

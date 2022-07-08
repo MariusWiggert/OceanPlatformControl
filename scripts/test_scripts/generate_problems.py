@@ -11,7 +11,7 @@ import yaml
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.utils.units import Velocity, Distance
 
-number_problems = 10
+number_problems = 40
 seed = 30031996
 lon_left, lon_right = -95.362841, -85.766062
 lat_bottom, lat_top = 22.0, 27

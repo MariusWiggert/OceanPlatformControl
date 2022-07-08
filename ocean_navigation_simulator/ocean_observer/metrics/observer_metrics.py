@@ -101,8 +101,21 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
     extension_str += extension_str_2
 
     if np.any(np.isnan(ground_truth[..., axis_current] - improved_predictions[..., axis_current])):
+        def percent_nan(A):
+            A = np.nan_to_num(A, 0)
+
+            # [[ 1  1  0  1  0  0]
+            # [ 1  0  2  0  0  1]
+            # [99  0  0  2  0  0]]
+
+            # calculate sparsity
+            sparsity = 1.0 - ((A != 0).sum() / float(A.size))
+            return sparsity
+
         print("contain NaNs. ground_truth:", np.isnan(ground_truth[..., axis_current]).sum(), "\tforecast:",
-              np.isnan(improved_predictions[..., axis_current]).sum())
+              np.isnan(improved_predictions[..., axis_current]).sum(), "per time: ",
+              [percent_nan(ground_truth[i, ..., axis_current]) for i in range(len(ground_truth))])
+
     rmses["rmse_improved" + extension_str] = __rmse(ground_truth[..., axis_current],
                                                     improved_predictions[..., axis_current], axis=axis)
     rmses["rmse_initial" + extension_str] = __rmse(ground_truth[..., axis_current],

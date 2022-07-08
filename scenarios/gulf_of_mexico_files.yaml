@@ -20,7 +20,7 @@ ocean_dict:
     source_settings:
       #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
       #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
-      'folder': 'data/hindcast_all_2/'
+      'folder': 'data/hindcast_all_3/'
   forecast:
     field: 'OceanCurrents'
     source: 'forecast_files'
