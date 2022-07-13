@@ -15,16 +15,16 @@ experiment_runner:
   number_burnin_steps: 0
   number_steps_prediction: 120
   delta_between_predictions_in_sec: 3600 #1h
-  time_horizon_predictions_in_sec: 43200 # 24 *3600
+  #time_horizon_predictions_in_sec: 43200 # 24 *3600
   radius_area_around_platform: 0.05 #0.04665226 #3.89189189
-  number_steps_to_predict: 3
+  number_steps_to_predict: 3 #12
   gt_additional_area: 1.
   gt_additional_time: 3600
-  clear_observations_when_new_file: False
+  clear_observations_when_new_file: True
 
   use_real_data: True
   scenario_used: "gulf_of_mexico_files"
-  problems_file: "./scenarios/ocean_observer/all_problems_2.yaml"
+  #problems_file: "./scenarios/ocean_observer/all_problems.yaml"
 #  problems:
 #    - initial_position:
 #        lon_in_deg: -86
@@ -49,18 +49,19 @@ observer:
   model:
     gaussian_process:
       sigma_noise_squared: 0.000005
-      # 3.6 ** 2 = 12.96
-      sigma_exp_squared: 100 #12.96
       kernel:
         #type: "RBF"
         type: "matern"
+        # 3.6 ** 2 = 12.96
+        sigma_exp_squared: 0.8729 #12.96
         scaling:
-          latitude: 1 # [m]
-          longitude: 1 # [m]
-          time: 10000 # [s]
+          latitude: 468679.2371946604 # [m]
+          longitude: 3602 # [m]
+          #time: 716506.862986654 # [s]
+          time: 300000.862986654
         parameters:
           length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+          nu: 0.001
         #type: "rbf"
         #type: "constantkernel"
 
-      #time_horizon_predictions_in_sec: 43200

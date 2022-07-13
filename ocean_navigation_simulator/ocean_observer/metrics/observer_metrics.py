@@ -15,7 +15,7 @@ def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float,
     Returns:
         That dictionary
     """
-    return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse}
+    return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse, "vme": vme}
 
 
 def __get_axis_current(current) -> Tuple[list[int], str]:
@@ -100,22 +100,6 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
     axis_current, extension_str_2 = __get_axis_current(current)
     extension_str += extension_str_2
 
-    if np.any(np.isnan(ground_truth[..., axis_current] - improved_predictions[..., axis_current])):
-        def percent_nan(A):
-            A = np.nan_to_num(A, 0)
-
-            # [[ 1  1  0  1  0  0]
-            # [ 1  0  2  0  0  1]
-            # [99  0  0  2  0  0]]
-
-            # calculate sparsity
-            sparsity = 1.0 - ((A != 0).sum() / float(A.size))
-            return sparsity
-
-        print("contain NaNs. ground_truth:", np.isnan(ground_truth[..., axis_current]).sum(), "\tforecast:",
-              np.isnan(improved_predictions[..., axis_current]).sum(), "per time: ",
-              [percent_nan(ground_truth[i, ..., axis_current]) for i in range(len(ground_truth))])
-
     rmses["rmse_improved" + extension_str] = __rmse(ground_truth[..., axis_current],
                                                     improved_predictions[..., axis_current], axis=axis)
     rmses["rmse_initial" + extension_str] = __rmse(ground_truth[..., axis_current],
@@ -124,6 +108,38 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
             rmses["rmse_initial" + extension_str] + sigma_ratio)
 
     return rmses
+
+
+def vme(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, sigma_ratio=0.00001,
+        per_hour: bool = False, current=["uv"]) -> \
+        Dict[str, float]:
+    """Compute the vme between 1) ground_truth and improved_predictions, 2) ground_truth and initial_predictions and
+    also the ratio between these two values
+
+    Args:
+        ground_truth: xarray of the ground truth
+        improved_predictions: xarray of the improved forecast
+        initial_predictions: xarray of the initial forecast
+        sigma_ratio: small number used in the division to avoid the division by 0
+
+    Returns:
+        The 3 values as a dictionary
+    """
+    vmes = dict()
+    extension_str = "_per_h" if per_hour else ""
+    axis = (1, 2) if per_hour else None
+    axis_current, extension_str_2 = __get_axis_current(current)
+    extension_str += extension_str_2
+
+    vmes["vme_improved" + extension_str] = __vector_magntitude_error(ground_truth[..., axis_current],
+                                                                     improved_predictions[..., axis_current],
+                                                                     axis=axis)
+    vmes["vme_initial" + extension_str] = __vector_magntitude_error(ground_truth[..., axis_current],
+                                                                    initial_predictions[..., axis_current], axis=axis)
+    vmes["vme_ratio" + extension_str] = vmes["vme_improved" + extension_str] / (
+            vmes["vme_initial" + extension_str] + sigma_ratio)
+
+    return vmes
 
 
 def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
@@ -137,3 +153,46 @@ def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = Non
         rmse between the two vectors v1 and v2
     """
     return np.sqrt(np.nanmean((v1 - v2) ** 2, axis=axis))
+
+
+def __vector_magntitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
+    """Internal function to compute the vme
+
+    Args:
+        v1: vector 1
+        v2: vector 2
+        axis:
+
+    Returns:
+        vme between the two vectors v1 and v2
+    """
+    return np.nanmean(np.sum(np.abs(v1 - v2), axis=-1, keepdims=True), axis=axis)
+
+
+def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["uv"]) -> bool:
+    '''
+
+    Args:
+        ground_truth:
+        improved_predictions:
+        initial_predictions:
+        sigma_ratio:
+        per_hour:
+        current:
+
+    Returns: True if the all the hours are full of nans
+
+    '''
+    axis_current, extension_str_2 = __get_axis_current(current)
+    if np.any(np.isnan(ground_truth[..., axis_current] - improved_predictions[..., axis_current])):
+        def percent_nan(A):
+            A = np.nan_to_num(A, 0)
+            return 1.0 - ((A != 0).sum() / float(A.size))
+
+        percents = np.array([percent_nan(ground_truth[i, ..., axis_current]) for i in range(len(ground_truth))])
+        print(f"contain NaNs (direction: {current}): ground_truth:", np.isnan(ground_truth[..., axis_current]).sum(),
+              "\tforecast:",
+              np.isnan(improved_predictions[..., axis_current]).sum(), "per time: ",
+              percents)
+        return (percents == 1).all()
+    return False

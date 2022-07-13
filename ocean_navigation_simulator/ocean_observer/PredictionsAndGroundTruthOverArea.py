@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics
+from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics, check_nans
 from ocean_navigation_simulator.utils import units
 
 
@@ -49,10 +49,12 @@ class PredictionsAndGroundTruthOverArea:
         """
         res = dict()
         for s, f in get_metrics().items():
-            if metrics is None or s in set(metrics):
-                for d in directions:
-                    res |= f(self.ground_truth_area, self.improved_forecast, self.initial_forecast, per_hour=per_hour,
-                             current=d)
+            for d in directions:
+                if not check_nans(self.ground_truth_area, self.improved_forecast, current=d):
+                    if metrics is None or s in set(metrics):
+                        res |= f(self.ground_truth_area, self.improved_forecast, self.initial_forecast,
+                                 per_hour=per_hour,
+                                 current=d)
         return res
 
     def visualize_improvement_forecasts(self, state_trajectory: np.ndarray, spatial_res=None) -> None:

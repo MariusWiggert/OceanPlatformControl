@@ -28,7 +28,7 @@ def _plot_metrics_per_h(metrics: dict[str, any]) -> None:
     c = 5
     r = math.ceil(len(metrics["time"][0]) / c)
     fig, axs = plt.subplots(r, c)
-    t = [datetime.datetime.fromtimestamp(time[0]) for time in metrics["time"]]
+    t = [datetime.datetime.fromtimestamp(time[0], tz=datetime.timezone.utc) for time in metrics["time"]]
     r2_per_h = metrics["r2_per_h"]
     for i in range(r2_per_h.shape[1]):
         axs[i // c, i % c].plot(t, r2_per_h[:, i], label="r2")
@@ -42,7 +42,7 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
         metrics: dictionary containing the name of the metrics, and it's given value for each timestep in a ndarray
     """
     fig, axs = plt.subplots(2, 2)
-    t = [datetime.datetime.fromtimestamp(time) for time in metrics["time"]]
+    t = [datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc) for time in metrics["time"]]
     axs[0, 0].plot(t, metrics["r2"], label="r2")
     axs[0, 0].set_title("r2 score")
     axs[1, 0].plot(t, metrics["vector_correlation_ratio"], label="vector_correlation_ratio")
@@ -60,7 +60,7 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
 class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
-    def __init__(self, yaml_file_config: Union[str, Dict[str, any]]):
+    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
 
@@ -75,6 +75,9 @@ class ExperimentRunner:
         else:
             config = yaml_file_config
             self.variables = config["experiment_runner"]
+
+        if filename_problems is not None:
+            self.variables["problems_file"] = f'scenarios/ocean_observer/{filename_problems}.yaml'
 
         if self.variables.get("use_real_data", True):
             problems = []
@@ -104,33 +107,39 @@ class ExperimentRunner:
         self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"])
         self.last_observation, self.last_prediction_ground_truth = None, None
         self.last_file_used = None
+        self.list_dates_when_new_files = []
 
-    def run_all_problems(self) -> Tuple[List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
+    def run_all_problems(self, max_number_problems_to_run=None) -> Tuple[
+        List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
         provide the metrics computed for each problem
 
         Returns: List of dictionaries where the i-th item of the list is a dict with all the metrics computed for the
         i-th problem.
         """
+
         results = []
         results_per_h = []
-        while self.problem_factory.has_problems_remaining():
+        while self.problem_factory.has_problems_remaining() and (
+                type(max_number_problems_to_run) != int or max_number_problems_to_run > 0):
             res, res_per_h = self.run_next_problem()
             results.append(res)
             results_per_h.append(res_per_h)
             self.__create_plots(results[-1], results_per_h[-1])
+            if type(max_number_problems_to_run) == int:
+                max_number_problems_to_run -= 1
 
         merged = defaultdict(list)
         for key in results[-1].keys():
             merged[key] = [r[key].mean() for r in results]
         for key in results_per_h[-1].keys():
-            if key is "time":
+            if key == "time":
                 continue
             for r in results_per_h:
                 all_hours = r[key].mean(axis=0)
                 for h in range(len(all_hours)):
                     merged[key + "_" + str(h)] += [all_hours[h]]
-        return results, results_per_h, merged
+        return results, results_per_h, merged, self.list_dates_when_new_files
 
     def run_next_problem(self) -> Dict[str, Any]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
@@ -147,11 +156,14 @@ class ExperimentRunner:
         controller = NaiveToTargetController(problem)
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
+        self.list_dates_when_new_files = []
 
-        for i in range(self.variables.get("number_burnin_steps", 0)):
-            self.__step_simulation(controller, fit_model=False)
-            # position = arena_obs.platform_state.to_spatial_point()
-        print(f"End of burnin ({self.variables.get('number_burnin_steps', 0)} steps)")
+        burnin = self.variables.get('number_burnin_steps', 0)
+        if burnin > 0:
+            for i in range(burnin):
+                self.__step_simulation(controller, fit_model=False)
+                # position = arena_obs.platform_state.to_spatial_point()
+            print(f"End of burnin ({burnin} steps)")
         print("start predicting")
 
         metrics_names = []
@@ -163,6 +175,8 @@ class ExperimentRunner:
         # Now we run the algorithm
         for i in range(self.variables["number_steps_prediction"]):
             model_prediction = self.__step_simulation(controller, fit_model=True)
+            if not i:
+                print("Shape predictions: ", dict(model_prediction.dims))
             # get ground truth
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
                 *self.__get_lon_lat_time_intervals(ground_truth=True),
@@ -179,6 +193,9 @@ class ExperimentRunner:
             metric = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions)
             metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
                                                                                 per_hour=True)
+            # In case of Nan only
+            if len(metric_per_hour) == 0:
+                continue
             if not len(metrics_names):
                 metrics_names = ["time"] + list(metric.keys())
                 metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
@@ -191,8 +208,8 @@ class ExperimentRunner:
             times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
                                    ndmin=2)
             metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
-            print(
-                f"step {i + 1}/{self.variables['number_steps_prediction']}, metrics: {list(zip(metrics_names, metrics[-1]))}")
+            # print(
+            #    f"step {i + 1}/{self.variables['number_steps_prediction']}, time:{self.last_observation.platform_state.date_time}, metrics: {list(zip(metrics_names, metrics[-1]))}")
 
         metrics = np.array(metrics)
         metrics_per_h = np.array(metrics_per_h)
@@ -232,16 +249,19 @@ class ExperimentRunner:
             The xarray dataset containing the initial and improved forecasts, the errors and also the uncertainty if
             it is provided by the observer depending on the OceanCurrentModel used.
         """
-        if self.variables.get("clear_observations_when_new_file", False) and (
-                self.last_file_used is None or self.last_file_used !=
-                self.last_observation.forecast_data_source.DataArray.encoding['source']):
-            print("clearing observations", self.last_observation.forecast_data_source.DataArray.encoding['source'],
-                  "\n",
-                  self.last_file_used)
-            self.last_file_used = self.last_observation.forecast_data_source.DataArray.encoding['source']
-            self.observer.reset()
         action_to_apply = controller.get_action(self.last_observation)
         self.last_observation = self.arena.step(action_to_apply)
+
+        if (self.last_file_used != self.last_observation.forecast_data_source.DataArray.encoding['source']) or \
+                self.last_file_used is None:
+            if self.variables.get("clear_observations_when_new_file", False):
+                print("clearing observations", self.last_observation.forecast_data_source.DataArray.encoding['source'],
+                      "\n",
+                      self.last_file_used)
+                self.observer.reset()
+
+            self.last_file_used = self.last_observation.forecast_data_source.DataArray.encoding['source']
+            self.list_dates_when_new_files.append(self.last_observation.platform_state.date_time)
         self.observer.observe(self.last_observation)
         predictions = None
         if fit_model:
@@ -268,7 +288,7 @@ class ExperimentRunner:
         """
         point = self.last_observation.platform_state.to_spatio_temporal_point()
         deg_around_x0_xT_box = self.variables.get("radius_area_around_platform", 1)
-        temp_horizon_in_s = self.variables.get("time_horizon_predictions_in_sec", 86400)
+        temp_horizon_in_s = self.variables.get("number_steps_to_predict", 12) * 3600
         if ground_truth:
             deg_around_x0_xT_box += self.variables.get("gt_additional_area", 0.5)
             temp_horizon_in_s += self.variables.get("gt_additional_time", 3600) * 2
