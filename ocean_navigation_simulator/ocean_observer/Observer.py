@@ -89,6 +89,10 @@ class Observer:
         # print("coords:", len(forecasts["lon"]), len(forecasts["lat"]))
 
         prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
+        if prediction_std.shape != prediction_errors.shape:
+            # print("Invalid version of SKlearn, the std values will not be correct")
+            prediction_std = np.repeat(prediction_std[..., np.newaxis], 2, axis=-1)
+
         predictions_dataset = xr.merge(
             [self._convert_prediction_model_output(prediction_errors, forecasts, ("error_u", "error_v")),
              self._convert_prediction_model_output(prediction_std, forecasts, ("std_error_u", "std_error_v")),

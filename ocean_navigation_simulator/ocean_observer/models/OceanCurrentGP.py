@@ -98,6 +98,11 @@ class OceanCurrentGP(OceanCurrentModel):
             self.measurement_locations = list(measurement_locations)
             self.measured_current_errors = list(errors)
 
+        # print("fitting:", len(measurement_locations), len(errors), measurement_locations, errors)
+        # if len(measurement_locations) > 2:
+        #     print("distance travelled:",
+        #           np.array(((measurement_locations[1:] - measurement_locations[:-1]) ** 2)[:, :2].sum(
+        #               axis=1) ** .5) * 111000, "meters")
         self.model.fit(measurement_locations, errors)
 
     def reset(self) -> None:

@@ -21,6 +21,7 @@ ocean_dict:
       #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
       #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
       'folder': 'data/hindcast_all_3/'
+      #'folder': 'data/hindcast_all_one_file_april/'
   forecast:
     field: 'OceanCurrents'
     source: 'forecast_files'

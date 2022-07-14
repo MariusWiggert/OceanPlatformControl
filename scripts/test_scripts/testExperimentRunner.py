@@ -1,69 +1,142 @@
 import csv
 import os
+import sys
 
 import numpy as np
 import yaml
 from matplotlib import pyplot as plt
 from ray import tune
+from ray.tune.suggest.bayesopt import BayesOptSearch
 
 from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
-
-
-def objective(config):
-    score = config["rmse_improved"]
-    return {"score": score}
 
 
 def conditional_parameters(str_accepted: list[str], to_return):
     return tune.sample_from(lambda s: to_return if s.config.kernel in str_accepted else None)
 
 
+# General search space
+# search_space = {
+#     "filename_problems": "all_problems_3",
+#     # product and sum are not supported yet
+#     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
+#     "kernel": tune.grid_search(["matern"]),  # ["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+#     "sigma_exp": tune.qrandn(1, 1, 0.0001),
+#     # if matern or rbf
+#     "scaling": conditional_parameters(["rbf"], {
+#         "latitude": tune.loguniform(1, 100000),
+#         "longitude": tune.loguniform(1, 100000),
+#         "time": tune.loguniform(1, 100000)}
+#                                       ),
+#     "scaling": conditional_parameters(["matern"], {
+#         "latitude": tune.loguniform(1, 1000000),
+#         "longitude": tune.loguniform(1, 1000000),
+#         "time": tune.loguniform(1, 1000000)}
+#                                       ),
+#     # "lon_scale": tune.loguniform(1, 1e6),
+#     # "time_scale": tune.loguniform(1, 1e6),
+#     # if matern
+#     "nu": conditional_parameters(["matern"], tune.choice([0.001, 0.01, 0.1, 0.5, 1.5])),
+#     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
+#
+#     # if rational quadratic or expsinesquared(=periodic)
+#     "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
+#
+#     "length_scale_bounds": "fixed",
+#     # if rational quadratic
+#     "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
+#     "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
+#
+#     # if expSineSquared
+#     "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10)),
+#     "periodicity_bounds": conditional_parameters(["ExpSineSquared"], "fixed"),
+#
+#     # not supported yet
+#     # if product
+#     # "1": {
+#     #     "lat_scale": tune.loguniform(1, 1e6),
+#     #     "lon_scale": tune.loguniform(1, 1e6),
+#     #     "time_scale": tune.loguniform(1, 1e6),
+#     #     "length_scale_bounds": "fixed",
+#     #     # if matern
+#     #     "nu": tune.choice([0.001, 0.1, 0.5, 1.5, 2.5, 5, 10])
+#     # },
+#     # "2": {
+#     #     "lat_scale": tune.loguniform(1, 1e6),
+#     #     "lon_scale": tune.loguniform(1, 1e6),
+#     #     "time_scale": tune.loguniform(1, 1e6),
+#     #     "length_scale_bounds": "fixed"
+#     # }
+# }
+
+
+# Matern search space
+# search_space = {
+#     "filename_problems": "all_problems_3",
+#     # product and sum are not supported yet
+#     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
+#     "kernel": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+#     "sigma_exp": tune.qrandn(1, 1, 0.0001),
+#     # if matern or rbf
+#     "scaling": {
+#         "latitude": tune.loguniform(1, 1e6),
+#         "longitude": tune.loguniform(1, 1e6),  # tune.loguniform(1, 1e6),
+#         "time": tune.loguniform(50000, 1e6)},
+#     # "lon_scale": tune.loguniform(1, 1e6),
+#     # "time_scale": tune.loguniform(1, 1e6),
+#     # if matern
+#     "nu": tune.quniform(0.0005, 0.002, 0.0001),  # [1e-5, 1e-4, 0.001, 0.1]),  # , 0.5, 1.5]),
+#     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
+#
+#     # if rational quadratic or expsinesquared(=periodic)
+#
+#     # "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 1e6)),
+#     "length_scale_bounds": "fixed",
+#     # if rational quadratic
+#     # "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
+#     # "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
+#
+#     # if expSineSquared
+#     # "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 1000)),
+#     # "periodicity_bounds": conditional_parameters(["ExpSineSquared"], "fixed"),
+#     # "length_scale": conditional_parameters(["ExpSineSquared"], tune.loguniform(1, 1e6)),
+#
+#     # not supported yet
+#     # if product
+#     # "1": {
+#     #     "lat_scale": tune.loguniform(1, 1e6),
+#     #     "lon_scale": tune.loguniform(1, 1e6),
+#     #     "time_scale": tune.loguniform(1, 1e6),
+#     #     "length_scale_bounds": "fixed",
+#     #     # if matern
+#     #     "nu": tune.choice([0.001, 0.1, 0.5, 1.5, 2.5, 5, 10])
+#     # },
+#     # "2": {
+#     #     "lat_scale": tune.loguniform(1, 1e6),
+#     #     "lon_scale": tune.loguniform(1, 1e6),
+#     #     "time_scale": tune.loguniform(1, 1e6),
+#     #     "length_scale_bounds": "fixed"
+#     # }
+# }
+
+# Matern_bayes
 search_space = {
     "filename_problems": "all_problems_3",
     # product and sum are not supported yet
     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
     "kernel": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
-    "sigma_exp": tune.qrandn(1, 1, 0.0001),
+    "sigma_exp": tune.uniform(0.0001, 10),
     # if matern or rbf
     "scaling": {
-        "latitude": tune.loguniform(1, 1e6),
-        "longitude": tune.loguniform(1, 1e6),  # tune.loguniform(1, 1e6),
-        "time": tune.loguniform(50000, 1e6)},
+        "latitude": tune.uniform(1, 1e6),
+        "longitude": tune.uniform(1, 1e6),  # tune.loguniform(1, 1e6),
+        "time": tune.uniform(1000, 5000000)},
     # "lon_scale": tune.loguniform(1, 1e6),
     # "time_scale": tune.loguniform(1, 1e6),
     # if matern
-    "nu": tune.quniform(0.0005, 0.002, 0.0001),  # [1e-5, 1e-4, 0.001, 0.1]),  # , 0.5, 1.5]),
-    # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
-
-    # if rational quadratic or expsinesquared(=periodic)
-
-    # "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 1e6)),
+    "nu": tune.uniform(0.0005, 0.002),  # [1e-5, 1e-4, 0.001, 0.1]),  # , 0.5, 1.5]),
     "length_scale_bounds": "fixed",
-    # if rational quadratic
-    # "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
-    # "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
 
-    # if expSineSquared
-    # "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 1000)),
-    # "periodicity_bounds": conditional_parameters(["ExpSineSquared"], "fixed"),
-    # "length_scale": conditional_parameters(["ExpSineSquared"], tune.loguniform(1, 1e6)),
-
-    # not supported yet
-    # if product
-    # "1": {
-    #     "lat_scale": tune.loguniform(1, 1e6),
-    #     "lon_scale": tune.loguniform(1, 1e6),
-    #     "time_scale": tune.loguniform(1, 1e6),
-    #     "length_scale_bounds": "fixed",
-    #     # if matern
-    #     "nu": tune.choice([0.001, 0.1, 0.5, 1.5, 2.5, 5, 10])
-    # },
-    # "2": {
-    #     "lat_scale": tune.loguniform(1, 1e6),
-    #     "lon_scale": tune.loguniform(1, 1e6),
-    #     "time_scale": tune.loguniform(1, 1e6),
-    #     "length_scale_bounds": "fixed"
-    # }
 }
 
 
@@ -141,18 +214,20 @@ def train(config):
             write_row_csv(file_csv, merged_mean.keys())
         write_row_csv(file_csv, merged_mean.values())
 
-        # return {"r2_avg": np.array([r["r2"] for r in results]).mean()}
-        return {"vme_avg": np.array([r["vme_improved"] for r in results]).mean()}
+        # return {"avg": np.array([r["vme_improved"] for r in results]).mean()}
+        tune.report(score=np.array([r["vme_improved"] for r in results]).mean())
 
     # variables = config["experiment_runner"]
 
 
-def main_tune():
+def main_tune(num_samples=500):
     # import ray
     # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
-    res = tune.run(train, config=search_space, num_samples=500)
+    # res = tune.run(train, config=search_space, num_samples=num_samples)
     # return res.get_best_config(metric="r2_avg", mode="max")
-    return res.get_best_config(metric="vme_avg", mode="min")
+    # return res.get_best_config(metric="avg", mode="min")
+    bayesopt = BayesOptSearch(metric="score", mode="min")
+    tune.run(train, config=search_space, num_samples=num_samples, search_alg=bayesopt)
 
 
 def main(max_number_problems_to_run=None):
@@ -180,8 +255,8 @@ def main(max_number_problems_to_run=None):
     plt.plot(X, y1, color='r', label=initial)
     plt.plot(X, y2, color='g', label=improved)
 
-    plt.plot(X, y1_mean, color="blue", label=initial + "_mean")
-    plt.plot(X, y2_mean, color="yellow", label=improved + "_mean")
+    plt.plot(X, y1_mean, color="b", label=initial + "_mean")
+    plt.plot(X, y2_mean, color="yellow--", label=improved + "_mean")
 
     for t in list_dates_when_new_files:
         plt.axvline(x=t)
@@ -202,7 +277,9 @@ def main(max_number_problems_to_run=None):
 
 
 if __name__ == "__main__":
-    main(max_number_problems_to_run=None)
-    # main_tune()
+    if "-R" in sys.argv or "--remote" in sys.argv:
+        main_tune(num_samples=5000)
+    else:
+        main(max_number_problems_to_run=None)
 
 # %%

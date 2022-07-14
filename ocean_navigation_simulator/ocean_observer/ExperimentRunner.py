@@ -183,7 +183,6 @@ class ExperimentRunner:
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
             # print("ground_truth:", ground_truth)
             ground_truth = ground_truth.assign_coords(depth=model_prediction.depth.to_numpy().tolist())
-            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
 
             # compute the metrics and log the results
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
@@ -296,5 +295,4 @@ class ExperimentRunner:
                 seconds=self.variables.get("gt_additional_time", 3600))
         t, lat, lon = DataSource.convert_to_x_y_time_bounds(
             x_0=point, x_T=point, deg_around_x0_xT_box=deg_around_x0_xT_box, temp_horizon_in_s=temp_horizon_in_s)
-        # print(ground_truth, lat)
         return lon, lat, t
