@@ -1,14 +1,18 @@
-import time
-from typing import Tuple, Optional, Union, Text
+from typing import Tuple, Optional, Union, Text, Callable
 import numpy as np
 import gym
-from gym import spaces
-from gym.utils.seeding import RandomNumberGenerator
 
-# TODO: @jerome -> this doesn't work yet...
+from ocean_navigation_simulator.environment.Arena import Arena
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
+from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.RewardFunctions import double_gyre_reward_function
+from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 
 from ocean_navigation_simulator.problem_factories.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.env.simulator_data import SimulatorAction, SimulatorObservation
 
 
 class PlatformEnv(gym.Env):
@@ -16,39 +20,54 @@ class PlatformEnv(gym.Env):
     A basic Platform Learning Environment
     """
 
-    # should be set in SOME gym subclasses -> TODO: see if we need to
     metadata = {"render_modes": []}
     reward_range = (-float("inf"), float("inf"))
-    spec = None
+    spec = None # might use for max_episode_steps
 
-    action_space: spaces.Space[SimulatorAction]
-    observation_space: spaces.Space[SimulatorObservation]
-    _np_random: Optional[RandomNumberGenerator] = None
+    problem_factory: ProblemFactory = None
+    problem: NavigationProblem = None
+    arena: Arena = None
+    prev_state: PlatformState = None
+    reward_fn: Callable = None
+    feature_constructor: FeatureConstructor = None
 
-    def __init__(self, problem_factory: ProblemFactory, arena: Optional[platform_arena.PlatformArenaInterface] = None,
-                 seed: Optional[int] = None):
+    # _np_random: Optional[RandomNumberGenerator] = None
+
+    def __init__(
+        self,
+        config,
+        scenario_name = 'double_gyre',
+    ):
         """
         Constructs a basic Platform Learning Environment.
 
+        actions: [magnitude, direction]
+        observation: [abs lon, lon, time, u_curr, v_curr]
+
         Args:
-            problem_factory: yields next problem when reset() is called.
-            arena: a platform arena to wrap, if None uses default arena
             seed: PRNG seed for the environment
-
-        TODO: pass reward function as argument or innate? 
         """
+        self._seed = config['seed'] if 'seed' in config else 2022
+        self.arena_steps_per_env_step = config['arena_steps_per_env_step'] if 'arena_steps_per_env_step' in config else 1
 
-        self.problem = None
-        self.problem_factory = problem_factory
+        #print(f'arena_steps_per_env_step: {self.arena_steps_per_env_step}')
 
-        if arena is None:
-            self.arena = platform_arena.PlatformArena()
-        else:
-            self.arena = arena
+        self.problem_factory = DoubleGyreProblemFactory(seed=self._seed, scenario_name='simplified')
+        self.arena = ArenaFactory.create(scenario_name=scenario_name)
+        self.reward_fn = double_gyre_reward_function
+        self.feature_constructor = DoubleGyreFeatureConstructor()
+
+        self.action_space = gym.spaces.Box(
+            low=np.array([-np.pi], dtype=np.float32),
+            high=np.array([np.pi], dtype=np.float32),
+            shape=(1,)
+        )
+        # self.action_space = gym.spaces.Discrete(360)
+        self.observation_space = self.feature_constructor.get_observation_space()
 
         self.reset()
 
-    def step(self, action: SimulatorAction) -> Tuple[SimulatorObservation, float, bool, dict]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         """
         Run one timestep of the environment's dynamics.
         Accepts an action and returns a tuple (observation, reward, done, info).
@@ -60,15 +79,37 @@ class PlatformEnv(gym.Env):
             done (bool): whether the episode has ended
             info (dict): auxiliary diagnostic information
         """
-        pass
+        # command = PlatformAction(magnitude=1, direction=action[0])
+        command = PlatformAction(magnitude=1, direction=action[0])
+
+        for i in range(self.arena_steps_per_env_step):
+            arena_obs = self.arena.step(command)
+
+        problem_status = self.problem.is_done(arena_obs.platform_state)
+
+        solved = problem_status == 1
+        unsolvable = problem_status == -1
+        crashed = not self.arena.is_inside_arena()
+        terminate = solved or unsolvable or crashed
+
+        reward = self.reward_fn(self.prev_state, arena_obs.platform_state, self.problem, solved, crashed)
+
+        # if terminate:
+        #     print('terminate')
+        #     self.reset()
+
+        model_obs = self.feature_constructor.get_features_from_state(obs=arena_obs, problem=self.problem)
+        self.prev_state = arena_obs.platform_state
+
+        return model_obs, reward, terminate, {}
 
     def reset(
-        self,
-        *,
-        seed: Optional[int] = None,
-        return_info: bool = False,
-        options: Optional[dict] = None,
-    ) -> Union[SimulatorObservation, tuple[SimulatorObservation, dict]]:
+            self,
+            *,
+            seed: Optional[int] = None,
+            return_info: bool = False,
+            options: Optional[dict] = None,
+    ):
         """
         Resets the environment.
         This method should also reset the environment's random number
@@ -86,16 +127,21 @@ class PlatformEnv(gym.Env):
             observation (object): the initial observation.
             info (opt. dictionary): a dictionary containing extra information, returned if return_info set to True
         """
-        self.problem = self.problem_factory.next()
+        self.problem = self.problem_factory.next_problem()
 
-        observation = self.arena.reset()
+        #print('arena reset')
+
+        arena_obs = self.arena.reset(self.problem.start_state)
+        self.prev_state = arena_obs.platform_state
+        model_obs = self.feature_constructor.get_features_from_state(obs=arena_obs, problem=self.problem)
 
         if return_info:
-            simulator_state = self.arena.get_simulator_state()
-            info = simulator_state.balloon_state
-            return observation, info
+            pass
+            # simulator_state = self.arena.get_simulator_state()
+            # info = simulator_state.balloon_state
+            # return observation, info
         else:
-            return observation
+            return model_obs
 
     def render(self, mode="human") -> Union[None, np.ndarray, Text]:
         """
@@ -120,6 +166,4 @@ class PlatformEnv(gym.Env):
         Returns:
             None, a numpy array of rgb data, or a string (?) object, depending on the mode.
         """
-        pass
-
-
+        return self.problem.renderer.render(mode)

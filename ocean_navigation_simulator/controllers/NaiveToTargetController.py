@@ -1,4 +1,3 @@
-import datetime
 import math
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
@@ -28,16 +27,3 @@ class NaiveToTargetController(Controller):
 
         # go towards the center of the target with full power
         return PlatformAction.from_xy_propulsion(x_propulsion=dlon / mag, y_propulsion=dlat / mag)
-
-    def get_waypoints(self) -> list:
-        """
-        Output start and end waypoints for the planner.
-        Returns:
-            List of format [start, end], where both start and end are of format [lat, lon, time]
-        """
-        start = [self.problem.start_state.lat, self.problem.start_state.lon, self.problem.start_state.date_time]
-
-        # TODO: change how this functions for complex end regions
-        end = [self.problem.end_region.lat, self.problem.end_region.lon,
-               self.problem.start_state.date_time + datetime.timedelta(days=10)]
-        return [start, end]

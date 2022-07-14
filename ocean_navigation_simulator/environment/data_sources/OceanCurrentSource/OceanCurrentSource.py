@@ -308,7 +308,7 @@ def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
           currents: String either 'normal' then uo, vo from Copernicus is used or
                     'total' then the total including tidal and wave drift is used.
     """
-    if 'HYCOM' in data_frame.attrs['source']:
+    if 'source' not in data_frame.attrs or 'HYCOM' in data_frame.attrs['source']:
         data_frame["time"] = data_frame["time"].dt.round("H")
         return data_frame
     elif 'MERCATOR' in data_frame.attrs['source']:

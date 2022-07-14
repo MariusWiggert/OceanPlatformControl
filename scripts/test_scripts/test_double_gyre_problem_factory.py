@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import time
 
-from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.env.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.env.controllers.NaiveToTarget import NaiveToTargetController
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
+from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
 
 
 start = time.time()
@@ -14,7 +14,7 @@ arenas = []
 problems = []
 success = []
 
-for j in tqdm(range(5)):
+for j in tqdm(range(100)):
     problem = factory.next_problem()
     problems.append(problem)
 

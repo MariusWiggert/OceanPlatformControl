@@ -13,6 +13,8 @@ platform_dict:
 
 use_geographic_coordinate_system: True
 
+spatial_boundary: null
+
 ocean_dict:
     hindcast:
         field: 'OceanCurrents'

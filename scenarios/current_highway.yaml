@@ -1,6 +1,6 @@
 sim_cache_dict:
     deg_around_x_t: 10.0
-    time_around_x_t: 10.0
+    time_around_x_t: 1000.0
 
 platform_dict:
     battery_cap_in_wh: 400.0
@@ -13,12 +13,16 @@ platform_dict:
 
 use_geographic_coordinate_system: False
 
+spatial_boundary:
+    x: [0, 10]
+    y: [0, 10]
+
 ocean_dict:
     hindcast:
         field: 'OceanCurrents'
         source: 'analytical'
         source_settings:
-            name: 'FixedCurrentHighwayField'
+            name: 'FixedCurrentHighway'
             boundary_buffers: [0.2, 0.2]
             x_domain: [0, 10]
             y_domain: [0, 10]

@@ -29,7 +29,7 @@ class DataSource(abc.ABC):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-    def check_for_casadi_dynamics_update(self, state: PlatformState) -> bool:
+    def check_for_casadi_dynamics_update(self, state: PlatformState, verbose: bool = False) -> bool:
         """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
             Args:
                 state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
@@ -39,15 +39,16 @@ class DataSource(abc.ABC):
         out_t_range = not (self.casadi_grid_dict['t_range'][0] <= state.date_time < self.casadi_grid_dict['t_range'][1])
 
         if out_x_range or out_y_range or out_t_range:
-            if out_x_range:
-                print(
-                    f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
-            if out_y_range:
-                print(
-                    f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
-            if out_t_range:
-                print(
-                    f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
+            if verbose:
+                if out_x_range:
+                    print(
+                        f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
+                if out_y_range:
+                    print(
+                        f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
+                if out_t_range:
+                    print(
+                        f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
 
             self.update_casadi_dynamics(state)
             return True
