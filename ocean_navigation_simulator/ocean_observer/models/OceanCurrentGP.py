@@ -53,19 +53,24 @@ class OceanCurrentGP(OceanCurrentModel):
         factor = dic_config.get("sigma_exp_squared", 1)
         params = dic_config.get("parameters", {})
         scales = dic_config.get("scaling", None)
+
+        # basic_kernel = 0.6211287143789959 * gaussian_process.kernels.Matern(
+        #     length_scale=[390520.4631947867, 681740.8840581803, 1414942.3557823836], nu=0.001978964277804827,
+        #     length_scale_bounds='fixed')
+
         if scales is not None:
             params["length_scale"] = np.array([
                 scales.get("longitude", 1), scales.get("latitude", 1), scales.get("time", 1)])
         if type_kernel.lower() == "rbf":
-            return factor * gaussian_process.kernels.RBF(**params)
+            return factor * gaussian_process.kernels.RBF(**params)  # + basic_kernel
         if type_kernel.lower() == "matern":
-            return factor * gaussian_process.kernels.Matern(**params)
+            return factor * gaussian_process.kernels.Matern(**params)  # + basic_kernel
         if type_kernel.lower() == "constantkernel":
-            return factor * gaussian_process.kernels.ConstantKernel(**params)
+            return factor * gaussian_process.kernels.ConstantKernel(**params)  # + basic_kernel
         if type_kernel.lower() == "rationalquadratic":
-            return factor * gaussian_process.kernels.RationalQuadratic(**params)
+            return factor * gaussian_process.kernels.RationalQuadratic(**params)  # + basic_kernel
         if type_kernel.lower() == "expsinesquared":
-            return factor * gaussian_process.kernels.ExpSineSquared(**params)
+            return factor * gaussian_process.kernels.ExpSineSquared(**params)  # + basic_kernel
         # Not supported yet
         # if type_kernel.lower() == "sum":
         #     return self.__get_kernel(dic_config["kernel_1"]) + self.__get_kernel(dic_config["kernel_2"])

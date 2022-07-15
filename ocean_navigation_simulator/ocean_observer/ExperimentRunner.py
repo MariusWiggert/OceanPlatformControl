@@ -60,7 +60,7 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
 class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
-    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None):
+    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None, visualize_area=False):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
 
@@ -109,6 +109,9 @@ class ExperimentRunner:
         self.last_file_used = None
         self.list_dates_when_new_files = []
 
+        if visualize_area:
+            self.run_next_problem(visualize_area=True)
+
     def run_all_problems(self, max_number_problems_to_run=None) -> Tuple[
         List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
@@ -141,7 +144,7 @@ class ExperimentRunner:
                     merged[key + "_" + str(h)] += [all_hours[h]]
         return results, results_per_h, merged, self.list_dates_when_new_files
 
-    def run_next_problem(self) -> Dict[str, Any]:
+    def run_next_problem(self, visualize_area=False) -> Dict[str, Any]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
         observer. Gather "number_burnin_steps" observations without fitting the model and then start predicting the
         model at each timestep and evaluate for that timestep the prediction compared to the hindcast.
@@ -172,6 +175,9 @@ class ExperimentRunner:
         metrics_per_h = []
         results = []
 
+        if visualize_area:
+            print('toto')
+
         # Now we run the algorithm
         for i in range(self.variables["number_steps_prediction"]):
             model_prediction = self.__step_simulation(controller, fit_model=True)
@@ -196,11 +202,13 @@ class ExperimentRunner:
             if len(metric_per_hour) == 0:
                 continue
             if not len(metrics_names):
-                metrics_names = ["time"] + list(metric.keys())
+                metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
                 metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
 
-            metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0,
-                                     self.last_observation.platform_state.date_time.timestamp()))
+            metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
+                [self.last_observation.platform_state.date_time.timestamp(),
+                 (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(axis=-1) ** 0.5).mean()])))
+
             values_per_h = np.stack(list(metric_per_hour.values()))
             # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
             #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
