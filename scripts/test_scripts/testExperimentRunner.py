@@ -1,4 +1,5 @@
 import csv
+import datetime
 import os
 import sys
 
@@ -230,9 +231,11 @@ def main_tune(num_samples=500):
 
 
 def main_visualize():
-    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3", visualize_area=True)
-    exp.run_all_problems(
-        max_number_problems_to_run=max_number_problems_to_run)
+    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3")
+    x, y, t = [-90, -80], [24, 30], [datetime.datetime(2022, 4, 10, tzinfo=datetime.timezone.utc),
+                                     datetime.datetime(2022, 4, 10, 12, tzinfo=datetime.timezone.utc)]
+    number_forecasts_in_days = 15
+    exp.visualize_area(x, y, t, number_forecasts=number_forecasts_in_days)
 
 
 def main(max_number_problems_to_run=None):
@@ -309,8 +312,9 @@ def main(max_number_problems_to_run=None):
 if __name__ == "__main__":
     if "-R" in sys.argv or "--remote" in sys.argv:
         main_tune(num_samples=5000)
-    else:
-        # main(max_number_problems_to_run=None)
+    elif "-V" in sys.argv or "--visualize" in sys.argv:
         main_visualize()
+    else:
+        main(max_number_problems_to_run=None)
 
 # %%

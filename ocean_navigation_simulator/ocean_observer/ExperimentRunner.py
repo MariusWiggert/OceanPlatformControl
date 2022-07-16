@@ -60,7 +60,7 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
 class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
-    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None, visualize_area=False):
+    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
 
@@ -109,8 +109,36 @@ class ExperimentRunner:
         self.last_file_used = None
         self.list_dates_when_new_files = []
 
-        if visualize_area:
-            self.run_next_problem(visualize_area=True)
+    def visualize_area(self, x, y, t, number_forecasts=50):
+        if not self.problem_factory.has_problems_remaining():
+            raise StopIteration()
+
+        problem = self.problem_factory.next_problem()
+        problem.start_state.date_time = t[0] - datetime.timedelta(days=1)
+        controller = NaiveToTargetController(problem)
+        self.last_observation = self.arena.reset(problem.start_state)
+        self.observer.reset()
+        self.list_dates_when_new_files = []
+
+        list_forecast_hindcast = []
+        self.__step_simulation(controller, fit_model=True)
+        for i in range(number_forecasts):
+            shift = datetime.timedelta(days=i)
+            dims = x, y, [ti + shift for ti in t]
+            while self.last_observation.platform_state.date_time < dims[-1][0]:
+                action_to_apply = controller.get_action(self.last_observation)
+                self.last_observation = self.arena.step(action_to_apply)
+            fc = self.observer.get_data_over_area(*dims,
+                                                  temporal_resolution=self.variables.get(
+                                                      "delta_between_predictions_in_sec", None))
+            hc = self.arena.ocean_field.hindcast_data_source.get_data_over_area(*dims,
+                                                                                temporal_resolution=self.variables.get(
+                                                                                    "delta_between_predictions_in_sec",
+                                                                                    None))
+            hc = hc.assign_coords(depth=fc.depth.to_numpy().tolist())
+            obj = PredictionsAndGroundTruthOverArea(fc, hc)
+            list_forecast_hindcast.append((obj.predictions_over_area, obj.ground_truth))
+        obj.visualize_initial_error(list_forecast_hindcast)
 
     def run_all_problems(self, max_number_problems_to_run=None) -> Tuple[
         List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
@@ -144,7 +172,7 @@ class ExperimentRunner:
                     merged[key + "_" + str(h)] += [all_hours[h]]
         return results, results_per_h, merged, self.list_dates_when_new_files
 
-    def run_next_problem(self, visualize_area=False) -> Dict[str, Any]:
+    def run_next_problem(self) -> Dict[str, Any]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
         observer. Gather "number_burnin_steps" observations without fitting the model and then start predicting the
         model at each timestep and evaluate for that timestep the prediction compared to the hindcast.
@@ -174,9 +202,6 @@ class ExperimentRunner:
         metrics = []
         metrics_per_h = []
         results = []
-
-        if visualize_area:
-            print('toto')
 
         # Now we run the algorithm
         for i in range(self.variables["number_steps_prediction"]):

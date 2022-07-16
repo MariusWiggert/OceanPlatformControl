@@ -1,9 +1,9 @@
-from typing import Union, Dict, Set
+from typing import Union, Dict, Set, Optional, List, Tuple
 
 import numpy as np
 import xarray as xr
 from matplotlib import pyplot as plt
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, Button
 
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics, check_nans
@@ -57,7 +57,83 @@ class PredictionsAndGroundTruthOverArea:
                                  current=d)
         return res
 
-    def visualize_improvement_forecasts(self, state_trajectory: np.ndarray, spatial_res=None) -> None:
+    def visualize_initial_error(self, list_predictions: List[Tuple['xr', 'xr']], spatial_res=None):
+        fig, ax1 = plt.subplots(1, 1)
+        # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
+        #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
+        # error = init_fc - self.ground_truth
+        all_predictions = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) - pred[1] for pred in
+                           list_predictions]
+        ax1, self.cbar = OceanCurrentSource.plot_data_from_xarray(0, all_predictions[0], ax=ax1,
+                                                                  return_cbar=True)
+
+        # x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
+
+        # Slider
+
+        def f(lag, index_prediction, ax1):
+            ax1.clear()
+            self.cbar.remove()
+            fig.suptitle('At time {}'.format(
+                units.get_datetime_from_np64(self.predictions_over_area['time'][-1])), fontsize=14)
+
+            _, self.cbar = OceanCurrentSource.plot_data_from_xarray(lag, all_predictions[index_prediction], ax=ax1,
+                                                                    return_cbar=True)
+
+        time_dim = list(range(len(list_predictions[-1][0]["time"])))
+
+        # adjust the main plot to make room for the sliders
+        plt.subplots_adjust(left=0.25, bottom=0.25)
+
+        # Make a horizontal slider to control the frequency.
+        ax_lag_time = plt.axes([0.25, 0.1, 0.65, 0.03])
+        lag_time_slider = Slider(
+            ax=ax_lag_time,
+            label='Lag with forecast',
+            valmin=min(time_dim),
+            valmax=max(time_dim) - 1,
+            valinit=time_dim[0],
+            valstep=1
+        )
+
+        # Make a vertically oriented slider to control the amplitude
+        axamp = plt.axes([0.1, 0.25, 0.0225, 0.63])
+        forecast_slider = Slider(
+            ax=axamp,
+            label="time forecast",
+            valmin=0,
+            valmax=len(list_predictions) - 1,
+            valinit=0,
+            orientation="vertical",
+            valstep=1
+        )
+
+        # The function to be called anytime a slider's value changes
+        def update(val):
+            f(lag_time_slider.val, forecast_slider.val, ax1)
+            fig.canvas.draw_idle()
+
+        # register the update function with each slider
+        lag_time_slider.on_changed(update)
+        forecast_slider.on_changed(update)
+
+        # Create a `matplotlib.widgets.Button` to reset the sliders to initial values.
+        resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
+        button = Button(resetax, 'Reset', hovercolor='0.975')
+
+        def reset(event):
+            ax_lag_time.reset()
+            forecast_slider.reset()
+
+        button.on_clicked(reset)
+
+        plt.show()
+        keyboardClick = False
+        while keyboardClick != True:
+            keyboardClick = plt.waitforbuttonpress()
+
+    def visualize_improvement_forecasts(self, state_trajectory: Optional[np.ndarray] = None, spatial_res=None) -> None:
         """ Display 3 figures representing the initial forecast current map, the improved forecast current map and the
          ground truth current map
 
@@ -69,27 +145,31 @@ class PredictionsAndGroundTruthOverArea:
         fig.suptitle('At time {}'.format(
             units.get_datetime_from_np64(self.predictions_over_area['time'][-1])), fontsize=14)
         vmin = 0
-        vmax = max(self.initial_forecast.max(), self.improved_forecast.max(), self.ground_truth_area.max())
+        vmax = max(np.nanmax(self.initial_forecast), np.nanmax(self.improved_forecast),
+                   np.nanmax(self.ground_truth_area))
 
         ax1 = OceanCurrentSource.plot_data_from_xarray(0, self.ground_truth, vmin=vmin, vmax=vmax, ax=ax[0, 1])
-        trajectory_x, trajectory_y = state_trajectory[:, 0], state_trajectory[:, 1]
         x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
-        ax1.plot(trajectory_x, trajectory_y, color='y', marker='+')
         ax1.set_xlim(x_lim), ax1.set_ylim(y_lim)
         ax1.set_title("True currents")
+        if state_trajectory is not None:
+            trajectory_x, trajectory_y = state_trajectory[:, 0], state_trajectory[:, 1]
+            ax1.plot(trajectory_x, trajectory_y, color='y', marker='+')
 
         initial_forecast_reformated = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]] \
             .rename(initial_forecast_u="water_u", initial_forecast_v="water_v")
         ax2 = OceanCurrentSource.plot_data_from_xarray(0, initial_forecast_reformated, vmin=vmin, vmax=vmax,
                                                        ax=ax[0, 0])
         x_lim, y_lim = ax2.get_xlim(), ax2.get_ylim()
-        ax2.plot(trajectory_x, trajectory_y, color='y', marker='+')
+        if state_trajectory is not None:
+            ax2.plot(trajectory_x, trajectory_y, color='y', marker='+')
         ax2.set_xlim(x_lim), ax2.set_ylim(y_lim)
         ax2.set_title("Initial forecasts")
 
         ax3 = OceanCurrentSource.plot_data_from_xarray(0, self.predictions_over_area, vmin=vmin, vmax=vmax, ax=ax[1, 1])
         x_lim, y_lim = ax3.get_xlim(), ax3.get_ylim()
-        ax3.plot(trajectory_x, trajectory_y, color='y', marker='+')
+        if state_trajectory is not None:
+            ax3.plot(trajectory_x, trajectory_y, color='y', marker='+')
         ax3.set_xlim(x_lim), ax3.set_ylim(y_lim)
         ax3.set_title("Improved forecasts")
 
@@ -103,7 +183,8 @@ class PredictionsAndGroundTruthOverArea:
                                                        vmax=magnitude.max(),
                                                        ax=ax[1, 0])
         x_lim, y_lim = ax4.get_xlim(), ax4.get_ylim()
-        ax4.plot(trajectory_x, trajectory_y, color='y', marker='+')
+        if state_trajectory is not None:
+            ax4.plot(trajectory_x, trajectory_y, color='y', marker='+')
         ax4.set_xlim(x_lim), ax4.set_ylim(y_lim)
         ax4.set_title("Error predicted *(-1)")
         fig.tight_layout()

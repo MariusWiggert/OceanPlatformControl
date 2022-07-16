@@ -49,7 +49,8 @@ class OceanCurrentSource(DataSource):
     @staticmethod
     def plot_data_from_xarray(time_idx: int, xarray: xr, vmin: Optional[float] = 0, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
-                              colorbar: bool = True, ax=None, fill_nan: bool = True) -> matplotlib.pyplot.axes:
+                              colorbar: bool = True, ax=None, fill_nan: bool = True,
+                              return_cbar=False) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -106,6 +107,8 @@ class OceanCurrentSource(DataSource):
         elif plot_type == 'quiver':
             xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
 
+        if return_cbar:
+            return ax, cbar
         return ax
 
 
