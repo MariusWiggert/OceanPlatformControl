@@ -34,11 +34,11 @@ def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source:
     """
     Interpolates the hindcast data to spatio-temporal points of buoy measurements
 
-    data_source: str {hindcast, forecast}
+    data_source: str {hindcast_data_source, forecast_data_source}
     """
 
-    df["u_hind"] = 0
-    df["v_hind"] = 0
+    df[f"u_{data_source.split('_')[0]}"] = 0
+    df[f"v_{data_source.split('_')[0]}"] = 0
     # convert time column to datetime
     df["time"] = pd.to_datetime(df["time"])
 
@@ -50,8 +50,8 @@ def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source:
                                                                             lon=df.iloc[i:i+n]["lon"],
                                                                             lat=df.iloc[i:i+n]["lat"])
         # add columns to dataframe
-        df["u_hind"][i:i+n] = hindcast_interp["water_u"].values.diagonal().diagonal()
-        df["v_hind"][i:i+n] = hindcast_interp["water_v"].values.diagonal().diagonal()
+        df[f"u_{data_source.split('_')[0]}"][i:i+n] = hindcast_interp["water_u"].values.diagonal().diagonal()
+        df[f"v_{data_source.split('_')[0]}"][i:i+n] = hindcast_interp["water_v"].values.diagonal().diagonal()
     return df
 
 def interp_hincast_casadi(df: pd.DataFrame, hindcast_x_interval: List[float], hindcast_y_interval: List[float],

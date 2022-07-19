@@ -65,8 +65,8 @@ def get_vector_correlation_per_day(df_day):
     vec_corr_total = 0
     for name in buoy_names:
         points_buoy = df_day[df_day["buoy"] == name]
-        vec_corr = calc_vector_correlation(points_buoy["u_hind"],
-                                                points_buoy["v_hind"],
+        vec_corr = calc_vector_correlation(points_buoy["u_hindcast"],
+                                                points_buoy["v_hindcast"],
                                                 points_buoy["u"],
                                                 points_buoy["v"])
         if np.isnan(vec_corr):

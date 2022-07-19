@@ -39,7 +39,7 @@ class TargetedTimeRange:
         return dateutil.parser.isoparse(self.time_range.split("/")[1])
 
 
-# TODO: interpolating forecast and hindcast should add differnent columns
+# TODO: interpolating forecast and hindcast should add different columns
 # right now both add "u_hind" and "v_hind"
 
 # TODO: directly obtain forecast/hindcast so one can call the interp func directly
@@ -51,17 +51,17 @@ class BuoyDataSource(ABC):
     def __init__(self, yaml_file_config: str, source: str):
         with open(yaml_file_config) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
-            self.data_config = config["data_config"][source]
+            self.buoy_config = config["buoy_config"][source]
 
-        self.targeted_bbox = TargetedBbox(self.data_config["lon_range"][0],
-                                     self.data_config["lon_range"][1],
-                                     self.data_config["lat_range"][0],
-                                     self.data_config["lat_range"][1]).get_bbox()
-        self.targeted_time_range = TargetedTimeRange(self.data_config["time_range"])
-        self.data = self.get_buoy_data(self.data_config)
+        self.targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
+                                     self.buoy_config["lon_range"][1],
+                                     self.buoy_config["lat_range"][0],
+                                     self.buoy_config["lat_range"][1]).get_bbox()
+        self.targeted_time_range = TargetedTimeRange(self.buoy_config["time_range"])
+        self.data = self.get_buoy_data(self.buoy_config)
 
     @abstractmethod
-    def get_buoy_data(self, data_config: Dict) -> pd.DataFrame:
+    def get_buoy_data(self, buoy_config: Dict) -> pd.DataFrame:
         """
         Returns the buoy data points as a pandas DataFrame
         """
@@ -78,7 +78,7 @@ class BuoyDataSource(ABC):
         """
 
         self.data = interp_xarray(self.data, ocean_field, "forecast_data_source")
-        print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hind']).sum()/self.data.shape[0]}%")
+        print(f"Percentage of failed interp: {100*np.isnan(self.data['u_forecast']).sum()/self.data.shape[0]}%")
         return self.data
 
     def interpolate_hindcast(self, ocean_field: OceanCurrentField) -> pd.DataFrame:
@@ -90,12 +90,14 @@ class BuoyDataSource(ABC):
         """
 
         self.data = interp_xarray(self.data, ocean_field, "hindcast_data_source")
-        print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hind']).sum()/self.data.shape[0]}%")
+        print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hindcast']).sum()/self.data.shape[0]}%")
         return self.data
 
     def interpolate_casadi(self, ocean_field: OceanCurrentField) -> pd.DataFrame:
-        t_0 = dateutil.parser.isoparse(self.data_config["time_range"].split("/")[0])
-        self.data = interp_hincast_casadi(self.data, self.data_config["lon_range"], self.data_config["lat_range"], t_0, ocean_field)
+        # TODO: problem is that the entire spatio-temporal rage cannot be fit, need to interpolate
+        # over patches of entire range -> additional logic needed to handle that!
+        t_0 = dateutil.parser.isoparse(self.buoy_config["time_range"].split("/")[0])
+        self.data = interp_hincast_casadi(self.data, self.buoy_config["lon_range"], self.buoy_config["lat_range"], t_0, ocean_field)
         return self.data
 
     def _interpolation_inside_bounds(self) -> bool:
@@ -106,22 +108,22 @@ class BuoyDataCopernicus(BuoyDataSource):
     def __init__(self, config: Dict, source="copernicus"):
         super().__init__(config, source)
 
-    def get_buoy_data(self, data_config: Dict):
+    def get_buoy_data(self, buoy_config: Dict):
         """
         Main method which returns the data in the specified spatio-temporal range.
         It downloads the index files, combines index files into one xarray object,
         downloads NetCDF files if it contains data points in range, and finally
         the files are read and data is concatenated into a DataFrame.
         """
-        download_index_files = self.data_config["dataset"]["download_index_files"]
+        download_index_files = self.buoy_config["dataset"]["download_index_files"]
         if download_index_files:
-            self.download_index_files(data_config["usr"], data_config["pas"])
+            self.download_index_files(buoy_config["usr"], buoy_config["pas"])
         self.index_data = self.get_index_file_info()
 
         nc_links = self.index_data["file_name"].tolist()
         self.download_all_NC_files(nc_links)
 
-        file_list = [os.path.join(self.data_config["data_dir"], "drifter_data", "nc_files", file_link.split('/')[-1]) for file_link in nc_links]
+        file_list = [os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files", file_link.split('/')[-1]) for file_link in nc_links]
         self.data = self.concat_buoy_data(file_list)
 
         return self.data
@@ -167,16 +169,16 @@ class BuoyDataCopernicus(BuoyDataSource):
         This method downloads these index files
         """
 
-        if "index_platform" in self.data_config["dataset"].keys():
-            indexes = self.data_config["dataset"]["index_files"] + [self.data_config["dataset"]["index_platform"]]
+        if "index_platform" in self.buoy_config["dataset"].keys():
+            indexes = self.buoy_config["dataset"]["index_files"] + [self.buoy_config["dataset"]["index_platform"]]
         else:
-            indexes = self.data_config["dataset"]["index_files"]
-        with ftputil.FTPHost(self.data_config["dataset"]["host"], usr, pas) as ftp_host:  # connect to CMEMS FTP
+            indexes = self.buoy_config["dataset"]["index_files"]
+        with ftputil.FTPHost(self.buoy_config["dataset"]["host"], usr, pas) as ftp_host:  # connect to CMEMS FTP
             for index in indexes:
-                remotefile= "/".join(['Core', self.data_config["dataset"]["product"], self.data_config["dataset"]["name"], index])
+                remotefile= "/".join(['Core', self.buoy_config["dataset"]["product"], self.buoy_config["dataset"]["name"], index])
                 print('...Downloading ' + index)
                 # localfile = os.path.join(os.getcwd(), 'data', 'drifter_data', 'index_files', index)
-                localfile = os.path.join(self.data_config["data_dir"], "drifter_data", "index_files", index)
+                localfile = os.path.join(self.buoy_config["data_dir"], "drifter_data", "index_files", index)
                 ftp_host.download(remotefile, localfile)  # remote, local
 
     def get_index_file_info(self) -> np.ndarray:
@@ -184,21 +186,21 @@ class BuoyDataCopernicus(BuoyDataSource):
         Load and merge index files in a single object all the information contained on each file descriptor of a given dataset
         """
         # 1) Loading the index platform info as dataframe
-        if 'index_platform' in self.data_config["dataset"].keys():
-            path2file = os.path.join(self.data_config["data_dir"], "drifter_data", "index_files", self.data_config["dataset"]["index_platform"])
+        if 'index_platform' in self.buoy_config["dataset"].keys():
+            path2file = os.path.join(self.buoy_config["data_dir"], "drifter_data", "index_files", self.buoy_config["dataset"]["index_platform"])
             indexPlatform = self._read_index_file_from_CWD(path2file, None, None)
             indexPlatform.rename(columns={indexPlatform.columns[0]: "platform_code" }, inplace = True)
             indexPlatform = indexPlatform.drop_duplicates(subset='platform_code', keep="first")
         # 2) Loading the index files info as dataframes
         netcdf_collections = []
-        targeted_bbox = TargetedBbox(self.data_config["lon_range"][0],
-                                     self.data_config["lon_range"][1],
-                                     self.data_config["lat_range"][0],
-                                     self.data_config["lat_range"][1]).get_bbox()
-        targeted_time_range = TargetedTimeRange(self.data_config["time_range"])
-        for filename in self.data_config["dataset"]["index_files"]:
-            path2file = os.path.join(self.data_config["data_dir"],'drifter_data', 'index_files', filename)
-            index_file = self._read_index_file_from_CWD(path2file, targeted_bbox, targeted_time_range, overlap_type=self.data_config["area_overlap_type"])
+        targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
+                                     self.buoy_config["lon_range"][1],
+                                     self.buoy_config["lat_range"][0],
+                                     self.buoy_config["lat_range"][1]).get_bbox()
+        targeted_time_range = TargetedTimeRange(self.buoy_config["time_range"])
+        for filename in self.buoy_config["dataset"]["index_files"]:
+            path2file = os.path.join(self.buoy_config["data_dir"],'drifter_data', 'index_files', filename)
+            index_file = self._read_index_file_from_CWD(path2file, targeted_bbox, targeted_time_range, overlap_type=self.buoy_config["area_overlap_type"])
             netcdf_collections.append(index_file)
         netcdf_collections = pd.concat(netcdf_collections)
         # 3) creating new columns: derived info
@@ -207,7 +209,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         netcdf_collections['data_type'] = netcdf_collections['netcdf'].str.split('.').str[0].str.split('_').str[2]
         netcdf_collections['platform_code'] = netcdf_collections['netcdf'].str.split('.').str[0].str.split('_').str[3]
         # 4) Merging the information of all files
-        if 'index_platform' in self.data_config["dataset"].keys():
+        if 'index_platform' in self.buoy_config["dataset"].keys():
             headers = ['platform_code','wmo_platform_code', 'institution_edmo_code', 'last_latitude_observation', 'last_longitude_observation','last_date_observation']
             result = pd.merge(netcdf_collections,indexPlatform[headers],on='platform_code')
             return result
@@ -296,9 +298,9 @@ class BuoyDataCopernicus(BuoyDataSource):
         receives file_link from index files and downloads the NC file
         '''
         remotefile = "/".join(file_link.split("/")[3:])
-        localfile = os.path.join(self.data_config["data_dir"], "drifter_data", "nc_files", remotefile.split("/")[-1])
+        localfile = os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files", remotefile.split("/")[-1])
         if not os.path.isfile(localfile):
-            with ftputil.FTPHost(self.data_config["dataset"]["host"], self.data_config["usr"], self.data_config["pas"]) as ftp_host:  # connect to CMEMS FTP
+            with ftputil.FTPHost(self.buoy_config["dataset"]["host"], self.buoy_config["usr"], self.buoy_config["pas"]) as ftp_host:  # connect to CMEMS FTP
                 print(f"downloading {localfile.split('/')[-1]}")
                 ftp_host.download(remotefile, localfile)
 
