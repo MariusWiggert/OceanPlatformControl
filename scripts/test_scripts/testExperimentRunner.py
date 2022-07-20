@@ -230,12 +230,28 @@ def main_tune(num_samples=500):
     # tune.run(train, config=search_space, num_samples=num_samples, search_alg=bayesopt)
 
 
-def main_visualize():
+def main_visualize(number_forecasts_in_days=20):
     exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3")
-    x, y, t = [-90, -80], [24, 30], [datetime.datetime(2022, 4, 10, tzinfo=datetime.timezone.utc),
-                                     datetime.datetime(2022, 4, 10, 12, tzinfo=datetime.timezone.utc)]
-    number_forecasts_in_days = 15
+    d = datetime.datetime(2022, 4, 2, tzinfo=datetime.timezone.utc)
+    x, y, t = [-90, -80], [24, 30], [d, d + datetime.timedelta(days=1, hours=1)]
+
     exp.visualize_area(x, y, t, number_forecasts=number_forecasts_in_days)
+
+
+def main_visualize_noise(number_forecasts=30):
+    day = datetime.datetime(2022, 5, 8, 12, 30, tzinfo=datetime.timezone.utc)
+    center_x, center_y = -90, 24
+    rx, ry = 5, 4
+    x = [center_x - rx, center_x + rx]
+    y = [center_y - ry, center_y + ry]
+    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3",
+                           position=[
+                               (center_x, center_y, day),
+                               (center_x, center_y + 3)],
+                           to_modify={"radius_area_around_platform": 5})
+    # results, results_per_h, merged, list_dates_when_new_files = exp.visualize_all_noise(x, y)
+    exp.visualize_all_noise(x, y, number_forecasts=number_forecasts)
+    print("noise")
 
 
 def main(max_number_problems_to_run=None):
@@ -313,7 +329,9 @@ if __name__ == "__main__":
     if "-R" in sys.argv or "--remote" in sys.argv:
         main_tune(num_samples=5000)
     elif "-V" in sys.argv or "--visualize" in sys.argv:
-        main_visualize()
+        main_visualize(20)
+    elif not {"-N", "--noise"}.isdisjoint(sys.argv):
+        main_visualize_noise(20)
     else:
         main(max_number_problems_to_run=None)
 

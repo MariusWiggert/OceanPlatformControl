@@ -6,8 +6,12 @@ from typing import Union, Tuple, List, Dict, Any, Optional
 import dateutil
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import statsmodels.api as sm
 import xarray
 import yaml
+from fitter import Fitter
+from scipy.stats import norm
 
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 from ocean_navigation_simulator.controllers import Controller
@@ -60,7 +64,9 @@ def _plot_metrics(metrics: Dict[str, any]) -> None:
 class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
-    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None):
+    def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None,
+                 position: Optional[Tuple[List[float], List[float], datetime.datetime]] = None,
+                 to_modify: Dict[str, any] = {}):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
 
@@ -76,6 +82,14 @@ class ExperimentRunner:
             config = yaml_file_config
             self.variables = config["experiment_runner"]
 
+        # Modify the values given in the dict to_modify
+        for str_keys, new_value in to_modify.items():
+            t = self.variables
+            all_keys = str_keys.split(".")
+            for key_dic in all_keys[:-1]:
+                t = t[key_dic]
+            t[all_keys[-1]] = new_value
+
         if filename_problems is not None:
             self.variables["problems_file"] = f'scenarios/ocean_observer/{filename_problems}.yaml'
 
@@ -90,12 +104,16 @@ class ExperimentRunner:
             # Specify Problem
             for problem_dic in yaml_problems.get("problems", []):
                 init_pos = problem_dic["initial_position"]
+                target_point = problem_dic["target"]
                 x_0 = PlatformState(lon=Distance(deg=init_pos["lon_in_deg"]),
                                     lat=Distance(deg=init_pos["lat_in_deg"]),
                                     date_time=dateutil.parser.isoparse(init_pos["datetime"]))
-                target_point = problem_dic["target"]
                 x_t = SpatialPoint(lon=Distance(deg=target_point["lon_in_deg"]),
                                    lat=Distance(deg=target_point["lat_in_deg"]))
+                if position is not None:
+                    x_0.lon, x_0.lat = [Distance(deg=p) for p in position[0][:-1]]
+                    x_0.date_time = position[0][-1]
+                    x_t.lon, x_t.lat = [Distance(deg=p) for p in position[1]]
                 problems.append(Problem(start_state=x_0, end_region=x_t, target_radius=target_point["radius_in_m"]))
             self.problem_factory = NaiveProblemFactory(problems)
         else:
@@ -108,6 +126,171 @@ class ExperimentRunner:
         self.last_observation, self.last_prediction_ground_truth = None, None
         self.last_file_used = None
         self.list_dates_when_new_files = []
+
+    @staticmethod
+    def __remove_nan_and_flatten(x):
+        x = x.flatten()
+        return x[np.logical_not(np.isnan(x))]
+
+    @staticmethod
+    def __add_normal_on_plot(data, ax):
+        mu, std = norm.fit(data)
+        xmin, xmax = ax.get_xlim()
+        x = np.linspace(xmin, xmax, 100)
+        p = norm.pdf(x, mu, std)
+        print(f"xmin {xmin},xmax {xmax}, mu {mu}, std {std}")
+        ax.plot(x, p, 'k', linewidth=2)
+        title = "Fit Values: {:.2f} and {:.2f}".format(mu, std)
+        ax.set_title(title)
+
+    def visualize_all_noise(self, x, y, number_forecasts=30):
+        if not self.problem_factory.has_problems_remaining():
+            raise StopIteration()
+
+        problem = self.problem_factory.next_problem()
+        ti = problem.start_state.date_time
+        controller = NaiveToTargetController(problem)
+        self.last_observation = self.arena.reset(problem.start_state)
+        self.observer.reset()
+        self.list_dates_when_new_files = []
+
+        list_forecast_hindcast = []
+        self.__step_simulation(controller, fit_model=True)
+        for i in range(number_forecasts):
+            shift = datetime.timedelta(days=i)
+            dim_time = ti + shift
+            while self.last_observation.platform_state.date_time < dim_time:
+                action_to_apply = controller.get_action(self.last_observation)
+                self.last_observation = self.arena.step(action_to_apply)
+            dims = self.__get_lon_lat_time_intervals(ground_truth=False)
+            print(dims)
+            dims = [x, y, dims[-1]]
+            print(dims)
+            fc = self.observer.get_data_over_area(*dims,
+                                                  temporal_resolution=self.variables.get(
+                                                      "delta_between_predictions_in_sec", None))
+            margin_area = self.variables.get("gt_additional_area", 0.5)
+            dims = [[x[0] - margin_area, x[1] + margin_area], [y[0] - margin_area, y[1] + margin_area], dims[-1]]
+            hc = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
+                *dims,
+                temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
+            hc = hc.assign_coords(depth=fc.depth.to_numpy().tolist())
+            obj = PredictionsAndGroundTruthOverArea(fc, hc)
+            list_forecast_hindcast.append((obj.predictions_over_area, obj.ground_truth))
+        list_error = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) - pred[1] for pred in
+                      list_forecast_hindcast]
+        list_forecast = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) for pred in
+            list_forecast_hindcast]
+        array_error_per_time = []
+        array_forecast_per_time = []
+        for t in range(len(list_error[0]["time"])):
+            array_error_per_time.append(
+                np.array([list_day.isel(time=t).assign(
+                    magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5,
+                    angle=lambda x: np.arctan2(x.water_v, x.water_u)).to_array().to_numpy() for list_day in
+                          list_error]))
+            array_forecast_per_time.append(
+                np.array([list_day.isel(time=t).assign(
+                    magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5).to_array().to_numpy() for list_day in
+                          list_forecast]))
+        array_error_per_time = np.array(array_error_per_time)
+        array_forecast_per_time = np.array(array_forecast_per_time)
+        # dims: lags x days x dims(u,v,magn) x lon x lat
+
+        # -----------------------------------------
+        # -----------------------------------------
+        # PLOTTINGS:
+        # -----------------------------------------
+        # -----------------------------------------
+
+        print("plotting")
+
+        # -----------------------------------------
+        # QQ plots
+        # -----------------------------------------
+
+        # No qq-plot on the magnitude
+        n_dims = 2  # array_per_time.shape[2]
+        max_lags_to_plot = 12
+        # Only consider the first 24 predictions
+        factor = 3
+        n_col = min(len(array_error_per_time), max_lags_to_plot) // factor
+        n_row = factor
+        array_error_per_time = array_error_per_time[:n_col * n_row]
+        array_forecast_per_time = array_forecast_per_time[:n_col * n_row]
+        for dim_current in range(n_dims):
+            fig, ax = plt.subplots(n_row, n_col)
+            for i in range(len(array_error_per_time)):
+                x = self.__remove_nan_and_flatten(array_error_per_time[i][:, dim_current])
+                ax_now = ax[i // n_col, i % n_col]
+                sm.qqplot(x, line='s', ax=ax_now)  # , fit=True)
+                ax_now.set_title(f'lag:{i},dim:{["u", "v", "magn"][dim_current]}')
+            plt.legend(f'current: {["u", "v", "magn"][dim_current]}')
+            plt.show()
+
+        fig, ax = plt.subplots(2, 1)
+        dims_first = np.moveaxis(array_error_per_time, 2, 0)
+        sm.qqplot(self.__remove_nan_and_flatten(dims_first[0]), line='s', ax=ax[0])
+        sm.qqplot(self.__remove_nan_and_flatten(dims_first[1]), line='s', ax=ax[1])
+        values_flattened = dims_first.reshape(len(dims_first), -1)
+
+        # -----------------------------------------
+        # Error wrt forecast magnitude
+        # -----------------------------------------
+        dims_to_plot = ["u", "v", "magnitude"]
+        fig, ax = plt.subplots(3, 1)
+        for i, dim in enumerate(dims_to_plot):
+            ax[i].scatter(array_forecast_per_time[:, :, i].flatten(),
+                          np.abs(array_error_per_time[:, :, i].flatten()), s=0.04)
+            ax[i].set_title(f"Dimension:{dim}")
+        plt.xlabel("forecast magnitude")
+        plt.ylabel("error magnitude")
+        # -----------------------------------------
+        # Describe stats
+        # -----------------------------------------
+        df_describe = pd.DataFrame(values_flattened.T, columns=["u", "v", "magn", "angle"]).dropna()
+        print("\n\n\n\nDETAIL about the whole dataset\n", df_describe.describe())
+        fig, ax = plt.subplots(2, 1)
+
+        # -----------------------------------------
+        # Histogram
+        # -----------------------------------------
+        df_describe.hist("u", ax=ax[0], bins=80, density=True)
+        self.__add_normal_on_plot(df_describe["u"], ax[0])
+        df_describe.hist("v", ax=ax[1], bins=80, density=True)
+        self.__add_normal_on_plot(df_describe["v"], ax[1])
+        # for each lag:
+        stat_lags = []
+        for i in range(len(array_error_per_time)):
+            stat_lags.append(pd.DataFrame(np.array([e[i].flatten() for e in dims_first]).T,
+                                          columns=["u", "v", "magn", "angle"]).describe())
+
+        dims_to_plot_ci = ["u", "v", "magn"]
+        fig, ax = plt.subplots(len(dims_to_plot_ci), 1)
+        for i, axi in enumerate(ax):
+            dim = dims_to_plot_ci[i]
+            mean = np.array([s[dim]["mean"] for s in stat_lags])
+            x = list(range(len(mean)))
+            # 95% CI
+            ci = np.array([s[dim]["std"] * 1.96 / np.sqrt(s[dim]["count"]) for s in stat_lags])
+            axi.plot(mean, color="black", lw=.7)
+            axi.fill_between(x, mean - ci, mean + ci, color='blue', alpha=.1)
+            axi.set_title(f"Dimension: {dim}")
+        plt.xlabel("Lag")
+        plt.ylabel("error")
+        fig.suptitle("Evolution of the dim values with respect to the lag")
+        plt.plot()
+
+        # Try to fit the best distribution
+        for i, dim in enumerate(["u", "v"]):
+            f = Fitter(self.__remove_nan_and_flatten(dims_first[i][0]), timeout=3000, bins=50)
+            f.fit()
+
+            f.summary()
+
+        print("test")
 
     def visualize_area(self, x, y, t, number_forecasts=50):
         if not self.problem_factory.has_problems_remaining():

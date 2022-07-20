@@ -37,8 +37,7 @@ class PredictionsAndGroundTruthOverArea:
                                              -1).reshape(reshape_dims)
 
     def compute_metrics(self, metrics: Union[Set[str], str, None] = None, directions: list[str] = ['uv'],
-                        per_hour: bool = False) -> \
-            Dict[str, any]:
+                        per_hour: bool = False) -> Dict[str, any]:
         """ Compute and return the metrics provided or all if none is provided.
 
         Args:
@@ -58,28 +57,42 @@ class PredictionsAndGroundTruthOverArea:
         return res
 
     def visualize_initial_error(self, list_predictions: List[Tuple['xr', 'xr']], spatial_res=None):
-        fig, ax1 = plt.subplots(1, 1)
+        fig, ax = plt.subplots(1, 2)
+        ax1, ax2 = ax[0], ax[1]
         # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
         #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
         # error = init_fc - self.ground_truth
+        forecasts = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) for pred in
+            list_predictions]
         all_predictions = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
             {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) - pred[1] for pred in
                            list_predictions]
+        forecasts = [f.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for f in forecasts]
+        all_predictions = [pred.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for pred in
+                           all_predictions]
         ax1, self.cbar = OceanCurrentSource.plot_data_from_xarray(0, all_predictions[0], ax=ax1,
                                                                   return_cbar=True)
+        ax2 = OceanCurrentSource.plot_data_from_xarray(0, forecasts[0], ax=ax2, colorbar=False)
 
         # x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
 
         # Slider
 
-        def f(lag, index_prediction, ax1):
+        def f(lag, index_prediction, ax1, ax2):
             ax1.clear()
+            ax2.clear()
             self.cbar.remove()
-            fig.suptitle('At time {}'.format(
-                units.get_datetime_from_np64(self.predictions_over_area['time'][-1])), fontsize=14)
-
+            fig.suptitle('At time {}, with a lag of {} hours.'.format(
+                units.get_datetime_from_np64(self.predictions_over_area['time'][index_prediction]), lag), fontsize=14)
+            vmin, vmax = 0, float(max(forecasts[index_prediction].isel(time=lag)["magnitude"].max(),
+                                      all_predictions[index_prediction].isel(time=lag)["magnitude"].max()))
             _, self.cbar = OceanCurrentSource.plot_data_from_xarray(lag, all_predictions[index_prediction], ax=ax1,
-                                                                    return_cbar=True)
+                                                                    return_cbar=True, vmin=vmin, vmax=vmax)
+            OceanCurrentSource.plot_data_from_xarray(lag, forecasts[index_prediction], ax=ax2, colorbar=False,
+                                                     vmin=vmin, vmax=vmax)
+            ax1.set_title("Error forecast vs hindcast [m/s]")
+            ax2.set_title("Forecast currents [m/s]")
 
         time_dim = list(range(len(list_predictions[-1][0]["time"])))
 
@@ -90,7 +103,7 @@ class PredictionsAndGroundTruthOverArea:
         ax_lag_time = plt.axes([0.25, 0.1, 0.65, 0.03])
         lag_time_slider = Slider(
             ax=ax_lag_time,
-            label='Lag with forecast',
+            label='Lag (in hours) with forecast',
             valmin=min(time_dim),
             valmax=max(time_dim) - 1,
             valinit=time_dim[0],
@@ -101,7 +114,7 @@ class PredictionsAndGroundTruthOverArea:
         axamp = plt.axes([0.1, 0.25, 0.0225, 0.63])
         forecast_slider = Slider(
             ax=axamp,
-            label="time forecast",
+            label="Day forecast",
             valmin=0,
             valmax=len(list_predictions) - 1,
             valinit=0,
@@ -111,7 +124,7 @@ class PredictionsAndGroundTruthOverArea:
 
         # The function to be called anytime a slider's value changes
         def update(val):
-            f(lag_time_slider.val, forecast_slider.val, ax1)
+            f(lag_time_slider.val, forecast_slider.val, ax1, ax2)
             fig.canvas.draw_idle()
 
         # register the update function with each slider
@@ -127,7 +140,7 @@ class PredictionsAndGroundTruthOverArea:
             forecast_slider.reset()
 
         button.on_clicked(reset)
-
+        f(0, 0, ax1, ax2)
         plt.show()
         keyboardClick = False
         while keyboardClick != True:
