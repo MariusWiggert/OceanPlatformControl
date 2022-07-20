@@ -39,9 +39,6 @@ class TargetedTimeRange:
         return dateutil.parser.isoparse(self.time_range.split("/")[1])
 
 
-# TODO: interpolating forecast and hindcast should add different columns
-# right now both add "u_hind" and "v_hind"
-
 # TODO: directly obtain forecast/hindcast so one can call the interp func directly
 class BuoyDataSource(ABC):
     """
@@ -50,8 +47,8 @@ class BuoyDataSource(ABC):
 
     def __init__(self, yaml_file_config: str, source: str):
         with open(yaml_file_config) as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
-            self.buoy_config = config["buoy_config"][source]
+            self.config = yaml.load(f, Loader=yaml.FullLoader)
+            self.buoy_config = self.config["buoy_config"][source]
 
         self.targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
                                      self.buoy_config["lon_range"][1],
