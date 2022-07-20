@@ -1,11 +1,18 @@
 from BuoyData import BuoyDataCopernicus
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 
+import yaml
+
 class ExperimentRunner:
     def __init__(self):
+        # harcoded config file for now
+        yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
+
+        # read in yaml config file
+        with open(yaml_file_config) as f:
+            self.config = yaml.load(f, Loader=yaml.FullLoader)
         # get buoy data and interpolate forecast to it
-        yaml_path = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
-        buoy_data = BuoyDataCopernicus(yaml_path)
+        buoy_data = BuoyDataCopernicus(self.config)
 
         print(f"Num of buoys in spatio-temporal range: {len(set(buoy_data.index_data['platform_code']))}")
         # print(min(buoy_data.data["lon"]), max(buoy_data.data["lon"]))

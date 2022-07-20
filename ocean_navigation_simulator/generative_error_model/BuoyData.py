@@ -7,7 +7,6 @@ import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import os
-import yaml
 from collections import namedtuple
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
@@ -45,10 +44,9 @@ class BuoyDataSource(ABC):
     Abstract class that describes functionality of buoy data sources
     """
 
-    def __init__(self, yaml_file_config: str, source: str):
-        with open(yaml_file_config) as f:
-            self.config = yaml.load(f, Loader=yaml.FullLoader)
-            self.buoy_config = self.config["buoy_config"][source]
+    def __init__(self, config: Dict, source: str):
+        self.config = config
+        self.buoy_config = self.config["buoy_config"][source]
 
         self.targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
                                      self.buoy_config["lon_range"][1],
@@ -141,7 +139,7 @@ class BuoyDataCopernicus(BuoyDataSource):
             time = ds["TIME"].values
             lon = ds["LONGITUDE"].values
             lat = ds["LATITUDE"].values
-            u = ds["NSCT"].isel(DEPTH=-1).values
+            u = ds["NSCT"].isel(DEPTH=-1).values # problem here since deepest depth can be NaN
             v = ds["EWCT"].isel(DEPTH=-1).values
             buoy = [file_path.split("/")[-1].split(".")[0] for i in range(len(time))]
             df_temp = pd.DataFrame({"time":time, "lon":lon, "lat":lat, "u":u, "v":v, "buoy":buoy})
@@ -157,6 +155,9 @@ class BuoyDataCopernicus(BuoyDataSource):
             # filtering and concat to df
             df_temp = df_temp.loc[(lon_cond & lat_cond & time_cond)]
             df = pd.concat([df, df_temp])
+
+        # remove NaN rows
+        df = df.dropna()
 
         return df
 
