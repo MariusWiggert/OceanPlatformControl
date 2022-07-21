@@ -239,7 +239,7 @@ def main_visualize(number_forecasts_in_days=20):
 
 
 def main_visualize_noise(number_forecasts=30):
-    day = datetime.datetime(2022, 5, 8, 12, 30, tzinfo=datetime.timezone.utc)
+    day = datetime.datetime(2022, 4, 5, 12, 00, tzinfo=datetime.timezone.utc)
     center_x, center_y = -90, 24
     rx, ry = 5, 4
     x = [center_x - rx, center_x + rx]

@@ -170,7 +170,9 @@ class ExperimentRunner:
                                                   temporal_resolution=self.variables.get(
                                                       "delta_between_predictions_in_sec", None))
             margin_area = self.variables.get("gt_additional_area", 0.5)
-            dims = [[x[0] - margin_area, x[1] + margin_area], [y[0] - margin_area, y[1] + margin_area], dims[-1]]
+            margin_time = datetime.timedelta(seconds=self.variables.get("gt_additional_time", 3600))
+            dims = [[x[0] - margin_area, x[1] + margin_area], [y[0] - margin_area, y[1] + margin_area],
+                    [dims[-1][0] - margin_time, dims[-1][1]]]
             hc = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
                 *dims,
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
@@ -221,7 +223,7 @@ class ExperimentRunner:
         array_error_per_time = array_error_per_time[:n_col * n_row]
         array_forecast_per_time = array_forecast_per_time[:n_col * n_row]
         for dim_current in range(n_dims):
-            fig, ax = plt.subplots(n_row, n_col)
+            fig, ax = plt.subplots(n_row, n_col)  # , sharey=True, sharex=True)
             for i in range(len(array_error_per_time)):
                 x = self.__remove_nan_and_flatten(array_error_per_time[i][:, dim_current])
                 ax_now = ax[i // n_col, i % n_col]
@@ -239,24 +241,52 @@ class ExperimentRunner:
         # -----------------------------------------
         # Error wrt forecast magnitude
         # -----------------------------------------
+        print("Error wrt forecast magnitude")
         dims_to_plot = ["u", "v", "magnitude"]
-        fig, ax = plt.subplots(3, 1)
+        fig, ax = plt.subplots(3, 1, sharex=True, sharey=True)
         for i, dim in enumerate(dims_to_plot):
             ax[i].scatter(array_forecast_per_time[:, :, i].flatten(),
-                          np.abs(array_error_per_time[:, :, i].flatten()), s=0.04)
+                          array_error_per_time[:, :, i].flatten(), s=0.04)
             ax[i].set_title(f"Dimension:{dim}")
-        plt.xlabel("forecast magnitude")
-        plt.ylabel("error magnitude")
+        m = max(-np.nanmin(array_forecast_per_time), np.nanmax(array_forecast_per_time))
+        plt.xlim(-m, m)
+        plt.ylim(np.nanmin(array_error_per_time), np.nanmax(array_error_per_time))
+        plt.xlabel("forecast")
+        plt.ylabel("error")
+
+        print("Error wrt forecast magnitude same aspect")
+        dims_to_plot = ["u", "v", "magnitude"]
+        fig, ax = plt.subplots(2, 2, sharex=True, sharey=True)
+        for i, dim in enumerate(dims_to_plot):
+            x, y = array_forecast_per_time[:, :, i].flatten(), array_error_per_time[:, :, i].flatten()
+            nans = np.isnan(x + y)
+            x, y = x[~nans], y[~nans]
+            local_ax = ax[i % 2, i // 2]
+            local_ax.scatter(x, y, s=0.04)
+
+            # Print the regression line
+            b, a = np.polyfit(x, y, deg=1)
+            xseq = np.linspace(np.nanmin(x), np.nanmax(x), num=100)
+            local_ax.plot(xseq, a + b * xseq, color="k", lw=2.5);
+
+            local_ax.set_title(f"Dimension:{dim}, slope: {b}")
+            local_ax.set_aspect("equal")
+        m = max(-np.nanmin(array_forecast_per_time), np.nanmax(array_forecast_per_time))
+        plt.xlim(-m, m)
+        plt.ylim(np.nanmin(array_error_per_time), np.nanmax(array_error_per_time))
+        plt.xlabel("forecast")
+        plt.ylabel("error")
+
         # -----------------------------------------
         # Describe stats
         # -----------------------------------------
         df_describe = pd.DataFrame(values_flattened.T, columns=["u", "v", "magn", "angle"]).dropna()
         print("\n\n\n\nDETAIL about the whole dataset\n", df_describe.describe())
-        fig, ax = plt.subplots(2, 1)
 
         # -----------------------------------------
         # Histogram
         # -----------------------------------------
+        fig, ax = plt.subplots(2, 1, sharex=True, sharey=True)
         df_describe.hist("u", ax=ax[0], bins=80, density=True)
         self.__add_normal_on_plot(df_describe["u"], ax[0])
         df_describe.hist("v", ax=ax[1], bins=80, density=True)
@@ -268,7 +298,7 @@ class ExperimentRunner:
                                           columns=["u", "v", "magn", "angle"]).describe())
 
         dims_to_plot_ci = ["u", "v", "magn"]
-        fig, ax = plt.subplots(len(dims_to_plot_ci), 1)
+        fig, ax = plt.subplots(len(dims_to_plot_ci), 1, sharex=True)
         for i, axi in enumerate(ax):
             dim = dims_to_plot_ci[i]
             mean = np.array([s[dim]["mean"] for s in stat_lags])
@@ -285,7 +315,7 @@ class ExperimentRunner:
 
         # Try to fit the best distribution
         for i, dim in enumerate(["u", "v"]):
-            f = Fitter(self.__remove_nan_and_flatten(dims_first[i][0]), timeout=3000, bins=50)
+            f = Fitter(self.__remove_nan_and_flatten(dims_first[i][1]), timeout=3000, bins=50)
             f.fit()
 
             f.summary()
