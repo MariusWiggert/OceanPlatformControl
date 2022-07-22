@@ -1,3 +1,5 @@
+# source: https://github.com/google/balloon-learning-environment/blob/master/balloon_learning_environment/env/wind_field.py
+
 """
 Generative model to generate realistic spatio-temporal noise for ocean currents based on
 simplex noise.
@@ -29,6 +31,22 @@ class SimplexOffset(object):
   time: float
 
 
+@dataclasses.dataclass(frozen=True)
+class WindVector(object):
+    """Describes the wind at a given location."""
+    u: units.Velocity
+    v: units.Velocity
+
+    def add(self, other: 'WindVector') -> 'WindVector':
+        if not isinstance(other, WindVector):
+            raise NotImplementedError(
+                f'Cannot add WindVector with {type(other)}')
+        return WindVector(self.u + other.u, self.v + other.v)
+
+    def __str__(self) -> str:
+        return f'({self.u}, {self.v})'
+
+
 # weight, x, y, time.
 _U_COMPONENT_HARMONICS = [
     HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
@@ -48,14 +66,29 @@ NOISE_MAGNITUDE = np.sqrt(1.02/OPENSIMPLEX_VARIANCE)
 
 
 class SimplexNoiseModel(GenerativeModel):
+    """Noise model which based on simplex noise and parameters found through
+    variogram analysis will generate noise at a point or over a volume"""
+
     def __init__(self):
-        pass
+        self.noise_u = NoisyCurrentComponent(component="u")
+        self.noise_v = NoisyCurrentComponent(component="v")
 
-    def reset_noise(self):
-        pass
+    def reset(self, rng) -> None:
+        noise_u_rng, noise_v_rng = rng.choice(1894405231, size=2)
+        noise_u_rng = np.random.default_rng(noise_u_rng)
+        noise_v_rng = np.random.default_rng(noise_v_rng)
+        self.noise_u.reset(noise_u_rng)
+        self.noise_v.reset(noise_v_rng)
 
-    def get_noise_at_point(self):
-        pass
+    def get_noise_at_point(self, x: units.Distance, y: units.Distance,
+        elapsed_time: datetime.timedelta) -> WindVector:
+        noise_u_value = self.noise_u.get_noise(x, y, elapsed_time)
+        noise_v_value = self.noise_v.get_noise(x, y, elapsed_time)
+
+        return WindVector(
+            units.Velocity(meters_per_second=noise_u_value),
+            units.Velocity(meters_per_second=noise_v_value)
+        )
 
     def get_noise_over_area_time(self):
         pass
@@ -85,7 +118,6 @@ class NoisyCurrentHarmonic:
 
         random_translation = rng.uniform(low=0, high=1894405231, size=(3,)) * 2.0 - 1.0
         self._offsets = SimplexOffset(*random_translation)
-        print(f"offsets: {self._offsets}")
 
     def get_noise(self, x: units.Distance, y: units.Distance, elapsed_time: datetime.timedelta) -> float:
         """Returns simplex noise for this harmonic at specific point in time and space."""
@@ -125,7 +157,6 @@ class NoisyCurrentComponent:
         num_harmonics = len(self._harmonics)
         harmonics_rngs_seeds = rng.choice(1894405231, size=num_harmonics)
         harmonics_rngs = [np.random.default_rng(seed) for seed in harmonics_rngs_seeds]
-        print(harmonics_rngs)
 
         for rng, harmonic in zip(harmonics_rngs, self._harmonics):
             harmonic.reset(rng)
@@ -154,39 +185,51 @@ class NoisyCurrentComponent:
 #### test funcs ####
 
 def test_NoisyCurrentHarmonic():
-    from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, NoisyCurrentHarmonic, HarmonicParameters
-    import datetime
-    from ocean_navigation_simulator.utils import units
-    import numpy as np
 
-    rng = np.random.default_rng(2021)
-
-    # weight, x, y, time.
-    _U_COMPONENT_HARMONICS = [
-        HarmonicParameters(1.0, 702.5, 1407.3, 245.0)
-    ]
+    rng = np.random.default_rng(2022)
 
     harmonic = NoisyCurrentHarmonic(_U_COMPONENT_HARMONICS[0])
     harmonic.reset(rng)
-    return harmonic.get_noise(units.Distance(km=200), units.Distance(km=300), datetime.timedelta(days=5))
+    harmonic_noise1 =  harmonic.get_noise(
+        units.Distance(km=200),
+        units.Distance(km=300),
+        datetime.timedelta(days=5))
+
+    harmonic_noise2 =  harmonic.get_noise(
+        units.Distance(km=200),
+        units.Distance(km=300),
+        datetime.timedelta(days=5))
+
+    assert(harmonic_noise1 == harmonic_noise2), "NoisyCurrentHarmonic test failed!"
 
 def test_NoisyCurrentComponent():
-    from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, NoisyCurrentHarmonic, HarmonicParameters
-    import datetime
-    from ocean_navigation_simulator.utils import units
-    import numpy as np
 
-    rng = np.random.default_rng(2021)
-
-    # weight, x, y, time.
-    _U_COMPONENT_HARMONICS = [
-        HarmonicParameters(1.0, 702.5, 1407.3, 245.0)
-    ]
+    rng = np.random.default_rng(2022)
 
     component = NoisyCurrentComponent("u")
     component.reset(rng)
     return component.get_noise(units.Distance(km=200), units.Distance(km=300), datetime.timedelta(days=5))
 
+def test_SimplexNoiseModel():
+
+    rng = np.random.default_rng(2022)
+
+    noise_model = SimplexNoiseModel()
+    noise_model.reset(rng)
+    velocity1 = noise_model.get_noise_at_point(
+        units.Distance(km=200),
+        units.Distance(km=300),
+        datetime.timedelta(days=5))
+
+    velocity2 = noise_model.get_noise_at_point(
+        units.Distance(km=200),
+        units.Distance(km=300),
+        datetime.timedelta(days=5))
+
+    assert(velocity1 == velocity2), "SimplexNoiseModel test failed!"
+
 
 if __name__ == "__main__":
-    print(test_NoisyCurrentComponent())
+    test_NoisyCurrentHarmonic()
+    test_SimplexNoiseModel()
+    print("All tests passed.")
