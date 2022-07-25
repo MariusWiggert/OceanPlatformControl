@@ -8,16 +8,16 @@ training:
       #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
       'folder': 'data/april_may_data/hindcast_hycom_april/'
     #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
-    forecast:
-      field: 'OceanCurrents'
-      source: 'forecast_files'
-      source_settings:
-        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
-        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
-        'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
-        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
-        'currents': 'total'
-testing:
+  forecast:
+    field: 'OceanCurrents'
+    source: 'forecast_files'
+    source_settings:
+      #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+      #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+      'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
+      #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+      'currents': 'total'
+validation:
   hindcast:
     field: 'OceanCurrents'
     source: 'hindcast_files'
@@ -27,12 +27,12 @@ testing:
       #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
       'folder': 'data/april_may_data/hindcast_hycom_april/'
     #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
-    forecast:
-      field: 'OceanCurrents'
-      source: 'forecast_files'
-      source_settings:
-        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
-        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
-        'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
-        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
-        'currents': 'total'
+  forecast:
+    field: 'OceanCurrents'
+    source: 'forecast_files'
+    source_settings:
+      #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+      #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+      'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
+      #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+      'currents': 'total'

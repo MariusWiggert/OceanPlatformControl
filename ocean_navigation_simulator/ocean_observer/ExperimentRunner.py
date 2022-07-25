@@ -163,9 +163,7 @@ class ExperimentRunner:
                 action_to_apply = controller.get_action(self.last_observation)
                 self.last_observation = self.arena.step(action_to_apply)
             dims = self.__get_lon_lat_time_intervals(ground_truth=False)
-            print(dims)
             dims = [x, y, dims[-1]]
-            print(dims)
             fc = self.observer.get_data_over_area(*dims,
                                                   temporal_resolution=self.variables.get(
                                                       "delta_between_predictions_in_sec", None))
