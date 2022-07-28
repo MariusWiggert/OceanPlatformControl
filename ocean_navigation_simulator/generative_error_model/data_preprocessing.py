@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 # TODO: ensure space-time range is adequate for interpolation (PlatformState)
 
-def plot_buoy_data(df: pd.DataFrame):
+def plot_buoy_data_time_collapsed(df: pd.DataFrame):
     fig = plt.figure(figsize=(12,12))
     ax = plt.axes(projection=ccrs.PlateCarree())
     grid_lines = ax.gridlines(draw_labels=True, zorder=5)
@@ -28,6 +28,18 @@ def plot_buoy_data(df: pd.DataFrame):
 
     for buoy_name in set(df["buoy"]):
         ax.scatter(df[df["buoy"] == buoy_name]["lon"], df[df["buoy"] == buoy_name]["lat"], marker=".")
+    plt.show()
+
+def plot_buoy_data_at_time_step(df: pd.DataFrame):
+    fig = plt.figure(figsize=(12,12))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+    grid_lines.top_labels = False
+    grid_lines.right_labels = False
+    ax.add_feature(cfeature.LAND, zorder=3, edgecolor="black")
+
+    time = list(set(df["time"]))[0]
+    ax.scatter(df[df["time"] == time]["lon"], df[df["time"] == time]["lat"], marker=".")
     plt.show()
 
 def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source: str, n: int=10) -> pd.DataFrame: 

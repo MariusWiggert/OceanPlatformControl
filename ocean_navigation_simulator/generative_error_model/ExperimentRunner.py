@@ -1,7 +1,12 @@
 from BuoyData import BuoyDataCopernicus
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, WindVector
+# from ocean_navigation_simulator.generative_error_model.models.wind_field import SimplexWindNoise
+from ocean_navigation_simulator.utils import units
 
 import yaml
+import datetime as dt
+
 
 class ExperimentRunner:
     def __init__(self):
@@ -27,10 +32,21 @@ class ExperimentRunner:
         ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
 
         # interpolate hindcast/forecast to buoy locations
+        # TODO: the interpolation fails when multiple files in OceanCurrentField folder
         buoy_data.interpolate_forecast(ocean_field)
         self.data = buoy_data.data
 
         # in future read in further configs like model and hyper params etc
+
+    def get_data(self):
+        return self.data
+
+    def get_noise_at_point(self, x:units.Distance, y:units.Distance,
+        pressure:float, elapsed_time:dt.timedelta) -> WindVector:
+
+        self._noise_model = SimplexWindNoise()
+        self._noise_model.get_noise()
+        return 
 
     def visualize(self):
         pass

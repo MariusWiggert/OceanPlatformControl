@@ -32,16 +32,16 @@ class SimplexOffset(object):
 
 
 @dataclasses.dataclass(frozen=True)
-class WindVector(object):
+class CurrentVector(object):
     """Describes the wind at a given location."""
     u: units.Velocity
     v: units.Velocity
 
-    def add(self, other: 'WindVector') -> 'WindVector':
-        if not isinstance(other, WindVector):
+    def add(self, other: 'CurrentVector') -> 'CurrentVector':
+        if not isinstance(other, CurrentVector):
             raise NotImplementedError(
-                f'Cannot add WindVector with {type(other)}')
-        return WindVector(self.u + other.u, self.v + other.v)
+                f'Cannot add CurrentVector with {type(other)}')
+        return CurrentVector(self.u + other.u, self.v + other.v)
 
     def __str__(self) -> str:
         return f'({self.u}, {self.v})'
@@ -80,18 +80,15 @@ class SimplexNoiseModel(GenerativeModel):
         self.noise_u.reset(noise_u_rng)
         self.noise_v.reset(noise_v_rng)
 
-    def get_noise_at_point(self, x: units.Distance, y: units.Distance,
-        elapsed_time: datetime.timedelta) -> WindVector:
+    def get_noise(self, x: units.Distance, y: units.Distance,
+        elapsed_time: datetime.timedelta) -> CurrentVector:
         noise_u_value = self.noise_u.get_noise(x, y, elapsed_time)
         noise_v_value = self.noise_v.get_noise(x, y, elapsed_time)
 
-        return WindVector(
+        return CurrentVector(
             units.Velocity(meters_per_second=noise_u_value),
             units.Velocity(meters_per_second=noise_v_value)
         )
-
-    def get_noise_over_area_time(self):
-        pass
 
 
 class NoisyCurrentHarmonic:
@@ -216,12 +213,12 @@ def test_SimplexNoiseModel():
 
     noise_model = SimplexNoiseModel()
     noise_model.reset(rng)
-    velocity1 = noise_model.get_noise_at_point(
+    velocity1 = noise_model.get_noise(
         units.Distance(km=200),
         units.Distance(km=300),
         datetime.timedelta(days=5))
 
-    velocity2 = noise_model.get_noise_at_point(
+    velocity2 = noise_model.get_noise(
         units.Distance(km=200),
         units.Distance(km=300),
         datetime.timedelta(days=5))

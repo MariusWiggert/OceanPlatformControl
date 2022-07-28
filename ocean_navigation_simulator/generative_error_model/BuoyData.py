@@ -14,6 +14,11 @@ import ftputil
 import pandas as pd
 import xarray as xr
 from shapely.geometry import Point, box
+import warnings
+from pandas.core.common import SettingWithCopyWarning
+
+# ignore warnings that cannot be fixed for specific scenario of needing .loc and .iloc
+warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 
 @dataclass
@@ -110,6 +115,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         downloads NetCDF files if it contains data points in range, and finally
         the files are read and data is concatenated into a DataFrame.
         """
+        # check if it should check for new buoy files
         download_index_files = self.buoy_config["dataset"]["download_index_files"]
         if download_index_files:
             self.download_index_files(buoy_config["usr"], buoy_config["pas"])
@@ -156,7 +162,7 @@ class BuoyDataCopernicus(BuoyDataSource):
             df_temp = df_temp.loc[(lon_cond & lat_cond & time_cond)]
             df = pd.concat([df, df_temp])
 
-        # remove NaN rows
+        # remove NaN rows -> created because of u and v at different depths.
         df = df.dropna()
 
         return df
@@ -191,14 +197,9 @@ class BuoyDataCopernicus(BuoyDataSource):
             indexPlatform = indexPlatform.drop_duplicates(subset='platform_code', keep="first")
         # 2) Loading the index files info as dataframes
         netcdf_collections = []
-        targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
-                                     self.buoy_config["lon_range"][1],
-                                     self.buoy_config["lat_range"][0],
-                                     self.buoy_config["lat_range"][1]).get_bbox()
-        targeted_time_range = TargetedTimeRange(self.buoy_config["time_range"])
         for filename in self.buoy_config["dataset"]["index_files"]:
             path2file = os.path.join(self.buoy_config["data_dir"],'drifter_data', 'index_files', filename)
-            index_file = self._read_index_file_from_CWD(path2file, targeted_bbox, targeted_time_range, overlap_type=self.buoy_config["area_overlap_type"])
+            index_file = self._read_index_file_from_CWD(path2file, self.targeted_bbox, self.targeted_time_range, overlap_type=self.buoy_config["area_overlap_type"])
             netcdf_collections.append(index_file)
         netcdf_collections = pd.concat(netcdf_collections)
         # 3) creating new columns: derived info
@@ -215,10 +216,10 @@ class BuoyDataCopernicus(BuoyDataSource):
             return netcdf_collections
 
     def _read_index_file_from_CWD(self, path2file: str, targeted_bbox: List[float], targeted_time_range: TargetedTimeRange, overlap_type: str="contains"):
-        # Load as pandas dataframe the file in the provided path, additionally filter data during loading
+        # Load as pandas dataframe the file in the provided path, then filter data during loading
 
         filename = os.path.basename(path2file)
-        print('...Loading info from: '+filename)
+        print('...Loading info from: ' +filename)
         if targeted_bbox != None:
             raw_index_info =[]
             # skiprows needed due to header length of files
