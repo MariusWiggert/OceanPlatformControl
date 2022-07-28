@@ -1,6 +1,6 @@
 from BuoyData import BuoyDataCopernicus
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, WindVector
+from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, CurrentVector
 # from ocean_navigation_simulator.generative_error_model.models.wind_field import SimplexWindNoise
 from ocean_navigation_simulator.utils import units
 
@@ -42,7 +42,7 @@ class ExperimentRunner:
         return self.data
 
     def get_noise_at_point(self, x:units.Distance, y:units.Distance,
-        pressure:float, elapsed_time:dt.timedelta) -> WindVector:
+        pressure:float, elapsed_time:dt.timedelta) -> CurrentVector:
 
         self._noise_model = SimplexWindNoise()
         self._noise_model.get_noise()
