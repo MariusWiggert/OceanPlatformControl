@@ -7,7 +7,6 @@ from ocean_navigation_simulator.generative_error_model.BuoyData import BuoyDataC
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 import pandas as pd
 import os
-import glob
 import yaml
 
 class DatasetWriter:
@@ -31,9 +30,15 @@ class DatasetWriter:
         # TODO: Specify time for buoys to be within forecast time
         time_string = self._build_time_string(forecast_idx)
         self.config["buoy_config"]["copernicus"]["time_range"] = time_string
+
         # set idx to access specific forecast in folder
         self.ocean_field.forecast_data_source.rec_file_idx = forecast_idx
         buoy_data.interpolate_forecast(self.ocean_field)
+
+        # compute the error
+        buoy_data.data["u_error"] = buoy_data.data["u_forecast"] - buoy_data.data["u"]
+        buoy_data.data["v_error"] = buoy_data.data["v_forecast"] - buoy_data.data["v"]
+
         return buoy_data.data
 
     def _build_time_string(self, forecast_idx: int) -> str:
