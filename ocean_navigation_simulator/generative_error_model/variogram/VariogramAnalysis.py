@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from typing import Tuple, List
+from typing import Tuple, List, AnyStr
 import matplotlib.pyplot as plt
+import itertools
 
 class VariogramAnalysis:
     """
@@ -25,12 +26,28 @@ class VariogramAnalysis:
         bins_tuple: Tuple[int], chunk_size:int) -> np.ndarray:
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors."""
+        # TODO: find way to exclude pairs form same buoy
 
         n = self.data.shape[0]
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
         self.lon_bins, self.lat_bins, self.t_bins = lon_bins, lat_bins, t_bins = bins_tuple
-        # get indices of pairs
+
+        # get indices of all pairs
         i,j = np.triu_indices(n, k=1)
+
+        # build a mask to mask out the pairs from same buoy
+        buoy_vector = self.data["buoy"].to_numpy()
+        # map each buoy name string to unique integer
+        _, integer_mapped = np.unique(buoy_vector, return_inverse=True)
+        i_temp, j_temp = np.triu_indices(len(integer_mapped), k=1)
+        # if integer in i and j is the same, then both points from same buoy
+        residual = (integer_mapped[i_temp] - integer_mapped[j_temp])
+        mask_same_buoy = residual != 0
+        mask_idx = np.where(mask_same_buoy == True)
+
+        # only pairs from different buoys
+        i = i[mask_idx]
+        j = j[mask_idx]
         print(f"Number of pairs of points: {len(i)}")
 
         # convert time axis to datetime
@@ -54,7 +71,6 @@ class VariogramAnalysis:
             idx_j = j[0+offset:chunk]
 
             # get lags
-            # TODO: find way to exclude pairs form same buoy
             t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/t_res).astype(float)).astype(int)
             lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/lon_res).astype(int)
             lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/lat_res).astype(int)
@@ -100,17 +116,28 @@ class VariogramAnalysis:
         axs[2].title.set_text("Lat [degrees]")
         plt.show()
 
-    def plot_variograms(self):
+    def plot_variograms(self, variable: AnyStr="u"):
         if self.bins is None:
             raise Exception("Need to run build_variogram() first!")
 
-        # TODO; truncate arrays to avoid dividing by zero
+        variable_map = {"u": 0, "v": 1}
+
+        try:
+            var = variable_map[variable]
+        except:
+            raise ValueError("Specified variable does not exist")
+
+        # find first zero value to avoid dividing by zero error
+        t_first_zero_idx = np.argwhere(np.sum(self.bins[:,:,:,var], axis=(0,1)) == 0)[0][0]
+        lon_first_zero_idx = np.argwhere(np.sum(self.bins[:,:,:,var], axis=(1,2)) == 0)[0][0]
+        lat_first_zero_idx = np.argwhere(np.sum(self.bins[:,:,:,var], axis=(0,2)) == 0)[0][0]
+
         # plot variograms in one direction
         fig, axs = plt.subplots(1,3,figsize=(25,10))
-        axs[0].plot(np.arange(self.t_bins)*self.t_res, np.sum(self.bins[:,:,:,0], axis=(0,1))/np.sum(self.bins_count[:,:,:,0], axis=(0,1)))
+        axs[0].plot((np.arange(self.t_bins)*self.t_res)[:t_first_zero_idx], np.sum(self.bins[:,:,:,var], axis=(0,1))[:t_first_zero_idx]/(np.sum(self.bins_count[:,:,:,var], axis=(0,1)))[:t_first_zero_idx])
         axs[0].title.set_text("Time [hrs]")
-        axs[1].plot(np.arange(self.lon_bins)*self.lon_res, np.sum(self.bins[:,:,:,0], axis=(1,2))/np.sum(self.bins_count[:,:,:,0], axis=(1,2)))
+        axs[1].plot((np.arange(self.lon_bins)*self.lon_res)[:lon_first_zero_idx], np.sum(self.bins[:,:,:,var], axis=(1,2))[:lon_first_zero_idx]/(np.sum(self.bins_count[:,:,:,var], axis=(1,2)))[:lon_first_zero_idx])
         axs[1].title.set_text("Lon [degrees]")
-        axs[2].plot(np.arange(self.lat_bins)*self.lat_res, np.sum(self.bins[:,:,:,0], axis=(0,2))/np.sum(self.bins_count[:,:,:,0], axis=(0,2)))
+        axs[2].plot((np.arange(self.lat_bins)*self.lat_res)[:lat_first_zero_idx], np.sum(self.bins[:,:,:,var], axis=(0,2))[:lat_first_zero_idx]/(np.sum(self.bins_count[:,:,:,var], axis=(0,2)))[:lat_first_zero_idx])
         axs[2].title.set_text("Lat [degrees]")
         plt.show()
