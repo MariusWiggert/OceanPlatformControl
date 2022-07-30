@@ -26,7 +26,6 @@ class VariogramAnalysis:
         bins_tuple: Tuple[int], chunk_size:int) -> np.ndarray:
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors."""
-        # TODO: find way to exclude pairs form same buoy
 
         n = self.data.shape[0]
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
@@ -95,7 +94,7 @@ class VariogramAnalysis:
                 bins_count += bins_count_temp
 
             offset += chunk_size
-
+        
         bins[lon_lag, lat_lag, t_lag] /= bins_count[lon_lag, lat_lag, t_lag]
         self.bins = bins
         self.bins_count = bins_count
