@@ -351,8 +351,8 @@ class ExperimentRunner:
         list_datetime_when_new_forecast_files = [self.arena.platform.state.date_time]
         list_gp_output = []
         self.__step_simulation(controller, fit_model=True)
-        for i in range(number_days_forecasts * 24 + 5):
-            print(i + 1, "/", number_days_forecasts * 24 + 5, self.arena.platform.state.date_time)
+        for i in range(number_days_forecasts * 24):
+            print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state.date_time)
             intervals_lon_lat_time = interval_lon, interval_lat, [
                 self.arena.platform.state.date_time + datetime.timedelta(
                     hours=1),

@@ -348,7 +348,7 @@ if __name__ == "__main__":
     if "-R" in sys.argv or "--remote" in sys.argv:
         main_tune(num_samples=5000)
     elif "-V" in sys.argv or "--visualize" in sys.argv:
-        main_visualize(2)
+        main_visualize(3)
     elif not {"-N", "--noise"}.isdisjoint(sys.argv):
         main_visualize_noise(number_forecasts=20)
     else:
