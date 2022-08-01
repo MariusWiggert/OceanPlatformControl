@@ -59,7 +59,7 @@ class Observer:
         """
         data = data.reshape((len(reference_xr["lon"]), len(reference_xr["lat"]), len(reference_xr["time"]), 2))
         return xr.Dataset({names_variables[0]: (["time", "lat", "lon"], data[..., 0].swapaxes(0, 2)),
-                           names_variables[1]: (["time", "lat", "lon"], data[..., 0].swapaxes(0, 2))},
+                           names_variables[1]: (["time", "lat", "lon"], data[..., 1].swapaxes(0, 2))},
                           coords={
                               "time": reference_xr['time'],
                               "lat": reference_xr['lat'],
@@ -98,11 +98,17 @@ class Observer:
              self._convert_prediction_model_output(prediction_std, forecasts, ("std_error_u", "std_error_v")),
              forecasts.rename(dict(water_u="initial_forecast_u", water_v="initial_forecast_v"))])
 
-        predictions_dataset = predictions_dataset.assign(
-            water_u=lambda x: x.initial_forecast_u - x.error_u)
-        predictions_dataset = predictions_dataset.assign(
-            water_v=lambda x: x.initial_forecast_v - x.error_v)
+        predictions_dataset = predictions_dataset.assign({
+            "water_u": lambda x: x.initial_forecast_u - x.error_u,
+            "water_v": lambda x: x.initial_forecast_v - x.error_v})
         return predictions_dataset
+
+    def get_data_at_point(self, lon: float, lat: float, time: datetime.datetime):
+        coords = np.array([[lon, lat, time]])
+        # print("coords:", len(forecasts["lon"]), len(forecasts["lat"]))
+
+        prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
+        return prediction_errors, prediction_std
 
     def fit(self) -> None:
         """Fit the inner prediction model using the observations recorded by the observer

@@ -65,7 +65,8 @@ class ExperimentRunner:
     """ Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
     def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None,
-                 position: Optional[Tuple[List[float], List[float], datetime.datetime]] = None,
+                 position: Optional[
+                     Tuple[Tuple[float, float, datetime.datetime], Tuple[float, float]]] = None,
                  to_modify: Dict[str, any] = {}):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
@@ -230,6 +231,7 @@ class ExperimentRunner:
             plt.legend(f'current: {["u", "v", "magn"][dim_current]}')
             plt.show()
 
+        # Plot the general qq plots
         fig, ax = plt.subplots(2, 1)
         dims_first = np.moveaxis(array_error_per_time, 2, 0)
         sm.qqplot(self.__remove_nan_and_flatten(dims_first[0]), line='s', ax=ax[0])
@@ -285,7 +287,7 @@ class ExperimentRunner:
         # Histogram
         # -----------------------------------------
         fig, ax = plt.subplots(2, 1, sharex=True, sharey=True)
-        df_describe.hist("u", ax=ax[0], bins=80, density=True)
+        df_describe.hist("u", ax=ax[0], bins=80, density=1)
         self.__add_normal_on_plot(df_describe["u"], ax[0])
         df_describe.hist("v", ax=ax[1], bins=80, density=True)
         self.__add_normal_on_plot(df_describe["v"], ax[1])
@@ -320,36 +322,80 @@ class ExperimentRunner:
 
         print("test")
 
-    def visualize_area(self, x, y, t, number_forecasts=50):
+    def print_errors(self):
+        errors_magn, stds = [], []
+        for i, observ in enumerate(self.observer.prediction_model.measurement_locations):
+            error = self.observer.prediction_model.measured_current_errors[i]
+            lon, lat, timestamp = observ
+            t = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+            error_computed, std = self.observer.get_data_at_point(lon, lat, t)
+            error_computed = error_computed[0]
+            errors_magn.append((error_computed[0] - error[0]) ** 2 + (error_computed[1] - error[1]) ** 2)
+            stds.append(std)
+            print("Error:", (lon, lat, t), error_computed, error)
+        print(
+            f"std mean over all the observations:{np.array(stds).mean()}\n mean of error magnitude over all the overvations {np.array(errors_magn).mean()}\nall magnitudes:{np.array(errors_magn)}")
+
+    def visualize_area(self, interval_lon, interval_lat, interval_time, number_days_forecasts=50):
         if not self.problem_factory.has_problems_remaining():
             raise StopIteration()
 
+        # Setup the problem
         problem = self.problem_factory.next_problem()
-        problem.start_state.date_time = t[0] - datetime.timedelta(days=1)
+        problem.start_state.date_time = interval_time[0] - datetime.timedelta(days=1)
         controller = NaiveToTargetController(problem)
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
-        self.list_dates_when_new_files = []
 
         list_forecast_hindcast = []
+        list_datetime_when_new_forecast_files = [self.arena.platform.state.date_time]
+        list_gp_output = []
         self.__step_simulation(controller, fit_model=True)
-        for i in range(number_forecasts):
-            shift = datetime.timedelta(days=i)
-            dims = x, y, [ti + shift for ti in t]
-            while self.last_observation.platform_state.date_time < dims[-1][0]:
-                action_to_apply = controller.get_action(self.last_observation)
-                self.last_observation = self.arena.step(action_to_apply)
-            fc = self.observer.get_data_over_area(*dims,
-                                                  temporal_resolution=self.variables.get(
-                                                      "delta_between_predictions_in_sec", None))
-            hc = self.arena.ocean_field.hindcast_data_source.get_data_over_area(*dims,
-                                                                                temporal_resolution=self.variables.get(
-                                                                                    "delta_between_predictions_in_sec",
-                                                                                    None))
+        for i in range(number_days_forecasts * 24 + 5):
+            print(i + 1, "/", number_days_forecasts * 24 + 5, self.arena.platform.state.date_time)
+            intervals_lon_lat_time = interval_lon, interval_lat, [
+                self.arena.platform.state.date_time + datetime.timedelta(
+                    hours=1),
+                self.arena.platform.state.date_time + datetime.timedelta(
+                    hours=25)]
+            intervals_lon_lat_time_with_margin = [interval_lon[0] - 1, interval_lon[1] + 1], \
+                                                 [interval_lat[0] - 1, interval_lat[1] + 1], [
+                                                     self.arena.platform.state.date_time - datetime.timedelta(hours=1),
+                                                     self.arena.platform.state.date_time + datetime.timedelta(
+                                                         hours=25)]
+
+            # intervals_lon_lat_time = interval_lon, interval_lat, [ti + datetime.timedelta(hours=i) for ti in
+            #                                                       interval_time]
+            # while self.last_observation.platform_state.date_time < dims[-1][0]:
+            #     print("skip!")
+            #     action_to_apply = controller.get_action(self.last_observation)
+            #     self.last_observation = self.arena.step(action_to_apply)
+            file = self.last_file_used
+            fc = self.__step_simulation(controller, fit_model=True,
+                                        lon_lat_time_intervals_to_output=intervals_lon_lat_time)
+            print(file == self.last_file_used, file, self.last_file_used)
+            if file != self.last_file_used:
+                self.print_errors()
+                list_datetime_when_new_forecast_files.append(self.arena.platform.state.date_time)
+                print("file added to list:", list_datetime_when_new_forecast_files)
+
+            list_gp_output.append(self.observer.get_data_over_area(*intervals_lon_lat_time,
+                                                                   spatial_resolution=0.025,
+                                                                   temporal_resolution=self.variables.get(
+                                                                       "delta_between_predictions_in_sec", None))[
+                                      ["error_u", "error_v", "std_error_u", "std_error_v"]])
+            hc = self.arena.ocean_field.hindcast_data_source. \
+                get_data_over_area(*intervals_lon_lat_time_with_margin,
+                                   temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
             hc = hc.assign_coords(depth=fc.depth.to_numpy().tolist())
             obj = PredictionsAndGroundTruthOverArea(fc, hc)
             list_forecast_hindcast.append((obj.predictions_over_area, obj.ground_truth))
-        obj.visualize_initial_error(list_forecast_hindcast)
+        self.print_errors()
+        obj.visualize_initial_error(list_forecast_hindcast,
+                                    tuple_trajectory_history_new_files=(
+                                        self.arena.state_trajectory[:, :3], list_datetime_when_new_forecast_files),
+                                    radius_area=self.variables.get("radius_area_around_platform", None),
+                                    gp_outputs=list_gp_output)
 
     def run_all_problems(self, max_number_problems_to_run=None) -> Tuple[
         List[Dict[str, any]], List[Dict[str, any]], Dict[str, any]]:
@@ -479,7 +525,8 @@ class ExperimentRunner:
         for variable in plots_dict.get("plot_3d", []):
             self.last_prediction_ground_truth.plot_3d(variable)
 
-    def __step_simulation(self, controller: Controller, fit_model: bool = True) -> Union['xarray', None]:
+    def __step_simulation(self, controller: Controller, fit_model: bool = True,
+                          lon_lat_time_intervals_to_output: Optional[Tuple] = None) -> Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
          model. We save the last observation.
 
@@ -494,7 +541,6 @@ class ExperimentRunner:
         """
         action_to_apply = controller.get_action(self.last_observation)
         self.last_observation = self.arena.step(action_to_apply)
-
         if (self.last_file_used != self.last_observation.forecast_data_source.DataArray.encoding['source']) or \
                 self.last_file_used is None:
             if self.variables.get("clear_observations_when_new_file", False):
@@ -509,7 +555,12 @@ class ExperimentRunner:
         predictions = None
         if fit_model:
             self.observer.fit()
-            predictions = self.observer.get_data_over_area(*self.__get_lon_lat_time_intervals(),
+
+            # point = self.arena.platform.state.to_spatio_temporal_point()
+            # print(
+            #     f"after fitted we obtain error predicted: {self.observer.get_data_at_point(point.lon.deg, point.lat.deg, point.date_time)}  at point:{point.lon.deg, point.lat.deg, point.date_time}")
+            predictions = self.observer.get_data_over_area(*(
+                lon_lat_time_intervals_to_output if lon_lat_time_intervals_to_output is not None else self.__get_lon_lat_time_intervals()),
                                                            temporal_resolution=self.variables.get(
                                                                "delta_between_predictions_in_sec", None))
             # todo: quick fix, Find why the predictions are not always the same shape:

@@ -4,9 +4,11 @@ import os
 import sys
 
 import numpy as np
+import torch
 import yaml
 from matplotlib import pyplot as plt
 from ray import tune
+from ray.tune.suggest.bayesopt import BayesOptSearch
 
 from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
 
@@ -16,36 +18,38 @@ def conditional_parameters(str_accepted: list[str], to_return):
 
 
 # General search space
+# Rational quadratic
 search_space = {
     "filename_problems": "all_problems_3",
     # product and sum are not supported yet
     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
-    "kernel": tune.grid_search(["rbf", "ExpSineSquared", "RationalQuadratic"]),  # "matern"
+    "kernel": "expSineSquared",  # "matern"
     "sigma_exp": tune.qrandn(1, 1, 0.0001),
     # if matern or rbf
-    "scaling": conditional_parameters(["rbf"], {
-        "latitude": tune.loguniform(1, 100000),
-        "longitude": tune.loguniform(1, 100000),
-        "time": tune.loguniform(1, 100000)}
-                                      ),
-    "scaling": conditional_parameters(["matern"], {
-        "latitude": tune.loguniform(1, 1000000),
-        "longitude": tune.loguniform(1, 1000000),
-        "time": tune.loguniform(1, 1000000)}
-                                      ),
+    # "scaling": conditional_parameters(["rbf"], {
+    #     "latitude": tune.loguniform(1, 100000),
+    #     "longitude": tune.loguniform(1, 100000),
+    #     "time": tune.loguniform(1, 100000)}
+    #                                   ),
+    # "scaling": conditional_parameters(["matern"], {
+    #     "latitude": tune.loguniform(1, 1000000),
+    #     "longitude": tune.loguniform(1, 1000000),
+    #     "time": tune.loguniform(1, 1000000)}
+    #                                  ),
     # "lon_scale": tune.loguniform(1, 1e6),
     # "time_scale": tune.loguniform(1, 1e6),
     # if matern
-    "nu": conditional_parameters(["matern"], tune.choice([0.001, 0.01, 0.1, 0.5, 1.5])),
+    # "nu": conditional_parameters(["matern"], tune.choice([0.001, 0.01, 0.1, 0.5, 1.5])),
     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
 
     # if rational quadratic or expsinesquared(=periodic)
-    "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
+    # "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
+    "length_scale": tune.uniform(1, 100000),
 
     "length_scale_bounds": "fixed",
     # if rational quadratic
-    "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
-    "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
+    # "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
+    # "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
 
     # if expSineSquared
     "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10)),
@@ -79,13 +83,13 @@ search_space = {
 #     "sigma_exp": tune.qrandn(1, 1, 0.0001),
 #     # if matern or rbf
 #     "scaling": {
-#         "latitude": tune.loguniform(1, 1e6),
-#         "longitude": tune.loguniform(1, 1e6),  # tune.loguniform(1, 1e6),
+#         "latitude": tune.loguniform(1e-4, 1e6),
+#         "longitude": tune.loguniform(1e-4, 1e6),  # tune.loguniform(1, 1e6),
 #         "time": tune.loguniform(50000, 1e6)},
 #     # "lon_scale": tune.loguniform(1, 1e6),
 #     # "time_scale": tune.loguniform(1, 1e6),
 #     # if matern
-#     "nu": tune.quniform(0.0005, 0.002, 0.0001),  # [1e-5, 1e-4, 0.001, 0.1]),  # , 0.5, 1.5]),
+#     "nu": tune.choice([1e-5, 1e-4, 0.001, 0.1, 0.5, 1.5]),
 #     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
 #
 #     # if rational quadratic or expsinesquared(=periodic)
@@ -119,8 +123,10 @@ search_space = {
 #     # }
 # }
 
+
 # Matern_bayes
 # search_space = {
+#     "num_threads": 32,
 #     "filename_problems": "all_problems_3",
 #     # product and sum are not supported yet
 #     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
@@ -128,13 +134,14 @@ search_space = {
 #     "sigma_exp": tune.uniform(0.0001, 10),
 #     # if matern or rbf
 #     "scaling": {
-#         "latitude": tune.uniform(1, 1e6),
-#         "longitude": tune.uniform(1, 1e6),  # tune.loguniform(1, 1e6),
+#         "latitude": tune.uniform(1, 1e4),
+#         "longitude": tune.uniform(1, 1e4),  # tune.loguniform(1, 1e6),
 #         "time": tune.uniform(1000, 5000000)},
 #     # "lon_scale": tune.loguniform(1, 1e6),
 #     # "time_scale": tune.loguniform(1, 1e6),
 #     # if matern
-#     "nu": tune.uniform(0.0005, 0.002),  # [1e-5, 1e-4, 0.001, 0.1]),  # , 0.5, 1.5]),
+#     # "nu": tune.choice([1e-5, 1e-4, 0.001, 0.1, 0.5, 1.5]),
+#     "nu": tune.uniform(0.01, 1.5),
 #     "length_scale_bounds": "fixed",
 #
 # }
@@ -167,6 +174,8 @@ def train(config):
     print("path file:", file_csv)
     # os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
     os.chdir("/home/seaweed/test")
+    if "num_threads" in config:
+        torch.set_num_threads(config.pop("num_threads"))
     yaml_file_config = "./scenarios/ocean_observer/config_real_data_GP.yaml"
     config = {k: v for k, v in config.items() if v is not None}
     filename_problems = config.pop("filename_problems", None)
@@ -220,22 +229,32 @@ def train(config):
     # variables = config["experiment_runner"]
 
 
-def main_tune(num_samples=500):
+def main_tune(num_samples=500, bayes=False):
     # import ray
     # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
-    res = tune.run(train, config=search_space, num_samples=num_samples)
+    # res = tune.run(train, config=search_space, num_samples=num_samples)
     # return res.get_best_config(metric="r2_avg", mode="max")
-    return res.get_best_config(metric="avg", mode="min")
-    # bayesopt = BayesOptSearch(metric="score", mode="min")
-    # tune.run(train, config=search_space, num_samples=num_samples, search_alg=bayesopt)
+    # return res.get_best_config(metric="avg", mode="min")
+    if bayes:
+        bayesopt = BayesOptSearch(metric="score", mode="min")
+        tune.run(train, config=search_space, num_samples=num_samples, search_alg=bayesopt)
+    else:
+        res = tune.run(train, config=search_space, num_samples=num_samples)
+        # return res.get_best_config(metric="r2_avg", mode="max")
+        return res.get_best_config(metric="avg", mode="min")
 
 
 def main_visualize(number_forecasts_in_days=20):
-    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3")
-    d = datetime.datetime(2022, 4, 2, tzinfo=datetime.timezone.utc)
-    x, y, t = [-90, -80], [24, 30], [d, d + datetime.timedelta(days=1, hours=1)]
+    # idle position
+    # position = ((-86.20, 29.04, datetime.datetime(2022, 4, 19)), (-84, 28.04))
+    p = -85.659, 26.15
+    d = datetime.datetime(2022, 4, 2, 21, 30, tzinfo=datetime.timezone.utc)
+    position = ((*p, d), (-90, 30))  # (p[0] + 2, p[1] + 2))
+    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3", position=position)
+    # x, y, t = [-90, -80], [24, 30], [d, d + datetime.timedelta(days=1, hours=1)]
+    x, y, t = [-88, -82], [25, 29], [d, d + datetime.timedelta(days=1, hours=1)]
 
-    exp.visualize_area(x, y, t, number_forecasts=number_forecasts_in_days)
+    exp.visualize_area(x, y, t, number_days_forecasts=number_forecasts_in_days)
 
 
 def main_visualize_noise(number_forecasts=30):
@@ -329,9 +348,9 @@ if __name__ == "__main__":
     if "-R" in sys.argv or "--remote" in sys.argv:
         main_tune(num_samples=5000)
     elif "-V" in sys.argv or "--visualize" in sys.argv:
-        main_visualize(20)
+        main_visualize(2)
     elif not {"-N", "--noise"}.isdisjoint(sys.argv):
-        main_visualize_noise(20)
+        main_visualize_noise(number_forecasts=20)
     else:
         main(max_number_problems_to_run=None)
 

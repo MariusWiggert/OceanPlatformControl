@@ -1,8 +1,10 @@
+from datetime import datetime, timezone
 from typing import Union, Dict, Set, Optional, List, Tuple
 
 import numpy as np
 import xarray as xr
-from matplotlib import pyplot as plt
+from DateTime import DateTime
+from matplotlib import pyplot as plt, patches
 from matplotlib.widgets import Slider, Button
 
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
@@ -56,43 +58,123 @@ class PredictionsAndGroundTruthOverArea:
                                  current=d)
         return res
 
-    def visualize_initial_error(self, list_predictions: List[Tuple['xr', 'xr']], spatial_res=None):
-        fig, ax = plt.subplots(1, 2)
-        ax1, ax2 = ax[0], ax[1]
+    def visualize_initial_error(self, list_predictions: List[Tuple['xr', 'xr']], spatial_res=None,
+                                tuple_trajectory_history_new_files: Optional[Tuple[np.array, List[DateTime]]] = None,
+                                radius_area: float = None, gp_outputs: Optional[List['xr']] = None):
+        print("visualize initial error")
+        fig, ax = plt.subplots(2, 2)
+        ax1, ax2, ax3, ax4 = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
         # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
         #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
         # error = init_fc - self.ground_truth
-        forecasts = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
-            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) for pred in
+        if gp_outputs is None:
+            errors_predicted = [pred[0][["error_u", "error_v"]].rename(
+                {"error_u": "water_u", "error_v": "water_v"}) for pred in list_predictions]
+        else:
+            errors_predicted = [pred[["error_u", "error_v"]].rename(
+                {"error_u": "water_u", "error_v": "water_v"}) for pred in gp_outputs]
+            std_output = [pred[["std_error_u", "std_error_v"]].rename(
+                {"std_error_u": "water_u", "std_error_v": "water_v"}) for pred in gp_outputs]
+
+        initial_forecasts = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}).assign(
+            magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for pred in
             list_predictions]
-        all_predictions = [pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
-            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) - pred[1] for pred in
-                           list_predictions]
-        forecasts = [f.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for f in forecasts]
-        all_predictions = [pred.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for pred in
-                           all_predictions]
-        ax1, self.cbar = OceanCurrentSource.plot_data_from_xarray(0, all_predictions[0], ax=ax1,
+        real_errors = [(pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+            {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) - pred[1]).assign(
+            magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for pred in
+            list_predictions]
+
+        ax1, self.cbar = OceanCurrentSource.plot_data_from_xarray(0, real_errors[0], ax=ax1,
                                                                   return_cbar=True)
-        ax2 = OceanCurrentSource.plot_data_from_xarray(0, forecasts[0], ax=ax2, colorbar=False)
+        ax2 = OceanCurrentSource.plot_data_from_xarray(0, initial_forecasts[0], ax=ax2, colorbar=False)
+        ax3, self.cbar_3 = OceanCurrentSource.plot_data_from_xarray(0, errors_predicted[0], ax=ax3, return_cbar=True)
+        ax4, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(0, (std_output[0] if gp_outputs is not None else
+                                                                        errors_predicted[0]), ax=ax4, return_cbar=True)
 
         # x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
 
         # Slider
 
-        def f(lag, index_prediction, ax1, ax2):
+        def update_maps(lag, index_prediction, ax1, ax2, ax3, ax4):
             ax1.clear()
             ax2.clear()
+            ax3.clear()
+            ax4.clear()
             self.cbar.remove()
+            self.cbar_3.remove()
             fig.suptitle('At time {}, with a lag of {} hours.'.format(
-                units.get_datetime_from_np64(self.predictions_over_area['time'][index_prediction]), lag), fontsize=14)
-            vmin, vmax = 0, float(max(forecasts[index_prediction].isel(time=lag)["magnitude"].max(),
-                                      all_predictions[index_prediction].isel(time=lag)["magnitude"].max()))
-            _, self.cbar = OceanCurrentSource.plot_data_from_xarray(lag, all_predictions[index_prediction], ax=ax1,
+                units.get_datetime_from_np64(initial_forecasts[index_prediction]['time'][0]), lag), fontsize=14)
+            vmin, vmax = 0, float(max(initial_forecasts[index_prediction].isel(time=lag)["magnitude"].max(),
+                                      real_errors[index_prediction].isel(time=lag)["magnitude"].max()))
+            _, self.cbar = OceanCurrentSource.plot_data_from_xarray(lag, real_errors[index_prediction], ax=ax1,
                                                                     return_cbar=True, vmin=vmin, vmax=vmax)
-            OceanCurrentSource.plot_data_from_xarray(lag, forecasts[index_prediction], ax=ax2, colorbar=False,
+            OceanCurrentSource.plot_data_from_xarray(lag, initial_forecasts[index_prediction], ax=ax2, colorbar=False,
                                                      vmin=vmin, vmax=vmax)
+            _, self.cbar_3 = OceanCurrentSource.plot_data_from_xarray(lag, errors_predicted[index_prediction], ax=ax3,
+                                                                      return_cbar=True)
             ax1.set_title("Error forecast vs hindcast [m/s]")
             ax2.set_title("Forecast currents [m/s]")
+            ax3.set_title("Error currents predicted by the GP [m/s]")
+            ax4.set_title("std predicted by the GP (zoomed in) [m/s]")
+
+            # Print trajectory
+            if tuple_trajectory_history_new_files is not None:
+                trajectory, new_files = tuple_trajectory_history_new_files
+                datetime_day_selected = units.get_datetime_from_np64(
+                    initial_forecasts[index_prediction].isel(time=0)["time"])
+                timestamp_day_selected = datetime_day_selected.timestamp()
+
+                # # index_latest_position_trajectory = max(0, np.argmax(time_prediction_ts < trajectory[:, 2]) - 1)
+                # index_latest_position_trajectory_before = np.sum(timestamp_day_selected > trajectory[:, 2]) - 1
+                # date_latest_position_trajectory_before = datetime.fromtimestamp(
+                #     trajectory[index_latest_position_trajectory_before][2], tz=timezone.utc)
+
+                last_date_before = None
+                latest_position = trajectory[0]
+                for pos in trajectory:
+                    date_trajectory = datetime.fromtimestamp(pos[2], tz=timezone.utc)
+                    if date_trajectory < datetime_day_selected:
+                        last_date_before = date_trajectory
+                        latest_position = pos
+                    else:
+                        break
+
+                last_file_date_before = None
+                for file_date_file in new_files:
+                    if file_date_file < datetime_day_selected:
+                        last_file_date_before = file_date_file
+                    else:
+                        break
+                if radius_area is not None:
+                    x, y = latest_position[:2]
+                    error_small_window = errors_predicted[index_prediction].sel(
+                        lon=slice(x - radius_area / 2, x + radius_area),
+                        lat=slice(y - radius_area / 2, y + radius_area))
+                    # print("error:", error_small_window)
+                    self.cbar_4.remove()
+                    _, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(lag, std_output[
+                        index_prediction] if gp_outputs is not None else error_small_window, ax=ax4, return_cbar=True)
+                    for ax in [ax1, ax2, ax3, ax4]:
+                        rect = patches.Rectangle((x - radius_area, y - radius_area), radius_area * 2,
+                                                 radius_area * 2,
+                                                 linewidth=1,
+                                                 edgecolor='r',
+                                                 facecolor='none')
+                        ax.add_patch(rect)
+                for ax in [ax1, ax2, ax3, ax4]:
+                    for pt in trajectory:
+                        date_timestamp = pt[2]
+                        date_pt = datetime.fromtimestamp(date_timestamp, tz=timezone.utc)
+                        if date_pt > datetime_day_selected:
+                            break
+
+                        if last_file_date_before is not None and last_file_date_before > date_pt:
+                            color = 'red'
+                            ax.scatter(pt[0], pt[1], c=color)
+                        elif last_date_before is not None and last_date_before > date_pt:
+                            color = 'yellow'
+                            ax.scatter(pt[0], pt[1], c=color)
 
         time_dim = list(range(len(list_predictions[-1][0]["time"])))
 
@@ -123,8 +205,8 @@ class PredictionsAndGroundTruthOverArea:
         )
 
         # The function to be called anytime a slider's value changes
-        def update(val):
-            f(lag_time_slider.val, forecast_slider.val, ax1, ax2)
+        def update(_):
+            update_maps(lag_time_slider.val, forecast_slider.val, ax1, ax2, ax3, ax4)
             fig.canvas.draw_idle()
 
         # register the update function with each slider
@@ -140,7 +222,7 @@ class PredictionsAndGroundTruthOverArea:
             forecast_slider.reset()
 
         button.on_clicked(reset)
-        f(0, 0, ax1, ax2)
+        update_maps(0, 0, ax1, ax2, ax3, ax4)
         plt.show()
         keyboardClick = False
         while keyboardClick != True:

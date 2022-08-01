@@ -31,8 +31,14 @@ class OceanCurrentGP(OceanCurrentModel):
         self.life_span_observations_in_sec = config_dict.get("life_span_observations_in_sec", 24 * 3600)  # 24 hours.
 
         parameters_model = {}
+        # Base: {'type': 'matern',
+        # 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849},
+        # 'sigma_exp_squared': 2.3561,
+        # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
         if "kernel" in self.config_dict:
-            parameters_model["kernel"] = self.__get_kernel(self.config_dict["kernel"])
+            parameters_model["kernel"] = self.__get_kernel(
+                self.config_dict["kernel"]) + 2.3561 * gaussian_process.kernels.Matern(
+                length_scale=[48.89273, 0.312469448, 50036.4002], nu=1.5, length_scale_bounds="fixed")
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
@@ -64,6 +70,7 @@ class OceanCurrentGP(OceanCurrentModel):
         if type_kernel.lower() == "rbf":
             return factor * gaussian_process.kernels.RBF(**params)  # + basic_kernel
         if type_kernel.lower() == "matern":
+            params["nu"] = 1.5
             return factor * gaussian_process.kernels.Matern(**params)  # + basic_kernel
         if type_kernel.lower() == "constantkernel":
             return factor * gaussian_process.kernels.ConstantKernel(**params)  # + basic_kernel
@@ -108,6 +115,7 @@ class OceanCurrentGP(OceanCurrentModel):
         #     print("distance travelled:",
         #           np.array(((measurement_locations[1:] - measurement_locations[:-1]) ** 2)[:, :2].sum(
         #               axis=1) ** .5) * 111000, "meters")
+
         self.model.fit(measurement_locations, errors)
 
     def reset(self) -> None:
@@ -136,5 +144,4 @@ class OceanCurrentGP(OceanCurrentModel):
         # be. We can't have a 0 std.dev. due to noise. Currently it's something
         # like 0.07 from the GP, but that doesn't seem to match the Loon code.
         deviations = deviations ** 2 / self.config_dict.get("sigma_exp_squared", 1)
-
         return means, deviations
