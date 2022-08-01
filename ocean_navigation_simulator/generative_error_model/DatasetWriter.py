@@ -20,7 +20,6 @@ class DatasetWriter:
         with open(yaml_file_config) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader) 
         self.output_dir = self.config["data_writer"]["output_dir"]
-        self.forecast_paths = []
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
 
@@ -33,6 +32,8 @@ class DatasetWriter:
 
         # set idx to access specific forecast in folder
         self.ocean_field.forecast_data_source.rec_file_idx = forecast_idx
+        # load file of specified idx
+        self.ocean_field.forecast_data_source.load_ocean_current_from_idx()
         buoy_data.interpolate_forecast(self.ocean_field)
 
         # compute the error
@@ -44,7 +45,7 @@ class DatasetWriter:
     def _build_time_string(self, forecast_idx: int) -> str:
         t_range = self.files_dicts[forecast_idx]["t_range"]
         time_string_start = (t_range[0] + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        time_string_end = (t_range[1] - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        time_string_end = (t_range[1] + timedelta(hours=-6)).strftime("%Y-%m-%dT%H:%M:%SZ")
         time_string = time_string_start + "/" + time_string_end
         return time_string
 

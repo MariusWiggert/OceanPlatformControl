@@ -11,6 +11,7 @@ from collections import namedtuple
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 import ftputil
+from ftputil.error import FTPIOError
 import pandas as pd
 import xarray as xr
 from shapely.geometry import Point, box
@@ -20,6 +21,7 @@ from pandas.core.common import SettingWithCopyWarning
 # ignore warnings that cannot be fixed for specific scenario of needing .loc and .iloc
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
+# TODO: Filter for latest/monthly, otherwise have points twice ...
 
 @dataclass
 class TargetedBbox:
@@ -121,10 +123,10 @@ class BuoyDataCopernicus(BuoyDataSource):
             self.download_index_files(buoy_config["usr"], buoy_config["pas"])
         self.index_data = self.get_index_file_info()
 
-        nc_links = self.index_data["file_name"].tolist()
-        self.download_all_NC_files(nc_links)
+        self.nc_links = self.index_data["file_name"].tolist()
+        self.download_all_NC_files(self.nc_links)
 
-        file_list = [os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files", file_link.split('/')[-1]) for file_link in nc_links]
+        file_list = [os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files", file_link.split('/')[-1]) for file_link in self.nc_links]
         self.data = self.concat_buoy_data(file_list)
 
         return self.data
@@ -302,7 +304,13 @@ class BuoyDataCopernicus(BuoyDataSource):
         if not os.path.isfile(localfile):
             with ftputil.FTPHost(self.buoy_config["dataset"]["host"], self.buoy_config["usr"], self.buoy_config["pas"]) as ftp_host:  # connect to CMEMS FTP
                 print(f"downloading {localfile.split('/')[-1]}")
-                ftp_host.download(remotefile, localfile)
+                try:
+                    ftp_host.download(remotefile, localfile)
+                except FTPIOError as obj:
+                    print("File not accessible on remote host")
+                    # remove from list, otherwise will try to read in later
+                    self.nc_links.remove(file_link)
+                    pass
 
     def download_all_NC_files(self, file_list: List[str]):
         """
