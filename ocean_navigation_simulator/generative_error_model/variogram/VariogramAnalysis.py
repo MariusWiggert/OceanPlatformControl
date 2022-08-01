@@ -15,7 +15,7 @@ class VariogramAnalysis:
         self.bins = None
         self.bins_count = None
 
-    def detrend(self, axis: str="lat"):
+    def detrend(self, axis: AnyStr="lat"):
         """Variogram analysis assumes stationarity, therefore detrending is needed. This method
         can perform detrending over a specific axis by subtracting the mean and dividing by
         standard deviation"""
@@ -23,7 +23,7 @@ class VariogramAnalysis:
         pass
 
     def build_variogram(self, res_tuple: Tuple[int],\
-        bins_tuple: Tuple[int], chunk_size:int) -> np.ndarray:
+        bins_tuple: Tuple[int], chunk_size:int) -> List[np.ndarray]:
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors."""
 
@@ -44,7 +44,7 @@ class VariogramAnalysis:
         mask_same_buoy = residual != 0
         mask_idx = np.where(mask_same_buoy == True)
 
-        # only pairs from different buoys
+        # only select pairs from different buoys
         i = i[mask_idx]
         j = j[mask_idx]
         print(f"Number of pairs of points: {len(i)}")
@@ -115,7 +115,7 @@ class VariogramAnalysis:
         axs[2].title.set_text("Lat [degrees]")
         plt.show()
 
-    def plot_variograms(self, variable: AnyStr="u"):
+    def plot_variograms(self, variable: AnyStr="u") -> None:
         if self.bins is None:
             raise Exception("Need to run build_variogram() first!")
 

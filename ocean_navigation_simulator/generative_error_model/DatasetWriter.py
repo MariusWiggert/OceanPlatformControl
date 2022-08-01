@@ -8,6 +8,7 @@ from ocean_navigation_simulator.environment.data_sources.OceanCurrentField impor
 import pandas as pd
 import os
 import yaml
+from datetime import timedelta, datetime
 
 class DatasetWriter:
     """Uses BuoyData and OceanCurrentField to to write data to
@@ -24,12 +25,11 @@ class DatasetWriter:
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
 
     def get_error(self, forecast_idx: int) -> pd.DataFrame:
-        # get buoy data and interpolate forecast to it
-        buoy_data = BuoyDataCopernicus(self.config)
-
-        # TODO: Specify time for buoys to be within forecast time
         time_string = self._build_time_string(forecast_idx)
         self.config["buoy_config"]["copernicus"]["time_range"] = time_string
+
+        # get buoy data and interpolate forecast to it
+        buoy_data = BuoyDataCopernicus(self.config)
 
         # set idx to access specific forecast in folder
         self.ocean_field.forecast_data_source.rec_file_idx = forecast_idx
@@ -43,9 +43,8 @@ class DatasetWriter:
 
     def _build_time_string(self, forecast_idx: int) -> str:
         t_range = self.files_dicts[forecast_idx]["t_range"]
-        "2022-04-24T13:00:00Z/2022-05-03T13:00:00Z"
-        time_string_start = t_range[0].strftime("%Y-%m-%dT%H:%M:%SZ")
-        time_string_end = t_range[1].strftime("%Y-%m-%dT%H:%M:%SZ")
+        time_string_start = (t_range[0] + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        time_string_end = (t_range[1] - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
         time_string = time_string_start + "/" + time_string_end
         return time_string
 

@@ -147,8 +147,9 @@ class BuoyDataCopernicus(BuoyDataSource):
             lat = ds["LATITUDE"].values
             u = ds["NSCT"].isel(DEPTH=-1).values # problem here since deepest depth can be NaN
             v = ds["EWCT"].isel(DEPTH=-1).values
-            buoy = [file_path.split("/")[-1].split(".")[0] for i in range(len(time))]
-            df_temp = pd.DataFrame({"time":time, "lon":lon, "lat":lat, "u":u, "v":v, "buoy":buoy})
+            file_name = [file_path.split("/")[-1].split(".")[0] for i in range(len(time))]
+            buoy = [ds.attrs["platform_code"] for i in range(len(time))]
+            df_temp = pd.DataFrame({"file_name": file_name, "buoy":buoy, "time":time, "lon":lon, "lat":lat, "u":u, "v":v})
 
             # change time column to datetime
             df["time"] = pd.to_datetime(df["time"])
