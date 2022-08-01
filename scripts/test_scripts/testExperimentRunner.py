@@ -22,15 +22,15 @@ def conditional_parameters(str_accepted: list[str], to_return):
 search_space = {
     "filename_problems": "all_problems_3",
     # product and sum are not supported yet
-    # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
-    "kernel": "expSineSquared",  # "matern"
-    "sigma_exp": tune.qrandn(1, 1, 0.0001),
+    "kernel": tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+    # "kernel": "expSineSquared",  # "matern"
+    "sigma_exp": tune.qrandn(2, 2, 0.0001),
     # if matern or rbf
-    # "scaling": conditional_parameters(["rbf"], {
-    #     "latitude": tune.loguniform(1, 100000),
-    #     "longitude": tune.loguniform(1, 100000),
-    #     "time": tune.loguniform(1, 100000)}
-    #                                   ),
+    "scaling": conditional_parameters(["rbf", "matern"], {
+        "latitude": tune.loguniform(1e-2, 5),
+        "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
+        "time": tune.loguniform(7200, 43200)
+    }),
     # "scaling": conditional_parameters(["matern"], {
     #     "latitude": tune.loguniform(1, 1000000),
     #     "longitude": tune.loguniform(1, 1000000),
@@ -39,17 +39,17 @@ search_space = {
     # "lon_scale": tune.loguniform(1, 1e6),
     # "time_scale": tune.loguniform(1, 1e6),
     # if matern
-    # "nu": conditional_parameters(["matern"], tune.choice([0.001, 0.01, 0.1, 0.5, 1.5])),
+    "nu": conditional_parameters(["matern"], tune.choice([0.1, 0.5, 1.5, 2.5])),
     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
 
     # if rational quadratic or expsinesquared(=periodic)
-    # "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
-    "length_scale": tune.uniform(1, 100000),
+    "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
+    # "length_scale": tune.uniform(1, 100000),
 
     "length_scale_bounds": "fixed",
     # if rational quadratic
-    # "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
-    # "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
+    "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
+    "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
 
     # if expSineSquared
     "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10)),
@@ -83,9 +83,9 @@ search_space = {
 #     "sigma_exp": tune.qrandn(1, 1, 0.0001),
 #     # if matern or rbf
 #     "scaling": {
-#         "latitude": tune.loguniform(1e-4, 1e6),
-#         "longitude": tune.loguniform(1e-4, 1e6),  # tune.loguniform(1, 1e6),
-#         "time": tune.loguniform(50000, 1e6)},
+#         "latitude": tune.loguniform(1e-2, 5),
+#         "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
+#         "time": tune.loguniform(7200, 43200)},
 #     # "lon_scale": tune.loguniform(1, 1e6),
 #     # "time_scale": tune.loguniform(1, 1e6),
 #     # if matern

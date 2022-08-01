@@ -37,8 +37,8 @@ class OceanCurrentGP(OceanCurrentModel):
         # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
         if "kernel" in self.config_dict:
             parameters_model["kernel"] = self.__get_kernel(
-                self.config_dict["kernel"]) + 2.3561 * gaussian_process.kernels.Matern(
-                length_scale=[48.89273, 0.312469448, 50036.4002], nu=1.5, length_scale_bounds="fixed")
+                self.config_dict["kernel"])  # + 2.3561 * gaussian_process.kernels.Matern(
+            # length_scale=[48.89273, 0.312469448, 50036.4002], nu=1.5, length_scale_bounds="fixed")
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
