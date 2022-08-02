@@ -15,17 +15,51 @@ class VariogramAnalysis:
         self.bins = None
         self.bins_count = None
 
-    def detrend(self, axis: AnyStr="lat"):
+
+    def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> None:
         """Variogram analysis assumes stationarity, therefore detrending is needed. This method
-        can perform detrending over a specific axis by subtracting the mean and dividing by
-        standard deviation"""
+        can perform detrending over a specific variable (e.g. lon, lat, time) by subtracting the 
+        mean and dividing by standard deviation"""
 
-        pass
+        min_val = np.floor(np.min(self.data[detrend_var].to_numpy()))
+        max_val = np.ceil(np.max(self.data[detrend_var].to_numpy()))
+        bin_step = (max_val-min_val)/num_bins
+        bins = np.arange(min_val, max_val+bin_step, bin_step)
+        bin_labels = [f"{bins[i]}-{bins[i+1]}" for i in range(len(bins)-1)]
+        self.data[f"{detrend_var}_bins"] = pd.cut(self.data[detrend_var], bins, labels=bin_labels, include_lowest=True)
 
-    def build_variogram(self, res_tuple: Tuple[int],\
-        bins_tuple: Tuple[int], chunk_size:int) -> List[np.ndarray]:
+        bin_statistics = {}
+        for bin_label in bin_labels:
+            u_stats = []
+            u_stats.append(self.data[self.data[f"{detrend_var}_bins"] == bin_label]["u_error"].mean())
+            u_stats.append(np.sqrt(self.data[self.data[f"{detrend_var}_bins"] == bin_label]["u_error"].var()))
+
+            v_stats = []
+            v_stats.append(self.data[self.data[f"{detrend_var}_bins"] == bin_label]["v_error"].mean())
+            v_stats.append(np.sqrt(self.data[self.data[f"{detrend_var}_bins"] == bin_label]["v_error"].var()))
+
+            bin_statistics[bin_label] = {"u_error": u_stats, "v_error": v_stats}
+
+        # make accessible for plotting function
+        self.detrend_var, self.bin_labels = detrend_var, bin_labels
+
+        # subtract mean and divide by std with bin statistics
+        self.data["detrended_u_error"] = self.data.apply(lambda x: (x["u_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["u_error"][0])\
+            /bin_statistics[x[f"{detrend_var}_bins"]]["u_error"][1], axis=1)
+        self.data["detrended_v_error"] = self.data.apply(lambda x: (x["v_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][0]\
+            )/bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
+
+
+    def build_variogram(self, res_tuple: Tuple[int], bins_tuple: Tuple[int],\
+        chunk_size:int, cross_buoy_pairs_only: bool=True, detrended: bool=False) -> List[np.ndarray]:
         """Find all possible pairs of points. It then computes the lag value in each axis
-        and the variogram value for u and v errors."""
+        and the variogram value for u and v errors.
+        
+        res_tuple - resolution in (degrees, degrees, hours)
+        bins_tuple - number of bins in (lon, lat, time)
+        chunk_size - lower number if less memory
+        detrended - use detrended value or not
+        """
 
         n = self.data.shape[0]
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
@@ -34,19 +68,20 @@ class VariogramAnalysis:
         # get indices of all pairs
         i,j = np.triu_indices(n, k=1)
 
-        # build a mask to mask out the pairs from same buoy
-        buoy_vector = self.data["buoy"].to_numpy()
-        # map each buoy name string to unique integer
-        _, integer_mapped = np.unique(buoy_vector, return_inverse=True)
-        i_temp, j_temp = np.triu_indices(len(integer_mapped), k=1)
-        # if integer in i and j is the same, then both points from same buoy
-        residual = (integer_mapped[i_temp] - integer_mapped[j_temp])
-        mask_same_buoy = residual != 0
-        mask_idx = np.where(mask_same_buoy == True)
+        if cross_buoy_pairs_only:
+            # build a mask to mask out the pairs from same buoy
+            buoy_vector = self.data["buoy"].to_numpy()
+            # map each buoy name string to unique integer
+            _, integer_mapped = np.unique(buoy_vector, return_inverse=True)
+            i_temp, j_temp = np.triu_indices(len(integer_mapped), k=1)
+            # if integer in i and j is the same, then both points from same buoy
+            residual = (integer_mapped[i_temp] - integer_mapped[j_temp])
+            mask_same_buoy = residual != 0
+            mask_idx = np.where(mask_same_buoy == True)
 
-        # only select pairs from different buoys
-        i = i[mask_idx]
-        j = j[mask_idx]
+            # only select pairs from different buoys
+            i = i[mask_idx]
+            j = j[mask_idx]
         print(f"Number of pairs of points: {len(i)}")
 
         # convert time axis to datetime
@@ -60,8 +95,12 @@ class VariogramAnalysis:
         time = self.data["time"].to_numpy()
         lon = self.data["lon"].to_numpy()
         lat = self.data["lat"].to_numpy()
-        u_error = self.data["u_error"].to_numpy()
-        v_error = self.data["v_error"].to_numpy()
+        if detrended:
+            u_error = self.data["detrended_u_error"].to_numpy()
+            v_error = self.data["detrended_v_error"].to_numpy()
+        else:
+            u_error = self.data["u_error"].to_numpy()
+            v_error = self.data["v_error"].to_numpy()
 
         offset = 0
         for chunk in tqdm(range(chunk_size, len(i), chunk_size)):
@@ -100,6 +139,34 @@ class VariogramAnalysis:
         self.bins_count = bins_count
         return bins, bins_count
 
+    
+    def plot_detrended_bins(self) -> None:
+        fig, axs = plt.subplots(len(self.bin_labels),1,figsize=(20,len(self.bin_labels)*6))
+
+        for i, bin_label in enumerate(self.bin_labels):
+            detrended_u_error = self.data[self.data[f"{self.detrend_var}_bins"] == bin_label]["detrended_u_error"].to_numpy()
+            detrended_v_error = self.data[self.data[f"{self.detrend_var}_bins"] == bin_label]["detrended_v_error"].to_numpy()
+            detrended_RMSE = np.sqrt(detrended_u_error**2 + detrended_v_error**2)
+            bin_time = self.data[self.data[f"{self.detrend_var}_bins"] == bin_label]["time"]
+            df_temp = pd.DataFrame({"time": bin_time, "detrended_RMSE": detrended_RMSE, "u_error_detrended": detrended_u_error,\
+                                    "v_error_detrended": detrended_v_error})
+            detrended_group = df_temp.groupby(by=["time"], as_index=False).mean()
+            # axs[i].plot(detrended_group["time"], detrended_group["detrended_RMSE"], label="RMSE binned and detrended")
+            if len(self.bin_labels) == 1:
+                axs.plot(detrended_group["time"], detrended_group["u_error_detrended"], label="u error binned and detrended")
+                axs.plot(detrended_group["time"], detrended_group["v_error_detrended"], label="v error binned and detrended")
+                axs.title.set_text(f"Plot for '{self.detrend_var}' range of {bin_label} degrees")
+                axs.set_xticks(np.arange(0, len(detrended_group), round(len(detrended_group)/8)))
+                axs.grid()
+            else:
+                axs[i].plot(detrended_group["time"], detrended_group["u_error_detrended"], label="u error binned and detrended")
+                axs[i].plot(detrended_group["time"], detrended_group["v_error_detrended"], label="v error binned and detrended")
+                axs[i].title.set_text(f"Plot for '{self.detrend_var}' range of {bin_label} degrees")
+                axs[i].set_xticks(np.arange(0, len(detrended_group), round(len(detrended_group)/8)))
+                axs[i].grid()
+        plt.legend()
+        plt.show()
+
 
     def plot_histograms(self) -> None:
         if self.bins is None:
@@ -115,6 +182,7 @@ class VariogramAnalysis:
         axs[2].title.set_text("Lat [degrees]")
         plt.show()
 
+
     def plot_variograms(self, variable: AnyStr="u") -> None:
         if self.bins is None:
             raise Exception("Need to run build_variogram() first!")
@@ -127,16 +195,24 @@ class VariogramAnalysis:
             raise ValueError("Specified variable does not exist")
 
         # find first zero value to avoid dividing by zero error
-        t_first_zero_idx = np.argwhere(np.sum(self.bins[:,:,:,var], axis=(0,1)) == 0)[0][0]
-        lon_first_zero_idx = np.argwhere(np.sum(self.bins[:,:,:,var], axis=(1,2)) == 0)[0][0]
-        lat_first_zero_idx = np.argwhere(np.sum(self.bins[:,:,:,var], axis=(0,2)) == 0)[0][0]
+        first_zero_idx = [np.sum(self.bins[:,:,:,var], axis=(0,1)),\
+                        np.sum(self.bins[:,:,:,var], axis=(1,2)),\
+                        np.sum(self.bins[:,:,:,var], axis=(0,2))]
 
-        # plot variograms in one direction
+        for i in range(len(first_zero_idx)):
+            loc_temp = np.argwhere(first_zero_idx[i] == 0)
+            if loc_temp.shape[0] != 0:
+                first_zero_idx[i] = loc_temp[0][0]
+            else:
+                first_zero_idx[i] = len(first_zero_idx[i])
+
+        # plot variograms over either u or v
+        # (Note: division needed to normalize by num values in each bin)
         fig, axs = plt.subplots(1,3,figsize=(25,10))
-        axs[0].plot((np.arange(self.t_bins)*self.t_res)[:t_first_zero_idx], np.sum(self.bins[:,:,:,var], axis=(0,1))[:t_first_zero_idx]/(np.sum(self.bins_count[:,:,:,var], axis=(0,1)))[:t_first_zero_idx])
+        axs[0].plot((np.arange(self.t_bins)*self.t_res)[:first_zero_idx[0]], np.sum(self.bins[:,:,:,var], axis=(0,1))[:first_zero_idx[0]]/(np.sum(self.bins_count[:,:,:,var], axis=(0,1)))[:first_zero_idx[0]])
         axs[0].title.set_text("Time [hrs]")
-        axs[1].plot((np.arange(self.lon_bins)*self.lon_res)[:lon_first_zero_idx], np.sum(self.bins[:,:,:,var], axis=(1,2))[:lon_first_zero_idx]/(np.sum(self.bins_count[:,:,:,var], axis=(1,2)))[:lon_first_zero_idx])
+        axs[1].plot((np.arange(self.lon_bins)*self.lon_res)[:first_zero_idx[1]], np.mean(self.bins[:,:,:,var], axis=(1,2))[:first_zero_idx[1]]/(np.sum(self.bins_count[:,:,:,var], axis=(1,2)))[:first_zero_idx[1]])
         axs[1].title.set_text("Lon [degrees]")
-        axs[2].plot((np.arange(self.lat_bins)*self.lat_res)[:lat_first_zero_idx], np.sum(self.bins[:,:,:,var], axis=(0,2))[:lat_first_zero_idx]/(np.sum(self.bins_count[:,:,:,var], axis=(0,2)))[:lat_first_zero_idx])
+        axs[2].plot((np.arange(self.lat_bins)*self.lat_res)[:first_zero_idx[1]], np.mean(self.bins[:,:,:,var], axis=(0,2))[:first_zero_idx[2]]/(np.sum(self.bins_count[:,:,:,var], axis=(0,2)))[:first_zero_idx[2]])
         axs[2].title.set_text("Lat [degrees]")
         plt.show()
