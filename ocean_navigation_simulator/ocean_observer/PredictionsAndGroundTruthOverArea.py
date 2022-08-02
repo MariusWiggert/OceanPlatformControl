@@ -62,8 +62,6 @@ class PredictionsAndGroundTruthOverArea:
                                 tuple_trajectory_history_new_files: Optional[Tuple[np.array, List[DateTime]]] = None,
                                 radius_area: float = None, gp_outputs: Optional[List['xr']] = None):
         print("visualize initial error")
-        fig, ax = plt.subplots(2, 2)
-        ax1, ax2, ax3, ax4 = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
         # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
         #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
         # error = init_fc - self.ground_truth
@@ -84,6 +82,9 @@ class PredictionsAndGroundTruthOverArea:
             {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}) - pred[1]).assign(
             magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for pred in
             list_predictions]
+
+        fig, ax = plt.subplots(2, 2)
+        ax1, ax2, ax3, ax4 = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
 
         ax1, self.cbar = OceanCurrentSource.plot_data_from_xarray(0, real_errors[0], ax=ax1,
                                                                   return_cbar=True)

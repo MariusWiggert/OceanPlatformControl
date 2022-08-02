@@ -51,18 +51,34 @@ observer:
     # After bug :
     gaussian_process:
       kernel:
-        type: "matern"
-        sigma_exp_squared: 2.3561
+        type: 'matern'
+        sigma_exp_squared: 3.4904
         scaling:
-          latitude: 0.312469448771947 # [deg]
-          longitude: 48.89273743760174 # [deg]
-          #time: 716506.862986654 # [s]
-          time: 50036.400217 # [s]
+          latitude: 0.48426081
+          longitude: 0.6580229922
+          time: 31553.8074593
         parameters:
-          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+          length_scale_bounds: "fixed"
           nu: 1.5
 
 
+    # {'type': 'matern', 'scaling': {'latitude': 0.48426081412300614, 'longitude': 0.6580229922153629, 'time': 31553.807459317766}, 'sigma_exp_squared': 3.4904, 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([6.58022992e-01, 4.84260814e-01, 3.15538075e+04])}}
+    # 16 percent radius .5, lag 12
+
+
+
+    #    gaussian_process:
+    #      kernel:
+    #        type: "matern"
+    #        sigma_exp_squared: 2.3561
+    #        scaling:
+    #          latitude: 0.312469448771947 # [deg]
+    #          longitude: 48.89273743760174 # [deg]
+    #          #time: 716506.862986654 # [s]
+    #          time: 50036.400217 # [s]
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 1.5
     #14.6 percent radius 0.5, lag 12
     #{'type': 'matern', 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849}, 'sigma_exp_squared': 2.3561, 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
     #    gaussian_process:
