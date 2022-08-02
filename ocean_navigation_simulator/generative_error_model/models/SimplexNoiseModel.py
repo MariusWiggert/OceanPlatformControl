@@ -113,7 +113,7 @@ class NoisyCurrentHarmonic:
         # OpenSimplex always return zero at origin so for a given
         # generated noise a random offset from the origin is used
 
-        random_translation = rng.uniform(low=0, high=1894405231, size=(3,)) * 2.0 - 1.0
+        random_translation = rng.uniform(size=(3,)) * 2.0 - 1.0
         self._offsets = SimplexOffset(*random_translation)
 
     def get_noise(self, x: units.Distance, y: units.Distance, elapsed_time: datetime.timedelta) -> float:
