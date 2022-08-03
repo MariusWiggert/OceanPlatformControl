@@ -1,3 +1,5 @@
+from ocean_navigation_simulator.generative_error_model.variogram.IndexPairGenerator import IndexPairGenerator
+
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -14,6 +16,9 @@ class VariogramAnalysis:
         self.data = data
         self.bins = None
         self.bins_count = None
+
+        # convert time axis to datetime
+        self.data["time"] = pd.to_datetime(self.data["time"])
 
 
     def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> None:
@@ -61,6 +66,9 @@ class VariogramAnalysis:
         detrended - use detrended value or not
         """
 
+        if detrended and "detrended_u_error" not in self.data.columns:
+            raise Exception("Need to run detrend method first with 'detrend=True'")
+
         n = self.data.shape[0]
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
         self.lon_bins, self.lat_bins, self.t_bins = lon_bins, lat_bins, t_bins = bins_tuple
@@ -68,8 +76,8 @@ class VariogramAnalysis:
         # get indices of all pairs
         i,j = np.triu_indices(n, k=1)
 
+        # build a mask to mask out the pairs from same buoy
         if cross_buoy_pairs_only:
-            # build a mask to mask out the pairs from same buoy
             buoy_vector = self.data["buoy"].to_numpy()
             # map each buoy name string to unique integer
             _, integer_mapped = np.unique(buoy_vector, return_inverse=True)
@@ -84,14 +92,11 @@ class VariogramAnalysis:
             j = j[mask_idx]
         print(f"Number of pairs of points: {len(i)}")
 
-        # convert time axis to datetime
-        self.data["time"] = pd.to_datetime(self.data["time"])
-
         # make bins
-        bins = np.zeros((lon_bins,lat_bins,t_bins,2)) # 5 km, 5km, 6hrs steps
+        bins = np.zeros((lon_bins,lat_bins,t_bins,2))
         bins_count = np.zeros((lon_bins, lat_bins, t_bins,2))
 
-        # convert relevant to numpy before accessing
+        # convert relevant columns to numpy before accessing
         time = self.data["time"].to_numpy()
         lon = self.data["lon"].to_numpy()
         lat = self.data["lat"].to_numpy()
@@ -108,7 +113,7 @@ class VariogramAnalysis:
             idx_i = i[0+offset:chunk]
             idx_j = j[0+offset:chunk]
 
-            # get lags
+            # get lags and divide by bin resolution to get bin index
             t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/t_res).astype(float)).astype(int)
             lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/lon_res).astype(int)
             lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/lat_res).astype(int)
@@ -123,21 +128,94 @@ class VariogramAnalysis:
                 np.add.at(bins, (lon_lag, lat_lag, t_lag), squared_diff)
                 # add to bin count
                 np.add.at(bins_count, (lon_lag, lat_lag, t_lag), [1,1])
+                # bins[lon_lag, lat_lag, t_lag] /= bins_count[lon_lag, lat_lag, t_lag]
             else:
                 bins_temp = np.zeros((lon_bins,lat_bins,t_bins,2))
                 bins_count_temp = np.zeros(bins_temp.shape)
                 # perform operations
                 np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
                 np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
+                # bins_temp[lon_lag, lat_lag, t_lag] /= bins_count_temp[lon_lag, lat_lag, t_lag]
+                # bins = (bins + bins_temp)/2
                 bins += bins_temp
                 bins_count += bins_count_temp
 
             offset += chunk_size
-        
-        bins[lon_lag, lat_lag, t_lag] /= bins_count[lon_lag, lat_lag, t_lag]
-        self.bins = bins
-        self.bins_count = bins_count
+        self.bins, self.bins_count = bins, bins_count
         return bins, bins_count
+
+
+    def build_variogram_gen(self, res_tuple: Tuple[int], bins_tuple: Tuple[int], chunk_size:int,\
+        cross_buoy_pairs_only: bool=True, detrended: bool=False) -> List[np.ndarray]:
+
+        if detrended and "detrended_u_error" not in self.data.columns:
+            raise Exception("Need to run detrend method first with 'detrend=True'")
+
+        self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
+        self.lon_bins, self.lat_bins, self.t_bins = lon_bins, lat_bins, t_bins = bins_tuple
+
+        # setup generator to generate index pairs
+        n = self.data.shape[0]
+        gen = IndexPairGenerator(n, chunk_size)
+
+        # make bins
+        self.bins = np.zeros((lon_bins,lat_bins,t_bins,2))
+        self.bins_count = np.zeros((lon_bins, lat_bins, t_bins,2))
+
+        # convert relevant columns to numpy before accessing
+        time = self.data["time"].to_numpy()
+        lon = self.data["lon"].to_numpy()
+        lat = self.data["lat"].to_numpy()
+        if detrended:
+            u_error = self.data["detrended_u_error"].to_numpy()
+            v_error = self.data["detrended_v_error"].to_numpy()
+        else:
+            u_error = self.data["u_error"].to_numpy()
+            v_error = self.data["v_error"].to_numpy()
+
+        # iterate over generator to get relevant indices
+        while True:
+            indices = next(gen)
+            if len(indices[0]) == 0:
+                break
+            self.calculate_chunk(indices, time, lon, lat, u_error, v_error)
+
+        return self.bins, self.bins_count
+
+
+    def calculate_chunk(self, indices: List[int], time: List[int], lon: List[int], lat: List[int],\
+        u_error: List[int], v_error: List[int]) -> None:
+        # get values for chunk
+        idx_i = np.array(indices[0])
+        idx_j = np.array(indices[1])
+
+        # get lags
+        t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/self.t_res).astype(float)).astype(int)
+        lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
+        lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
+        u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j])
+        v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j])
+        squared_diff = np.array(np.vstack((u_squared_diff, v_squared_diff)).reshape((-1,2)))
+
+        # assign values to bin
+        if np.sum(self.bins) == 0:
+            # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
+            # add to relevant bin
+            np.add.at(self.bins, (lon_lag, lat_lag, t_lag), squared_diff)
+            # add to bin count
+            np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1,1])
+            # self.bins[lon_lag, lat_lag, t_lag] /= self.bins_count[lon_lag, lat_lag, t_lag]
+        else:
+            bins_temp = np.zeros_like(self.bins)
+            bins_count_temp = np.zeros_like(self.bins_count)
+            # perform operations
+            np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
+            np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
+            # TODO: graphs vary with chunk_size -> check if this is correct
+            # bins_temp[lon_lag, lat_lag, t_lag] /= bins_count_temp[lon_lag, lat_lag, t_lag]
+            # self.bins = (self.bins + bins_temp)/2
+            self.bins += bins_temp
+            self.bins_count += bins_count_temp
 
     
     def plot_detrended_bins(self) -> None:
