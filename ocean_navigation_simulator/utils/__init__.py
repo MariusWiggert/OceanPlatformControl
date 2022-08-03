@@ -9,3 +9,11 @@
 # from .calc_fmrc_error import calc_fmrc_errors
 #
 # __all__ = ("check_feasibility_2D_w_sim", "get_bounding_square_of_reachable_set")
+
+# Make sub-folders visible to the module
+# import paths as paths
+# import units as units
+
+# specify version (for pip installation)
+# __version__ = "0.1.0"
+# __all__ = ("units", "paths")

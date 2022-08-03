@@ -102,4 +102,5 @@ class DataField(abc.ABC):
         self.hindcast_data_source.plot_data_at_time_over_area(time=time, x_interval=x_interval, y_interval=y_interval)
 
 
-
+    def __del__(self):
+        print('__del__ called in DataField')

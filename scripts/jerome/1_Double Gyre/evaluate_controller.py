@@ -13,8 +13,7 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from ocean_navigation_simulator.environment.PlatformEnv import PlatformEnv
-from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
-from scripts.jerome import clean_ray_results
+from scripts.jerome.old import clean_ray_results
 
 script_start_time = time.time()
 

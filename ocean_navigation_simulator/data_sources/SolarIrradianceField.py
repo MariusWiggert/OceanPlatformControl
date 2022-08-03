@@ -1,11 +1,7 @@
-import datetime
-from typing import List, NamedTuple, Sequence, Optional, Dict, Type
-import ocean_navigation_simulator.utils.units as units
-from ocean_navigation_simulator.environment.data_sources.DataField import DataField
-from ocean_navigation_simulator.environment.data_sources.SolarIrradiance.SolarIrradianceSource import *
-from ocean_navigation_simulator.environment.data_sources.DataSources import AnalyticalSource, XarraySource
-import xarray as xr
-from geopy.point import Point as GeoPoint
+from typing import Optional, Dict, Type
+from ocean_navigation_simulator.data_sources.DataField import DataField
+from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import *
+from ocean_navigation_simulator.data_sources.DataSources import AnalyticalSource, XarraySource
 
 
 class SolarIrradianceField(DataField):

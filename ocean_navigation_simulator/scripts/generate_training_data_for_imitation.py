@@ -230,26 +230,3 @@ if __name__ == "__main__":
     )
 
     print(f"Total Script Time: {time.time() - script_start_time:.2f}s = {(time.time() - script_start_time) / 60:.2f}min")
-
-
-#%% Plots
-# print(planner_hycom.reach_times)
-# print(observation.platform_state.date_time.timestamp() - planner_hycom.current_data_t_0)
-
-# x_interval, y_interval, t_interval =  arena.get_lon_lat_time_interval(end_region=problem.end_region, margin=1)
-# ax = observation.forecast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time,
-#     x_interval=x_interval,
-#     y_interval=y_interval,
-#     return_ax=True,
-#     colorbar=False
-# # )
-# ax = planner_hycom.plot_reachability_snapshot(rel_time_in_seconds = 0, granularity_in_h = 5,
-#                                    alpha_color = 1, time_to_reach=True,
-#                                    return_ax = True, fig_size_inches=(12, 12),
-#                                    input_ax = ax, plot_in_h = True, display_colorbar=True, mask_above_zero=True)
-# ax = arena.plot_all_on_map(
-#     problem= problem,
-#     margin = 1
-# )
-# plt.show()

@@ -17,7 +17,7 @@ from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.controllers import Controller
 from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
 from ocean_navigation_simulator.utils.units import Distance
-from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
+from ocean_navigation_simulator.data_sources import DataSource
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 
 

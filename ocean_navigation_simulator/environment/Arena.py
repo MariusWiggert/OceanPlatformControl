@@ -14,14 +14,11 @@ import time
 from ocean_navigation_simulator.environment.Platform import Platform, PlatformAction
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
 from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import \
-    OceanCurrentSourceAnalytical
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import \
-    OceanCurrentSourceXarray, OceanCurrentSource
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.environment.data_sources.SeaweedGrowthField import SeaweedGrowthField
-from ocean_navigation_simulator.environment.data_sources.SolarIrradianceField import SolarIrradianceField
+from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import OceanCurrentSourceAnalytical
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSourceXarray, OceanCurrentSource, OceanCurrentVector
+from ocean_navigation_simulator.data_sources.SeaweedGrowthField import SeaweedGrowthField
+from ocean_navigation_simulator.data_sources.SolarIrradianceField import SolarIrradianceField
 from ocean_navigation_simulator.utils.units import format_datetime_x_axis
 
 
@@ -105,6 +102,7 @@ class Arena:
 
         if timing:
             print(f'- Generate Ocean Source ({time.time() - start:.1f}s)')
+        start = time.time()
 
         self.platform = Platform(
             platform_dict=platform_dict,
@@ -113,6 +111,8 @@ class Arena:
             solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
             seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
         )
+        if timing:
+            print(f'- Generate Platform ({time.time() - start:.1f}s)')
 
         self.spatial_boundary = spatial_boundary
         self.collect_trajectory = collect_trajectory
@@ -564,3 +564,9 @@ class Arena:
             # index = 0 if index.size == 0 else int(index[0])
 
         return index
+
+    def __del__(self):
+        print('__del__ called in Arena')
+
+    def __delete__(self):
+        print('__delete__ called in Arena')

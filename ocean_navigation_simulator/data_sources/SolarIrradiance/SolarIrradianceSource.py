@@ -1,11 +1,10 @@
 import casadi as ca
-from ocean_navigation_simulator.environment.data_sources.SolarIrradiance.solar_rad import solar_rad, solar_rad_ca
-import datetime
+from ocean_navigation_simulator.data_sources.SolarIrradiance.solar_rad import solar_rad, solar_rad_ca
 from typing import List, Union
 import numpy as np
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
 import xarray as xr
-from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource, AnalyticalSource
+from ocean_navigation_simulator.data_sources.DataSources import DataSource, AnalyticalSource
 
 
 class SolarIrradianceSource(DataSource):

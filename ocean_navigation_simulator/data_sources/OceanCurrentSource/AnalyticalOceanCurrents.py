@@ -2,9 +2,9 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
-from ocean_navigation_simulator.environment.data_sources.DataSources import AnalyticalSource
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.data_sources.DataSources import AnalyticalSource
 import abc
 
 

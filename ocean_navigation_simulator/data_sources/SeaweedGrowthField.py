@@ -1,10 +1,6 @@
-import datetime
-from typing import List, NamedTuple, Sequence, Optional, Dict
-import ocean_navigation_simulator.utils.units as units
-from ocean_navigation_simulator.environment.data_sources.DataField import DataField
-from ocean_navigation_simulator.environment.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR, SeaweedGrowthSource
-import xarray as xr
-from geopy.point import Point as GeoPoint
+from typing import Optional, Dict
+from ocean_navigation_simulator.data_sources.DataField import DataField
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR, SeaweedGrowthSource
 
 
 class SeaweedGrowthField(DataField):

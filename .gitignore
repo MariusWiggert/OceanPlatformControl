@@ -5,6 +5,8 @@ __pycache__*
 *.gif
 optimized_dp/
 viz/
-data/
 .vscode/
-2D_reachability_animation.html
+data/
+generated_media/
+hj_reachability
+models7

@@ -5,7 +5,7 @@ from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
+from ocean_navigation_simulator.data_sources import DataSource
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.utils import units
 from typing import Tuple, Dict, List, AnyStr, Union, Callable

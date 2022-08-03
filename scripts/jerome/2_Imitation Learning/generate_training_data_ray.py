@@ -15,7 +15,7 @@ script_start_time = time.time()
 
 print('Script started ...')
 
-ray.init()
+ray.init("ray://13.68.187..126:10001")
 
 print('Ray initialised ...')
 

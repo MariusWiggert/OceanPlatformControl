@@ -1,10 +1,9 @@
-import datetime
 from typing import Optional, Dict
-from ocean_navigation_simulator.environment.data_sources.DataField import DataField
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import \
+from ocean_navigation_simulator.data_sources.DataField import DataField
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import \
     HindcastFileSource, HindcastOpendapSource, ForecastFileSource
-import ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
+import ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
 
 
 class OceanCurrentField(DataField):
@@ -43,3 +42,6 @@ class OceanCurrentField(DataField):
             return specific_analytical_current(source_dict)
         else:
             raise ValueError("Selected source {} in the OceanCurrentSource dict is not implemented.". format(source_dict['source']))
+
+    def __del__(self):
+        print('__del__ called in OceanCurrentField')

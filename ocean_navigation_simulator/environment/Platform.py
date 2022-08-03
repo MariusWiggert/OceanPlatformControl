@@ -16,10 +16,9 @@ import time
 import math
 from typing import Dict, Optional
 
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.environment.data_sources.SolarIrradiance.SolarIrradianceSource import \
-    SolarIrradianceSource
-from ocean_navigation_simulator.environment.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
+from ocean_navigation_simulator.data_sources import OceanCurrentSource
+from ocean_navigation_simulator.data_sources.SolarIrradiance import SolarIrradianceSource
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
@@ -72,8 +71,8 @@ class Platform:
                  platform_dict: Dict,
                  ocean_source: OceanCurrentSource,
                  use_geographic_coordinate_system: bool,
-                 solar_source: Optional[SolarIrradianceSource] = None,
-                 seaweed_source: Optional[SeaweedGrowthSource] = None):
+                 solar_source: SolarIrradianceSource = None,
+                 seaweed_source: SeaweedGrowthSource = None):
 
         # Set the major member variables
         self.platform_dict = platform_dict
@@ -208,3 +207,6 @@ class Platform:
         if verbose:
             print(f'Set Platform Equations: {time.time() - start:.2f}s')
         return F_next
+
+    def __del__(self):
+        print('__del__ called in Platform')

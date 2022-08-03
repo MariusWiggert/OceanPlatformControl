@@ -1,11 +1,9 @@
 import casadi as ca
 import numpy as np
-import time
 import matplotlib.pyplot as plt
 import datetime
 
-import ocean_navigation_simulator.environment.data_sources.SolarIrradiance.spa as spa
-from ocean_navigation_simulator.environment.data_sources.SolarIrradiance.solar_rad import solar_rad, solar_rad_ca
+from ocean_navigation_simulator.data_sources.SolarIrradiance.solar_rad import solar_rad
 
 x = ca.MX.sym('x', 2, 2)
 A = np.array([[2, 0], [1, 2]])

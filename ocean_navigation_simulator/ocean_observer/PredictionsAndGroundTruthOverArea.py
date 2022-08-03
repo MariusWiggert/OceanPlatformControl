@@ -5,7 +5,7 @@ import xarray as xr
 from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.data_sources import OceanCurrentSource
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics
 from ocean_navigation_simulator.utils import units
 
