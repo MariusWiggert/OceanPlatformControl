@@ -7,6 +7,9 @@ from typing import Tuple, List, AnyStr
 import matplotlib.pyplot as plt
 import itertools
 
+# TODO: if normal variogram method does not work due to RAM constraints, automatically
+# call the generator-based method
+
 class VariogramAnalysis:
     """
     Handles all the required variogram analysis functionality needed.
@@ -57,12 +60,14 @@ class VariogramAnalysis:
 
     def build_variogram(self, res_tuple: Tuple[int], bins_tuple: Tuple[int],\
         chunk_size:int, cross_buoy_pairs_only: bool=True, detrended: bool=False) -> List[np.ndarray]:
+
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors.
         
         res_tuple - resolution in (degrees, degrees, hours)
         bins_tuple - number of bins in (lon, lat, time)
         chunk_size - lower number if less memory
+        cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
         detrended - use detrended value or not
         """
 
@@ -108,7 +113,7 @@ class VariogramAnalysis:
             v_error = self.data["v_error"].to_numpy()
 
         offset = 0
-        for chunk in tqdm(range(chunk_size, len(i), chunk_size)):
+        for chunk in tqdm(range(chunk_size, len(i)+1, chunk_size)):
             # get values for chunk
             idx_i = i[0+offset:chunk]
             idx_j = j[0+offset:chunk]
@@ -117,9 +122,9 @@ class VariogramAnalysis:
             t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/t_res).astype(float)).astype(int)
             lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/lon_res).astype(int)
             lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/lat_res).astype(int)
-            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j])
-            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j])
-            squared_diff = np.array(np.vstack((u_squared_diff, v_squared_diff)).reshape((-1,2)))
+            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
+            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
+            squared_diff = np.hstack((u_squared_diff, v_squared_diff))
 
             # assign values to bin
             if np.sum(bins) == 0:
@@ -130,23 +135,34 @@ class VariogramAnalysis:
                 np.add.at(bins_count, (lon_lag, lat_lag, t_lag), [1,1])
                 # bins[lon_lag, lat_lag, t_lag] /= bins_count[lon_lag, lat_lag, t_lag]
             else:
-                bins_temp = np.zeros((lon_bins,lat_bins,t_bins,2))
-                bins_count_temp = np.zeros(bins_temp.shape)
+                bins_temp = np.zeros_like(bins)
+                bins_count_temp = np.zeros_like(bins_temp)
                 # perform operations
                 np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
                 np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
-                # bins_temp[lon_lag, lat_lag, t_lag] /= bins_count_temp[lon_lag, lat_lag, t_lag]
-                # bins = (bins + bins_temp)/2
                 bins += bins_temp
                 bins_count += bins_count_temp
 
             offset += chunk_size
+        bins = np.divide(bins, bins_count, out=np.zeros_like(bins), where=bins_count!=0)/2
         self.bins, self.bins_count = bins, bins_count
         return bins, bins_count
 
 
     def build_variogram_gen(self, res_tuple: Tuple[int], bins_tuple: Tuple[int], chunk_size:int,\
         cross_buoy_pairs_only: bool=True, detrended: bool=False) -> List[np.ndarray]:
+
+        """Find all possible pairs of points. It then computes the lag value in each axis
+        and the variogram value for u and v errors.
+
+        This method uses a generator if there are too many index pairs to hold in RAM.
+        
+        res_tuple - resolution in (degrees, degrees, hours)
+        bins_tuple - number of bins in (lon, lat, time)
+        chunk_size - lower number if less memory
+        cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
+        detrended - use detrended value or not
+        """
 
         if detrended and "detrended_u_error" not in self.data.columns:
             raise Exception("Need to run detrend method first with 'detrend=True'")
@@ -157,6 +173,11 @@ class VariogramAnalysis:
         # setup generator to generate index pairs
         n = self.data.shape[0]
         gen = IndexPairGenerator(n, chunk_size)
+
+        # build a mask to mask out the pairs from same buoy
+        buoy_vector = None
+        if cross_buoy_pairs_only:
+            buoy_vector = self.data["buoy"].to_numpy()
 
         # make bins
         self.bins = np.zeros((lon_bins,lat_bins,t_bins,2))
@@ -178,24 +199,43 @@ class VariogramAnalysis:
             indices = next(gen)
             if len(indices[0]) == 0:
                 break
-            self.calculate_chunk(indices, time, lon, lat, u_error, v_error)
-
+            self._calculate_chunk(indices, time, lon, lat, u_error, v_error, buoy_vector)
+        
+        # divide bins by the count + divide by 2 for semi-variance (special func to avoid dividing by zero)
+        self.bins = np.divide(self.bins, self.bins_count, out=np.zeros_like(self.bins), where=self.bins_count!=0)/2
         return self.bins, self.bins_count
 
 
-    def calculate_chunk(self, indices: List[int], time: List[int], lon: List[int], lat: List[int],\
-        u_error: List[int], v_error: List[int]) -> None:
+    def _calculate_chunk(self, indices: List[int], time: List[int], lon: List[int], lat: List[int],\
+        u_error: List[int], v_error: List[int], buoy_vector: List[str]) -> None:
         # get values for chunk
         idx_i = np.array(indices[0])
         idx_j = np.array(indices[1])
+
+        # build mask to eliminate pairs from same buoy
+        if buoy_vector is not None:
+            buoy_vector_i = buoy_vector[idx_i]
+            buoy_vector_j = buoy_vector[idx_j]
+            # map each buoy name string to unique integer
+            _, integer_mapped = np.unique([buoy_vector_i, buoy_vector_j], return_inverse=True)
+            buoy_vector_mapped_i = integer_mapped[:round(len(integer_mapped)/2)]
+            buoy_vector_mapped_j = integer_mapped[round(len(integer_mapped)/2):]
+            # if integer in i and j is the same, then both points from same buoy
+            residual = buoy_vector_mapped_i - buoy_vector_mapped_j
+            mask_same_buoy = residual != 0
+            mask_idx = np.where(mask_same_buoy == True)
+
+            # only select pairs from different buoys
+            idx_i = idx_i[mask_idx]
+            idx_j = idx_j[mask_idx]
 
         # get lags
         t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/self.t_res).astype(float)).astype(int)
         lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
         lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
-        u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j])
-        v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j])
-        squared_diff = np.array(np.vstack((u_squared_diff, v_squared_diff)).reshape((-1,2)))
+        u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
+        v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
+        squared_diff = np.hstack((u_squared_diff, v_squared_diff))
 
         # assign values to bin
         if np.sum(self.bins) == 0:
@@ -211,9 +251,6 @@ class VariogramAnalysis:
             # perform operations
             np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
             np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
-            # TODO: graphs vary with chunk_size -> check if this is correct
-            # bins_temp[lon_lag, lat_lag, t_lag] /= bins_count_temp[lon_lag, lat_lag, t_lag]
-            # self.bins = (self.bins + bins_temp)/2
             self.bins += bins_temp
             self.bins_count += bins_count_temp
 
@@ -272,25 +309,23 @@ class VariogramAnalysis:
         except:
             raise ValueError("Specified variable does not exist")
 
-        # find first zero value to avoid dividing by zero error
-        first_zero_idx = [np.sum(self.bins[:,:,:,var], axis=(0,1)),\
-                        np.sum(self.bins[:,:,:,var], axis=(1,2)),\
-                        np.sum(self.bins[:,:,:,var], axis=(0,2))]
-
-        for i in range(len(first_zero_idx)):
-            loc_temp = np.argwhere(first_zero_idx[i] == 0)
-            if loc_temp.shape[0] != 0:
-                first_zero_idx[i] = loc_temp[0][0]
-            else:
-                first_zero_idx[i] = len(first_zero_idx[i])
-
         # plot variograms over either u or v
         # (Note: division needed to normalize by num values in each bin)
         fig, axs = plt.subplots(1,3,figsize=(25,10))
-        axs[0].plot((np.arange(self.t_bins)*self.t_res)[:first_zero_idx[0]], np.sum(self.bins[:,:,:,var], axis=(0,1))[:first_zero_idx[0]]/(np.sum(self.bins_count[:,:,:,var], axis=(0,1)))[:first_zero_idx[0]])
+
+        # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
+        t_y_num = np.sum(self.bins[:,:,:,var], axis=(0,1))
+        t_y_denom = np.sum(self.bins_count[:,:,:,var], axis=(0,1))
+        axs[0].plot(np.arange(self.t_bins)*self.t_res, np.divide(t_y_num, t_y_denom, out=np.zeros_like(t_y_num), where=t_y_denom!=0))
         axs[0].title.set_text("Time [hrs]")
-        axs[1].plot((np.arange(self.lon_bins)*self.lon_res)[:first_zero_idx[1]], np.mean(self.bins[:,:,:,var], axis=(1,2))[:first_zero_idx[1]]/(np.sum(self.bins_count[:,:,:,var], axis=(1,2)))[:first_zero_idx[1]])
+
+        lon_y_num = np.sum(self.bins[:,:,:,var], axis=(1,2))
+        lon_y_denom = np.sum(self.bins_count[:,:,:,var], axis=(1,2))
+        axs[1].plot(np.arange(self.lon_bins)*self.lon_res, np.divide(lon_y_num, lon_y_denom, out=np.zeros_like(lon_y_num), where=lon_y_denom!=0))
         axs[1].title.set_text("Lon [degrees]")
-        axs[2].plot((np.arange(self.lat_bins)*self.lat_res)[:first_zero_idx[1]], np.mean(self.bins[:,:,:,var], axis=(0,2))[:first_zero_idx[2]]/(np.sum(self.bins_count[:,:,:,var], axis=(0,2)))[:first_zero_idx[2]])
+
+        lat_y_num = np.sum(self.bins[:,:,:,var], axis=(0,2))
+        lat_y_denom = np.sum(self.bins_count[:,:,:,var], axis=(0,2))
+        axs[2].plot(np.arange(self.lat_bins)*self.lat_res, np.divide(lat_y_num, lat_y_denom, out=np.zeros_like(lat_y_num), where=lat_y_denom!=0))
         axs[2].title.set_text("Lat [degrees]")
         plt.show()

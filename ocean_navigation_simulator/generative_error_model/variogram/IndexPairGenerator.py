@@ -40,8 +40,8 @@ class IndexPairGenerator(Generator):
 if __name__ == "__main__":
     # test generator
     MAX_NUM_PAIRS = 3
-    n = 5
-    gen = IndexPairGenerator(n)
+    n = 4
+    gen = IndexPairGenerator(n, MAX_NUM_PAIRS)
     while True:
         val = next(gen)
         if len(val[0]) == 0:
