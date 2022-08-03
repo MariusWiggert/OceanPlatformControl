@@ -20,9 +20,6 @@ class VariogramAnalysis:
         self.bins = None
         self.bins_count = None
 
-        # convert time axis to datetime
-        self.data["time"] = pd.to_datetime(self.data["time"])
-
 
     def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> None:
         """Variogram analysis assumes stationarity, therefore detrending is needed. This method
@@ -73,6 +70,9 @@ class VariogramAnalysis:
 
         if detrended and "detrended_u_error" not in self.data.columns:
             raise Exception("Need to run detrend method first with 'detrend=True'")
+
+        # convert time axis to datetime
+        self.data["time"] = pd.to_datetime(self.data["time"])
 
         n = self.data.shape[0]
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
@@ -166,6 +166,9 @@ class VariogramAnalysis:
 
         if detrended and "detrended_u_error" not in self.data.columns:
             raise Exception("Need to run detrend method first with 'detrend=True'")
+
+        # convert time axis to datetime
+        self.data["time"] = pd.to_datetime(self.data["time"])
 
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
         self.lon_bins, self.lat_bins, self.t_bins = lon_bins, lat_bins, t_bins = bins_tuple
@@ -266,11 +269,10 @@ class VariogramAnalysis:
             df_temp = pd.DataFrame({"time": bin_time, "detrended_RMSE": detrended_RMSE, "u_error_detrended": detrended_u_error,\
                                     "v_error_detrended": detrended_v_error})
             detrended_group = df_temp.groupby(by=["time"], as_index=False).mean()
-            # axs[i].plot(detrended_group["time"], detrended_group["detrended_RMSE"], label="RMSE binned and detrended")
             if len(self.bin_labels) == 1:
                 axs.plot(detrended_group["time"], detrended_group["u_error_detrended"], label="u error binned and detrended")
                 axs.plot(detrended_group["time"], detrended_group["v_error_detrended"], label="v error binned and detrended")
-                axs.title.set_text(f"Plot for '{self.detrend_var}' range of {bin_label} degrees")
+                axs.title.set_text(f"Plot for '{self.detrend_var}' range of {bin_label} degrees (no binning)")
                 axs.set_xticks(np.arange(0, len(detrended_group), round(len(detrended_group)/8)))
                 axs.grid()
             else:

@@ -4,8 +4,8 @@ to be store in memory.
 """
 
 from collections.abc import Generator
-import itertools
 import numpy as np
+import numba as nb
 
 class IndexPairGenerator(Generator):
     def __init__(self, n: int, chunk_size: int):
@@ -14,7 +14,7 @@ class IndexPairGenerator(Generator):
         self.chunk_size = chunk_size
 
     def send(self, value):
-        indices = self.get_part_problem()
+        indices, self.cur, self.n = IndexPairGenerator.get_part_problem(self.cur, self.n, self.chunk_size)
         if len(indices) == 0:
             self.throw()
         return np.array(indices)
@@ -23,27 +23,36 @@ class IndexPairGenerator(Generator):
         # raise StopIteration
         return []
 
-    def get_part_problem(self):
+    @staticmethod
+    @nb.jit(nopython=True)
+    def get_part_problem(cur, n, chunk_size):
         i = []
         j = []
-        while len(i) < self.chunk_size:
-            length = self.n - self.cur -1
+        while len(i) < chunk_size:
+            length = n - cur -1
             if length == 0:
                 break
-            i.extend(np.full(self.n-self.cur-1, self.cur))
-            j.extend(range(self.cur+1, self.n))
-            self.cur += 1
+            i.extend(np.full(n-cur-1, cur))
+            j.extend(range(cur+1, n))
+            cur += 1
         indices = [np.array(i),np.array(j)]
-        return indices
+        return indices, cur, n
 
 
 if __name__ == "__main__":
+    import time
+    start = time.time()
+
     # test generator
-    MAX_NUM_PAIRS = 3
-    n = 4
+    MAX_NUM_PAIRS = 1000000
+    n = 100000
     gen = IndexPairGenerator(n, MAX_NUM_PAIRS)
     while True:
         val = next(gen)
         if len(val[0]) == 0:
             break
-        print(f"{val}\n")
+        # print(f"{val}\n")
+
+    end = time.time()
+    print(f"Time taken: {end - start}")
+
