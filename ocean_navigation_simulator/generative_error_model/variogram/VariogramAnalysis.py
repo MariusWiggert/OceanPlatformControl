@@ -55,13 +55,14 @@ class VariogramAnalysis:
             )/bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
 
 
-    def build_variogram(self, res_tuple: Tuple[int], bins_tuple: Tuple[int],\
-        chunk_size:int, cross_buoy_pairs_only: bool=True, detrended: bool=False) -> List[np.ndarray]:
+    def build_variogram(self, res_tuple: Tuple[int], total_res: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
+        detrended: bool=False) -> List[np.ndarray]:
 
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors.
         
         res_tuple - resolution in (degrees, degrees, hours)
+        total_res - resolution if variogram is 1D
         bins_tuple - number of bins in (lon, lat, time)
         chunk_size - lower number if less memory
         cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
@@ -73,10 +74,19 @@ class VariogramAnalysis:
 
         # convert time axis to datetime
         self.data["time"] = pd.to_datetime(self.data["time"])
+        # find earliest time/date and subtract from time column
+        earliest_date = self.data["time"].min()
+        self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
 
         n = self.data.shape[0]
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
-        self.lon_bins, self.lat_bins, self.t_bins = lon_bins, lat_bins, t_bins = bins_tuple
+        self.total_res = total_res
+
+        # create bins from known extremal values and resolutions
+        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
+        self.lon_bins = np.ceil((self.data["lon"].max() - self.data["lon"].min()+1)/lon_res).astype(int)
+        self.lat_bins = np.ceil((self.data["lat"].max() - self.data["lat"].min()+1)/lat_res).astype(int)
+        bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
 
         # get indices of all pairs
         i,j = np.triu_indices(n, k=1)
@@ -98,11 +108,16 @@ class VariogramAnalysis:
         print(f"Number of pairs of points: {len(i)}")
 
         # make bins
-        bins = np.zeros((lon_bins,lat_bins,t_bins,2))
-        bins_count = np.zeros((lon_bins, lat_bins, t_bins,2))
+        bins = np.zeros((*bin_sizes, 2))
+        bins_count = np.zeros_like(bins)
+
+        # make total bins
+        total_bin_num = np.ceil((np.sqrt(self.t_bins**2 + self.lon_bins**2 + self.lat_bins**2)/total_res)+1).astype(int)
+        total_bins = np.zeros((total_bin_num,2))
+        total_bins_count = np.zeros_like(total_bins)
 
         # convert relevant columns to numpy before accessing
-        time = self.data["time"].to_numpy()
+        time = self.data["time_offset"].to_numpy()
         lon = self.data["lon"].to_numpy()
         lat = self.data["lat"].to_numpy()
         if detrended:
@@ -119,38 +134,51 @@ class VariogramAnalysis:
             idx_j = j[0+offset:chunk]
 
             # get lags and divide by bin resolution to get bin index
-            t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/t_res).astype(float)).astype(int)
+            t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/t_res).astype(float)).astype(int)
             lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/lon_res).astype(int)
             lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/lat_res).astype(int)
             u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
             v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
             squared_diff = np.hstack((u_squared_diff, v_squared_diff))
 
+            # total lag vector
+            total_lag = np.floor(np.sqrt(np.square(((time[idx_i] - time[idx_j])/t_res).astype(float)) + \
+                np.square(lon[idx_i] - lon[idx_j]) + np.square(lat[idx_i] - lat[idx_j]))/total_res).astype(int)
+
             # assign values to bin
             if np.sum(bins) == 0:
                 # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
                 # add to relevant bin
                 np.add.at(bins, (lon_lag, lat_lag, t_lag), squared_diff)
+                np.add.at(total_bins, total_lag, squared_diff)
                 # add to bin count
                 np.add.at(bins_count, (lon_lag, lat_lag, t_lag), [1,1])
-                # bins[lon_lag, lat_lag, t_lag] /= bins_count[lon_lag, lat_lag, t_lag]
+                np.add.at(total_bins_count, total_lag, [1,1])
             else:
                 bins_temp = np.zeros_like(bins)
                 bins_count_temp = np.zeros_like(bins_temp)
+                total_bins_temp = np.zeros_like(total_bins)
+                total_bins_count_temp = np.zeros_like(total_bins_temp)
                 # perform operations
                 np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
                 np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
+                np.add.at(total_bins_temp, total_lag, squared_diff)
+                np.add.at(total_bins_count_temp, total_lag, [1,1])
                 bins += bins_temp
                 bins_count += bins_count_temp
+                total_bins += total_bins_temp
+                total_bins_count += total_bins_count_temp
 
             offset += chunk_size
         bins = np.divide(bins, bins_count, out=np.zeros_like(bins), where=bins_count!=0)/2
+        total_bins = np.divide(total_bins, total_bins_count, out=np.zeros_like(total_bins), where=total_bins_count!=0)/2
         self.bins, self.bins_count = bins, bins_count
+        self.total_bins, self.total_bins_count = total_bins, total_bins_count
         return bins, bins_count
 
 
-    def build_variogram_gen(self, res_tuple: Tuple[int], bins_tuple: Tuple[int], chunk_size:int,\
-        cross_buoy_pairs_only: bool=True, detrended: bool=False) -> List[np.ndarray]:
+    def build_variogram_gen(self, res_tuple: Tuple[int], chunk_size:int, cross_buoy_pairs_only: bool=True,\
+        detrended: bool=False) -> List[np.ndarray]:
 
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors.
@@ -169,9 +197,17 @@ class VariogramAnalysis:
 
         # convert time axis to datetime
         self.data["time"] = pd.to_datetime(self.data["time"])
+        # find earliest time/date and subtract from time column
+        earliest_date = self.data["time"].min()
+        self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
 
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
-        self.lon_bins, self.lat_bins, self.t_bins = lon_bins, lat_bins, t_bins = bins_tuple
+
+        # create bins from known extremal values and resolutions
+        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
+        self.lon_bins = np.ceil((self.data["lon"].max() - self.data["lon"].min()+1)/lon_res).astype(int)
+        self.lat_bins = np.ceil((self.data["lat"].max() - self.data["lat"].min()+1)/lat_res).astype(int)
+        bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
 
         # setup generator to generate index pairs
         n = self.data.shape[0]
@@ -183,11 +219,11 @@ class VariogramAnalysis:
             buoy_vector = self.data["buoy"].to_numpy()
 
         # make bins
-        self.bins = np.zeros((lon_bins,lat_bins,t_bins,2))
-        self.bins_count = np.zeros((lon_bins, lat_bins, t_bins,2))
+        self.bins = np.zeros((*bin_sizes,2))
+        self.bins_count = np.zeros_like(self.bins)
 
         # convert relevant columns to numpy before accessing
-        time = self.data["time"].to_numpy()
+        time = self.data["time_offset"].to_numpy()
         lon = self.data["lon"].to_numpy()
         lat = self.data["lat"].to_numpy()
         if detrended:
@@ -233,7 +269,7 @@ class VariogramAnalysis:
             idx_j = idx_j[mask_idx]
 
         # get lags
-        t_lag = np.floor((np.absolute((time[idx_i] - time[idx_j])/3.6e12)/self.t_res).astype(float)).astype(int)
+        t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/self.t_res).astype(float)).astype(int)
         lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
         lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
         u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
@@ -247,7 +283,6 @@ class VariogramAnalysis:
             np.add.at(self.bins, (lon_lag, lat_lag, t_lag), squared_diff)
             # add to bin count
             np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1,1])
-            # self.bins[lon_lag, lat_lag, t_lag] /= self.bins_count[lon_lag, lat_lag, t_lag]
         else:
             bins_temp = np.zeros_like(self.bins)
             bins_count_temp = np.zeros_like(self.bins_count)
@@ -311,23 +346,26 @@ class VariogramAnalysis:
         except:
             raise ValueError("Specified variable does not exist")
 
-        # plot variograms over either u or v
+        # plot variograms for either u or v
         # (Note: division needed to normalize by num values in each bin)
         fig, axs = plt.subplots(1,3,figsize=(25,10))
 
         # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
         t_y_num = np.sum(self.bins[:,:,:,var], axis=(0,1))
         t_y_denom = np.sum(self.bins_count[:,:,:,var], axis=(0,1))
-        axs[0].plot(np.arange(self.t_bins)*self.t_res, np.divide(t_y_num, t_y_denom, out=np.zeros_like(t_y_num), where=t_y_denom!=0))
+        axs[0].scatter(np.arange(self.t_bins)*self.t_res, np.divide(t_y_num, t_y_denom, \
+            out=np.zeros_like(t_y_num), where=t_y_denom!=0), marker="x")
         axs[0].title.set_text("Time [hrs]")
 
         lon_y_num = np.sum(self.bins[:,:,:,var], axis=(1,2))
         lon_y_denom = np.sum(self.bins_count[:,:,:,var], axis=(1,2))
-        axs[1].plot(np.arange(self.lon_bins)*self.lon_res, np.divide(lon_y_num, lon_y_denom, out=np.zeros_like(lon_y_num), where=lon_y_denom!=0))
+        axs[1].scatter(np.arange(self.lon_bins)*self.lon_res, np.divide(lon_y_num, lon_y_denom, \
+            out=np.zeros_like(lon_y_num), where=lon_y_denom!=0), marker="x")
         axs[1].title.set_text("Lon [degrees]")
 
         lat_y_num = np.sum(self.bins[:,:,:,var], axis=(0,2))
         lat_y_denom = np.sum(self.bins_count[:,:,:,var], axis=(0,2))
-        axs[2].plot(np.arange(self.lat_bins)*self.lat_res, np.divide(lat_y_num, lat_y_denom, out=np.zeros_like(lat_y_num), where=lat_y_denom!=0))
+        axs[2].scatter(np.arange(self.lat_bins)*self.lat_res, np.divide(lat_y_num, lat_y_denom, \
+            out=np.zeros_like(lat_y_num), where=lat_y_denom!=0), marker="x")
         axs[2].title.set_text("Lat [degrees]")
         plt.show()

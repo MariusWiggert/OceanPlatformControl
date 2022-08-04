@@ -38,12 +38,16 @@ class IndexPairGenerator(Generator):
         indices = [np.array(i),np.array(j)]
         return indices, cur, n
 
-
-if __name__ == "__main__":
+def timer(func):
     import time
-    start = time.time()
+    def wrapper():
+        start = time.time()
+        func()
+        print(f"Time taken: {time.time()-start} seconds.")
+    return wrapper
 
-    # test generator
+@timer
+def main():
     MAX_NUM_PAIRS = 1000000
     n = 100000
     gen = IndexPairGenerator(n, MAX_NUM_PAIRS)
@@ -53,6 +57,6 @@ if __name__ == "__main__":
             break
         # print(f"{val}\n")
 
-    end = time.time()
-    print(f"Time taken: {end - start}")
 
+if __name__ == "__main__":
+    main()
