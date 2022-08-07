@@ -43,10 +43,10 @@ def load_test_data() -> pd.DataFrame:
     # print(f"Num of NaN vals: {np.isnan(df['u_error']).sum()}")
     return df
 
-def load_single_file() -> pd.DataFrame:
+def load_single_file(file_idx: int) -> pd.DataFrame:
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error"
     file_list = os.listdir(data_dir)
-    file_path = os.path.join(data_dir, file_list[0])
+    file_path = os.path.join(data_dir, file_list[file_idx])
     df = pd.read_csv(file_path)
-    print(f"loaded: {file_list[0]}")
+    print(f"loaded: {file_list[file_idx]}")
     return df

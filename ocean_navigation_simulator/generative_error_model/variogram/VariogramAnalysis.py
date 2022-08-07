@@ -347,12 +347,13 @@ class VariogramAnalysis:
 
         # plot histogram for each axis
         fig, axs = plt.subplots(1,3,figsize=(25,10))
-        axs[0].bar(np.arange(self.t_bins)*self.t_res, np.sum(self.bins_count[:,:,:,0], axis=(0,1)))
-        axs[0].title.set_text("Time [hrs]")
-        axs[1].bar(np.arange(self.lon_bins)*self.lon_res, np.sum(self.bins_count[:,:,:,0], axis=(1,2)))
-        axs[1].title.set_text("Lon [degrees]")
-        axs[2].bar(np.arange(self.lat_bins)*self.lat_res, np.sum(self.bins_count[:,:,:,0], axis=(0,2)))
-        axs[2].title.set_text("Lat [degrees]")
+        axs[0].bar(np.arange(self.lon_bins)*self.lon_res, np.sum(self.bins_count[:,:,:,0], axis=(1,2)))
+        axs[0].set_xlabel("Lon [degrees]")
+        axs[0].set_ylabel("Frequency")
+        axs[1].bar(np.arange(self.lat_bins)*self.lat_res, np.sum(self.bins_count[:,:,:,0], axis=(0,2)))
+        axs[1].set_xlabel("Lat [degrees]")
+        axs[2].bar(np.arange(self.t_bins)*self.t_res, np.sum(self.bins_count[:,:,:,0], axis=(0,1)))
+        axs[2].set_xlabel("Time [hrs]")
         plt.show()
 
     def plot_hist_vario_for_axis(self, axis_name: str="time", variable: str="u", cutoff=5000) -> None:
@@ -396,21 +397,22 @@ class VariogramAnalysis:
         fig, axs = plt.subplots(1,3,figsize=(25,10))
 
         # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
-        t_y_num = np.sum(self.bins[:,:,:,var], axis=(0,1))
-        t_y_denom = self.bins.shape[0]*self.bins.shape[1]
-        axs[0].scatter(np.arange(self.t_bins)*self.t_res, np.divide(t_y_num, t_y_denom, \
-            out=np.zeros_like(t_y_num), where=t_y_denom!=0), marker="x")
-        axs[0].title.set_text("Time [hrs]")
-
         lon_y_num = np.sum(self.bins[:,:,:,var], axis=(1,2))
         lon_y_denom = self.bins.shape[1]*self.bins.shape[2]
-        axs[1].scatter(np.arange(self.lon_bins)*self.lon_res, np.divide(lon_y_num, lon_y_denom, \
+        axs[0].scatter(np.arange(self.lon_bins)*self.lon_res, np.divide(lon_y_num, lon_y_denom, \
             out=np.zeros_like(lon_y_num), where=lon_y_denom!=0), marker="x")
-        axs[1].title.set_text("Lon [degrees]")
+        axs[0].set_xlabel("Lon lag [degrees]")
+        axs[0].set_ylabel("Semivariance")
 
         lat_y_num = np.sum(self.bins[:,:,:,var], axis=(0,2))
         lat_y_denom = self.bins.shape[0]*self.bins.shape[2]
-        axs[2].scatter(np.arange(self.lat_bins)*self.lat_res, np.divide(lat_y_num, lat_y_denom, \
+        axs[1].scatter(np.arange(self.lat_bins)*self.lat_res, np.divide(lat_y_num, lat_y_denom, \
             out=np.zeros_like(lat_y_num), where=lat_y_denom!=0), marker="x")
-        axs[2].title.set_text("Lat [degrees]")
+        axs[1].set_xlabel("Lat lag [degrees]")
+
+        t_y_num = np.sum(self.bins[:,:,:,var], axis=(0,1))
+        t_y_denom = self.bins.shape[0]*self.bins.shape[1]
+        axs[2].scatter(np.arange(self.t_bins)*self.t_res, np.divide(t_y_num, t_y_denom, \
+            out=np.zeros_like(t_y_num), where=t_y_denom!=0), marker="x")
+        axs[2].set_xlabel("Time lag [hrs]")
         plt.show()
