@@ -22,31 +22,47 @@
 #         return errors
 
 
-# Data loading util
+from enum import Enum, auto
 import pandas as pd
 import numpy as np
 import os
 
-def load_test_data() -> pd.DataFrame:
-    dataset_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/"
-    dataset_files = os.listdir(dataset_dir)
 
-    # loop over all csv files
+class DatasetName(Enum):
+    AREA1 = auto()
+    AREA3 = auto()
+
+dataset_map = {DatasetName.AREA1: "area1", DatasetName.AREA3: "area3"}
+
+
+def load_dataset(dataset_name: DatasetName) -> pd.DataFrame:
+    dataset_root = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/"
+    dataset_path = os.path.join(dataset_root, dataset_map[dataset_name])
+    dataset_files = os.listdir(dataset_path)
+
     for i in range(len(dataset_files)):
         if i == 0:
-            df = pd.read_csv(os.path.join(dataset_dir, dataset_files[i]))
+            df = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
         else:
-            df_temp = pd.read_csv(os.path.join(dataset_dir, dataset_files[i]))
+            df_temp = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
             df = pd.concat([df, df_temp], ignore_index=True)
-
-    # print(f"Num of rows: {df.shape[0]}")
-    # print(f"Num of NaN vals: {np.isnan(df['u_error']).sum()}")
     return df
 
-def load_single_file(file_idx: int) -> pd.DataFrame:
-    data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error"
-    file_list = os.listdir(data_dir)
-    file_path = os.path.join(data_dir, file_list[file_idx])
+
+def load_single_file(dataset_name: DatasetName, file_idx: int) -> pd.DataFrame:
+    dataset_root = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error"
+    dataset_path = os.path.join(dataset_root, dataset_map[dataset_name])
+    file_list = os.listdir(dataset_path)
+    file_path = os.path.join(dataset_path, file_list[file_idx])
     df = pd.read_csv(file_path)
     print(f"loaded: {file_list[file_idx]}")
     return df
+
+
+if __name__ == "__main__":
+    dataset_name = DatasetName.AREA1
+    data = load_single_file(dataset_name, file_idx=0)
+    print("\nBuoy Meta Data:")
+    print(f"Min time: {data['time'].min()}, max time: {data['time'].max()}")
+    print(f"Min lon: {data['lon'].min()}, max lon: {data['lon'].max()}")
+    print(f"Min lat: {data['lat'].min()}, max lat: {data['lat'].max()}\n")
