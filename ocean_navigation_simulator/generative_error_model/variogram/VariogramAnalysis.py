@@ -3,7 +3,7 @@ from ocean_navigation_simulator.generative_error_model.variogram.IndexPairGenera
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from typing import Tuple, List, AnyStr
+from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
 import itertools
 
@@ -21,16 +21,27 @@ class VariogramAnalysis:
         self.bins_count = None
 
 
-    def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> None:
-        """Variogram analysis assumes stationarity, therefore detrending is needed. This method
-        can perform detrending over a specific variable (e.g. lon, lat, time) by subtracting the 
-        mean and dividing by standard deviation"""
+    def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> Dict[str, List[float]]:
+        """Variogram analysis assumes stationarity, therefore detrending is needed.
+        
+        This method can perform detrending over a specific variable (e.g. lon, lat, time)
+        by subtracting the mean and dividing by standard deviation."""
+
+        if detrend_var == "time":
+            # convert time axis to datetime
+            self.data["time"] = pd.to_datetime(self.data["time"])
+            # find earliest time/date and subtract from time column
+            earliest_date = self.data["time"].min()
+            self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
+            detrend_var = "time_offset"
 
         min_val = np.floor(np.min(self.data[detrend_var].to_numpy()))
         max_val = np.ceil(np.max(self.data[detrend_var].to_numpy()))
         bin_step = (max_val-min_val)/num_bins
         bins = np.arange(min_val, max_val+bin_step, bin_step)
-        bin_labels = [f"{bins[i]}-{bins[i+1]}" for i in range(len(bins)-1)]
+        bin_labels = [f"{bins[i]},{bins[i+1]}" for i in range(len(bins)-1)]
+
+        # create new col with bin name for each row
         self.data[f"{detrend_var}_bins"] = pd.cut(self.data[detrend_var], bins, labels=bin_labels, include_lowest=True)
 
         bin_statistics = {}
@@ -46,7 +57,7 @@ class VariogramAnalysis:
             bin_statistics[bin_label] = {"u_error": u_stats, "v_error": v_stats}
 
         # make accessible for plotting function
-        self.detrend_var, self.bin_labels = detrend_var, bin_labels
+        self.detrend_var, self.bin_labels, self.bin_statistics = detrend_var, bin_labels, bin_statistics
 
         # subtract mean and divide by std with bin statistics
         self.data["detrended_u_error"] = self.data.apply(lambda x: (x["u_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["u_error"][0])\
@@ -54,9 +65,11 @@ class VariogramAnalysis:
         self.data["detrended_v_error"] = self.data.apply(lambda x: (x["v_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][0]\
             )/bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
 
+        return bin_statistics
+
 
     def build_variogram(self, res_tuple: Tuple[int], total_res: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=False) -> List[np.ndarray]:
+        detrended: bool=False) -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. It then computes the lag value in each axis
         and the variogram value for u and v errors.
@@ -178,9 +191,9 @@ class VariogramAnalysis:
 
 
     def build_variogram_gen(self, res_tuple: Tuple[int], total_res: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=False) -> List[np.ndarray]:
+        detrended: bool=False) -> Tuple[np.ndarray, np.ndarray]:
 
-        """Find all possible pairs of points. It then computes the lag value in each axis
+        """Find all possible pairs of points. Then computes the lag value in each axis
         and the variogram value for u and v errors.
 
         This method uses a generator if there are too many index pairs to hold in RAM.
@@ -315,6 +328,8 @@ class VariogramAnalysis:
 
     
     def plot_detrended_bins(self) -> None:
+        """Plots detrended data over time for each bin separately."""
+
         fig, axs = plt.subplots(len(self.bin_labels),1,figsize=(20,len(self.bin_labels)*6))
 
         for i, bin_label in enumerate(self.bin_labels):
@@ -341,7 +356,44 @@ class VariogramAnalysis:
         plt.show()
 
 
+    def plot_bin_stats(self, detrend_var: str="lat", num_bins=5) -> None:
+        """Detrends over specified variable and plots the bin statistics over that variable."""
+
+        bin_dict = self.detrend(detrend_var, num_bins)
+
+        length = len(bin_dict.keys())
+        mean_u = np.empty(length)
+        std_u = np.empty(length)
+        mean_v = np.empty(length)
+        std_v = np.empty(length)
+        x = np.empty(length)
+
+        for i, key in enumerate(bin_dict.keys()):
+            x[i] = float(key.split(",")[-1])
+            mean_u[i] = (bin_dict[key]["u_error"][0])
+            std_u[i] = (bin_dict[key]["u_error"][1])
+            mean_v[i] = (bin_dict[key]["v_error"][0])
+            std_v[i] = (bin_dict[key]["v_error"][1])
+
+        fig, axs = plt.subplots(1,2, figsize=(20,8))
+        axs[0].plot(x, mean_u, label="mean u")
+        axs[0].fill_between(x, mean_u-2*std_u, mean_u+2*std_u, facecolor="b", alpha=0.5)
+        axs[0].title.set_text("u error mean +- 2 std")
+        axs[0].set_ylim([-1,1])
+        axs[0].grid()
+        axs[1].plot(x, mean_v, label="mean v")
+        axs[1].fill_between(x, mean_v-2*std_v, mean_v+2*std_v, facecolor="b", alpha=0.5)
+        axs[1].title.set_text("v error mean +- 2 std")
+        axs[1].set_ylim([-1,1])
+        axs[1].grid()
+
+        fig.suptitle(f"Trend for '{detrend_var}'", size=20)
+        plt.show()
+
+
     def plot_histograms(self) -> None:
+        """Plots the histogram of bins in each axis [lon, lat, time]."""
+
         if self.bins is None:
             raise Exception("Need to run build_variogram() first!")
 
@@ -382,6 +434,8 @@ class VariogramAnalysis:
 
 
     def plot_variograms(self, variable: AnyStr="u") -> None:
+        """Plots the sliced variogram for each axis [lon, lat, time]."""
+
         if self.bins is None:
             raise Exception("Need to run build_variogram() first!")
 
