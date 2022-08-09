@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-# create a conda environment called ocean_platform
+# create a conda environment called ocean_platform and delete deactivate all others
 conda init bash > /dev/null
 for i in $(seq ${CONDA_SHLVL}); do
     conda deactivate
@@ -10,15 +10,20 @@ conda create -y -n ocean_platform python=3.9.*
 conda activate ocean_platform
 
 # these packages have to be installed manually (otherwise pip fails to install dependencies)
-conda install -y -c conda-forge cartopy ffmpeg
+conda install -y -c conda-forge cartopy ffmpeg gcc=12.1.0
+
+# update pip
+pip install --upgrade pip
 
 # install jax library for cpu or gpu
 pip install --upgrade "jax[cpu]==0.2.24"
 #pip install --upgrade "jax[cuda]==0.2.24" -f https://storage.googleapis.com/jax-releases/jax_releases.html
 
-pip install ray[default]==1.13.0
-pip install ray[rllib]==1.13.0
+# install Ray Lib with Dashboard and RL-lib
+pip install -U ray[default]==1.13.0
+pip install -U ray[rllib]==1.13.0
 
+# install c3 type for python
 pip install git+https://github.com/c3aidti/c3python
 
 # install private hj_reachability library fork via token
