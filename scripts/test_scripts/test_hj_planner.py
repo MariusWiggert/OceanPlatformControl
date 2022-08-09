@@ -39,7 +39,7 @@ specific_settings = {
     'replan_on_new_fmrc': True,
     'replan_every_X_seconds': False,
     'direction': 'multi-time-reach-back',
-    'n_time_vector': 100,  # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+    'n_time_vector': 200,  # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     'deg_around_xt_xT_box': 1.,  # area over which to run HJ_reachability
     'accuracy': 'high',
     'artificial_dissipation_scheme': 'local_local',
@@ -64,8 +64,52 @@ plt.show()
 #%% Various plotting of the reachability computations
 # planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5,
 #                                    alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
-planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=3600*24*1, granularity_in_h=5, time_to_reach=True)
-# planner.plot_reachability_animation(time_to_reach=True)
+# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=3600*24*1, granularity_in_h=5, time_to_reach=True)
+planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5)
+
+#%%
+plot_in_h = True
+granularity_in_h = 5
+time_to_reach = True
+filename = 'reachability_animation_ctrl.mp4'
+kwargs = {}
+import ocean_navigation_simulator.utils.units as units
+import bisect
+
+if 'multi-time-reach-back' == planner.specific_settings['direction'] and not time_to_reach:
+    abs_time_vec = (planner.reach_times - planner.reach_times[0]) / 3600 if plot_in_h else (
+            planner.reach_times - planner.reach_times[0])
+    non_dim_val_func_levels, abs_time_y_ticks, y_label = planner._get_multi_reach_levels(
+        granularity_in_h, time_to_reach=time_to_reach, vmin=planner.all_values.min(),
+        abs_time_in_h=abs_time_vec[-1])
+    # package them in kwargs
+    kwargs.update({'val_func_levels': non_dim_val_func_levels, 'y_label': y_label,
+                   'yticklabels': abs_time_y_ticks})
+
+def add_reachability_snapshot(ax, time):
+    ax = planner.plot_reachability_snapshot(
+        rel_time_in_seconds=time - planner.current_data_t_0, granularity_in_h=granularity_in_h, alpha_color=1,
+        mask_above_zero=True, return_ax=True, fig_size_inches=(12, 12), time_to_reach=time_to_reach,
+        ax=ax, plot_in_h=plot_in_h, display_colorbar=True, **kwargs)
+    # TODO: can write this once with various inputs and reuse it also for arena plotting etc.
+    # add the trajectory to it
+    ax.plot(planner.x_traj[0, :], planner.x_traj[1, :], '-', color='black', linewidth=1, label='State Trajectory')
+    # get the planned idx of current time
+    idx = bisect.bisect_right(planner.times, time) - 1
+    if idx == len(planner.times) - 1:
+        idx = idx - 1
+    # plot the control arrow for the specific time
+    ax.quiver(planner.x_traj[0, idx], planner.x_traj[1, idx],
+              planner.contr_seq[0,idx]*np.cos(planner.contr_seq[1,idx]), # u_vector
+              planner.contr_seq[0, idx] * np.sin(planner.contr_seq[1, idx]),  # v_vector
+              color='magenta', scale=10)
+
+planner.last_data_source.animate_data(x_interval=[planner.grid.domain.lo[0], planner.grid.domain.hi[0]],
+                                   y_interval=[planner.grid.domain.lo[1], planner.grid.domain.hi[1]],
+                                   t_interval=[planner.current_data_t_0 + rel_time for rel_time in
+                                               [planner.reach_times[0], planner.reach_times[-1]]],
+                                   forward_time=planner.specific_settings['direction'] != 'forward',
+                                   add_ax_func=add_reachability_snapshot, colorbar=False, output=filename)
 #%% run closed-loop simulation
 for i in tqdm(range(int(3600*24*4/600))):  # 720*10 min = 5 days
     action = planner.get_action(observation=observation)

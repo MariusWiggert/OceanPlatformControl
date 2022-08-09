@@ -1,11 +1,13 @@
 import datetime
+import numpy as np
 from tqdm import tqdm
 
-# %%
-path = "data/Copernicus_Hindcast/2021_11_20-30_Copernicus.nc"
-folder = "data/Copernicus_Hindcast/"
-from ocean_navigation_simulator.data_sources import get_file_dicts
-files_dicts = get_file_dicts(folder)
+# # %%
+# import xarray as xr
+# path = "data/Copernicus_Hindcast/2021_11_20-30_Copernicus.nc"
+# folder = "data/Copernicus_Hindcast/"
+# from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import get_file_dicts
+# files_dicts = get_file_dicts(folder)
 #%%
 # # Step 2: open the respective file as multi dataset
 # DataArray = xr.open_mfdataset([h_dict['file'] for h_dict in files_dicts]).isel(depth=0)
@@ -19,6 +21,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
+import time
 
 arena = ArenaFactory.create(scenario_name='multi_reach_fails_test')
 #
@@ -107,7 +110,7 @@ observer = Observer(observer_config)
 action = planner.get_action(observation=observation)
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, filename="new_true.mp4")
 # %% Now use the observer for planning instead of the
-for i in tqdm(range(int(3600 * 24 * 0.2 / 600))):  # 720*10 min = 5 days
+for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 720*10 min = 5 days
     # modify the observation, now coming from the observer for data to the planner
     observer.observe(observation)
     observation.forecast_data_source = observer
@@ -116,7 +119,7 @@ for i in tqdm(range(int(3600 * 24 * 0.2 / 600))):  # 720*10 min = 5 days
 #%% Check if the piping works!
 # query forecast for a specific point
 # Step 1: get the x,y,t bounds for current position, goal position and settings.
-from ocean_navigation_simulator.data_sources import DataSource
+from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
 t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
     x_0=observation.platform_state.to_spatio_temporal_point(), x_T=planner.problem.end_region,
     deg_around_x0_xT_box=planner.specific_settings['deg_around_xt_xT_box'],
@@ -154,7 +157,7 @@ data_xarray_true_interp = data_xarray_true.interp_like(data_xarray_fmrc, method=
 # 1) Modify Forecast Source to take in the fmrc index queried for accessing the area and for a point
 # 2) Finally set-up a logger and logging mechanisms! Otherwise this is just a mess...
 # %% Re-init Arena
-from ocean_navigation_simulator.data_sources import OceanCurrentField
+from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 import yaml
 
 with open(f'scenarios/multi_reach_fails_test.yaml') as f:
