@@ -257,11 +257,11 @@ class VariogramAnalysis:
         number_of_pairs = (len(self.data))**2
         running_sum = 0
         iteration = 0
-        now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
         while True:
             indices = next(gen)
-            running_sum += len(indices)
+            running_sum += len(indices[0])
             if iteration%10 == 0:
+                now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
                 print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),5)}% of pairs finished.")
             if len(indices[0]) == 0:
                 break
