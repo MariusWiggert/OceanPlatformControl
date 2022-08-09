@@ -6,6 +6,7 @@ from tqdm import tqdm
 from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
 import itertools
+import datetime
 
 # TODO: if normal variogram method does not work due to RAM constraints, automatically
 # call the generator-based method
@@ -253,11 +254,19 @@ class VariogramAnalysis:
             v_error = self.data["v_error"].to_numpy()
 
         # iterate over generator to get relevant indices
+        number_of_pairs = (len(self.data))**2
+        running_sum = 0
+        iteration = 0
+        now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
         while True:
             indices = next(gen)
+            running_sum += len(indices)
+            if iteration%10 == 0:
+                print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),5)}% of pairs finished.")
             if len(indices[0]) == 0:
                 break
             self._calculate_chunk(indices, time, lon, lat, u_error, v_error, buoy_vector)
+            iteration += 1
         
         # divide bins by the count + divide by 2 for semi-variance (special func to avoid dividing by zero)
         self.bins = np.divide(self.bins, self.bins_count, out=np.zeros_like(self.bins), where=self.bins_count!=0)/2
@@ -391,7 +400,7 @@ class VariogramAnalysis:
         plt.show()
 
 
-    def plot_histograms(self) -> None:
+    def plot_histograms(self, tol: Tuple[int]=(10,10,5)) -> None:
         """Plots the histogram of bins in each axis [lon, lat, time]."""
 
         if self.bins is None:
@@ -399,12 +408,12 @@ class VariogramAnalysis:
 
         # plot histogram for each axis
         fig, axs = plt.subplots(1,3,figsize=(25,10))
-        axs[0].bar(np.arange(self.lon_bins)*self.lon_res, np.sum(self.bins_count[:,:,:,0], axis=(1,2)))
+        axs[0].bar(np.arange(self.lon_bins)*self.lon_res, np.sum(self.bins_count[:,:tol[1],:tol[2],0], axis=(1,2)))
         axs[0].set_xlabel("Lon [degrees]")
         axs[0].set_ylabel("Frequency")
-        axs[1].bar(np.arange(self.lat_bins)*self.lat_res, np.sum(self.bins_count[:,:,:,0], axis=(0,2)))
+        axs[1].bar(np.arange(self.lat_bins)*self.lat_res, np.sum(self.bins_count[:tol[0],:,:tol[2],0], axis=(0,2)))
         axs[1].set_xlabel("Lat [degrees]")
-        axs[2].bar(np.arange(self.t_bins)*self.t_res, np.sum(self.bins_count[:,:,:,0], axis=(0,1)))
+        axs[2].bar(np.arange(self.t_bins)*self.t_res, np.sum(self.bins_count[:tol[0],:tol[1],:,0], axis=(0,1)))
         axs[2].set_xlabel("Time [hrs]")
         plt.show()
 
@@ -433,7 +442,7 @@ class VariogramAnalysis:
         plt.show()
 
 
-    def plot_variograms(self, variable: AnyStr="u") -> None:
+    def plot_variograms(self, variable: AnyStr="u", tol: Tuple[int]=(10,10,5)) -> None:
         """Plots the sliced variogram for each axis [lon, lat, time]."""
 
         if self.bins is None:
@@ -451,21 +460,24 @@ class VariogramAnalysis:
         fig, axs = plt.subplots(1,3,figsize=(25,10))
 
         # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
-        lon_y_num = np.sum(self.bins[:,:,:,var], axis=(1,2))
-        lon_y_denom = self.bins.shape[1]*self.bins.shape[2]
+        lon_y_num = np.sum(self.bins[:,:tol[1],:tol[2],var], axis=(1,2))
+        # lon_y_denom = self.bins.shape[1]*self.bins.shape[2]
+        lon_y_denom = tol[1]*tol[2]
         axs[0].scatter(np.arange(self.lon_bins)*self.lon_res, np.divide(lon_y_num, lon_y_denom, \
             out=np.zeros_like(lon_y_num), where=lon_y_denom!=0), marker="x")
         axs[0].set_xlabel("Lon lag [degrees]")
         axs[0].set_ylabel("Semivariance")
 
-        lat_y_num = np.sum(self.bins[:,:,:,var], axis=(0,2))
-        lat_y_denom = self.bins.shape[0]*self.bins.shape[2]
+        lat_y_num = np.sum(self.bins[:tol[0],:,:tol[2],var], axis=(0,2))
+        # lat_y_denom = self.bins.shape[0]*self.bins.shape[2]
+        lat_y_denom = tol[0]*tol[2]
         axs[1].scatter(np.arange(self.lat_bins)*self.lat_res, np.divide(lat_y_num, lat_y_denom, \
             out=np.zeros_like(lat_y_num), where=lat_y_denom!=0), marker="x")
         axs[1].set_xlabel("Lat lag [degrees]")
 
-        t_y_num = np.sum(self.bins[:,:,:,var], axis=(0,1))
-        t_y_denom = self.bins.shape[0]*self.bins.shape[1]
+        t_y_num = np.sum(self.bins[:tol[0],:tol[1],:,var], axis=(0,1))
+        # t_y_denom = self.bins.shape[0]*self.bins.shape[1]
+        t_y_denom = tol[0]*tol[1]
         axs[2].scatter(np.arange(self.t_bins)*self.t_res, np.divide(t_y_num, t_y_denom, \
             out=np.zeros_like(t_y_num), where=t_y_denom!=0), marker="x")
         axs[2].set_xlabel("Time lag [hrs]")

@@ -45,11 +45,11 @@ local_forecast:
   field: "OceanCurrents"
   source: "forecast_files"
   source_settings:
-    folder: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/forecast_test/"
+    folder: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/forecast/area1/"
 
 sim_cache_dict:
   deg_arount_x_t: 1
   time_around_x_t: 86400
 
 data_writer:
-  output_dir: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/"
+  output_dir: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/area1/"
