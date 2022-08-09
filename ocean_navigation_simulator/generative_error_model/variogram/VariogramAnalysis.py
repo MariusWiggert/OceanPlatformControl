@@ -6,7 +6,10 @@ from tqdm import tqdm
 from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
 import itertools
+import multiprocessing as mp
 import datetime
+import ctypes as c
+
 
 # TODO: if normal variogram method does not work due to RAM constraints, automatically
 # call the generator-based method
@@ -188,10 +191,11 @@ class VariogramAnalysis:
         total_bins = np.divide(total_bins, total_bins_count, out=np.zeros_like(total_bins), where=total_bins_count!=0)/2
         self.bins, self.bins_count = bins, bins_count
         self.total_bins, self.total_bins_count = total_bins, total_bins_count
+        print(f"Finised variogram computation")
         return bins, bins_count
 
 
-    def build_variogram_gen(self, res_tuple: Tuple[int], total_res: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
+    def build_variogram_gen(self, res_tuple: Tuple[int], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
         detrended: bool=False) -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. Then computes the lag value in each axis
@@ -216,7 +220,6 @@ class VariogramAnalysis:
         self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
 
         self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
-        self.total_res = total_res
 
         # create bins from known extremal values and resolutions
         self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
@@ -234,106 +237,115 @@ class VariogramAnalysis:
             buoy_vector = self.data["buoy"].to_numpy()
 
         # make bins
-        self.bins = np.zeros((*bin_sizes,2))
-        self.bins_count = np.zeros_like(self.bins)
-
-        # make total bins
-        total_bin_num = np.ceil((np.sqrt(self.t_bins**2 + self.lon_bins**2 + self.lat_bins**2)/total_res)+1).astype(int)
-        self.total_bins = np.zeros((total_bin_num,2))
-        self.total_bins_count = np.zeros_like(self.total_bins)
+        self.bins = np.zeros((*bin_sizes,2), dtype=np.float32)
+        self.bins_count = np.zeros_like(self.bins, dtype=np.int32)
 
         # convert relevant columns to numpy before accessing
-        time = self.data["time_offset"].to_numpy()
-        lon = self.data["lon"].to_numpy()
-        lat = self.data["lat"].to_numpy()
+        time = self.data["time_offset"].to_numpy(dtype=np.float32)
+        lon = self.data["lon"].to_numpy(dtype=np.float32)
+        lat = self.data["lat"].to_numpy(dtype=np.float32)
         if detrended:
-            u_error = self.data["detrended_u_error"].to_numpy()
-            v_error = self.data["detrended_v_error"].to_numpy()
+            u_error = self.data["detrended_u_error"].to_numpy(dtype=np.float32)
+            v_error = self.data["detrended_v_error"].to_numpy(dtype=np.float32)
         else:
-            u_error = self.data["u_error"].to_numpy()
-            v_error = self.data["v_error"].to_numpy()
+            u_error = self.data["u_error"].to_numpy(dtype=np.float32)
+            v_error = self.data["v_error"].to_numpy(dtype=np.float32)
+
+        # setup shared arrays for workers
+        shared_bins = to_shared_array(self.bins, c.c_float)
+        self.bins = to_numpy_array(shared_bins, self.bins.shape)
+
+        shared_bins_count = to_shared_array(self.bins_count, c.c_int32)
+        self.bins_count = to_numpy_array(shared_bins_count, self.bins_count.shape)
+
+        # setup mp stuff
+        q = mp.Queue(maxsize=num_workers)
+        iolock = mp.Lock()
+        pool = mp.Pool(num_workers, initializer=self._calculate_chunk,\
+             initargs=(q, time, lon, lat, u_error, v_error, buoy_vector, iolock))
 
         # iterate over generator to get relevant indices
-        number_of_pairs = (len(self.data))**2
+        number_of_pairs = (n**2)/2 - n
         running_sum = 0
         iteration = 0
         while True:
             indices = next(gen)
-            running_sum += len(indices[0])
-            if iteration%10 == 0:
-                now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-                print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),5)}% of pairs finished.")
             if len(indices[0]) == 0:
                 break
-            self._calculate_chunk(indices, time, lon, lat, u_error, v_error, buoy_vector)
-            iteration += 1
+            q.put(indices)
+            with iolock:
+                running_sum += len(indices[0])
+                if iteration%10 == 0:
+                    now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+                    print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),5)}% of pairs finished.")
+                iteration += 1
+
+        for _ in range(num_workers):
+            q.put(None)
+
+        pool.close()
+        pool.join()
         
         # divide bins by the count + divide by 2 for semi-variance (special func to avoid dividing by zero)
         self.bins = np.divide(self.bins, self.bins_count, out=np.zeros_like(self.bins), where=self.bins_count!=0)/2
-        self.total_bins = np.divide(self.total_bins, self.total_bins_count, out=np.zeros_like(self.total_bins), where=self.total_bins_count!=0)/2
-
         return self.bins, self.bins_count
 
 
-    def _calculate_chunk(self, indices: List[int], time: List[int], lon: List[int], lat: List[int],\
-        u_error: List[int], v_error: List[int], buoy_vector: List[str]) -> None:
-        # get values for chunk
-        idx_i = np.array(indices[0])
-        idx_j = np.array(indices[1])
+    def _calculate_chunk(self, q: mp.Queue, time: List[int], lon: List[int], lat: List[int],\
+        u_error: List[int], v_error: List[int], buoy_vector: List[str], iolock: mp.Lock) -> None:
+        """Used in multiprocessing to compute the variogram values of pairs of points according to
+        the indices."""
 
-        # build mask to eliminate pairs from same buoy
-        if buoy_vector is not None:
-            buoy_vector_i = buoy_vector[idx_i]
-            buoy_vector_j = buoy_vector[idx_j]
-            # map each buoy name string to unique integer
-            _, integer_mapped = np.unique([buoy_vector_i, buoy_vector_j], return_inverse=True)
-            buoy_vector_mapped_i = integer_mapped[:round(len(integer_mapped)/2)]
-            buoy_vector_mapped_j = integer_mapped[round(len(integer_mapped)/2):]
-            # if integer in i and j is the same, then both points from same buoy
-            residual = buoy_vector_mapped_i - buoy_vector_mapped_j
-            mask_same_buoy = residual != 0
-            mask_idx = np.where(mask_same_buoy == True)
+        while True:
+            # get values for chunk
+            indices = q.get()
+            if indices is None:
+                break
+            idx_i = np.array(indices[0])
+            idx_j = np.array(indices[1])
 
-            # only select pairs from different buoys
-            idx_i = idx_i[mask_idx]
-            idx_j = idx_j[mask_idx]
+            # build mask to eliminate pairs from same buoy
+            if buoy_vector is not None:
+                buoy_vector_i = buoy_vector[idx_i]
+                buoy_vector_j = buoy_vector[idx_j]
+                # map each buoy name string to unique integer
+                _, integer_mapped = np.unique([buoy_vector_i, buoy_vector_j], return_inverse=True)
+                buoy_vector_mapped_i = integer_mapped[:round(len(integer_mapped)/2)]
+                buoy_vector_mapped_j = integer_mapped[round(len(integer_mapped)/2):]
+                # if integer in i and j is the same, then both points from same buoy
+                residual = buoy_vector_mapped_i - buoy_vector_mapped_j
+                mask_same_buoy = residual != 0
+                mask_idx = np.where(mask_same_buoy == True)
 
-        # get lags and divide by bin resolution to get bin index
-        t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/self.t_res).astype(float)).astype(int)
-        lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
-        lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
-        u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
-        v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
-        squared_diff = np.hstack((u_squared_diff, v_squared_diff))
+                # only select pairs from different buoys
+                idx_i = idx_i[mask_idx]
+                idx_j = idx_j[mask_idx]
 
-        # total lag vector
-        total_lag = np.floor(np.sqrt(np.square((time[idx_i] - time[idx_j]).astype(float)) + \
-            np.square(lon[idx_i] - lon[idx_j]) + np.square(lat[idx_i] - lat[idx_j]))/self.total_res).astype(int)
+            # get lags and divide by bin resolution to get bin index
+            t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/self.t_res).astype(float)).astype(int)
+            lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
+            lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
+            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
+            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
+            squared_diff = np.hstack((u_squared_diff, v_squared_diff))
 
-        # assign values to bin
-        if np.sum(self.bins) == 0:
-            # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
-            # add to relevant bin
-            np.add.at(self.bins, (lon_lag, lat_lag, t_lag), squared_diff)
-            np.add.at(self.total_bins, total_lag, squared_diff)
-
-            # add to bin count
-            np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1,1])
-            np.add.at(self.total_bins_count, total_lag, [1,1])
-        else:
-            bins_temp = np.zeros_like(self.bins)
-            bins_count_temp = np.zeros_like(self.bins_count)
-            total_bins_temp = np.zeros_like(self.total_bins)
-            total_bins_count_temp = np.zeros_like(total_bins_temp)
-            # perform operations
-            np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
-            np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
-            np.add.at(total_bins_temp, total_lag, squared_diff)
-            np.add.at(total_bins_count_temp, total_lag, [1,1])
-            self.bins += bins_temp
-            self.bins_count += bins_count_temp
-            self.total_bins += total_bins_temp
-            self.total_bins_count += total_bins_count_temp
+            # assign values to bin
+            if np.sum(self.bins) == 0:
+                # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
+                with iolock:
+                    # add to relevant bin
+                    np.add.at(self.bins, (lon_lag, lat_lag, t_lag), squared_diff)
+                    # add to bin count
+                    np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1,1])
+            else:
+                bins_temp = np.zeros_like(self.bins)
+                bins_count_temp = np.zeros_like(self.bins_count)
+                # perform operations
+                np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
+                np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
+                with iolock:
+                    self.bins += bins_temp
+                    self.bins_count += bins_count_temp
 
     
     def plot_detrended_bins(self) -> None:
@@ -482,3 +494,29 @@ class VariogramAnalysis:
             out=np.zeros_like(t_y_num), where=t_y_denom!=0), marker="x")
         axs[2].set_xlabel("Time lag [hrs]")
         plt.show()
+
+
+def to_shared_array(arr, ctype):
+    shared_array = mp.Array(ctype, arr.size, lock=False)
+    temp = np.frombuffer(shared_array, dtype=arr.dtype)
+    temp[:] = arr.flatten(order='C')
+    return shared_array
+
+def to_numpy_array(shared_array, shape):
+    """Create a numpy array backed by a shared memory Array."""
+    arr = np.ctypeslib.as_array(shared_array)
+    return arr.reshape(shape)
+
+def create_shared_array_from_np(arr, ctype):
+    """Combines two functions, implemented due to repetition"""
+    shared_array = to_shared_array(arr, ctype)
+    output = to_numpy_array(shared_array, arr.shape)
+    return output
+
+def timer(func):
+    import time
+    def wrapper():
+        start = time.time()
+        func()
+        print(f"Time taken: {time.time()-start} seconds.")
+    return wrapper
