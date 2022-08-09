@@ -46,6 +46,7 @@ def load_dataset(dataset_name: DatasetName) -> pd.DataFrame:
         else:
             df_temp = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
             df = pd.concat([df, df_temp], ignore_index=True)
+    print(f"Loaded {dataset_name.name} dataset.")
     return df
 
 

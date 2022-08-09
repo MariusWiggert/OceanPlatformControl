@@ -11,9 +11,8 @@ import yaml
 from datetime import timedelta, datetime
 
 class DatasetWriter:
-    """Uses BuoyData and OceanCurrentField to to write data to
-    file which is then read by DataLoader. Needed to speed up
-    training."""
+    """Uses BuoyData and OceanCurrentField to to write data to file which is then read by DataLoader.
+    Needed to speed up training."""
 
     def __init__(self, yaml_file_config: str):
         # TODO: Need to figure out the location/time management in config
