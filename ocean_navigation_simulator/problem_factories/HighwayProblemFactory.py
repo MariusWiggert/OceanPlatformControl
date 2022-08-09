@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 from ocean_navigation_simulator.problem_factories.HighwayProblem import HighwayProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.problem_factories.ProblemFactory import ProblemFactory
+from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 
 
 class HighwayProblemFactory(ProblemFactory):

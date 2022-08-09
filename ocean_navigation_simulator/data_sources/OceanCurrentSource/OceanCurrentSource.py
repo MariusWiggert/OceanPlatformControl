@@ -109,9 +109,10 @@ class OceanCurrentSource(DataSource):
         return ax
 
     def __del__(self):
-        print('__del__ called in OceanCurrentSource')
+        # print('__del__ called in OceanCurrentSource')
         del self.u_curr_func
         del self.v_curr_func
+        pass
 
 
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):

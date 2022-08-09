@@ -16,6 +16,8 @@ c3 = C3Python(
 missions = c3.Mission.fetch(spec={'filter': 'experiment.id=="Short_Horizon_CopernicusGT"'})
 print(f'Total Missions: {missions.count}')
 
+simConfig = c3.Experiment.get("Short_Horizon_CopernicusGT").simConfig
+
 missions_export = []
 for mission in tqdm(missions.objs):
     sim_runs = c3.OceanSimRun.fetch(spec={'filter': f'mission.id=="{mission.id}"'})
@@ -30,6 +32,8 @@ for mission in tqdm(missions.objs):
         'x_0_lat': mission.x_0.x.latitude,
         'x_T_lon': mission.x_T.longitude,
         'x_T_lat': mission.x_T.latitude,
+        'target_radius': mission.x_T_radius,
+        'timeout_in_h': simConfig.T_in_h,
         'feasible': mission.status == 'ready_to_run',
         'Naive_success': None,
         'Naive_time': None,
@@ -54,7 +58,7 @@ all_missions.to_csv(paths.DATA + 'missions/all.csv')
 feasible_missions = all_missions[all_missions['feasible']]
 feasible_missions.to_csv(paths.DATA + 'missions/feasible.csv')
 failed_missions = all_missions[all_missions['HJ_success'] == False]
-failed_missions.to_csv(paths.DATA + 'missions/failed.csv')
+failed_missions.to_csv(paths.DATA + 'missions/HJ_failed.csv')
 
 # Checking Correctness: Mean Success Rate should be the same as in "Navigating Underactuated Agents by Hitchhiking Forecast Flows"
 print(f'Feasible: {feasible_missions.shape[0]}/{all_missions.shape[0]}')

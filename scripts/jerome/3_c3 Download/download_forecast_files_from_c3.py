@@ -75,3 +75,13 @@ c3.HycomDataArchive.DownloadForecastFilesToLocal(
 #     n_days_ahead=n_days_ahead,
 #     local_folder='./data/hycom_hindcast/'
 # )
+
+
+# %%
+from ocean_navigation_simulator.environment.FileDownloader import FileDownloader
+import pandas as pd
+
+feasible = pd.read_csv('data/missions/validation/feasible.csv')
+# problem = NavigationProblem.from_mission(feasible)
+
+# FileDownloader.download_hycom_forecast

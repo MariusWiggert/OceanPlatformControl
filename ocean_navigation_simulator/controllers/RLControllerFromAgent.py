@@ -1,6 +1,6 @@
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 

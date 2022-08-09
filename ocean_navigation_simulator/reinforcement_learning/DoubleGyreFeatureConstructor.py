@@ -1,10 +1,9 @@
 import math
-
 import gym
 import numpy as np
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 
 """
@@ -22,15 +21,6 @@ class  DoubleGyreFeatureConstructor(FeatureConstructor):
         )
 
     def get_features_from_state(self, obs: ArenaObservation, problem: NavigationProblem) -> np.ndarray:
-        """
-        Converts the observation to use relative positions
-        Args:
-            problem: class containing information about RL problem (end region, start state, etc.)
-            obs: current platform observation
-
-        Returns:
-            numpy array containing relative lat pos, relative lon pos, elapsed time, u_curr, v_curr
-        """
         lon_diff = problem.end_region.lon.deg - obs.platform_state.lon.deg
         lat_diff = problem.end_region.lat.deg - obs.platform_state.lat.deg
         distance = obs.platform_state.distance(problem.end_region)

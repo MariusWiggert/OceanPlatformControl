@@ -1,5 +1,4 @@
 from datetime import datetime
-
 import ray.rllib.utils
 import tempfile
 from ray.rllib.agents.ppo import PPOTrainer
@@ -28,21 +27,6 @@ ray_cluster = ray.init(
     },
 )
 print(f"Code sent in {time.time()-script_start_time:.1f}s")
-
-# gym.envs.register(
-#     id='DoubleGyre-v0',
-#     entry_point='ocean_navigation_simulator.env.PlatformEnv:PlatformEnv',
-#     kwargs={
-#         'config': {
-#             'seed': 2022,
-#             'env_steps_per_arena_steps': 10,
-#         }
-#     },
-#     max_episode_steps=1000,
-# )
-# env = gym.make('DoubleGyre-v0')
-# ray.tune.registry.register_env("DoubleGyre-v0", lambda config: PlatformEnv())
-
 
 
 # %%

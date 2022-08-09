@@ -209,4 +209,5 @@ class Platform:
         return F_next
 
     def __del__(self):
-        print('__del__ called in Platform')
+        # print('__del__ called in Platform')
+        pass

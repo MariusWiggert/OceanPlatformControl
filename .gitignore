@@ -6,7 +6,9 @@ __pycache__*
 optimized_dp/
 viz/
 .vscode/
+.ipynb_checkpoints/
 data/
 generated_media/
-hj_reachability
-models7
+hj_reachability/
+models/
+results/

@@ -1,43 +1,38 @@
 import datetime as dt
-from typing import Optional, List
+from typing import Optional
+
+import numpy as np
 import pandas as pd
 
+from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.problem_factories.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.utils import units
 
 
 class MissionProblemFactory(ProblemFactory):
     def __init__(
         self,
-        scenario_name: Optional[str] = 'gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast',
-        available_missions: Optional[List] = list(range(120)),
+        seed: Optional[int] = None,
+        csv_file: Optional[str] = 'data/missions/validation/feasible.csv',
     ):
-        self.scenario_name = scenario_name
-        self.available_missions = available_missions
-        self.mission_df = pd.read_csv('data/value_function_learning/missions.csv', index_col=0)
+        self.mission_df = pd.read_csv(csv_file, index_col=0)
+        if seed is None:
+            self.available_missions = list(range(self.mission_df.shape[0]))
+        else:
+            self.random = np.random.default_rng(seed)
+            self.available_missions = np.random.permutation(self.mission_df.shape[0]).tolist()
 
-    def next_problem(self) -> NavigationProblem:
+
+    def next_problem(self, skip: Optional[int] =0) -> NavigationProblem:
         if not self.has_problems_remaining():
             raise Exception("No more available Problems.")
 
+        self.available_missions = self.available_missions[skip:]
         index = self.available_missions.pop(0)
         row = self.mission_df.iloc[index]
 
-        return NavigationProblem(
-            start_state=PlatformState(
-                lon=units.Distance(deg=row['x_0_lon']),
-                lat=units.Distance(deg=row['x_0_lat']),
-                date_time=dt.datetime.fromisoformat(row['t_0'])
-            ),
-            end_region=SpatialPoint(
-                lon=units.Distance(deg=row['x_T_lon']),
-                lat=units.Distance(deg=row['x_T_lat'])
-            ),
-            target_radius=0.1,
-            timeout=100 * 3600
-        )
+        return NavigationProblem.from_mission(row)
 
     def has_problems_remaining(self) -> bool:
         return len(self.available_missions) > 0

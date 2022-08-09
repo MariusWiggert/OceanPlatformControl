@@ -1,7 +1,7 @@
-"""A Ocean Platform Arena.
-A Ocean arena contains the logic for navigating a platform in the ocean.
 """
-
+    The Ocean Arena contains the logic for navigating of the platform in the ocean, the growth of
+     the seaweed as well as battery usage.
+"""
 import dataclasses
 import datetime as dt
 from typing import Dict, Optional, Union, Tuple, List
@@ -34,7 +34,6 @@ class ArenaObservation:
     true_current_at_state: OceanCurrentVector           # measured current at platform_state
     forecast_data_source: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]            # Data Source of the forecast
 
-
 class Arena:
     """A OceanPlatformArena in which an ocean platform moves through a current field."""
     ocean_field: OceanCurrentField = None
@@ -53,7 +52,7 @@ class Arena:
             solar_dict: Optional[Dict] = None,
             seaweed_dict: Optional[Dict] = None,
             spatial_boundary: Optional[Dict] = None,
-            collect_trajectory: Optional[bool] = True,
+            collect_trajectory: Optional[bool] = False,
             timing: Optional[bool] = False,
     ):
         """OceanPlatformArena constructor.
@@ -67,15 +66,14 @@ class Arena:
         solar_dict:
         seaweed_dict:
     """
+        # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
-        # Initialize the Data Fields from the respective dictionaries
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=sim_cache_dict,
             hindcast_source_dict=ocean_dict['hindcast'],
             forecast_source_dict=ocean_dict['forecast'],
             use_geographic_coordinate_system=use_geographic_coordinate_system
         )
-
         if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(
                 sim_cache_dict=sim_cache_dict,
@@ -85,7 +83,6 @@ class Arena:
             )
         else:
             self.solar_field = None
-
         if seaweed_dict is not None and seaweed_dict['hindcast'] is not None:
             # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
             seaweed_dict['hindcast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
@@ -99,11 +96,11 @@ class Arena:
             )
         else:
             self.seaweed_field = None
-
         if timing:
-            print(f'- Generate Ocean Source ({time.time() - start:.1f}s)')
-        start = time.time()
+            print(f'- Generate Sources ({time.time() - start:.1f}s)')
 
+        # Step 2: Generate Platform
+        start = time.time()
         self.platform = Platform(
             platform_dict=platform_dict,
             ocean_source=self.ocean_field.hindcast_data_source,
@@ -114,9 +111,9 @@ class Arena:
         if timing:
             print(f'- Generate Platform ({time.time() - start:.1f}s)')
 
+        # STep 3: Initialize Variables
         self.spatial_boundary = spatial_boundary
         self.collect_trajectory = collect_trajectory
-
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
 
     def reset(
@@ -188,10 +185,24 @@ class Arena:
             return inside_x and inside_y
         return True
 
+    def is_on_land(
+        self
+   ) -> bool:
+        return False
+
+    def problem_status(
+        self,
+        problem
+    ) -> int:
+        if self.is_on_land() or not self.is_inside_arena():
+            return -1
+        else:
+            return problem.is_done(self.platform.state)
+
     def plot_control_trajectory_on_map(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
-        color = 'magenta',
+        color: Optional[str] = 'magenta',
         stride: Optional[int] = 1
     ) -> matplotlib.axes.Axes:
         """
@@ -564,9 +575,3 @@ class Arena:
             # index = 0 if index.size == 0 else int(index[0])
 
         return index
-
-    def __del__(self):
-        print('__del__ called in Arena')
-
-    def __delete__(self):
-        print('__delete__ called in Arena')

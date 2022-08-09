@@ -20,6 +20,9 @@ class NavigationProblem(Problem):
     def passed_seconds(self, state: PlatformState) -> float:
         return (state.date_time - self.start_state.date_time).total_seconds()
 
+    def distance(self, state: PlatformState) -> float:
+        return self.end_region.distance(state.to_spatial_point())
+
     def is_done(self, state: PlatformState) -> int:
         if self.passed_seconds(state) >= self.timeout:
             return -1
@@ -49,6 +52,6 @@ class NavigationProblem(Problem):
                 lon=units.Distance(deg=mission['x_T_lon']),
                 lat=units.Distance(deg=mission['x_T_lat'])
             ),
-            target_radius = 0.1,
-            timeout = 5 * 24 * 3600
+            target_radius = mission['target_radius'],
+            timeout = mission['timeout_in_h'] * 3600,
         )

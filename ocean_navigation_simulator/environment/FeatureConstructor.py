@@ -1,5 +1,4 @@
 import abc
-
 import gym
 import numpy as np
 
@@ -11,11 +10,19 @@ Feature Constructors should take in the ArenaObservation and other relavant info
 and then convert to a numpy array that the RL model can use.
 """
 
-class  FeatureConstructor:
+class  FeatureConstructor(abc.ABC):
     @abc.abstractmethod
     def get_observation_space(self) -> gym.spaces.Box:
         pass
 
     @abc.abstractmethod
     def get_features_from_state(self, obs: ArenaObservation, problem: Problem) -> np.ndarray:
+        """
+        Converts the observation to use relative positions
+        Args:
+            obs: current platform observation
+            problem: class containing information about RL problem (end region, start state, etc.)
+        Returns:
+            numpy array containing relative lat pos, relative lon pos, elapsed time, u_curr, v_curr
+        """
         pass

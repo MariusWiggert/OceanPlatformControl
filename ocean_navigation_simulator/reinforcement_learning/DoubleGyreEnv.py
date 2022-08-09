@@ -1,34 +1,36 @@
-from typing import Tuple, Optional, Union, Text, Callable
+from typing import Tuple, Optional, Union, Text
 import numpy as np
 import gym
 
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
-from ocean_navigation_simulator.environment.FeatureConstructors import FeatureConstructor
+from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
-from ocean_navigation_simulator.environment.RewardFunctions import double_gyre_reward_function
 from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.environment.RewardFunction import RewardFunction
+from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
+
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreRewardFunction import DoubleGyreRewardFunction
 
-from ocean_navigation_simulator.problem_factories.ProblemFactory import ProblemFactory
 
-
-class PlatformEnv(gym.Env):
+class DoubleGyreEnv(gym.Env):
     """
     A basic Platform Learning Environment
     """
 
     metadata = {"render_modes": []}
-    reward_range = (-float("inf"), float("inf"))
+    reward_range: Tuple = None
+    observation_space: gym.spaces.Box = None
     spec = None # might use for max_episode_steps
 
     problem_factory: ProblemFactory = None
     problem: NavigationProblem = None
     arena: Arena = None
     prev_state: PlatformState = None
-    reward_fn: Callable = None
+    reward_function: RewardFunction = None
     feature_constructor: FeatureConstructor = None
 
     # _np_random: Optional[RandomNumberGenerator] = None
@@ -47,14 +49,12 @@ class PlatformEnv(gym.Env):
         Args:
             seed: PRNG seed for the environment
         """
-        self._seed = config['seed'] if 'seed' in config else 2022
+        self.seed = config['seed'] if 'seed' in config else 2022
         self.arena_steps_per_env_step = config['arena_steps_per_env_step'] if 'arena_steps_per_env_step' in config else 1
 
-        #print(f'arena_steps_per_env_step: {self.arena_steps_per_env_step}')
-
-        self.problem_factory = DoubleGyreProblemFactory(seed=self._seed, scenario_name='simplified')
         self.arena = ArenaFactory.create(scenario_name=scenario_name)
-        self.reward_fn = double_gyre_reward_function
+        self.problem_factory = DoubleGyreProblemFactory(seed=self.seed, scenario_name='simplified')
+        self.reward_function = DoubleGyreRewardFunction()
         self.feature_constructor = DoubleGyreFeatureConstructor()
 
         self.action_space = gym.spaces.Box(
@@ -63,6 +63,7 @@ class PlatformEnv(gym.Env):
             shape=(1,)
         )
         # self.action_space = gym.spaces.Discrete(360)
+        self.reward_range = self.reward_function.get_rewarrd_range()
         self.observation_space = self.feature_constructor.get_observation_space()
 
         self.reset()
@@ -79,7 +80,6 @@ class PlatformEnv(gym.Env):
             done (bool): whether the episode has ended
             info (dict): auxiliary diagnostic information
         """
-        # command = PlatformAction(magnitude=1, direction=action[0])
         command = PlatformAction(magnitude=1, direction=action[0])
 
         for i in range(self.arena_steps_per_env_step):
@@ -89,10 +89,10 @@ class PlatformEnv(gym.Env):
 
         solved = problem_status == 1
         unsolvable = problem_status == -1
-        crashed = not self.arena.is_inside_arena()
+        crashed = not self.arena.is_inside_arena() or self.arena.is_on_land()
         terminate = solved or unsolvable or crashed
 
-        reward = self.reward_fn(self.prev_state, arena_obs.platform_state, self.problem, solved, crashed)
+        reward = self.reward_function.get_reward(self.prev_state, arena_obs.platform_state, self.problem, solved, crashed)
 
         # if terminate:
         #     print('terminate')
@@ -128,8 +128,6 @@ class PlatformEnv(gym.Env):
             info (opt. dictionary): a dictionary containing extra information, returned if return_info set to True
         """
         self.problem = self.problem_factory.next_problem()
-
-        #print('arena reset')
 
         arena_obs = self.arena.reset(self.problem.start_state)
         self.prev_state = arena_obs.platform_state

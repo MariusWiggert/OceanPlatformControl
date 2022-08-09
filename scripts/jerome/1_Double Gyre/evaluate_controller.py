@@ -10,9 +10,9 @@ import os
 
 from ocean_navigation_simulator.controllers.RLControllerFromAgent import RLControllerFromAgent
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.environment.PlatformEnv import PlatformEnv
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreEnv import DoubleGyreEnv
 from scripts.jerome.old import clean_ray_results
 
 script_start_time = time.time()
@@ -20,7 +20,7 @@ script_start_time = time.time()
 rng = np.random.default_rng(2022)
 
 def env_creator(env_config):
-    return PlatformEnv(config={
+    return DoubleGyreEnv(config={
         'seed': env_config.worker_index * (env_config.vector_index+1),
         'arena_steps_per_env_step': 1,
         'scenario_name': 'double_gyre',

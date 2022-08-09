@@ -30,7 +30,7 @@ class DataField(abc.ABC):
         hindcast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
         self.hindcast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
         if forecast_source_dict is None:
-            print("Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
+            # print("Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
             self.forecast_data_source = self.hindcast_data_source
         else:
             forecast_source_dict['casadi_cache_settings'] = sim_cache_dict
@@ -103,4 +103,5 @@ class DataField(abc.ABC):
 
 
     def __del__(self):
-        print('__del__ called in DataField')
+        # print('__del__ called in DataField')
+        pass

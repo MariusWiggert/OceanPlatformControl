@@ -29,7 +29,7 @@ class Problem(abc.ABC):
     #config: Dict = {}  # TODO
 
     # @abc.abstractmethod
-    def is_done(self) -> bool:
+    def is_done(self, state: PlatformState) -> bool:
         """ Checks whether the problem is solved or became unsolvable. Needs to get the current
         platform state.
         Args:

@@ -44,4 +44,5 @@ class OceanCurrentField(DataField):
             raise ValueError("Selected source {} in the OceanCurrentSource dict is not implemented.". format(source_dict['source']))
 
     def __del__(self):
-        print('__del__ called in OceanCurrentField')
+        # print('__del__ called in OceanCurrentField')
+        pass
