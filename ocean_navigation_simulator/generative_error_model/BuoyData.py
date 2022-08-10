@@ -141,7 +141,11 @@ class BuoyDataCopernicus(BuoyDataSource):
         df = pd.DataFrame(columns = column_names)
 
         for file_path in file_list:
-            ds = self._read_NC_file(file_path)
+            ds, valid_file = self._read_NC_file(file_path)
+
+            # catch corrupted files
+            if valid_file == False:
+                continue
 
             # select specific data
             time = ds["TIME"].values
@@ -320,8 +324,11 @@ class BuoyDataCopernicus(BuoyDataSource):
             self._download_NC_file(file)
 
     def _read_NC_file(self, path2file: str) -> xr:
-        with xr.open_dataset(path2file, engine="netcdf4") as ds:
-            return ds.load()
+        try:
+            with xr.open_dataset(path2file, engine="netcdf4") as ds:
+                return ds.load(), True
+        except OSError as e:
+            return None, False
 
 
 class BuoyDataSofar(BuoyDataSource):
