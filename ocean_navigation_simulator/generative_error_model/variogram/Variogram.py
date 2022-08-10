@@ -6,7 +6,6 @@ import numpy as np
 from tqdm import tqdm
 from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
-import itertools
 import multiprocessing as mp
 import datetime
 import ctypes as c
