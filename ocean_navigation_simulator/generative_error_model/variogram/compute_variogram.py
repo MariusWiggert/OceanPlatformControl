@@ -1,9 +1,10 @@
 from ocean_navigation_simulator.generative_error_model.Dataset import load_dataset, DatasetName, load_single_file
-from ocean_navigation_simulator.generative_error_model.utils import timer
-from Variogram import Variogram
+from ocean_navigation_simulator.generative_error_model.utils import timer, save_variogram_to_npy
+from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
 import argparse
 import numpy as np
+import datetime
 import os
 
 
@@ -52,10 +53,10 @@ def main():
         detrended=detrended, cross_buoy_pairs_only=cross_buoy_pairs_only)
 
     # save to numpy array
-    file_name = f"3d_variogram_{dataset_name.name}_{bin_res[0]}_{bin_res[1]}_{bin_res[2]}_{detrended}_{cross_buoy_pairs_only}.npy"
+    now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    file_name = f"{now_string}_variogram_{dataset_name.name}_{bin_res[0]}_{bin_res[1]}_{bin_res[2]}_{detrended}_{cross_buoy_pairs_only}.npy"
     file_path = os.path.join("/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/variogram", file_name)
-    data_to_save = {"bins":bins, "bins_count":bins_count, "res": [V.lon_res, V.lat_res, V.t_res]}
-    np.save(file_path, data_to_save)
+    save_variogram_to_npy(V, file_path)
 
 
 if __name__ == "__main__":

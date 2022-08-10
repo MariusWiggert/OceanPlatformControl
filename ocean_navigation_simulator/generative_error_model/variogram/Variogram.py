@@ -1,5 +1,4 @@
 from ocean_navigation_simulator.generative_error_model.variogram.IndexPairGenerator import IndexPairGenerator
-from ocean_navigation_simulator.generative_error_model.utils import timer
 
 import pandas as pd
 import numpy as np

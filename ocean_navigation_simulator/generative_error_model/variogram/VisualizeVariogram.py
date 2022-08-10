@@ -64,6 +64,9 @@ class VisualizeVariogram:
 
 
     def _decrease_res_in_axis(self, arr: np.ndarray, axis:int, scaling: int):
+        """Sums blocks of dims of size scaling over the specified axis"""
+        # Idea: https://stackoverflow.com/questions/47428193/summing-blocks-of-n-rows-in-numpy-array
+
         # get shape of incoming array
         temp_shape = list(arr.shape)
         # add an axis behind the reduced axis of dim=scaling
@@ -143,6 +146,7 @@ class VisualizeVariogram:
         axs[0].set_xlabel("Lon lag [degrees]")
         axs[0].set_ylabel("Semivariance")
         axs[0].set_xlim(left=0)
+        axs[0].set_ylim([0,1.5])
 
         lat_y_num = np.sum(self.variogram.bins[:tol[0],:,:tol[2],var], axis=(0,2))
         # lat_y_denom = self.variogram.bins.shape[0]*self.variogram.bins.shape[2]
@@ -151,6 +155,7 @@ class VisualizeVariogram:
             np.divide(lat_y_num, lat_y_denom, out=np.zeros_like(lat_y_num), where=lat_y_denom!=0), marker="x")
         axs[1].set_xlabel("Lat lag [degrees]")
         axs[1].set_xlim(left=0)
+        axs[0].set_ylim([0,1.5])
 
         t_y_num = np.sum(self.variogram.bins[:tol[0],:tol[1],:,var], axis=(0,1))
         # t_y_denom = self.variogram.bins.shape[0]*self.variogram.bins.shape[1]
@@ -159,6 +164,7 @@ class VisualizeVariogram:
             np.divide(t_y_num, t_y_denom, out=np.zeros_like(t_y_num), where=t_y_denom!=0), marker="x")
         axs[2].set_xlabel("Time lag [hrs]")
         axs[2].set_xlim(left=0)
+        axs[0].set_ylim([0,1.5])
         plt.show() 
 
 
