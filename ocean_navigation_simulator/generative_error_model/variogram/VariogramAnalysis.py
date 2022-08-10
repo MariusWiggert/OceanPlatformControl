@@ -1,4 +1,5 @@
 from ocean_navigation_simulator.generative_error_model.variogram.IndexPairGenerator import IndexPairGenerator
+from ocean_navigation_simulator.generative_error_model.utils import timer
 
 import pandas as pd
 import numpy as np
@@ -512,11 +513,3 @@ def create_shared_array_from_np(arr, ctype):
     shared_array = to_shared_array(arr, ctype)
     output = to_numpy_array(shared_array, arr.shape)
     return output
-
-def timer(func):
-    import time
-    def wrapper():
-        start = time.time()
-        func()
-        print(f"Time taken: {time.time()-start} seconds.")
-    return wrapper

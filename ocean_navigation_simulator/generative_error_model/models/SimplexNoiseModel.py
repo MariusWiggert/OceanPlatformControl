@@ -65,7 +65,7 @@ OPENSIMPLEX_VARIANCE = 0.0569
 NOISE_MAGNITUDE = np.sqrt(1.02/OPENSIMPLEX_VARIANCE)
 
 
-class SimplexNoiseModel(GenerativeModel):
+class SimplexNoiseModel:
     """Noise model which based on simplex noise and parameters found through
     variogram analysis will generate noise at a point or over a volume"""
 

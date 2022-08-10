@@ -1,5 +1,5 @@
 from Dataset import load_dataset, DatasetName, load_single_file
-from variogram.VariogramAnalysis import VariogramAnalysis
+from variogram.VariogramAnalysis import VariogramAnalysis, timer
 
 import argparse
 from typing import Tuple, List
@@ -12,15 +12,6 @@ def load_from_npy(path: str):
     bins = data.item().get("bins")
     bins_count = data.item().get("bins_count")
     return bins, bins_count
-
-
-def timer(func):
-    import time
-    def wrapper():
-        start = time.time()
-        func()
-        print(f"Time taken: {time.time()-start} seconds.")
-    return wrapper
 
 
 def parse():
@@ -51,7 +42,7 @@ def main():
     print("Begin computing variogram.")
 
     # compute variogram
-    bins, bins_count = V.build_variogram_gen(bin_res, 22, chunk_size=int(1e6),\
+    bins, bins_count = V.build_variogram_gen(bin_res, 2, chunk_size=int(1e6),\
         detrended=detrended, cross_buoy_pairs_only=cross_buoy_pairs_only)
 
     # save to numpy array
