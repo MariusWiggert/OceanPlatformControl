@@ -8,16 +8,14 @@
 cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head node.
-initial_workers: 5
-min_workers: 5
-max_workers: 5
+max_workers: 3
 
 # Cloud-provider specific configuration.
 provider:
     type: azure
     # https://azure.microsoft.com/en-us/global-infrastructure/locations
     location: eastus
-    resource_group: jerome-ray-cluster-launcher
+    resource_group: jerome-ray-cluster-launcher-gpu
     # set subscription id otherwise the default from az cli will be used
     subscription_id: 320d211e-ea73-4cc2-9f71-18da686ab665
     cache_stopped_nodes: True
@@ -46,30 +44,31 @@ available_node_types:
                 #   - Standard_NC6_Promo (US$289.08)
                 #   - Standard_NC12_Promo (US$578.16)
                 #   - Standard_NC24_Promo (US$1,156.32)
-                #   -- Standard_D2s_v3 (US$70.08)
-                #   -- Standard_D4s_v3 (US$140.16)
-                #   -- Standard_D8s_v3 (US$280.32)
-                #   -- Standard_D16s_v3 (US$560.64)
-                #   -- Standard_D32s_v3 (US$1,121.28)
-                #   -- Standard_D64s_v3 (US$2,242.56)
-                #   --- Standard_F32s_v2 (US$987.69)
-                # Costs Example:
-                # - 1 * Standard_NC6_Promo + 8 * Standard_D4s_v3 = 289 + 6 * 140 = 1129$/month = 37$/day = 1.6$/hour
-                # - 8 * Standard_NC6_Promo = 8 * 289 = 2312$/month = 77$/day = 3.2$/hour
+                #   - Standard_D2s_v3 (US$70.08)
+                #   - Standard_D4s_v3 (US$140.16)
+                #   - Standard_D8s_v3 (US$280.32)
+                #   - Standard_D16s_v3 (US$560.64)
+                #   - Standard_D32s_v3 (US$1,121.28)
+                #   - Standard_D64s_v3 (US$2,242.56)
+                #   - Standard_F32s_v2 (US$987.69)
+                # Cost Examples:
+                #   - 1 * Standard_NC6_Promo + 8 * Standard_D4s_v3 = 289 + 8 * 140 = 1409$/month = 47$/day = 2$/hour
+                #   - 8 * Standard_NC6_Promo = 8 * 289 = 2312$/month = 77$/day = 3.2$/hour
                 vmSize: Standard_NC6_Promo
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: microsoft-dsvm
                 imageOffer: ubuntu-2004
+                # https://portal.azure.com/#view/Microsoft_Azure_Marketplace/GalleryItemDetailsBladeNopdl/id/microsoft-dsvm.ubuntu-2004/product~/%7B%22displayName%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22itemDisplayName%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22id%22%3A%22microsoft-dsvm.ubuntu-2004%22%2C%22bigId%22%3A%22DZH318Z09LXN%22%2C%22legacyId%22%3A%22microsoft-dsvm.ubuntu-2004%22%2C%22offerId%22%3A%22ubuntu-2004%22%2C%22publisherId%22%3A%22microsoft-dsvm%22%2C%22publisherDisplayName%22%3A%22Microsoft%22%2C%22summary%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22longSummary%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22description%22%3A%22%3Cp%3EThe%20%3Cstrong%3E%26apos%3BData%20Science%20Virtual%20Machine%20(DSVM)%26apos%3B%3C%2Fstrong%3E%20is%20a%20%26apos%3BUbuntu%2020.04%26apos%3B%20VM%20that%20has%20several%20popular%20tools%20for%20data%20exploration%2C%20analysis%2C%20modeling%20%26amp%3B%20development%20pre%20installed.%3C%2Fp%3E%5Cn%3Cp%3E%3Cstrong%3EHighlights%3A%3C%2Fstrong%3E%3C%2Fp%3E%5Cn%3Cp%3EOperating%20System%2C%20Drivers%20and%20other%20base%20components%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%3Cli%3E%26quot%3BUbuntu%2020.04%26quot%3B%20image%20from%20Azure%20Marketplace%3C%2Fli%3E%5Cn%20%20%20%20%3Cli%3ENvidia%20drivers%2C%20CUDA%20Toolkit%2C%20cuDNN%20(when%20GPU%20machines%20are%20used)%3C%2Fli%3E%5Cn%20%20%20%20%5Cn%20%20%20%20%3Cli%3EDocker%3C%2Fli%3E%5Cn%20%20%20%20%3Cli%3EAnaconda%20(%26quot%3Bconda%26quot%3B)%3C%2Fli%3E%5Cn%20%20%20%20%3Cli%3EGit%3C%2Fli%3E%5Cn%20%20%5Ct%3C%2Fol%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%5Cn%3Cp%3EAuthoring%20Tools%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EVisual%20Studio%20Code%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EPyCharm%20Community%20Edition%3C%2Fli%3E%5Cn%20%20%5Ct%5Ct%5Ct%3Cli%3EJupyter%2C%20Jupyter%20Lab%3C%2Fli%3E%20%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fol%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%3Cp%3EML%20Framework%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EPyTorch%2C%20TensorFlow%2C%20scikit-learn%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3Epyspark%3C%2Fli%3E%5Cn%20%20%5Ct%5Ct%5Ct%3Cli%3Edask%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EVowpal%20Wabbit%3C%2Fli%3E%20%20%20%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fol%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%3Cp%3EOther%20Notable%20Components%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EAzure%20CLI%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EAzure%20ML%20SDK%20for%20Python%3C%2Fli%3E%5Cn%20%20%20%5Ct%5Ct%5Ct%3Cli%3EAzure%20Storage%20Explorer%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fol%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%5Cn%3Cp%3EUsers%20can%20access%20the%20DSVM%20via%20Remote%20Desktop%2C%20SSH%20or%20browser%20(eg%3A%20Jupyter%20Hub).%20Optionally%2C%20the%20VM%20can%20be%20placed%20in%20a%20corporate%20network.%20%3C%2Fp%3E%5Cn%5Cn%3Cp%3EUsers%20have%20full%20access%20to%20the%20DSVM.%20If%20needed%2C%20configurations%20can%20be%20adjusted%2C%20and%20additional%20frameworks%20can%20be%20installed%20like%20with%20any%20other%20virtual%20machine.%20The%20image%20provided%20here%20is%20a%20static%20VM%20image.%20Maintenance%20and%20protection%20against%20vulnerabilities%20of%20provisioned%20DSVMs%20is%20in%20the%20customer's%20responsibility.%5Cn%3C%2Fp%3E%5Cn%3Cp%3EThere%20is%20also%20a%20DSVM%20on%20Windows.%3C%2Fp%3E%5Cn%3Cp%3EFor%20more%20details%2C%20see%20the%20%3Ca%20href%3D%5C%22https%3A%2F%2Fdocs.microsoft.com%2Fen-us%2Fazure%2Fmachine-learning%2Fdata-science-virtual-machine%2
+                # https://docs.microsoft.com/en-gb/azure/machine-learning/data-science-virtual-machine/overview
+                # https://docs.microsoft.com/en-gb/azure/machine-learning/data-science-virtual-machine/tools-included
                 imageSku: '2004'
                 imageVersion: latest
 
     ray.worker.default:
         # The minimum number of worker nodes of this type to launch.
         # This number should be >= 0.
-        min_workers: 5
-        # The maximum number of worker nodes of this type to launch.
-        # This takes precedence over min_workers.
-        max_workers: 5
+        min_workers: 3
+        max_workers: 3
         # The resources provided by this node type.
         resources: {"CPU": 6, "GPU": 1}
         # Provider-specific config, e.g. instance type.
@@ -139,10 +138,28 @@ setup_commands:
     # - sudo pkill -9 apt-get || true
     # - sudo pkill -9 dpkg || true
     # - sudo dpkg --configure -a
+#    - start=`date +%s`
+
+    # Update System and Packages
+    # Note: This seems to mess up the CUDA/cuDNN Installation
+#    - sudo apt-get update -y
+#    - sudo apt-get upgrade -y
+#    - sudo apt-get autoremove -y
+
+    # Create Conda Environment wit fresh .bashrc
+    - /bin/cp /etc/skel/.bashrc ~/
     - (which conda && echo 'eval "$(conda shell.bash hook)"' >> ~/.bashrc) || true
     - bash -i ~/setup/set_up_ocean_platform_env.sh
     - (conda activate ocean_platform &> /dev/null && echo 'conda activate ocean_platform' >> ~/.bashrc) || true
-    - export PYTHONPATH="${PYTHONPATH}:/home/ubuntu"
+
+#    - sudo lsof /dev/nvidia* | awk 'NR > 1 {print $2}' | xargs sudo kill
+#    - sudo rmmod nvidia_drm
+#    - sudo rmmod nvidia_modeset
+#    - sudo rmmod nvidia_uvm
+#    - sudo rmmod nvidia
+#    - nvidia-smi
+#    - runtime=$((`date +%s`-start))
+#    - echo "Setup Time $runtime s"
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands:

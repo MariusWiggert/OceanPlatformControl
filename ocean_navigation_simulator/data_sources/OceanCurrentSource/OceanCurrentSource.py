@@ -13,7 +13,7 @@ from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
 
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
-from ocean_navigation_simulator.data_sources.DataSources import DataSource, XarraySource
+from ocean_navigation_simulator.data_sources.DataSource import DataSource, XarraySource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 

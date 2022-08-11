@@ -30,6 +30,8 @@ ocean_dict:
         source: 'forecast_files'
         source_settings:
             'folder': "/tmp/hycom_forecast/"
+            'download_source': "HYCOM"
+            'download_type': "forecast"
 
 solar_dict:
     hindcast: null

@@ -42,7 +42,7 @@ ray.init(
     'ray://localhost:10001',
     runtime_env={
         'working_dir': '.',
-        'excludes': ['data', 'generated_media', 'hj_reachability', 'models', '.git', 'ocean_navigation_simulator', 'results'],
+        'excludes': ['./data', './generated_media', './hj_reachability', './models', '.git', './ocean_navigation_simulator', './results'],
         'py_modules': ['ocean_navigation_simulator'],
     },
 )
@@ -55,19 +55,14 @@ print(f'''This cluster consists of
     {len(active_nodes)} nodes in total
     {cpu_resources} CPU resources in total''')
 
-@ray.remote(num_cpus=1)
+@ray.remote(num_cpus=1, num_gpus=1)
 def evaluate(index, mission):
     import os, psutil
-    from requests import get
-    import socket
 
     from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
+    from ocean_navigation_simulator.controllers.HJController import HJController
     from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
     from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-
-    private_ip = socket.gethostbyname(socket.gethostname())
-    public_ip = get('https://api.ipify.org').content.decode('utf8')
-    pid = os.getpid()
 
     TIMING = True
     DEBUG = True
@@ -85,48 +80,48 @@ def evaluate(index, mission):
 
     # Step 2: Create Arena
     start = time.time()
-    arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast')
+    arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast', verbose=False)
     # arena = ArenaFactory.create(scenario_name='gulf_of_mexico_Copernicus_forecast_and_hindcast')
     observation = arena.reset(platform_state=problem.start_state)
     if TIMING:
         print(f'## Create Arena ({time.time() - start:.1f}s) ##')
 
     # Step 3: Create Controller
-    # start = time.time()
-    controller = NaiveToTargetController(problem=problem)
-    # if TIMING:
-        # print(f'## Create Controller ({time.time() - start:.1f}s) ##')
+    start = time.time()
+    # controller = NaiveToTargetController(problem=problem)
+    controller = HJController(problem=problem, platform_dict=arena.platform.platform_dict)
+    if TIMING:
+        print(f'## Create Controller ({time.time() - start:.1f}s) ##')
 
     # Step 4: Running Arena
     start = time.time()
-    steps = 1
+    steps = 0
     while True:
         action = controller.get_action(observation)
         observation = arena.step(action)
+        problem_status = arena.problem_status(problem=problem)
+        steps += 1
 
         # Simulation Termination
-        problem_status = problem.is_done(observation.platform_state)
-        if not arena.is_inside_arena() or arena.is_on_land():
-            problem_status = -1
         if problem_status == 1 or problem_status == -1:
             break
-        steps += 1
     if TIMING:
         print(f'## Running Arena ({time.time() - start:.1f}s) ##')
 
     result = {
         'index': index,
+        'controller': type(controller).__name__,
         'success': True if problem_status==1 else False,
         'steps': steps,
         'running_time': problem.passed_seconds(observation.platform_state),
-        'distance': problem.distance(observation.platform_state),
-        'pid': pid,
+        'final_distance': problem.distance(observation.platform_state),
+        'pid': os.getpid(),
         'process_time': time.time() - mission_start_time,
         'process_memory': psutil.Process().memory_info().rss,
     }
 
     if DEBUG:
-        print(f'##### Finished (Mission {index:03d}: {"Success" if result["success"] else "Failure"}, {steps} Steps, {result["running_time"]/(3600*24):.0f}d {result["running_time"] % (3600*24) / 3600:.0f}h, {result["distance"]:.4f} Degree) (Process: {result["process_time"]:.1f}s, {result["process_memory"] / 1e6:.1f}MB)')
+        print(f'##### Finished (Mission {index:03d}: {"Success" if result["success"] else "Failure"}, {steps} Steps, {result["running_time"]/(3600*24):.0f}d {result["running_time"] % (3600*24) / 3600:.0f}h, {result["final_distance"]:.4f} Degree) (Process: {result["process_time"]:.1f}s, {result["process_memory"] / 1e6:.1f}MB)')
 
     return result
 

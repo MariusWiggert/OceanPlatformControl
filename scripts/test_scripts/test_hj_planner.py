@@ -9,7 +9,8 @@ from ocean_navigation_simulator.environment.NavigationProblem import NavigationP
 from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
 import time
-arena = ArenaFactory.create(scenario_name='gulf_of_mexico_files')
+
+arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast')
 #
 #% Plot to check if loading worked
 t_0 = datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc)

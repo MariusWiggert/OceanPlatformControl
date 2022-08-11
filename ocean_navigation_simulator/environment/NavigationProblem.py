@@ -1,5 +1,5 @@
 import dataclasses
-from datetime import datetime
+import datetime
 from typing import Optional
 
 import matplotlib
@@ -15,7 +15,8 @@ class NavigationProblem(Problem):
     start_state: PlatformState
     end_region: SpatialPoint
     target_radius: float
-    timeout: float = None # TODO: implement timeout
+    timeout: datetime.timedelta = None
+    platform_dict: dict = None
 
     def passed_seconds(self, state: PlatformState) -> float:
         return (state.date_time - self.start_state.date_time).total_seconds()
@@ -45,13 +46,13 @@ class NavigationProblem(Problem):
         return NavigationProblem(
             start_state=PlatformState(
                 lon=units.Distance(deg=mission['x_0_lon']),
-                lat = units.Distance(deg=mission['x_0_lat']),
-                date_time = datetime.fromisoformat(mission['t_0'])
+                lat=units.Distance(deg=mission['x_0_lat']),
+                date_time=datetime.datetime.fromisoformat(mission['t_0'])
             ),
             end_region = SpatialPoint(
                 lon=units.Distance(deg=mission['x_T_lon']),
                 lat=units.Distance(deg=mission['x_T_lat'])
             ),
-            target_radius = mission['target_radius'],
-            timeout = mission['timeout_in_h'] * 3600,
+            target_radius=mission['target_radius'],
+            timeout=datetime.timedelta(hours=mission['timeout_in_h'])
         )

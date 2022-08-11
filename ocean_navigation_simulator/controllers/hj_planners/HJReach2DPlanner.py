@@ -2,8 +2,8 @@ import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
-from ocean_navigation_simulator.controllers.HjPlanners.platform_2D_for_sim import Platform2dForSim
-from ocean_navigation_simulator.controllers.HjPlanners.HJPlannerBase import HJPlannerBase
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
+from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
 import hj_reachability as hj
 import xarray as xr

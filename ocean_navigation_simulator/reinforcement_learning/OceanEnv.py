@@ -35,7 +35,7 @@ class OceanEnv(gym.Env):
 
     def __init__(
         self,
-        config,
+        config = {},
     ):
         """
         Constructs a basic Platform Learning Environment.
@@ -48,7 +48,7 @@ class OceanEnv(gym.Env):
         """
         self.config = { 'seed': None, 'arena_steps_per_env_step': 1 } | config
 
-        self.problem_factory = MissionProblemFactory(seed=self.config['seed'], scenario_name='simplified')
+        self.problem_factory = MissionProblemFactory(seed=self.config['seed'])
         self.feature_constructor = OceanFeatureConstructor()
         self.reward_function = DoubleGyreRewardFunction()
 
@@ -73,8 +73,9 @@ class OceanEnv(gym.Env):
         """
         self.problem = self.problem_factory.next_problem()
 
-        self.arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast', pid=os.getpid())
-        ArenaFactory.download_files(problem=self.problem, n_days_ahead=6)
+        # self.arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast')
+        # ArenaFactory.download_hycom_forecast(problem=self.problem, n_days_ahead=6)
+        self.arena = ArenaFactory.create(scenario_name='gulf_of_mexico_Copernicus_forecast_and_hindcast')
 
         self.prev_obs = self.arena.reset(self.problem.start_state)
 

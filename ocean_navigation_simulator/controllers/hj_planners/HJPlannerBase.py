@@ -1,15 +1,9 @@
+from bisect import bisect
+
 import numpy as np
 import abc
 import xarray as xr
-from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-from ocean_navigation_simulator.data_sources import DataSource
-from ocean_navigation_simulator.controllers.Controller import Controller
-from ocean_navigation_simulator.utils import units
-from typing import Tuple, Dict, List, AnyStr, Union, Callable
-# from ocean_navigation_simulator.utils import simulation_utils
+from typing import Tuple, Dict, List, AnyStr, Union, Callable, Optional
 from jax.interpreters import xla
 import jax.numpy as jnp
 from functools import partial
@@ -18,11 +12,19 @@ from datetime import datetime, timezone
 import matplotlib.pyplot as plt
 import warnings
 import math
-from ocean_navigation_simulator.ocean_observer.Observer import Observer
+
 # Note: if you develop on hj_reachability and this library simultaneously uncomment this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
 
+from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from ocean_navigation_simulator.data_sources.DataSource import DataSource
+from ocean_navigation_simulator.controllers.Controller import Controller
+from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 # TODO: handle where it is using hours_to_hj_solve_timescale to make sure the plot is in hours
 # TODO: This is very much work in progress, does not work yet!
@@ -40,7 +42,7 @@ class HJPlannerBase(Controller):
         See Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem: Problem, specific_settings: Dict):
+    def __init__(self, problem: Problem, specific_settings: Dict, verbose: Optional[bool] = False):
         """
         Constructor for the HJ Planner Baseclass.
         Args:
@@ -67,7 +69,9 @@ class HJPlannerBase(Controller):
                     If True we use the Geographic coordinate system in lat, lon degree (divide by fixed amount to convert)
                     If False then the coordinate system and speeds of the agent are in m/s.
         """
-        super().__init__(problem)
+        self.problem = problem
+        self.specific_settings = specific_settings
+        self.verbose = verbose
 
         # Note: managing the forecast fieldsets is done in the simulator
         # self.forecast_data_source = None
@@ -79,7 +83,6 @@ class HJPlannerBase(Controller):
         # saving the planned trajectories for inspection purposes
         self.planned_trajs = []
 
-        self.specific_settings = specific_settings
 
         # create a variable that persists across runs of self.plan() to reference the currently reload data
         self.current_data_t_0, self.current_data_t_T = [None] * 2
@@ -129,7 +132,6 @@ class HJPlannerBase(Controller):
         """
         # Step 1: Check if we should re-plan based on specified criteria
         if self._check_for_replanning(observation):
-            print("Reachability Planner: Planning")
             # log x_t and data_source for plotting and easier access later
             self.x_t = observation.platform_state
             self.last_data_source = observation.forecast_data_source
@@ -154,7 +156,8 @@ class HJPlannerBase(Controller):
             # data and logging variables need to be initialized at first round
             self.last_fmrc_idx_planned_with = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
                 time=observation.platform_state.date_time)
-            print(f'Reachability Planner: Planning because of no Forecast Index (Old: {old}, New: {self.last_fmrc_idx_planned_with}).')
+            if self.verbose:
+                print(f'Reachability Planner: Planning because of no Forecast Index (Old: {old}, New: {self.last_fmrc_idx_planned_with}).')
             return True
         # Check for re-planning with new forecast
         if self.specific_settings['replan_on_new_fmrc']:
@@ -162,13 +165,15 @@ class HJPlannerBase(Controller):
                 # If the data_source is an observer, delete all error measurements from the old forecast.
                 if isinstance(self.last_data_source, Observer):
                     self.last_data_source.reset()
-                print("Reachability Planner: Planning because of new Forecast.")
+                if self.verbose:
+                    print("Reachability Planner: Planning because of new Forecast.")
                 return True
         # Check for re-planning after fixed time intervals
         if self.specific_settings['replan_every_X_seconds'] is not None:
             if observation.platform_state.date_time.timestamp() - self.last_planning_posix >= \
                     self.specific_settings['replan_every_X_seconds']:
-                print("Reachability Planner: Planning because of fixed time interval.")
+                if self.verbose:
+                    print("Reachability Planner: Planning because of fixed time interval.")
                 return True
         return False
 
@@ -386,7 +391,8 @@ class HJPlannerBase(Controller):
             p_multi_reach_step = partial(multi_reach_step, initial_values)
             # set the postprocessor to be fed into solver_settings
             hamiltonian_postprocessor = p_multi_reach_step
-            print("running multi-reach")
+            if self.verbose:
+                print("running multi-reach")
         else:  # make the postprocessor the identity
             hamiltonian_postprocessor = lambda *x: x[-1]
 
@@ -467,7 +473,8 @@ class HJPlannerBase(Controller):
         Args:
             observation: observation returned by the simulator (containing the forecast_data_source)
         """
-        print("Reachability Planner: Loading new current data.")
+        if self.verbose:
+            print("Reachability Planner: Loading new current data.")
 
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(

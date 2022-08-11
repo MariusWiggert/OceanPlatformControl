@@ -7,7 +7,6 @@ optimized_dp/
 viz/
 .vscode/
 .ipynb_checkpoints/
-data/
 generated_media/
 hj_reachability/
 models/

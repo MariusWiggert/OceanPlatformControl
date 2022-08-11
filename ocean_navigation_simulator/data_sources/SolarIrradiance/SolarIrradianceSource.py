@@ -4,7 +4,7 @@ from typing import List, Union
 import numpy as np
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
 import xarray as xr
-from ocean_navigation_simulator.data_sources.DataSources import DataSource, AnalyticalSource
+from ocean_navigation_simulator.data_sources.DataSource import DataSource, AnalyticalSource
 
 
 class SolarIrradianceSource(DataSource):

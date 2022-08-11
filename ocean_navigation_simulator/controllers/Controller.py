@@ -1,5 +1,5 @@
 import abc
-from typing import Optional, Dict
+from typing import Optional
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
@@ -10,13 +10,15 @@ class Controller(abc.ABC):
     Interface for controllers.
     """
 
-    def __init__(self, problem: Problem, specific_settings: Optional[Dict] = None):
+    def __init__(self, problem: Problem, platform_dict: Optional[dict] = None, verbose: Optional[bool] = False):
         """
         Basic constructor logging the problem given at construction.
         Args:
             problem: the Problem the controller will run on
         """
         self.problem = problem
+        self.platform_dict = platform_dict
+        self.verbose = verbose
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:

@@ -53,7 +53,7 @@ class Arena:
             seaweed_dict: Optional[Dict] = None,
             spatial_boundary: Optional[Dict] = None,
             collect_trajectory: Optional[bool] = False,
-            timing: Optional[bool] = False,
+            verbose: Optional[bool] = False,
     ):
         """OceanPlatformArena constructor.
     Args:
@@ -96,7 +96,7 @@ class Arena:
             )
         else:
             self.seaweed_field = None
-        if timing:
+        if verbose:
             print(f'- Generate Sources ({time.time() - start:.1f}s)')
 
         # Step 2: Generate Platform
@@ -108,10 +108,10 @@ class Arena:
             solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
             seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
         )
-        if timing:
+        if verbose:
             print(f'- Generate Platform ({time.time() - start:.1f}s)')
 
-        # STep 3: Initialize Variables
+        # Step 3: Initialize Variables
         self.spatial_boundary = spatial_boundary
         self.collect_trajectory = collect_trajectory
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3

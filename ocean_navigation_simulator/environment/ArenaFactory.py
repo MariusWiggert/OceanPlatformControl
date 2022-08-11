@@ -1,25 +1,58 @@
 import string
 import yaml
 import os
+import time
 import datetime
-from typing import Optional
+from typing import Optional, List
 from c3python import C3Python
 
 from ocean_navigation_simulator.environment.Arena import Arena
-from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 
 class ArenaFactory:
     @staticmethod
-    def create(scenario_name: string = None, file: string = None, timing: Optional[bool] = False) -> Arena:
+    def create(
+        scenario_name: string = None,
+        file: string = None,
+        problem: NavigationProblem = None,
+        verbose: Optional[bool] = True
+    ) -> Arena:
         if scenario_name:
-            with open(f'config/scenarios/{scenario_name}.yaml') as f:
+            with open(f'config/arena/{scenario_name}.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
         elif file:
             with open(file) as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
         else:
-            raise ValueError('Specify scenario name or file.')
+            raise ValueError('Specify scenario name or arena config file.')
+
+        start = time.time()
+        if problem is not None and config['ocean_dict']['hindcast'] is not None and config['ocean_dict']['hindcast']['source']=='hindcast_files':
+            c3 = C3Python(
+                url='https://dev01-seaweed-control.c3dti.ai',
+                tenant='seaweed-control',
+                tag='dev01',
+                keyfile='setup/c3-rsa',
+                username='jeanninj@berkeley.edu',
+            ).get_c3()
+            ArenaFactory.download_needed_files(
+                c3=c3,
+                archive_source=config['ocean_dict']['hindcast']['source_settings']['source'],
+                archive_type=config['ocean_dict']['hindcast']['source_settings']['type'],
+                download_folder=config['ocean_dict']['hindcast']['source_settings']['folder'],
+                problem=problem
+            )
+            if config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
+                ArenaFactory.download_needed_files(
+                    c3=c3,
+                    archive_source=config['ocean_dict']['forecast']['source_settings']['source'],
+                    archive_type=config['ocean_dict']['forecast']['source_settings']['type'],
+                    download_folder=config['ocean_dict']['forecast']['source_settings']['folder'],
+                    problem=problem
+                )
+        if verbose:
+            print(f'- Download Files ({time.time() - start:.1f}s)')
 
         return Arena(
             sim_cache_dict=config['sim_cache_dict'],
@@ -29,38 +62,53 @@ class ArenaFactory:
             solar_dict=config['solar_dict'],
             seaweed_dict=config['seaweed_dict'],
             spatial_boundary=config['spatial_boundary'],
-            timing=timing
+            verbose=verbose
         )
 
     @staticmethod
-    def download_hycom_forecast(problem: Problem, n_days_ahead: int = 6, download_folder: Optional[str] = '/tmp/hycom_forecast'):
-        # Step 1: get c3 type
-        c3 = C3Python(
-            url='https://dev01-seaweed-control.c3dti.ai',
-            tenant='seaweed-control',
-            tag='dev01',
-            keyfile='setup/c3-rsa',
-            username='jeanninj@berkeley.edu',
-        ).get_c3()
+    def get_archive_filelist(c3, archive_source, archive_type, time_interval: Optional[tuple[datetime.datetime, datetime.datetime]] = None):
+        if time_interval is None:
+            time_filter = ''
+        else:
+            start_min = f'{time_interval[0].replace(hour=0, minute=0, second=0, microsecond=0)}'
+            start_max = f'{time_interval[1]}'
+            time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
 
-        # Step 2: Find relevant files
-        archive_id = c3.HycomDataArchive.fetch(spec = { 'filter': 'dataset=="GOMu0.04/expt_90.1m000"' }).objs[0].fmrcArchive.id
-        start_min = f'{problem.start_state.date_time - datetime.timedelta(days=1)}'
-        start_max = f'{(problem.start_state.date_time + datetime.timedelta(days=n_days_ahead)).replace(hour=23, minute=59, second=0, microsecond=0)}'
-        files = c3.HycomFMRCFile.fetch(spec={
-            'filter': f'archive=="{archive_id}" && status == "downloaded" && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"',
-            'order': "ascending(subsetOptions.timeRange.start)",
-        })
+        if archive_source=='HYCOM' and archive_type=='forecast':
+            archive_id = c3.HycomDataArchive.fetch(spec={'filter': 'description=="Full geo-spatial Hycom GOM: u,v at depth=4.0"'}).objs[0].fmrcArchive.id
+            return c3.HycomFMRCFile.fetch(spec={'filter': f'archive=="{archive_id}" && status == "downloaded"{time_filter}', 'order': "ascending(subsetOptions.timeRange.start)"})
+        elif archive_source=='HYCOM' and archive_type=='hindcast':
+            archive_id = c3.HycomDataArchive.fetch(spec={'filter': 'description=="Full geo-spatial Hycom GOM: u,v at depth=4.0"'}).objs[0].hindcastArchive.id
+            return c3.HycomHindcastFile.fetch(spec={'filter': f'archive=="{archive_id}" && status == "downloaded"{time_filter}', 'order': "ascending(subsetOptions.timeRange.start)"})
+        elif archive_source=='Copernicus' and archive_type=='forecast':
+            archive_id = c3.CopernicusDataArchive.fetch(spec={'filter': 'description=="Full GOM: utotal,vtotal at depth=0.49"'}).objs[0].fmrcArchive.id
+            return c3.CopernicusFMRCFile.fetch(spec={'filter': f'archive=="{archive_id}" && status == "downloaded"{time_filter}', 'order': "ascending(subsetOptions.timeRange.start)"})
+        elif archive_source=='Copernicus' and archive_type=='hindcast':
+            archive_id = c3.CopernicusDataArchive.fetch(spec={'filter': 'description=="Full GOM: utotal,vtotal at depth=0.49"'}).objs[0].hindcastArchive.id
+            return c3.CopernicusHindcastFile.fetch(spec={'filter': f'archive=="{archive_id}" && status == "downloaded"{time_filter}', 'order': "ascending(subsetOptions.timeRange.start)"})
+        else:
+            raise ValueError(f"Combination of archive_source={archive_source} and archive_type={archive_type} is not available.")
 
-        # Step 3: Check File Count
-        if files.count < n_days_ahead:
-            raise Exception(f"Only {files.count} forecast files in the database for t_0={problem.start_state.date_time} and n_days_ahead={n_days_ahead}.")
-        # Step 4: Check Basic Spatial Coverage
+    @staticmethod
+    def check_spacial_coverage(files, points: List[SpatialPoint]):
+        """
+            Helper function checking if points are in the spatial coverage of a file.
+            Returns True if yes and False if not.
+        """
         for file in files.objs:
-            ArenaFactory.check_spacial_coverage(file.subsetOptions.geospatialCoverage, problem.start_state.to_spatial_point())
-            ArenaFactory.check_spacial_coverage(file.subsetOptions.geospatialCoverage, problem.end_region)
+            spacial_coverage = file.subsetOptions.geospatialCoverage
+            for point in points:
+                lon_covered = spacial_coverage.start.longitude < point.lon.deg < spacial_coverage.end.longitude
+                lat_covered = spacial_coverage.start.latitude < point.lat.deg < spacial_coverage.end.latitude
 
-        # Step 5: Download Files thread-safe
+                if lon_covered is False:
+                    raise ValueError("The point {} is not covered by the longitude of the downloaded files.".format(point))
+                if lat_covered is False:
+                    raise ValueError("The point {} is not covered by the latitude of the downloaded files.".format(point))
+
+    @staticmethod
+    def download_filelist(c3, files, download_folder):
+        # Step 1: Download Files thread-safe with atomic os.rename
         temp_folder = f'{download_folder}/{os.getpid()}'
         for file in files.objs:
             filename = os.path.basename(file.file.contentLocation)
@@ -75,24 +123,30 @@ class ArenaFactory:
                 raise Exception(f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + '/' + filename)}B.")
         os.system(f'rm -rf {temp_folder}')
 
-        # Step 6: Only keep 50 most recent files to prevent full storage
+        # Step 2: Only keep 100 most recent files to prevent full storage
         cached_files = [f'{download_folder}/{file}' for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
-        for file in cached_files[50:]:
-            print('Deleting:', file)
+        for file in cached_files[100:]:
+            print('Deleting old forecast files:', file)
             os.remove(file)
 
     @staticmethod
-    def check_spacial_coverage(spacial_coverage, point: SpatialPoint):
-        """
-            Helper function checking if the point is in the spatial coverage of a file.
-            Returns True if yes and False if not.
-        """
-        lon_covered = spacial_coverage.start.longitude < point.lon.deg < spacial_coverage.end.longitude
-        lat_covered = spacial_coverage.start.latitude < point.lat.deg < spacial_coverage.end.latitude
+    def download_needed_files(c3, archive_source: str, archive_type: str, download_folder: str, problem: NavigationProblem):
+        # Step 1: Find relevant files
+        files = ArenaFactory.get_archive_filelist(
+            c3=c3,
+            archive_source=archive_source,
+            archive_type=archive_type,
+            time_interval=(problem.start_state.date_time, problem.start_state.date_time + problem.timeout)
+        )
 
-        if lon_covered is False:
-            raise ValueError("The point {} is not covered by the longitude of the downloaded file.".format(point))
-        if lat_covered is False:
-            raise ValueError("The point {} is not covered by the latitude of the downloaded file.".format(point))
+        # Step 2: Check File Count
+        if files.count < problem.timeout.days:
+            raise Exception(f"Only {files.count} files in the database for t_0={problem.start_state.date_time} and problem.timeout.days={problem.timeout.days}.")
+
+        # Step 3: Check Basic Spatial Coverage
+        ArenaFactory.check_spacial_coverage(files, [problem.start_state.to_spatial_point(), problem.end_region])
+
+        # Step 4: Download files thread-safe
+        ArenaFactory.download_filelist(c3, files, download_folder)
