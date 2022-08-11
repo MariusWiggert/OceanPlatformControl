@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import multiprocessing as mp
 import datetime
 import ctypes as c
+from pyproj import Geod
 
 
 class Variogram:
@@ -191,8 +192,8 @@ class Variogram:
         return bins, bins_count
 
 
-    def build_variogram_gen(self, res_tuple: Tuple[int], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=False) -> Tuple[np.ndarray, np.ndarray]:
+    def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
+        detrended: bool=False, units: str="km") -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. Then computes the lag value in each axis
         and the variogram value for u and v errors.
@@ -200,6 +201,7 @@ class Variogram:
         This method uses a generator if there are too many index pairs to hold in RAM.
         
         res_tuple - resolution in (degrees, degrees, hours)
+        num_workers - workers for multi-processing
         bins_tuple - number of bins in (lon, lat, time)
         chunk_size - lower number if less memory
         cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
@@ -209,30 +211,15 @@ class Variogram:
         if detrended and "detrended_u_error" not in self.data.columns:
             raise Exception("Need to run detrend method first with 'detrend=True'")
 
-        # convert time axis to datetime
-        self.data["time"] = pd.to_datetime(self.data["time"])
-        # find earliest time/date and subtract from time column
-        earliest_date = self.data["time"].min()
-        self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
-
-        self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
-
-        # create bins from known extremal values and resolutions
-        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
-        self.lon_bins = np.ceil((self.data["lon"].max() - self.data["lon"].min()+1)/lon_res).astype(int)
-        self.lat_bins = np.ceil((self.data["lat"].max() - self.data["lat"].min()+1)/lat_res).astype(int)
-        bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
+        self.units = units
+        self._variogram_setup(res_tuple)
 
         # setup generator to generate index pairs
         n = self.data.shape[0]
         gen = IndexPairGenerator(n, chunk_size)
 
-        # build a mask to mask out the pairs from same buoy
-        buoy_vector = None
-        if cross_buoy_pairs_only:
-            buoy_vector = self.data["buoy"].to_numpy()
-
         # make bins
+        bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
         self.bins = np.zeros((*bin_sizes,2), dtype=np.float32)
         self.bins_count = np.zeros_like(self.bins, dtype=np.int32)
 
@@ -246,6 +233,9 @@ class Variogram:
         else:
             u_error = self.data["u_error"].to_numpy(dtype=np.float32)
             v_error = self.data["v_error"].to_numpy(dtype=np.float32)
+        buoy_vector = None
+        if cross_buoy_pairs_only:
+            buoy_vector = self.data["buoy"].to_numpy()
 
         # setup shared arrays for workers
         shared_bins = to_shared_array(self.bins, c.c_float)
@@ -271,7 +261,7 @@ class Variogram:
             q.put(indices)
             with iolock:
                 running_sum += len(indices[0])
-                if iteration%10 == 0:
+                if iteration%10 == 0 and iteration !=0:
                     now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
                     print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),5)}% of pairs finished.")
                 iteration += 1
@@ -317,10 +307,21 @@ class Variogram:
                 idx_i = idx_i[mask_idx]
                 idx_j = idx_j[mask_idx]
 
-            # get lags and divide by bin resolution to get bin index
+            # get lags in degrees and divide by bin resolution to get bin indices
+            if self.units == "degrees":
+                lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
+                lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
+            elif self.units == "km":
+            # convert lags from degrees to kilometres
+                pts1 = np.hstack((lon[idx_i].reshape(-1,1), lat[idx_i].reshape(-1,1)))
+                pts2 = np.hstack((lon[idx_j].reshape(-1,1), lat[idx_j].reshape(-1,1)))
+                lon_lag, lat_lag = convert_degree_to_km(pts1, pts2)
+                # convert to bin indices
+                lon_lag = np.floor(np.absolute(lon_lag)/self.lon_res).astype(int)
+                lat_lag = np.floor(np.absolute(lat_lag)/self.lat_res).astype(int)
+
             t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/self.t_res).astype(float)).astype(int)
-            lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/self.lon_res).astype(int)
-            lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
+
             u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
             v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
             squared_diff = np.hstack((u_squared_diff, v_squared_diff))
@@ -342,6 +343,30 @@ class Variogram:
                 with iolock:
                     self.bins += bins_temp
                     self.bins_count += bins_count_temp
+
+
+    def _variogram_setup(self, res_tuple: Tuple[float]):
+        """Helper method to declutter the main build_variogram method."""
+
+        # convert time axis to datetime
+        self.data["time"] = pd.to_datetime(self.data["time"])
+        # find earliest time/date and subtract from time column
+        earliest_date = self.data["time"].min()
+        self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
+
+        self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
+
+        # calculate bin sizes from known extremal values and given resolutions
+        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
+        if self.units == "degrees":
+            self.lon_bins = np.ceil((self.data["lon"].max() - self.data["lon"].min()+1)/lon_res).astype(int)
+            self.lat_bins = np.ceil((self.data["lat"].max() - self.data["lat"].min()+1)/lat_res).astype(int)
+        elif self.units == "km":
+            max_lon, min_lon = self.data["lon"].max(), self.data["lon"].min()
+            max_lat, min_lat = self.data["lat"].max(), self.data["lat"].min()
+            max_dx, max_dy = convert_degree_to_km(np.array([min_lon, min_lat]), np.array([max_lon, max_lat]))
+            self.lon_bins = np.ceil(abs(max_dx/lon_res)+1).astype(int)
+            self.lat_bins = np.ceil(abs(max_dy/lat_res)+5).astype(int)
 
 
     def plot_detrended_bins(self) -> None:
@@ -408,19 +433,44 @@ class Variogram:
         plt.show()
 
 
+#------------------------ Helper Funcs -----------------------#
+
 def to_shared_array(arr, ctype):
     shared_array = mp.Array(ctype, arr.size, lock=False)
     temp = np.frombuffer(shared_array, dtype=arr.dtype)
     temp[:] = arr.flatten(order='C')
     return shared_array
 
+
 def to_numpy_array(shared_array, shape):
     """Create a numpy array backed by a shared memory Array."""
     arr = np.ctypeslib.as_array(shared_array)
     return arr.reshape(shape)
+
 
 def create_shared_array_from_np(arr, ctype):
     """Combines two functions, implemented due to repetition"""
     shared_array = to_shared_array(arr, ctype)
     output = to_numpy_array(shared_array, arr.shape)
     return output
+
+
+def convert_degree_to_km2(ref_point: np.ndarray, lag: np.ndarray) -> Tuple[np.ndarray]:
+    wgs84_geod = Geod(ellps="WGS84")
+    if len(ref_point.shape) > 1:
+        _,_,lon_dist = wgs84_geod.inv(ref_point[:,0], ref_point[:,1], lag[:,0], np.zeros(lag[:,0].shape))
+        _,_,lat_dist = wgs84_geod.inv(ref_point[:,0], ref_point[:,1], np.zeros(lag[:,1].shape), lag[:,1])
+    else:
+        _,_,lon_dist = wgs84_geod.inv(ref_point[0], ref_point[1], lag[0], np.zeros(lag[0].shape))
+        _,_,lat_dist = wgs84_geod.inv(ref_point[0], ref_point[1], np.zeros(lag[1].shape), lag[1])  
+    return lon_dist/1000, lat_dist/1000
+
+
+def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> Tuple[np.ndarray]:
+    if len(pts1.shape) > 1:
+        dx = (pts1[:,0] - pts2[:,0]) * 40000 *np.cos((pts1[:,1] + pts2[:,1]) * np.pi/360)/360
+        dy = ((pts1[:,1] - pts2[:,1])* 40000)/360
+    else:
+        dx = (pts1[0] - pts2[0]) * 40000 *np.cos((pts1[1] + pts2[1]) * np.pi/360)/360
+        dy = ((pts1[1] - pts2[1])* 40000)/360
+    return dx, dy

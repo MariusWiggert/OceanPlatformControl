@@ -15,6 +15,7 @@ def parse():
     parser.add_argument("--chunk_size", default=1e6, type=float, help="what size chunk the computation is performed on")
     parser.add_argument("--detrended", default=True, type=bool, help="if the detrended data should be used")
     parser.add_argument("--cross_buoy_pairs_only", default=False, type=bool, help="read name m8")
+    parser.add_argument("--units", default="km", type=str, help="choices: {'km', 'degrees'}")
     parser.add_argument("--dataset_size", default="large", type=str, help="{large -> month, small -> single file}")
     return parser
 
@@ -41,10 +42,11 @@ def main():
     cross_buoy_pairs_only = args.cross_buoy_pairs_only
     print("\nBegin computing variogram.")
     print(f"""PARAMS:
-        bin_res={bin_res},d
+        bin_res={bin_res},
         num_workers={args.num_workers},
         detrended={args.detrended},
-        cross_buoy_pairs_only={args.cross_buoy_pairs_only}
+        cross_buoy_pairs_only={args.cross_buoy_pairs_only},
+        units={args.units},
         dataset_size={args.dataset_size}\n""")
 
 
