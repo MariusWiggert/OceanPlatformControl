@@ -365,7 +365,7 @@ class Variogram:
             max_lon, min_lon = self.data["lon"].max(), self.data["lon"].min()
             max_lat, min_lat = self.data["lat"].max(), self.data["lat"].min()
             max_dx, max_dy = convert_degree_to_km(np.array([min_lon, min_lat]), np.array([max_lon, max_lat]))
-            self.lon_bins = np.ceil(abs(max_dx/lon_res)+1).astype(int)
+            self.lon_bins = np.ceil(abs(max_dx/lon_res)+5).astype(int)
             self.lat_bins = np.ceil(abs(max_dy/lat_res)+5).astype(int)
 
 
@@ -467,6 +467,7 @@ def convert_degree_to_km2(ref_point: np.ndarray, lag: np.ndarray) -> Tuple[np.nd
 
 
 def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> Tuple[np.ndarray]:
+    # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
     if len(pts1.shape) > 1:
         dx = (pts1[:,0] - pts2[:,0]) * 40000 *np.cos((pts1[:,1] + pts2[:,1]) * np.pi/360)/360
         dy = ((pts1[:,1] - pts2[:,1])* 40000)/360
