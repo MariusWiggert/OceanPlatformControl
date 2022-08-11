@@ -111,11 +111,11 @@ class DataSource(abc.ABC):
         grid_dict = {
             "t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
             "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
-            # 'y_grid': xrDF["lat"].data,
+            'y_grid': xrDF["lat"].data,
             "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
-            # 'x_grid': xrDF["lon"].data,
-            # 't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
-            # 'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
+            'x_grid': xrDF["lon"].data,
+            't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data],
+            'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask,
             'spatial_res': xrDF["lat"].data[1] - xrDF["lat"].data[0],
             'temporal_res': (xrDF["time"].data[1] - xrDF["time"].data[0]) / np.timedelta64(1, 's')
         }

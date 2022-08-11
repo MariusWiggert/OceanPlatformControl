@@ -188,7 +188,11 @@ class Arena:
     def is_on_land(
         self
    ) -> bool:
-        return False
+        """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
+        # grid_
+        x_idx = (np.abs(self.ocean_field.hindcast_data_source.casadi_grid_dict['x_grid'] - self.platform.state.lon.deg)).argmin()
+        y_idx = (np.abs(self.ocean_field.hindcast_data_source.casadi_grid_dict['y_grid'] - self.platform.state.lat.deg)).argmin()
+        return self.ocean_field.hindcast_data_source.casadi_grid_dict['spatial_land_mask'][y_idx, x_idx]
 
     def problem_status(
         self,
