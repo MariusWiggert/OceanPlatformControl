@@ -1,3 +1,4 @@
+import time
 from bisect import bisect
 
 import numpy as np
@@ -7,7 +8,7 @@ from typing import Tuple, Dict, List, AnyStr, Union, Callable, Optional
 from jax.interpreters import xla
 import jax.numpy as jnp
 from functools import partial
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, interp2d
 from datetime import datetime, timezone
 import matplotlib.pyplot as plt
 import warnings
@@ -131,7 +132,18 @@ class HJPlannerBase(Controller):
             PlatformAction dataclass
         """
         # Step 1: Check if we should re-plan based on specified criteria
+        self.replan_if_necessary(observation)
+
+        # Step 2: return the action from the plan
+        start = time.time()
+        action = self._get_action_from_plan(state=observation.platform_state)
+        if self.verbose:
+            print(f'HJPlannerBase: Get Action from Plan ({time.time() - start:.1f}s)')
+        return action
+
+    def replan_if_necessary(self, observation: ArenaObservation):
         if self._check_for_replanning(observation):
+            start = time.time()
             # log x_t and data_source for plotting and easier access later
             self.x_t = observation.platform_state
             self.last_data_source = observation.forecast_data_source
@@ -141,9 +153,67 @@ class HJPlannerBase(Controller):
             # Update the data used in the HJ Reachability Planning
             self._update_current_data(observation=observation)
             self._plan(observation.platform_state)
+            if self.verbose:
+                print(f'HJPlannerBase: Replanning ({time.time() - start:.1f}s)')
 
-        # Step 2: return the action from the plan
-        return self._get_action_from_plan(state=observation.platform_state)
+    def interpolate_value_function_in_hours_on_grid(self, observation: ArenaObservation, width_deg: float, width: int):
+        # Step 1: Update Planner
+        self.replan_if_necessary(observation)
+        point = observation.platform_state
+
+        start = time.time()
+        # print('reach_times[:10]:', self.reach_times[:10])
+        # print('reach_times[-10:]:', self.reach_times[-10:])
+        # print('reach_times.shape:', self.reach_times.shape)
+        # print('all_values.shape:', self.all_values.shape)
+        # print('platform_state.date_time.timestamp():', point.date_time.timestamp())
+        # print('current_data_t_0:', self.current_data_t_0)
+
+        # Step 2: Interpolate Temporal
+        val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
+            point.date_time.timestamp() - self.current_data_t_0
+        ).squeeze()
+        val_at_t = (val_at_t - val_at_t.min()) * (self.current_data_t_T - self.current_data_t_0) / 3600
+
+        # Step 3: Interpolate Spacial
+        in_grid_x = self.grid.states[:, 0, 0]
+        in_grid_y = self.grid.states[0, :, 1]
+        out_grid_x = np.linspace(point.lon.deg - width_deg, point.lon.deg + width_deg, width)
+        out_grid_y = np.linspace(point.lat.deg - width_deg, point.lat.deg + width_deg, width)
+        val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(out_grid_y, out_grid_x).squeeze()
+        if self.verbose:
+            print(f'HJPlannerBase: Interpolating TTR Map ({time.time()-start:.1f}s)')
+
+        return val_at_xy
+
+    def interpolate_value_function_in_hours_at_point(self, observation: ArenaObservation):
+        # Step 1: Update Planner
+        self.replan_if_necessary(observation)
+        point = observation.platform_state
+
+        start = time.time()
+
+        # print('reach_times[:10]:', self.reach_times[:10])
+        # print('reach_times[-10:]:', self.reach_times[-10:])
+        # print('reach_times.shape:', self.reach_times.shape)
+        # print('all_values.shape:', self.all_values.shape)
+        # print('platform_state.date_time.timestamp():', point.date_time.timestamp())
+        # print('current_data_t_0:', self.current_data_t_0)
+
+        # Step 2: Interpolate Temporal
+        val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
+            point.date_time.timestamp() - self.current_data_t_0
+        ).squeeze()
+        val_at_t = (val_at_t - val_at_t.min()) * (self.current_data_t_T - self.current_data_t_0) / 3600
+
+        # Step 3: Interpolate Spacial
+        in_grid_x = self.grid.states[:, 0, 0]
+        in_grid_y = self.grid.states[0, :, 1]
+        val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(point.lat.deg, point.lon.deg).squeeze()
+        if self.verbose:
+            print(f'HJPlannerBase: Interpolating TTR at Point ({time.time()-start:.1f}s)')
+
+        return val_at_xy
 
     def _check_for_replanning(self, observation: ArenaObservation) -> bool:
         """Helper Function to check if we want to replan with HJ Reachability.
@@ -157,7 +227,7 @@ class HJPlannerBase(Controller):
             self.last_fmrc_idx_planned_with = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
                 time=observation.platform_state.date_time)
             if self.verbose:
-                print(f'Reachability Planner: Planning because of no Forecast Index (Old: {old}, New: {self.last_fmrc_idx_planned_with}).')
+                print(f'HJPlannerBase: Planning because of no Forecast Index (Old: {old}, New: {self.last_fmrc_idx_planned_with}).')
             return True
         # Check for re-planning with new forecast
         if self.specific_settings['replan_on_new_fmrc']:
@@ -166,14 +236,14 @@ class HJPlannerBase(Controller):
                 if isinstance(self.last_data_source, Observer):
                     self.last_data_source.reset()
                 if self.verbose:
-                    print("Reachability Planner: Planning because of new Forecast.")
+                    print("HJPlannerBase: Planning because of new Forecast.")
                 return True
         # Check for re-planning after fixed time intervals
         if self.specific_settings['replan_every_X_seconds'] is not None:
             if observation.platform_state.date_time.timestamp() - self.last_planning_posix >= \
                     self.specific_settings['replan_every_X_seconds']:
                 if self.verbose:
-                    print("Reachability Planner: Planning because of fixed time interval.")
+                    print("HJPlannerBase: Planning because of fixed time interval.")
                 return True
         return False
 
@@ -392,7 +462,7 @@ class HJPlannerBase(Controller):
             # set the postprocessor to be fed into solver_settings
             hamiltonian_postprocessor = p_multi_reach_step
             if self.verbose:
-                print("running multi-reach")
+                print("HJPlannerBase: Running Multi-Reach")
         else:  # make the postprocessor the identity
             hamiltonian_postprocessor = lambda *x: x[-1]
 
@@ -404,6 +474,7 @@ class HJPlannerBase(Controller):
                                                           hamiltonian_postprocessor=hamiltonian_postprocessor)
 
         # solve the PDE in non_dimensional to get the value function V(s,t)
+        start = time.time()
         non_dim_reach_times, self.all_values = hj.solve(
             solver_settings=solver_settings,
             dynamics=self.nondim_dynamics,
@@ -412,6 +483,8 @@ class HJPlannerBase(Controller):
             initial_values=initial_values,
             progress_bar=self.specific_settings['progress_bar']
         )
+        if self.verbose:
+            print(f'HJPlannerBase: hj.solve ({time.time()-start:.1f}s)')
 
         # scale up the reach_times to be dimensional_times in seconds again
         self.reach_times = non_dim_reach_times * self.nondim_dynamics.tau_c + self.nondim_dynamics.t_0
@@ -473,8 +546,7 @@ class HJPlannerBase(Controller):
         Args:
             observation: observation returned by the simulator (containing the forecast_data_source)
         """
-        if self.verbose:
-            print("Reachability Planner: Loading new current data.")
+        start = time.time()
 
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
@@ -508,7 +580,7 @@ class HJPlannerBase(Controller):
         self.nondim_dynamics.offset_vec = self.offset_vec
 
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
-        # print("Cache Size: ", hj.solver._solve._cache_size())
+        print("Cache Size: ", hj.solver._solve._cache_size())
         hj.solver._solve._clear_cache()
         xla._xla_callable.cache_clear()
 
@@ -527,6 +599,9 @@ class HJPlannerBase(Controller):
         #
         #     self.nondim_dynamics.dimensional_dynamics.set_currents_from_analytical(self.forecast_data_source)
         #     self.forecast_data_source['content'].current_run_t_0 = grids_dict['t_grid'][0]
+
+        if self.verbose:
+            print(f"HJPlannerBase: Loading new Current Data ({time.time()-start:.1f}s)")
 
     def _get_non_dim_state(self, state: jnp.ndarray):
         """Returns the state transformed from dimensional coordinates to non_dimensional coordinates."""

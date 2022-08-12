@@ -1,5 +1,6 @@
 import abc
 
+from ocean_navigation_simulator.environment import NavigationProblem
 from ocean_navigation_simulator.environment.Problem import Problem
 
 """
@@ -18,7 +19,7 @@ class ProblemFactory(abc.ABC):
         self.seed = seed
 
     @abc.abstractmethod
-    def next_problem(self) -> Problem:
+    def next_problem(self) -> NavigationProblem:
         """
         Yield the next problem to be used by the Gym environment.
         Returns:

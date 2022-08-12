@@ -4,7 +4,7 @@ import time
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
+from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 
 
 start = time.time()
@@ -22,7 +22,7 @@ for j in tqdm(range(100)):
     observation = arena.reset(problem.start_state)
     arenas.append(arena)
 
-    controller = NaiveToTargetController(problem=problem)
+    controller = NaiveController(problem=problem)
     is_done = False
 
     for i in range(1000): # 1000 * 0.02s = 20s

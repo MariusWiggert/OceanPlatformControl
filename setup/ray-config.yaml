@@ -8,7 +8,9 @@
 cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head node.
-max_workers: 3
+initial_workers: 7
+min_workers: 7
+max_workers: 7
 
 # Cloud-provider specific configuration.
 provider:
@@ -44,6 +46,9 @@ available_node_types:
                 #   - Standard_NC6_Promo (US$289.08)
                 #   - Standard_NC12_Promo (US$578.16)
                 #   - Standard_NC24_Promo (US$1,156.32)
+                #   - Standard_NC6 (US$657.00)
+                #   - Standard_NC12 (US$1,314.00)
+                #   - Standard_NC24 (US$2,628.00)
                 #   - Standard_D2s_v3 (US$70.08)
                 #   - Standard_D4s_v3 (US$140.16)
                 #   - Standard_D8s_v3 (US$280.32)
@@ -67,8 +72,8 @@ available_node_types:
     ray.worker.default:
         # The minimum number of worker nodes of this type to launch.
         # This number should be >= 0.
-        min_workers: 3
-        max_workers: 3
+        min_workers: 7
+        max_workers: 7
         # The resources provided by this node type.
         resources: {"CPU": 6, "GPU": 1}
         # Provider-specific config, e.g. instance type.

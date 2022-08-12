@@ -5,7 +5,7 @@ apex_dqn_agent_config = {
     # ========= Settings for Rollout Worker processes =========
     # Number of rollout worker actors to create for parallel sampling. Setting
     # this to 0 will force rollouts to be done in the trainer actor.
-    "num_workers": 47,
+    # "num_workers": 47,
     # Number of environments to evaluate vector-wise per worker. This enables
     # model inference batching, which can improve performance for inference
     # bottlenecked workloads.
@@ -30,7 +30,7 @@ apex_dqn_agent_config = {
     #
     # The dataflow here can vary per algorithm. For example, PPO further
     # divides the train batch into minibatches for multi-epoch SGD.
-    "rollout_fragment_length": 200,
+    # "rollout_fragment_length": 200,
     # How to build per-Sampler (RolloutWorker) batches, which are then
     # usually concat'd to form the train batch. Note that "steps" below can
     # mean different things (either env- or agent-steps) and depends on the
@@ -54,7 +54,7 @@ apex_dqn_agent_config = {
     # Training batch size, if applicable. Should be >= rollout_fragment_length.
     # Samples batches will be concatenated together to a batch of this size,
     # which is then passed to SGD.
-    "train_batch_size": 200,
+    # "train_batch_size": 200,
     # Arguments to pass to the policy optimizer. These vary by optimizer.
     "optimizer": {},
 
@@ -201,15 +201,15 @@ apex_dqn_agent_config = {
     # Set to False for no exploration behavior (e.g., for evaluation).
     "explore": True,
     # Provide a dict specifying the Exploration object's config.
-    "exploration_config": {
-        # The Exploration class to use. In the simplest case, this is the name
-        # (str) of any class present in the `rllib.utils.exploration` package.
-        # You can also provide the python class directly or the full location
-        # of your class (e.g. "ray.rllib.utils.exploration.epsilon_greedy.
-        # EpsilonGreedy").
-        "type": "StochasticSampling",
-        # Add constructor kwargs here (if any).
-    },
+    # "exploration_config": {
+    #     # The Exploration class to use. In the simplest case, this is the name
+    #     # (str) of any class present in the `rllib.utils.exploration` package.
+    #     # You can also provide the python class directly or the full location
+    #     # of your class (e.g. "ray.rllib.utils.exploration.epsilon_greedy.
+    #     # EpsilonGreedy").
+    #     "type": "StochasticSampling",
+    #     # Add constructor kwargs here (if any).
+    # },
 
 
     # === Evaluation Settings ===
@@ -257,7 +257,7 @@ apex_dqn_agent_config = {
     # algorithms can take advantage of trainer GPUs. Support for multi-GPU
     # is currently only available for tf-[PPO/IMPALA/DQN/PG].
     # This can be fractional (e.g., 0.3 GPUs).
-    "num_gpus": 1,
+    # "num_gpus": 1,
     # Set to True for debugging (multi-)?GPU funcitonality on a CPU machine.
     # GPU towers will be simulated by graphs located on CPUs in this case.
     # Use `num_gpus` to test for different numbers of fake GPUs.
@@ -267,7 +267,7 @@ apex_dqn_agent_config = {
     # Number of GPUs to allocate per worker. This can be fractional. This is
     # usually needed only if your env itself requires a GPU (i.e., it is a
     # GPU-intensive video game), or model inference is unusually expensive.
-    "num_gpus_per_worker": 1/6,
+    # "num_gpus_per_worker": 1/6,
     # Any custom Ray resources to allocate per worker.
     "custom_resources_per_worker": {},
     # Number of CPUs to allocate for the trainer. Note: this only takes effect
@@ -310,26 +310,26 @@ apex_dqn_agent_config = {
     # Whether to use double dqn
     "double_q": True,
     # N-step Q learning
-    "n_step": 1,
+    # "n_step": 1,
 
     # === Replay buffer ===
     # Deprecated, use capacity in replay_buffer_config instead.
-    "replay_buffer_config": {
-        # Enable the new ReplayBuffer API.
-        "_enable_replay_buffer_api": True,
-        "type": "MultiAgentPrioritizedReplayBuffer",
-        # Size of the replay buffer. Note that if async_updates is set,
-        # then each worker will have a replay buffer of this size.
-        "capacity": 50000,
-        "prioritized_replay_alpha": 0.6,
-        # Beta parameter for sampling from prioritized replay buffer.
-        "prioritized_replay_beta": 0.4,
-        # Epsilon to add to the TD errors when updating priorities.
-        "prioritized_replay_eps": 1e-6,
-        # The number of continuous environment steps to replay at once. This may
-        # be set to greater than 1 to support recurrent models.
-        "replay_sequence_length": 1,
-    },
+    # "replay_buffer_config": {
+    #     # Enable the new ReplayBuffer API.
+    #     "_enable_replay_buffer_api": True,
+    #     "type": "MultiAgentPrioritizedReplayBuffer",
+    #     # Size of the replay buffer. Note that if async_updates is set,
+    #     # then each worker will have a replay buffer of this size.
+    #     "capacity": 50000,
+    #     "prioritized_replay_alpha": 0.6,
+    #     # Beta parameter for sampling from prioritized replay buffer.
+    #     "prioritized_replay_beta": 0.4,
+    #     # Epsilon to add to the TD errors when updating priorities.
+    #     "prioritized_replay_eps": 1e-6,
+    #     # The number of continuous environment steps to replay at once. This may
+    #     # be set to greater than 1 to support recurrent models.
+    #     "replay_sequence_length": 1,
+    # },
     # Set this to True, if you want the contents of your buffer(s) to be
     # stored in any saved checkpoints as well.
     # Warnings will be created if:
@@ -358,26 +358,25 @@ apex_dqn_agent_config = {
     #      often as rollout+insert op (4 * 250 = 1000).
     # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further
     # details.
-    "training_intensity": None,
+    # "training_intensity": None,
 
     # === Parallelism ===
     # Whether to compute priorities on workers.
-    "worker_side_prioritization": False,
+    # "worker_side_prioritization": False,
 
     # Experimental flag.
     # If True, the execution plan API will not be used. Instead,
     # a Trainer's `training_iteration` method will be called as-is each
     # training iteration.
-    "_disable_execution_plan_api": True,
+    # "_disable_execution_plan_api": True,
 
 
     # ========= Ape-X-specific Settings =========
     "n_step": 3,
     "num_gpus": 1,
-    "num_workers": 1,
+    "num_workers": 8,
+    "num_gpus_per_worker": 1,
 
-    # TODO(jungong) : add proper replay_buffer_config after
-    #     DistributedReplayBuffer type is supported.
     "replay_buffer_config": {
         # For now we don't use the new ReplayBuffer API here
         "_enable_replay_buffer_api": False,
@@ -403,7 +402,7 @@ apex_dqn_agent_config = {
 
     "learning_starts": 50000,
     "train_batch_size": 512,
-    "rollout_fragment_length": 50,
+    "rollout_fragment_length": 100,
     "target_network_update_freq": 500000,
     "timesteps_per_iteration": 25000,
     "exploration_config": {"type": "PerWorkerEpsilonGreedy"},

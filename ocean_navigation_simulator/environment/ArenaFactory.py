@@ -13,47 +13,55 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 class ArenaFactory:
     @staticmethod
     def create(
-        scenario_name: string = None,
-        file: string = None,
+        scenario_name: string,
         problem: NavigationProblem = None,
         verbose: Optional[bool] = True
     ) -> Arena:
-        if scenario_name:
-            with open(f'config/arena/{scenario_name}.yaml') as f:
-                config = yaml.load(f, Loader=yaml.FullLoader)
-        elif file:
-            with open(file) as f:
-                config = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            raise ValueError('Specify scenario name or arena config file.')
+        if verbose:
+            print(f'ArenaFactory: Creating Arena for {scenario_name}')
 
+        with open(f'config/arena/{scenario_name}.yaml') as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+
+        # Step 1: Connect to c3
         start = time.time()
+        c3 = C3Python(
+            url='https://dev01-seaweed-control.c3dti.ai',
+            tenant='seaweed-control',
+            tag='dev01',
+            keyfile='setup/c3-rsa',
+            username='jeanninj@berkeley.edu',
+        ).get_c3()
+        if verbose:
+            print(f'ArenaFactory: Connect to c3 ({time.time() - start:.1f}s)')
+
+        # Step 2: Download Hindcast
         if problem is not None and config['ocean_dict']['hindcast'] is not None and config['ocean_dict']['hindcast']['source']=='hindcast_files':
-            c3 = C3Python(
-                url='https://dev01-seaweed-control.c3dti.ai',
-                tenant='seaweed-control',
-                tag='dev01',
-                keyfile='setup/c3-rsa',
-                username='jeanninj@berkeley.edu',
-            ).get_c3()
-            ArenaFactory.download_needed_files(
+            start = time.time()
+            ArenaFactory.download_required_files(
                 c3=c3,
                 archive_source=config['ocean_dict']['hindcast']['source_settings']['source'],
                 archive_type=config['ocean_dict']['hindcast']['source_settings']['type'],
                 download_folder=config['ocean_dict']['hindcast']['source_settings']['folder'],
                 problem=problem
             )
-            if config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
-                ArenaFactory.download_needed_files(
-                    c3=c3,
-                    archive_source=config['ocean_dict']['forecast']['source_settings']['source'],
-                    archive_type=config['ocean_dict']['forecast']['source_settings']['type'],
-                    download_folder=config['ocean_dict']['forecast']['source_settings']['folder'],
-                    problem=problem
-                )
-        if verbose:
-            print(f'- Download Files ({time.time() - start:.1f}s)')
+            if verbose:
+                print(f'ArenaFactory: Download Hindcast Files ({time.time() - start:.1f}s)')
 
+        # Step 3: Download Forecast
+        if problem is not None and config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
+            start = time.time()
+            ArenaFactory.download_required_files(
+                c3=c3,
+                archive_source=config['ocean_dict']['forecast']['source_settings']['source'],
+                archive_type=config['ocean_dict']['forecast']['source_settings']['type'],
+                download_folder=config['ocean_dict']['forecast']['source_settings']['folder'],
+                problem=problem
+            )
+            if verbose:
+                print(f'ArenaFactory: Download Forecast Files ({time.time() - start:.1f}s)')
+
+        # Step 4: Create Arena
         return Arena(
             sim_cache_dict=config['sim_cache_dict'],
             platform_dict=config['platform_dict'],
@@ -66,7 +74,7 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def get_archive_filelist(c3, archive_source, archive_type, time_interval: Optional[tuple[datetime.datetime, datetime.datetime]] = None):
+    def get_filelist(c3, archive_source, archive_type, time_interval: Optional[tuple[datetime.datetime, datetime.datetime]] = None):
         if time_interval is None:
             time_filter = ''
         else:
@@ -109,22 +117,23 @@ class ArenaFactory:
     @staticmethod
     def download_filelist(c3, files, download_folder):
         # Step 1: Download Files thread-safe with atomic os.rename
-        temp_folder = f'{download_folder}/{os.getpid()}'
+        temp_folder = f'{download_folder}{os.getpid()}/'
         for file in files.objs:
             filename = os.path.basename(file.file.contentLocation)
             url = file.file.url
             filesize = file.file.contentLength
-            if not os.path.exists(download_folder + '/' + filename) or os.path.getsize(download_folder + '/' + filename) != filesize:
+            if not os.path.exists(download_folder + filename) or os.path.getsize(download_folder + filename) != filesize:
                 c3.Client.copyFilesToLocalClient(url, temp_folder)
-                os.rename(temp_folder + '/' + filename, download_folder + '/' + filename)
+                os.rename(temp_folder + filename, download_folder + filename)
+                print(f'File downloaded: {filename}, {filesize}')
             else:
-                os.system(f'sudo touch {download_folder}/{filename}')
-            if os.path.getsize(download_folder + '/' + filename) != filesize:
-                raise Exception(f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + '/' + filename)}B.")
+                os.system(f'touch {download_folder}{filename}')
+            if os.path.getsize(download_folder + filename) != filesize:
+                raise Exception(f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + filename)}B.")
         os.system(f'rm -rf {temp_folder}')
 
         # Step 2: Only keep 100 most recent files to prevent full storage
-        cached_files = [f'{download_folder}/{file}' for file in os.listdir(download_folder)]
+        cached_files = [f'{download_folder}{file}' for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
         for file in cached_files[100:]:
@@ -132,9 +141,9 @@ class ArenaFactory:
             os.remove(file)
 
     @staticmethod
-    def download_needed_files(c3, archive_source: str, archive_type: str, download_folder: str, problem: NavigationProblem):
+    def download_required_files(c3, archive_source: str, archive_type: str, download_folder: str, problem: NavigationProblem):
         # Step 1: Find relevant files
-        files = ArenaFactory.get_archive_filelist(
+        files = ArenaFactory.get_filelist(
             c3=c3,
             archive_source=archive_source,
             archive_type=archive_type,

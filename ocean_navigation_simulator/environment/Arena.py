@@ -66,13 +66,16 @@ class Arena:
         solar_dict:
         seaweed_dict:
     """
+        self.verbose = verbose
+
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=sim_cache_dict,
             hindcast_source_dict=ocean_dict['hindcast'],
             forecast_source_dict=ocean_dict['forecast'],
-            use_geographic_coordinate_system=use_geographic_coordinate_system
+            use_geographic_coordinate_system=use_geographic_coordinate_system,
+            verbose=self.verbose
         )
         if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(
@@ -96,8 +99,8 @@ class Arena:
             )
         else:
             self.seaweed_field = None
-        if verbose:
-            print(f'- Generate Sources ({time.time() - start:.1f}s)')
+        if self.verbose:
+            print(f'Arena: Generate Sources ({time.time() - start:.1f}s)')
 
         # Step 2: Generate Platform
         start = time.time()
@@ -106,10 +109,11 @@ class Arena:
             ocean_source=self.ocean_field.hindcast_data_source,
             use_geographic_coordinate_system=use_geographic_coordinate_system,
             solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
-            seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None
+            seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None,
+            verbose=verbose
         )
-        if verbose:
-            print(f'- Generate Platform ({time.time() - start:.1f}s)')
+        if self.verbose:
+            print(f'Arena: Generate Platform ({time.time() - start:.1f}s)')
 
         # Step 3: Initialize Variables
         self.spatial_boundary = spatial_boundary
@@ -198,8 +202,10 @@ class Arena:
         self,
         problem
     ) -> int:
-        if self.is_on_land() or not self.is_inside_arena():
-            return -1
+        if self.is_on_land():
+            return -2
+        elif not self.is_inside_arena():
+            return -3
         else:
             return problem.is_done(self.platform.state)
 

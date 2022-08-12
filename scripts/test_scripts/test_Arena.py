@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import time
 
-from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
+from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 
@@ -13,7 +13,7 @@ arena = ArenaFactory.create(scenario_name='double_gyre')
 
 factory = DoubleGyreProblemFactory()
 problem = factory.next_problem()
-controller = NaiveToTargetController(problem=problem)
+controller = NaiveController(problem=problem)
 observation = arena.reset(problem.start_state)
 
 for i in tqdm(range(5000)):#6 * 40)):

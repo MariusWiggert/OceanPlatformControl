@@ -487,6 +487,7 @@ class XarraySource(abc.ABC):
         if temporal_resolution is not None:
             time_grid = np.arange(start=array['time'][0].data, stop=array['time'][-1].data,
                                   step=np.timedelta64(temporal_resolution, 's'))
+            # print('time_grid:', time_grid)
             array = array.interp(time=time_grid, method='linear')
 
         # Run spatial interpolation
@@ -495,6 +496,8 @@ class XarraySource(abc.ABC):
                                  step=spatial_resolution)
             lon_grid = np.arange(start=array['lon'][0].data, stop=array['lon'][-1].data,
                                  step=spatial_resolution)
+            # print('lon_grid:', lon_grid)
+            # print('lat_grid:', lat_grid)
             array = array.interp(
                 lon=lon_grid,
                 lat=lat_grid, method='linear')

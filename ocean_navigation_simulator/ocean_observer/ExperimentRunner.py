@@ -15,7 +15,7 @@ from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.controllers import Controller
-from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
+from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.utils.units import Distance
 from ocean_navigation_simulator.data_sources import DataSource
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
@@ -89,7 +89,7 @@ class ExperimentRunner:
             raise StopIteration()
 
         problem = self.problem_factory.next_problem()
-        controller = NaiveToTargetController(problem)
+        controller = NaiveController(problem)
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
 

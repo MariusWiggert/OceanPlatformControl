@@ -13,7 +13,7 @@ print('Script started ...')
 script_start_time = time.time()
 
 HEAD_IP = '40.117.101.63'
-GET_PUBLIC_IP = False
+GET_PUBLIC_IP = True
 # COMMAND = 'pip install --upgrade --force-reinstall git+https://github.com/c3aidti/c3python'
 # COMMAND = 'conda install -y libgcc==3.4.30'
 # COMMAND = 'sudo add-apt-repository ppa:ubuntu-toolchain-r/test; sudo apt-get update; sudo apt-get install libstdc++6-4.7-dev'
@@ -25,7 +25,7 @@ GET_PUBLIC_IP = False
 # COMMAND = 'pip install --upgrade --force-reinstall "jax[cuda11_cudnn82]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html'
 # COMMAND = 'nvcc --version'
 # COMMAND = 'sudo apt-get install -y nvidia-cuda-toolkit'
-# COMMAND = 'ps aux | grep -i apt'
+COMMAND = 'ls'
 
 if GET_PUBLIC_IP:
     """

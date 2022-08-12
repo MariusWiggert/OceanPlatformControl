@@ -1,5 +1,6 @@
 import abc
 import datetime
+import time
 from typing import List, Optional, Dict
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
 # import gin # We don't use gin because it doesn't work well with the C3 Data Types. Hence, we use settings_dicts.
@@ -11,8 +12,14 @@ class DataField(abc.ABC):
   Both point-based lookup (for simulation) and spatio-temporal interval lookup (for planning)
   of both ground_truth and forecasted Data (e.g. Ocean currents, solar radiation, seaweed growth)
   """
-    def __init__(self, sim_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
-                 use_geographic_coordinate_system: Optional[bool] = True):
+    def __init__(
+        self,
+        sim_cache_dict: Dict,
+        hindcast_source_dict: Dict,
+        forecast_source_dict: Optional[Dict] = None,
+        use_geographic_coordinate_system: Optional[bool] = True,
+        verbose: Optional[bool] = False,
+    ):
         """Initialize the source objects from the respective settings dicts.
         Args:
           sim_cache_dict: containing the cache settings to use in the sources for caching of 3D data
@@ -25,17 +32,26 @@ class DataField(abc.ABC):
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
-        # Step 1: instantiate OceanCurrentSources from their respective dicts
+        # Step 2: Create Forecast Source
+        start = time.time()
         hindcast_source_dict['casadi_cache_settings'] = sim_cache_dict
         hindcast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
         self.hindcast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
+        if verbose:
+            print(f'DataField: Create Hindcast Source ({time.time() - start:.1f}s)')
+
+        # Step 2: Create Forecast Source if different from Hindcast
         if forecast_source_dict is None:
-            # print("Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
+            if verbose:
+                print("DataField: Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
             self.forecast_data_source = self.hindcast_data_source
         else:
+            start = time.time()
             forecast_source_dict['casadi_cache_settings'] = sim_cache_dict
             forecast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
             self.forecast_data_source = self.instantiate_source_from_dict(forecast_source_dict)
+            if verbose:
+                print(f'DataField: Create Forecast Source ({time.time() - start:.1f}s)')
 
     def get_forecast(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns forecast at a point in the field.

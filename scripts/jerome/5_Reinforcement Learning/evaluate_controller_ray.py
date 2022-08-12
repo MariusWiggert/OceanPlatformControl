@@ -59,7 +59,7 @@ print(f'''This cluster consists of
 def evaluate(index, mission):
     import os, psutil
 
-    from ocean_navigation_simulator.controllers.NaiveToTargetController import NaiveToTargetController
+    from ocean_navigation_simulator.controllers.NaiveController import NaiveController
     from ocean_navigation_simulator.controllers.HJController import HJController
     from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
     from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
@@ -72,28 +72,21 @@ def evaluate(index, mission):
     mission_start_time = time.time()
     problem = NavigationProblem.from_mission(mission)
 
-    # Step 1: Download Files
+    # Step 1: Create Arena
     start = time.time()
-    ArenaFactory.download_hycom_forecast(problem=problem, n_days_ahead=6)
-    if TIMING:
-        print(f'## Download Files ({time.time() - start:.1f}s) ##')
-
-    # Step 2: Create Arena
-    start = time.time()
-    arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast', verbose=False)
-    # arena = ArenaFactory.create(scenario_name='gulf_of_mexico_Copernicus_forecast_and_hindcast')
+    arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast', verbose=True)
     observation = arena.reset(platform_state=problem.start_state)
     if TIMING:
         print(f'## Create Arena ({time.time() - start:.1f}s) ##')
 
-    # Step 3: Create Controller
+    # Step 2: Create Controller
     start = time.time()
     # controller = NaiveToTargetController(problem=problem)
     controller = HJController(problem=problem, platform_dict=arena.platform.platform_dict)
     if TIMING:
         print(f'## Create Controller ({time.time() - start:.1f}s) ##')
 
-    # Step 4: Running Arena
+    # Step 3: Running Arena
     start = time.time()
     steps = 0
     while True:

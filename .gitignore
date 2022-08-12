@@ -9,5 +9,3 @@ viz/
 .ipynb_checkpoints/
 generated_media/
 hj_reachability/
-models/
-results/

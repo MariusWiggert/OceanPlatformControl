@@ -5,7 +5,7 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.controllers.Controller import Controller
 
 
-class NaiveToTargetController(Controller):
+class NaiveController(Controller):
     """
     Naive to Target, Full-power Actuation towards the goal (meant as a baseline)
     """

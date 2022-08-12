@@ -20,16 +20,16 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            'folder': "/tmp/hycom_hindcast/"
-            'download_source': "HYCOM"
-            'download_type': "hindcast"
+            folder: "/tmp/hycom_hindcast/"
+            source: "HYCOM"
+            type: "forecast"
     forecast:
         field: 'OceanCurrents'
         source: 'forecast_files'
         source_settings:
             folder: "/tmp/hycom_forecast/"
-            download_source: "HYCOM"
-            download_type: "forecast"
+            source: "HYCOM"
+            type: "forecast"
 
 solar_dict:
     hindcast: null

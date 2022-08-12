@@ -2,6 +2,7 @@ import abc
 from typing import Optional
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.environment.Problem import Problem
 
@@ -10,7 +11,7 @@ class Controller(abc.ABC):
     Interface for controllers.
     """
 
-    def __init__(self, problem: Problem, platform_dict: Optional[dict] = None, verbose: Optional[bool] = False):
+    def __init__(self, problem: NavigationProblem, platform_dict: Optional[dict] = None, verbose: Optional[bool] = False):
         """
         Basic constructor logging the problem given at construction.
         Args:

@@ -11,8 +11,9 @@ and then convert to a numpy array that the RL model can use.
 """
 
 class  FeatureConstructor(abc.ABC):
+    @staticmethod
     @abc.abstractmethod
-    def get_observation_space(self) -> gym.spaces.Box:
+    def get_observation_space() -> gym.spaces.Box:
         pass
 
     @abc.abstractmethod

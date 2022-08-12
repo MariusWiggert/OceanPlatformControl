@@ -29,9 +29,9 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'forecast_files'
         source_settings:
-            'folder': "/tmp/hycom_forecast/"
-            'download_source': "HYCOM"
-            'download_type': "forecast"
+            folder: "/tmp/hycom_forecast/"
+            source: "HYCOM"
+            type: "forecast"
 
 solar_dict:
     hindcast: null

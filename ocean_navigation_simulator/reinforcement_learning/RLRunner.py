@@ -5,14 +5,31 @@ import shutil
 import time
 from pprint import pprint
 import os
+import ray
 from ray.tune.logger import UnifiedLogger
 from ray.rllib.agents.dqn.apex import ApexTrainer
 
+from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
+
 
 class RLRunner:
-    def __init__(self, agent_class, agent_config, experiment_name):
+    def __init__(self, agent_class, agent_config, experiment_name, verbose):
         self.agent_class = agent_class
         self.agent_config = agent_config
+        self.verbose = verbose
+
+        start = time.time()
+        ray.init(
+            'ray://localhost:10001',
+            runtime_env={
+                'working_dir': '.',
+                'excludes': ['.git', './experiments', './ocean_navigation_simulator', './results'],
+                'py_modules': ['ocean_navigation_simulator'],
+            },
+        )
+        print(f"Code sent in {time.time() - start:.1f}s")
+
+        ray.tune.registry.register_env("OceanEnv", lambda env_config: OceanEnv(env_config, verbose=self.verbose))
 
         self.time_string = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
         self.experiment_name = experiment_name + '_' + self.time_string
