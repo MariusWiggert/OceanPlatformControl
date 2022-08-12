@@ -56,7 +56,7 @@ def load_single_file(dataset_name: DatasetName, file_idx: int) -> pd.DataFrame:
     file_list = os.listdir(dataset_path)
     file_path = os.path.join(dataset_path, file_list[file_idx])
     df = pd.read_csv(file_path)
-    print(f"loaded: {file_list[file_idx]}")
+    print(f"Loaded: {file_list[file_idx]}")
     return df
 
 

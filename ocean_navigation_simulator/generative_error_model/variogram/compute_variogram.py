@@ -1,5 +1,5 @@
 from ocean_navigation_simulator.generative_error_model.Dataset import load_dataset, DatasetName, load_single_file
-from ocean_navigation_simulator.generative_error_model.utils import timer, save_variogram_to_npy
+from ocean_navigation_simulator.generative_error_model.utils import timer, save_variogram_to_npy, log_std_out
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
 import argparse
@@ -20,6 +20,7 @@ def parse():
     return parser
 
 
+# @log_std_out
 @timer
 def main():
     args =  parse().parse_args()
