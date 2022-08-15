@@ -15,8 +15,8 @@ buoy_config:
       # name: "argo"
       # index_files: ["index_latest.txt"]
     time_range: "2022-04-24T13:00:00Z/2022-05-03T13:00:00Z" # in ISO8601 format
-    lat_range: [20.0, 30.0]
-    lon_range: [-140, -120]
+    lat_range: [-40, -20]
+    lon_range: [-120, -100]
     # time_range: "2021-12-06T12:00:00Z/2021-12-12T00:00:00Z" # in ISO8601 format
     # lat_range: [20.0, 30.0]
     # lon_range: [-80, -100]
@@ -45,11 +45,15 @@ local_forecast:
   field: "OceanCurrents"
   source: "forecast_files"
   source_settings:
-    folder: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/forecast/area1/"
+    folder: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/forecasts/area3/"
 
 sim_cache_dict:
   deg_arount_x_t: 1
   time_around_x_t: 86400
 
 data_writer:
-  output_dir: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/area1/"
+  output_dir: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/area3/"
+
+variogram:
+  data_dir: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/variogram/"
+  file_name: "big_run_AREA1_all_pairs.npy"
