@@ -3,6 +3,7 @@ from ocean_navigation_simulator.utils import units
 
 from typing import Tuple
 import numpy as np
+import xarray as xr
 import datetime
 
 
@@ -19,27 +20,40 @@ class OceanCurrentNoiseField:
     
 
     def get_noise_field(self, x_range: Tuple[int], y_range: Tuple[int],\
-        elapsed_time_range: Tuple[datetime.timedelta]) -> None:
+        elapsed_time_range: Tuple[datetime.timedelta]) -> xr.Dataset:
         """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
         Assumes the origin is positioned in top left corner at timedelta=0 hrs."""
 
-
-        # for now hardcode resolutions
+        # TODO: user-defined resolutions, since they vary between HYCOM and Copernicus
         x_res, y_res, t_res = 1/12,1/12,1
         x_locs = np.arange(x_range[0], x_range[1], x_res)
-        y_locs = np.arange(y_range[0], y_range[1])
+        y_locs = np.arange(y_range[0], y_range[1], y_res)
         t_locs = timedeltarange(elapsed_time_range[0], elapsed_time_range[1])
 
-        noise = np.zeros((len(x_locs), len(y_locs), len(t_locs)), dtype=object)
+        noise = np.zeros((len(x_locs), len(y_locs), len(t_locs), 2), dtype=object)
 
-        # prototype with nested for loops -> still surprisingly fast for realistic resolution.
+        # TODO: improve on prototype with nested for loops -> still surprisingly fast for realistic resolution...
         for i, x in enumerate(x_locs):
             for j, y in enumerate(y_locs):
                 for k, elapsed_time in enumerate(t_locs):
                     x_km = units.Distance(km=x)
                     y_km = units.Distance(km=y)
-                    noise[i,j,k] = self.model.get_noise(x_km, y_km, elapsed_time)
-        return noise
+                    point_noise = self.model.get_noise(x_km, y_km, elapsed_time)
+                    noise[i,j,k,:] = np.array([point_noise.u.meters_per_second, point_noise.v.meters_per_second])
+
+        ds = xr.Dataset(
+            data_vars=dict(
+                u_error=(["x", "y", "time"], noise[:,:,:,0]),
+                v_error=(["x", "y", "time"], noise[:,:,:,0]),
+            ),
+            coords=dict(
+                x=x_locs,
+                y=y_locs,
+                time=t_locs # TODO: need reference time to align with forecast/hindcast
+            ),
+            attrs=dict(description="Ocean current error over time and space.")
+        )
+        return ds
 
 
 def timedeltarange(start:datetime.timedelta, end:datetime.timedelta):
@@ -52,9 +66,11 @@ def timedelta_to_hours(timedelta: datetime.timedelta):
 
 
 if __name__ == "__main__":
+    # run simple example:
     noise = OceanCurrentNoiseField()
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(21) # try different seeds to see if deterministic
     noise.reset(rng)
-    t_delta_range = (datetime.timedelta(days=0), datetime.timedelta(days=9))
-    noise_field = noise.get_noise_field((20,40), (10,20), t_delta_range)
-    print(noise_field)
+    t_delta_range = (datetime.timedelta(days=0), datetime.timedelta(days=1))
+    noise_field = noise.get_noise_field((20,22), (10,12), t_delta_range)
+    print(noise_field["u_error"])
+
