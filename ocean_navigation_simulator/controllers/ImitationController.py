@@ -2,15 +2,12 @@ from os.path import dirname, abspath
 
 import numpy as np
 import torch
-from scipy.interpolate import interp1d
 
-from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.controllers.HjPlanners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
-from ocean_navigation_simulator.scripts.generate_training_data_for_imitation import get_value_function_grid, get_x_train
 
 TRUE_CURRENT_LENGTH = 5
 TTR_MAP_IN_WIDTH = 15

@@ -1,5 +1,7 @@
 import time
 from typing import Tuple, Optional
+
+import matplotlib.pyplot as plt
 import numpy as np
 import gym
 
@@ -12,7 +14,7 @@ from ocean_navigation_simulator.environment.FeatureConstructor import FeatureCon
 from ocean_navigation_simulator.environment.RewardFunction import RewardFunction
 from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 
-from ocean_navigation_simulator.problem_factories.MissionProblemFactory import MissionProblemFactory
+from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
 from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import OceanRewardFunction
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
 
@@ -21,25 +23,10 @@ class OceanEnv(gym.Env):
     """
     A basic Platform Learning Environment
     """
-    reward_range: Tuple = None
-    action_space: gym.Space = None
-    observation_space: gym.Space = None
-
-    arena: Arena = None
-    prev_obs: ArenaObservation = None
-    problem: NavigationProblem = None
-    hindcast_planner: HJReach2DPlanner = None
-
-    problem_factory: ProblemFactory = None
-    feature_constructor: FeatureConstructor = None
-    reward_function: RewardFunction = None
-
     def __init__(
         self,
-        env_config: Optional[dict] = {},
-        scenario_name: Optional[str] = 'gulf_of_mexico_HYCOM_hindcast',
         config: Optional[dict] = {},
-        verbose: Optional[bool] = False,
+        verbose: Optional[int] = 0,
     ):
         """
         Constructs a basic Platform Learning Environment.
@@ -50,15 +37,24 @@ class OceanEnv(gym.Env):
         Args:
             seed: PRNG seed for the environment
         """
-        self.scenario_name = scenario_name
-        self.config = { 'seed': None, 'arena_steps_per_env_step': 1 } | config
+        # if self.verbose > 0:
+        print(f'OceanEnv: Created new Environment')
+        self.config = {
+            'seed': None,
+            'experiments_path': '/seaweed-storage/experiments/test3',
+            'scenario_name': 'gulf_of_mexico_HYCOM_hindcast',
+            'generation_path': '/seaweed-storage/generation_runner/test3/',
+            'arena_steps_per_env_step': 1,
+            'actions': 8,
+            'feature_constructor_config': {},
+        } | config
         self.verbose = verbose
 
-        self.problem_factory = MissionProblemFactory(seed=self.config['seed'])
-        self.action_space = gym.spaces.Discrete(8)
-
-        self.observation_space = OceanFeatureConstructor.get_observation_space()
+        self.action_space = gym.spaces.Discrete(self.config['actions'])
+        self.observation_space = OceanFeatureConstructor.get_observation_space(self.config['feature_constructor_config'])
         self.reward_range = OceanRewardFunction.get_reward_range()
+
+        self.problem_factory = FileMissionProblemFactory(seed=self.config['seed'], csv_file=f'{self.config["generation_path"]}problems.csv')
 
     def reset(self) -> np.array:
         """Resets the environment to an initial state and returns an initial
@@ -73,48 +69,26 @@ class OceanEnv(gym.Env):
         Returns:
             observation (object): the initial observation.
         """
-        if self.verbose:
-            print(f'OceanEnv: Reset')
+        start = time.time()
 
         self.problem = self.problem_factory.next_problem()
-
-        self.arena = ArenaFactory.create(scenario_name=self.scenario_name, problem=self.problem, verbose=self.verbose)
+        self.arena = ArenaFactory.create(scenario_name=self.config['scenario_name'], problem=self.problem, verbose=self.verbose-1)
         self.prev_obs = self.arena.reset(self.problem.start_state)
+        self.hindcast_planner = HJReach2DPlanner(
+            problem=self.problem,
+            verbose=self.verbose-1
+        )
+        self.hindcast_planner.load_plan(
+            f'/seaweed-storage/generation_runner/gulf_of_mexico_HYCOM_hindcast/seed_{self.problem.extra_info["seed"]}/batch_{self.problem.extra_info["batch"]}/'
+        )
+        self.feature_constructor = OceanFeatureConstructor(planner=self.hindcast_planner, verbose=self.verbose-1)
+        self.reward_function = OceanRewardFunction(planner=self.hindcast_planner, verbose=self.verbose-1)
+        features = self.feature_constructor.get_features_from_state(observation=self.prev_obs, problem=self.problem)
 
-        start = time.time()
-        specific_settings = {
-            'replan_on_new_fmrc': True,
-            'replan_every_X_seconds': None,
-            'direction': 'multi-time-reach-back',
-            'n_time_vector': 199,  # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-            'deg_around_xt_xT_box': 1.0,  # area over which to run HJ_reachability
-            'accuracy': 'high',
-            'artificial_dissipation_scheme': 'local_local',
-            'T_goal_in_seconds': self.problem.timeout.total_seconds(),
-            'use_geographic_coordinate_system': True,
-            'progress_bar': self.verbose,
-            'initial_set_radii': [0.1, 0.1],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
-            # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-            'grid_res': 0.04,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-            'd_max': 0.0,
-            # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
-            # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
-            'platform_dict': self.arena.platform.platform_dict
-        }
-        self.hindcast_planner = HJReach2DPlanner(problem=self.problem, specific_settings=specific_settings, verbose=self.verbose)
-        if self.verbose:
-            print(f'OceanEnv: Create HJReach2DPlanner ({time.time()-start:.1f}s)')
+        if self.verbose > 0:
+            print(f'OceanEnv: Reset ({time.time()-start:.1f}s)')
 
-        start = time.time()
-        self.feature_constructor = OceanFeatureConstructor(planner=self.hindcast_planner, verbose=self.verbose)
-        if self.verbose:
-            print(f'OceanEnv: Create OceanFeatureConstructor ({time.time()-start:.1f}s)')
-        start = time.time()
-        self.reward_function = OceanRewardFunction(planner=self.hindcast_planner, verbose=self.verbose)
-        if self.verbose:
-            print(f'OceanEnv: Create OceanRewardFunction ({time.time()-start:.1f}s)')
-
-        return self.feature_constructor.get_features_from_state(observation=self.prev_obs, problem=self.problem)
+        return features
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         """Run one timestep of the environment's dynamics. When end of
@@ -133,19 +107,24 @@ class OceanEnv(gym.Env):
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
         if isinstance(action, np.ndarray):
-            action = PlatformAction(magnitude=1, direction=action[0] / 4 * np.pi)
+            action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
         elif isinstance(action, int):
-            action = PlatformAction(magnitude=1, direction=action / 4 * np.pi)
+            action = PlatformAction(magnitude=1, direction=action  * 2 * np.pi / self.config['actions'])
 
         for i in range(self.config['arena_steps_per_env_step']):
-            arena_obs = self.arena.step(action)
+            observation = self.arena.step(action)
 
         problem_status = self.arena.problem_status(self.problem)
 
-        features = self.feature_constructor.get_features_from_state(observation=arena_obs, problem=self.problem)
-        reward = self.reward_function.get_reward(self.prev_obs, arena_obs, self.problem, problem_status)
+        features = self.feature_constructor.get_features_from_state(observation=observation, problem=self.problem)
+        reward = self.reward_function.get_reward(self.prev_obs, observation, self.problem, problem_status)
         done = problem_status != 0
 
-        self.prev_obs = arena_obs
+        self.prev_obs = observation
 
-        return features, reward, done, { 'problem_status': problem_status }
+        return features, reward, done, { 'problem_status': problem_status, 'target_distance': self.problem.distance(observation.platform_state) }
+
+    def render(self, mode="human"):
+        fig, ax = plt.figure()
+        self.arena.plot_all_on_map(ax=ax, problem=self.problem)
+        fig.savefig()

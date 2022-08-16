@@ -12,6 +12,7 @@ from typing import Union
 
 class HJReach2DPlanner(HJPlannerBase):
     """ Reachability planner for 2D (lat, lon) reachability computation."""
+    gpus: float = 1.0
 
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
         return jnp.array(x)[:2]
@@ -29,25 +30,33 @@ class HJReach2DPlanner(HJPlannerBase):
         self.grid = hj.Grid.from_grid_definition_and_initial_values(
             domain=hj.sets.Box(
                 lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item()]),
-                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item()])),
-            shape=(xarray['lon'].size, xarray['lat'].size))
+                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item()])
+            ),
+            shape=(xarray['lon'].size, xarray['lat'].size)
+        )
 
     def get_initial_values(self, direction) -> jnp.ndarray:
         if direction == "forward":
             center = self.x_t
-            return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self._get_non_dim_state(self.get_x_from_full_state(center)),
-                                           radii=self.specific_settings['initial_set_radii']/self.characteristic_vec)
+            return hj.shapes.shape_ellipse(
+                grid=self.nonDimGrid,
+                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
+                radii=self.specific_settings['initial_set_radii']/self.characteristic_vec
+            )
         elif direction == "backward":
             center = self.problem.end_region
-            return hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                           center=self._get_non_dim_state(self.get_x_from_full_state(center)),
-                                           radii=[self.problem.target_radius, self.problem.target_radius] / self.characteristic_vec)
+            return hj.shapes.shape_ellipse(
+                grid=self.nonDimGrid,
+                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
+                radii=[self.problem.target_radius,self.problem.target_radius]/self.characteristic_vec
+            )
         elif direction == "multi-time-reach-back":
             center = self.problem.end_region
-            signed_distance = hj.shapes.shape_ellipse(grid=self.nonDimGrid,
-                                                      center=self._get_non_dim_state(self.get_x_from_full_state(center)),
-                                                      radii=[self.problem.target_radius, self.problem.target_radius] / self.characteristic_vec)
+            signed_distance = hj.shapes.shape_ellipse(
+                grid=self.nonDimGrid,
+                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
+                radii=[self.problem.target_radius, self.problem.target_radius] / self.characteristic_vec
+            )
             return np.maximum(signed_distance, np.zeros(signed_distance.shape))
         else:
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")

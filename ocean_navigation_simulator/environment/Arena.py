@@ -41,23 +41,21 @@ class Arena:
     seaweed_field: SeaweedGrowthField = None
     platform: Platform = None
 
-    # TODO: where do we do the reset? I guess for us reset mostly would mean new start and goal position?
-    # TODO: not sure what that should be for us, decide where to put the feature constructor
     def __init__(
-            self,
-            sim_cache_dict: Dict,
-            platform_dict: Dict,
-            ocean_dict: Dict,
-            use_geographic_coordinate_system: bool,
-            solar_dict: Optional[Dict] = None,
-            seaweed_dict: Optional[Dict] = None,
-            spatial_boundary: Optional[Dict] = None,
-            collect_trajectory: Optional[bool] = False,
-            verbose: Optional[bool] = False,
+        self,
+        casadi_cache_dict: Dict,
+        platform_dict: Dict,
+        ocean_dict: Dict,
+        use_geographic_coordinate_system: bool,
+        solar_dict: Optional[Dict] = None,
+        seaweed_dict: Optional[Dict] = None,
+        spatial_boundary: Optional[Dict] = None,
+        collect_trajectory: Optional[bool] = True,
+        verbose: Optional[int] = 0,
     ):
         """OceanPlatformArena constructor.
     Args:
-        sim_cache_dict:
+        casadi_cache_dict:
         platform_dict:
         ocean_dict:
         use_geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree,
@@ -71,15 +69,15 @@ class Arena:
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
         self.ocean_field = OceanCurrentField(
-            sim_cache_dict=sim_cache_dict,
+            casadi_cache_dict=casadi_cache_dict,
             hindcast_source_dict=ocean_dict['hindcast'],
             forecast_source_dict=ocean_dict['forecast'],
             use_geographic_coordinate_system=use_geographic_coordinate_system,
-            verbose=self.verbose
+            verbose=self.verbose-1
         )
         if solar_dict is not None and solar_dict['hindcast'] is not None:
             self.solar_field = SolarIrradianceField(
-                sim_cache_dict=sim_cache_dict,
+                casadi_cache_dict=casadi_cache_dict,
                 hindcast_source_dict=solar_dict['hindcast'],
                 forecast_source_dict=solar_dict['forecast'],
                 use_geographic_coordinate_system=use_geographic_coordinate_system
@@ -92,14 +90,14 @@ class Arena:
             if seaweed_dict['forecast'] is not None:
                 seaweed_dict['forecast']['source_settings']['solar_source'] = self.solar_field.hindcast_data_source
             self.seaweed_field = SeaweedGrowthField(
-                sim_cache_dict=sim_cache_dict,
+                casadi_cache_dict=casadi_cache_dict,
                 hindcast_source_dict=seaweed_dict['hindcast'],
                 forecast_source_dict=seaweed_dict['forecast'],
                 use_geographic_coordinate_system=use_geographic_coordinate_system
             )
         else:
             self.seaweed_field = None
-        if self.verbose:
+        if self.verbose > 0:
             print(f'Arena: Generate Sources ({time.time() - start:.1f}s)')
 
         # Step 2: Generate Platform
@@ -110,9 +108,9 @@ class Arena:
             use_geographic_coordinate_system=use_geographic_coordinate_system,
             solar_source=self.solar_field.hindcast_data_source if self.solar_field is not None else None,
             seaweed_source=self.seaweed_field.hindcast_data_source if self.seaweed_field is not None else None,
-            verbose=verbose
+            verbose=verbose-1
         )
-        if self.verbose:
+        if self.verbose > 0:
             print(f'Arena: Generate Platform ({time.time() - start:.1f}s)')
 
         # Step 3: Initialize Variables
@@ -138,13 +136,9 @@ class Arena:
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
 
-        true_current = self.ocean_field.get_ground_truth( self.initial_state.to_spatio_temporal_point())
         return ArenaObservation(
             platform_state=platform_state,
-            true_current_at_state= OceanCurrentVector(
-                u=true_current.u.__float__(),
-                v=true_current.v.__float__(),
-            ),
+            true_current_at_state=self.ocean_field.get_ground_truth(self.platform.state.to_spatio_temporal_point()),
             forecast_data_source=self.ocean_field.forecast_data_source
         )
 
@@ -167,10 +161,7 @@ class Arena:
         true_current = self.ocean_field.get_ground_truth(state.to_spatio_temporal_point())
         return ArenaObservation(
             platform_state=state,
-            true_current_at_state=OceanCurrentVector(
-                u=true_current.u.__float__(),
-                v=true_current.v.__float__(),
-            ),
+            true_current_at_state=self.ocean_field.get_ground_truth(state.to_spatio_temporal_point()),
             forecast_data_source=self.ocean_field.forecast_data_source
         )
 
@@ -190,13 +181,13 @@ class Arena:
         return True
 
     def is_on_land(
-        self
+        self,
+        point: SpatialPoint = None
    ) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        # grid_
-        x_idx = (np.abs(self.ocean_field.hindcast_data_source.casadi_grid_dict['x_grid'] - self.platform.state.lon.deg)).argmin()
-        y_idx = (np.abs(self.ocean_field.hindcast_data_source.casadi_grid_dict['y_grid'] - self.platform.state.lat.deg)).argmin()
-        return self.ocean_field.hindcast_data_source.casadi_grid_dict['spatial_land_mask'][y_idx, x_idx]
+        if point is None:
+            point = self.platform.state
+        return self.ocean_field.hindcast_data_source.is_on_land(point)
 
     def problem_status(
         self,
@@ -213,7 +204,8 @@ class Arena:
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = 'magenta',
-        stride: Optional[int] = 1
+        stride: Optional[int] = 1,
+        scale: Optional[int] = 15,
     ) -> matplotlib.axes.Axes:
         """
         Plots the control trajectory (as arrows) on a spatial map. Passing in an axis is optional.
@@ -222,6 +214,7 @@ class Arena:
             ax: Optional[matplotlib.axes.Axes]
             color: Optional[str] = 'black'
             stride: Optional[int] = 1
+            stride: Optional[int] = 15
 
         Returns:
             ax:  matplotlib.axes.Axes
@@ -231,7 +224,7 @@ class Arena:
 
         u_vec = self.action_trajectory[::stride, 0] * np.cos(self.action_trajectory[::stride, 1])
         v_vec = self.action_trajectory[::stride, 0] * np.sin(self.action_trajectory[::stride, 1])
-        ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color=color, scale=15, angles='xy')
+        ax.quiver(self.state_trajectory[:-1:stride, 0], self.state_trajectory[:-1:stride, 1], u_vec, v_vec, color=color, scale=scale, angles='xy')
 
         return ax
 
@@ -298,16 +291,20 @@ class Arena:
         ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = 'current',
 
-        index: Optional[int] = None,
+        index: Optional[int] = -1,
+        show_current_position: Optional[bool] = True,
         current_position_color: Optional[str] = 'black',
 
+        # State
         show_state_trajectory: Optional[bool] = True,
         state_color: Optional[str] = 'black',
 
+        # Control
         show_control_trajectory: Optional[bool] = True,
         control_color: Optional[str] = 'magenta',
         control_stride: Optional[int] = 1,
 
+        # Problem (Target)
         problem: Optional[Problem] = None,
         problem_color: Optional[str] = 'black',
 
@@ -315,69 +312,52 @@ class Arena:
         y_interval: Optional[List] = None,
         margin: Optional[int] = 0,
     ) -> matplotlib.axes.Axes:
+        if ax is None:
+            fig, ax = plt.subplots()
+
         if x_interval is None or y_interval is None:
-            x_interval, y_interval, t_interval = self.get_lon_lat_time_interval(
+            x_interval, y_interval, _ = self.get_lon_lat_time_interval(
                 end_region=problem.end_region if problem is not None else None,
                 margin=margin
             )
-            t_0 = t_interval[0]
-        else:
-            t_0 = self.state_trajectory[0, 2]
 
-        # Background
-        if ax is not None:
-            pass
-        elif 'current' in background:
+        # Background: Data Sources
+        if 'current' in background:
             ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=t_0 if index is None else self.state_trajectory[index, 2],
+                time=self.state_trajectory[index, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
+                ax=ax,
                 return_ax=True,
             )
         elif 'solar' in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=t_0 if index is None else self.state_trajectory[index, 2],
+                time=self.state_trajectory[index, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
+                ax=ax,
                 return_ax=True,
             )
         elif 'seaweed' in background or 'growth' in background:
             ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=t_0 if index is None else self.state_trajectory[index, 2],
+                time=self.state_trajectory[index, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
+                ax=ax,
                 return_ax=True,
             )
         else:
-            fig, ax = plt.subplots()
+            raise Exception(f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed.")
 
-        # State Trajectory
         if show_state_trajectory:
-            self.plot_state_trajectory_on_map(
-                ax=ax,
-                color=state_color,
-            )
-        # Control Trajectory
+            self.plot_state_trajectory_on_map(ax=ax, color=state_color)
         if show_control_trajectory:
-            self.plot_control_trajectory_on_map(
-                ax=ax,
-                color=control_color,
-                stride=control_stride,
-            )
-        # Current Position
-        if index is not None:
-            self.plot_current_position_on_map(
-                index=index,
-                ax=ax,
-                color=current_position_color,
-            )
-        # Problem
+            self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
+        if show_current_position:
+            self.plot_current_position_on_map(index=index, ax=ax, color=current_position_color)
         if problem is not None:
-            self.plot_problem_on_map(
-                problem=problem,
-                ax=ax,
-                color=problem_color,
-            )
+            self.plot_problem_on_map(problem=problem, ax=ax, color=problem_color)
+
         return ax
 
     def plot_battery_trajectory_on_timeaxis(
@@ -533,10 +513,10 @@ class Arena:
         return ax
 
     def get_lon_lat_time_interval(
-            self,
-            end_region: Optional[SpatialPoint] = None,
-            margin: Optional[float] = 0,
-    ) -> Tuple:
+        self,
+        end_region: Optional[SpatialPoint] = None,
+        margin: Optional[float] = 0,
+    ) -> Tuple[List, List, List]:
         """
         Helper function to find the interval around start/trajectory/goal.
         Args:
@@ -573,15 +553,4 @@ class Arena:
         Returns:
             index: float
         """
-        lon_interval, lat_interval, time_interval = self.get_lon_lat_time_interval()
-
-        if posix_time <= time_interval[0]:
-            index = 0
-        elif posix_time >= time_interval[1]:
-            index = -1
-        else:
-            index = np.searchsorted(a=self.state_trajectory[:, 2], v=posix_time)
-            # index = np.argwhere(self.state_trajectory[:, 2] == posix_time).flatten()
-            # index = 0 if index.size == 0 else int(index[0])
-
-        return index
+        return np.searchsorted(a=self.state_trajectory[:, 2], v=posix_time)

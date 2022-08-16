@@ -14,15 +14,15 @@ class DataField(abc.ABC):
   """
     def __init__(
         self,
-        sim_cache_dict: Dict,
+        casadi_cache_dict: Dict,
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
         use_geographic_coordinate_system: Optional[bool] = True,
-        verbose: Optional[bool] = False,
+        verbose: Optional[int] = 0,
     ):
         """Initialize the source objects from the respective settings dicts.
         Args:
-          sim_cache_dict: containing the cache settings to use in the sources for caching of 3D data
+          casadi_cache_dict: containing the cache settings to use in the sources for caching of 3D data
                           e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*5} for 5 days
 
           forecast_source_dict and hindcast_source_dict
@@ -34,23 +34,23 @@ class DataField(abc.ABC):
         """
         # Step 2: Create Forecast Source
         start = time.time()
-        hindcast_source_dict['casadi_cache_settings'] = sim_cache_dict
+        hindcast_source_dict['casadi_cache_settings'] = casadi_cache_dict
         hindcast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
         self.hindcast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
-        if verbose:
+        if verbose > 0:
             print(f'DataField: Create Hindcast Source ({time.time() - start:.1f}s)')
 
         # Step 2: Create Forecast Source if different from Hindcast
         if forecast_source_dict is None:
-            if verbose:
+            if verbose > 0:
                 print("DataField: Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
             self.forecast_data_source = self.hindcast_data_source
         else:
             start = time.time()
-            forecast_source_dict['casadi_cache_settings'] = sim_cache_dict
+            forecast_source_dict['casadi_cache_settings'] = casadi_cache_dict
             forecast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
             self.forecast_data_source = self.instantiate_source_from_dict(forecast_source_dict)
-            if verbose:
+            if verbose > 0:
                 print(f'DataField: Create Forecast Source ({time.time() - start:.1f}s)')
 
     def get_forecast(self, spatio_temporal_point: SpatioTemporalPoint):

@@ -138,7 +138,7 @@ arenas[0].ocean_field.hindcast_data_source.animate_data(
     add_ax_func=add_colored_trajecotry_and_problem,
 )
 
-clean_ray_results.run(iteration_limit=10, delete=True, filter_string='PPOTrainer', ignore_last=False)
+clean_ray_results.evaluation_run(iteration_limit=10, delete=True, filter_string='PPOTrainer', ignore_last=False)
 
 
 print(f"Total Script Time: {time.time()-script_start_time:.2f}s = {(time.time()-script_start_time)/60:.2f}min")

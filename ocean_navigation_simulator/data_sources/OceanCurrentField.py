@@ -14,15 +14,15 @@ class OceanCurrentField(DataField):
 
     def __init__(
         self,
-        sim_cache_dict: Dict,
+        casadi_cache_dict: Dict,
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
         use_geographic_coordinate_system: Optional[bool] = True,
-        verbose: Optional[bool] = True,
+        verbose: Optional[int] = 0,
     ):
         """Initialize the source objects from the respective settings dicts.
         Args:
-          sim_cache_dict: containing the cache settings to use in the sources for caching of 3D data
+          casadi_cache_dict: containing the cache settings to use in the sources for caching of 3D data
                           e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12}
 
           forecast_source_dict and hindcast_source_dict
@@ -32,7 +32,7 @@ class OceanCurrentField(DataField):
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
-        super().__init__(sim_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system, verbose)
+        super().__init__(casadi_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system, verbose)
 
     @staticmethod
     def instantiate_source_from_dict(source_dict: Dict) -> OceanCurrentSource:

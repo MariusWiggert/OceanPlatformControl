@@ -10,8 +10,9 @@ class Controller(abc.ABC):
     """
     Interface for controllers.
     """
+    gpus: float = 0.0
 
-    def __init__(self, problem: NavigationProblem, platform_dict: Optional[dict] = None, verbose: Optional[bool] = False):
+    def __init__(self, problem: NavigationProblem, verbose: Optional[int] = 0):
         """
         Basic constructor logging the problem given at construction.
         Args:

@@ -12,7 +12,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
 
-from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
+from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.data_sources.DataSource import DataSource, XarraySource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 from ocean_navigation_simulator.utils.units import get_posix_time_from_np64, get_datetime_from_np64
@@ -108,6 +108,11 @@ class OceanCurrentSource(DataSource):
 
         return ax
 
+    def is_on_land(self, point: SpatialPoint):
+        x_idx = (np.abs(self.grid_dict['x_grid'] - point.lon.deg)).argmin()
+        y_idx = (np.abs(self.grid_dict['y_grid'] - point.lat.deg)).argmin()
+        return self.grid_dict['spatial_land_mask'][y_idx, x_idx]
+
     def __del__(self):
         # print('__del__ called in OceanCurrentSource')
         del self.u_curr_func
@@ -148,6 +153,11 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         if self.dask_array:
             dataframe = dataframe.compute()
         return dataframe
+
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
+        return OceanCurrentVector(u=data_xarray['water_u'].item(), v=data_xarray['water_v'].item())
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
@@ -227,9 +237,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """We overwrite it because we don't want that Forecast needs caching..."""
         # Step 1: Make sure we use the most recent forecast available
         self.check_for_most_recent_fmrc_dataframe(spatio_temporal_point.date_time)
-        data_xarray = super().get_data_at_point(spatio_temporal_point)
-
-        return OceanCurrentVector(u=data_xarray['water_u'].item(), v=data_xarray['water_v'].item())
+        return super().get_data_at_point(spatio_temporal_point)
 
 
 class HindcastFileSource(OceanCurrentSourceXarray):
@@ -250,11 +258,6 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
-
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-
-        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):

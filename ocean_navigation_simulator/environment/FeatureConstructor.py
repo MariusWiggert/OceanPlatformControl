@@ -17,11 +17,11 @@ class  FeatureConstructor(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_features_from_state(self, obs: ArenaObservation, problem: Problem) -> np.ndarray:
+    def get_features_from_state(self, observation: ArenaObservation, problem: Problem) -> np.ndarray:
         """
         Converts the observation to use relative positions
         Args:
-            obs: current platform observation
+            observation: current platform observation
             problem: class containing information about RL problem (end region, start state, etc.)
         Returns:
             numpy array containing relative lat pos, relative lon pos, elapsed time, u_curr, v_curr

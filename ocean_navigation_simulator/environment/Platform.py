@@ -72,7 +72,7 @@ class Platform:
             use_geographic_coordinate_system: bool,
             solar_source: SolarIrradianceSource = None,
             seaweed_source: SeaweedGrowthSource = None,
-            verbose: Optional[bool] = False,
+            verbose: Optional[int] = 0,
         ):
 
         # Set the major member variables
@@ -131,7 +131,7 @@ class Platform:
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
         self.F_x_next = self.get_casadi_dynamics()
-        if self.verbose:
+        if self.verbose > 0:
             print(f'Platform: Initialize Casadi + Dynamics ({time.time() - start:.1f}s)')
 
     def update_dynamics(self, state: PlatformState):
@@ -143,7 +143,7 @@ class Platform:
             if solar_change:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
-            if self.verbose:
+            if self.verbose > 0:
                 print(f'Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)')
 
     def get_casadi_dynamics(self):
@@ -208,7 +208,7 @@ class Platform:
             [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)],
         )
-        if self.verbose:
+        if self.verbose > 0:
             print(f'Platform: Set Equations ({time.time() - start:.1f}s)')
         return F_next
 

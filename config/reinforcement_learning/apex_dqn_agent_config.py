@@ -411,8 +411,6 @@ apex_dqn_agent_config = {
     # This will set the ratio of replayed from a buffer and learned
     # on timesteps to sampled from an environment and stored in the replay
     # buffer timesteps. Must be greater than 0.
-    # TODO: Find a way to support None again as a means to replay
-    #  proceeding as fast as possible.
     "training_intensity": 1,
     # Use `training_iteration` instead of `execution_plan` by default.
     "_disable_execution_plan_api": True,

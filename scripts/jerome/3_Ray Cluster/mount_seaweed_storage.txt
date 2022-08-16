@@ -1,0 +1,22 @@
+# List Disks:
+lsblk -o NAME,HCTL,SIZE,MOUNTPOINT | grep -i "sd
+
+# Mount Disk:
+sudo parted /dev/sda --script mklabel gpt mkpart xfspart xfs 0% 100%
+sudo mkfs.xfs /dev/sda1
+sudo partprobe /dev/sda1
+sudo mkdir /seaweed-storage
+sudo chown ubuntu:ubuntu /seaweed-storage
+sudo chmod 777 /seaweed-storage
+sudo mount /dev/sda1 /seaweed-storage
+
+# Remount after Reboot:
+sudo blkid
+sudo nano /etc/fstab
+add:
+UUID=c7861b74-5baf-4ca8-add3-6260a135c966   /seaweed-storage   xfs   defaults,nofail   1   2
+
+# Mount Data Disk via SSH
+ssh -i ~/.ssh/azure.pub ubuntu@20.55.80.215
+sudo fusermount -q -u /seaweed-storage
+sshfs -o ssh_command='ssh -i ~/.ssh/azure.pub -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions

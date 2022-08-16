@@ -164,7 +164,7 @@ with open(f'scenarios/multi_reach_fails_test.yaml') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 arena.ocean_field = OceanCurrentField(
-    sim_cache_dict=config['sim_cache_dict'],
+    casadi_cache_dict=config['casadi_cache_dict'],
     hindcast_source_dict=config['ocean_dict']['hindcast'],
     forecast_source_dict=config['ocean_dict']['forecast'],
     use_geographic_coordinate_system=True)

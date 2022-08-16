@@ -39,7 +39,7 @@ class DataSource(abc.ABC):
         out_t_range = not (self.casadi_grid_dict['t_range'][0] <= state.date_time < self.casadi_grid_dict['t_range'][1])
 
         if out_x_range or out_y_range or out_t_range:
-            if verbose:
+            if verbose > 0:
                 if out_x_range:
                     print(
                         f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
@@ -148,11 +148,16 @@ class DataSource(abc.ABC):
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
             warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
-    def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
-                                    x_interval: List[float], y_interval: List[float],
-                                    spatial_res: Optional[float] = None,
-                                    return_ax: Optional[bool] = False, ax = None,
-                                    **kwargs):
+    def plot_data_at_time_over_area(
+        self,
+        time: Union[datetime.datetime, float],
+        x_interval: List[float],
+        y_interval: List[float],
+        spatial_res: Optional[float] = None,
+        return_ax: Optional[bool] = False,
+        ax = None,
+        **kwargs
+    ):
         """Plot the data at a specific time over an area defined by the x and y intervals.
         Args:
           time:             time for which to plot the data either posix or datetime.datetime object
@@ -234,7 +239,8 @@ class DataSource(abc.ABC):
                 output:                 How to output the animation. Options are either saved to file or via html in jupyter/safari.
                                         Strings in {'*.mp4', '*.gif', 'safari', 'jupyter'}
         """
-        folder_to_save_in = "generated_media/"
+        folder_to_save_in = "generated_media/" if not output.startswith('/') else ''
+
         # Now render it to a file
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

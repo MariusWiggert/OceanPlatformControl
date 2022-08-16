@@ -20,7 +20,7 @@ class  DoubleGyreFeatureConstructor(FeatureConstructor):
             shape=(1,)
         )
 
-    def get_features_from_state(self, obs: ArenaObservation, problem: NavigationProblem) -> np.ndarray:
+    def get_features_from_state(self, observation: ArenaObservation, problem: NavigationProblem) -> np.ndarray:
         lon_diff = problem.end_region.lon.deg - obs.platform_state.lon.deg
         lat_diff = problem.end_region.lat.deg - obs.platform_state.lat.deg
         distance = obs.platform_state.distance(problem.end_region)

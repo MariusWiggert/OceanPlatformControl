@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # deactivate all conda environments and create conda environment 'ocean_platform'
 conda init bash > /dev/null
 for i in $(seq ${CONDA_SHLVL}); do
@@ -9,7 +8,16 @@ done
 conda create -y -n ocean_platform python=3.9.*
 conda activate ocean_platform
 
+# Install Data Disk vis SSHFS
+sudo apt-get install -y sshfs
+sudo fusermount -q -u /seaweed-storage
+sudo mkdir -p /seaweed-storage
+sudo chown ubuntu /seaweed-storage
+sudo chmod 777 /seaweed-storage
+#sshfs -o ssh_command='ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions #-o debug,sshfs_debug,loglevel=debug,
+
 # these packages have to be installed manually (otherwise pip fails to install dependencies)
+sudo apt-get install -y ffmpeg
 conda install -y -c conda-forge cartopy ffmpeg gcc=12.1.0
 
 # update pip

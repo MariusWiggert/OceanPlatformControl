@@ -7,14 +7,14 @@ from ocean_navigation_simulator.environment.RewardFunction import RewardFunction
 
 
 class  OceanRewardFunction(RewardFunction):
-    def __init__(self, planner: HJReach2DPlanner, config = {}, verbose: Optional[bool] = False):
+    def __init__(self, planner: HJReach2DPlanner, config = {}, verbose: Optional[int] = 0):
         self.planner = planner
         self.verbose =verbose
 
     @staticmethod
     def get_reward_range():
         # Reward Upper Bound: at most 10min = 1/6h
-        return (-1/6, 1/6)
+        return -1 / 6, 1 / 6
 
     def get_reward(
         self,
@@ -26,10 +26,10 @@ class  OceanRewardFunction(RewardFunction):
         """
         Reward function based on double gyre paper
         Args:
-            problem: class containing information about RL problem (end region, start state, etc.)
-            prev_state: state the platform was at in the previous timestep
-            curr_state: state the platform is at after taking the current action
-            status:
+            :param prev_obs: state the platform was at in the previous timestep
+            :param curr_obs: state the platform is at after taking the current action
+            :param problem: class containing information about RL problem (end region, start state, etc.)
+            :param problem_status:
 
         Returns:
             a float representing reward

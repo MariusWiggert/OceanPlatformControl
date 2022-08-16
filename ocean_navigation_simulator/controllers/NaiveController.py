@@ -9,6 +9,7 @@ class NaiveController(Controller):
     """
     Naive to Target, Full-power Actuation towards the goal (meant as a baseline)
     """
+    gpus: float = 0.0
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
         """

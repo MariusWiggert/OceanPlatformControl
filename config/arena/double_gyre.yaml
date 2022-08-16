@@ -1,4 +1,4 @@
-sim_cache_dict:
+casadi_cache_dict:
     deg_around_x_t: 0.2
     time_around_x_t: 22
 

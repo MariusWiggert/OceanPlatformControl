@@ -1,7 +1,7 @@
 import abc
+from typing import List
 
 from ocean_navigation_simulator.environment import NavigationProblem
-from ocean_navigation_simulator.environment.Problem import Problem
 
 """
 Problem Factories generate Problems. They can either be completely random and infinite
@@ -12,11 +12,30 @@ class ProblemFactory(abc.ABC):
     """
     Interface for a problem generator.
     """
-    def __init__(self, seed: int = None):
+
+    @abc.abstractmethod
+    def has_problems_remaining(self) -> bool:
         """
-        Set the seed for an RNG in the ProblemFactory.
+        Returns:
+             true iff the factory is still going to generate problems.
         """
-        self.seed = seed
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def skips_problems(self, n):
+        """
+            Skips selected amounts of problem
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_problem_list(self, limit) -> [(int, NavigationProblem)]:
+        """
+        Yields all available problems as a list.
+        Returns:
+            List of (index, NavigationProblem)
+        """
+        raise NotImplementedError
 
     @abc.abstractmethod
     def next_problem(self) -> NavigationProblem:
@@ -25,11 +44,4 @@ class ProblemFactory(abc.ABC):
         Returns:
             Next problem as a Problem object
         """
-
-
-    @abc.abstractmethod
-    def has_problems_remaining(self) -> bool:
-        """
-        Returns:
-             true iff the factory is still going to generate problems.
-        """
+        raise NotImplementedError

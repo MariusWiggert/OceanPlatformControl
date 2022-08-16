@@ -12,8 +12,8 @@ import time
 print('Script started ...')
 script_start_time = time.time()
 
-HEAD_IP = '40.117.101.63'
-GET_PUBLIC_IP = True
+HEAD_IP = '20.119.42.179'
+GET_PUBLIC_IP = False
 # COMMAND = 'pip install --upgrade --force-reinstall git+https://github.com/c3aidti/c3python'
 # COMMAND = 'conda install -y libgcc==3.4.30'
 # COMMAND = 'sudo add-apt-repository ppa:ubuntu-toolchain-r/test; sudo apt-get update; sudo apt-get install libstdc++6-4.7-dev'
@@ -25,7 +25,15 @@ GET_PUBLIC_IP = True
 # COMMAND = 'pip install --upgrade --force-reinstall "jax[cuda11_cudnn82]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html'
 # COMMAND = 'nvcc --version'
 # COMMAND = 'sudo apt-get install -y nvidia-cuda-toolkit'
-COMMAND = 'ls'
+# COMMAND = 'pip uninstall -y google-cloud-storage'
+
+# COMMAND = "sudo apt-get install -y sshfs;"
+# COMMAND = "sudo umount /seaweed-storage/;"
+# COMMAND = "sudo mkdir -p /seaweed-storage; sudo chmod 777 /seaweed-storage;"
+# COMMAND = "sshfs -o ssh_command=\"'\"ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no\"'\" ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions"
+
+COMMAND = "ls -la /seaweed-storage"
+
 
 if GET_PUBLIC_IP:
     """
@@ -39,7 +47,7 @@ if GET_PUBLIC_IP:
     nodes = []
     public_ip = os.system(f"ssh -T -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{HEAD_IP} 'rm ~/.ssh/known_hosts'")
     for node in tqdm(active_nodes, disable=True):
-        public_ip = os.popen(f"ssh -T -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{HEAD_IP} ssh -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{node['NodeName']} 'curl -s https://api.ipify.org'").read()
+        public_ip = os.popen(f"ssh -T -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{HEAD_IP} ssh -o StrictHostKeyChecking=no -i ./ray_bootstrap_key.pem ubuntu@{node['NodeName']} 'curl -s https://api.ipify.org'").read()
         print(f'Public IP: {public_ip}')
         nodes.append([node['NodeName'], public_ip])
     nodes_df = pd.DataFrame(nodes, columns=['private_ip', 'public_ip'])

@@ -6,7 +6,7 @@ from ocean_navigation_simulator.env.PlatformState import SpatioTemporalPoint, Pl
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
 from ocean_navigation_simulator.env.utils import units
-sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
+casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 #%% Solar irradiance Test
 # Step 1: create the specification dict
 source_dict = {'field': 'SolarIrradiance',
@@ -21,7 +21,7 @@ source_dict = {'field': 'SolarIrradiance',
                        'temporal_resolution': 3600,
                    }}
 #%% Step 2: Instantiate the field
-solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
+solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, casadi_cache_dict=casadi_cache_dict)
 #%% Test settings to use it
 t_0 = datetime.datetime(2022, 4, 11, 0, 0, 0, tzinfo=datetime.timezone.utc)
 # t_0 = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=10)
@@ -79,7 +79,7 @@ source_dict['source_settings'] = {
 #                    'folder': "data/single_day_hindcasts/"} #"data/hindcast_test/"
 
 #%% Create the ocean Field
-ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
+ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, casadi_cache_dict=casadi_cache_dict)
 #%% Use it
 # t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
 t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
@@ -169,7 +169,7 @@ forecast_current_source = {
 #%% Create the ocean Field
 ocean_field = OceanCurrentField(hindcast_source_dict=true_current_source,
                                 forecast_source_dict=forecast_current_source,
-                                sim_cache_dict=sim_cache_dict,
+                                casadi_cache_dict=casadi_cache_dict,
                                 use_geographic_coordinate_system=False)
 #%% visualize it
 ocean_field.plot_true_at_time_over_area(time=datetime.datetime.fromtimestamp(10, tz=datetime.timezone.utc),

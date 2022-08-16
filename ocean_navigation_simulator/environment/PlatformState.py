@@ -31,8 +31,8 @@ class SpatialPoint:
     def distance(self, other) -> float:
         return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
 
-    def __str__(self):
-        return f"({self.lon.deg:5f}°,{self.lat.deg:.5f}°)"
+    def __repr__(self):
+        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°]"
 
 
 @dataclasses.dataclass
@@ -58,6 +58,9 @@ class SpatioTemporalPoint:
     def __getitem__(self, item):
         return self.__array__()[item]
 
+    def distance(self, other) -> float:
+        return self.to_spatial_point().distance(other)
+
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
         return SpatialPoint(lon=self.lon, lat=self.lat)
@@ -65,6 +68,9 @@ class SpatioTemporalPoint:
     def to_spatio_temporal_casadi_input(self) -> List[float]:
         """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
+
+    def __repr__(self):
+        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time}]"
 
 
 @dataclasses.dataclass
@@ -110,6 +116,14 @@ class PlatformState:
             seaweed_mass=units.Mass(kg=numpy_array[4])
         )
 
+    @staticmethod
+    def from_spatio_temporal_point(point: SpatioTemporalPoint):
+        return PlatformState(
+            lon=point.lon,
+            lat=point.lat,
+            date_time=point.date_time
+        )
+
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
         return SpatialPoint(lon=self.lon, lat=self.lat)
@@ -123,10 +137,9 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return 'Platform State: lon: {x} deg, lat: {y} deg, battery_charge: {b} Joule, seaweed_mass: {m} kg, ' \
-               'date_time: {t}'.format(
+        return 'Platform State[lon: {x} deg, lat: {y} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]'.format(
             x=self.lon.deg, y=self.lat.deg, b=self.battery_charge.joule, m=self.seaweed_mass.kg, t=self.date_time
         )
 
     def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
+        return self.to_spatial_point().distance(other)

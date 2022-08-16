@@ -19,7 +19,7 @@ platform_state = PlatformState(
     battery_charge=units.Energy(watt_hours=100)
 )
 #%%
-sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 3}
+casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 3}
 platform_dict = {
     'battery_cap_in_wh': 400.0,
     'u_max_in_mps': 0.1,
@@ -47,7 +47,7 @@ solar_source_dict = {
 from ocean_navigation_simulator.env.data_sources.SeaweedGrowthField import SeaweedGrowthField
 #% initialize the solar model
 from ocean_navigation_simulator.env.data_sources.SolarIrradiance.SolarIrradianceSource import AnalyticalSolarIrradiance
-solar_source_dict['casadi_cache_settings'] = sim_cache_dict
+solar_source_dict['casadi_cache_settings'] = casadi_cache_dict
 solar_source = AnalyticalSolarIrradiance(solar_source_dict)
 solar_source.update_casadi_dynamics(platform_state)
 #%% Set Seaweed Model dict
@@ -60,7 +60,7 @@ seaweed_source_dict = {
     }
 }
 #%% Instantiate the Source within the Field object -> this takes ≈40 seconds
-seaweed_field = SeaweedGrowthField(sim_cache_dict=sim_cache_dict, hindcast_source_dict=seaweed_source_dict)
+seaweed_field = SeaweedGrowthField(casadi_cache_dict=casadi_cache_dict, hindcast_source_dict=seaweed_source_dict)
 #%% Did it work?
 to_plot_time = datetime.datetime(year=2021, month=11, day=20, hour=19, minute=0, second=0, tzinfo=datetime.timezone.utc)
 seaweed_field.hindcast_data_source.plot_R_growth_wo_Irradiance(to_plot_time)

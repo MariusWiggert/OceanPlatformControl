@@ -152,9 +152,11 @@ setup_commands:
 #    - sudo apt-get autoremove -y
 
     # Create Conda Environment wit fresh .bashrc
+#    - (! sudo mountpoint /seaweed-storage) || sudo fusermount -u /seaweed-storage
     - /bin/cp /etc/skel/.bashrc ~/
     - (which conda && echo 'eval "$(conda shell.bash hook)"' >> ~/.bashrc) || true
     - bash -i ~/setup/set_up_ocean_platform_env.sh
+    - sshfs -o ssh_command='ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
     - (conda activate ocean_platform &> /dev/null && echo 'conda activate ocean_platform' >> ~/.bashrc) || true
 
 #    - sudo lsof /dev/nvidia* | awk 'NR > 1 {print $2}' | xargs sudo kill

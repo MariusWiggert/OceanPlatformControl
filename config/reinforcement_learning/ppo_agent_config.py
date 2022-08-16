@@ -1,68 +1,4 @@
-from datetime import datetime
-
-import ray.rllib.utils
-import tempfile
-from ray.rllib.agents.ppo import PPOTrainer
-import pickle
-import time
-import os
-import json
-import shutil
-import torch
-import random
-import numpy as np
-from ray.tune.logger import UnifiedLogger
-from pprint import pprint
-
-from ocean_navigation_simulator.reinforcement_learning.DoubleGyreEnv import DoubleGyreEnv
-
-script_start_time = time.time()
-
-ray_cluster = ray.init(
-    'ray://localhost:10001',
-    runtime_env={
-        'working_dir': '.',
-        'excludes': ['data', 'generated_media', 'hj_reachability', 'models', '.git', 'ocean_navigation_simulator', 'results'],
-        'py_modules': ['ocean_navigation_simulator'],
-        # "env_vars": {"TF_WARNINGS": "none"}
-    },
-)
-print(f"Code sent in {time.time()-script_start_time:.1f}s")
-
-# gym.envs.register(
-#     id='DoubleGyre-v0',
-#     entry_point='ocean_navigation_simulator.env.PlatformEnv:PlatformEnv',
-#     kwargs={
-#         'config': {
-#             'seed': 2022,
-#             'env_steps_per_arena_steps': 10,
-#         }
-#     },
-#     max_episode_steps=1000,
-# )
-# env = gym.make('DoubleGyre-v0')
-# ray.tune.registry.register_env("DoubleGyre-v0", lambda config: PlatformEnv())
-
-
-
-# %%
-SEED = 2022
-
-torch.manual_seed(SEED)
-torch.use_deterministic_algorithms(True)
-random.seed(SEED)
-np.random.seed(SEED)
-
-
-def env_creator(env_config):
-    return DoubleGyreEnv(config={
-        'seed': np.random.randint(low=10000),
-        'arena_steps_per_env_step': 1,
-    })
-
-ray.tune.registry.register_env("PlatformEnv", env_creator)
-
-config = {
+ppo_agent_config = {
     # ========= Environment Settings =========
     # The environment specifier:
     # This can either be a tune-registered env, via
@@ -71,7 +7,7 @@ config = {
     # RLlib will try to interpret the specifier as either an openAI gym env,
     # a PyBullet env, a ViZDoomGym env, or a fully qualified classpath to an
     # Env class, e.g. "ray.rllib.examples.env.random_env.RandomEnv".
-    "env": "PlatformEnv",
+    "env": "DoubleGyreEnv",
 
     # Number of steps after which the episode is forced to terminate. Defaults
     # to `env.spec.max_episode_steps` (if present) for Gym envs.
@@ -230,7 +166,7 @@ config = {
     # This argument, in conjunction with worker_index, sets the random seed of
     # each worker, so that identically configured trials will have identical
     # results. This makes experiments reproducible.
-    "seed": SEED,
+    # "seed": SEED,
 
     # ========= API deprecations/simplifications/changes =========
     'disable_env_checking': True,
@@ -318,82 +254,3 @@ config = {
     # },
 
 }
-
-results = []
-model_name = 'angle_feature_simple_nn_with_currents'
-model_path = 'models/simplified_double_gyre/' + model_name + '/'
-check_point_path = model_path + 'checkpoints/'
-if not os.path.exists('models'):
-    os.mkdir('models')
-if not os.path.exists('models/double_gyre'):
-    os.mkdir('models/double_gyre')
-if os.path.exists(model_path):
-    shutil.rmtree(model_path)
-os.mkdir(model_path)
-os.mkdir(check_point_path)
-pickle.dump(config, open(model_path + 'config.p', "wb"))
-with open(model_path + '/config.json', "w") as outfile:
-    json.dump(config, outfile)
-
-timestr = datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
-logdir_prefix = "{}_{}_".format(model_name, timestr)
-DEFAULT_RESULTS_DIR = os.path.expanduser("~/ray_results")
-if not os.path.exists(DEFAULT_RESULTS_DIR):
-    os.makedirs(DEFAULT_RESULTS_DIR)
-logdir = tempfile.mkdtemp(prefix=logdir_prefix, dir=DEFAULT_RESULTS_DIR)
-
-
-def logger_creator(config):
-    return UnifiedLogger(config, logdir, loggers=None)
-
-agent = PPOTrainer(config=config, logger_creator=logger_creator)
-
-model = agent.get_policy().model.base_model.summary()
-
-print(f"starting training ({model_name}):")
-
-ITERATIONS = 400
-for i in range(1, ITERATIONS + 1):
-    inter = time.time()
-
-    result = agent.train()
-    results.append(result)
-
-    print(' ')
-    print(' ')
-    print(f'--------- Iteration {i} (total samples {result["info"]["num_env_steps_trained"]}) ---------')
-
-    print('-- Episode Rewards --')
-    print(f'[{", ".join([f"{elem:.1f}" for elem in result["hist_stats"]["episode_reward"][-min(25, result["episodes_this_iter"]):]])}]')
-    print(f'Mean: {result["episode_reward_mean"]:.2f}')
-    print(f'Max:  {result["episode_reward_max"]:.2f},')
-    print(f'Min:  {result["episode_reward_min"]:.2f}')
-    print(' ')
-
-    print('-- Episode Length --')
-    episodes_this_iteration = result["hist_stats"]["episode_lengths"][-result["episodes_this_iter"]:]
-    print(result["hist_stats"]["episode_lengths"][-min(40, result["episodes_this_iter"]):])
-    print(f'Mean: {result["episode_len_mean"]:.2f}')
-    print(f'Min:  {min(episodes_this_iteration):.2f}')
-    print(f'Max:  {max(episodes_this_iteration):.2f}')
-    print(f'Number of Episodes: {len(episodes_this_iteration)}')
-    print(f'Sum Episode Steps:  {sum(episodes_this_iteration)}')
-    print(f'Samples for Training: {result["num_env_steps_trained_this_iter"]}')
-    print(' ')
-
-    print('-- Timing --')
-    pprint(result["sampler_perf"])
-    print(f'total time per step: {sum(result["sampler_perf"].values()):.2f}ms')
-    print(f'iteration time: {time.time() - inter:.2f}s ({ITERATIONS * (time.time() - inter) / 60:.1f}min for {ITERATIONS} iterations, {(ITERATIONS - i) * (time.time() - inter) / 60:.1f}min to go)')
-
-    agent.save(check_point_path)
-
-    # pickle.dump(result, open(check_point_path+f'checkpoint_{i:06d}/results.p', "wb"))
-    # with open(check_point_path+f'checkpoint_{i:06d}/results.json', "w") as outfile:
-    #     json.dump(results, outfile)
-
-# pickle.dump(result, open(model_path+'/results.p', "wb"))
-# with open(model_path+'/results.json', "w") as outfile:
-#     json.dump(results, outfile)
-
-print(f"Total Script Time: {time.time() - script_start_time:.2f}s = {(time.time() - script_start_time) / 60:.2f}min")
