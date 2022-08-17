@@ -36,9 +36,12 @@ class VisualizeVariogram:
         # checking if units were set when saving, otherwise use default
         if variogram_data[3] is None:
             self.units = "km"
+        else:
+            self.units = variogram_data[3]
 
         print(f"Loaded variogram from: {file_path.split('/')[-1]}.")
         print(f"Resolution: {[self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res]} {self.units}.")
+        print(f"Number of pairs: {int(self.variogram.bins_count.sum()/2)}.")
 
 
     def decrease_variogram_res(self, res_tuple: Tuple[int]):

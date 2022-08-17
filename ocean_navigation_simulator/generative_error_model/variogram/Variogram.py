@@ -2,7 +2,6 @@ from ocean_navigation_simulator.generative_error_model.variogram.IndexPairGenera
 
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
 import multiprocessing as mp
@@ -20,7 +19,6 @@ class Variogram:
         self.data = data
         self.bins = None
         self.bins_count = None
-
 
     def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> Dict[str, List[float]]:
         """Variogram analysis assumes stationarity, therefore detrending is needed.
@@ -65,132 +63,7 @@ class Variogram:
             /bin_statistics[x[f"{detrend_var}_bins"]]["u_error"][1], axis=1)
         self.data["detrended_v_error"] = self.data.apply(lambda x: (x["v_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][0]\
             )/bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
-
         return bin_statistics
-
-
-    def build_variogram(self, res_tuple: Tuple[int], total_res: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=False) -> Tuple[np.ndarray, np.ndarray]:
-
-        """Find all possible pairs of points. It then computes the lag value in each axis
-        and the variogram value for u and v errors.
-        
-        res_tuple - resolution in (degrees, degrees, hours)
-        total_res - resolution if variogram is 1D
-        bins_tuple - number of bins in (lon, lat, time)
-        chunk_size - lower number if less memory
-        cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
-        detrended - use detrended value or not
-        """
-
-        if detrended and "detrended_u_error" not in self.data.columns:
-            raise Exception("Need to run detrend method first with 'detrend=True'")
-
-        # convert time axis to datetime
-        self.data["time"] = pd.to_datetime(self.data["time"])
-        # find earliest time/date and subtract from time column
-        earliest_date = self.data["time"].min()
-        self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
-
-        n = self.data.shape[0]
-        self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
-        self.total_res = total_res
-
-        # create bins from known extremal values and resolutions
-        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
-        self.lon_bins = np.ceil((self.data["lon"].max() - self.data["lon"].min()+1)/lon_res).astype(int)
-        self.lat_bins = np.ceil((self.data["lat"].max() - self.data["lat"].min()+1)/lat_res).astype(int)
-        bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
-
-        # get indices of all pairs
-        i,j = np.triu_indices(n, k=1)
-
-        # build a mask to mask out the pairs from same buoy
-        if cross_buoy_pairs_only:
-            buoy_vector = self.data["buoy"].to_numpy()
-            # map each buoy name string to unique integer
-            _, integer_mapped = np.unique(buoy_vector, return_inverse=True)
-            i_temp, j_temp = np.triu_indices(len(integer_mapped), k=1)
-            # if integer in i and j is the same, then both points from same buoy
-            residual = (integer_mapped[i_temp] - integer_mapped[j_temp])
-            mask_same_buoy = residual != 0
-            mask_idx = np.where(mask_same_buoy == True)
-
-            # only select pairs from different buoys
-            i = i[mask_idx]
-            j = j[mask_idx]
-        print(f"Number of pairs of points: {len(i)}")
-
-        # make bins
-        bins = np.zeros((*bin_sizes, 2))
-        bins_count = np.zeros_like(bins)
-
-        # make total bins
-        total_bin_num = np.ceil((np.sqrt(self.t_bins**2 + self.lon_bins**2 + self.lat_bins**2)/total_res)+1).astype(int)
-        total_bins = np.zeros((total_bin_num,2))
-        total_bins_count = np.zeros_like(total_bins)
-
-        # convert relevant columns to numpy before accessing
-        time = self.data["time_offset"].to_numpy()
-        lon = self.data["lon"].to_numpy()
-        lat = self.data["lat"].to_numpy()
-        if detrended:
-            u_error = self.data["detrended_u_error"].to_numpy()
-            v_error = self.data["detrended_v_error"].to_numpy()
-        else:
-            u_error = self.data["u_error"].to_numpy()
-            v_error = self.data["v_error"].to_numpy()
-
-        offset = 0
-        for chunk in tqdm(range(chunk_size, len(i)+1, chunk_size)):
-            # get values for chunk
-            idx_i = i[0+offset:chunk]
-            idx_j = j[0+offset:chunk]
-
-            # get lags and divide by bin resolution to get bin index
-            t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/t_res).astype(float)).astype(int)
-            lon_lag = np.floor(np.absolute(lon[idx_i] - lon[idx_j])/lon_res).astype(int)
-            lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/lat_res).astype(int)
-            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
-            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
-            squared_diff = np.hstack((u_squared_diff, v_squared_diff))
-
-            # total lag vector
-            total_lag = np.floor(np.sqrt(np.square((time[idx_i] - time[idx_j]).astype(float)) + \
-                np.square(lon[idx_i] - lon[idx_j]) + np.square(lat[idx_i] - lat[idx_j]))/total_res).astype(int)
-
-            # assign values to bin
-            if np.sum(bins) == 0:
-                # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
-                # add to relevant bin
-                np.add.at(bins, (lon_lag, lat_lag, t_lag), squared_diff)
-                np.add.at(total_bins, total_lag, squared_diff)
-                # add to bin count
-                np.add.at(bins_count, (lon_lag, lat_lag, t_lag), [1,1])
-                np.add.at(total_bins_count, total_lag, [1,1])
-            else:
-                bins_temp = np.zeros_like(bins)
-                bins_count_temp = np.zeros_like(bins_temp)
-                total_bins_temp = np.zeros_like(total_bins)
-                total_bins_count_temp = np.zeros_like(total_bins_temp)
-                # perform operations
-                np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
-                np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
-                np.add.at(total_bins_temp, total_lag, squared_diff)
-                np.add.at(total_bins_count_temp, total_lag, [1,1])
-                bins += bins_temp
-                bins_count += bins_count_temp
-                total_bins += total_bins_temp
-                total_bins_count += total_bins_count_temp
-
-            offset += chunk_size
-        bins = np.divide(bins, bins_count, out=np.zeros_like(bins), where=bins_count!=0)/2
-        total_bins = np.divide(total_bins, total_bins_count, out=np.zeros_like(total_bins), where=total_bins_count!=0)/2
-        self.bins, self.bins_count = bins, bins_count
-        self.total_bins, self.total_bins_count = total_bins, total_bins_count
-        print(f"Finised variogram computation")
-        return bins, bins_count
-
 
     def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
         detrended: bool=False, units: str="km") -> Tuple[np.ndarray, np.ndarray]:
@@ -263,7 +136,7 @@ class Variogram:
                 running_sum += len(indices[0])
                 if iteration%10 == 0 and iteration !=0:
                     now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-                    print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),5)}% of pairs finished.")
+                    print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),2)}% of pairs finished.")
                 iteration += 1
 
         for _ in range(num_workers):
@@ -275,7 +148,6 @@ class Variogram:
         # divide bins by the count + divide by 2 for semi-variance (special func to avoid dividing by zero)
         self.bins = np.divide(self.bins, self.bins_count, out=np.zeros_like(self.bins), where=self.bins_count!=0)/2
         return self.bins, self.bins_count
-
 
     def _calculate_chunk(self, q: mp.Queue, time: List[int], lon: List[int], lat: List[int],\
         u_error: List[int], v_error: List[int], buoy_vector: List[str], iolock: mp.Lock) -> None:
@@ -344,7 +216,6 @@ class Variogram:
                     self.bins += bins_temp
                     self.bins_count += bins_count_temp
 
-
     def _variogram_setup(self, res_tuple: Tuple[float]):
         """Helper method to declutter the main build_variogram method."""
 
@@ -367,7 +238,6 @@ class Variogram:
             max_dx, max_dy = convert_degree_to_km(np.array([min_lon, min_lat]), np.array([max_lon, max_lat]))
             self.lon_bins = np.ceil(abs(max_dx/lon_res)+5).astype(int)
             self.lat_bins = np.ceil(abs(max_dy/lat_res)+5).astype(int)
-
 
     def plot_detrended_bins(self) -> None:
         """Plots detrended data over time for each bin separately."""
@@ -396,7 +266,6 @@ class Variogram:
                 axs[i].grid()
         plt.legend()
         plt.show()
-
 
     def plot_bin_stats(self, detrend_var: str="lat", num_bins=5) -> None:
         """Detrends over specified variable and plots the bin statistics over that variable."""
@@ -435,6 +304,7 @@ class Variogram:
 
 #------------------------ Helper Funcs -----------------------#
 
+
 def to_shared_array(arr, ctype):
     shared_array = mp.Array(ctype, arr.size, lock=False)
     temp = np.frombuffer(shared_array, dtype=arr.dtype)
@@ -469,9 +339,9 @@ def convert_degree_to_km2(ref_point: np.ndarray, lag: np.ndarray) -> Tuple[np.nd
 def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> Tuple[np.ndarray]:
     # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
     if len(pts1.shape) > 1:
-        dx = (pts1[:,0] - pts2[:,0]) * 40000 *np.cos((pts1[:,1] + pts2[:,1]) * np.pi/360)/360
-        dy = ((pts1[:,1] - pts2[:,1])* 40000)/360
+        dx = (pts1[:, 0] - pts2[:, 0]) * 40000 * np.cos((pts1[:, 1] + pts2[:, 1]) * np.pi/360)/360
+        dy = ((pts1[:, 1] - pts2[:, 1]) * 40000)/360
     else:
-        dx = (pts1[0] - pts2[0]) * 40000 *np.cos((pts1[1] + pts2[1]) * np.pi/360)/360
-        dy = ((pts1[1] - pts2[1])* 40000)/360
+        dx = (pts1[0] - pts2[0]) * 40000 * np.cos((pts1[1] + pts2[1]) * np.pi/360)/360
+        dy = ((pts1[1] - pts2[1]) * 40000)/360
     return dx, dy

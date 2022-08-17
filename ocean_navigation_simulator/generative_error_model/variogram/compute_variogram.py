@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.generative_error_model.Dataset import load_dataset, DatasetName, load_single_file
+from ocean_navigation_simulator.generative_error_model.Dataset import load_dataset, DatasetName, load_single_file, print_df_meta_data
 from ocean_navigation_simulator.generative_error_model.utils import timer, save_variogram_to_npy, log_std_out
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
@@ -17,18 +17,19 @@ def parse():
     parser.add_argument("--cross_buoy_pairs_only", default=False, type=bool, help="read name m8")
     parser.add_argument("--units", default="km", type=str, help="choices: {'km', 'degrees'}")
     parser.add_argument("--dataset_size", default="large", type=str, help="{large -> month, small -> single file}")
+    parser.add_argument("--data_overlap", default=True, type=bool, help="Should errors between two forecasts overlap in time")
     return parser
 
 
 # @log_std_out
 @timer
 def main():
-    args =  parse().parse_args()
+    args = parse().parse_args()
 
     # load data
     dataset_name = DatasetName.AREA1
     if args.dataset_size == "large":
-        data = load_dataset(dataset_name) # 300,000 pts
+        data = load_dataset(dataset_name, args.data_overlap) # 300,000 pts
     else:
         data = load_single_file(dataset_name, file_idx=0)  # 8,000 pts
 
