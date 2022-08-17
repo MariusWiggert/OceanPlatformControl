@@ -17,6 +17,7 @@ import xarray as xr
 from shapely.geometry import Point, box
 import warnings
 from pandas.core.common import SettingWithCopyWarning
+import matplotlib.pyplot as plt
 
 # ignore warnings that cannot be fixed for specific scenario of needing .loc and .iloc
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
@@ -171,7 +172,7 @@ class BuoyDataCopernicus(BuoyDataSource):
 
         # remove NaN rows -> created because of u and v at different depths.
         df = df.dropna()
-
+        df = df.drop_duplicates(subset=["time", "buoy", "lon", "lat"], keep="first")
         return df
 
     def download_index_files(self, usr: str, pas: str):
@@ -226,11 +227,11 @@ class BuoyDataCopernicus(BuoyDataSource):
         # Load as pandas dataframe the file in the provided path, then filter data during loading
 
         filename = os.path.basename(path2file)
-        print('...Loading info from: ' +filename)
-        if targeted_bbox != None:
+        print('...Loading info from: ' + filename)
+        if targeted_bbox is not None:
             raw_index_info =[]
             # skiprows needed due to header length of files
-            chunks = pd.read_csv(path2file, skiprows=5,chunksize=1000)
+            chunks = pd.read_csv(path2file, skiprows=5, chunksize=1000)
             for chunk in chunks:
                 chunk['spatialOverlap'] = chunk.apply(self._spatial_overlap, targeted_bbox=targeted_bbox, overlap_type=overlap_type, axis=1)
                 chunk['temporalOverlap'] = chunk.apply(self._temporal_overlap, targeted_time_range=targeted_time_range, axis=1)

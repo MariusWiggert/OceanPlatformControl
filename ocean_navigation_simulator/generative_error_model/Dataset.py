@@ -31,8 +31,10 @@ import os
 class DatasetName(Enum):
     AREA1 = auto()
     AREA3 = auto()
+    AREA4 = auto()
 
-dataset_map = {DatasetName.AREA1: "area1", DatasetName.AREA3: "area3"}
+
+dataset_map = {DatasetName.AREA1: "area1", DatasetName.AREA3: "area3", DatasetName.AREA4: "area4"}
 
 
 def load_dataset(dataset_name: DatasetName) -> pd.DataFrame:
@@ -47,6 +49,7 @@ def load_dataset(dataset_name: DatasetName) -> pd.DataFrame:
             df_temp = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
             df = pd.concat([df, df_temp], ignore_index=True)
     print(f"Loaded {dataset_name.name} dataset.")
+    print_df_meta_data(df)
     return df
 
 
@@ -57,13 +60,19 @@ def load_single_file(dataset_name: DatasetName, file_idx: int) -> pd.DataFrame:
     file_path = os.path.join(dataset_path, file_list[file_idx])
     df = pd.read_csv(file_path)
     print(f"Loaded: {file_list[file_idx]}")
+    print_df_meta_data(df)
     return df
+
+
+def print_df_meta_data(data: pd.DataFrame):
+    print("\nBuoy Meta Data:")
+    print(f"    Min time: {data['time'].min()}, max time: {data['time'].max()}")
+    print(f"    Min lon: {data['lon'].min()}, max lon: {data['lon'].max()}")
+    print(f"    Min lat: {data['lat'].min()}, max lat: {data['lat'].max()}")
+    print(f"    Number or rows: {len(data)}.\n")
 
 
 if __name__ == "__main__":
     dataset_name = DatasetName.AREA1
     data = load_single_file(dataset_name, file_idx=0)
-    print("\nBuoy Meta Data:")
-    print(f"Min time: {data['time'].min()}, max time: {data['time'].max()}")
-    print(f"Min lon: {data['lon'].min()}, max lon: {data['lon'].max()}")
-    print(f"Min lat: {data['lat'].min()}, max lat: {data['lat'].max()}\n")
+    print_df_meta_data(data)

@@ -7,7 +7,7 @@ from datetime import timedelta, datetime
 
 
 class DatasetWriter:
-    """Uses BuoyData and OceanCurrentField to to write data to file which is then read by DataLoader.
+    """Uses BuoyData and OceanCurrentField to write data to file which is then read by DataLoader.
     Needed to speed up training."""
 
     def __init__(self, yaml_file_config: str):
@@ -17,7 +17,6 @@ class DatasetWriter:
         self.output_dir = self.config["data_writer"]["output_dir"]
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
-
 
     def get_error(self, forecast_idx: int) -> pd.DataFrame:
         time_string = self._build_time_string(forecast_idx)
@@ -38,7 +37,6 @@ class DatasetWriter:
 
         return buoy_data.data
 
-
     def _build_time_string(self, forecast_idx: int) -> str:
         t_range = self.files_dicts[forecast_idx]["t_range"]
         time_string_start = (t_range[0] + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -46,13 +44,11 @@ class DatasetWriter:
         time_string = time_string_start + "/" + time_string_end
         return time_string
 
-
     def write_error_csv(self, df: pd.DataFrame, file_name: str) -> None:
         # check if dir exists
         if not os.path.isdir(self.output_dir):
             os.mkdir(self.output_dir)
         df.to_csv(os.path.join(self.output_dir, file_name), index=False)
-
 
     def write_all_files(self) -> None:
         # write all files
@@ -69,5 +65,5 @@ class DatasetWriter:
 if __name__ == "__main__":
     # run for quick testing + generating csv files
     yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
-    datawriter = DatasetWriter(yaml_file_config)
-    datawriter.write_all_files()
+    data_writer = DatasetWriter(yaml_file_config)
+    data_writer.write_all_files()
