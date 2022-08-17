@@ -3,6 +3,7 @@ import pickle
 import time
 from bisect import bisect
 
+import matplotlib
 import numpy as np
 import abc
 import xarray as xr
@@ -182,7 +183,7 @@ class HJPlannerBase(Controller):
 
         # Step 2: Interpolate Temporal
         val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
-            observation.platform_state.date_time.timestamp() - self.current_data_t_0
+            max(self.reach_times[0], min(self.reach_times[-1], observation.platform_state.date_time.timestamp() - self.current_data_t_0 + self.reach_times[0]))
         ).squeeze()
         val_at_t = (val_at_t - val_at_t.min()) * (self.current_data_t_T - self.current_data_t_0) / 3600
 
@@ -192,8 +193,8 @@ class HJPlannerBase(Controller):
         out_grid_x = np.linspace(observation.platform_state.lon.deg - width_deg, observation.platform_state.lon.deg + width_deg, width)
         out_grid_y = np.linspace(observation.platform_state.lat.deg - width_deg, observation.platform_state.lat.deg + width_deg, width)
         val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(out_grid_y, out_grid_x).squeeze()
-        if self.verbose > 0:
-            print(f'HJPlannerBase: Interpolating TTR Map ({time.time()-start:.1f}s)')
+        # if self.verbose > 0:
+            # print(f'HJPlannerBase: Interpolating TTR Map ({time.time()-start:.1f}s)')
 
         return val_at_xy
 
@@ -201,11 +202,11 @@ class HJPlannerBase(Controller):
         # Step 1: Update Planner
         self.replan_if_necessary(observation)
 
-        start = time.time()
+        # start = time.time()
 
         # Step 2: Interpolate Temporal
         val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
-            observation.platform_state.date_time.timestamp() - self.current_data_t_0
+            max(self.reach_times[0], min(self.reach_times[-1], observation.platform_state.date_time.timestamp() - self.current_data_t_0 + self.reach_times[0]))
         ).squeeze()
         val_at_t = (val_at_t - val_at_t.min()) * (self.current_data_t_T - self.current_data_t_0) / 3600
 
@@ -216,8 +217,8 @@ class HJPlannerBase(Controller):
             observation.platform_state.lat.deg,
             observation.platform_state.lon.deg
         ).squeeze()
-        if self.verbose > 0:
-            print(f'HJPlannerBase: Interpolating TTR at Point ({time.time()-start:.1f}s)')
+        # if self.verbose > 0:
+            # print(f'HJPlannerBase: Interpolating TTR at Point ({time.time()-start:.1f}s)')
 
         return val_at_xy
 
@@ -712,12 +713,7 @@ class HJPlannerBase(Controller):
         ax.scatter(self.problem.end_region.lon.deg, self.problem.end_region.lat.deg, color='g', marker='x')
 
         # Add HJ-Grid Frame to Picture
-        ax.add_patch(patches.Rectangle(
-            (self.grid.domain.lo[0], self.grid.domain.lo[1]),
-            (self.grid.domain.hi[0] - self.grid.domain.lo[0]),
-            (self.grid.domain.hi[1] - self.grid.domain.lo[1]),
-            linewidth=2, edgecolor='b', facecolor='none', label='hj solver frame')
-        )
+        self.plot_hj_frame(ax)
 
         # Add Minimal Distance from Mission generation
         if target_min_distance is not None:
@@ -850,6 +846,14 @@ class HJPlannerBase(Controller):
 
         return non_dim_val_func_levels, abs_time_y_ticks, y_label
 
+    def plot_hj_frame(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
+        ax.add_patch(patches.Rectangle(
+            (self.grid.domain.lo[0], self.grid.domain.lo[1]),
+            (self.grid.domain.hi[0] - self.grid.domain.lo[0]),
+            (self.grid.domain.hi[1] - self.grid.domain.lo[1]),
+            linewidth=2, edgecolor='b', facecolor='none', label='hj solver frame')
+        )
+        return ax
 
     def sample_from_reachable_coordinates(
         self,
@@ -893,56 +897,3 @@ class HJPlannerBase(Controller):
 
     def rejection_sample_reachable_coordinates(self, random, t_interval, min_distance):
         pass
-
-    def save_plan(self, folder):
-        os.makedirs(folder, exist_ok = True)
-        # Settings
-        with open(folder + 'specific_settings.pickle', 'wb') as file:
-            pickle.dump(self.specific_settings, file)
-        # Used in Replanning
-        with open(folder + 'last_fmrc_idx_planned_with.pickle', 'wb') as file:
-            pickle.dump(self.last_fmrc_idx_planned_with, file)
-        # Used in Interpolation
-        with open(folder + 'all_values.pickle', 'wb') as file:
-            pickle.dump(self.all_values, file)
-        with open(folder + 'reach_times.pickle', 'wb') as file:
-            pickle.dump(self.reach_times, file)
-        with open(folder + 'grid.pickle', 'wb') as file:
-            pickle.dump(self.grid, file)
-        with open(folder + 'current_data_t_0.pickle', 'wb') as file:
-            pickle.dump(self.current_data_t_0, file)
-        with open(folder + 'current_data_t_T.pickle', 'wb') as file:
-            pickle.dump(self.current_data_t_T, file)
-        # Used in Start Sampling
-        with open(folder + 'characteristic_vec.pickle', 'wb') as file:
-            pickle.dump(self.characteristic_vec, file)
-        with open(folder + 'initial_values.pickle', 'wb') as file:
-            pickle.dump(self.initial_values, file)
-
-        return self
-
-    def load_plan(self, folder=''):
-        # Settings
-        with open(folder + 'specific_settings.pickle', 'rb') as file:
-            self.specific_settings= pickle.load(file)
-        # Used in Replanning
-        with open(folder + 'last_fmrc_idx_planned_with.pickle', 'rb') as file:
-            self.last_fmrc_idx_planned_with = pickle.load(file)
-        # Used in Interpolation
-        with open(folder + 'all_values.pickle', 'rb') as file:
-            self.all_values = pickle.load(file)
-        with open(folder + 'reach_times.pickle', 'rb') as file:
-            self.reach_times = pickle.load(file)
-        with open(folder + 'grid.pickle', 'rb') as file:
-            self.grid = pickle.load(file)
-        with open(folder + 'current_data_t_0.pickle', 'rb') as file:
-            self.current_data_t_0 = pickle.load(file)
-        with open(folder + 'current_data_t_T.pickle', 'rb') as file:
-            self.current_data_t_T = pickle.load(file)
-        # Used in Start Sampling
-        with open(folder + 'characteristic_vec.pickle', 'rb') as file:
-            self.characteristic_vec = pickle.load(file)
-        with open(folder + 'initial_values.pickle', 'rb') as file:
-            self.initial_values = pickle.load(file)
-
-        return self

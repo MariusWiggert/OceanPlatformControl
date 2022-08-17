@@ -101,7 +101,7 @@ class OceanCurrentSource(DataSource):
             # Needed because the data needs to be perfectly equally spaced
             time_2D_array = format_to_equally_spaced_xy_grid(xarray).fillna(0)
             time_2D_array.plot.streamplot(x='lon', y='lat', u='water_u', v='water_v', color='black', ax=ax)
-            ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
+            # ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
             xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)

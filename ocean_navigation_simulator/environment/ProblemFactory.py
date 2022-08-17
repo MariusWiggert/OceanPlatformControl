@@ -22,13 +22,6 @@ class ProblemFactory(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def skips_problems(self, n):
-        """
-            Skips selected amounts of problem
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def get_problem_list(self, limit) -> [(int, NavigationProblem)]:
         """
         Yields all available problems as a list.

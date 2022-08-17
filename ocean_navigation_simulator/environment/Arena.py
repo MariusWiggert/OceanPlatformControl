@@ -5,9 +5,9 @@
 import dataclasses
 import datetime as dt
 from typing import Dict, Optional, Union, Tuple, List
-import matplotlib.axes
+import matplotlib
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, patches
 import time
 
 
@@ -117,6 +117,7 @@ class Arena:
         self.spatial_boundary = spatial_boundary
         self.collect_trajectory = collect_trajectory
         self.initial_state, self.state_trajectory, self.action_trajectory = [None]*3
+        self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
     def reset(
         self,
@@ -169,14 +170,8 @@ class Arena:
         self
     ) -> bool:
         if self.spatial_boundary is not None:
-            inside_x = self.spatial_boundary['x'][0] < \
-                       self.platform.state.lon.deg and \
-                       self.platform.state.lon.deg < self.spatial_boundary[
-                           'x'][1]
-            inside_y = self.spatial_boundary['y'][0] < \
-                       self.platform.state.lat.deg and \
-                       self.platform.state.lat.deg < self.spatial_boundary[
-                           'y'][1]
+            inside_x = self.spatial_boundary['x'][0].deg < self.platform.state.lon.deg < self.spatial_boundary['x'][1].deg
+            inside_y = self.spatial_boundary['y'][0].deg < self.platform.state.lat.deg < self.spatial_boundary['y'][1].deg
             return inside_x and inside_y
         return True
 
@@ -279,12 +274,22 @@ class Arena:
         self,
         problem: Problem,
         ax: Optional[matplotlib.axes.Axes] = None,
-        color: Optional[str] = 'black',
+        problem_start_color: Optional[str] = 'red',
+        problem_target_color: Optional[str] = 'green',
     ) -> matplotlib.axes.Axes:
         if ax is None:
             fig, ax = plt.subplots()
 
-        return problem.plot(ax=ax, color=color)
+        return problem.plot(ax=ax, problem_start_color=problem_start_color, problem_target_color=problem_target_color)
+
+    def plot_arena_frame_on_map(self, ax: matplotlib.axes.Axes) -> matplotlib.axes.Axes:
+        ax.add_patch(patches.Rectangle(
+            (self.spatial_boundary['x'][0].deg, self.spatial_boundary['y'][0].deg),
+            (self.spatial_boundary['x'][1].deg - self.spatial_boundary['x'][0].deg),
+            (self.spatial_boundary['y'][1].deg - self.spatial_boundary['y'][0].deg),
+            linewidth=2, edgecolor='r', facecolor='none', label='arena frame')
+        )
+        return ax
 
     def plot_all_on_map(
         self,
@@ -306,14 +311,18 @@ class Arena:
 
         # Problem (Target)
         problem: Optional[Problem] = None,
-        problem_color: Optional[str] = 'black',
+        problem_start_color: Optional[str] = 'red',
+        problem_target_color: Optional[str] = 'green',
 
         x_interval: Optional[List] = None,
         y_interval: Optional[List] = None,
         margin: Optional[int] = 0,
     ) -> matplotlib.axes.Axes:
-        if ax is None:
-            fig, ax = plt.subplots()
+        if ax is None and self.use_geographic_coordinate_system:
+            ax = self.ocean_field.hindcast_data_source.set_up_geographic_ax()
+
+        ax.yaxis.grid(color='gray', linestyle='dashed')
+        ax.xaxis.grid(color='gray', linestyle='dashed')
 
         if x_interval is None or y_interval is None:
             x_interval, y_interval, _ = self.get_lon_lat_time_interval(
@@ -356,7 +365,7 @@ class Arena:
         if show_current_position:
             self.plot_current_position_on_map(index=index, ax=ax, color=current_position_color)
         if problem is not None:
-            self.plot_problem_on_map(problem=problem, ax=ax, color=problem_color)
+            self.plot_problem_on_map(problem=problem, ax=ax, problem_start_color=problem_start_color, problem_target_color=problem_target_color)
 
         return ax
 

@@ -9,3 +9,8 @@ viz/
 .ipynb_checkpoints/
 generated_media/
 hj_reachability/
+/setup/azure
+/setup/azure.pub
+/setup/c3-rsa
+/setup/c3-rsa.pub
+/setup/ips.csv

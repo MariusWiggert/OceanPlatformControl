@@ -1,4 +1,3 @@
-import string
 import yaml
 import os
 import time
@@ -9,13 +8,14 @@ from c3python import C3Python
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
+from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.utils import units
 
 
 class ArenaFactory:
     @staticmethod
     def create(
-        scenario_name: string,
+        scenario_name: str,
         problem: Optional[NavigationProblem] = None,
         points: Optional[List[SpatialPoint]] = None,
         x_interval: Optional[List[units.Distance]] = None,
@@ -41,10 +41,10 @@ class ArenaFactory:
         if verbose > 0:
             print(f'ArenaFactory: Connect to c3 ({time.time() - start:.1f}s)')
 
-        if problem is not None and problem.x_range is not None and problem.y_range is not None:
+        if x_interval is not None and y_interval is not None:
             config['spatial_boundary'] = {
-                'x': [problem.x_range[0].deg, problem.x_range[1].deg],
-                'y': [problem.y_range[0].deg, problem.y_range[1].deg],
+                'x': [x_interval[0], x_interval[1]],
+                'y': [y_interval[0], y_interval[1]],
             }
 
         if problem is not None:

@@ -17,37 +17,31 @@ class FileMissionProblemFactory(ProblemFactory):
         self.csv_file = csv_file
         self.limit = limit
 
-        if limit is None:
-            self.mission_df = pd.read_csv(csv_file, index_col=0)
+        if limit is not None:
+            self.problems_df = pd.read_csv(csv_file)
         else:
-            self.mission_df = pd.read_csv(csv_file, index_col=0).head(n=limit)
-        if seed is None:
-            self.available_missions = list(range(self.mission_df.shape[0]))
-        else:
+            self.problems_df = pd.read_csv(csv_file).head(n=limit)
+
+        if seed is not None:
             self.random = np.random.default_rng(seed)
-            self.available_missions = np.random.permutation(self.mission_df.shape[0]).tolist()
+            self.indexes_available = np.random.permutation(self.problems_df.shape[0]).tolist()
+        else:
+            self.indexes_available = list(range(self.problems_df.shape[0]))
 
     def has_problems_remaining(self) -> bool:
-        return len(self.available_missions) > 0
+        return len(self.indexes_available) > 0
 
-    def skips_problems(self, n) -> bool:
-        self.available_missions = self.available_missions[n:]
-        return self
-
-    def get_problem_list(self, limit = None) -> [NavigationProblem]:
-        if limit is not None and not len(self.available_missions) > limit:
-            raise Exception(f"Only {self.available_missions} available Problems but {limit} were rquested.")
-
-        missions = self.mission_df.iloc[self.available_missions[:limit+1] if limit is not None else self.available_missions]
-        self.available_missions = self.available_missions[limit:]
-
-        return [NavigationProblem.from_dict(row, extra_info={'index':index}) for index, row in missions.iterrows()]
+    def get_problem_list(self, n = None) -> [NavigationProblem]:
+        return [self.next_problem() for _ in range(min(n, len(self.indexes_available)))]
 
     def next_problem(self) -> NavigationProblem:
         if not self.has_problems_remaining():
-            raise Exception("No more available Problems.")
+            if self.limit is not None:
+                raise Exception("No more available Problems.")
+            else:
+                self.indexes_available = np.random.permutation(self.problems_df.shape[0]).tolist()
 
-        index = self.available_missions.pop(0)
-        row = self.mission_df.iloc[index]
+        index = self.indexes_available.pop(0)
+        row = self.problems_df.iloc[index]
 
-        return NavigationProblem.from_row(row)
+        return NavigationProblem.from_dict(row)

@@ -23,7 +23,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
         self.measurements = np.zeros(shape=(0, 4))
 
     @staticmethod
-    def get_observation_space(config: dict):
+    def get_observation_space(config):
         return gym.spaces.Tuple([
             gym.spaces.Box(
                 low=-float("inf"),
@@ -52,7 +52,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
         # Step 3: Get TTR Map on grid
         start = time.time()
         ttr_map = self.planner.interpolate_value_function_in_hours_on_grid(observation, width_deg=self.config['ttr']['xy_width_degree'], width=self.config['ttr']['xy_width_points'])
-        if self.verbose > 0:
-            print(f'OceanFeatureConstructor: Calculate TTR ({time.time() - start:.1f}s)')
+        # if self.verbose > 0:
+            # print(f'OceanFeatureConstructor: Calculate TTR ({time.time() - start:.1f}s)')
 
         return measurements, ttr_map

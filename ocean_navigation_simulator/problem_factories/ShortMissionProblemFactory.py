@@ -17,41 +17,40 @@ from ocean_navigation_simulator.utils import units
 
 
 class ShortMissionProblemFactory(ProblemFactory):
+    default_config = {
+        'x_range': [units.Distance(deg=-92), units.Distance(deg=-90)],
+        'y_range': [units.Distance(deg=24), units.Distance(deg=26)],
+        't_range': [
+            datetime.datetime(year=2022, month=4, day=1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(year=2022, month=4, day=10, tzinfo=datetime.timezone.utc)
+        ],
+        'missions_per_target': 4,
+        'mission_time_range': [datetime.timedelta(hours=12), datetime.timedelta(hours=36)],
+        'problem_timeout': datetime.timedelta(hours=48),
+        # 'target_radius', 'goal_min_distance' have to be tuned with 'mission_time_range' for meaningful missions:
+        #   - if 'goal_min_distance' is small in relation to 'target_radius' then the missions are extremely short
+        #   - if
+        #   0.1 deg ~= 11km = 3h @ 1m/s
+        #   0.1 deg ~= 11km = 30h @ 0.1m/s
+        #   1 deg ~= 111km = 30h @ 1m/s
+        # if 'target_radius' is big the target is reached sooner than expected
+        'problem_target_radius': 0.01,
+        'target_distance_from_frame': 0.5,
+        'target_min_distance': 0.15,
+        # 'grid_res' has to be smaller than target_radius to prevent hj_solver errors
+        'hj_planner': {
+            'grid_res': 0.01,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+            'deg_around_xt_xT_box': 1.0,  # area over which to run HJ_reachability
+        },
+    }
     def __init__(
         self,
         scenario_name: str,
-        seed: Optional[int] = None,
         config: Optional[dict] = {},
         verbose: Optional[int] = 0,
     ):
         self.scenario_name = scenario_name
-        self.config = {
-            'seed': 2022 if seed is None else seed,
-            'x_range': [units.Distance(deg=-92), units.Distance(deg=-90)],
-            'y_range': [units.Distance(deg=24), units.Distance(deg=26)],
-            't_range': [
-                datetime.datetime(year=2022, month=4, day=1, tzinfo=datetime.timezone.utc),
-                datetime.datetime(year=2022, month=4, day=10, tzinfo=datetime.timezone.utc)
-            ],
-            'missions_per_target': 4,
-            'mission_time_range': [datetime.timedelta(hours=12), datetime.timedelta(hours=36)],
-            'problem_timeout': datetime.timedelta(hours=48),
-            # 'target_radius', 'goal_min_distance' have to be tuned with 'mission_time_range' for meaningful missions:
-            #   - if 'goal_min_distance' is small in relation to 'target_radius' then the missions are extremely short
-            #   - if
-            #   0.1 deg ~= 11km = 3h @ 1m/s
-            #   0.1 deg ~= 11km = 30h @ 0.1m/s
-            #   1 deg ~= 111km = 30h @ 1m/s
-            # if 'target_radius' is big the target is reached sooner than expected
-            'problem_target_radius': 0.01,
-            'target_distance_from_frame': 0.5,
-            'target_min_distance': 0.15,
-            # 'grid_res' has to be smaller than target_radius to prevent hj_solver errors
-            'hj_planner': {
-                'grid_res': 0.01,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-                'deg_around_xt_xT_box': 1.0,  # area over which to run HJ_reachability
-            },
-        } | config
+        self.config = ShortMissionProblemFactory.default_config | config
         self.verbose = verbose
 
         self.arena = ArenaFactory.create(
@@ -61,7 +60,7 @@ class ShortMissionProblemFactory(ProblemFactory):
             t_interval=self.config['t_range'],
             verbose=self.verbose-1
         )
-        self.random = np.random.default_rng(self.config['seed'])
+        self.random = np.random.default_rng(self.config['seed'] if self.config['seed'] is not None else 2022)
 
         self.target_x_start = self.config['x_range'][0].deg + self.config['target_distance_from_frame']
         self.target_x_end = self.config['x_range'][1].deg - self.config['target_distance_from_frame']

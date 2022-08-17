@@ -51,7 +51,7 @@ available_node_types:
                 #   - Standard_NC24 (US$2,628.00)
                 #   - Standard_D2s_v3 (US$70.08)
                 #   - Standard_D4s_v3 (US$140.16)
-                #   - Standard_D8s_v3 (US$280.32)
+                #   - Standard_D8s_v3 (US$280.32) $280/mo = $9.3/d = $0.38/h -> 10 machines: $3.8/h
                 #   - Standard_D16s_v3 (US$560.64)
                 #   - Standard_D32s_v3 (US$1,121.28)
                 #   - Standard_D64s_v3 (US$2,242.56)

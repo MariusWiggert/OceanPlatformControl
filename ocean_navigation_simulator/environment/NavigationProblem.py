@@ -38,15 +38,16 @@ class NavigationProblem(Problem):
     def plot(
         self,
         ax: matplotlib.axes.Axes,
-        color: Optional[str] = 'green',
+        problem_start_color: Optional[str] = 'red',
+        problem_target_color: Optional[str] = 'green',
     ) -> matplotlib.axes.Axes:
-        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors=color, marker='o', label='start')
-        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.target_radius, facecolor='none', edgecolor=color, label='goal'))
+        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors=problem_start_color, marker='o', label='start')
+        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.target_radius, facecolor='none', edgecolor=problem_target_color, label='goal'))
 
         return ax
 
     @staticmethod
-    def from_dict(mission, extra_info=None):
+    def from_dict(mission):
         return NavigationProblem(
             start_state=PlatformState(
                 lon=units.Distance(deg=mission['x_0_lon']),
@@ -61,7 +62,7 @@ class NavigationProblem(Problem):
             timeout=datetime.timedelta(hours=mission['timeout_in_h']),
             x_range=[units.Distance(deg=mission['x_range_l']), units.Distance(deg=mission['x_range_h'])] if 'x_range_l' in mission else None,
             y_range=[units.Distance(deg=mission['y_range_l']), units.Distance(deg=mission['y_range_h'])] if 'x_range_h' in mission else None,
-            extra_info=extra_info if extra_info is not None else {},
+            extra_info=mission.to_dict(),
         )
 
     def to_dict(self) -> dict:
