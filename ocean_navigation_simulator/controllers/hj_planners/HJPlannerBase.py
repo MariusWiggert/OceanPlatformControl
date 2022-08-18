@@ -190,8 +190,8 @@ class HJPlannerBase(Controller):
         # Step 3: Interpolate Spacial
         in_grid_x = self.grid.states[:, 0, 0]
         in_grid_y = self.grid.states[0, :, 1]
-        out_grid_x = np.linspace(observation.platform_state.lon.deg - width_deg, observation.platform_state.lon.deg + width_deg, width)
-        out_grid_y = np.linspace(observation.platform_state.lat.deg - width_deg, observation.platform_state.lat.deg + width_deg, width)
+        out_grid_x = np.linspace(observation.platform_state.lon.deg - width_deg/2, observation.platform_state.lon.deg + width_deg/2, width)
+        out_grid_y = np.linspace(observation.platform_state.lat.deg - width_deg/2, observation.platform_state.lat.deg + width_deg/2, width)
         val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(out_grid_y, out_grid_x).squeeze()
         # if self.verbose > 0:
             # print(f'HJPlannerBase: Interpolating TTR Map ({time.time()-start:.1f}s)')

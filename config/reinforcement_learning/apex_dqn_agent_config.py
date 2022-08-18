@@ -30,7 +30,7 @@ apex_dqn_agent_config = {
     #
     # The dataflow here can vary per algorithm. For example, PPO further
     # divides the train batch into minibatches for multi-epoch SGD.
-    # "rollout_fragment_length": 200,
+    "rollout_fragment_length": 200,
     # How to build per-Sampler (RolloutWorker) batches, which are then
     # usually concat'd to form the train batch. Note that "steps" below can
     # mean different things (either env- or agent-steps) and depends on the
@@ -54,7 +54,7 @@ apex_dqn_agent_config = {
     # Training batch size, if applicable. Should be >= rollout_fragment_length.
     # Samples batches will be concatenated together to a batch of this size,
     # which is then passed to SGD.
-    # "train_batch_size": 200,
+    "train_batch_size": 200,
     # Arguments to pass to the policy optimizer. These vary by optimizer.
     "optimizer": {},
 
@@ -157,7 +157,7 @@ apex_dqn_agent_config = {
     # Callbacks that will be run during various phases of training. See the
     # `DefaultCallbacks` class and `examples/custom_metrics_and_callbacks.py`
     # for more usage information.
-    # "callbacks": DefaultCallbacks,
+    "callbacks": DefaultCallbacks,
     # Whether to attempt to continue training if a worker crashes. The number
     # of currently healthy workers is reported as the "num_healthy_workers"
     # metric.
@@ -310,7 +310,7 @@ apex_dqn_agent_config = {
     # Whether to use double dqn
     "double_q": True,
     # N-step Q learning
-    # "n_step": 1,
+    "n_step": 1,
 
     # === Replay buffer ===
     # Deprecated, use capacity in replay_buffer_config instead.

@@ -3,8 +3,11 @@ import shutil
 import socket
 import time
 from typing import Optional
-
+import requests
 import ray
+import seaborn as sns
+
+sns.set_theme()
 
 # 1.    ray up setup/ray-config.yaml
 #       ray up --restart-only setup/ray-config.yaml
@@ -15,8 +18,6 @@ import ray
 
 # tensorboard --logdir ~/ray_results
 # ssh -L 16006:127.0.0.1:6006 olivier@my_server_ip
-import requests
-
 
 class RayUtils:
     @staticmethod
@@ -50,7 +51,7 @@ class RayUtils:
         folder: str = '~/ray_results',
         filter: str = '',
         iteration_limit: Optional[int] = 2,
-        delete: Optional[int] = True,
+        delete: Optional[bool] = True,
         ignore_most_recent: Optional[int] = 1,
         verbose: Optional[int] = 0,
     ):
@@ -72,15 +73,15 @@ class RayUtils:
                         if delete:
                             shutil.rmtree(experiment, ignore_errors=True)
                         if verbose > 0:
-                            print(f'clean_ray_results: Delete {csv_file} with {row_count} rows')
+                            print(f'RayUtils.clean_ray_results: Delete {csv_file} with {row_count} rows')
                     else:
                         if verbose > 0:
-                            print(f'clean_ray_results: Keep {csv_file} with {row_count} rows')
+                            print(f'RayUtils.clean_ray_results: Keep {csv_file} with {row_count} rows')
             else:
                 if delete:
                     shutil.rmtree(experiment, ignore_errors=True)
                 if verbose > 0:
-                    print(f'clean_ray_results: Delete {csv_file} without csv file')
+                    print(f'RayUtils.clean_ray_results: Delete {csv_file} without csv file')
 
     @staticmethod
     def check_storage_connection():

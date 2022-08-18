@@ -41,8 +41,8 @@ class NavigationProblem(Problem):
         problem_start_color: Optional[str] = 'red',
         problem_target_color: Optional[str] = 'green',
     ) -> matplotlib.axes.Axes:
-        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors=problem_start_color, marker='o', label='start')
-        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.target_radius, facecolor='none', edgecolor=problem_target_color, label='goal'))
+        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, c=problem_start_color, marker='o', label='start')
+        ax.add_patch(plt.Circle((self.end_region.lon.deg, self.end_region.lat.deg), self.target_radius, facecolor=problem_target_color, edgecolor=problem_target_color, label='goal'))
 
         return ax
 

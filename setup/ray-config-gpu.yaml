@@ -8,9 +8,9 @@
 cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head node.
-initial_workers: 7
-min_workers: 7
-max_workers: 7
+initial_workers: 6
+min_workers: 6
+max_workers: 6
 
 # Cloud-provider specific configuration.
 provider:
@@ -42,23 +42,34 @@ available_node_types:
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                # Popular Sizes:
-                #   - Standard_NC6_Promo (US$289.08)
-                #   - Standard_NC12_Promo (US$578.16)
-                #   - Standard_NC24_Promo (US$1,156.32)
-                #   - Standard_NC6 (US$657.00)
-                #   - Standard_NC12 (US$1,314.00)
-                #   - Standard_NC24 (US$2,628.00)
-                #   - Standard_D2s_v3 (US$70.08)
-                #   - Standard_D4s_v3 (US$140.16)
-                #   - Standard_D8s_v3 (US$280.32) $280/mo = $9.3/d = $0.38/h -> 10 machines: $3.8/h
-                #   - Standard_D16s_v3 (US$560.64)
-                #   - Standard_D32s_v3 (US$1,121.28)
-                #   - Standard_D64s_v3 (US$2,242.56)
-                #   - Standard_F32s_v2 (US$987.69)
+                # OceanEnv Worker need ~ 2.2GB RAM therefore cheaper F-Series is not suitable!
+                # Bigger machines have linear cost/storage:
+                #   Too many small machines is laborious.
+                #   Too few machines can have a disk bottleneck
+                # GPU:
+                #   - Standard_NC6_Promo (US$289.08, 56GB RAM)
+                #   - Standard_NC12_Promo (US$578.16, 112GB RAM)
+                #   - Standard_NC24_Promo (US$1,156.32, 225GB RAM)
+                #   - Standard_NC6 (US$657.00, 56GB RAM)
+                #   - Standard_NC12 (US$1,314.00, 112GB RAM)
+                #   - Standard_NC24 (US$2,628.00, 225GB RAM)
+                # General Purpose:
+                #   - Standard_D2s_v5 (US$70.08, 8GB RAM)
+                #   - Standard_D4s_v5 (US$140.16, 16GB RAM)
+                #   - Standard_D8s_v5 (US$280.32, 32GB RAM) $280/mo = $9.3/d = $0.38/h -> 10 machines: $3.8/h
+                #   - Standard_D16s_v5 (US$560.64, 64GB RAM)
+                #   - Standard_D32s_v5 (US$1,121.28, 128GB RAM)
+                #   - Standard_D64s_v5 (US$2,242.56, 256GB RAM)
+                # Compute:
+                #   - Standard_F4s_v2 (US$123.37, 8GB RAM)
+                #   - Standard_F8s_v2 (US$246.74, 16GB RAM)
+                #   - Standard_F16s_v2 (US$494.21, 32GB RAM)
+                #   - Standard_F32s_v2 (US$987.69, 64GB RAM)
+                #   - Standard_F64s_v2 (US$1,975.38, 128GB RAM)
                 # Cost Examples:
-                #   - 1 * Standard_NC6_Promo + 8 * Standard_D4s_v3 = 289 + 8 * 140 = 1409$/month = 47$/day = 2$/hour
-                #   - 8 * Standard_NC6_Promo = 8 * 289 = 2312$/month = 77$/day = 3.2$/hour
+                #   - 1 GPU + 32 CPU: 1 * Standard_NC6_Promo +  8 * Standard_D4s_v3 = 289 +  8 * 140 = 1409$/month = 47$/day =   2$/hour
+                #   - 1 GPU + 70 CPU: 1 * Standard_NC6_Promo + 16 * Standard_D4s_v3 = 289 + 16 * 140 = 2529$/month = 84$/day = 3.5$/hour
+                #   - 8 GPU + 48 CPU: 8 * Standard_NC6_Promo                        = 8 * 289        = 2312$/month = 77$/day = 3.2$/hour
                 vmSize: Standard_NC6_Promo
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: microsoft-dsvm
@@ -72,8 +83,8 @@ available_node_types:
     ray.worker.default:
         # The minimum number of worker nodes of this type to launch.
         # This number should be >= 0.
-        min_workers: 7
-        max_workers: 7
+        min_workers: 6
+        max_workers: 6
         # The resources provided by this node type.
         resources: {"CPU": 6, "GPU": 1}
         # Provider-specific config, e.g. instance type.

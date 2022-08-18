@@ -9,12 +9,13 @@ from ocean_navigation_simulator.environment.RewardFunction import RewardFunction
 class  OceanRewardFunction(RewardFunction):
     def __init__(self, planner: HJReach2DPlanner, config = {}, verbose: Optional[int] = 0):
         self.planner = planner
+        self.config = config
         self.verbose =verbose
 
     @staticmethod
-    def get_reward_range():
+    def get_reward_range(config = {}):
         # Reward Upper Bound: at most 10min = 1/6h
-        return -1 / 6, 1 / 6
+        return -float("inf"), 1 / 6
 
     def get_reward(
         self,
