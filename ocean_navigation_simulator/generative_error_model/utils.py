@@ -4,14 +4,13 @@ code but do not belong to a specific class."""
 import ocean_navigation_simulator.utils.units
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
-from typing import List
 from contextlib import redirect_stdout
 import yaml
 import sys
 import logging
 import numpy as np
 import os
-
+import logging
 
 def load_config():
     yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
@@ -52,7 +51,7 @@ def timer(func):
         time_taken = time.time() - start
         hours = time_taken//3600
         minutes = (time_taken - (time_taken//3600)*3600)//60
-        seconds = round(time_taken - (hours)*3600 - (minutes)*60, 2)
+        seconds = round(time_taken - hours*3600 - minutes*60, 2)
         print(f"\nTime taken: {int(hours)} hours {int(minutes)} minutes {seconds} seconds.")
     return wrapper
 
@@ -70,22 +69,19 @@ def log_std_out(func):
 
 #-------------------------- LOGGING ---------------------------#
 
-def setup_logger(args, log_root, now_string):
-    formatter = logging.Formatter('[%(levelname)s] %(message)s')
-    logging.basicConfig(
-    format="[%(levelname)s] %(message)s",
-    level=logging.INFO,
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(os.path.join(log_root, f'{now_string}.log'))
-    ])
-    logger = logging.getLogger()
 
-    # args.log_root = log_root
-    # args.formatter = formatter
-    # args.now_string = now_string
-    # return args, logger
+def setup_logger(log_root, now_string):
+    logging.basicConfig(
+        format="[%(levelname)s | %(asctime)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(os.path.join(log_root, f'{now_string}.log'))
+        ])
+    logger = logging.getLogger()
     return logger
+
 
 def refresh_logger(args, logger):
     # Logging fix for stale file handler

@@ -64,6 +64,7 @@ class DatasetWriter:
 
 if __name__ == "__main__":
     # run for quick testing + generating csv files
+    # TODO: handle when change area need to go into config and change lon/lat range and local_forecast + data_writer dirs
     yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
     data_writer = DatasetWriter(yaml_file_config)
     data_writer.write_all_files()

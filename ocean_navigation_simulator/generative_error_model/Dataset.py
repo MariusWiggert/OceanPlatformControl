@@ -37,7 +37,7 @@ class DatasetName(Enum):
 dataset_map = {DatasetName.AREA1: "area1", DatasetName.AREA3: "area3", DatasetName.AREA4: "area4"}
 
 
-def load_dataset(dataset_name: DatasetName) -> pd.DataFrame:
+def load_dataset(dataset_name: DatasetName, overlap: bool=True) -> pd.DataFrame:
     dataset_root = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/"
     dataset_path = os.path.join(dataset_root, dataset_map[dataset_name])
     dataset_files = os.listdir(dataset_path)
@@ -45,8 +45,14 @@ def load_dataset(dataset_name: DatasetName) -> pd.DataFrame:
     for i in range(len(dataset_files)):
         if i == 0:
             df = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
+            if overlap is False:
+                times = sorted(list(set(df["time"])))[:24]
+                df = df[df["time"].isin(times)]
         else:
             df_temp = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
+            if overlap is False:
+                times = sorted(list(set(df_temp["time"])))[:24]
+                df_temp = df_temp[df_temp["time"].isin(times)]
             df = pd.concat([df, df_temp], ignore_index=True)
     print(f"Loaded {dataset_name.name} dataset.")
     print_df_meta_data(df)

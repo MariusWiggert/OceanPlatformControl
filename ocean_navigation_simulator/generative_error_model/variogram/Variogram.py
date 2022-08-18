@@ -5,9 +5,9 @@ import numpy as np
 from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
 import multiprocessing as mp
-import datetime
 import ctypes as c
 from pyproj import Geod
+import logging
 
 
 class Variogram:
@@ -66,7 +66,7 @@ class Variogram:
         return bin_statistics
 
     def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=False, units: str="km") -> Tuple[np.ndarray, np.ndarray]:
+        detrended: bool=False, units: str="km", logger: logging=None) -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. Then computes the lag value in each axis
         and the variogram value for u and v errors.
@@ -134,9 +134,8 @@ class Variogram:
             q.put(indices)
             with iolock:
                 running_sum += len(indices[0])
-                if iteration%10 == 0 and iteration !=0:
-                    now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-                    print(f"[{now_string} | Iteration: {iteration}] Estimated {round(100*(running_sum/number_of_pairs),2)}% of pairs finished.")
+                if iteration % 10 == 0 and iteration != 0 and logger is not None:
+                    logger.info(f"Iteration: {iteration}, Estimated {round(100*(running_sum/number_of_pairs),2)}% of pairs finished.")
                 iteration += 1
 
         for _ in range(num_workers):
@@ -185,8 +184,8 @@ class Variogram:
                 lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
             elif self.units == "km":
             # convert lags from degrees to kilometres
-                pts1 = np.hstack((lon[idx_i].reshape(-1,1), lat[idx_i].reshape(-1,1)))
-                pts2 = np.hstack((lon[idx_j].reshape(-1,1), lat[idx_j].reshape(-1,1)))
+                pts1 = np.hstack((lon[idx_i].reshape(-1, 1), lat[idx_i].reshape(-1,1)))
+                pts2 = np.hstack((lon[idx_j].reshape(-1, 1), lat[idx_j].reshape(-1,1)))
                 lon_lag, lat_lag = convert_degree_to_km(pts1, pts2)
                 # convert to bin indices
                 lon_lag = np.floor(np.absolute(lon_lag)/self.lon_res).astype(int)
@@ -336,7 +335,7 @@ def convert_degree_to_km2(ref_point: np.ndarray, lag: np.ndarray) -> Tuple[np.nd
     return lon_dist/1000, lat_dist/1000
 
 
-def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> Tuple[np.ndarray]:
+def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> List[np.ndarray]:
     # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
     if len(pts1.shape) > 1:
         dx = (pts1[:, 0] - pts2[:, 0]) * 40000 * np.cos((pts1[:, 1] + pts2[:, 1]) * np.pi/360)/360
