@@ -1,9 +1,9 @@
 from ocean_navigation_simulator.generative_error_model.Dataset import load_dataset, DatasetName, load_single_file
-from ocean_navigation_simulator.generative_error_model.utils import timer, save_variogram_to_npy, setup_logger, load_config
+from ocean_navigation_simulator.generative_error_model.variogram.utils import save_variogram_to_npy
+from ocean_navigation_simulator.generative_error_model.utils import timer, setup_logger, load_config
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
 import argparse
-import numpy as np
 import datetime
 import os
 
@@ -35,7 +35,7 @@ def main():
     args = parse().parse_args()
     args.detrended = t_or_f(args.detrended)
     args.cross_buoy_pairs_only = t_or_f(args.cross_buoy_pairs_only)
-    args.data_overlap = t_or_f(args.cross_buoy_pairs_only)
+    args.data_overlap = t_or_f(args.data_overlap)
 
     # setup logging
     config = load_config()

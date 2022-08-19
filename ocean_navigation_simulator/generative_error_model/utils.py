@@ -19,32 +19,11 @@ def load_config():
     return config
 
 
-def save_variogram_to_npy(variogram: Variogram, file_path: str):
-    if variogram.bins is None:
-        raise Exception("Need to build variogram first before you can save it!")
-
-    data_to_save = {"bins":variogram.bins,
-                    "bins_count":variogram.bins_count,
-                    "res": [variogram.lon_res, variogram.lat_res, variogram.t_res],
-                    "units": variogram.units
-                    }
-    np.save(file_path, data_to_save)
-    print(f"\nSaved variogram data to: {file_path}")
-
-
-def load_variogram_from_npy(file_path: str):
-    data = np.load(file_path, allow_pickle=True)
-    bins = data.item().get("bins")
-    bins_count = data.item().get("bins_count")
-    res = data.item().get("res")
-    units = data.item().get("units")
-    return bins, bins_count, res, units
-
-
 #------------------------------ Decorator Functions ---------------------------------#
 
 def timer(func):
     import time
+
     def wrapper():
         start = time.time()
         func()
@@ -58,6 +37,7 @@ def timer(func):
 
 def log_std_out(func):
     filename = os.path.join("/home/jonas/Downloads/", f"{func.__name__}_log.txt")
+
     def wrapper():
         with open(filename, 'w') as f:
             with redirect_stdout(f):

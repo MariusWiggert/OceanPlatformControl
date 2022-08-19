@@ -1,7 +1,7 @@
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
-from ocean_navigation_simulator.generative_error_model.utils import load_config, load_variogram_from_npy
+from ocean_navigation_simulator.generative_error_model.utils import load_config
 
-from typing import Tuple, List, AnyStr, Dict
+from typing import Tuple, List, AnyStr
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -227,4 +227,13 @@ class VisualizeVariogram:
         axs[1].scatter(np.arange(axis_map[axis_name]["bins"])[:cutoff]*axis_map[axis_name]["res"], var_y_num/var_y_denom, marker="x")
         axs[1].title.set_text(f"{axis_name}")
         plt.show()
+
+
+def load_variogram_from_npy(file_path: str):
+    data = np.load(file_path, allow_pickle=True)
+    bins = data.item().get("bins")
+    bins_count = data.item().get("bins_count")
+    res = data.item().get("res")
+    units = data.item().get("units")
+    return bins, bins_count, res, units
    
