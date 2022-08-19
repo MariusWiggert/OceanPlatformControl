@@ -6,7 +6,6 @@ from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import ctypes as c
-from pyproj import Geod
 import logging
 
 
@@ -324,23 +323,14 @@ def create_shared_array_from_np(arr, ctype):
     return output
 
 
-def convert_degree_to_km2(ref_point: np.ndarray, lag: np.ndarray) -> Tuple[np.ndarray]:
-    wgs84_geod = Geod(ellps="WGS84")
-    if len(ref_point.shape) > 1:
-        _,_,lon_dist = wgs84_geod.inv(ref_point[:,0], ref_point[:,1], lag[:,0], np.zeros(lag[:,0].shape))
-        _,_,lat_dist = wgs84_geod.inv(ref_point[:,0], ref_point[:,1], np.zeros(lag[:,1].shape), lag[:,1])
-    else:
-        _,_,lon_dist = wgs84_geod.inv(ref_point[0], ref_point[1], lag[0], np.zeros(lag[0].shape))
-        _,_,lat_dist = wgs84_geod.inv(ref_point[0], ref_point[1], np.zeros(lag[1].shape), lag[1])  
-    return lon_dist/1000, lat_dist/1000
-
-
 def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> List[np.ndarray]:
+    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
+    Note: e.g. pts1 -> np.array([lon, lat])."""
     # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
     if len(pts1.shape) > 1:
-        dx = (pts1[:, 0] - pts2[:, 0]) * 40000 * np.cos((pts1[:, 1] + pts2[:, 1]) * np.pi/360)/360
-        dy = ((pts1[:, 1] - pts2[:, 1]) * 40000)/360
+        dx = (pts1[:, 0] - pts2[:, 0]) * 40075.2 * np.cos((pts1[:, 1] + pts2[:, 1]) * np.pi/360)/360
+        dy = ((pts1[:, 1] - pts2[:, 1]) * 39806.64)/360
     else:
-        dx = (pts1[0] - pts2[0]) * 40000 * np.cos((pts1[1] + pts2[1]) * np.pi/360)/360
-        dy = ((pts1[1] - pts2[1]) * 40000)/360
+        dx = (pts1[0] - pts2[0]) * 40075.2 * np.cos((pts1[1] + pts2[1]) * np.pi/360)/360
+        dy = ((pts1[1] - pts2[1]) * 39806.64)/360
     return dx, dy

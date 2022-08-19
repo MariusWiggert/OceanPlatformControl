@@ -1,16 +1,16 @@
 """random functions which are needed as part of the generative error model
 code but do not belong to a specific class."""
 
-import ocean_navigation_simulator.utils.units
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
 from contextlib import redirect_stdout
 import yaml
 import sys
-import logging
 import numpy as np
 import os
 import logging
+from typing import List
+
 
 def load_config():
     yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
@@ -41,7 +41,7 @@ def load_variogram_from_npy(file_path: str):
     return bins, bins_count, res, units
 
 
-#------------------- Decorator Functions ---------------------------------#
+#------------------------------ Decorator Functions ---------------------------------#
 
 def timer(func):
     import time
@@ -69,7 +69,6 @@ def log_std_out(func):
 
 #-------------------------- LOGGING ---------------------------#
 
-
 def setup_logger(log_root, now_string):
     logging.basicConfig(
         format="[%(levelname)s | %(asctime)s] %(message)s",
@@ -91,3 +90,21 @@ def refresh_logger(args, logger):
     fh.setFormatter(args.formatter)
     logger.addHandler(fh)
     return logger
+
+
+#------------------------ CONVERSIONS -------------------------#
+
+def convert_km_to_degree(dx: np.ndarray, dy: np.ndarray) -> List[np.ndarray]:
+    """Takes difference in lon km and lat km and convert them into differences in degrees."""
+    dlat = dy * (360 / 39806.64)
+    dlon = (dx * (360/40075.2)) / np.cos(dlat * np.pi/360)
+    return dlon, dlat
+
+
+def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> List[np.ndarray]:
+    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
+    Note: e.g. pts1 -> np.array([lon, lat])."""
+    # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
+    x = lon * 40075.2 * np.cos(lat * np.pi/360)/360
+    y = lat * (39806.64/360)
+    return x, y

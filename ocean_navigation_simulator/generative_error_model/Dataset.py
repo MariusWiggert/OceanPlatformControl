@@ -59,7 +59,7 @@ def load_dataset(dataset_name: DatasetName, overlap: bool=True) -> pd.DataFrame:
     return df
 
 
-def load_single_file(dataset_name: DatasetName, file_idx: int) -> pd.DataFrame:
+def load_single_file(dataset_name: DatasetName, file_idx: int = 0) -> pd.DataFrame:
     dataset_root = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error"
     dataset_path = os.path.join(dataset_root, dataset_map[dataset_name])
     file_list = os.listdir(dataset_path)
