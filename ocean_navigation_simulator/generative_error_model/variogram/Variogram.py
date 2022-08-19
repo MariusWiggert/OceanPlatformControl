@@ -183,8 +183,8 @@ class Variogram:
                 lat_lag = np.floor(np.absolute(lat[idx_i] - lat[idx_j])/self.lat_res).astype(int)
             elif self.units == "km":
             # convert lags from degrees to kilometres
-                pts1 = np.hstack((lon[idx_i].reshape(-1, 1), lat[idx_i].reshape(-1,1)))
-                pts2 = np.hstack((lon[idx_j].reshape(-1, 1), lat[idx_j].reshape(-1,1)))
+                pts1 = np.hstack((lon[idx_i].reshape(-1, 1), lat[idx_i].reshape(-1, 1)))
+                pts2 = np.hstack((lon[idx_j].reshape(-1, 1), lat[idx_j].reshape(-1, 1)))
                 lon_lag, lat_lag = convert_degree_to_km(pts1, pts2)
                 # convert to bin indices
                 lon_lag = np.floor(np.absolute(lon_lag)/self.lon_res).astype(int)
@@ -233,9 +233,12 @@ class Variogram:
         elif self.units == "km":
             max_lon, min_lon = self.data["lon"].max(), self.data["lon"].min()
             max_lat, min_lat = self.data["lat"].max(), self.data["lat"].min()
-            max_dx, max_dy = convert_degree_to_km(np.array([min_lon, min_lat]), np.array([max_lon, max_lat]))
-            self.lon_bins = np.ceil(abs(max_dx/lon_res)+5).astype(int)
-            self.lat_bins = np.ceil(abs(max_dy/lat_res)+5).astype(int)
+            min_y = 110.574 * min_lat
+            max_y = 110.574 * max_lat
+            min_x = 111.320 * min_lon * np.cos(0)
+            max_x = 111.320 * max_lon * np.cos(0)
+            self.lon_bins = np.ceil(abs((max_x-min_x)/lon_res)+5).astype(int)
+            self.lat_bins = np.ceil(abs((max_y-min_y)/lat_res)+5).astype(int)
 
     def plot_detrended_bins(self) -> None:
         """Plots detrended data over time for each bin separately."""
@@ -334,3 +337,12 @@ def convert_degree_to_km(pts1: np.ndarray, pts2: np.ndarray) -> List[np.ndarray]
         dx = (pts1[0] - pts2[0]) * 40075.2 * np.cos((pts1[1] + pts2[1]) * np.pi/360)/360
         dy = ((pts1[1] - pts2[1]) * 39806.64)/360
     return dx, dy
+
+
+def _convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> List[np.ndarray]:
+    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
+    Note: e.g. pts1 -> np.array([lon, lat])."""
+    # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
+    x = lon * 40075.2 * np.cos(lat * np.pi/360)/360
+    y = lat * (39806.64/360)
+    return x, y

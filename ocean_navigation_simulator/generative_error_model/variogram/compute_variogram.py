@@ -22,9 +22,20 @@ def parse():
     return parser
 
 
+def t_or_f(arg):
+    ua = str(arg).upper()
+    if 'TRUE'.startswith(ua):
+        return True
+    elif 'FALSE'.startswith(ua):
+        return False
+
+
 @timer
 def main():
     args = parse().parse_args()
+    args.detrended = t_or_f(args.detrended)
+    args.cross_buoy_pairs_only = t_or_f(args.cross_buoy_pairs_only)
+    args.data_overlap = t_or_f(args.cross_buoy_pairs_only)
 
     # setup logging
     config = load_config()
