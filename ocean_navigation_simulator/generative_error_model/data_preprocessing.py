@@ -18,8 +18,9 @@ from tqdm import tqdm
 
 # TODO: ensure space-time range is adequate for interpolation (PlatformState)
 
+
 def plot_buoy_data_time_collapsed(df: pd.DataFrame):
-    fig = plt.figure(figsize=(12,12))
+    fig = plt.figure(figsize=(12, 12))
     ax = plt.axes(projection=ccrs.PlateCarree())
     grid_lines = ax.gridlines(draw_labels=True, zorder=5)
     grid_lines.top_labels = False
@@ -30,8 +31,9 @@ def plot_buoy_data_time_collapsed(df: pd.DataFrame):
         ax.scatter(df[df["buoy"] == buoy_name]["lon"], df[df["buoy"] == buoy_name]["lat"], marker=".")
     plt.show()
 
+
 def plot_buoy_data_at_time_step(df: pd.DataFrame, plot: bool=False):
-    fig = plt.figure(figsize=(10,10))
+    fig = plt.figure(figsize=(10, 10))
     ax = plt.axes(projection=ccrs.PlateCarree())
     grid_lines = ax.gridlines(draw_labels=True, zorder=5)
     grid_lines.top_labels = False
@@ -43,6 +45,7 @@ def plot_buoy_data_at_time_step(df: pd.DataFrame, plot: bool=False):
         plt.show()
     else:
         return fig, scatter_plot, ax
+
 
 def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source: str, n: int=10) -> pd.DataFrame: 
     """
@@ -58,12 +61,13 @@ def interp_xarray(df: pd.DataFrame, ocean_field: OceanCurrentField, data_source:
 
     for i in tqdm(range(0, df.shape[0], n)):
         hindcast_interp = getattr(ocean_field, data_source).DataArray.interp(time=df.iloc[i:i+n]["time"],
-                                                                            lon=df.iloc[i:i+n]["lon"],
-                                                                            lat=df.iloc[i:i+n]["lat"])
+                                                                             lon=df.iloc[i:i+n]["lon"],
+                                                                             lat=df.iloc[i:i+n]["lat"])
         # add columns to dataframe
         df[f"u_{data_source.split('_')[0]}"].iloc[i:i+n] = hindcast_interp["water_u"].values.diagonal().diagonal()
         df[f"v_{data_source.split('_')[0]}"].iloc[i:i+n] = hindcast_interp["water_v"].values.diagonal().diagonal()
     return df
+
 
 def interp_hincast_casadi(df: pd.DataFrame, hindcast_x_interval: List[float], hindcast_y_interval: List[float],
                         hindcast_date_time: np.datetime64, ocean_field: OceanCurrentField) -> pd.DataFrame:

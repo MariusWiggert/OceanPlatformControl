@@ -19,9 +19,6 @@ class DatasetWriter:
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
 
     def get_error(self, forecast_idx: int) -> pd.DataFrame:
-        time_string = self._build_time_string(forecast_idx)
-        self.config["buoy_config"]["copernicus"]["time_range"] = time_string
-
         # get buoy data and interpolate forecast to it
         buoy_data = BuoyDataCopernicus(self.config)
 
@@ -53,11 +50,16 @@ class DatasetWriter:
     def write_all_files(self) -> None:
         # write all files
         for forecast_idx in range(len(self.files_dicts)):
-            forecast_error = self.get_error(forecast_idx)
             file_name = f"copernicus_forecast_error_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
                         f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"\
                         f"_time_{self.config['buoy_config']['copernicus']['time_range']}.csv"
             file_name = file_name.replace("/", "__")
+            time_string = self._build_time_string(forecast_idx)
+            self.config["buoy_config"]["copernicus"]["time_range"] = time_string
+            if os.path.exists(os.path.join(self.output_dir, file_name)):
+                print(f"file already exists: {file_name}")
+                continue
+            forecast_error = self.get_error(forecast_idx)
             self.write_error_csv(forecast_error, file_name)
             print(f"written: {file_name}")
 

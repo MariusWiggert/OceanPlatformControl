@@ -78,6 +78,7 @@ class Variogram:
         chunk_size - lower number if less memory
         cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
         detrended - use detrended value or not
+        units - {degrees, km}
         """
 
         if detrended and "detrended_u_error" not in self.data.columns:

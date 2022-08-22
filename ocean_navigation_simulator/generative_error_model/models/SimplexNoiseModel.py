@@ -48,6 +48,13 @@ class CurrentVector(object):
 
 
 # weight, x, y, time.
+# _U_COMPONENT_HARMONICS = [
+#     HarmonicParameters(3.45394576e-01, 1.64681366e+02, 6.23924469e+01, 1.25745867e+01),
+#     HarmonicParameters(4.90908360e-01, 1.26397483e+01, 2.36719148e+01, 1.99995525e+03),
+#     HarmonicParameters(1.38641170e-01, 1.16968510e+01, 6.25973474e+01, 6.60372136e+01),
+#     HarmonicParameters(1.54073286e-01, 1.00241983e+03, 9.18811378e+01, 1.93519847e+03)
+# ]
+
 _U_COMPONENT_HARMONICS = [
     HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
     HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
