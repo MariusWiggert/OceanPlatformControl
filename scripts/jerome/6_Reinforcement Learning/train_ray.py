@@ -6,6 +6,9 @@ sys.path.extend(['/home/ubuntu/OceanPlatformControl', '/home/ubuntu/OceanPlatfor
 print('Python %s on %s' % (sys.version, sys.platform))
 print(sys.path)
 
+import os
+os.environ['RAY_DISABLE_MEMORY_MONITOR']=1
+
 import datetime
 import time
 import pytz

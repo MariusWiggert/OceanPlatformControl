@@ -1,9 +1,7 @@
 import yaml
 import os
-import time
 import datetime
 from typing import Optional, List
-from c3python import C3Python
 
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
