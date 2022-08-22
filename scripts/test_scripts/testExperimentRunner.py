@@ -13,8 +13,9 @@ from ray.tune.suggest.bayesopt import BayesOptSearch
 from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
 
 
-def conditional_parameters(str_accepted: list[str], to_return):
-    return tune.sample_from(lambda s: to_return if s.config.kernel in str_accepted else None)
+def conditional_parameters(str_accepted: list[str], to_return, is_kernel_1: bool = True):
+    return tune.sample_from(
+        lambda s: to_return if (s.config.kernel if is_kernel_1 else s.config.kernel_2) in str_accepted else None)
 
 
 # General search space
@@ -22,7 +23,7 @@ def conditional_parameters(str_accepted: list[str], to_return):
 search_space = {
     "filename_problems": "all_problems_3",
     # product and sum are not supported yet
-    "kernel": tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+    "kernel": "matern",  # tune.grid_search("matern"),
     # "kernel": "expSineSquared",  # "matern"
     "sigma_exp": tune.qrandn(2, 2, 0.0001),
     # if matern or rbf
@@ -31,13 +32,7 @@ search_space = {
         "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
         "time": tune.loguniform(7200, 43200)
     }),
-    # "scaling": conditional_parameters(["matern"], {
-    #     "latitude": tune.loguniform(1, 1000000),
-    #     "longitude": tune.loguniform(1, 1000000),
-    #     "time": tune.loguniform(1, 1000000)}
-    #                                  ),
-    # "lon_scale": tune.loguniform(1, 1e6),
-    # "time_scale": tune.loguniform(1, 1e6),
+
     # if matern
     "nu": conditional_parameters(["matern"], tune.choice([0.1, 0.5, 1.5, 2.5])),
     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
@@ -45,7 +40,6 @@ search_space = {
     # if rational quadratic or expsinesquared(=periodic)
     "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
     # "length_scale": tune.uniform(1, 100000),
-
     "length_scale_bounds": "fixed",
     # if rational quadratic
     "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
@@ -55,22 +49,23 @@ search_space = {
     "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10)),
     "periodicity_bounds": conditional_parameters(["ExpSineSquared"], "fixed"),
 
-    # not supported yet
-    # if product
-    # "1": {
-    #     "lat_scale": tune.loguniform(1, 1e6),
-    #     "lon_scale": tune.loguniform(1, 1e6),
-    #     "time_scale": tune.loguniform(1, 1e6),
-    #     "length_scale_bounds": "fixed",
-    #     # if matern
-    #     "nu": tune.choice([0.001, 0.1, 0.5, 1.5, 2.5, 5, 10])
-    # },
-    # "2": {
-    #     "lat_scale": tune.loguniform(1, 1e6),
-    #     "lon_scale": tune.loguniform(1, 1e6),
-    #     "time_scale": tune.loguniform(1, 1e6),
-    #     "length_scale_bounds": "fixed"
-    # }
+    # Second kernel
+    "kernel_2": tune.choice(["RationalQuadratic", "ExpSineSquared", "rbf"]),
+    "sigma_exp_2": tune.qrandn(1, 1, 0.0001),
+    "scaling_2": conditional_parameters(["rbf", "matern"], {
+        "latitude": tune.loguniform(1e-2, 5),
+        "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
+        "time": tune.loguniform(7200, 43200)
+    }, is_kernel_1=False),
+    "length_scale_2": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000),
+                                             is_kernel_1=False),
+    "length_scale_bounds_2": "fixed",
+    # if rational quadratic
+    "alpha_2": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
+    "alpha_bounds_2": conditional_parameters(["RationalQuadratic"], "fixed"),
+    # if expSineSquared
+    "periodicity_2": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10), is_kernel_1=False),
+    "periodicity_bounds_2": conditional_parameters(["ExpSineSquared"], "fixed", is_kernel_1=False),
 }
 
 
@@ -168,23 +163,25 @@ def write_row_csv(path, row):
     f.close()
 
 
-def train(config):
+def train(config_init):
     # Create a file for the log of all the results
     file_csv = os.path.join(os.path.dirname(os.getcwd()), "results.csv")
     print("path file:", file_csv)
     # os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
     os.chdir("/home/seaweed/test")
-    if "num_threads" in config:
-        torch.set_num_threads(config.pop("num_threads"))
+    if "num_threads" in config_init:
+        torch.set_num_threads(config_init.pop("num_threads"))
     yaml_file_config = "./scenarios/ocean_observer/config_real_data_GP.yaml"
-    config = {k: v for k, v in config.items() if v is not None}
+    config = {k: v for k, v in config_init.items() if v is not None and not k.endswith("_2")}
+    config_2 = {k[:-2]: v for k, v in config_init.items() if v is not None and k.endswith("_2")}
     filename_problems = config.pop("filename_problems", None)
-    print(search_space)
     # print("dir:", directory)
     with open(yaml_file_config) as f:
         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
         type_kernel = config.pop("kernel")
+        type_kernel_2 = config_2.pop("kernel")
         sigma_exp_squared = abs(config.pop("sigma_exp"))
+        sigma_exp_squared_2 = abs(config_2.pop("sigma_exp"))
         # Not supported yet
         # if type in ["product", "sum"]:
         #     config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
@@ -193,6 +190,7 @@ def train(config):
         #         "kernel_2":
         #     }
         scaling = config.pop("scaling", None)
+        scaling_2 = config_2.pop("scaling", None)
         config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = \
             {"type": type_kernel,
              "scaling": scaling,
@@ -206,8 +204,22 @@ def train(config):
              # if expsinesquared:
              "parameters": config
              }  # | search_space
+        config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"] = \
+            {"type": type_kernel_2,
+             "scaling": scaling_2,
+             "sigma_exp_squared": sigma_exp_squared_2,
+             # if matern
+             # "scaling": {"longitude": config["lon_scale"], "latitude": config["lat_scale"],
+             #            "time": config["time_scale"], "nu": config["nu"]},
+             # if rational quadratic
+             # "parameters": {"alpha": config["alpha"], "length_scale_bounds": config["length_scale_bounds"],
+             #               "alpha_bounds": "fixed", "length_scale": config["length_scale"]}
+             # if expsinesquared:
+             "parameters_2": config_2
+             }
 
         print("kernel:", config_yaml["observer"]["model"]["gaussian_process"]["kernel"])
+        print("kernel_2:", config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"])
 
         exp = ExperimentRunner(config_yaml, filename_problems=filename_problems)
         results, results_per_h, merged, _ = exp.run_all_problems()
@@ -218,7 +230,8 @@ def train(config):
             if k != "time":
                 merged_mean["mean_" + str(k)] = np.array(merged[k]).mean()
         merged_mean |= merged
-        merged_mean = {"kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"])} | merged_mean
+        merged_mean = {"kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
+                       "kernel_2": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"])} | merged_mean
         if not os.path.exists(file_csv):
             write_row_csv(file_csv, merged_mean.keys())
         write_row_csv(file_csv, merged_mean.values())

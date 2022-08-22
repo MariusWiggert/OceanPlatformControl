@@ -37,8 +37,7 @@ class OceanCurrentGP(OceanCurrentModel):
         # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
         if "kernel" in self.config_dict:
             parameters_model["kernel"] = self.__get_kernel(
-                self.config_dict["kernel"])  # + 2.3561 * gaussian_process.kernels.Matern(
-            # length_scale=[48.89273, 0.312469448, 50036.4002], nu=1.5, length_scale_bounds="fixed")
+                self.config_dict["kernel"]) * self.__get_kernel(self.config_dict["kernel_2"], False)
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
@@ -47,7 +46,7 @@ class OceanCurrentGP(OceanCurrentModel):
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
         print(f"Gaussian Process created: {self.model}")
 
-    def __get_kernel(self, dic_config: dict[str, Any]) -> Kernel:
+    def __get_kernel(self, dic_config: dict[str, Any], first_kernel: bool = True) -> Kernel:
         """Get the GP kernel based on the dictionary generated based on the Yaml file.
         Args:
             dic_config: Dictionary containing the hyper-parameters of the kernel that will be used by the GP.
@@ -57,7 +56,7 @@ class OceanCurrentGP(OceanCurrentModel):
         """
         type_kernel = str(dic_config["type"])
         factor = dic_config.get("sigma_exp_squared", 1)
-        params = dic_config.get("parameters", {})
+        params = dic_config.get("parameters" if first_kernel else "parameters_2", {})
         scales = dic_config.get("scaling", None)
 
         # basic_kernel = 0.6211287143789959 * gaussian_process.kernels.Matern(

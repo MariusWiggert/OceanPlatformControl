@@ -124,7 +124,6 @@ class PredictionsAndGroundTruthOverArea:
                 trajectory, new_files = tuple_trajectory_history_new_files
                 datetime_day_selected = units.get_datetime_from_np64(
                     initial_forecasts[index_prediction].isel(time=0)["time"])
-                timestamp_day_selected = datetime_day_selected.timestamp()
 
                 # # index_latest_position_trajectory = max(0, np.argmax(time_prediction_ts < trajectory[:, 2]) - 1)
                 # index_latest_position_trajectory_before = np.sum(timestamp_day_selected > trajectory[:, 2]) - 1
