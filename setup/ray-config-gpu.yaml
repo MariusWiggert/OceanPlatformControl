@@ -164,11 +164,11 @@ setup_commands:
 
     # Create Conda Environment wit fresh .bashrc
 #    - (! sudo mountpoint /seaweed-storage) || sudo fusermount -u /seaweed-storage
-    - /bin/cp /etc/skel/.bashrc ~/
-    - (which conda && echo 'eval "$(conda shell.bash hook)"' >> ~/.bashrc) || true
-    - bash -i ~/setup/set_up_ocean_platform_env.sh
-    - sshfs -o ssh_command='ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
-    - (conda activate ocean_platform &> /dev/null && echo 'conda activate ocean_platform' >> ~/.bashrc) || true
+#    - /bin/cp /etc/skel/.bashrc ~/
+#    - (which conda && echo 'eval "$(conda shell.bash hook)"' >> ~/.bashrc) || true
+#    - bash -i ~/setup/set_up_ocean_platform_env.sh
+#    - sshfs -o ssh_command='ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
+#    - (conda activate ocean_platform &> /dev/null && echo 'conda activate ocean_platform' >> ~/.bashrc) || true
 
 #    - sudo lsof /dev/nvidia* | awk 'NR > 1 {print $2}' | xargs sudo kill
 #    - sudo rmmod nvidia_drm
@@ -180,19 +180,22 @@ setup_commands:
 #    - echo "Setup Time $runtime s"
 
 # Custom commands that will be run on the head node after common setup.
-head_setup_commands:
-    - pip install -U azure-cli-core azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource msrestazure
+head_setup_commands: []
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
 
 # Command to start ray on the head node. You don't need to change this.
 head_start_ray_commands:
+    - bash -i ~/setup/set_up_ocean_platform_env.sh
+    - bash -i ~/setup/set_up_seaweed_storage.sh
     - ray stop --force
     - ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
 
 # Command to start ray on worker nodes. You don't need to change this.
 worker_start_ray_commands:
+    - bash -i ~/setup/set_up_ocean_platform_env.sh
+    - bash -i ~/setup/set_up_seaweed_storage.sh
     - ray stop --force
     - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
 

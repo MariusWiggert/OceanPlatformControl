@@ -19,7 +19,6 @@ class Controller(abc.ABC):
             problem: the Problem the controller will run on
         """
         self.problem = problem
-        self.platform_dict = platform_dict
         self.verbose = verbose
 
     @abc.abstractmethod

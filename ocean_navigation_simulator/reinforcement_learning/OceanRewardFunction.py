@@ -15,7 +15,7 @@ class  OceanRewardFunction(RewardFunction):
     @staticmethod
     def get_reward_range(config = {}):
         # Reward Upper Bound: at most 10min = 1/6h
-        return -float("inf"), 1 / 6
+        return -float("inf"), float("inf")
 
     def get_reward(
         self,
@@ -35,7 +35,7 @@ class  OceanRewardFunction(RewardFunction):
         Returns:
             a float representing reward
         """
-        prev_ttr = self.planner.interpolate_value_function_in_hours_at_point(observation=prev_obs)
-        curr_ttr = self.planner.interpolate_value_function_in_hours_at_point(observation=curr_obs)
+        prev_ttr = self.planner.interpolate_value_function_in_hours(observation=prev_obs).item()
+        curr_ttr = self.planner.interpolate_value_function_in_hours(observation=curr_obs).item()
 
-        return prev_ttr - curr_ttr
+        return (prev_ttr - curr_ttr) + (self.config['target_bonus'] if problem_status > 0 else 0) + (self.config['fail_punishment'] if problem_status < 0 else 0)

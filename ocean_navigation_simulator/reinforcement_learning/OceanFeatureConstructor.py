@@ -38,7 +38,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
 
     def get_features_from_state(self, observation: ArenaObservation, problem: NavigationProblem) -> Tuple[np.ndarray, np.ndarray]:
         # Step 1: Save measurements and calculate relative measurements
-        if self.config['num_measurements']:
+        if self.config['num_measurements'] > 0:
             self.measurements = np.append(self.measurements[1-self.config['num_measurements']:], np.array([[
                 observation.platform_state.lon.deg,
                 observation.platform_state.lat.deg,
@@ -51,8 +51,8 @@ class  OceanFeatureConstructor(FeatureConstructor):
 
         # Step 3: Get TTR Map on grid
         start = time.time()
-        ttr_map = self.planner.interpolate_value_function_in_hours_on_grid(observation, width_deg=self.config['ttr']['xy_width_degree'], width=self.config['ttr']['xy_width_points'])
+        ttr_map = self.planner.interpolate_value_function_in_hours(observation, width_deg=self.config['ttr']['xy_width_degree'], width=self.config['ttr']['xy_width_points'])
         # if self.verbose > 0:
             # print(f'OceanFeatureConstructor: Calculate TTR ({time.time() - start:.1f}s)')
 
-        return (measurements, ttr_map) if self.config['num_measurements'] else ttr_map
+        return (measurements, ttr_map) if self.config['num_measurements'] > 0 else ttr_map

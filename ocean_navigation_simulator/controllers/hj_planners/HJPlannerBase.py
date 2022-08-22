@@ -1,11 +1,12 @@
 import os
-import pickle
 import time
 from bisect import bisect
 
 import matplotlib
 import numpy as np
 import abc
+
+import scipy
 import xarray as xr
 from typing import Tuple, Dict, List, AnyStr, Union, Callable, Optional
 from jax.interpreters import xla
@@ -174,53 +175,41 @@ class HJPlannerBase(Controller):
             self._plan(observation.platform_state)
             if self.verbose > 0:
                 print(f'HJPlannerBase: Replanning ({time.time() - start:.1f}s)')
+            self.set_interpolator()
 
-    def interpolate_value_function_in_hours_on_grid(self, observation: ArenaObservation, width_deg: float, width: int) -> np.ndarray:
-        # Step 1: Update Planner
-        self.replan_if_necessary(observation)
+    def set_interpolator(self):
+        ttr_values = (self.all_values - self.all_values.min(axis=(1,2))[:,None,None])
+        ttr_values = ttr_values / np.abs(self.all_values.min()) * (self.reach_times[-1] - self.reach_times[0]) / 3600
 
-        start = time.time()
+        self.interpolator = scipy.interpolate.RegularGridInterpolator(
+            points=(self.current_data_t_0 + self.reach_times, self.grid.states[:, 0, 0], self.grid.states[0, :, 1]),
+            values=ttr_values,
+            method='linear',
+        )
 
-        # Step 2: Interpolate Temporal
-        val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
-            max(self.reach_times[0], min(self.reach_times[-1], observation.platform_state.date_time.timestamp() - self.current_data_t_0 + self.reach_times[0]))
-        ).squeeze()
-        val_at_t = (val_at_t - val_at_t.min()) * (self.current_data_t_T - self.current_data_t_0) / 3600
+    def interpolate_value_function_in_hours(self, observation: ArenaObservation = None, point: SpatioTemporalPoint = None, width_deg: float = 0, width: int = 1) -> np.ndarray:
+        try:
+            if observation is not None:
+                self.replan_if_necessary(observation)
+                point = observation.platform_state.to_spatio_temporal_point()
+            elif point is None:
+                raise Exception('Either ArenaObservation or SpatioTemporalPoint has to be given for interpolation.')
 
-        # Step 3: Interpolate Spacial
-        in_grid_x = self.grid.states[:, 0, 0]
-        in_grid_y = self.grid.states[0, :, 1]
-        out_grid_x = np.linspace(observation.platform_state.lon.deg - width_deg/2, observation.platform_state.lon.deg + width_deg/2, width)
-        out_grid_y = np.linspace(observation.platform_state.lat.deg - width_deg/2, observation.platform_state.lat.deg + width_deg/2, width)
-        val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(out_grid_y, out_grid_x).squeeze()
-        # if self.verbose > 0:
-            # print(f'HJPlannerBase: Interpolating TTR Map ({time.time()-start:.1f}s)')
+            out_x = np.linspace(point.lon.deg - width_deg/2, point.lon.deg + width_deg/2, width)
+            out_y = np.linspace(point.lat.deg - width_deg/2, point.lat.deg + width_deg/2, width)
+            out_t = point.date_time.timestamp()
+            mx, my = np.meshgrid(out_x, out_y)
 
-        return val_at_xy
+            return self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel())).reshape((width, width)).squeeze()
+        except:
+            print(f'out_t: {out_t - self.current_data_t_0:.0f}', f'out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]', f'out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]')
+            print(
+                f'reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]',
+                f'self.grid.states.x: [{self.grid.states[0, 0, 1]:.2f}, {self.grid.states[0, -1, 1]:.2f}]',
+                f'self.grid.states.x: [{self.grid.states[0, 0, 0]:.2f}, {self.grid.states[-1, 0, 0]:.2f}]',
+            )
+            raise
 
-    def interpolate_value_function_in_hours_at_point(self, observation: ArenaObservation):
-        # Step 1: Update Planner
-        self.replan_if_necessary(observation)
-
-        # start = time.time()
-
-        # Step 2: Interpolate Temporal
-        val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
-            max(self.reach_times[0], min(self.reach_times[-1], observation.platform_state.date_time.timestamp() - self.current_data_t_0 + self.reach_times[0]))
-        ).squeeze()
-        val_at_t = (val_at_t - val_at_t.min()) * (self.current_data_t_T - self.current_data_t_0) / 3600
-
-        # Step 3: Interpolate Spacial
-        in_grid_x = self.grid.states[:, 0, 0]
-        in_grid_y = self.grid.states[0, :, 1]
-        val_at_xy = interp2d(in_grid_y, in_grid_x, val_at_t, kind='linear')(
-            observation.platform_state.lat.deg,
-            observation.platform_state.lon.deg
-        ).squeeze()
-        # if self.verbose > 0:
-            # print(f'HJPlannerBase: Interpolating TTR at Point ({time.time()-start:.1f}s)')
-
-        return val_at_xy
 
     def _check_for_replanning(self, observation: ArenaObservation) -> bool:
         """Helper Function to check if we want to replan with HJ Reachability.
@@ -638,7 +627,8 @@ class HJPlannerBase(Controller):
         self.offset_vec = self.grid.domain.lo
 
         self.nonDimGrid = hj.Grid.nondim_grid_from_dim_grid(
-            dim_grid=self.grid, characteristic_vec=self.characteristic_vec, offset_vec=self.offset_vec)
+            dim_grid=self.grid, characteristic_vec=self.characteristic_vec, offset_vec=self.offset_vec
+        )
 
     def _flip_traj_to_forward_times(self):
         """ Arrange traj class values to forward for easier access: traj_times, x_traj, contr_seq, distr_seq"""
@@ -662,7 +652,7 @@ class HJPlannerBase(Controller):
     def plot_reachability_snapshot(self, rel_time_in_seconds: float = 0, ax: plt.Axes = None,
                                    return_ax: bool = False, fig_size_inches: Tuple[int, int] = (12, 12),
                                    alpha_color: float = 1., time_to_reach: bool = False,
-                                   granularity_in_h: float = 5, plot_in_h: bool = True, add_drawing: Callable[[plt.axis], None] = None, target_min_distance: float = None, **kwargs):
+                                   granularity_in_h: float = 5, plot_in_h: bool = True, add_drawing: Callable[[plt.axis, float], None] = None, target_min_distance: float = None, **kwargs):
         """ Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds.
         Args:
             rel_time_in_seconds:    the relative time for which to plot the snapshot since last replan
@@ -719,8 +709,6 @@ class HJPlannerBase(Controller):
         if target_min_distance is not None:
             ax.add_patch(plt.Circle((self.problem.end_region.lon.deg, self.problem.end_region.lat.deg), target_min_distance, color='r', linewidth=2, facecolor='none'))
 
-        if add_drawing is not None:
-            add_drawing(ax)
 
         if self.specific_settings['use_geographic_coordinate_system']:
             ax.set_title("Multi-Reach at time {}".format(datetime.fromtimestamp(
@@ -729,6 +717,9 @@ class HJPlannerBase(Controller):
         else:
             ax.set_title("Multi-Reach at time {} hours".format(
                 self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0))
+
+        if add_drawing is not None:
+            add_drawing(ax, rel_time_in_seconds)
 
         # adjust the fig_size
         fig = plt.gcf()
@@ -759,7 +750,7 @@ class HJPlannerBase(Controller):
 
     def plot_reachability_animation(self, plot_in_h: bool = True, granularity_in_h: int = 1,
                                     time_to_reach: bool = False, filename: AnyStr = 'reachability_animation.mp4',
-                                    add_drawing: Callable[[plt.axis], None] = None, target_min_distance: float = None, **kwargs):
+                                    add_drawing: Callable[[plt.axis, float], None] = None, target_min_distance: float = None, **kwargs):
         os.makedirs('generated_media', exist_ok=True)
         """Create an animation of the reachability computation."""
         if 'multi-time-reach-back' == self.specific_settings['direction'] and not time_to_reach:
@@ -851,30 +842,30 @@ class HJPlannerBase(Controller):
             (self.grid.domain.lo[0], self.grid.domain.lo[1]),
             (self.grid.domain.hi[0] - self.grid.domain.lo[0]),
             (self.grid.domain.hi[1] - self.grid.domain.lo[1]),
-            linewidth=2, edgecolor='b', facecolor='none', label='hj solver frame')
+            linewidth=4, edgecolor='b', facecolor='none', label='hj solver frame')
         )
         return ax
 
     def sample_from_reachable_coordinates(
         self,
         random: np.random.Generator,
-        t_interval: List[timedelta],
+        reach_interval: List[float],
+        frame_interval: List[List[float]],
         min_distance: Optional[float] = 0,
         amount: Optional[int] = 1,
         silent: Optional[bool] = False,
     ) -> List[SpatioTemporalPoint]:
         # Step 1: Find reachable points with minimum distance
-        reach_time_start = (self.current_data_t_T - self.current_data_t_0) - t_interval[1].total_seconds()
-        reach_time_end = (self.current_data_t_T - self.current_data_t_0) - t_interval[0].total_seconds()
-        valid_reach_times = np.where((reach_time_start < self.reach_times) & (self.reach_times < reach_time_end))[0]
-        reachable_condition = self.all_values[valid_reach_times, ...] < 0
-        distance_condition = np.repeat(self.initial_values[np.newaxis, :, :], reachable_condition.shape[0], axis=0) > (min_distance / self.characteristic_vec[0])
-        points_to_sample = np.argwhere(reachable_condition & distance_condition).squeeze()
+        all_values_dim = (self.all_values[0]-self.all_values.min()) * (self.current_data_t_T - self.current_data_t_0)
+        reachable_condition = (reach_interval[0] < all_values_dim) & (all_values_dim < reach_interval[1])
+        min_distance_condition = self.initial_values > (min_distance / self.characteristic_vec[0])
+        frame_condition_x = (frame_interval[0][0] < self.grid.states[:, :, 0]) & (self.grid.states[:, :, 0] < frame_interval[0][1])
+        frame_condition_y = (frame_interval[1][0] < self.grid.states[:, :, 1]) & (self.grid.states[:, :, 1] < frame_interval[1][1])
+        points_to_sample = np.argwhere(reachable_condition & min_distance_condition & frame_condition_x & frame_condition_y)
 
         if self.verbose > 0 and not silent:
-            print('HJPlannerBase: valid_reach_times  =', np.argwhere(valid_reach_times).shape[0])
-            print('HJPlannerBase: reachable_condition=', np.argwhere(reachable_condition).shape[0])
-            print('HJPlannerBase: distance_condition =', np.argwhere(distance_condition).shape[0])
+            print('HJPlannerBase: reach_time_condition  =', np.argwhere(reachable_condition).shape[0])
+            print('HJPlannerBase: distance_condition =', np.argwhere(min_distance_condition).shape[0])
             print('HJPlannerBase: points_to_sample   =', points_to_sample.shape[0])
 
         # Step 2: Return List of SpatioTemporalPoint
@@ -883,15 +874,15 @@ class HJPlannerBase(Controller):
             if points_to_sample.shape[0] < 1:
                 return sampled_points
 
-            sampled_point = points_to_sample[random.integers(points_to_sample.shape[0])]
-            points_to_sample = np.delete(points_to_sample, sampled_point, axis=0)
-            reach_time = self.reach_times[valid_reach_times[sampled_point[0]]].item()
-            coordinates = self.grid.states[sampled_point[1], sampled_point[2], :]
+            sample_index = random.integers(points_to_sample.shape[0])
+            sampled_point = points_to_sample[sample_index]
+            points_to_sample = np.delete(points_to_sample, sample_index, axis=0)
+            coordinates = self.grid.states[sampled_point[0], sampled_point[1], :]
 
             sampled_points.append(SpatioTemporalPoint(
                 lon=units.Distance(deg=coordinates[0]),
                 lat=units.Distance(deg=coordinates[1]),
-                date_time=datetime.fromtimestamp(int(self.current_data_t_0 + reach_time), tz=timezone.utc),
+                date_time=datetime.fromtimestamp(int(self.current_data_t_0 + self.reach_times[0]), tz=timezone.utc),
             ))
         return sampled_points
 

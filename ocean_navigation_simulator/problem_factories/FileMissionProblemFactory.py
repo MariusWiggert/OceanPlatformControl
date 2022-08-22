@@ -24,7 +24,7 @@ class FileMissionProblemFactory(ProblemFactory):
 
         if seed is not None:
             self.random = np.random.default_rng(seed)
-            self.indexes_available = np.random.permutation(self.problems_df.shape[0]).tolist()
+            self.indexes_available = self.random.permutation(self.problems_df.shape[0]).tolist()
         else:
             self.indexes_available = list(range(self.problems_df.shape[0]))
 
@@ -39,7 +39,7 @@ class FileMissionProblemFactory(ProblemFactory):
             if self.limit is not None:
                 raise Exception("No more available Problems.")
             else:
-                self.indexes_available = np.random.permutation(self.problems_df.shape[0]).tolist()
+                self.indexes_available = self.random.permutation(self.problems_df.shape[0]).tolist()
 
         index = self.indexes_available.pop(0)
         row = self.problems_df.iloc[index]

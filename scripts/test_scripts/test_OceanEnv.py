@@ -1,40 +1,68 @@
 import time
+import datetime
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 
-import os
-os.environ["JAX_PLATFORM_NAME"] = "cpu"
 
 script_start = time.time()
 
-env = OceanEnv(verbose=10)
+env = OceanEnv(
+    worker_index=1,
+    config={
+        'generation_folder': '/seaweed-storage/generation/increased_planner_area/',
+        'scenario_name': 'gulf_of_mexico_HYCOM_hindcast',
+        'arena_steps_per_env_step': 1,
+        'actions': 8,
+        'render': True,
+        'fake': False,  # one of: False, 'random', 'naive, 'hj_planner'
+        'experiments_folder': '/seaweed-storage/tmp/',
+        'feature_constructor_config': {
+            'num_measurements': 0,
+            'ttr': {
+                'xy_width_degree': 0.4,
+                'xy_width_points': 10,
+                'normalize_at_curr_pos': True,
+            },
+        },
+        'reward_function_config': {
+            'target_bonus': 0,
+            'fail_punishment': 0,
+        },
+    },
+    verbose=2,
+)
 env.reset()
-controller = NaiveController(problem=env.problem)
 
-print(f'########## Setup Time: {time.time()-script_start:.1f}s')
-
-step = 0
+step = 1
 done = False
-total_reward = 0
+rewards = []
 
-# print(f'Initial TTR in h: {env.hindcast_planner.interpolate_value_function_in_hours_at_point(observation=env.prev_obs)}')
+print('')
+print(f'Initial TTR in h: {env.hindcast_planner.interpolate_value_function_in_hours(observation=env.prev_obs):.2f}')
+print(f'planner.current_data_t_0: {datetime.datetime.fromtimestamp(int(env.hindcast_planner.current_data_t_0), tz=datetime.timezone.utc)}')
+print(f'planner.current_data_t_T: {datetime.datetime.fromtimestamp(int(env.hindcast_planner.current_data_t_T), tz=datetime.timezone.utc)}')
+print(f'TTR at Ttarget: {env.hindcast_planner.interpolator((env.hindcast_planner.current_data_t_0 + env.hindcast_planner.reach_times, env.problem.end_region.lon.deg, env.problem.end_region.lat.deg))}')
+print(f'{env.problem}')
+print('')
 
 while not done:
-    action = controller.get_action(env.prev_obs)
+    action = env.hindcast_planner.get_action(env.prev_obs)
 
     start = time.time()
     features, reward, done, info = env.step(action)
-    # print(f'OceanEnv Step {step} ({time.time()-start:.1f}s)')
-    # print(features.shape, reward, done, info)
-    total_reward += reward
-    # print(f'Current TTR in h at Step {step}: {env.hindcast_planner.interpolate_value_function_in_hours_at_point(observation=env.prev_obs):.2f}')
-    # print(f'Total Reward (Improvement in TTR in h): {total_reward:.2f}')
+    rewards.append(reward)
+    print(f'Reward: {reward:.2f}')
+    print(f'Total Reward: {sum(rewards):.2f}')
+    print(f'TTR: {env.hindcast_planner.interpolate_value_function_in_hours(observation=env.prev_obs):.2f}')
+    #print(f'TTR @ Target: {env.hindcast_planner.interpolator((env.prev_obs.platform_state.date_time.timestamp(),env.problem.end_region.lon.deg,env.problem.end_region.lat.deg)):.2f}')
+    print('')
 
     step += 1
 
-# print(f'Final TTR in : {env.hindcast_planner.interpolate_value_function_in_hours_at_point(observation=env.prev_obs)}')
-# print(f'Passed Time in h: {env.problem.passed_seconds(env.arena.platform.state) / 3600:.2f}h')
+print(f'Total Reward: {sum(rewards):.2f}')
+print(f'Final TTR in : {env.hindcast_planner.interpolate_value_function_in_hours(observation=env.prev_obs):.2f}')
+print(f'Passed Time in h: {env.problem.passed_seconds(env.arena.platform.state) / 3600:.2f}h')
 
 print(f'### Mean Env Step Time: {(time.time()-script_start)/200:.3f}s')
 print(f'### Script Time: {time.time()-script_start:.1f}s')

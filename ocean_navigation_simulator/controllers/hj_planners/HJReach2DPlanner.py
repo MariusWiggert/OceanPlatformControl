@@ -5,6 +5,9 @@ import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
+
+import scipy
+
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
@@ -118,6 +121,7 @@ class HJReach2DPlanner(HJPlannerBase):
             planner.characteristic_vec = pickle.load(file)
         with open(folder + 'initial_values.pickle', 'rb') as file:
             planner.initial_values = pickle.load(file)
+        planner.set_interpolator()
 
         return planner
 

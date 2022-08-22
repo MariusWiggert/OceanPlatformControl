@@ -9,7 +9,7 @@ ipython==7.28.0
 jupyter
 jsonpickle
 lxml
-matplotlib>=3.5.0rc1
+matplotlib==3.5.0rc1
 netCDF4==1.5.7
 numpy>=1.21.3
 opencv_python>=4.6

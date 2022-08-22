@@ -8,7 +8,7 @@
 cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head node.
-initial_workers: 12
+#initial_workers: 12
 min_workers: 12
 max_workers: 12
 
@@ -16,7 +16,7 @@ max_workers: 12
 provider:
     type: azure
     # https://azure.microsoft.com/en-us/global-infrastructure/locations
-    location: eastus
+    location: eastus # canadacentral
     resource_group: jerome-ray-cpu
     # set subscription id otherwise the default from az cli will be used
     subscription_id: 320d211e-ea73-4cc2-9f71-18da686ab665
@@ -38,7 +38,7 @@ available_node_types:
     ray.head.default:
         max_workers: 0
         # The resources provided by this node type.
-        resources: {"CPU": 6, "GPU": 1}
+        resources: {"GPU": 1, "CPU": 6, "Head CPU": 6, "RAM": 56000}
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
@@ -70,7 +70,7 @@ available_node_types:
                 # Cost Examples:
                 #   - 1 GPU +  32 CPU: 1 * Standard_NC6_Promo +  8 * Standard_D4s_v3 = 289$ +  8 * 140$ = 1409$/month =  47$/day =   2$/hour
                 #   - 1 GPU +  70 CPU: 1 * Standard_NC6_Promo + 16 * Standard_D4s_v3 = 289$ + 16 * 140$ = 2529$/month =  84$/day = 3.5$/hour
-                #   - 1 GPU + 100 CPU: 1 * Standard_NC6_Promo + 12 * Standard_D8s_v3 = 289$ + 12 * 280$ = 3649$/month = 121$/day =   5$/hour
+                #   - 1 GPU + 102 CPU: 1 * Standard_NC6_Promo + 12 * Standard_D8s_v3 = 289$ + 12 * 280$ = 3649$/month = 121$/day =   5$/hour
                 #   - 8 GPU +  48 CPU: 8 * Standard_NC6_Promo                        =        8$ * 289$ = 2312$/month =  77$/day = 3.2$/hour
                 vmSize: Standard_NC6_Promo
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
@@ -88,21 +88,40 @@ available_node_types:
         min_workers: 12
         max_workers: 12
         # The resources provided by this node type.
-        resources: {"CPU": 8}
+        resources: {"CPU": 8, "Worker CPU": 8, "RAM": 32000}
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D8s_v3
+                vmSize: Standard_D8s_v5
                 # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
                 imagePublisher: microsoft-dsvm
                 imageOffer: ubuntu-2004
                 imageSku: '2004'
                 imageVersion: latest
-                # optionally set priority to use Spot instances
-                # priority: Spot
-                # set a maximum price for spot instances if desired
-                # billingProfile:
-                #     maxPrice: -1
+
+#    ray.worker.spot:
+#        # The minimum number of worker nodes of this type to launch.
+#        # This number should be >= 0.
+#        min_workers: 1
+#        max_workers: 10
+#        # The resources provided by this node type.
+#        resources: { "CPU": 8, "Worker CPU": 8, "Spot Worker CPU": 8, "RAM": 32000 }
+#        # Provider-specific config, e.g. instance type.
+#        node_config:
+#            azure_arm_parameters:
+#                vmSize: Standard_D8s_v3
+#                # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
+#                imagePublisher: microsoft-dsvm
+#                imageOffer: ubuntu-2004
+#                imageSku: '2004'
+#                imageVersion: latest
+#                # optionally set priority to use Spot instances
+#                # Standard_D4s_v5 (16GB RAM): Standard: US$0.19/h, Spot: $0.07572/h (61%): Spot (Canada Central): $0.02191 (90%)
+#                # Standard_D8s_v5 (32GB RAM): Standard: US$0.38/h, Spot: $0.15145/h (61%): Spot (Canada Central): $0.04383 (90%)
+#                priority: Spot
+#                # set a maximum price for spot instances if desired
+#                billingProfile:
+#                    maxPrice: -1
 
 # Specify the node type of the head node (as configured above).
 head_node_type: ray.head.default
@@ -110,8 +129,8 @@ head_node_type: ray.head.default
 # Files or directories to copy to the head and worker nodes. The format is a
 # dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
 file_mounts: {
-    "~/.ssh/azure.pub": "~/.ssh/azure.pub",
-    "~/setup": "setup",
+    "~/.ssh/azure.pub": "setup/azure.pub",
+    "~/OceanPlatformControl/setup": "setup",
 }
 
 # Files or directories to copy from the head node to the worker nodes. The format is a
@@ -144,7 +163,7 @@ initialization_commands:
 
 # List of shell commands to run to set up nodes.
 # NOTE: rayproject/ray-ml:latest has ray latest bundled
-setup_commands:
+setup_commands: []
     # Note: if you're developing Ray, you probably want to create an AMI that
     # has your Ray repo pre-cloned. Then, you can replace the pip installs
     # below with a git checkout <your_sha> (and possibly a recompile).
@@ -164,14 +183,6 @@ setup_commands:
 #    - sudo apt-get upgrade -y
 #    - sudo apt-get autoremove -y
 
-    # Create Conda Environment wit fresh .bashrc
-#    - (! sudo mountpoint /seaweed-storage) || sudo fusermount -u /seaweed-storage
-    - /bin/cp /etc/skel/.bashrc ~/
-    - (which conda && echo 'eval "$(conda shell.bash hook)"' >> ~/.bashrc) || true
-    - bash -i ~/setup/set_up_ocean_platform_env.sh
-    - sshfs -o ssh_command='ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
-    - (conda activate ocean_platform &> /dev/null && echo 'conda activate ocean_platform' >> ~/.bashrc) || true
-
 #    - sudo lsof /dev/nvidia* | awk 'NR > 1 {print $2}' | xargs sudo kill
 #    - sudo rmmod nvidia_drm
 #    - sudo rmmod nvidia_modeset
@@ -182,21 +193,24 @@ setup_commands:
 #    - echo "Setup Time $runtime s"
 
 # Custom commands that will be run on the head node after common setup.
-head_setup_commands:
-    - pip install -U azure-cli-core azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource msrestazure
+head_setup_commands: []
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []
 
 # Command to start ray on the head node. You don't need to change this.
 head_start_ray_commands:
+    - bash -i ~/OceanPlatformControl/setup/set_up_ocean_platform_env.sh
+    - bash -i ~/OceanPlatformControl/setup/set_up_seaweed_storage.sh
     - ray stop --force
     - ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
 
 # Command to start ray on worker nodes. You don't need to change this.
 worker_start_ray_commands:
+    - bash -i ~/OceanPlatformControl/setup/set_up_ocean_platform_env.sh
+    - bash -i ~/OceanPlatformControl/setup/set_up_seaweed_storage.sh
     - ray stop --force
     - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
 
-head_node: {ray-default-head-b56f58c90}
-worker_nodes: {}
+#head_node: {}
+#worker_nodes: {}

@@ -1,14 +1,17 @@
+import datetime
 import time
+
+import pytz
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
 from ocean_navigation_simulator.scripts.EvaluationRunner import EvaluationRunner
-from ocean_navigation_simulator.scripts.RayUtils import RayUtils
+from ocean_navigation_simulator.scripts.Utils import Utils
 
-print('Script started ...')
+print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y_%m_%d_%H_%M_%S")}')
 script_start_time = time.time()
 
-RayUtils.init_ray()
+Utils.init_ray()
 
 
 runner = EvaluationRunner(
@@ -20,4 +23,4 @@ runner = EvaluationRunner(
 
 
 script_time = time.time()-script_start_time
-print(f"Script finished in {script_time/60:.0f}min {script_time%60:.0f}s.")
+print(f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s.")

@@ -167,11 +167,12 @@ class Arena:
         )
 
     def is_inside_arena(
-        self
+        self,
+        margin: Optional[float] = 0.0
     ) -> bool:
         if self.spatial_boundary is not None:
-            inside_x = self.spatial_boundary['x'][0].deg < self.platform.state.lon.deg < self.spatial_boundary['x'][1].deg
-            inside_y = self.spatial_boundary['y'][0].deg < self.platform.state.lat.deg < self.spatial_boundary['y'][1].deg
+            inside_x = self.spatial_boundary['x'][0].deg + margin < self.platform.state.lon.deg < self.spatial_boundary['x'][1].deg - margin
+            inside_y = self.spatial_boundary['y'][0].deg + margin < self.platform.state.lat.deg < self.spatial_boundary['y'][1].deg - margin
             return inside_x and inside_y
         return True
 
@@ -188,10 +189,11 @@ class Arena:
         self,
         problem: Problem,
         check_inside: Optional[bool] = True,
+        margin: Optional[float] = 0.0
     ) -> int:
         if self.is_on_land():
             return -2
-        elif check_inside and not self.is_inside_arena():
+        elif check_inside and not self.is_inside_arena(margin):
             return -3
         else:
             return problem.is_done(self.platform.state)

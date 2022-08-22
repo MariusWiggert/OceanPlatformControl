@@ -1,16 +1,9 @@
-#%%
-from c3python import C3Python # https://github.com/c3aidti/c3python
 from tqdm import tqdm
 import pandas as pd
 import ocean_navigation_simulator.utils.paths as paths
+from ocean_navigation_simulator.scripts.Utils import Utils
 
-c3 = C3Python(
-    url='https://dev01-seaweed-control.c3dti.ai',
-    tenant='seaweed-control',
-    tag='dev01',
-    keyfile='/Users/jeromejeannin/Library/CloudStorage/GoogleDrive-jeromemjeannin@gmail.com/My Drive/Master Thesis/OcceanPlatformControl/setup/c3-rsa',
-    username='jeanninj@berkeley.edu',
-).get_c3()
+c3 = Utils.get_c3()
 
 #%%
 missions = c3.Mission.fetch(spec={'filter': 'experiment.id=="Short_Horizon_CopernicusGT"'})

@@ -12,7 +12,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint, SpatioTemporalPoint
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
 from ocean_navigation_simulator.utils import units
 
 
@@ -37,9 +37,13 @@ class ShortMissionProblemFactory(ProblemFactory):
         self.random = np.random.default_rng(self.config['seed'] if self.config['seed'] is not None else 2022)
 
         self.target_x_start = self.config['x_range'][0].deg + self.config['target_distance_from_frame']
-        self.target_x_end = self.config['x_range'][1].deg - self.config['target_distance_from_frame']
+        self.target_x_end   = self.config['x_range'][1].deg - self.config['target_distance_from_frame']
         self.target_y_start = self.config['y_range'][0].deg + self.config['target_distance_from_frame']
-        self.target_y_end = self.config['y_range'][1].deg - self.config['target_distance_from_frame']
+        self.target_y_end   = self.config['y_range'][1].deg - self.config['target_distance_from_frame']
+        # only sample goal times s.t. all missions will start and timeout in t_interval
+        self.target_t_start = (self.config['t_range'][0] + self.config['problem_timeout']).timestamp()
+        self.target_t_end   = self.config['t_range'][1].timestamp(),
+
         self.problems = []
         self.problems_archive = []
 
@@ -54,7 +58,7 @@ class ShortMissionProblemFactory(ProblemFactory):
 
     def next_problem(self) -> NavigationProblem:
         if not self.problems:
-            self.problems = self.generate_batch(batchsize=self.config['missions_per_target'])
+            self.problems = self.generate_batch(batch_size=self.config['missions_per_target'])
 
         return self.problems.pop(0)
 
@@ -71,14 +75,14 @@ class ShortMissionProblemFactory(ProblemFactory):
                 start_state=PlatformState.from_spatio_temporal_point(start),
                 end_region=target.to_spatial_point(),
                 target_radius=self.config['problem_target_radius'],
-                timeout=self.config['problem_timeout'],
+                timeout=(target.date_time - start.date_time),
                 platform_dict=self.arena.platform.platform_dict,
-                optimal_time=(target.date_time - start.date_time),
                 extra_info={
-                    'index': len(self.problems_archive),
-                    'seed': self.config['seed'],
-                    'target_distance': target.distance(start),
-                    'target_datetime': target.date_time.isoformat(),
+                    'optimal_time_in_h': self.hindcast_planner.interpolate_value_function_in_hours(point=start).item(),
+                    'target_distance_in_deg': target.distance(start),
+                    'timeout_datetime': target.date_time.isoformat(),
+                    'factory_seed': self.config['seed'],
+                    'factory_index': len(self.problems_archive),
                 },
             ))
             if self.verbose > 1:
@@ -96,21 +100,16 @@ class ShortMissionProblemFactory(ProblemFactory):
         start = time.time()
 
         # Step 1: Generate Goal Point (x,y,t_T)
-        # only sample goal times s.t. all missions will start and timeout in t_interval
-        target_timestamp = self.random.integers(
-            (self.config['t_range'][0] + self.config['mission_time_range'][1]).timestamp(),
-            (self.config['t_range'][1] - self.config['problem_timeout'] + self.config['mission_time_range'][0]).timestamp(),
-            endpoint=True
-        ).item()
+        # Planner starts from timeout backwards (this is a trick, so we can use the planner after max_mission_range)!
         target = PlatformState(
             lon=units.Distance(deg=self.target_x_start+(self.target_x_end-self.target_x_start)*self.random.random()),
             lat=units.Distance(deg=self.target_y_start+(self.target_y_end-self.target_y_start)*self.random.random()),
-            date_time=datetime.datetime.fromtimestamp(target_timestamp, tz=datetime.timezone.utc)
+            date_time=datetime.datetime.fromtimestamp(self.random.integers(self.target_t_start, self.target_t_end).item(), tz=datetime.timezone.utc)
         )
-        planner_target = PlatformState(
-            lon=units.Distance(deg=self.target_x_start+(self.target_x_end-self.target_x_start)*self.random.random()),
-            lat=units.Distance(deg=self.target_y_start+(self.target_y_end-self.target_y_start)*self.random.random()),
-            date_time=datetime.datetime.fromtimestamp(target_timestamp - self.config['mission_time_range'][1].total_seconds(), tz=datetime.timezone.utc)
+        start_state = PlatformState(
+            lon=target.lon,
+            lat=target.lat,
+            date_time=target.date_time-self.config['problem_timeout']
         )
 
         # Step 2: Reject if on land
@@ -122,10 +121,10 @@ class ShortMissionProblemFactory(ProblemFactory):
         # Step 3: Generate backward HJ Planner for this target
         self.hindcast_planner = HJReach2DPlanner(
             problem=NavigationProblem(
-                start_state=planner_target,
-                end_region=planner_target.to_spatial_point(),
+                start_state=start_state,
+                end_region=target.to_spatial_point(),
                 target_radius=self.config['problem_target_radius'],
-                timeout=self.config['mission_time_range'][1],
+                timeout=self.config['problem_timeout'],
                 platform_dict=self.arena.platform.platform_dict,
             ),
             specific_settings={
@@ -133,7 +132,6 @@ class ShortMissionProblemFactory(ProblemFactory):
                 'n_time_vector': 199,   # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
                 'accuracy': 'high',
                 'artificial_dissipation_scheme': 'local_local',
-                'T_goal_in_seconds': self.config['mission_time_range'][1].total_seconds(),
                 'run_without_x_T': True,
             } | self.config['hj_planner'] | ({
                 'x_interval': [self.config['x_range'][0].deg, self.config['x_range'][1].deg],
@@ -142,13 +140,15 @@ class ShortMissionProblemFactory(ProblemFactory):
             verbose=self.verbose-1
         )
         # Ignore Warning that x_init might not be in reachable set
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            self.hindcast_planner.replan_if_necessary(ArenaObservation(
-                platform_state=planner_target,
-                true_current_at_state=self.arena.ocean_field.get_ground_truth(target.to_spatio_temporal_point()),
-                forecast_data_source=self.arena.ocean_field.hindcast_data_source,
-            ))
+        # with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        self.hindcast_planner.replan_if_necessary(ArenaObservation(
+            platform_state=start_state,
+            true_current_at_state=self.arena.ocean_field.get_ground_truth(target.to_spatio_temporal_point()),
+            forecast_data_source=self.arena.ocean_field.hindcast_data_source,
+        ))
+        # Update target time to maximum of planner
+        target.date_time = datetime.datetime.fromtimestamp(int(self.hindcast_planner.current_data_t_0+self.hindcast_planner.reach_times[-1]), tz=datetime.timezone.utc)
 
         if self.verbose > 1:
             print(f'ShortMissionProblemFactory: Target created ({time.time()-start:.1f}s) {target.to_spatio_temporal_point()}')
@@ -162,9 +162,17 @@ class ShortMissionProblemFactory(ProblemFactory):
         """
         start_time = time.time()
 
+        # we start missions at earliest
         points = self.hindcast_planner.sample_from_reachable_coordinates(
             random=self.random,
-            t_interval=self.config['mission_time_range'],
+            reach_interval=[
+                (self.config['mission_time_range'][0]).total_seconds(),
+                (self.config['mission_time_range'][1]).total_seconds(),
+            ],
+            frame_interval=[
+                [self.config['x_range'][0].deg+self.config['start_distance_from_frame'], self.config['x_range'][1].deg-self.config['start_distance_from_frame']],
+                [self.config['y_range'][0].deg+self.config['start_distance_from_frame'], self.config['y_range'][1].deg-self.config['start_distance_from_frame']],
+            ],
             min_distance=self.config['target_min_distance'],
             amount=amount,
             silent=silent,
@@ -178,10 +186,10 @@ class ShortMissionProblemFactory(ProblemFactory):
 
         return points
 
-    def plot_batch(self,batch_size: int, filename: str, random_sample_points: Optional[int] = 10):
+    def plot_batch(self, batch_size: int, filename: str, random_sample_points: Optional[int] = 10):
         plot_start_time = time.time()
 
-        def add_drawing(ax: plt.axis):
+        def add_drawing(ax: plt.axis, rel_time_in_seconds):
             self.add_target_frame(ax)
             self.add_arena_frame(ax)
 
@@ -193,6 +201,8 @@ class ShortMissionProblemFactory(ProblemFactory):
             if random_sample_points:
                 for point in self.generate_starts(amount=random_sample_points, silent=True):
                     ax.scatter(point.lon.deg, point.lat.deg, facecolors='none', edgecolors='black', marker='o', label='possible sample points')
+
+            ax.set_title(f"Multi-Reach at time ({rel_time_in_seconds/3600:.1f}h)")
 
         self.hindcast_planner.plot_reachability_animation(
             filename=filename,
@@ -208,7 +218,7 @@ class ShortMissionProblemFactory(ProblemFactory):
             (self.target_x_start, self.target_y_start),
             (self.target_x_end - self.target_x_start),
             (self.target_y_end - self.target_y_start),
-            linewidth=2, edgecolor='g', facecolor='none', label='target sampling frame')
+            linewidth=4, edgecolor='g', facecolor='none', label='target sampling frame')
         )
 
     def add_arena_frame(self, ax: plt.axis) -> plt.axis:
@@ -216,5 +226,5 @@ class ShortMissionProblemFactory(ProblemFactory):
             (self.config['x_range'][0].deg, self.config['y_range'][0].deg),
             (self.config['x_range'][1].deg - self.config['x_range'][0].deg),
             (self.config['y_range'][1].deg - self.config['y_range'][0].deg),
-            linewidth=2, edgecolor='r', facecolor='none', label='arena frame')
+            linewidth=4, edgecolor='r', facecolor='none', label='arena frame')
         )

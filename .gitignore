@@ -8,4 +8,7 @@ viz/
 .vscode/
 .ipynb_checkpoints/
 generated_media/
-hj_reachability/
+./hj_reachability/
+./data/
+./models/
+./results/

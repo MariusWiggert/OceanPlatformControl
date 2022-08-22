@@ -48,4 +48,4 @@ for ip_address, num_tasks in sorted(Counter(ip_addresses).items(), key=lambda pa
     print('    {} tasks on {}'.format(num_tasks, ip_address))
 
 script_time = time.time()-script_start_time
-print(f"Script finished in {script_time/60:.0f}min {script_time%60:.0f}s.")
+print(f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s.")

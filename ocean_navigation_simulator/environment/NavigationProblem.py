@@ -17,7 +17,6 @@ class NavigationProblem(Problem):
     target_radius: float
     timeout: datetime.timedelta = None
     platform_dict: dict = None
-    optimal_time: datetime.timedelta = None
     x_range: List = None
     y_range: List = None
     extra_info: dict = None
@@ -74,7 +73,6 @@ class NavigationProblem(Problem):
             'x_T_lat': self.end_region.lat.deg,
             'target_radius': self.target_radius,
             'timeout_in_h': self.timeout.total_seconds() / 3600,
-            'optimal_time': self.optimal_time,
         } | ({
             'x_range_l': self.x_range[0].deg,
             'x_range_h': self.x_range[1].deg,
@@ -84,4 +82,4 @@ class NavigationProblem(Problem):
         } if self.y_range is not None else {}) | (self.extra_info if self.extra_info is not None else {})
 
     def __repr__(self):
-        return f'Problem [start: {self.start_state.to_spatial_point()}, end: {self.end_region}, optimal time: {self.optimal_time}'
+        return f'Problem [start: {self.start_state.to_spatio_temporal_point()}, end: {self.end_region}, optimal time: {self.extra_info["optimal_time_in_h"]:.1f}, timeout: {self.timeout.total_seconds()/3600:.1f}h'

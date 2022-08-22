@@ -18,7 +18,7 @@ UUID=c7861b74-5baf-4ca8-add3-6260a135c966   /seaweed-storage   xfs   defaults,no
 
 # Mount Data Disk via SSH
 ssh -i ~/.ssh/azure.pub ubuntu@20.55.80.215
-sudo fusermount -q -u /seaweed-storage
+sudo umount /seaweed-storage
 sshfs -o ssh_command='ssh -i ~/.ssh/azure.pub -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
 
 

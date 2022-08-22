@@ -1,11 +1,16 @@
+import contextlib
+import json
 import os
 import shutil
 import socket
 import time
 from typing import Optional
+
+import pandas as pd
 import requests
 import ray
 import seaborn as sns
+from c3python import C3Python
 
 sns.set_theme()
 
@@ -19,13 +24,12 @@ sns.set_theme()
 # tensorboard --logdir ~/ray_results
 # ssh -L 16006:127.0.0.1:6006 olivier@my_server_ip
 
-class RayUtils:
+class Utils:
     @staticmethod
     def init_ray(mode='cluster'):
         start = time.time()
         # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
-        # ray.init(address='auto')
-        # ray.init("ray://13.68.187.126:10001")
+        # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
         ray.init(
             address='ray://localhost:10001' if mode=='cluster' else 'auto',
             runtime_env={
@@ -47,7 +51,7 @@ class RayUtils:
     {gpu_available}/{gpu_total} GPU resources available''')
 
     @staticmethod
-    def clean_ray_results(
+    def clean_results(
         folder: str = '~/ray_results',
         filter: str = '',
         iteration_limit: Optional[int] = 2,
@@ -73,17 +77,76 @@ class RayUtils:
                         if delete:
                             shutil.rmtree(experiment, ignore_errors=True)
                         if verbose > 0:
-                            print(f'RayUtils.clean_ray_results: Delete {csv_file} with {row_count} rows')
+                            print(f'RayUtils.clean_ray_results: Delete {experiment} with {row_count} rows')
                     else:
                         if verbose > 0:
-                            print(f'RayUtils.clean_ray_results: Keep {csv_file} with {row_count} rows')
+                            print(f'RayUtils.clean_ray_results: Keep {experiment} with {row_count} rows')
             else:
                 if delete:
                     shutil.rmtree(experiment, ignore_errors=True)
                 if verbose > 0:
-                    print(f'RayUtils.clean_ray_results: Delete {csv_file} without csv file')
+                    print(f'RayUtils.clean_ray_results: Delete {experiment} without progress.csv file')
 
     @staticmethod
-    def check_storage_connection():
+    def run_command_on_all_nodes(command, resource_group='jerome-ray-cpu'):
+        vm_list = Utils.get_vm_list(resource_group)
+        print(f'VM List fetched')
+
+        ray.init()
+        @ray.remote(num_cpus=0.1)
+        def run_command_on_node(ip, command):
+            print(f"##### Starting Command on Node {ip}")
+            node_start_time = time.time()
+            os.system(f"ssh -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'")
+            node_time = time.time() - node_start_time
+            # print(f"## Node {ip} finished in {node_time / 60:.0f}min {node_time % 60:.0f}s.")
+
+        ray.get([run_command_on_node.remote(vm['publicIps'], command) for vm in vm_list])
+        time.sleep(2)
+        print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
+
+    @staticmethod
+    def ensure_storage_connection():
+        if not os.path.exists('/seaweed-storage/connected'):
+            os.system('bash -i setup/set_up_seaweed_storage.sh')
+
         if not os.path.exists('/seaweed-storage/connected'):
             raise FileNotFoundError(f"Seaweed Storage not connected on node {requests.get('https://api.ipify.org').content.decode('utf8')} / {socket.gethostbyname(socket.gethostname())}")
+
+    @staticmethod
+    def get_c3(verbose: Optional[int] = 0):
+        if not hasattr(Utils, '_c3'):
+            with Utils.timing('Utils: Connect to c3 ({:.1f}s)', verbose):
+                Utils._c3 = C3Python(
+                    url='https://dev01-seaweed-control.c3dti.ai',
+                    tenant='seaweed-control',
+                    tag='dev01',
+                    keyfile='setup/c3-rsa',
+                    username='jeanninj@berkeley.edu',
+                ).get_c3()
+        return Utils._c3
+
+    @staticmethod
+    @contextlib.contextmanager
+    def timing(string, verbose: Optional[int] = 0):
+        if verbose > 0:
+            start = time.time()
+        yield
+        if verbose > 0:
+            print(string.format(time.time()-start))
+
+    @staticmethod
+    def get_vm_list(resource_group: Optional[str] = 'jerome-ray-cpu'):
+        return json.loads(os.popen(f"az vm list --resource-group '{resource_group}' --show-details").read())
+
+    @staticmethod
+    def print_vm_table(vm_dict: dict = None):
+        vm_df = pd.DataFrame([{
+            'name': vm['name'],
+            'vmSize': vm['hardwareProfile']['vmSize'],
+            'status': vm['powerState'],
+            'public_ip': vm['publicIps'],
+            'private_ip': vm['privateIps'],
+        } for vm in (vm_dict if vm_dict is not None else Utils.get_vm_list())])
+        with pd.option_context('display.width', 500, 'display.max_columns', 100, 'display.max_colwidth', 100):
+            print(vm_df)
