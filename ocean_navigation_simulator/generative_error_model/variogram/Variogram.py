@@ -60,8 +60,8 @@ class Variogram:
         # subtract mean and divide by std with bin statistics
         self.data["detrended_u_error"] = self.data.apply(lambda x: (x["u_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["u_error"][0])\
             /bin_statistics[x[f"{detrend_var}_bins"]]["u_error"][1], axis=1)
-        self.data["detrended_v_error"] = self.data.apply(lambda x: (x["v_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][0]\
-            )/bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
+        self.data["detrended_v_error"] = self.data.apply(lambda x: (x["v_error"] - bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][0])\
+            /bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
         return bin_statistics
 
     def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\

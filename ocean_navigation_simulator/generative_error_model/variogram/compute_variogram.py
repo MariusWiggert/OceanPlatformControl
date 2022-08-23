@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.generative_error_model.Dataset import load_dataset, DatasetName, load_single_file
+from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.variogram.utils import save_variogram_to_npy
 from ocean_navigation_simulator.generative_error_model.utils import timer, setup_logger, load_config
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
@@ -16,7 +16,7 @@ def parse():
     parser.add_argument("--detrended", default=True, type=bool, help="if the detrended data should be used")
     parser.add_argument("--cross_buoy_pairs_only", default=False, type=bool, help="read name m8")
     parser.add_argument("--units", default="km", type=str, help="choices: {'km', 'degrees'}")
-    parser.add_argument("--region", default="AREA1", type=str, help="Region the data is in.")
+    parser.add_argument("--dataset_name", default="area1", type=str, help="Region the data is in.")
     parser.add_argument("--dataset_size", default="large", type=str, help="{large -> month, small -> single file}")
     parser.add_argument("--data_overlap", default=True, type=bool, help="Should errors between two forecasts overlap in time")
     return parser
@@ -40,14 +40,15 @@ def main():
     # setup logging
     config = load_config()
     now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-    logger = setup_logger(config["logging"]["log_dir"], now_string)
+    log_dir = os.path.join(config["data_dir"], "logging")
+    logger = setup_logger(log_dir, now_string)
 
     # load data
-    dataset_name = getattr(DatasetName, args.region)
+    dataset = Dataset(args.dataset_name)
     if args.dataset_size == "large":
-        data = load_dataset(dataset_name, args.data_overlap)  # 300,000 pts
+        data = dataset.load_dataset(args.data_overlap)  # ~300,000 pts
     else:
-        data = load_single_file(dataset_name, file_idx=0)  # 8,000 pts
+        data = dataset.load_single_file(file_idx=0)  # ~8,000 pts
 
     # initialize object + detrend
     V = Variogram(data)
@@ -69,10 +70,10 @@ def main():
         detrended=args.detrended, cross_buoy_pairs_only=args.cross_buoy_pairs_only, logger=logger)
 
     # save to .npy
-    file_name_part1 = f"{now_string}_variogram_{dataset_name.name}_{args.bin_res[0][0]}_{args.bin_res[0][1]}_"
+    file_name_part1 = f"{now_string}_variogram_{args.dataset_name}_{args.bin_res[0][0]}_{args.bin_res[0][1]}_"
     file_name_part2 = f"{args.bin_res[0][2]}_{args.detrended}_{args.cross_buoy_pairs_only}_{args.data_overlap}.npy"
     file_name = file_name_part1 + file_name_part2
-    file_path = os.path.join(config["variogram"]["data_dir"], file_name)
+    file_path = os.path.join(os.path.join(config["data_dir"], "variogram"), file_name)
     save_variogram_to_npy(V, file_path)
 
 

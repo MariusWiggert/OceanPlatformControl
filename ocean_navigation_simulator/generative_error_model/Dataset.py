@@ -21,64 +21,59 @@
 #         errors = pd.red_csv(self.data_files[idx])
 #         return errors
 
-
-from enum import Enum, auto
+from ocean_navigation_simulator.generative_error_model.utils import load_config
 import pandas as pd
-import numpy as np
 import os
 
 
-class DatasetName(Enum):
-    AREA1 = auto()
-    AREA3 = auto()
-    AREA4 = auto()
+class Dataset:
 
+    def __init__(self, dataset_name: str):
+        self.config = load_config()
+        self.dataset_dir = os.path.join(self.config["data_dir"], "dataset_forecast_error/")
+        self.datasets = os.listdir(self.dataset_dir)
 
-dataset_map = {DatasetName.AREA1: "area1", DatasetName.AREA3: "area3", DatasetName.AREA4: "area4"}
+        if dataset_name not in self.datasets:
+            raise ValueError(f"Specified dataset {dataset_name} does not exist!")
+        self.dataset_name = dataset_name
+        self.dataset_path = os.path.join(self.dataset_dir, dataset_name)
 
+    def load_dataset(self, overlap: bool=True) -> pd.DataFrame:
 
-def load_dataset(dataset_name: DatasetName, overlap: bool=True) -> pd.DataFrame:
-    dataset_root = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/"
-    dataset_path = os.path.join(dataset_root, dataset_map[dataset_name])
-    dataset_files = os.listdir(dataset_path)
+        dataset_files = os.listdir(self.dataset_path)
 
-    for i in range(len(dataset_files)):
-        if i == 0:
-            df = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
-            if overlap is False:
-                times = sorted(list(set(df["time"])))[:24]
-                df = df[df["time"].isin(times)]
-        else:
-            df_temp = pd.read_csv(os.path.join(dataset_path, dataset_files[i]))
-            if overlap is False:
-                times = sorted(list(set(df_temp["time"])))[:24]
-                df_temp = df_temp[df_temp["time"].isin(times)]
-            df = pd.concat([df, df_temp], ignore_index=True)
-    print(f"Loaded {dataset_name.name} dataset.")
-    print_df_meta_data(df)
-    return df
+        for i in range(len(dataset_files)):
+            if i == 0:
+                df = pd.read_csv(os.path.join(self.dataset_path, dataset_files[i]))
+                if overlap is False:
+                    times = sorted(list(set(df["time"])))[:24]
+                    df = df[df["time"].isin(times)]
+            else:
+                df_temp = pd.read_csv(os.path.join(self.dataset_path, dataset_files[i]))
+                if overlap is False:
+                    times = sorted(list(set(df_temp["time"])))[:24]
+                    df_temp = df_temp[df_temp["time"].isin(times)]
+                df = pd.concat([df, df_temp], ignore_index=True)
+        print(f"Loaded {self.dataset_name} dataset.")
+        self.print_df_meta_data(df)
+        return df
 
+    def load_single_file(self, file_idx: int = 0) -> pd.DataFrame:
+        file_list = os.listdir(self.dataset_path)
+        file_path = os.path.join(self.dataset_path, file_list[file_idx])
+        df = pd.read_csv(file_path)
+        print(f"Loaded: {file_list[file_idx]}")
+        self.print_df_meta_data(df)
+        return df
 
-def load_single_file(dataset_name: DatasetName, file_idx: int = 0) -> pd.DataFrame:
-    dataset_root = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error"
-    dataset_path = os.path.join(dataset_root, dataset_map[dataset_name])
-    file_list = os.listdir(dataset_path)
-    file_path = os.path.join(dataset_path, file_list[file_idx])
-    df = pd.read_csv(file_path)
-    print(f"Loaded: {file_list[file_idx]}")
-    print_df_meta_data(df)
-    return df
-
-
-def print_df_meta_data(data: pd.DataFrame):
-    print("\nBuoy Meta Data:")
-    print(f"    Min time: {data['time'].min()}, max time: {data['time'].max()}")
-    print(f"    Min lon: {data['lon'].min()}, max lon: {data['lon'].max()}")
-    print(f"    Min lat: {data['lat'].min()}, max lat: {data['lat'].max()}")
-    print(f"    Number or rows: {len(data)}.\n")
+    def print_df_meta_data(self, data: pd.DataFrame):
+        print("\nBuoy Meta Data:")
+        print(f"    Min time: {data['time'].min()}, max time: {data['time'].max()}")
+        print(f"    Min lon: {data['lon'].min()}, max lon: {data['lon'].max()}")
+        print(f"    Min lat: {data['lat'].min()}, max lat: {data['lat'].max()}")
+        print(f"    Number or rows: {len(data)}.\n")
 
 
 if __name__ == "__main__":
-    dataset_name = DatasetName.AREA1
-    data = load_single_file(dataset_name, file_idx=0)
-    print_df_meta_data(data)
+    dataset = Dataset("area1_small")
+    data = dataset.load_single_file(file_idx=0)

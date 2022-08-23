@@ -19,6 +19,13 @@ class C3Downloader:
         self.c3 = c3
 
     def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
+        """
+        Args:
+            source: str {Copernicus, Hycom}
+            type_of_data: str {forecast, hindcast}
+            region: str {Region 1, Region 2, etc.}
+            time_interval: List[datetime.datetime}
+        """
         time_start = time_interval[0]
         time_end = time_interval[1]
         time_filter = f"subsetOptions.timeRange.start >= '{time_start}' && subsetOptions.timeRange.start <= '{time_end}'"
@@ -67,6 +74,6 @@ class C3Downloader:
 
 if __name__ == "__main__":
     c3_downloader = C3Downloader()
-    time_interval = [datetime.datetime(2022, 5, 10, 12, 0, 0), datetime.datetime(2022, 5, 25, 12, 0, 0)]
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "Region 4", time_interval)
-    c3_downloader.download_files(files, "/home/jonas/Downloads/script")
+    time_interval = [datetime.datetime(2022, 6, 4, 12, 0, 0), datetime.datetime(2022, 7, 15, 12, 0, 0)]
+    files = c3_downloader.get_files_list("Hycom", "forecast", "Region 1", time_interval)
+    c3_downloader.download_files(files, "/home/jonas/Downloads/temp")

@@ -10,11 +10,11 @@ class DatasetWriter:
     """Uses BuoyData and OceanCurrentField to write data to file which is then read by DataLoader.
     Needed to speed up training."""
 
-    def __init__(self, yaml_file_config: str):
+    def __init__(self, yaml_file_config: str, output_dir: str):
         # TODO: Need to figure out the location/time management in config
         with open(yaml_file_config) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader) 
-        self.output_dir = self.config["data_writer"]["output_dir"]
+        self.output_dir = os.path.join(self.config["data_dir"], "dataset_forecast_error", output_dir)
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
 
@@ -68,5 +68,5 @@ if __name__ == "__main__":
     # run for quick testing + generating csv files
     # TODO: handle when change area need to go into config and change lon/lat range and local_forecast + data_writer dirs
     yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
-    data_writer = DatasetWriter(yaml_file_config)
+    data_writer = DatasetWriter(yaml_file_config, "area1_small")
     data_writer.write_all_files()
