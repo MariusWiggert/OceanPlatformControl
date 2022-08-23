@@ -31,16 +31,22 @@ class OceanCurrentGP(OceanCurrentModel):
         self.life_span_observations_in_sec = config_dict.get("life_span_observations_in_sec", 24 * 3600)  # 24 hours.
 
         parameters_model = {}
+        # Base: {'type': 'matern',
+        # 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849},
+        # 'sigma_exp_squared': 2.3561,
+        # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
         if "kernel" in self.config_dict:
-            parameters_model["kernel"] = self.__get_kernel(self.config_dict["kernel"])
+            parameters_model["kernel"] = self.__get_kernel(
+                self.config_dict["kernel"]) * self.__get_kernel(self.config_dict["kernel_2"], False)
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
             parameters_model["optimizer"] = self.config_dict["optimizer"]
+        print("PARAMETERS_MODEL:", parameters_model)
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
         print(f"Gaussian Process created: {self.model}")
 
-    def __get_kernel(self, dic_config: dict[str, Any]) -> Kernel:
+    def __get_kernel(self, dic_config: dict[str, Any], first_kernel: bool = True) -> Kernel:
         """Get the GP kernel based on the dictionary generated based on the Yaml file.
         Args:
             dic_config: Dictionary containing the hyper-parameters of the kernel that will be used by the GP.
@@ -49,19 +55,33 @@ class OceanCurrentGP(OceanCurrentModel):
             The created kernel. If the kernel specified is not supported, the constant kernel is returned
         """
         type_kernel = str(dic_config["type"])
-        factor = self.config_dict.get("sigma_exp_squared", 1)
-        params = dic_config.get("parameters", {})
+        factor = dic_config.get("sigma_exp_squared", 1)
+        params = dic_config.get("parameters" if first_kernel else "parameters_2", {})
+        scales = dic_config.get("scaling", None)
 
-        if "scaling" in dic_config:
-            scales = dic_config["scaling"]
+        # basic_kernel = 0.6211287143789959 * gaussian_process.kernels.Matern(
+        #     length_scale=[390520.4631947867, 681740.8840581803, 1414942.3557823836], nu=0.001978964277804827,
+        #     length_scale_bounds='fixed')
+
+        if scales is not None:
             params["length_scale"] = np.array([
                 scales.get("longitude", 1), scales.get("latitude", 1), scales.get("time", 1)])
         if type_kernel.lower() == "rbf":
-            return factor * gaussian_process.kernels.RBF(**params)
+            return factor * gaussian_process.kernels.RBF(**params)  # + basic_kernel
         if type_kernel.lower() == "matern":
-            return factor * gaussian_process.kernels.Matern(**params)
+            params["nu"] = 1.5
+            return factor * gaussian_process.kernels.Matern(**params)  # + basic_kernel
         if type_kernel.lower() == "constantkernel":
-            return factor * gaussian_process.kernels.ConstantKernel(**params)
+            return factor * gaussian_process.kernels.ConstantKernel(**params)  # + basic_kernel
+        if type_kernel.lower() == "rationalquadratic":
+            return factor * gaussian_process.kernels.RationalQuadratic(**params)  # + basic_kernel
+        if type_kernel.lower() == "expsinesquared":
+            return factor * gaussian_process.kernels.ExpSineSquared(**params)  # + basic_kernel
+        # Not supported yet
+        # if type_kernel.lower() == "sum":
+        #     return self.__get_kernel(dic_config["kernel_1"]) + self.__get_kernel(dic_config["kernel_2"])
+        # if type_kernel.lower() == "product":
+        #     return self.__get_kernel(dic_config["kernel_1"]) + self.__get_kernel(dic_config["kernel_2"])
 
         print("No kernel specified in the yaml file. The constant kernel is used")
         return factor * gaussian_process.kernels.ConstantKernel()
@@ -88,6 +108,12 @@ class OceanCurrentGP(OceanCurrentModel):
             errors = errors[fresh_observations]
             self.measurement_locations = list(measurement_locations)
             self.measured_current_errors = list(errors)
+
+        # print("fitting:", len(measurement_locations), len(errors), measurement_locations, errors)
+        # if len(measurement_locations) > 2:
+        #     print("distance travelled:",
+        #           np.array(((measurement_locations[1:] - measurement_locations[:-1]) ** 2)[:, :2].sum(
+        #               axis=1) ** .5) * 111000, "meters")
 
         self.model.fit(measurement_locations, errors)
 
@@ -117,5 +143,4 @@ class OceanCurrentGP(OceanCurrentModel):
         # be. We can't have a 0 std.dev. due to noise. Currently it's something
         # like 0.07 from the GP, but that doesn't seem to match the Loon code.
         deviations = deviations ** 2 / self.config_dict.get("sigma_exp_squared", 1)
-
         return means, deviations

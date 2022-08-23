@@ -30,7 +30,7 @@ class OceanCurrentModel(ABC):
         Returns:
             The prediction of the model for the given point (including the std if provided)
         """
-        res = self.get_predictions(np.array([lon, lat, time]))
+        res = self.get_predictions(np.array([[lon, lat, time]]))
         return (res[0][0], res[1][0]) if (res is tuple) is not None else res[0]
 
     @abstractmethod

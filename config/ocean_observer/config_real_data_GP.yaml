@@ -1,34 +1,39 @@
 experiment_runner:
-  plots:
-    visualize_currents: True
-    plot_3d:
-      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
-    visualize_metrics: True
+  #  plots:
+  #    visualize_currents: True
+  #    plot_3d:
+  #      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
+  #    visualize_metrics: True
   metrics:
     - "rmse"
     - "r2"
-    - "vector_correlation"
+    - "vme"
+    #- "vector_correlation"
+  direction_current: [ "uv" , "u", "v" ]
 
   #number_burnin_steps: 50
-  number_burnin_steps: 100
-  number_steps_prediction: 390
+  number_burnin_steps: 0
+  number_steps_prediction: 120
   delta_between_predictions_in_sec: 3600 #1h
-  time_horizon_predictions_in_sec: 86400 # 24 *3600
-  duration_simulation_in_sec: 36000000
-  radius_area_around_platform: 0.04665226
-
+  time_horizon_predictions_in_sec: 43200 # 24 *3600
+  radius_area_around_platform: 0.5 #0.04665226 #3.89189189
+  number_steps_to_predict: 12
+  gt_additional_area: 1.
+  gt_additional_time: 3600
+  clear_observations_when_new_file: False
 
   use_real_data: True
   scenario_used: "gulf_of_mexico_files"
-  problems:
-    - initial_position:
-        lon_in_deg: -86
-        lat_in_deg: 24.86
-        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
-      target:
-        lon_in_deg: -88.61
-        lat_in_deg: 26.36
-        radius_in_m: 1
+  problems_file: "./scenarios/ocean_observer/all_problems_2.yaml"
+#  problems:
+#    - initial_position:
+#        lon_in_deg: -86
+#        lat_in_deg: 24.86
+#        datetime: "2021-11-22T12:00:00Z" #In iso8601 format!
+#      target:
+#        lon_in_deg: -88.61
+#        lat_in_deg: 26.36
+#        radius_in_m: 1
 #    - initial_position:
 #        lon_in_deg: -82
 #        lat_in_deg: 24.86
@@ -39,7 +44,7 @@ experiment_runner:
 #        radius_in_m: 1
 
 observer:
-  life_span_observations_in_sec: 86400 # 24 * 3600
+  life_span_observations_in_sec: 43200 # 12 * 3600
 
   model:
     gaussian_process:
@@ -48,15 +53,14 @@ observer:
       sigma_exp_squared: 100 #12.96
       kernel:
         #type: "RBF"
-
+        type: "matern"
         scaling:
           latitude: 1 # [m]
           longitude: 1 # [m]
           time: 10000 # [s]
-        type: "matern"
         parameters:
-          length_scale_bounds: "fixed"
+          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
         #type: "rbf"
         #type: "constantkernel"
 
-      time_horizon_predictions_in_sec: 3600
+      #time_horizon_predictions_in_sec: 43200
