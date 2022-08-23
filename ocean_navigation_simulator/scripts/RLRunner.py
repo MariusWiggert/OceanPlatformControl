@@ -11,9 +11,11 @@ import pytz
 import ray
 from ray.rllib import RolloutWorker, BaseEnv, Policy
 from ray.rllib.evaluation import Episode
+from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
+from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import OceanNNModel
 from ocean_navigation_simulator.scripts.Utils import Utils
 
 
@@ -73,7 +75,12 @@ class RLRunner:
 
         # Step 4: Register Model
         # https://docs.ray.io/en/latest/rllib/package_ref/models.html
+        # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
         # ModelCatalog.register_custom_model("OceanNNModel", OceanNNModel)
+        # self.agent_config["model"] = {
+        #     "custom_model": "OceanNNModel",
+        #     "custom_model_config": self.model_config,
+        # }
 
         # Step 5: Success Metric
         # https://docs.ray.io/en/latest/rllib/rllib-training.html#callbacks-and-custom-metrics
@@ -85,6 +92,7 @@ class RLRunner:
                     episode.custom_metrics["success"] = info['problem_status'] > 0
                 if info['problem_status'] > 0:
                     episode.custom_metrics["arrival_time_in_h"] = info["arrival_time_in_h"]
+                episode.custom_metrics["ram_usage_MB"] = info["ram_usage_MB"]
         self.agent_config["callbacks"] = CustomCallback
 
         self.agent = agent_class(self.agent_config, logger_creator=lambda config: UnifiedLogger(config, self.results_folder, loggers=None))

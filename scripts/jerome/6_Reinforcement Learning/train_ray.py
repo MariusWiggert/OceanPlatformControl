@@ -7,7 +7,7 @@ print('Python %s on %s' % (sys.version, sys.platform))
 print(sys.path)
 
 import os
-os.environ['RAY_DISABLE_MEMORY_MONITOR']=1
+os.environ['RAY_DISABLE_MEMORY_MONITOR']='1'
 
 import datetime
 import time
@@ -26,7 +26,7 @@ Utils.init_ray()
 Utils.ensure_storage_connection()
 
 runner = RLRunner(
-    name='apex',
+    name='custom_model',
     agent_class=ApexTrainer,
     agent_config={
         ## Framework
@@ -38,8 +38,9 @@ runner = RLRunner(
         # "soft_horizon": True,
         # "no_done_at_end": False,
         ## Model
-        "hiddens": [32, 32],
+        "hiddens": [1, 1],
         ## DQN
+        "num_atoms": 1,
         "n_step": 1,
         "dueling": True,
         "double_q": True,
@@ -55,6 +56,7 @@ runner = RLRunner(
         "num_cpus_per_worker": 1,
         "num_gpus_per_worker": 0,
         "placement_strategy": "SPREAD",
+        "ignore_worker_failures": True,
         "recreate_failed_workers": True,
     },
     ocean_env_config={
@@ -62,7 +64,7 @@ runner = RLRunner(
         'scenario_name': 'gulf_of_mexico_HYCOM_hindcast',
         'arena_steps_per_env_step': 1,
         'actions': 8,
-        'render': True,
+        'render': False,
         'fake': False, #one of: False, 'random', 'naive, 'hj_planner'
     },
     feature_constructor_config={
@@ -70,11 +72,10 @@ runner = RLRunner(
         'ttr': {
             'xy_width_degree': 0.2,
             'xy_width_points': 5,
-            # 'normalize_at_curr_pos': True,
         },
     },
     model_config={
-
+        'hidden_units': [32, 32],
     },
     reward_function_config={
         'target_bonus': 0,

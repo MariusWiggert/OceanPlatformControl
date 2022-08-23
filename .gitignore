@@ -3,6 +3,7 @@
 __pycache__*
 *.png
 *.gif
+*.log
 optimized_dp/
 viz/
 .vscode/
