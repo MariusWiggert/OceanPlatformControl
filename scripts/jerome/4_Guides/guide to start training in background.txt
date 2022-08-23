@@ -7,3 +7,10 @@ tail -f train.log
 press ctrl-Z
 disown -h %1
 bg 1
+
+
+
+
+tmux
+ctrl+b then D
+tmux attach

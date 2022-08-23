@@ -9,7 +9,6 @@ cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head node.
 #initial_workers: 12
-min_workers: 12
 max_workers: 12
 
 # Cloud-provider specific configuration.
@@ -48,7 +47,7 @@ available_node_types:
                 #     Too few machines can have a disk bottleneck
                 #   On GPU machines cores are proportionally more expensive.
                 # GPU:
-                #   - Standard_NC6_Promo (US$289.08, 56GB RAM)
+                #   - Standard_NC6_Promo (US$289.08, 56GB RAM) 290/30 = 10
                 #   - Standard_NC12_Promo (US$578.16, 112GB RAM)
                 #   - Standard_NC24_Promo (US$1,156.32, 225GB RAM)
                 #   - Standard_NC6 (US$657.00, 56GB RAM)
@@ -61,6 +60,8 @@ available_node_types:
                 #   - Standard_D16s_v5 (US$560.64, 64GB RAM)
                 #   - Standard_D32s_v5 (US$1,121.28, 128GB RAM)
                 #   - Standard_D64s_v5 (US$2,242.56, 256GB RAM)
+                # High Memory:
+                #   - Standard_E8s_v5 ($367.92, 64GB RAM)
                 # Compute:
                 #   - Standard_F4s_v2 (US$123.37, 8GB RAM)
                 #   - Standard_F8s_v2 (US$246.74, 16GB RAM)

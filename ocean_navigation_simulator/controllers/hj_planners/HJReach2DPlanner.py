@@ -6,8 +6,6 @@ import jax.numpy as jnp
 import warnings
 import math
 
-import scipy
-
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem

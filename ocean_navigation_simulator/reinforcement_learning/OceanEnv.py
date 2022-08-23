@@ -136,7 +136,7 @@ class OceanEnv(gym.Env):
                         g=self.problem.extra_info["group"],
                         b=self.problem.extra_info["batch"],
                         i=self.problem.extra_info["factory_index"],
-                        su=f"{bcolors.OKGREEN}Success{bcolors.ENDC}" if problem_status > 0 else f"{bcolors.FAIL}Failure{bcolors.ENDC}",
+                        su=f"{bcolors.OKGREEN}Success{bcolors.ENDC}" if problem_status > 0 else (f"{bcolors.FAIL}Timeout{bcolors.ENDC}" if problem_status == -1 else (f"{bcolors.FAIL}Stranded{bcolors.ENDC}" if problem_status == -2 else f"{bcolors.FAIL}Outside Arena{bcolors.ENDC}")),
                         st=self.steps,
                         t=self.problem.passed_seconds(observation.platform_state) / 3600,
                         rew=sum(self.rewards),
@@ -166,6 +166,7 @@ class OceanEnv(gym.Env):
         return features, reward, done, {
             'problem_status': problem_status,
             'arrival_time_in_h': self.problem.passed_seconds(observation.platform_state)/3600,
+            'ram_usage_MB': int(psutil.Process().memory_info().rss / 1e6),
         }
 
     def render(self, mode="human"):
@@ -187,3 +188,4 @@ class OceanEnv(gym.Env):
         Utils.ensure_storage_connection()
         os.makedirs(self.results_folder, exist_ok=True)
         ax.get_figure().savefig(f'{self.results_folder}Reset {self.resets} Group {self.problem.extra_info["group"]} Batch {self.problem.extra_info["batch"]} Index {self.problem.extra_info["factory_index"]}.png')
+        plt.clf()
