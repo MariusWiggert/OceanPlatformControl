@@ -152,7 +152,7 @@ class DataSource(abc.ABC):
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
                                     spatial_res: Optional[float] = None,
-                                    return_ax: Optional[bool] = False, Optional[bool] = False,
+                                    return_ax: Optional[bool] = False, ax: Optional[matplotlib.pyplot.axes] = None,
                                     **kwargs):
         """Plot the data at a specific time over an area defined by the x and y intervals.
         Args:

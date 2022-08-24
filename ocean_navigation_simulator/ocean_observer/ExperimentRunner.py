@@ -15,11 +15,11 @@ from scipy.stats import norm
 
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 from ocean_navigation_simulator.controllers import Controller
-from ocean_navigation_simulator.controllers.NaiveToTarget import NaiveToTargetController
+from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
 from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
+from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import \
     PredictionsAndGroundTruthOverArea
@@ -150,7 +150,7 @@ class ExperimentRunner:
 
         problem = self.problem_factory.next_problem()
         ti = problem.start_state.date_time
-        controller = NaiveToTargetController(problem)
+        controller = NaiveController(problem)
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
         self.list_dates_when_new_files = []
@@ -343,7 +343,7 @@ class ExperimentRunner:
         # Setup the problem
         problem = self.problem_factory.next_problem()
         problem.start_state.date_time = interval_time[0] - datetime.timedelta(days=1)
-        controller = NaiveToTargetController(problem)
+        controller = NaiveController(problem)
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
 

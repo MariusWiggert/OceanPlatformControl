@@ -133,6 +133,7 @@ class Observer:
         measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
             observation_location).subtract(arena_observation.true_current_at_state)
         self.prediction_model.observe(observation_location, measured_current_error)
+        print(measured_current_error)
 
     # Forwarding functions as it replaces the forecast_data_source
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
