@@ -10,7 +10,7 @@ class FileMissionProblemFactory(ProblemFactory):
     def __init__(
         self,
         seed: Optional[int] = None,
-        csv_file: Optional[str] = 'missions/validation/feasible.csv',
+        csv_file: Optional[str] = '/seaweed-storage/generation/increased_planner_area/problems.csv',
         limit: Optional[int] = None,
     ):
         self.seed = seed
