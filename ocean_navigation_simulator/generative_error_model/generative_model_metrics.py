@@ -5,22 +5,21 @@ All the metrics for used for evaluating the forecast - buoy error
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from typing import Callable, Dict, Any
 
 
-def plot_all_metrics():
-    # TODO: function to compute all metrics and plot them
-    fig, axs = plt.subplots(3,figsize=(20,6))
-    fig.suptitle("Ocean Current Error Metrics")
-    axs[0].plot()
-    pass
+def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, Any]]]:
+    """Returns a dict where each key-value pairs corresponds to the metric name and its corresponding
+    function."""
 
-def calc_speed_mean(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured):
-    mean_speed = (u_data_hindcast - u_data_measured)*np.cos(np.pi/4) + (v_data_hindcast - v_data_measured)*np.cos(np.pi/4)
-    return mean_speed
+    return {"rmse": rmse, "vector_correlation": calc_vector_correlation}
 
-def calc_speed_RMSE(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured):
-    RMSE_speed = np.sqrt((u_data_hindcast-u_data_measured)**2 + (v_data_hindcast-v_data_measured)**2)
-    return RMSE_speed
+
+def rmse(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, float]:
+    rmse_val = np.sqrt(((ground_truth["u_error"]-synthetic_data["u_error"])**2 +
+                        (ground_truth["v_error"]-synthetic_data["v_error"])**2)).mean()
+    return {"rmse": rmse_val}
+
 
 def calc_vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured, print_out=False):
     """
@@ -76,6 +75,7 @@ def get_vector_correlation_per_day(df_day):
         return vec_corr_total/len(buoy_names)
     return -1
 
+
 def get_vector_correlation_over_time(df):
     """
     Gets the vector correlation over the entire time range covered in the dataframe
@@ -88,6 +88,7 @@ def get_vector_correlation_over_time(df):
         vec_corr.append(get_vector_correlation_per_day(df_day))
     df_vec_corr = pd.DataFrame({"day": days, "vec_corr": vec_corr})
     return df_vec_corr
+
 
 def plot_metric(time, metric, supress_nth_label = 24):
     fig, ax = plt.subplots(figsize=(20,6))

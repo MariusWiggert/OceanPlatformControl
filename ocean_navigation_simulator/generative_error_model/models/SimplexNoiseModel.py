@@ -16,19 +16,19 @@ from ocean_navigation_simulator.utils import units
 
 @dataclasses.dataclass(frozen=True)
 class HarmonicParameters(object):
-  """Parameters for noise harmonic."""
-  weight: float
-  x_range: float
-  y_range: float
-  time_range: float
+    """Parameters for noise harmonic."""
+    weight: float
+    x_range: float
+    y_range: float
+    time_range: float
 
 
 @dataclasses.dataclass(frozen=True)
 class SimplexOffset(object):
-  """Defines a displacement from the base simplex grid."""
-  x: float
-  y: float
-  time: float
+    """Defines a displacement from the base simplex grid."""
+    x: float
+    y: float
+    time: float
 
 
 @dataclasses.dataclass(frozen=True)
@@ -136,6 +136,7 @@ class NoisyCurrentHarmonic:
             y.km / self.y_range + self._offsets.y,
             time_in_hours / self.time_range + self._offsets.time)
 
+
 class NoisyCurrentComponent:
     """Computed from multiple NoisyCurrentHarmonics."""
 
@@ -206,6 +207,7 @@ def test_NoisyCurrentHarmonic():
 
     assert(harmonic_noise1 == harmonic_noise2), "NoisyCurrentHarmonic test failed!"
 
+
 def test_NoisyCurrentComponent():
 
     rng = np.random.default_rng(2022)
@@ -213,6 +215,7 @@ def test_NoisyCurrentComponent():
     component = NoisyCurrentComponent("u")
     component.reset(rng)
     return component.get_noise(units.Distance(km=200), units.Distance(km=300), datetime.timedelta(days=5))
+
 
 def test_SimplexNoiseModel():
 

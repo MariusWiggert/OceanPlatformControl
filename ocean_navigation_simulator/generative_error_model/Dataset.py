@@ -24,6 +24,8 @@
 from ocean_navigation_simulator.generative_error_model.utils import load_config
 import pandas as pd
 import os
+from typing import List
+import datetime
 
 
 class Dataset:
@@ -38,7 +40,7 @@ class Dataset:
         self.dataset_name = dataset_name
         self.dataset_path = os.path.join(self.dataset_dir, dataset_name)
 
-    def load_dataset(self, overlap: bool=True) -> pd.DataFrame:
+    def load_dataset(self, overlap: bool=True, verbose: bool=True) -> pd.DataFrame:
 
         dataset_files = os.listdir(self.dataset_path)
 
@@ -55,7 +57,8 @@ class Dataset:
                     df_temp = df_temp[df_temp["time"].isin(times)]
                 df = pd.concat([df, df_temp], ignore_index=True)
         print(f"Loaded {self.dataset_name} dataset.")
-        self.print_df_meta_data(df)
+        if verbose:
+            self.print_df_meta_data(df)
         return df
 
     def load_single_file(self, file_idx: int = 0) -> pd.DataFrame:
@@ -65,6 +68,17 @@ class Dataset:
         print(f"Loaded: {file_list[file_idx]}")
         self.print_df_meta_data(df)
         return df
+
+    def load_file(self, file_name: str) -> pd.DataFrame:
+        if file_name not in os.listdir(self.dataset_path):
+            raise FileExistsError(f"Specified file '{file_name}' does not exist!")
+        df = pd.read_csv(os.path.join(self.dataset_path, file_name))
+        return df
+
+    def get_data_in_t_range(self, t_range: List[datetime.datetime]) -> pd.DataFrame:
+        df = self.load_dataset(overlap=True, verbose=False)
+        return df[(df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S")) &
+                  (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))]
 
     def print_df_meta_data(self, data: pd.DataFrame):
         print("\nBuoy Meta Data:")

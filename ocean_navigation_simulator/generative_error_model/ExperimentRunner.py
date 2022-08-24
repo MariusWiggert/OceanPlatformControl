@@ -1,62 +1,120 @@
-from BuoyData import BuoyDataCopernicus
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, CurrentVector
-# from ocean_navigation_simulator.generative_error_model.models.wind_field import SimplexWindNoise
-from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
+from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
+from ocean_navigation_simulator.generative_error_model.BuoyData import TargetedTimeRange
+from ocean_navigation_simulator.generative_error_model.Problem import Problem
+from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
+from utils import load_config
 
+import pandas as pd
+import numpy as np
+import xarray as xr
 import yaml
-import datetime as dt
+from typing import Dict, Any, List
+from tqdm import tqdm
 
 
 class ExperimentRunner:
+    """Takes a GenerativeModel, runs experiments and reports metrics."""
+
     def __init__(self):
-        # harcoded config file for now
-        yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
+        self.config = load_config()
+        model_config = self.config["model"]
+        if model_config["type"] == "simplex_noise":
+            # TODO: read harmomics from config and use in OceanCurrentNoiseField
+            self.model = OceanCurrentNoiseField()
+            self.rng = np.random.default_rng(12345678)
+            self.reset()
+        if model_config["type"] == "gan":
+            raise Exception("GAN model has not been implemented yet!")
 
-        # read in yaml config file
-        with open(yaml_file_config) as f:
-            self.config = yaml.load(f, Loader=yaml.FullLoader)
-        # get buoy data and interpolate forecast to it
-        buoy_data = BuoyDataCopernicus(self.config)
+        # read in problems and create problems list
+        self.variables = self.config["experiment_runner"]
+        self.problems = self.get_problems()
 
-        print(f"Num of buoys in spatio-temporal range: {len(set(buoy_data.index_data['platform_code']))}")
-        # print(min(buoy_data.data["lon"]), max(buoy_data.data["lon"]))
-        # print(min(buoy_data.data["lat"]), max(buoy_data.data["lat"]))
-        # print(min(buoy_data.data["time"]), max(buoy_data.data["time"]))
+    def reset(self):
+        """Resets the seed of the simplex noise model. Needed to generate diverse samples.
+        """
+        new_seed = self.rng.choice(20000, 1)
+        new_rng = np.random.default_rng(new_seed)
+        self.model.reset(new_rng)
 
-        # load local hindcast/forecast
-        source_dict = buoy_data.config["local_forecast"]
-        sim_cache_dict = buoy_data.config["sim_cache_dict"]
+    def run_all_problems(self):
+        results = []
+        for problem in self.problems:
+            results.append(self.run_problem(problem))
+            print("problem results:", {name: metric for name, metric in results[-1].items()})
+        return results
 
-        # Create the ocean Field
-        ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
+    def run_problem(self, problem: Problem) -> Dict[str, Any]:
+        ground_truth = self.get_ground_truth(problem)
+        noise_field = self.model.get_noise(problem)
+        print(noise_field)
+        # sample at buoy locations
+        synthetic_error = self._get_samples_from_synthetic(noise_field, ground_truth)
+        print(synthetic_error)
+        metrics = self._calculate_metrics(ground_truth, synthetic_error)
+        print(metrics)
+        return metrics
 
-        # interpolate hindcast/forecast to buoy locations
-        # TODO: the interpolation fails when multiple files in OceanCurrentField folder
-        buoy_data.interpolate_forecast(ocean_field)
-        self.data = buoy_data.data
+    def get_ground_truth(self, problem: Problem):
+        """Loads the ground truth data for a specific problem.
+        """
+        dataset_name = self.variables["dataset"]
+        dataset = Dataset(dataset_name)
+        ground_truth = dataset.get_data_in_t_range(problem.t_range)
+        ground_truth["time"] = pd.to_datetime(ground_truth["time"])
+        return ground_truth
 
-        # in future read in further configs like model and hyper params etc
+    def get_problems(self) -> List[Problem]:
+        """Loads problems from yaml file and returns them as a list of object of type Problem.
+        """
+        problems = []
+        if "problems_file" in self.variables.keys():
+            with open(self.variables["problem_file"]) as f:
+                yaml_problems = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            yaml_problems = self.variables
+        for problem_dict in yaml_problems.get("problems", []):
+            data_ranges = problem_dict["data_ranges"]
+            targeted_time_range = TargetedTimeRange(data_ranges["t_range"])
+            lon_range = data_ranges["lon_range"]
+            lat_range = data_ranges["lat_range"]
+            t_range = [targeted_time_range.get_start(), targeted_time_range.get_end()]
+            problems.append(Problem(lon_range, lat_range, t_range))
+        return problems
 
-    def get_data(self):
-        return self.data
+    def _get_samples_from_synthetic(self, noise_field: xr.Dataset, ground_truth: pd.DataFrame) -> pd.DataFrame:
+        """Takes the generated error and takes samples where buoys are located in space and time.
+        """
+        synthetic_data = ground_truth[["time", "lon", "lat"]]
+        synthetic_data["u_error"] = 0
+        synthetic_data["v_error"] = 0
+        n = 10
+        for i in tqdm(range(0, synthetic_data.shape[0], n)):
+            noise_field_interp = noise_field.interp(time=synthetic_data.iloc[i:i+n]["time"],
+                                                    lon=synthetic_data.iloc[i:i+n]["lon"],
+                                                    lat=synthetic_data.iloc[i:i+n]["lat"])
+            synthetic_data["u_error"].iloc[i:i+n] = noise_field_interp["u_error"].values.diagonal().diagonal()
+            synthetic_data["v_error"].iloc[i:i+n] = noise_field_interp["v_error"].values.diagonal().diagonal()
+        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.")
+        return synthetic_data
 
-    def get_noise_at_point(self, x:units.Distance, y:units.Distance,
-        pressure:float, elapsed_time:dt.timedelta) -> CurrentVector:
+    def _calculate_metrics(self, ground_truth, synthetic_error) -> Dict[str, float]:
+        metrics = dict()
+        wanted_metrics = self.variables.get("metrics", None)
+        for s, f in get_metrics().items():
+            if s in wanted_metrics:
+                metrics |= f(ground_truth, synthetic_error)  # update with new key-val pair
+        return metrics
 
-        self._noise_model = SimplexWindNoise()
-        self._noise_model.get_noise()
-        return 
+    def _create_plots(self):
+        return
 
-    def visualize(self):
-        pass
 
-    def sample_from_model(self):
-        pass
+def main():
+    ex_runner = ExperimentRunner()
+    ex_runner.run_all_problems()
 
-    def calulate_metrics(self):
-        pass
 
-    def plot_metrics(self):
-        pass
-    
+if __name__ == "__main__":
+    main()

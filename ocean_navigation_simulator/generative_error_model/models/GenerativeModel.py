@@ -1,7 +1,10 @@
-from abc import ABC, abstractmethod
-from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.generative_error_model.Problem import Problem
 
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple
 import datetime
+import xarray as xr
+import numpy as np
 
 
 class GenerativeModel(ABC):
@@ -9,16 +12,11 @@ class GenerativeModel(ABC):
     Abstract class which describes the functionality of what a generative
     model needs to have.
     """
-    
-    def __init__(self):
-        self.model = model
-
 
     @abstractmethod
-    def reset(self, rng) -> None:
+    def reset(self, rng: Optional[np.random.default_rng]) -> None:
         """Initializes the model with a new random number generator."""
 
-
-    def get_noise_field(self, x: units.Distance, y: units.Distance,
-        elapsed_time: datetime.timedelta) -> None:
+    @abstractmethod
+    def get_noise(self, problem: Problem) -> xr.Dataset:
         """Returns the noise field given a specific rng."""

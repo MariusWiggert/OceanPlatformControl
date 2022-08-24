@@ -11,9 +11,8 @@ class DatasetWriter:
     Needed to speed up training."""
 
     def __init__(self, yaml_file_config: str, output_dir: str):
-        # TODO: Need to figure out the location/time management in config
         with open(yaml_file_config) as f:
-            self.config = yaml.load(f, Loader=yaml.FullLoader) 
+            self.config = yaml.load(f, Loader=yaml.FullLoader)
         self.output_dir = os.path.join(self.config["data_dir"], "dataset_forecast_error", output_dir)
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
@@ -42,13 +41,11 @@ class DatasetWriter:
         return time_string
 
     def write_error_csv(self, df: pd.DataFrame, file_name: str) -> None:
-        # check if dir exists
         if not os.path.isdir(self.output_dir):
             os.mkdir(self.output_dir)
         df.to_csv(os.path.join(self.output_dir, file_name), index=False)
 
     def write_all_files(self) -> None:
-        # write all files
         for forecast_idx in range(len(self.files_dicts)):
             file_name = f"copernicus_forecast_error_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
                         f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"\

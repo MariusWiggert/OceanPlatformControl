@@ -1,5 +1,6 @@
-from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel
+from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, GenerativeModel
 from ocean_navigation_simulator.generative_error_model.utils import convert_degree_to_km
+from ocean_navigation_simulator.generative_error_model.Problem import Problem
 from ocean_navigation_simulator.utils import units
 
 from typing import Tuple, List
@@ -8,23 +9,29 @@ import xarray as xr
 import datetime
 
 
-class OceanCurrentNoiseField:
-    """Uses noise model to construct a field of noise values"""
+class OceanCurrentNoiseField(GenerativeModel):
+    """Uses noise model to construct a field of noise values."""
 
     def __init__(self):
         self.model = SimplexNoiseModel()
 
-    def reset(self, rng) -> None:
+    def reset(self, rng: np.random.default_rng) -> None:
         """Initializes the simplex noise with a new random number generator."""
         self.model.reset(rng)
 
-    def get_noise(self, lon_range: Tuple[float], lat_range: Tuple[float],
-        t_range: Tuple[datetime.datetime],) -> xr.Dataset:
+    def get_noise(self, problem: Problem) -> xr.Dataset:
         """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
         Assumes the origin is positioned in top left corner at timedelta=0 hrs."""
 
         # TODO: user-defined resolutions, since they vary between HYCOM and Copernicus.
         lon_res, lat_res, t_res = 1/12, 1/12, 1
+        lon_range, lat_range, t_range = problem.lon_range, problem.lat_range, problem.t_range
+
+        # drop timezome from datetime
+        t_range[0] = t_range[0].replace(tzinfo=None)
+        t_range[1] = t_range[1].replace(tzinfo=None)
+
+        # create axis steps
         lon_locs = np.arange(lon_range[0], lon_range[1], lon_res)
         lat_locs = np.arange(lat_range[0], lat_range[1], lat_res)
         t_locs = timedelta_range_hours(datetime.timedelta(hours=0), t_range[1] - t_range[0])
@@ -76,8 +83,12 @@ if __name__ == "__main__":
     noise_field = OceanCurrentNoiseField()
     rng = np.random.default_rng(21)  # try different seeds to see if deterministic
     noise_field.reset(rng)
-    t_delta_range = (datetime.datetime(2022, 5, 10, 12, 30, 0),
+    lon_range = [20, 22]
+    lat_range = [10, 12]
+    t_range = (datetime.datetime(2022, 5, 10, 12, 30, 0),
                      datetime.datetime(2022, 5, 11, 12, 30, 0))
-    noise_field = noise_field.get_noise((20, 22), (10, 12), t_delta_range)
+    problem = Problem(lon_range, lat_range, t_range)
+
+    noise_field = noise_field.get_noise(problem)
     print(noise_field)
 

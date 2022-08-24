@@ -89,7 +89,7 @@ class BuoyDataSource(ABC):
         Uses an OceanCurrentField object and interpolates the data to the
         spatio-temporal points of the buoy data.
 
-        The ocean_field is a hincast.
+        The ocean_field is a hindcast.
         """
 
         self.data = interp_xarray(self.data, ocean_field, "hindcast_data_source")
@@ -218,7 +218,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         # 4) Merging the information of all files
         if 'index_platform' in self.buoy_config["dataset"].keys():
             headers = ['platform_code','wmo_platform_code', 'institution_edmo_code', 'last_latitude_observation', 'last_longitude_observation','last_date_observation']
-            result = pd.merge(netcdf_collections,indexPlatform[headers],on='platform_code')
+            result = pd.merge(netcdf_collections, indexPlatform[headers], on='platform_code')
             return result
         else:
             return netcdf_collections
