@@ -44,7 +44,7 @@ class CustomOceanCurrentsDataset(Dataset):
         input = self.ocean_field.forecast_data_source.get_data_over_area(*self.GULF_MEXICO, [start, end_input],
                                                                          spatial_resolution=self.spatial_resolution_forecast,
                                                                          temporal_resolution=self.temporal_resolution_forecast)
-        output = self.ocean_field.hindcast_data_source.get_data_over_area(*self.GULF_MEXICO, [start, end_input],
+        output = self.ocean_field.hindcast_data_source.get_data_over_area(*self.GULF_MEXICO, [start, end_output],
                                                                           spatial_resolution=self.spatial_resolution_hindcast,
                                                                           temporal_resolution=self.temporal_resolution_hindcast)
         return torch.tensor(input.to_array().to_numpy()), torch.tensor(output.to_array().to_numpy())
@@ -53,14 +53,18 @@ class CustomOceanCurrentsDataset(Dataset):
 class CustomOceanCurrentsDatasetSubgrid(Dataset):
     IDX_LON, IDX_LAT, IDX_TIME = 0, 1, 2
     MARGIN = 0.2
-    GULF_MEXICO = [[-97.84 + MARGIN, -76.42 - MARGIN], [18.08 + MARGIN, 30 - MARGIN]]
+    GULF_MEXICO_WITHOUT_MARGIN = [[-97.84, -76.42], [18.08, 30]]
+    GULF_MEXICO = [[GULF_MEXICO_WITHOUT_MARGIN[0][0] + MARGIN, GULF_MEXICO_WITHOUT_MARGIN[0][1] - MARGIN],
+                   [GULF_MEXICO_WITHOUT_MARGIN[1][0] + MARGIN, GULF_MEXICO_WITHOUT_MARGIN[1][1] - MARGIN]]
 
     def __init__(self, ocean_dict: Dict[str, Any], start_date: DateTime, end_date: DateTime,
                  input_cell_size: Tuple[int, int, int], output_cell_size: Tuple[int, int, int],
                  transform=None, target_transform=None, spatial_resolution_forecast: Optional[float] = None,
                  temporal_resolution_forecast: Optional[float] = None,
                  spatial_resolution_hindcast: Optional[float] = None,
-                 temporal_resolution_hindcast: Optional[float] = None
+                 temporal_resolution_hindcast: Optional[float] = None,
+                 cfg_database: Optional[dict] = {},
+                 dtype=torch.float64
                  ):
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=None,
@@ -76,12 +80,14 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         self.spatial_resolution_hindcast = spatial_resolution_hindcast
         self.temporal_resolution_forecast = temporal_resolution_forecast
         self.temporal_resolution_hindcast = temporal_resolution_hindcast
-        self.time_horizon_nn = datetime.timedelta(hours=12)
-        self.time_horizon_input = datetime.timedelta(days=5)
+        self.time_horizon_input = datetime.timedelta(hours=cfg_database.get('time_horizon_input_h', 5))
+        self.time_horizon_output = datetime.timedelta(hours=cfg_database.get('time_horizon_output_h', 1))
+        self.dtype = dtype
 
-        radius_lon, radius_lat = 2, 2  # in deg
-        margin_forecast = 0.2
-        stride = 0.5
+        radius_lon = cfg_database.get('radius_lon', 2)  # in deg
+        radius_lat = cfg_database.get('radius_lat', 2)  # in deg
+        margin_forecast = cfg_database.get('margin_forecast', 0.2)
+        stride_tiles_dataset = cfg_database.get('stride_tiles_dataset', 0.5)
         self.inputs, self.outputs = [], []
         time = self.start_date
         while time < self.end_date:
@@ -107,35 +113,41 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                     # )
                     self.inputs.append(([lon - radius_lon - margin_forecast, lon + radius_lon + margin_forecast],
                                         [lat - radius_lat - margin_forecast, lat + radius_lat + margin_forecast],
-                                        [time,
-                                         time + datetime.timedelta(days=5)]))
+                                        [time, time + self.time_horizon_input]))
                     self.outputs.append(([lon - radius_lon, lon + radius_lon],
                                          [lat - radius_lat, lat + radius_lat],
-                                         [time, time + self.time_horizon_nn]))
-                    lat += stride
-                lon += stride
+                                         [time, time + self.time_horizon_output]))
+                    lat += stride_tiles_dataset
+                lon += stride_tiles_dataset
             time += datetime.timedelta(days=1)
+        print("putting all inputs in memory")
+
+        '''
+        Instead load the whole area with min max time, good resolution space and time -> store that and get_idx just get the good slice.
+        '''
+
+        self.all_inputs = []
+        self.whole_grid_fc = self.ocean_field.forecast_data_source \
+            .get_data_over_area(*self.GULF_MEXICO,
+                                [self.start_date, self.end_date],
+                                spatial_resolution=self.spatial_resolution_forecast,
+                                temporal_resolution=self.temporal_resolution_forecast)
+        self.whole_grid_hc = self.ocean_field.hindcast_data_source \
+            .get_data_over_area(*self.GULF_MEXICO_WITHOUT_MARGIN,
+                                [self.start_date, self.end_date],
+                                spatial_resolution=self.spatial_resolution_forecast,
+                                temporal_resolution=self.temporal_resolution_forecast)
+        # Interpolate the hc
+        self.whole_grid_hc = self.whole_grid_hc.interp_like(self.whole_grid_fc, method='linear')
 
     def __len__(self):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        input = self.ocean_field.forecast_data_source.get_data_over_area(
-            *self.inputs[idx], spatial_resolution=self.spatial_resolution_forecast,
-            temporal_resolution=self.temporal_resolution_forecast).to_array().to_numpy()
-
-        output_grid = self.ocean_field.forecast_data_source.get_data_over_area(
-            *self.outputs[idx], spatial_resolution=self.spatial_resolution_forecast,
-            temporal_resolution=self.temporal_resolution_forecast
-        )
-        output = self.ocean_field.hindcast_data_source.get_data_over_area(
-            *self.outputs[idx],
-            spatial_resolution=self.spatial_resolution_hindcast,
-            temporal_resolution=self.temporal_resolution_hindcast
-        )
-
-        # Todo: adapt in case to avoid interpolation
-        output = output.interp_like(output_grid, method='linear').to_array().to_numpy()
-
-        return input[:, :int(self.time_horizon_input.total_seconds() // 3600)], output[:, 1:int(1 + (
-                self.time_horizon_nn.seconds // 3600))]
+        lon, lat, time = self.inputs[idx][0:3]
+        input = self.whole_grid_fc.sel(lon=slice(*lon), lat=slice(*lat), time=slice(*time)).to_array().to_numpy()
+        lon, lat, time = self.outputs[idx][0:3]
+        output = self.whole_grid_hc.sel(lon=slice(*lon), lat=slice(*lat), time=slice(*time)).to_array().to_numpy()
+        input, output = torch.tensor(input, dtype=self.dtype), torch.tensor(output, dtype=self.dtype)
+        input[torch.isnan(input)] = 0
+        return input, output

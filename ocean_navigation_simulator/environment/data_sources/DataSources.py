@@ -146,7 +146,8 @@ class DataSource(abc.ABC):
                 f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).",
                 RuntimeWarning)
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
-            warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
+            s = f"The final time is not part of the subset: {t_interval[1]}."
+            warnings.warn(s, RuntimeWarning)
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],

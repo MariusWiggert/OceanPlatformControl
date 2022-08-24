@@ -166,7 +166,8 @@ def __vector_magntitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tup
     Returns:
         vme between the two vectors v1 and v2
     """
-    return np.nanmean(np.sum(np.abs(v1 - v2), axis=-1, keepdims=True), axis=axis)
+    return np.nanmean(np.sqrt(np.sum(((v1 - v2) ** 2), axis=-1, keepdims=True)), axis=axis)
+    # return np.nanmean(np.sum(np.abs(v1 - v2), axis=-1, keepdims=True), axis=axis)
 
 
 def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["uv"]) -> bool:

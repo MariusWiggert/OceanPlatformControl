@@ -1,0 +1,34 @@
+{
+  "output_layers_dims_old": [
+    5760,
+    14580,
+    29160,
+    29160,
+    14580,
+    2916,
+    1458,
+    1152
+  ],
+  "cfg_model": {
+    "input_dim": 5760,
+    "output_layers_dims": [
+      14580,
+      2916,
+      1152
+    ],
+    "output_shape": [
+      2,
+      1,
+      24,
+      24
+    ]
+  },
+  "cfg_dataset": {
+    "radius_lon": 1,
+    "radius_lat": 1,
+    "margin_forecast": 0,
+    "stride_tiles_dataset": 0.1,
+    "time_horizon_input_h": 5,
+    "time_horizon_output_h": 1
+  }
+}
