@@ -49,7 +49,8 @@ class OceanCurrentSource(DataSource):
     @staticmethod
     def plot_data_from_xarray(time_idx: int, xarray: xr, vmin: Optional[float] = 0, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
-                              colorbar: bool = True, ax=None, fill_nan: bool = True) -> matplotlib.pyplot.axes:
+                              colorbar: bool = True, ax=None, fill_nan: bool = True,
+                              return_cbar=False) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -101,11 +102,13 @@ class OceanCurrentSource(DataSource):
             # Needed because the data needs to be perfectly equally spaced
             time_2D_array = format_to_equally_spaced_xy_grid(xarray).fillna(0)
             time_2D_array.plot.streamplot(x='lon', y='lat', u='water_u', v='water_v', color='black', ax=ax)
-            # ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
+            ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
             xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
 
+        if return_cbar:
+            return ax, cbar
         return ax
 
     def is_on_land(self, point: SpatialPoint):
@@ -168,7 +171,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'])
+        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'],
+                                          currents=source_config_dict['source_settings'].get('currents', 'normal'))
 
         # Step 2: derive the time coverage and grid_dict for from the first file
         self.t_forecast_coverage = [
@@ -259,6 +263,10 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
 
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
+
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
@@ -284,7 +292,7 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 
 # Helper functions across the OceanCurrentSource objects
-def get_file_dicts(folder: AnyStr) -> List[dict]:
+def get_file_dicts(folder: AnyStr, currents='normal') -> List[dict]:
     """ Creates an list of dicts ordered according to time available, one for each nc file available in folder.
     The dicts for each file contains:
     {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
@@ -296,7 +304,7 @@ def get_file_dicts(folder: AnyStr) -> List[dict]:
     # iterate over all files to extract the grids and put them in an ordered list of dicts
     list_of_dicts = []
     for file in files_list:
-        grid_dict = get_grid_dict_from_file(file)
+        grid_dict = get_grid_dict_from_file(file, currents=currents)
         # append the file to it:
         grid_dict['file'] = file
         list_of_dicts.append(grid_dict)
@@ -329,9 +337,9 @@ def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
             return data_frame[['uo', 'vo']].rename({'uo': 'water_u', 'vo': 'water_v'})
 
 
-def get_grid_dict_from_file(file: AnyStr) -> dict:
+def get_grid_dict_from_file(file: AnyStr, currents='normal') -> dict:
     """Helper function to create a grid dict from a local nc3 file."""
-    f = open_formatted_xarray(file)
+    f = open_formatted_xarray(file, currents=currents)
     # get the time coverage in POSIX
     t_grid = get_posix_time_from_np64(f.variables['time'].data)
     y_range = [f.variables['lat'].data[0], f.variables['lat'].data[-1]]

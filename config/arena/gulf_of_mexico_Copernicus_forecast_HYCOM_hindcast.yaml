@@ -27,8 +27,8 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'forecast_files'
         source_settings:
-            folder: "/tmp/hycom_forecast/"
-            source: "HYCOM"
+            folder: "/tmp/copernicus_forecast/"
+            source: "Copernicus"
             type: "forecast"
 
 solar_dict:

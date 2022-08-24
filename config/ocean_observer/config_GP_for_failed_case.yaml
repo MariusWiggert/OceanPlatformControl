@@ -1,12 +1,12 @@
 experiment_runner:
   plots:
-    visualize_currents: True
-    # plot_3d:
-    #  [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
-    metrics_to_visualize:
-      - "rmse"
-      - "r2"
-      - "vector_correlation"
+  #visualize_currents: True
+  # plot_3d:
+  #  [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
+  #metrics_to_visualize:
+  #  - "rmse"
+  #  - "r2"
+  #  - "vector_correlation"
   metrics:
     - "rmse"
     - "r2"
@@ -16,7 +16,7 @@ experiment_runner:
   number_steps_prediction: 120
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
-#  duration_simulation_in_sec: 432000 # 3600*24*5
+  #  duration_simulation_in_sec: 432000 # 3600*24*5
   radius_area_around_platform: 0.04665226
   # settings for extra margin around platform for getting true currents
   # -> Needed because we need to interpolate it to predictions axis
