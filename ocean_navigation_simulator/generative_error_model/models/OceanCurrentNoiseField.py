@@ -1,9 +1,10 @@
-from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, GenerativeModel
+from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, HarmonicParameters
+from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
 from ocean_navigation_simulator.generative_error_model.utils import convert_degree_to_km
 from ocean_navigation_simulator.generative_error_model.Problem import Problem
 from ocean_navigation_simulator.utils import units
 
-from typing import Tuple, List
+from typing import List, Dict
 import numpy as np
 import xarray as xr
 import datetime
@@ -12,8 +13,10 @@ import datetime
 class OceanCurrentNoiseField(GenerativeModel):
     """Uses noise model to construct a field of noise values."""
 
-    def __init__(self):
-        self.model = SimplexNoiseModel()
+    def __init__(self, harmonic_params: List[Dict[str, List[float]]]):
+        u_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["U_COMP"]]
+        v_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["V_COMP"]]
+        self.model = SimplexNoiseModel(u_comp_harmonics, v_comp_harmonics)
 
     def reset(self, rng: np.random.default_rng) -> None:
         """Initializes the simplex noise with a new random number generator."""
@@ -79,17 +82,23 @@ def timedelta_to_hours(timedelta: datetime.timedelta):
     return timedelta.days*24 + timedelta.seconds//3600
 
 
-if __name__ == "__main__":
-    # run simple example:
-    noise_field = OceanCurrentNoiseField()
+def test():
+    # define the components instead of receiving them from OceanCurrentNoiseField
+    harmonic_params = {"U_COMP": [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]],
+                       "V_COMP": [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]]}
+
+    noise_field = OceanCurrentNoiseField(harmonic_params)
     rng = np.random.default_rng(21)  # try different seeds to see if deterministic
     noise_field.reset(rng)
     lon_range = [20, 22]
     lat_range = [10, 12]
-    t_range = (datetime.datetime(2022, 5, 10, 12, 30, 0),
-                     datetime.datetime(2022, 5, 11, 12, 30, 0))
+    t_range = [datetime.datetime(2022, 5, 10, 12, 30, 0),
+               datetime.datetime(2022, 5, 11, 12, 30, 0)]
     problem = Problem(lon_range, lat_range, t_range)
 
     noise_field = noise_field.get_noise(problem)
     print(noise_field)
 
+
+if __name__ == "__main__":
+    test()

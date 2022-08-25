@@ -1,17 +1,11 @@
 # source: https://github.com/google/balloon-learning-environment/blob/master/balloon_learning_environment/env/wind_field.py
-
-"""
-Generative model to generate realistic spatio-temporal noise for ocean currents based on
-simplex noise.
-"""
+from ocean_navigation_simulator.utils import units
 
 import dataclasses
 import opensimplex
 import numpy as np
 import datetime
-
-from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
-from ocean_navigation_simulator.utils import units
+from typing import List
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,25 +41,6 @@ class CurrentVector(object):
         return f'({self.u}, {self.v})'
 
 
-# weight, x, y, time.
-# _U_COMPONENT_HARMONICS = [
-#     HarmonicParameters(3.45394576e-01, 1.64681366e+02, 6.23924469e+01, 1.25745867e+01),
-#     HarmonicParameters(4.90908360e-01, 1.26397483e+01, 2.36719148e+01, 1.99995525e+03),
-#     HarmonicParameters(1.38641170e-01, 1.16968510e+01, 6.25973474e+01, 6.60372136e+01),
-#     HarmonicParameters(1.54073286e-01, 1.00241983e+03, 9.18811378e+01, 1.93519847e+03)
-# ]
-
-_U_COMPONENT_HARMONICS = [
-    HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
-    HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
-]
-
-_V_COMPONENT_HARMONICS = [
-    HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
-    HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
-]
-
-
 OPENSIMPLEX_VARIANCE = 0.0569
 # The noise's variance should match the global variance. Therefore, the
 # noise is scaled.
@@ -76,9 +51,9 @@ class SimplexNoiseModel:
     """Noise model which based on simplex noise and parameters found through
     variogram analysis will generate noise at a point or over a volume"""
 
-    def __init__(self):
-        self.noise_u = NoisyCurrentComponent(component="u")
-        self.noise_v = NoisyCurrentComponent(component="v")
+    def __init__(self, u_comp_harmonics: List[HarmonicParameters], v_comp_harmonics: List[HarmonicParameters]):
+        self.noise_u = NoisyCurrentComponent(u_comp_harmonics)
+        self.noise_v = NoisyCurrentComponent(v_comp_harmonics)
 
     def reset(self, rng) -> None:
         noise_u_rng, noise_v_rng = rng.choice(1894405231, size=2)
@@ -140,18 +115,9 @@ class NoisyCurrentHarmonic:
 class NoisyCurrentComponent:
     """Computed from multiple NoisyCurrentHarmonics."""
 
-    def __init__(self, component: str):
-        """
-        Args:
-            components: "u" or "v".
-        """
+    def __init__(self, comp_harmonics: List[HarmonicParameters]):
 
-        if component == "u":
-            harmonic_params = _U_COMPONENT_HARMONICS
-        elif component == "v":
-            harmonic_params = _V_COMPONENT_HARMONICS
-        else:
-            raise RuntimeError((f"Invalid current component: {component}"))
+        harmonic_params = comp_harmonics
 
         # create list of harmonics
         self._harmonics = [
@@ -166,7 +132,7 @@ class NoisyCurrentComponent:
         for rng, harmonic in zip(harmonics_rngs, self._harmonics):
             harmonic.reset(rng)
 
-    def get_noise(self, x:units.Distance, y: units.Distance, elapsed_time: datetime.timedelta) -> float:
+    def get_noise(self, x: units.Distance, y: units.Distance, elapsed_time: datetime.timedelta) -> float:
         """Returns simplex noise at defined location (in space and time), for specified components."""
 
         weighted_noise = 0.0
@@ -187,42 +153,25 @@ class NoisyCurrentComponent:
         return weighted_noise
 
 
-#### test funcs ####
+def test():
 
-def test_NoisyCurrentHarmonic():
-
-    rng = np.random.default_rng(2022)
-
-    harmonic = NoisyCurrentHarmonic(_U_COMPONENT_HARMONICS[0])
-    harmonic.reset(rng)
-    harmonic_noise1 =  harmonic.get_noise(
-        units.Distance(km=200),
-        units.Distance(km=300),
-        datetime.timedelta(days=5))
-
-    harmonic_noise2 =  harmonic.get_noise(
-        units.Distance(km=200),
-        units.Distance(km=300),
-        datetime.timedelta(days=5))
-
-    assert(harmonic_noise1 == harmonic_noise2), "NoisyCurrentHarmonic test failed!"
-
-
-def test_NoisyCurrentComponent():
+    # define the components instead of receiving them from OceanCurrentNoiseField
+    u_comp = [
+        HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
+        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
+    ]
+    v_comp = [
+        HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
+        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
+    ]
 
     rng = np.random.default_rng(2022)
+    new_seeds = rng.choice(10000, 2)
+    rng1 = np.random.default_rng(new_seeds[0])
+    rng2 = np.random.default_rng(new_seeds[1])
 
-    component = NoisyCurrentComponent("u")
-    component.reset(rng)
-    return component.get_noise(units.Distance(km=200), units.Distance(km=300), datetime.timedelta(days=5))
-
-
-def test_SimplexNoiseModel():
-
-    rng = np.random.default_rng(2022)
-
-    noise_model = SimplexNoiseModel()
-    noise_model.reset(rng)
+    noise_model = SimplexNoiseModel(u_comp, v_comp)
+    noise_model.reset(rng1)
     velocity1 = noise_model.get_noise(
         units.Distance(km=200),
         units.Distance(km=300),
@@ -233,10 +182,17 @@ def test_SimplexNoiseModel():
         units.Distance(km=300),
         datetime.timedelta(days=5))
 
-    assert(velocity1 == velocity2), "SimplexNoiseModel test failed!"
+    noise_model.reset(rng2)
+    velocity3 = noise_model.get_noise(
+        units.Distance(km=200),
+        units.Distance(km=300),
+        datetime.timedelta(days=5)
+    )
+
+    assert(velocity1 == velocity2), "SimplexNoiseModel not the same for same seed!"
+    assert(velocity1 != velocity3), "SimplexNoiseModel the same for different seed!"
 
 
 if __name__ == "__main__":
-    test_NoisyCurrentHarmonic()
-    test_SimplexNoiseModel()
+    test()
     print("All tests passed.")

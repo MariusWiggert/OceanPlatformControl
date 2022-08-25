@@ -110,6 +110,7 @@ class BuoyDataSource(ABC):
 class BuoyDataCopernicus(BuoyDataSource):
     def __init__(self, config: Dict, source="copernicus"):
         super().__init__(config, source)
+        folder_to_create = ["index_files", "nc_files"]
 
     def get_buoy_data(self, buoy_config: Dict):
         """
@@ -180,6 +181,9 @@ class BuoyDataCopernicus(BuoyDataSource):
         The Copernicus buoy data includes meta data files called "index" files.
         This method downloads these index files
         """
+        save_folder = os.path.join(self.buoy_config["data_dir"], "drifter_data", "index_files")
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
 
         if "index_platform" in self.buoy_config["dataset"].keys():
             indexes = self.buoy_config["dataset"]["index_files"] + [self.buoy_config["dataset"]["index_platform"]]
@@ -187,10 +191,9 @@ class BuoyDataCopernicus(BuoyDataSource):
             indexes = self.buoy_config["dataset"]["index_files"]
         with ftputil.FTPHost(self.buoy_config["dataset"]["host"], usr, pas) as ftp_host:  # connect to CMEMS FTP
             for index in indexes:
-                remotefile= "/".join(['Core', self.buoy_config["dataset"]["product"], self.buoy_config["dataset"]["name"], index])
+                remotefile = "/".join(['Core', self.buoy_config["dataset"]["product"], self.buoy_config["dataset"]["name"], index])
                 print('...Downloading ' + index)
-                # localfile = os.path.join(os.getcwd(), 'data', 'drifter_data', 'index_files', index)
-                localfile = os.path.join(self.buoy_config["data_dir"], "drifter_data", "index_files", index)
+                localfile = os.path.join(save_folder, index)
                 ftp_host.download(remotefile, localfile)  # remote, local
 
     def get_index_file_info(self) -> np.ndarray:
@@ -301,11 +304,13 @@ class BuoyDataCopernicus(BuoyDataSource):
         return result
 
     def _download_NC_file(self, file_link: str):
-        '''
-        receives file_link from index files and downloads the NC file
-        '''
+        """Receives file_link from index files and downloads the NC file.
+        """
         remotefile = "/".join(file_link.split("/")[3:])
-        localfile = os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files", remotefile.split("/")[-1])
+        save_folder = os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files")
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
+        localfile = os.path.join(save_folder, remotefile.split("/")[-1])
         if not os.path.isfile(localfile):
             with ftputil.FTPHost(self.buoy_config["dataset"]["host"], self.buoy_config["usr"], self.buoy_config["pas"]) as ftp_host:  # connect to CMEMS FTP
                 print(f"downloading {localfile.split('/')[-1]}")

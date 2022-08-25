@@ -17,20 +17,21 @@ class ExperimentRunner:
 
     def __init__(self):
         self.config = load_config()
+        self.variables = self.config["experiment_runner"]
+        dataset_name = self.variables["dataset"]
+
+        # setup model
         model_config = self.config["model"]
         if model_config["type"] == "simplex_noise":
-            # TODO: read harmomics from config and use in OceanCurrentNoiseField
-            self.model = OceanCurrentNoiseField()
-            self.rng = np.random.default_rng(12345678)
-            self.reset()
+            harmonic_params = model_config["simplex_noise"][dataset_name]
+            self.model = OceanCurrentNoiseField(harmonic_params)
+            rng = np.random.default_rng(12345678)
+            self.model.reset(rng)
         if model_config["type"] == "gan":
             raise Exception("GAN model has not been implemented yet!")
 
         # read in problems and create problems list
-        self.variables = self.config["experiment_runner"]
         self.problems = self.get_problems()
-
-        dataset_name = self.variables["dataset"]
         self.dataset = Dataset(dataset_name)
 
     def reset(self):
@@ -51,7 +52,7 @@ class ExperimentRunner:
         ground_truth = self.get_ground_truth(problem)
         noise_field = self.model.get_noise(problem)
         # TODO: need to rescale noise_field with detrended stats
-        # sample at buoy locations
+
         synthetic_error = self._get_samples_from_synthetic(noise_field, ground_truth)
         metrics = self._calculate_metrics(ground_truth, synthetic_error)
         return metrics
