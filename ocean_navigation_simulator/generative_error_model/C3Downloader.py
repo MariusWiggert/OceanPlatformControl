@@ -23,7 +23,7 @@ class C3Downloader:
         Args:
             source: str {Copernicus, Hycom}
             type_of_data: str {forecast, hindcast}
-            region: str {Region 1, Region 2, etc.}
+            region: str {Region 1, Region 2, etc., GoM}
             time_interval: List[datetime.datetime}
         """
         time_start = time_interval[0]
@@ -36,17 +36,21 @@ class C3Downloader:
         data_archive = getattr(self.c3, archive_type).fetch()
         names = []
         for i in range(data_archive.count):
-            names.append(data_archive.objs[i].name)
+            name = data_archive.objs[i].name
+            if data_archive.objs[i].name is None:
+                name = "GoM"
+            names.append(name)
         conversion = lambda x: x or ""
         try:
             region_name = [name for name in names if region in conversion(name)]
             idx = names.index(region_name[0])
         except:
             raise ValueError(f"Specified region name '{region}' is not a {source} {type_of_data.capitalize()} Data Archive!")
-        type_map = {"forecast": "fmrcArchive", "hincast": "hindcastArchive"}
+        type_map = {"forecast": "fmrcArchive", "hindcast": "hindcastArchive"}
         if type_of_data not in list(type_map.keys()):
             raise ValueError("Type of data invalid choose from [forecast, hindcast].")
         specific_archive_id = getattr(data_archive.objs[idx], type_map[type_of_data]).id
+        print(f"Archive ID: {specific_archive_id}")
 
         # Step 2: get relevant files in region within time range
         type_map = {"forecast": "FMRC", "hindcast": "Hindcast"}
@@ -57,6 +61,8 @@ class C3Downloader:
         return files_list.objs
 
     def download_files(self, files_list: List[C3Python], download_folder: str):
+        if files_list is None:
+            raise ValueError("No files present on C3 with specified requirements!")
         for file in files_list:
             filename = os.path.basename(file.file.contentLocation)
             url = file.file.url
@@ -74,6 +80,6 @@ class C3Downloader:
 
 if __name__ == "__main__":
     c3_downloader = C3Downloader()
-    time_interval = [datetime.datetime(2022, 6, 4, 12, 0, 0), datetime.datetime(2022, 7, 15, 12, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "forecast", "Region 1", time_interval)
+    time_interval = [datetime.datetime(2022, 4, 21, 12, 0, 0), datetime.datetime(2022, 6, 15, 12, 0, 0)]
+    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
     c3_downloader.download_files(files, "/home/jonas/Downloads/temp")
