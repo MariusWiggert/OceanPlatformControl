@@ -36,7 +36,7 @@ class OceanCurrentNoiseField(GenerativeModel):
         lat_locs = np.arange(lat_range[0], lat_range[1], lat_res)
         t_locs = timedelta_range_hours(datetime.timedelta(hours=0), t_range[1] - t_range[0])
 
-        noise = np.zeros((len(lon_locs), len(lat_locs), len(t_locs), 2), dtype=object)
+        noise = np.zeros((len(lon_locs), len(lat_locs), len(t_locs), 2))
 
         # TODO: improve on prototype with nested for loops.
         for i, lon in enumerate(lon_locs):
@@ -47,7 +47,8 @@ class OceanCurrentNoiseField(GenerativeModel):
                     x_km = units.Distance(km=x)
                     y_km = units.Distance(km=y)
                     point_noise = self.model.get_noise(x_km, y_km, elapsed_time)
-                    noise[i, j, k, :] = np.array([point_noise.u.meters_per_second, point_noise.v.meters_per_second])
+                    noise[i, j, k, :] = np.array([float(point_noise.u.meters_per_second),
+                                                  float(point_noise.v.meters_per_second)])
 
         ds = xr.Dataset(
             data_vars=dict(

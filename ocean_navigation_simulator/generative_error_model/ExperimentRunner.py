@@ -3,14 +3,13 @@ from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.BuoyData import TargetedTimeRange
 from ocean_navigation_simulator.generative_error_model.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
-from utils import load_config
+from utils import load_config, timer
 
 import pandas as pd
 import numpy as np
 import xarray as xr
 import yaml
 from typing import Dict, Any, List
-from tqdm import tqdm
 
 
 class ExperimentRunner:
@@ -31,6 +30,9 @@ class ExperimentRunner:
         self.variables = self.config["experiment_runner"]
         self.problems = self.get_problems()
 
+        dataset_name = self.variables["dataset"]
+        self.dataset = Dataset(dataset_name)
+
     def reset(self):
         """Resets the seed of the simplex noise model. Needed to generate diverse samples.
         """
@@ -48,20 +50,16 @@ class ExperimentRunner:
     def run_problem(self, problem: Problem) -> Dict[str, Any]:
         ground_truth = self.get_ground_truth(problem)
         noise_field = self.model.get_noise(problem)
-        print(noise_field)
+        # TODO: need to rescale noise_field with detrended stats
         # sample at buoy locations
         synthetic_error = self._get_samples_from_synthetic(noise_field, ground_truth)
-        print(synthetic_error)
         metrics = self._calculate_metrics(ground_truth, synthetic_error)
-        print(metrics)
         return metrics
 
     def get_ground_truth(self, problem: Problem):
         """Loads the ground truth data for a specific problem.
         """
-        dataset_name = self.variables["dataset"]
-        dataset = Dataset(dataset_name)
-        ground_truth = dataset.get_data_in_t_range(problem.t_range)
+        ground_truth = self.dataset.get_specific_data(problem.lon_range, problem.lat_range, problem.t_range)
         ground_truth["time"] = pd.to_datetime(ground_truth["time"])
         return ground_truth
 
@@ -86,11 +84,11 @@ class ExperimentRunner:
     def _get_samples_from_synthetic(self, noise_field: xr.Dataset, ground_truth: pd.DataFrame) -> pd.DataFrame:
         """Takes the generated error and takes samples where buoys are located in space and time.
         """
-        synthetic_data = ground_truth[["time", "lon", "lat"]]
+        synthetic_data = ground_truth[["time", "lon", "lat"]][:400]
         synthetic_data["u_error"] = 0
         synthetic_data["v_error"] = 0
         n = 10
-        for i in tqdm(range(0, synthetic_data.shape[0], n)):
+        for i in range(0, synthetic_data.shape[0], n):
             noise_field_interp = noise_field.interp(time=synthetic_data.iloc[i:i+n]["time"],
                                                     lon=synthetic_data.iloc[i:i+n]["lon"],
                                                     lat=synthetic_data.iloc[i:i+n]["lat"])
@@ -111,6 +109,7 @@ class ExperimentRunner:
         return
 
 
+@timer
 def main():
     ex_runner = ExperimentRunner()
     ex_runner.run_all_problems()

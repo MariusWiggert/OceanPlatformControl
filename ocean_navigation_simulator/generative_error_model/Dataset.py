@@ -32,13 +32,16 @@ class Dataset:
 
     def __init__(self, dataset_name: str):
         self.config = load_config()
+
+        # check if dataset exists
         self.dataset_dir = os.path.join(self.config["data_dir"], "dataset_forecast_error/")
         self.datasets = os.listdir(self.dataset_dir)
-
         if dataset_name not in self.datasets:
             raise ValueError(f"Specified dataset {dataset_name} does not exist!")
+
         self.dataset_name = dataset_name
         self.dataset_path = os.path.join(self.dataset_dir, dataset_name)
+        self.meta_data = self.build_meta_data_list()
 
     def load_dataset(self, overlap: bool=True, verbose: bool=True) -> pd.DataFrame:
 
@@ -75,10 +78,29 @@ class Dataset:
         df = pd.read_csv(os.path.join(self.dataset_path, file_name))
         return df
 
-    def get_data_in_t_range(self, t_range: List[datetime.datetime]) -> pd.DataFrame:
-        df = self.load_dataset(overlap=True, verbose=False)
-        return df[(df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S")) &
-                  (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))]
+    def build_meta_data_list(self):
+        list_of_dicts = []
+        files = os.listdir(self.dataset_path)
+        for file in files:
+            file_split = file.split("_")
+            temp = dict()
+            temp["file_name"] = file
+            temp["lon_range"] = [float(file_split[4].strip("[").strip("]").split(",")[0]),
+                                 float(file_split[4].strip("[").strip("]").split(",")[1])]
+            temp["lat_range"] = [float(file_split[6].strip("[").strip("]").split(",")[0]),
+                                 float(file_split[6].strip("[").strip("]").split(",")[1])]
+            temp["t_range"] = [file_split[8], file_split[10].split(".")[0]]
+            list_of_dicts.append(temp)
+        list_of_dicts.sort(key=lambda dictionary: dictionary['t_range'][0])
+        return list_of_dicts
+
+    def get_specific_data(self, lon_range, lat_range, t_range: List[datetime.datetime]) -> pd.DataFrame:
+        df = self.load_dataset(overlap=False, verbose=False)
+        df = df[(df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S")) &
+                (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))]
+        df = df[(df["lon"] >= lon_range[0]+1) & (df["lon"] <= lon_range[1]-1)]
+        df = df[(df["lat"] >= lat_range[0]+1) & (df["lat"] <= lat_range[1]-1)]
+        return df
 
     def print_df_meta_data(self, data: pd.DataFrame):
         print("\nBuoy Meta Data:")
@@ -90,4 +112,5 @@ class Dataset:
 
 if __name__ == "__main__":
     dataset = Dataset("area1_small")
+    print(dataset.meta_data)
     data = dataset.load_single_file(file_idx=0)
