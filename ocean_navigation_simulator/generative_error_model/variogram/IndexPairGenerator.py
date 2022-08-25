@@ -7,6 +7,7 @@ from collections.abc import Generator
 import numpy as np
 import numba as nb
 
+
 class IndexPairGenerator(Generator):
     def __init__(self, n: int, chunk_size: int):
         self.n = n
@@ -38,6 +39,7 @@ class IndexPairGenerator(Generator):
         indices = [np.array(i),np.array(j)]
         return indices, cur, n
 
+
 def timer(func):
     import time
     def wrapper():
@@ -45,6 +47,7 @@ def timer(func):
         func()
         print(f"Time taken: {time.time()-start} seconds.")
     return wrapper
+
 
 @timer
 def main():

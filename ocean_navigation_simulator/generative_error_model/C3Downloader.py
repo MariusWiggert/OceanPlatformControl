@@ -3,7 +3,7 @@
 
 from c3python import C3Python
 import datetime
-from typing import Tuple, List
+from typing import List
 import os
 
 

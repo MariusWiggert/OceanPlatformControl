@@ -8,8 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import os
 from collections import namedtuple
-from typing import Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Dict, List
 import ftputil
 from ftputil.error import FTPIOError
 import pandas as pd
@@ -17,7 +16,6 @@ import xarray as xr
 from shapely.geometry import Point, box
 import warnings
 from pandas.core.common import SettingWithCopyWarning
-import matplotlib.pyplot as plt
 
 # ignore warnings that cannot be fixed for specific scenario of needing .loc and .iloc
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)

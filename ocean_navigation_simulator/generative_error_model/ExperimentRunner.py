@@ -3,7 +3,7 @@ from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.BuoyData import TargetedTimeRange
 from ocean_navigation_simulator.generative_error_model.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
-from utils import load_config, timer
+from utils import load_config, timer, setup_logger
 
 import pandas as pd
 import numpy as np
@@ -15,24 +15,27 @@ from typing import Dict, Any, List
 class ExperimentRunner:
     """Takes a GenerativeModel, runs experiments and reports metrics."""
 
-    def __init__(self):
+    def __init__(self, logger=None):
         self.config = load_config()
         self.variables = self.config["experiment_runner"]
-        dataset_name = self.variables["dataset"]
+        self.dataset_name = self.variables["dataset"]
+        print(f"Running with {self.dataset_name} data and params.\n")
 
         # setup model
         model_config = self.config["model"]
         if model_config["type"] == "simplex_noise":
-            harmonic_params = model_config["simplex_noise"][dataset_name]
+            self.model_config = model_config["simplex_noise"]
+            harmonic_params = model_config["simplex_noise"][self.dataset_name]
             self.model = OceanCurrentNoiseField(harmonic_params)
             rng = np.random.default_rng(12345678)
             self.model.reset(rng)
+            print(f"Using {model_config['type']} model.")
         if model_config["type"] == "gan":
             raise Exception("GAN model has not been implemented yet!")
 
         # read in problems and create problems list
         self.problems = self.get_problems()
-        self.dataset = Dataset(dataset_name)
+        self.dataset = Dataset(self.dataset_name)
 
     def reset(self):
         """Resets the seed of the simplex noise model. Needed to generate diverse samples.
@@ -51,7 +54,11 @@ class ExperimentRunner:
     def run_problem(self, problem: Problem) -> Dict[str, Any]:
         ground_truth = self.get_ground_truth(problem)
         noise_field = self.model.get_noise(problem)
-        # TODO: need to rescale noise_field with detrended stats
+
+        # need to multiply by original variance and add original mean
+        detrend_stats = self.model_config[self.dataset_name]["detrend_stats"]
+        print(f"Detrend statistics: {detrend_stats}.")
+        noise_field = noise_field*detrend_stats[1] + detrend_stats[0]
 
         synthetic_error = self._get_samples_from_synthetic(noise_field, ground_truth)
         metrics = self._calculate_metrics(ground_truth, synthetic_error)
