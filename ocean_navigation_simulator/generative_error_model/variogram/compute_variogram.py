@@ -44,7 +44,6 @@ def main():
     # setup logging
     now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     log_dir = os.path.join(project_dir, config["data_dir"], "logging")
-    print(log_dir)
     logger = setup_logger(log_dir, now_string)
 
     # load data
@@ -63,6 +62,7 @@ def main():
     logger.info(f"""PARAMS:
         bin_res={args.bin_res[0]},
         num_workers={args.num_workers},
+        chunk_size={args.chunk_size},
         detrended={args.detrended},
         cross_buoy_pairs_only={args.cross_buoy_pairs_only},
         units={args.units},
@@ -70,7 +70,7 @@ def main():
         data_overlap={args.data_overlap}\n""")
 
     # compute variogram
-    bins, bins_count = V.build_variogram_gen(args.bin_res[0], args.num_workers, chunk_size=int(1e6),
+    bins, bins_count = V.build_variogram_gen(args.bin_res[0], args.num_workers, chunk_size=int(args.chunk_size),
         detrended=args.detrended, cross_buoy_pairs_only=args.cross_buoy_pairs_only, logger=logger)
 
     # save to .npy

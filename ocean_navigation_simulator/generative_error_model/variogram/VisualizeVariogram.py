@@ -1,4 +1,5 @@
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
+from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 
 from typing import Tuple, List, AnyStr, Dict
 import matplotlib.pyplot as plt
@@ -13,13 +14,15 @@ class VisualizeVariogram:
         self.variogram = variogram
         if variogram is not None:
             self.units = variogram.units
+        self.project_path = get_path_to_project(os.getcwd())
 
     def read_variogram_from_file(self, file_name: str=None):
         """Reads variogram data from file and creates a Variogram object."""
 
-        variogram_dir = os.path.join(self.config["data_dir"], "variogram")
+        variogram_dir = os.path.join(self.project_path, self.config["data_dir"], "variogram")
         variogram_file = os.path.join(variogram_dir, file_name)
         if not os.path.exists(variogram_file):
+            print(variogram_file)
             raise ValueError(f"Variogram file '{variogram_file.split('/')[-1]}' does not exist!")
 
         # initialize empty variogram and add bins and bins_count

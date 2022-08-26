@@ -64,7 +64,7 @@ class Variogram:
             /bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
         return bin_statistics
 
-    def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size:int, cross_buoy_pairs_only: bool=True,\
+    def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size: int, cross_buoy_pairs_only: bool=True,\
         detrended: bool=False, units: str="km", logger: logging=None) -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. Then computes the lag value in each axis
@@ -124,7 +124,7 @@ class Variogram:
              initargs=(q, time, lon, lat, u_error, v_error, buoy_vector, iolock))
 
         # iterate over generator to get relevant indices
-        number_of_pairs = (n**2)/2 - n
+        number_of_pairs = int((n**2)/2 - n/2)
         running_sum = 0
         iteration = 0
         while True:
@@ -193,27 +193,16 @@ class Variogram:
 
             t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j])/self.t_res).astype(float)).astype(int)
 
-            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1,1)
-            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1,1)
+            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1, 1)
+            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1, 1)
             squared_diff = np.hstack((u_squared_diff, v_squared_diff))
 
-            # assign values to bin
-            if np.sum(self.bins) == 0:
+            with iolock:
                 # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
-                with iolock:
-                    # add to relevant bin
-                    np.add.at(self.bins, (lon_lag, lat_lag, t_lag), squared_diff)
-                    # add to bin count
-                    np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1,1])
-            else:
-                bins_temp = np.zeros_like(self.bins)
-                bins_count_temp = np.zeros_like(self.bins_count)
-                # perform operations
-                np.add.at(bins_temp, (lon_lag, lat_lag, t_lag), squared_diff)
-                np.add.at(bins_count_temp, (lon_lag, lat_lag, t_lag), [1,1])
-                with iolock:
-                    self.bins += bins_temp
-                    self.bins_count += bins_count_temp
+                # add to relevant bin
+                np.add.at(self.bins, (lon_lag, lat_lag, t_lag), squared_diff)
+                # add to bin count
+                np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1, 1])
 
     def _variogram_setup(self, res_tuple: Tuple[float]):
         """Helper method to declutter the main build_variogram method."""
