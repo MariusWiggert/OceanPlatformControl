@@ -16,7 +16,7 @@ def get_user_dir():
 
 class C3Downloader:
 
-    def __init__(self):
+    def __init__(self, forecast_hindcast: str="forecast"):
         c3 = C3Python(
             url='https://dev01-seaweed-control.c3dti.ai',
             tenant='seaweed-control',
@@ -25,7 +25,10 @@ class C3Downloader:
             username='jonas.dieker@berkeley.edu',
         ).get_c3()
         self.c3 = c3
-        self.data_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/forecasts/")
+        if forecast_hindcast == "forecast":
+            self.data_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/forecasts/")
+        if forecast_hindcast == "hindcast":
+            self.data_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/hindcasts/")
 
     def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
         """

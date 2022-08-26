@@ -17,3 +17,9 @@ pip install --upgrade git+https://dti-devops:ghp_pHziYobKhY8gbTFH9G4aHcoJExOHd03
 # install other python requirements via pip
 pip install -r requirements.txt
 
+# install c3python
+pip install git+https://github.com/c3aidti/c3python
+
+# install local files in developer mode
+pip install -e .
+

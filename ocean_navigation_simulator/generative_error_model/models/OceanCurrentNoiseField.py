@@ -45,7 +45,7 @@ class OceanCurrentNoiseField(GenerativeModel):
         for i, lon in enumerate(lon_locs):
             for j, lat in enumerate(lat_locs):
                 for k, elapsed_time in enumerate(t_locs):
-                    # need relative degrees, convert to km and feed into noise model
+                    # need degrees relative to start of locs, convert to km and feed into noise model
                     x, y = convert_degree_to_km(lon-lon_range[0], lat-lat_range[0])
                     x_km = units.Distance(km=x)
                     y_km = units.Distance(km=y)
