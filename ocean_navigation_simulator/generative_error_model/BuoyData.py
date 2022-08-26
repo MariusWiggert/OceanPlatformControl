@@ -1,5 +1,6 @@
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 from data_preprocessing import interp_xarray, interp_hincast_casadi
+from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 
 import datetime
 import dateutil
@@ -59,6 +60,7 @@ class BuoyDataSource(ABC):
                                      self.buoy_config["lat_range"][0],
                                      self.buoy_config["lat_range"][1]).get_bbox()
         self.targeted_time_range = TargetedTimeRange(self.buoy_config["time_range"])
+        self.data_dir = os.path.join(get_path_to_project(os.getcwd()), self.config["data_dir"])
         self.data = self.get_buoy_data(self.buoy_config)
 
     @abstractmethod
@@ -108,7 +110,6 @@ class BuoyDataSource(ABC):
 class BuoyDataCopernicus(BuoyDataSource):
     def __init__(self, config: Dict, source="copernicus"):
         super().__init__(config, source)
-        folder_to_create = ["index_files", "nc_files"]
 
     def get_buoy_data(self, buoy_config: Dict):
         """
@@ -126,7 +127,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         self.nc_links = self.index_data["file_name"].tolist()
         self.download_all_NC_files(self.nc_links)
 
-        file_list = [os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files", file_link.split('/')[-1]) for file_link in self.nc_links]
+        file_list = [os.path.join(self.data_dir, "nc_files", file_link.split('/')[-1]) for file_link in self.nc_links]
         self.data = self.concat_buoy_data(file_list)
 
         return self.data
@@ -179,7 +180,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         The Copernicus buoy data includes meta data files called "index" files.
         This method downloads these index files
         """
-        save_folder = os.path.join(self.buoy_config["data_dir"], "drifter_data", "index_files")
+        save_folder = os.path.join(self.data_dir, "index_files")
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
 
@@ -200,14 +201,14 @@ class BuoyDataCopernicus(BuoyDataSource):
         """
         # 1) Loading the index platform info as dataframe
         if 'index_platform' in self.buoy_config["dataset"].keys():
-            path2file = os.path.join(self.buoy_config["data_dir"], "drifter_data", "index_files", self.buoy_config["dataset"]["index_platform"])
+            path2file = os.path.join(self.data_dir, "index_files", self.buoy_config["dataset"]["index_platform"])
             indexPlatform = self._read_index_file_from_CWD(path2file, None, None)
-            indexPlatform.rename(columns={indexPlatform.columns[0]: "platform_code" }, inplace = True)
+            indexPlatform.rename(columns={indexPlatform.columns[0]: "platform_code"}, inplace=True)
             indexPlatform = indexPlatform.drop_duplicates(subset='platform_code', keep="first")
         # 2) Loading the index files info as dataframes
         netcdf_collections = []
         for filename in self.buoy_config["dataset"]["index_files"]:
-            path2file = os.path.join(self.buoy_config["data_dir"],'drifter_data', 'index_files', filename)
+            path2file = os.path.join(self.data_dir, 'index_files', filename)
             index_file = self._read_index_file_from_CWD(path2file, self.targeted_bbox, self.targeted_time_range, overlap_type=self.buoy_config["area_overlap_type"])
             netcdf_collections.append(index_file)
         netcdf_collections = pd.concat(netcdf_collections)
@@ -305,7 +306,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         """Receives file_link from index files and downloads the NC file.
         """
         remotefile = "/".join(file_link.split("/")[3:])
-        save_folder = os.path.join(self.buoy_config["data_dir"], "drifter_data", "nc_files")
+        save_folder = os.path.join(self.data_dir, "nc_files")
         if not os.path.exists(save_folder):
             os.makedirs(save_folder)
         localfile = os.path.join(save_folder, remotefile.split("/")[-1])
