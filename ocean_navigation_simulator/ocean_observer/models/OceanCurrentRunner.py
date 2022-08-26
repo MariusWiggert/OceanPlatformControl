@@ -17,21 +17,50 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid im
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
 
 
-def test(model, device, test_loader):
+def collate_fn(batch):
+    batch_filtered = list(filter(lambda x: x is not None, batch))
+    if not len(batch_filtered):
+        return None, None
+    return torch.utils.data.dataloader.default_collate(batch_filtered)
+
+
+def loss_function(output, target, mask=None):
+    if mask is not None:
+        reduction = 'sum'
+        division = (mask == False).sum()
+    else:
+        reduction = 'mean'
+        division = 1
+
+    return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / division)
+
+
+def test(args, model, device, test_loader, epoch):
     model.eval()
     test_loss = 0
-    correct = 0
+    initial_loss = 0
     with torch.no_grad():
-        for data, target in test_loader:
+        for batch_idx, (data, target) in enumerate(test_loader):
+            if (data, target) == (None, None):
+                print(f"batch {batch_idx} empty. skipped!")
+                continue
             data, target = data.to(device), target.to(device)
             output = model(data)
-            print("output shape:", output.shape)
-            test_loss += F.mse_loss(output, target, reduction='mean').item()  # sum the batch losses
+            test_loss += loss_function(output, target).item()  # sum the batch losses
+            # todo: adapt 0 in case where window is around xt instead of just after
+            index_xt = 0
+            initial_loss += loss_function(data[:, :, [index_xt]], target).item()
+            if batch_idx % args.log_interval == 0:
+                print(
+                    f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(test_loader.dataset)} ({100. * batch_idx / len(test_loader):.0f}%)]")
+                if args.dry_run:
+                    break
 
     test_loss /= len(test_loader.dataset)
+    initial_loss /= len(test_loader.dataset)
 
     print(
-        f"\nTest set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({100. * correct / len(test_loader.dataset):.0f})\n")
+        f"\nTest set: Average loss: {test_loss:.4f}, Without NN: {initial_loss:.4f}, Accuracy: {test_loss}/{initial_loss} ({100. * test_loss / initial_loss:.2f})\n")
 
 
 def main():
@@ -69,11 +98,11 @@ def main():
     torch.manual_seed(args.seed)
 
     device = torch.device("cuda" if use_cuda else "cpu")
+    print("device:", device)
     dtype = torch.float32
     if args.silicon:
         dtype = torch.float
         device = torch.device("mps")
-    print("device:", device)
 
     train_kwargs = {'batch_size': args.batch_size}
     test_kwargs = {'batch_size': args.test_batch_size}
@@ -110,22 +139,24 @@ def main():
     #                                                 (48, 48, datetime.timedelta(hours=12)), transform, transform)
 
     start_training = datetime.datetime(2022, 4, 1, 12, 30, 1, tzinfo=datetime.timezone.utc)
+    duration_training = datetime.timedelta(days=28)
+    duration_validation = datetime.timedelta(days=14)
     # input_tile_dims = (36, 36, datetime.timedelta(days=5))
     # output_tile_dims = (48, 48, datetime.timedelta(hours=12))
     input_tile_dims = (24, 24, datetime.timedelta(hours=5))
     output_tile_dims = (24, 24, datetime.timedelta(hours=1))
     dataset_training = CustomOceanCurrentsDatasetSubgrid(config_datasets["training"], start_training,
-                                                         start_training + datetime.timedelta(days=28),
-                                                         input_tile_dims, output_tile_dims, transform, transform,
-                                                         cfg_database=cfg_dataset, dtype=dtype, )
+                                                         start_training + duration_training,
+                                                         input_tile_dims, output_tile_dims, cfg_dataset, transform,
+                                                         transform, dtype=dtype, )
     dataset_validation = CustomOceanCurrentsDatasetSubgrid(config_datasets["validation"],
-                                                           datetime.datetime(2022, 4, 1, tzinfo=datetime.timezone.utc),
-                                                           datetime.datetime(2022, 5, 1, tzinfo=datetime.timezone.utc),
-                                                           input_tile_dims, output_tile_dims, transform, transform,
-                                                           dtype=dtype, )
+                                                           start_training + duration_training,
+                                                           start_training + duration_training + duration_validation,
+                                                           input_tile_dims, output_tile_dims, cfg_dataset, transform,
+                                                           transform, dtype=dtype, )
 
-    train_loader = torch.utils.data.DataLoader(dataset_training, **train_kwargs)
-    validation_loader = torch.utils.data.DataLoader(dataset_validation, **test_kwargs)
+    train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
+    validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
     model_type = args.model_type
     if model_type == 'mlp':
         model = OceanCurrentMLP(**cfg_model)
@@ -139,8 +170,11 @@ def main():
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
+        print(f"starting Training epoch {epoch}/{args.epochs + 1}.")
+
         train(args, model, device, train_loader, optimizer, epoch)
-        test(model, device, validation_loader)
+        print(f"starting Testing epoch {epoch}/{args.epochs + 1}.")
+        test(args, model, device, validation_loader, epoch)
         scheduler.step()
 
     if args.save_model:
@@ -149,14 +183,18 @@ def main():
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+
     for batch_idx, (data, target) in enumerate(train_loader):
+        if (data, target) == (None, None):
+            print(f"batch {batch_idx} empty. skipped!")
+            continue
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         mask = torch.isnan(target)
         output[mask] = 0
         target[mask] = 0
-        loss = torch.sqrt(F.mse_loss(output, target, reduction='sum') / (mask == False).sum())
+        loss = loss_function(output, target, mask)
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
