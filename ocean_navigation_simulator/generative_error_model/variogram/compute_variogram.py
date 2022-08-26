@@ -1,6 +1,6 @@
 from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.variogram.utils import save_variogram_to_npy
-from ocean_navigation_simulator.generative_error_model.utils import timer, setup_logger, load_config
+from ocean_navigation_simulator.generative_error_model.utils import timer, setup_logger, load_config, get_path_to_project
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
 import argparse
@@ -11,6 +11,7 @@ import os
 def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("bin_res", nargs=3, action="append", type=float, help="defines the ranges of bins [lon, lat, time]")
+    parser.add_argument("--yaml_file_config", default="scenarios/generative_error_model/config_buoy_data.yaml", type=str)
     parser.add_argument("--num_workers", default=2, type=int, help="for multiprocessing")
     parser.add_argument("--chunk_size", default=1e6, type=float, help="what size chunk the computation is performed on")
     parser.add_argument("--detrended", default=True, type=bool, help="if the detrended data should be used")
@@ -37,14 +38,17 @@ def main():
     args.cross_buoy_pairs_only = t_or_f(args.cross_buoy_pairs_only)
     args.data_overlap = t_or_f(args.data_overlap)
 
+    # load config
+    project_dir = get_path_to_project(os.getcwd())
+    config = load_config(os.path.join(project_dir, args.yaml_file_config))
     # setup logging
-    config = load_config()
     now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-    log_dir = os.path.join(config["data_dir"], "logging")
+    log_dir = os.path.join(project_dir, config["data_dir"], "logging")
+    print(log_dir)
     logger = setup_logger(log_dir, now_string)
 
     # load data
-    dataset = Dataset(args.dataset_name)
+    dataset = Dataset(args.dataset_name, config)
     if args.dataset_size == "large":
         data = dataset.load_dataset(args.data_overlap)  # ~300,000 pts
     else:
@@ -73,7 +77,7 @@ def main():
     file_name_part1 = f"{now_string}_variogram_{args.dataset_name}_{args.bin_res[0][0]}_{args.bin_res[0][1]}_"
     file_name_part2 = f"{args.bin_res[0][2]}_{args.detrended}_{args.cross_buoy_pairs_only}_{args.data_overlap}.npy"
     file_name = file_name_part1 + file_name_part2
-    file_path = os.path.join(os.path.join(config["data_dir"], "variogram"), file_name)
+    file_path = os.path.join(project_dir, config["data_dir"], "variogram", file_name)
     save_variogram_to_npy(V, file_path)
 
 

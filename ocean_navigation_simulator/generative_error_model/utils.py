@@ -1,22 +1,26 @@
 """random functions which are needed as part of the generative error model
 code but do not belong to a specific class."""
 
-from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
-
 from contextlib import redirect_stdout
 import yaml
 import sys
 import numpy as np
 import os
 import logging
-from typing import List
+from typing import List, Dict
 
 
-def load_config():
-    yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
+def load_config(yaml_file_config: str) -> Dict:
     with open(yaml_file_config) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return config
+
+
+def get_path_to_project(static_path: str) -> str:
+    file_split = static_path.split("/")
+    end_idx = file_split.index("OceanPlatformControl")
+    relative_path = "/".join(file_split[:end_idx+1])
+    return relative_path
 
 
 #------------------------------ Decorator Functions ---------------------------------#
