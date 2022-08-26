@@ -1,5 +1,7 @@
 from ocean_navigation_simulator.generative_error_model.BuoyData import BuoyDataCopernicus
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
+
 import pandas as pd
 import os
 import yaml
@@ -10,10 +12,19 @@ class DatasetWriter:
     """Uses BuoyData and OceanCurrentField to write data to file which is then read by DataLoader.
     Needed to speed up training."""
 
-    def __init__(self, yaml_file_config: str, output_dir: str):
+    def __init__(self, yaml_file_config: str, input_dir: str, output_dir: str):
         with open(yaml_file_config) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)
-        self.output_dir = os.path.join(self.config["data_dir"], "dataset_forecast_error", output_dir)
+        self.data_dir = os.path.join(get_path_to_project(os.getcwd()), self.config["data_dir"])
+        # where forecasts are coming from
+        input_path = os.path.join(self.data_dir, "forecasts/", input_dir)
+        if input_path != "/":
+            input_path += "/"
+        self.config["local_forecast"]["source_settings"]["folder"] = input_path
+        print(f"Loading data from: {input_path}")
+        # where dataset is saved
+        self.output_path = os.path.join(self.data_dir, "dataset_forecast_error", output_dir)
+        print(f'Writing data to: {self.output_path}\n')
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
 
@@ -41,9 +52,9 @@ class DatasetWriter:
         return time_string
 
     def write_error_csv(self, df: pd.DataFrame, file_name: str) -> None:
-        if not os.path.isdir(self.output_dir):
-            os.mkdir(self.output_dir)
-        df.to_csv(os.path.join(self.output_dir, file_name), index=False)
+        if not os.path.isdir(self.output_path):
+            os.mkdir(self.output_path)
+        df.to_csv(os.path.join(self.output_path, file_name), index=False)
 
     def write_all_files(self) -> None:
         for forecast_idx in range(len(self.files_dicts)):
@@ -53,7 +64,7 @@ class DatasetWriter:
             file_name = file_name.replace("/", "__")
             time_string = self._build_time_string(forecast_idx)
             self.config["buoy_config"]["copernicus"]["time_range"] = time_string
-            if os.path.exists(os.path.join(self.output_dir, file_name)):
+            if os.path.exists(os.path.join(self.output_path, file_name)):
                 print(f"file already exists: {file_name}")
                 continue
             forecast_error = self.get_error(forecast_idx)
@@ -63,7 +74,6 @@ class DatasetWriter:
 
 if __name__ == "__main__":
     # run for quick testing + generating csv files
-    # TODO: handle when change area need to go into config and change lon/lat range and local_forecast + data_writer dirs
-    yaml_file_config = "/home/jonas/Documents/Thesis/OceanPlatformControl/scenarios/generative_error_model/config_buoy_data.yaml"
-    data_writer = DatasetWriter(yaml_file_config, "area1_small")
+    yaml_file_config = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model/config_buoy_data.yaml")
+    data_writer = DatasetWriter(yaml_file_config, "area1", "area1")
     data_writer.write_all_files()
