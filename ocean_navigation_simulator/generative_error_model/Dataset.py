@@ -21,20 +21,21 @@
 #         errors = pd.red_csv(self.data_files[idx])
 #         return errors
 
-from ocean_navigation_simulator.generative_error_model.utils import load_config
+from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 import pandas as pd
 import os
-from typing import List
+from typing import List, Dict
 import datetime
 
 
 class Dataset:
 
-    def __init__(self, dataset_name: str):
-        self.config = load_config()
+    def __init__(self, dataset_name: str, config: Dict):
+        self.config = config
 
         # check if dataset exists
-        self.dataset_dir = os.path.join(self.config["data_dir"], "dataset_forecast_error/")
+        root = get_path_to_project(os.getcwd())
+        self.dataset_dir = os.path.join(root, self.config["data_dir"], "dataset_forecast_error/")
         self.datasets = os.listdir(self.dataset_dir)
         if dataset_name not in self.datasets:
             raise ValueError(f"Specified dataset {dataset_name} does not exist!")

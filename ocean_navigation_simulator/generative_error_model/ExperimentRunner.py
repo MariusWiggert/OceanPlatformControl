@@ -3,20 +3,22 @@ from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.BuoyData import TargetedTimeRange
 from ocean_navigation_simulator.generative_error_model.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
-from utils import load_config, timer, setup_logger
+from utils import load_config, timer, setup_logger, get_path_to_project
 
 import pandas as pd
 import numpy as np
 import xarray as xr
 import yaml
+import os
 from typing import Dict, Any, List
+from tqdm import tqdm
 
 
 class ExperimentRunner:
     """Takes a GenerativeModel, runs experiments and reports metrics."""
 
-    def __init__(self, logger=None):
-        self.config = load_config()
+    def __init__(self, yaml_file_config: str, logger=None):
+        self.config = load_config(yaml_file_config)
         self.variables = self.config["experiment_runner"]
         self.dataset_name = self.variables["dataset"]
         print(f"Running with {self.dataset_name} data and params.\n")
@@ -35,7 +37,7 @@ class ExperimentRunner:
 
         # read in problems and create problems list
         self.problems = self.get_problems()
-        self.dataset = Dataset(self.dataset_name)
+        self.dataset = Dataset(self.dataset_name, self.config)
 
     def reset(self):
         """Resets the seed of the simplex noise model. Needed to generate diverse samples.
@@ -54,6 +56,7 @@ class ExperimentRunner:
     def run_problem(self, problem: Problem) -> Dict[str, Any]:
         ground_truth = self.get_ground_truth(problem)
         noise_field = self.model.get_noise(problem)
+        print(f"Computed noise field!\n")
 
         # need to multiply by original variance and add original mean
         detrend_stats = self.model_config[self.dataset_name]["detrend_stats"]
@@ -92,11 +95,11 @@ class ExperimentRunner:
     def _get_samples_from_synthetic(self, noise_field: xr.Dataset, ground_truth: pd.DataFrame) -> pd.DataFrame:
         """Takes the generated error and takes samples where buoys are located in space and time.
         """
-        synthetic_data = ground_truth[["time", "lon", "lat"]][:400]
+        synthetic_data = ground_truth[["time", "lon", "lat"]]
         synthetic_data["u_error"] = 0
         synthetic_data["v_error"] = 0
         n = 10
-        for i in range(0, synthetic_data.shape[0], n):
+        for i in tqdm(range(0, synthetic_data.shape[0], n)):
             noise_field_interp = noise_field.interp(time=synthetic_data.iloc[i:i+n]["time"],
                                                     lon=synthetic_data.iloc[i:i+n]["lon"],
                                                     lat=synthetic_data.iloc[i:i+n]["lat"])
@@ -119,7 +122,8 @@ class ExperimentRunner:
 
 @timer
 def main():
-    ex_runner = ExperimentRunner()
+    config_path = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model/config_buoy_data.yaml")
+    ex_runner = ExperimentRunner(yaml_file_config=config_path)
     ex_runner.run_all_problems()
 
 
