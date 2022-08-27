@@ -11,6 +11,8 @@ arena = ArenaFactory.create(scenario_name='double_gyre')
 # arena = ArenaFactory.create(scenario_name='current_highway')
 # arena = ArenaFactory.create(scenario_name='gulf_of_mexico')
 
+#arena = ArenaFactory.create(scenario_name='double_gyre')
+
 factory = DoubleGyreProblemFactory()
 problem = factory.next_problem()
 controller = NaiveController(problem=problem)
