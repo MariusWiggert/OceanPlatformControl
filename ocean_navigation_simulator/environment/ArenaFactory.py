@@ -6,7 +6,7 @@ from typing import Optional, List
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 from ocean_navigation_simulator.utils import units
 
 
@@ -26,20 +26,23 @@ class ArenaFactory:
             with open(f'config/arena/{scenario_name}.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
 
+            # Step 2: Add Spatial Boundary
             if x_interval is not None and y_interval is not None:
                 config['spatial_boundary'] = {
                     'x': [x_interval[0], x_interval[1]],
                     'y': [y_interval[0], y_interval[1]],
                 }
+
+            # Step 3: Add point to check for coverage
             if problem is not None:
                 points = [problem.start_state.to_spatial_point(), problem.end_region]
                 t_interval = [problem.start_state.date_time, problem.start_state.date_time + problem.timeout]
             elif x_interval is not None and y_interval is not None:
                 points = [SpatialPoint(lon=x_interval[0], lat=y_interval[0]), SpatialPoint(lon=x_interval[1], lat=y_interval[1])]
 
-            # Step 2: Download Hindcast
+            # Step 3: Download Hindcast
             if t_interval is not None and config['ocean_dict']['hindcast'] is not None and config['ocean_dict']['hindcast']['source']=='hindcast_files':
-                with Utils.timing('ArenaFactory: - Download Hindcast Files ({:.1f}s)', verbose):
+                with Utils.timing('ArenaFactory: Download Hindcast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
                         archive_source=config['ocean_dict']['hindcast']['source_settings']['source'],
                         archive_type=config['ocean_dict']['hindcast']['source_settings']['type'],
@@ -49,9 +52,9 @@ class ArenaFactory:
                         verbose=verbose,
                     )
 
-            # Step 3: Download Forecast
+            # Step 4: Download Forecast
             if t_interval is not None and config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
-                with Utils.timing('ArenaFactory: - Download Forecast Files ({:.1f}s)', verbose):
+                with Utils.timing('ArenaFactory: Download Forecast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
                         archive_source=config['ocean_dict']['forecast']['source_settings']['source'],
                         archive_type=config['ocean_dict']['forecast']['source_settings']['type'],
@@ -61,7 +64,7 @@ class ArenaFactory:
                         verbose=verbose,
                     )
 
-            # Step 4: Create Arena
+            # Step 5: Create Arena
             return Arena(
                 casadi_cache_dict=config['casadi_cache_dict'],
                 platform_dict=config['platform_dict'],
@@ -74,10 +77,15 @@ class ArenaFactory:
             )
 
     @staticmethod
-    def get_filelist(c3, archive_source, archive_type, t_interval: List[datetime.datetime]):
-        start_min = f'{t_interval[0].replace(hour=0, minute=0, second=0, microsecond=0)}'
-        start_max = f'{t_interval[1]}'
-        time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
+    def get_filelist(archive_source, archive_type, t_interval: List[datetime.datetime] = None, verbose: Optional[int] = 10):
+        c3 = Utils.get_c3(verbose-1)
+
+        if t_interval is not None:
+            start_min = f'{t_interval[0] - datetime.timedelta(days=1)}'
+            start_max = f'{t_interval[1]}'
+            time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
+        else:
+            time_filter = ''
 
         if archive_source=='HYCOM' and archive_type=='forecast':
             archive_id = c3.HycomDataArchive.fetch(spec={'filter': 'description=="Full geo-spatial Hycom GOM: u,v at depth=4.0"'}).objs[0].fmrcArchive.id
@@ -113,7 +121,9 @@ class ArenaFactory:
                         raise ValueError("The point {} is not covered by the latitude of the downloaded files.".format(point))
 
     @staticmethod
-    def download_filelist(c3, files, download_folder, verbose: Optional[int] = 0):
+    def download_filelist(files, download_folder, verbose: Optional[int] = 0):
+        c3 = Utils.get_c3(verbose-1)
+
         # Step 1: Download Files thread-safe with atomic os.rename
         temp_folder = f'{download_folder}{os.getpid()}/'
         for file in files.objs:
@@ -148,9 +158,9 @@ class ArenaFactory:
         t_interval: Optional[List[datetime.datetime]] = [],
         points: Optional[List[SpatialPoint]] = None,
         verbose: Optional[int] = 0
-    ):
+    ) -> int:
         # Step 1: Find relevant files
-        files = ArenaFactory.get_filelist(c3=Utils.get_c3(verbose-1), archive_source=archive_source, archive_type=archive_type, t_interval=t_interval)
+        files = ArenaFactory.get_filelist(archive_source=archive_source, archive_type=archive_type, t_interval=t_interval, verbose=verbose)
 
         # Step 2: Check File Count
         if files.count < (t_interval[1]-t_interval[0]).days + 1:
@@ -160,4 +170,6 @@ class ArenaFactory:
         ArenaFactory.check_spacial_coverage(files, points)
 
         # Step 4: Download files thread-safe
-        ArenaFactory.download_filelist(Utils.get_c3(verbose-1), files, download_folder, verbose)
+        ArenaFactory.download_filelist(files=files, download_folder=download_folder, verbose=verbose)
+
+        return files.count

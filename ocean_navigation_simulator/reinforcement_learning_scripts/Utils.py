@@ -5,7 +5,6 @@ import shutil
 import socket
 import time
 from typing import Optional
-
 import pandas as pd
 import requests
 import ray
@@ -108,7 +107,7 @@ class Utils:
     @staticmethod
     def ensure_storage_connection():
         if not os.path.exists('/seaweed-storage/connected'):
-            os.system('bash -i setup/set_up_seaweed_storage.sh')
+            os.system('bash setup/set_up_seaweed_storage.sh')
 
         if not os.path.exists('/seaweed-storage/connected'):
             raise FileNotFoundError(f"Seaweed Storage not connected on node {requests.get('https://api.ipify.org').content.decode('utf8')} / {socket.gethostbyname(socket.gethostname())}")
