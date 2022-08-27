@@ -46,7 +46,7 @@ class NavigationProblem(Problem):
         return ax
 
     @staticmethod
-    def from_dict(mission):
+    def from_pandas_row(mission):
         return NavigationProblem(
             start_state=PlatformState(
                 lon=units.Distance(deg=mission['x_0_lon']),
@@ -82,4 +82,9 @@ class NavigationProblem(Problem):
         } if self.y_range is not None else {}) | (self.extra_info if self.extra_info is not None else {})
 
     def __repr__(self):
-        return f'Problem [start: {self.start_state.to_spatio_temporal_point()}, end: {self.end_region}, optimal time: {self.extra_info["optimal_time_in_h"]:.1f}, timeout: {self.timeout.total_seconds()/3600:.1f}h'
+        return 'Problem [start: {s}, end: {e}, optimal time: {ot:.1f}, timeout: {t:.1f}h'.format(
+            s=self.start_state.to_spatio_temporal_point(),
+            e=self.end_region,
+            ot=self.extra_info["optimal_time_in_h"] if 'optimal_time_in_h' in self.extra_info else float("inf"),
+            t=self.timeout.total_seconds()/3600,
+        )

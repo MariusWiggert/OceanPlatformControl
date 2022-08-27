@@ -16,13 +16,14 @@ from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import OceanNNModel
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 
 class RLRunner:
     def __init__(
         self,
         name: str,
+        scenario_name: str,
         agent_class: Type,
         agent_config: dict,
         ocean_env_config: dict,
@@ -32,6 +33,7 @@ class RLRunner:
         verbose: Optional[int] = 0,
     ):
         self.name = name
+        self.scenario_name = scenario_name
         self.agent_class = agent_class
         self.agent_config = agent_config
         self.ocean_env_config = ocean_env_config
@@ -45,7 +47,7 @@ class RLRunner:
 
         # Step 1: Prepare Paths
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
-        self.results_folder = f'/seaweed-storage/experiments/{name}_{self.timestring}/'
+        self.results_folder = f'/seaweed-storage/experiments/{self.scenario_name}/{self.name}_{self.timestring}/'
         self.config_folder = f'{self.results_folder}config/'
         self.checkpoints_folder = f'{self.results_folder}checkpoints/'
 
@@ -53,7 +55,7 @@ class RLRunner:
         Utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(self.config_folder)
-        Utils.clean_results(f'/seaweed-storage/experiments/', verbose=1)
+        # Utils.clean_results(f'/seaweed-storage/experiments/{self.scenario_name}/', verbose=1)
         json.dump(self.agent_config,                open(f'{self.config_folder}agent_config.json', "w"), indent=4)
         json.dump(self.ocean_env_config,            open(f'{self.config_folder}ocean_env_config.json', "w"), indent=4)
         json.dump(self.feature_constructor_config,  open(f'{self.config_folder}feature_constructor_config.json', "w"), indent=4)

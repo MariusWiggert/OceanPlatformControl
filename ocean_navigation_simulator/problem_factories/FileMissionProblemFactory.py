@@ -10,7 +10,7 @@ class FileMissionProblemFactory(ProblemFactory):
     def __init__(
         self,
         seed: Optional[int] = None,
-        csv_file: Optional[str] = '/seaweed-storage/generation/increased_planner_area/problems.csv',
+        csv_file: Optional[str] = '/seaweed-storage/generation/gulf_of_mexico_HYCOM_hindcast/increased_planner_area/problems.csv',
         limit: Optional[int] = None,
     ):
         self.seed = seed
@@ -44,4 +44,4 @@ class FileMissionProblemFactory(ProblemFactory):
         index = self.indexes_available.pop(0)
         row = self.problems_df.iloc[index]
 
-        return NavigationProblem.from_dict(row)
+        return NavigationProblem.from_pandas_row(row)

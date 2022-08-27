@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import pandas as pd
 import ocean_navigation_simulator.utils.paths as paths
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 c3 = Utils.get_c3()
 

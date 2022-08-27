@@ -2,7 +2,7 @@
 # warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import sys
-sys.path.extend(['/home/ubuntu/OceanPlatformControl', '/home/ubuntu/OceanPlatformControl'])
+sys.path.extend(['/home/ubuntu/OceanPlatformControl'])
 print('Python %s on %s' % (sys.version, sys.platform))
 print(sys.path)
 
@@ -15,8 +15,8 @@ import pytz
 import ray
 from ray.rllib.agents.dqn.apex import ApexTrainer
 
-from ocean_navigation_simulator.scripts.RLRunner import RLRunner
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning_scripts.RLRunner import RLRunner
+from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
@@ -26,7 +26,8 @@ Utils.init_ray()
 Utils.ensure_storage_connection()
 
 runner = RLRunner(
-    name='custom_model',
+    name='forecast_planner_test',
+    scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     agent_class=ApexTrainer,
     agent_config={
         ## Framework
@@ -52,7 +53,7 @@ runner = RLRunner(
         "rollout_fragment_length": 100,
         ## Workers
         "num_gpus": 1,
-        "num_workers": 102,
+        "num_workers": 1,
         "num_cpus_per_worker": 1,
         "num_gpus_per_worker": 0,
         "placement_strategy": "SPREAD",
@@ -60,12 +61,12 @@ runner = RLRunner(
         "recreate_failed_workers": True,
     },
     ocean_env_config={
-        'generation_folder': '/seaweed-storage/generation/increased_planner_area/',
-        'scenario_name': 'gulf_of_mexico_HYCOM_hindcast',
+        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/with_forecast_100_batches_2022_08_26_19_00_56/',
+        'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         'arena_steps_per_env_step': 1,
         'actions': 8,
         'render': False,
-        'fake': False, #one of: False, 'random', 'naive, 'hj_planner'
+        'fake': 'hj_planner_forecast', #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
     },
     feature_constructor_config={
         'num_measurements': 0,
@@ -81,11 +82,11 @@ runner = RLRunner(
         'target_bonus': 0,
         'fail_punishment': 0,
     },
-    verbose=2
+    verbose=20
 )
 # 10 iterations ~ 42min (6min + 9 * 4min) @ 70 cores, 500MB Animations
 # 100 iterations ~ 420min = 7h, 5GB Animation
-runner.run(iterations=100)
+runner.run(iterations=10)
 
 ray.shutdown()
 

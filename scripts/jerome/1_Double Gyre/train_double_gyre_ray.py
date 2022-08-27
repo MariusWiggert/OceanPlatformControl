@@ -6,7 +6,7 @@ from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.DoubleGyreEnv import DoubleGyreEnv
 from config.reinforcement_learning.ppo_agent_config import ppo_agent_config
-from ocean_navigation_simulator.scripts.RLRunner import RLRunner
+from ocean_navigation_simulator.reinforcement_learning_scripts.RLRunner import RLRunner
 
 script_start_time = time.time()
 

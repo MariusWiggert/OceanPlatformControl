@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
+from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
 from ocean_navigation_simulator.utils import units
 
 
-class ShortMissionProblemFactory(ProblemFactory):
+class ShortMissionProblemFactory:
     def __init__(
         self,
         scenario_name: str,
@@ -44,23 +44,24 @@ class ShortMissionProblemFactory(ProblemFactory):
         self.target_t_start = (self.config['t_range'][0] + self.config['problem_timeout']).timestamp()
         self.target_t_end   = self.config['t_range'][1].timestamp(),
 
+        self.starts_x_start = self.config['x_range'][0].deg + self.config['start_distance_from_frame']
+        self.starts_x_end = self.config['x_range'][1].deg - self.config['start_distance_from_frame']
+        self.starts_y_start = self.config['y_range'][0].deg + self.config['start_distance_from_frame']
+        self.starts_y_end = self.config['y_range'][1].deg - self.config['start_distance_from_frame']
+
+        self.planner_config = {
+            'direction': 'multi-time-reach-back',
+            'n_time_vector': 199,   # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+            'accuracy': 'high',
+            'artificial_dissipation_scheme': 'local_local',
+            'run_without_x_T': True,
+        } | self.config['hj_planner'] | ({
+            'x_interval': [self.config['x_range'][0].deg, self.config['x_range'][1].deg],
+            'y_interval': [self.config['y_range'][0].deg, self.config['y_range'][1].deg],
+        } if 'deg_around_xt_xT_box' not in self.config['hj_planner'] or not self.config['hj_planner']['deg_around_xt_xT_box'] else {})
+
         self.problems = []
         self.problems_archive = []
-
-    def has_problems_remaining(self) -> bool:
-        return True
-
-    def skips_problems(self, n):
-        raise NotImplementedError
-
-    def get_problem_list(self, limit) -> [NavigationProblem]:
-        return [self.next_problem() for _ in range(limit)]
-
-    def next_problem(self) -> NavigationProblem:
-        if not self.problems:
-            self.problems = self.generate_batch(batch_size=self.config['missions_per_target'])
-
-        return self.problems.pop(0)
 
     def generate_batch(self, batch_size: int) -> [NavigationProblem]:
         problem_start_time = time.time()
@@ -127,16 +128,7 @@ class ShortMissionProblemFactory(ProblemFactory):
                 timeout=self.config['problem_timeout'],
                 platform_dict=self.arena.platform.platform_dict,
             ),
-            specific_settings={
-                'direction': 'multi-time-reach-back',
-                'n_time_vector': 199,   # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-                'accuracy': 'high',
-                'artificial_dissipation_scheme': 'local_local',
-                'run_without_x_T': True,
-            } | self.config['hj_planner'] | ({
-                'x_interval': [self.config['x_range'][0].deg, self.config['x_range'][1].deg],
-                'y_interval': [self.config['y_range'][0].deg, self.config['y_range'][1].deg],
-            } if 'deg_around_xt_xT_box' not in self.config['hj_planner'] or not self.config['hj_planner']['deg_around_xt_xT_box'] else {}),
+            specific_settings=self.planner_config,
             verbose=self.verbose-1
         )
         # Ignore Warning that x_init might not be in reachable set
@@ -170,8 +162,8 @@ class ShortMissionProblemFactory(ProblemFactory):
                 (self.config['mission_time_range'][1]).total_seconds(),
             ],
             frame_interval=[
-                [self.config['x_range'][0].deg+self.config['start_distance_from_frame'], self.config['x_range'][1].deg-self.config['start_distance_from_frame']],
-                [self.config['y_range'][0].deg+self.config['start_distance_from_frame'], self.config['y_range'][1].deg-self.config['start_distance_from_frame']],
+                [self.starts_x_start, self.starts_x_end],
+                [self.starts_y_start, self.starts_y_end],
             ],
             min_distance=self.config['target_min_distance'],
             amount=amount,
@@ -190,8 +182,9 @@ class ShortMissionProblemFactory(ProblemFactory):
         plot_start_time = time.time()
 
         def add_drawing(ax: plt.axis, rel_time_in_seconds):
+            self.arena.plot_arena_frame_on_map(ax)
             self.add_target_frame(ax)
-            self.add_arena_frame(ax)
+            self.add_starts_frame(ax)
 
             # Add Starts to Plot
             for problem in self.problems_archive[-batch_size:]:
@@ -221,10 +214,33 @@ class ShortMissionProblemFactory(ProblemFactory):
             linewidth=4, edgecolor='g', facecolor='none', label='target sampling frame')
         )
 
-    def add_arena_frame(self, ax: plt.axis) -> plt.axis:
+    def add_starts_frame(self, ax: plt.axis) -> plt.axis:
         ax.add_patch(patches.Rectangle(
-            (self.config['x_range'][0].deg, self.config['y_range'][0].deg),
-            (self.config['x_range'][1].deg - self.config['x_range'][0].deg),
-            (self.config['y_range'][1].deg - self.config['y_range'][0].deg),
-            linewidth=4, edgecolor='r', facecolor='none', label='arena frame')
+            (self.starts_x_start, self.starts_y_start),
+            (self.starts_x_end - self.starts_x_start),
+            (self.starts_y_end - self.starts_y_start),
+            linewidth=4, edgecolor='g', facecolor='none', label='start sampling frame')
         )
+
+    def run_forecast(self, batch_folder):
+        """
+            We have to trick the planner here to run exactly the forecasts we need:
+                - we take any problem of the current batch (they share the same target, so the planner is the same)
+                - we run until timeout (problem.is_done == -1)
+                - we reset the platform x&y to start coordinates s.t. we never runs out of area
+        """
+        problem_factory = FileMissionProblemFactory(csv_file=f'{batch_folder}/problems.csv')
+        problem = problem_factory.next_problem()
+
+        arena = ArenaFactory.create(scenario_name=self.scenario_name, problem=problem)
+
+        forecast_planner = HJReach2DPlanner(problem=problem, specific_settings=self.hindcast_planner.specific_settings | {
+            'planner_path': batch_folder,
+            'save_after_planning': True
+        }, verbose=self.verbose-1)
+
+        observation = arena.reset(problem.start_state)
+        while problem.is_done(observation.platform_state) != -1:
+            observation = arena.step(forecast_planner.get_action(observation))
+            arena.platform.state.lon = problem.start_state.lon
+            arena.platform.state.lat = problem.start_state.lat
