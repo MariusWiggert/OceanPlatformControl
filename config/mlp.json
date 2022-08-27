@@ -12,9 +12,18 @@
   "cfg_model": {
     "input_dim": 5760,
     "output_layers_dims": [
-      14580,
+      11520,
+      29160,
+      11520,
       2916,
       1152
+    ],
+    "batch_norm_layers": [
+      -1,
+      -1,
+      -1,
+      -1,
+      -1
     ],
     "output_shape": [
       2,

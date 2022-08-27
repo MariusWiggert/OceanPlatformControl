@@ -9,48 +9,6 @@ from torch.utils.data import Dataset
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 
 
-# class CustomOceanCurrentsDataset(Dataset):
-#     IDX_LON, IDX_LAT, IDX_TIME = 0, 1, 2
-#     GULF_MEXICO = [[-97.84, -76.42], [18.12, 30]]
-#
-#     def __init__(self, ocean_dict: Dict[str, Any], start_date: DateTime, end_date: DateTime,
-#                  input_cell_size: Tuple[int, int, int], output_cell_size: Tuple[int, int, int],
-#                  transform=None, target_transform=None, spatial_resolution_forecast: Optional[float] = None,
-#                  temporal_resolution_forecast: Optional[float] = None,
-#                  spatial_resolution_hindcast: Optional[float] = None,
-#                  temporal_resolution_hindcast: Optional[float] = None
-#                  ):
-#         self.ocean_field = OceanCurrentField(
-#             sim_cache_dict=None,
-#             hindcast_source_dict=ocean_dict['hindcast'],
-#             forecast_source_dict=ocean_dict['forecast'],
-#             use_geographic_coordinate_system=True
-#         )
-#         self.input_cell_size = input_cell_size
-#         self.output_cell_size = output_cell_size
-#         self.start_date = start_date
-#         self.end_date = end_date
-#         self.spatial_resolution_forecast = spatial_resolution_forecast
-#         self.spatial_resolution_hindcast = spatial_resolution_hindcast
-#         self.temporal_resolution_forecast = temporal_resolution_forecast
-#         self.temporal_resolution_hindcast = temporal_resolution_hindcast
-#
-#     def __len__(self):
-#         return (self.end_date - self.start_date).days
-#
-#     def __getitem__(self, idx):
-#         start = self.start_date + datetime.timedelta(days=idx)
-#         end_input = start + self.input_cell_size[self.IDX_TIME]
-#         end_output = start + self.output_cell_size[self.IDX_TIME]
-#         input = self.ocean_field.forecast_data_source.get_data_over_area(*self.GULF_MEXICO, [start, end_input],
-#                                                                          spatial_resolution=self.spatial_resolution_forecast,
-#                                                                          temporal_resolution=self.temporal_resolution_forecast)
-#         output = self.ocean_field.hindcast_data_source.get_data_over_area(*self.GULF_MEXICO, [start, end_output],
-#                                                                           spatial_resolution=self.spatial_resolution_hindcast,
-#                                                                           temporal_resolution=self.temporal_resolution_hindcast)
-#         return torch.tensor(input.to_array().to_numpy()), torch.tensor(output.to_array().to_numpy())
-
-
 class CustomOceanCurrentsDatasetSubgrid(Dataset):
     IDX_LON, IDX_LAT, IDX_TIME = 0, 1, 2
     MARGIN = 0.5
@@ -153,7 +111,6 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
 
         self.all_inputs = []
         start_interval_dt = datetime.datetime.combine(datetime_fc_start, time_restart) - duration_per_forecast_file
-        print(start_interval_dt)
         self.whole_grid_fc = self.whole_grid_fc.merge(self.ocean_field.forecast_data_source \
                                                       .get_data_over_area(*self.GULF_MEXICO,
                                                                           [start_interval_dt,
@@ -172,7 +129,7 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         # Preload the data into memory
         self.whole_grid_fc.load()
         self.whole_grid_hc.load()
-        print("size dimensions:", dims_sizes)
+        print("whole forecast grid dimensions:", dims_sizes)
 
     def __len__(self):
         return len(self.inputs)
@@ -184,7 +141,8 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                      np.logical_and(lat[0] < self.whole_grid_fc['lat'], self.whole_grid_fc['lat'] < lat[1]), \
                      np.logical_and(np.datetime64(time[0]) < self.whole_grid_fc['time'],
                                     self.whole_grid_fc['time'] < np.datetime64(time[1]))
-        X = self.whole_grid_fc.isel(lon=lo, lat=la, time=ti).to_array().to_numpy()
+        X_xr = self.whole_grid_fc.isel(lon=lo, lat=la, time=ti)
+        X = X_xr.to_array().to_numpy()
 
         # X = self.whole_grid_fc.sel(lon=slice(*lon), lat=slice(*lat), time=slice(*time)).to_array().to_numpy()
         lon, lat, time = self.outputs[idx][0:3]
@@ -192,10 +150,11 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                      np.logical_and(lat[0] < self.whole_grid_hc['lat'], self.whole_grid_hc['lat'] < lat[1]), \
                      np.logical_and(np.datetime64(time[0]) < self.whole_grid_hc['time'],
                                     self.whole_grid_hc['time'] < np.datetime64(time[1]))
-        y = self.whole_grid_hc.isel(lon=lo, lat=la, time=ti).to_array().to_numpy()
-
+        y_xr = self.whole_grid_hc.isel(lon=lo, lat=la, time=ti)
+        y = y_xr.to_array().to_numpy()
+        assert X_xr["time"][0] == y_xr["time"] and (X_xr["lon"] == y_xr["lon"]).all() and (
+                X_xr["lat"] == y_xr["lat"]).all()
         if list(X.shape) != self.input_shape or list(y.shape) != self.output_shape:
-            print(time[0], time[1], lon[0], lat[0])
             return None
         X, y = torch.tensor(X, dtype=self.dtype), torch.tensor(y, dtype=self.dtype)
         X[torch.isnan(X)] = 0

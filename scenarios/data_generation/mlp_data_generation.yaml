@@ -1,9 +1,11 @@
 parameters_input:
   start_training: '2022-04-02T12:30:01Z'
-  duration_training_in_h: 480 #672 # 28 * 24
-  duration_validation_in_h: 336 # 14 * 24
+  duration_training_in_h: 720 #672 # 28 * 24
+  duration_validation_in_h: 360 # 14 * 24
   input_tile_dims: [ 24, 24, 5 ]
   window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
   # if window shift = 0: input= [x{t}...x{t+4}]
   output_tile_dims: [ 24, 24, 1 ]
   size_per_file_in_mb: 2000
+  folder_training: "./data_tmp/"
+  folder_validation: "./data_tmp2/"

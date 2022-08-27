@@ -1,18 +1,18 @@
 from __future__ import print_function
 
 import argparse
-import datetime
 import json
 import os
+import time
 
 import torch
 import yaml
 from torch import optim
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import StepLR
+from tqdm import tqdm
 
-from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import \
-    CustomOceanCurrentsDatasetSubgrid
+from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import CustomOceanCurrentsFromFiles
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid import OceanCurrentCNNSubgrid
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
 
@@ -24,15 +24,38 @@ def collate_fn(batch):
     return torch.utils.data.dataloader.default_collate(batch_filtered)
 
 
-def loss_function(output, target, mask=None):
-    if mask is not None:
+def loss_function(output, target, add_mask=False):
+    assert output.shape == target.shape
+    if add_mask:
+        mask = torch.isnan(target)
+        output[mask] = 0
+        target[mask] = 0
         reduction = 'sum'
-        division = (mask == False).sum()
+        non_nan_elements = (mask == False).sum()
     else:
         reduction = 'mean'
-        division = 1
+        non_nan_elements = 1
 
-    return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / division)
+    return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / non_nan_elements)
+
+
+def train(args, model, device, train_loader, optimizer, epoch):
+    model.train()
+    # for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
+    with tqdm(train_loader, unit="batch") as tepoch:
+        for data, target in tepoch:
+            if (data, target) == (None, None):
+                continue
+            data, target = data.to(device), target.to(device)
+            optimizer.zero_grad()
+            output = model(data)
+
+            loss = loss_function(output, target, add_mask=True)
+            # Backprop
+            loss.backward()
+            # update the weights
+            optimizer.step()
+            tepoch.set_postfix(loss=loss.item())
 
 
 def test(args, model, device, test_loader, epoch):
@@ -40,27 +63,24 @@ def test(args, model, device, test_loader, epoch):
     test_loss = 0
     initial_loss = 0
     with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(test_loader):
-            if (data, target) == (None, None):
-                print(f"batch {batch_idx} empty. skipped!")
-                continue
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            test_loss += loss_function(output, target).item()  # sum the batch losses
-            # todo: adapt 0 in case where window is around xt instead of just after
-            index_xt = 0
-            initial_loss += loss_function(data[:, :, [index_xt]], target).item()
-            if batch_idx % args.log_interval == 0:
-                print(
-                    f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(test_loader.dataset)} ({100. * batch_idx / len(test_loader):.0f}%)]")
-                if args.dry_run:
-                    break
+        with tqdm(test_loader, unit="batch") as tepoch:
+            for data, target in tepoch:
+                if (data, target) == (None, None):
+                    continue
+                data, target = data.to(device), target.to(device)
+                output = model(data)
+                loss = loss_function(output, target, add_mask=True).item()  # sum the batch losses
+                test_loss += loss
+                # todo: adapt 0 in case where window is around xt instead of just after
+                index_xt = 0
+                initial_loss += loss_function(data[:, :, [index_xt]], target, add_mask=True).item()
+                tepoch.set_postfix(loss=loss, accuracy=(100. * test_loss / initial_loss))
 
     test_loss /= len(test_loader.dataset)
     initial_loss /= len(test_loader.dataset)
 
     print(
-        f"\nTest set: Average loss: {test_loss:.4f}, Without NN: {initial_loss:.4f}, Accuracy: {test_loss}/{initial_loss} ({100. * test_loss / initial_loss:.2f})\n")
+        f"\nTest set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}, ratio NN_loss/initial_loss:({100. * test_loss / initial_loss:.4f}%)\n")
 
 
 def main():
@@ -113,12 +133,6 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    transform = None
-    # transform = transforms.Compose([
-    #    transforms.ToTensor(),
-    # transforms.Normalize((0.1307,), (0.3081,))
-    # ])
-
     cfgs = json.load(open(os.getcwd() + "/config/" + args.model_type + ".json", 'r'))
     cfg_model = cfgs.get("cfg_model", {})
     cfg_dataset = cfgs.get("cfg_dataset", {})
@@ -127,33 +141,8 @@ def main():
     with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
         config_datasets = yaml.load(f, Loader=yaml.FullLoader)
 
-    # dataset_training = CustomOceanCurrentsDataset(config["training"],
-    #                                               datetime.datetime(2022, 4, 1, tzinfo=datetime.timezone.utc),
-    #                                               datetime.datetime(2022, 5, 1, tzinfo=datetime.timezone.utc),
-    #                                               (36, 36, datetime.timedelta(days=5)),
-    #                                               (48, 48, datetime.timedelta(hours=12)), transform, transform)
-    # dataset_validation = CustomOceanCurrentsDataset(config["validation"],
-    #                                                 datetime.datetime(2022, 4, 1, tzinfo=datetime.timezone.utc),
-    #                                                 datetime.datetime(2022, 5, 1, tzinfo=datetime.timezone.utc),
-    #                                                 (36, 36, datetime.timedelta(days=5)),
-    #                                                 (48, 48, datetime.timedelta(hours=12)), transform, transform)
-
-    start_training = datetime.datetime(2022, 4, 1, 12, 30, 1, tzinfo=datetime.timezone.utc)
-    duration_training = datetime.timedelta(days=28)
-    duration_validation = datetime.timedelta(days=14)
-    # input_tile_dims = (36, 36, datetime.timedelta(days=5))
-    # output_tile_dims = (48, 48, datetime.timedelta(hours=12))
-    input_tile_dims = (24, 24, datetime.timedelta(hours=5))
-    output_tile_dims = (24, 24, datetime.timedelta(hours=1))
-    dataset_training = CustomOceanCurrentsDatasetSubgrid(config_datasets["training"], start_training,
-                                                         start_training + duration_training,
-                                                         input_tile_dims, output_tile_dims, cfg_dataset, transform,
-                                                         transform, dtype=dtype, )
-    dataset_validation = CustomOceanCurrentsDatasetSubgrid(config_datasets["validation"],
-                                                           start_training + duration_training,
-                                                           start_training + duration_training + duration_validation,
-                                                           input_tile_dims, output_tile_dims, cfg_dataset, transform,
-                                                           transform, dtype=dtype, )
+    dataset_training = CustomOceanCurrentsFromFiles("./data_exported_2/")
+    dataset_validation = CustomOceanCurrentsFromFiles("./data_exported_2/")
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
@@ -167,41 +156,20 @@ def main():
 
     model = model.to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    print(f"optimizer: {optimizer}")
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        print(f"starting Training epoch {epoch}/{args.epochs + 1}.")
-
+        print(f"\nstarting Training epoch {epoch}/{args.epochs + 1}.")
+        time.sleep(0.2)
         train(args, model, device, train_loader, optimizer, epoch)
-        print(f"starting Testing epoch {epoch}/{args.epochs + 1}.")
+        time.sleep(0.2)
+        print(f"\nstarting Testing epoch {epoch}/{args.epochs + 1}.")
         test(args, model, device, validation_loader, epoch)
         scheduler.step()
 
     if args.save_model:
         torch.save(model.state_dict(), f"{args.model_type}.pt")
-
-
-def train(args, model, device, train_loader, optimizer, epoch):
-    model.train()
-
-    for batch_idx, (data, target) in enumerate(train_loader):
-        if (data, target) == (None, None):
-            print(f"batch {batch_idx} empty. skipped!")
-            continue
-        data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
-        output = model(data)
-        mask = torch.isnan(target)
-        output[mask] = 0
-        target[mask] = 0
-        loss = loss_function(output, target, mask)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % args.log_interval == 0:
-            print(
-                f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6}")
-            if args.dry_run:
-                break
 
 
 if __name__ == '__main__':
