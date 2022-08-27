@@ -3,6 +3,8 @@ from ocean_navigation_simulator.generative_error_model.utils import load_config,
 
 import datetime
 import os
+import xarray as xr
+import numpy as np
 
 relative_path = "scenarios/generative_error_model/config_buoy_data.yaml"
 config_path = os.path.join(get_path_to_project(os.getcwd()), relative_path)
@@ -11,11 +13,11 @@ config = load_config(config_path)
 hindcast_dict = config["copernicus_opendap"]["hindcast"]
 sim_cache_dict = config["sim_cache_dict"]
 
-root_dir = "/home/jonas/Downloads/temp"
-days = 30
+root_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/hindcasts/area1/")
+days = 60
 start = datetime.datetime(2022, 4, 21, 12, 30, 0)
-lon_range = [-140, -120]
-lat_range = [20, 30]
+lon_range = [-145, -115]
+lat_range = [15, 35]
 
 for day in range(days):
     print(f"Downloading for [{start}, {start+datetime.timedelta(days=9)}].")
@@ -27,10 +29,29 @@ for day in range(days):
     # slice for specific range
     hindcast = ds_hindcast.sel(time=slice(start+datetime.timedelta(days=day), start+datetime.timedelta(days=9+day)),
                                lon=slice(*lon_range),
-                               lat=slice(*lat_range)).drop_vars('depth')
+                               lat=slice(*lat_range))
+
+    water_u = hindcast["water_u"].values[:, np.newaxis, :, :]
+    water_v = hindcast["water_v"].values[:, np.newaxis, :, :]
+    attrs = hindcast.attrs
+    attrs["source"] = "HYCOM"
+
+    hindcast = xr.Dataset(
+        data_vars=dict(
+            water_u=(["time", "depth", "lat", "lon"], water_u),
+            water_v=(["time", "depth", "lat", "lon"], water_v)
+        ),
+        coords=dict(
+            time=("time", hindcast.coords["time"].values),
+            depth=("depth", [hindcast.coords["depth"].values]),
+            lat=("lat", hindcast.coords["lat"].values),
+            lon=("lon", hindcast.coords["lon"].values)
+        ),
+        attrs=attrs
+    )
     file_name = f"copernicus_hindcast_lon_{lon_range}_lat_{lat_range}_time_[{start+datetime.timedelta(days=day)},{start+datetime.timedelta(days=9+day)}].nc"
     # save data to file
-    hindcast.to_netcdf(os.path.join(root_dir, file_name))
+    hindcast.to_netcdf(os.path.join(root_dir, file_name), engine="netcdf4")
+    print(f"Written: {file_name}.")
     start += datetime.timedelta(days=1)
-
 print("Finished downloads.")

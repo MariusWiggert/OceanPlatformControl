@@ -12,19 +12,27 @@ class DatasetWriter:
     """Uses BuoyData and OceanCurrentField to write data to file which is then read by DataLoader.
     Needed to speed up training."""
 
-    def __init__(self, yaml_file_config: str, input_dir: str, output_dir: str):
+    def __init__(self, yaml_file_config: str, forecast_hindcast: str, input_dir: str, output_dir: str):
         with open(yaml_file_config) as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)
         self.data_dir = os.path.join(get_path_to_project(os.getcwd()), self.config["data_dir"])
+
+        if forecast_hindcast not in ["forecast", "hindcast"]:
+            raise ValueError("Choose from {forecast, hindcast}.")
+
         # where forecasts are coming from
-        input_path = os.path.join(self.data_dir, "forecasts/", input_dir)
+        input_path = os.path.join(self.data_dir, forecast_hindcast+"s", input_dir)
         if input_path != "/":
             input_path += "/"
         self.config["local_forecast"]["source_settings"]["folder"] = input_path
         print(f"Loading data from: {input_path}")
+
         # where dataset is saved
-        self.output_path = os.path.join(self.data_dir, "dataset_forecast_error", output_dir)
+        self.output_path = os.path.join(self.data_dir, f"dataset_{forecast_hindcast}_error", output_dir)
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
         print(f'Writing data to: {self.output_path}\n')
+
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
 
@@ -75,5 +83,5 @@ class DatasetWriter:
 if __name__ == "__main__":
     # run for quick testing + generating csv files
     yaml_file_config = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model/config_buoy_data.yaml")
-    data_writer = DatasetWriter(yaml_file_config, "area1", "area1")
+    data_writer = DatasetWriter(yaml_file_config, "forecast", "area1", "area1")
     data_writer.write_all_files()
