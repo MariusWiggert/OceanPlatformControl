@@ -17,17 +17,19 @@ class Observer:
     the given areas.
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], verbose: Optional[int] = 10):
         """Create the observer object
         Args:
             config: dictionary from the yaml file used to specify the parameters of the prediction model.
         """
-        self.prediction_model = self.instantiate_model_from_dict(config.get("model"))
-        print("Model: ", self.prediction_model)
+        self.verbose = verbose
+        self.prediction_model = self.instantiate_model_from_dict(config.get("model"), self.verbose)
+        if self.verbose > 0:
+            print("Model: ", self.prediction_model)
         self.forecast_data_source = None
 
     @staticmethod
-    def instantiate_model_from_dict(source_dict: Dict[str, Any]) -> OceanCurrentModel:
+    def instantiate_model_from_dict(source_dict: Dict[str, Any], verbose: Optional[int] = 10) -> OceanCurrentModel:
         """Helper function to instantiate an OceanCurrentSource object from the dict
         Args:
             source_dict: dictionary that contains the model type and its parameters.
@@ -38,7 +40,7 @@ class Observer:
              Value error if the model selected with source_dict is not supported (yet).
         """
         if "gaussian_process" in source_dict:
-            return OceanCurrentGP(source_dict["gaussian_process"])
+            return OceanCurrentGP(source_dict["gaussian_process"], verbose=verbose-1)
 
         raise ValueError(f"Selected model: {source_dict} in the OceanCurrentModel is not implemented.")
 
@@ -133,7 +135,6 @@ class Observer:
         measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
             observation_location).subtract(arena_observation.true_current_at_state)
         self.prediction_model.observe(observation_location, measured_current_error)
-        print(measured_current_error)
 
     # Forwarding functions as it replaces the forecast_data_source
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:

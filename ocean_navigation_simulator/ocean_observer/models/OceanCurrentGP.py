@@ -2,7 +2,7 @@
 source: https://github.com/google/balloon-learning-environment/blob/cdb2e582f2b03c41f037bf76142d31611f5e0316/balloon_learning_environment/env/wind_gp.py
 """
 
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 
 import numpy as np
 from sklearn import gaussian_process
@@ -20,13 +20,14 @@ class OceanCurrentGP(OceanCurrentModel):
   the GP's confidence about that current.
   """
 
-    def __init__(self, config_dict: Dict[str, Any]):
+    def __init__(self, config_dict: Dict[str, Any], verbose: Optional[int] = 10):
         """Constructor for the OceanCurrentGP.
 
         Args:
           config_dict: the config dictionary that setups the parameters for the Gaussian Processing
         """
         super().__init__()
+        self.verbose = verbose
         self.config_dict = config_dict
         self.life_span_observations_in_sec = config_dict.get("life_span_observations_in_sec", 24 * 3600)  # 24 hours.
 
@@ -42,9 +43,11 @@ class OceanCurrentGP(OceanCurrentModel):
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
             parameters_model["optimizer"] = self.config_dict["optimizer"]
-        print("PARAMETERS_MODEL:", parameters_model)
+        if self.verbose > 0:
+            print("PARAMETERS_MODEL:", parameters_model)
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
-        print(f"Gaussian Process created: {self.model}")
+        if self.verbose > 0:
+            print(f"Gaussian Process created: {self.model}")
 
     def __get_kernel(self, dic_config: dict[str, Any], first_kernel: bool = True) -> Kernel:
         """Get the GP kernel based on the dictionary generated based on the Yaml file.
