@@ -19,11 +19,17 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
 from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import OceanRewardFunction
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 from ocean_navigation_simulator.utils.bcolors import bcolors
 
 
 class OceanEnv(gym.Env):
+    """
+        OceanEnv encapsulates the simulation with a gym.Env interface for use in rllib
+        - OceanEnv.init: initializes the arena, FeatureConstructor and RewardGenerator
+        - OceanEnv.reset: runs arena.reset and loads hindcast & forecast planner
+        - OceanEnv.step: runs arena.step, FeatureConstructor, and RewardGenerator
+    """
     spec = SimpleNamespace(id='OceanEnv', max_episode_steps=10000)
     metadata = {'render.modes': ['human']}
 
@@ -67,12 +73,21 @@ class OceanEnv(gym.Env):
             self.problem = self.problem_factory.next_problem()
             self.prev_obs = self.arena.reset(self.problem.start_state)
             self.hindcast_planner = HJReach2DPlanner.from_plan(
-                folder=f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
+                folder=f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
                 problem=self.problem,
                 verbose=self.verbose-1,
             )
+            self.forecast_planner = HJReach2DPlanner.from_plan(
+                folder=f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
+                problem=self.problem,
+                specific_settings={
+                    'load_plan': True,
+                    'planner_path': f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
+                },
+                verbose=self.verbose-1,
+            )
             self.feature_constructor = OceanFeatureConstructor(
-                planner=self.hindcast_planner,
+                planner=self.forecast_planner,
                 config=self.config['feature_constructor_config'],
                 verbose=self.verbose-1
             )
@@ -107,7 +122,9 @@ class OceanEnv(gym.Env):
                 platform_action = PlatformAction(magnitude=1, direction=self.random.integers(self.config['actions']) * 2 * np.pi / self.config['actions'])
             elif self.config['fake'] == 'naive':
                 platform_action = self.naive_controller.get_action(observation=self.prev_obs)
-            elif self.config['fake'] == 'hj_planner':
+            elif self.config['fake'] == 'hj_planner_forecast':
+                platform_action = self.forecast_planner.get_action(observation=self.prev_obs)
+            elif self.config['fake'] == 'hj_planner_hindcast':
                 platform_action = self.hindcast_planner.get_action(observation=self.prev_obs)
             elif isinstance(action, np.ndarray):
                 platform_action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
