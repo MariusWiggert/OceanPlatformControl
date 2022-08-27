@@ -1,5 +1,5 @@
 # List Disks:
-lsblk -o NAME,HCTL,SIZE,MOUNTPOINT | grep -i "sd
+lsblk -o NAME,HCTL,SIZE,MOUNTPOINT
 
 # Mount Disk:
 sudo parted /dev/sda --script mklabel gpt mkpart xfspart xfs 0% 100%
@@ -13,16 +13,22 @@ sudo mount /dev/sda1 /seaweed-storage
 # Remount after Reboot:
 sudo blkid
 sudo nano /etc/fstab
-add:
+# add:
 UUID=c7861b74-5baf-4ca8-add3-6260a135c966   /seaweed-storage   xfs   defaults,nofail   1   2
 
-# Mount Data Disk via SSH
+# Get filesystem
+blkid
+# Get Disk Sizes
+lsblk
+# Increase Size
+sudo growpart /dev/sda 1
+sudo xfs_growfs -d /dev/sda1
+
+# Mount Data Disk via SSH (macOS):macos has no fusermount but only umount
 ssh -i ~/.ssh/azure.pub ubuntu@20.55.80.215
 sudo umount /seaweed-storage
 sshfs -o ssh_command='ssh -i ~/.ssh/azure.pub -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
 
-
-
-## Ubuntu
+# Mount Data Disk via SSH (Ubuntu): on ubuntu fusermount has to be used umount does not properly work
 sudo fusermount -q -u /seaweed-storage
 sshfs -o ssh_command='ssh -i /home/ubuntu/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
