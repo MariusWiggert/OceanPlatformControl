@@ -1,6 +1,6 @@
 from ocean_navigation_simulator.generative_error_model.BuoyData import BuoyDataCopernicus
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
+from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project, load_config
 
 import pandas as pd
 import os
@@ -13,9 +13,9 @@ class DatasetWriter:
     Needed to speed up training."""
 
     def __init__(self, yaml_file_config: str, forecast_hindcast: str, input_dir: str, output_dir: str):
-        with open(yaml_file_config) as f:
-            self.config = yaml.load(f, Loader=yaml.FullLoader)
+        self.config = load_config(yaml_file_config)
         self.data_dir = os.path.join(get_path_to_project(os.getcwd()), self.config["data_dir"])
+        self.forecast_hindcast = forecast_hindcast
 
         if forecast_hindcast not in ["forecast", "hindcast"]:
             raise ValueError("Choose from {forecast, hindcast}.")
@@ -65,23 +65,27 @@ class DatasetWriter:
         df.to_csv(os.path.join(self.output_path, file_name), index=False)
 
     def write_all_files(self) -> None:
-        for forecast_idx in range(len(self.files_dicts)):
-            file_name = f"copernicus_forecast_error_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
+        for file_idx in range(len(self.files_dicts)):
+            # write correct time string to dict
+            time_string = self._build_time_string(file_idx)
+            self.config["buoy_config"]["copernicus"]["time_range"] = time_string
+
+            # construct file name
+            file_name = f"copernicus_{self.forecast_hindcast}_error_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
                         f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"\
                         f"_time_{self.config['buoy_config']['copernicus']['time_range']}.csv"
             file_name = file_name.replace("/", "__")
-            time_string = self._build_time_string(forecast_idx)
-            self.config["buoy_config"]["copernicus"]["time_range"] = time_string
+
+            # get error and write file if it does not exists
             if os.path.exists(os.path.join(self.output_path, file_name)):
                 print(f"file already exists: {file_name}")
                 continue
-            forecast_error = self.get_error(forecast_idx)
+            forecast_error = self.get_error(file_idx)
             self.write_error_csv(forecast_error, file_name)
             print(f"written: {file_name}")
 
 
 if __name__ == "__main__":
     # run for quick testing + generating csv files
-    yaml_file_config = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model/config_buoy_data.yaml")
-    data_writer = DatasetWriter(yaml_file_config, "forecast", "area1", "area1")
+    data_writer = DatasetWriter("config_buoy_data.yaml", "hindcast", "area1", "area1")
     data_writer.write_all_files()

@@ -10,17 +10,19 @@ import logging
 from typing import List, Dict
 
 
-def load_config(yaml_file_config: str) -> Dict:
-    with open(yaml_file_config) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    return config
-
-
 def get_path_to_project(static_path: str) -> str:
     file_split = static_path.split("/")
     end_idx = file_split.index("OceanPlatformControl")
     relative_path = "/".join(file_split[:end_idx+1])
     return relative_path
+
+
+def load_config(yaml_file_config: str) -> Dict:
+    config_path = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model", yaml_file_config)
+    with open(config_path) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    print(f"Loaded config at: {config_path}")
+    return config
 
 
 #------------------------------ Decorator Functions ---------------------------------#

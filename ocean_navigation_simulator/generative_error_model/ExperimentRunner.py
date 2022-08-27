@@ -3,7 +3,7 @@ from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.BuoyData import TargetedTimeRange
 from ocean_navigation_simulator.generative_error_model.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
-from utils import load_config, timer, setup_logger, get_path_to_project
+from utils import load_config, timer, setup_logger
 
 import pandas as pd
 import numpy as np
@@ -122,8 +122,7 @@ class ExperimentRunner:
 
 @timer
 def main():
-    config_path = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model/config_buoy_data.yaml")
-    ex_runner = ExperimentRunner(yaml_file_config=config_path)
+    ex_runner = ExperimentRunner(yaml_file_config="config_buoy_data.yaml")
     ex_runner.run_all_problems()
 
 

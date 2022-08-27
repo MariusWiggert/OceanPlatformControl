@@ -14,7 +14,7 @@ hindcast_dict = config["copernicus_opendap"]["hindcast"]
 sim_cache_dict = config["sim_cache_dict"]
 
 root_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/hindcasts/area1/")
-days = 60
+days = 1
 start = datetime.datetime(2022, 4, 21, 12, 30, 0)
 lon_range = [-145, -115]
 lat_range = [15, 35]
@@ -53,5 +53,4 @@ for day in range(days):
     # save data to file
     hindcast.to_netcdf(os.path.join(root_dir, file_name), engine="netcdf4")
     print(f"Written: {file_name}.")
-    start += datetime.timedelta(days=1)
 print("Finished downloads.")

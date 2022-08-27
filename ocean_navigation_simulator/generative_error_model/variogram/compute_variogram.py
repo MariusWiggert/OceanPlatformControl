@@ -40,7 +40,7 @@ def main():
 
     # load config
     project_dir = get_path_to_project(os.getcwd())
-    config = load_config(os.path.join(project_dir, args.yaml_file_config))
+    config = load_config("config_buoy_data.yaml")
     # setup logging
     now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     log_dir = os.path.join(project_dir, config["data_dir"], "logging")
