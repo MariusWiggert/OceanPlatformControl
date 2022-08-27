@@ -1,18 +1,17 @@
-import os
 import pickle
-
 import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
+import hj_reachability as hj
+import xarray as xr
+from typing import Union, Optional
 
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-import hj_reachability as hj
-import xarray as xr
-from typing import Union, Optional
+from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 
 class HJReach2DPlanner(HJPlannerBase):
@@ -66,60 +65,16 @@ class HJReach2DPlanner(HJPlannerBase):
         else:
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")
 
-
-    def save_plan(self, folder):
-        os.makedirs(folder, exist_ok = True)
-        # Settings
-        with open(folder + 'specific_settings.pickle', 'wb') as file:
-            pickle.dump(self.specific_settings, file)
-        # Used in Replanning
-        with open(folder + 'last_fmrc_idx_planned_with.pickle', 'wb') as file:
-            pickle.dump(self.last_fmrc_idx_planned_with, file)
-        # Used in Interpolation
-        with open(folder + 'all_values.pickle', 'wb') as file:
-            pickle.dump(self.all_values, file)
-        with open(folder + 'reach_times.pickle', 'wb') as file:
-            pickle.dump(self.reach_times, file)
-        with open(folder + 'grid.pickle', 'wb') as file:
-            pickle.dump(self.grid, file)
-        with open(folder + 'current_data_t_0.pickle', 'wb') as file:
-            pickle.dump(self.current_data_t_0, file)
-        with open(folder + 'current_data_t_T.pickle', 'wb') as file:
-            pickle.dump(self.current_data_t_T, file)
-        # Used in Start Sampling
-        with open(folder + 'characteristic_vec.pickle', 'wb') as file:
-            pickle.dump(self.characteristic_vec, file)
-        with open(folder + 'initial_values.pickle', 'wb') as file:
-            pickle.dump(self.initial_values, file)
-
     @staticmethod
-    def from_plan(folder, problem: NavigationProblem, verbose: Optional[int] = 0):
+    def from_plan(folder, problem: NavigationProblem, specific_settings: Optional[dict] = {}, verbose: Optional[int] = 0):
+        Utils.ensure_storage_connection()
+
         # Settings
         with open(folder + 'specific_settings.pickle', 'rb') as file:
-            specific_settings= pickle.load(file)
+            re_specific_settings = pickle.load(file)
 
-        planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings, verbose=verbose)
-
-        # Used in Replanning
-        with open(folder + 'last_fmrc_idx_planned_with.pickle', 'rb') as file:
-            planner.last_fmrc_idx_planned_with = pickle.load(file)
-        # Used in Interpolation
-        with open(folder + 'all_values.pickle', 'rb') as file:
-            planner.all_values = pickle.load(file)
-        with open(folder + 'reach_times.pickle', 'rb') as file:
-            planner.reach_times = pickle.load(file)
-        with open(folder + 'grid.pickle', 'rb') as file:
-            planner.grid = pickle.load(file)
-        with open(folder + 'current_data_t_0.pickle', 'rb') as file:
-            planner.current_data_t_0 = pickle.load(file)
-        with open(folder + 'current_data_t_T.pickle', 'rb') as file:
-            planner.current_data_t_T = pickle.load(file)
-        # Used in Start Sampling
-        with open(folder + 'characteristic_vec.pickle', 'rb') as file:
-            planner.characteristic_vec = pickle.load(file)
-        with open(folder + 'initial_values.pickle', 'rb') as file:
-            planner.initial_values = pickle.load(file)
-        planner.set_interpolator()
+        planner = HJReach2DPlanner(problem=problem, specific_settings=re_specific_settings | specific_settings, verbose=verbose)
+        planner.restore_variables(folder=folder)
 
         return planner
 
