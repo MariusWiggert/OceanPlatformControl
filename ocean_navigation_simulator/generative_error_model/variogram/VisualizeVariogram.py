@@ -15,6 +15,9 @@ class VisualizeVariogram:
         if variogram is not None:
             self.units = variogram.units
         self.project_path = get_path_to_project(os.getcwd())
+        self.bins_orig = None
+        self.bins_count_orig = None
+        self.res_orig = None
 
     def read_variogram_from_file(self, file_name: str=None):
         """Reads variogram data from file and creates a Variogram object."""
@@ -47,19 +50,27 @@ class VisualizeVariogram:
         print(f"Resolution: {[self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res]} {self.units}.")
         print(f"Number of pairs: {int(self.variogram.bins_count.sum()/2)}.")
 
+        # save original arrays to allow for increasing/decreasing res
+        self.bins_orig = self.variogram.bins
+        self.bins_count_orig = self.variogram.bins_count
+        self.res_orig = [self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res]
+
     def decrease_variogram_res(self, res_tuple: Tuple[int]):
         """Reduces the resolution of the variogram without the need to recompute."""
 
-        current_res = np.array([self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res])
-        if np.less(np.array(res_tuple), current_res).any() == True:
-            raise ValueError(f"Make sure the specified resolutions are multiples of the original resolution: {current_res}.")
+        # revert to original variogram data to allow decreasing bin sizes (to min size)
+        self.variogram.bins = self.bins_orig
+        self.variogram.bins_count = self.bins_count_orig
+
+        if np.less(np.array(res_tuple), self.res_orig).any() is True:
+            raise ValueError(f"Make sure the specified resolutions are multiples of the original resolution: {self.res_orig}.")
 
         # instead of weighted sum -> use bins_count to first multiply bins
         self.variogram.bins = self.variogram.bins * self.variogram.bins_count
 
-        scaling_vec = np.array([np.round(res_tuple[0]/self.variogram.lon_res),
-                        np.round(res_tuple[1]/self.variogram.lat_res),
-                        np.round(res_tuple[2]/self.variogram.t_res)], dtype=np.int32)
+        scaling_vec = np.array([np.round(res_tuple[0]/self.res_orig[0]),
+                                np.round(res_tuple[1]/self.res_orig[1]),
+                                np.round(res_tuple[2]/self.res_orig[2])], dtype=np.int32)
 
         # pad array such that it can be resized appropriately
         self.variogram.bins = self._make_arr_size_divisible(self.variogram.bins, scaling_vec)
@@ -74,10 +85,10 @@ class VisualizeVariogram:
         self.variogram.lon_bins, self.variogram.lat_bins, self.variogram.t_bins = self.variogram.bins.shape[:3]
 
         # normalize by frequency per bins
-        self.variogram.bins = np.divide(self.variogram.bins, self.variogram.bins_count,\
-            out=np.zeros_like(self.variogram.bins), where=self.variogram.bins_count!=0)
+        self.variogram.bins = np.divide(self.variogram.bins, self.variogram.bins_count,
+                                        out=np.zeros_like(self.variogram.bins), where=self.variogram.bins_count!=0)
 
-    def _decrease_res_in_axis(self, arr: np.ndarray, axis:int, scaling: int):
+    def _decrease_res_in_axis(self, arr: np.ndarray, axis: int, scaling: int):
         """Sums blocks of dims of size scaling over the specified axis"""
         # Idea: https://stackoverflow.com/questions/47428193/summing-blocks-of-n-rows-in-numpy-array
 
@@ -88,7 +99,7 @@ class VisualizeVariogram:
         # reduce axis dimension by scaling factor
         temp_shape[axis] = int(arr.shape[axis]/scaling)
         # reshape array according to calculated shape and sum over newly introduced axis
-        arr = arr.reshape((temp_shape)).sum(axis=axis+1)
+        arr = arr.reshape(temp_shape).sum(axis=axis+1)
         return arr
 
     def _make_arr_size_divisible(self, arr: np.ndarray, scaling_vec: Tuple[int]):

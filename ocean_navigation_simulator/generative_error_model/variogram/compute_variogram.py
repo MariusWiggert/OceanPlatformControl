@@ -74,7 +74,7 @@ def main():
         detrended=args.detrended, cross_buoy_pairs_only=args.cross_buoy_pairs_only, logger=logger)
 
     # save to .npy
-    file_name_part1 = f"{now_string}_variogram_{args.dataset_name}_{args.bin_res[0][0]}_{args.bin_res[0][1]}_"
+    file_name_part1 = f"{now_string}_variogram_{config['dataset_type']}_{args.dataset_name}_{args.bin_res[0][0]}_{args.bin_res[0][1]}_"
     file_name_part2 = f"{args.bin_res[0][2]}_{args.detrended}_{args.cross_buoy_pairs_only}_{args.data_overlap}.npy"
     file_name = file_name_part1 + file_name_part2
     file_path = os.path.join(project_dir, config["data_dir"], "variogram", file_name)
