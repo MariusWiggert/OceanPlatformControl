@@ -1,3 +1,6 @@
+data_dir: "data/drifter_data/"
+dataset_type: "forecast"
+
 experiment_runner:
   metrics:
     - "rmse"
@@ -7,7 +10,7 @@ experiment_runner:
     - data_ranges:
         lon_range: [-140, -120]
         lat_range: [20, 30]
-        t_range: "2022-04-24T13:00:00Z/2022-05-03T13:00:00Z" # in ISO8601 format
+        t_range: "2022-04-21T13:00:00Z/2022-04-30T13:00:00Z" # in ISO8601 format
 
 model:
   type: "simplex_noise"
@@ -17,6 +20,17 @@ model:
       V_COMP: [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]]
       detrend_stats: [0.17, 0.17]
   gan: "space holder"
+
+dataset_writer:
+  lon_range: [-140, -120]
+  lat_range: [20, 30]
+  # lat_range: [-40, -20]
+  # lon_range: [-120, -100]
+  time_range: "2022-04-21T13:00:00Z/2022-04-30T13:00:00Z" # in ISO8601 format
+  source: "copernicus"
+  dataset_type: "hindcast"
+  input: "area1"
+  output: "area_test"
 
 buoy_config:
   copernicus:
@@ -33,11 +47,6 @@ buoy_config:
       # product: "INSITU_GLO_UV_NRT_OBSERVATIONS_013_048"
       # name: "argo"
       # index_files: ["index_latest.txt"]
-    time_range: "2022-04-24T13:00:00Z/2022-05-03T13:00:00Z" # in ISO8601 format
-    # lat_range: [-40, -20]
-    # lon_range: [-120, -100]
-    lat_range: [20.0, 30.0]
-    lon_range: [-140, -120]
     area_overlap_type: "intersects"
     usr: "jdieker"
     pas: "AxxzVqCuC#!vS69"
@@ -63,10 +72,9 @@ local_forecast:
   field: "OceanCurrents"
   source: "forecast_files"
   source_settings:
-    folder: "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/forecasts/area1/"
+    folder: ""     # set at runtime
+    currents: "total"
 
 sim_cache_dict:
   deg_arount_x_t: 1
   time_around_x_t: 86400
-
-data_dir: "data/drifter_data/"

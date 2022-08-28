@@ -49,7 +49,8 @@ class OceanCurrentSource(DataSource):
     @staticmethod
     def plot_data_from_xarray(time_idx: int, xarray: xr, vmin: Optional[float] = 0, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
-                              colorbar: bool = True, ax=None, fill_nan: bool = True) -> matplotlib.pyplot.axes:
+                              colorbar: bool = True, ax=None, fill_nan: bool = True,
+                              return_cbar=False) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -106,6 +107,8 @@ class OceanCurrentSource(DataSource):
         elif plot_type == 'quiver':
             xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
 
+        if return_cbar:
+            return ax, cbar
         return ax
 
 
@@ -143,16 +146,6 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
             dataframe = dataframe.compute()
         return dataframe
 
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-        """Function to get the OceanCurrentVector at a specific point using the interpolation functions.
-        Args:
-          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
-        Returns:
-          OceanCurrentVector
-          """
-        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
-
 
 class ForecastFileSource(OceanCurrentSourceXarray):
     # TODO: Make it work with multiple Global HYCOM FMRC Files (a bit of extra logic, but possible)
@@ -162,7 +155,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'])
+        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'],
+                                          currents=source_config_dict['source_settings'].get('currents', 'normal'))
 
         # Step 2: derive the time coverage and grid_dict for from the first file
         self.t_forecast_coverage = [
@@ -174,12 +168,6 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         # stateful variable to prevent checking for most current FMRC file for every forecast
         self.rec_file_idx = 0
         self.load_ocean_current_from_idx()
-
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-        # Step 1: Make sure we use the most recent forecast available
-        self.check_for_most_recent_fmrc_dataframe(spatio_temporal_point.date_time)
-
-        return super().get_data_at_point(spatio_temporal_point)
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[Union[datetime.datetime, int]],
@@ -197,7 +185,9 @@ class ForecastFileSource(OceanCurrentSourceXarray):
 
     def load_ocean_current_from_idx(self):
         """Helper Function to load an OceanCurrent object."""
-        self.DataArray = open_formatted_xarray(self.files_dicts[self.rec_file_idx]['file'])
+        self.DataArray = open_formatted_xarray(
+            self.files_dicts[self.rec_file_idx]['file'],
+            currents=self.source_config_dict['source_settings'].get("currents", 'normal'))
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
@@ -207,7 +197,10 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """
         # check if rec_file_idx is already the last one and time is larger than its start time
         if self.rec_file_idx + 1 == len(self.files_dicts) and self.files_dicts[self.rec_file_idx]['t_range'][0] <= time:
-            return self.rec_file_idx
+            if time > self.files_dicts[self.rec_file_idx]['t_range'][1]:
+                raise ValueError("No current data in the last file for requested time.")
+            else:
+                return self.rec_file_idx
 
         # otherwise check if a more recent one is available or we need to use an older one
         elif not (self.files_dicts[self.rec_file_idx]['t_range'][0] <=
@@ -224,7 +217,17 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                     self.rec_file_idx = idx
             # set the new self.OceanCurrent
             self.load_ocean_current_from_idx()
-            return self.rec_file_idx
+
+        # always return the most current idx
+        return self.rec_file_idx
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        """We overwrite it because we don't want that Forecast needs caching..."""
+        # Step 1: Make sure we use the most recent forecast available
+        self.check_for_most_recent_fmrc_dataframe(spatio_temporal_point.date_time)
+        data_xarray = super().get_data_at_point(spatio_temporal_point)
+
+        return OceanCurrentVector(u=data_xarray['water_u'].item(), v=data_xarray['water_v'].item())
 
 
 class HindcastFileSource(OceanCurrentSourceXarray):
@@ -237,13 +240,18 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
         # Step 2: open the respective file as multi dataset
         self.DataArray = xr.open_mfdataset([h_dict['file'] for h_dict in self.files_dicts]).isel(depth=0)
-        self.DataArray["time"] = self.DataArray["time"].dt.round("H")
+        self.DataArray = format_xarray(self.DataArray,
+                                       currents=source_config_dict['source_settings'].get('currents', 'normal'))
 
         # Step 3: Check if multi-file (then dask) or not
         self.dask_array = isinstance(self.DataArray['water_u'].data, dask.array.core.Array)
 
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
@@ -255,22 +263,22 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
                 copernicusmarine_datastore(source_config_dict['source_settings']['DATASET_ID'],
                                            source_config_dict['source_settings']['USERNAME'],
                                            source_config_dict['source_settings']['PASSWORD'])).isel(depth=0)
-            # for consistency we need to rename the variables in the xarray the same as in hycom
-            self.DataArray = self.DataArray.rename({'latitude': 'lat', 'longitude': 'lon'})
-            if source_config_dict['source_settings']['currents'] == 'total':
-                self.DataArray = self.DataArray[['utotal', 'vtotal']].rename(
-                    {'utotal': 'water_u', 'vtotal': 'water_v'})
-            elif source_config_dict['source_settings']['currents'] == 'normal':
-                self.DataArray = self.DataArray[['uo', 'vo']].rename({'uo': 'water_u', 'vo': 'water_v'})
+            self.DataArray = format_xarray(self.DataArray,
+                                           currents=source_config_dict['source_settings'].get('currents', 'normal'))
         else:
             raise ValueError("Only opendap Copernicus implemented for now.")
 
         # Step 2: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
 
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+
+        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
+
 
 # Helper functions across the OceanCurrentSource objects
-def get_file_dicts(folder: AnyStr) -> List[dict]:
+def get_file_dicts(folder: AnyStr, currents='normal') -> List[dict]:
     """ Creates an list of dicts ordered according to time available, one for each nc file available in folder.
     The dicts for each file contains:
     {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
@@ -282,7 +290,7 @@ def get_file_dicts(folder: AnyStr) -> List[dict]:
     # iterate over all files to extract the grids and put them in an ordered list of dicts
     list_of_dicts = []
     for file in files_list:
-        grid_dict = get_grid_dict_from_file(file)
+        grid_dict = get_grid_dict_from_file(file, currents=currents)
         # append the file to it:
         grid_dict['file'] = file
         list_of_dicts.append(grid_dict)
@@ -291,20 +299,33 @@ def get_file_dicts(folder: AnyStr) -> List[dict]:
     return list_of_dicts
 
 
-def open_formatted_xarray(filepath: AnyStr) -> xr:
+def open_formatted_xarray(filepath: AnyStr, currents: AnyStr = 'normal') -> xr:
     data_frame = xr.open_dataset(filepath).isel(depth=0)
+    return format_xarray(data_frame=data_frame, currents=currents)
+
+
+def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
+    """Helper Function to format Data Arrays consistently.
+    Args:
+          data_frame: data_frame object
+          currents: String either 'normal' then uo, vo from Copernicus is used or
+                    'total' then the total including tidal and wave drift is used.
+    """
     if 'HYCOM' in data_frame.attrs['source']:
+        # data_frame["time"] = data_frame["time"].dt.round("H")
         return data_frame
     elif 'MERCATOR' in data_frame.attrs['source']:
         # for consistency we need to rename the variables in the xarray the same as in hycom
-        data_frame_renamed = data_frame.rename({'vtotal': 'water_v', 'utotal': 'water_u',
-                                                'latitude': 'lat', 'longitude': 'lon'})
-        return data_frame_renamed
+        data_frame = data_frame.rename({'latitude': 'lat', 'longitude': 'lon'})
+        if currents == 'total':
+            return data_frame[['utotal', 'vtotal']].rename({'utotal': 'water_u', 'vtotal': 'water_v'})
+        elif currents == 'normal':
+            return data_frame[['uo', 'vo']].rename({'uo': 'water_u', 'vo': 'water_v'})
 
 
-def get_grid_dict_from_file(file: AnyStr) -> dict:
+def get_grid_dict_from_file(file: AnyStr, currents='normal') -> dict:
     """Helper function to create a grid dict from a local nc3 file."""
-    f = open_formatted_xarray(file)
+    f = open_formatted_xarray(file, currents=currents)
     # get the time coverage in POSIX
     t_grid = get_posix_time_from_np64(f.variables['time'].data)
     y_range = [f.variables['lat'].data[0], f.variables['lat'].data[-1]]

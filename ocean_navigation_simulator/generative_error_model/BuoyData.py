@@ -1,5 +1,4 @@
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-from data_preprocessing import interp_xarray, interp_hincast_casadi
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 
 import datetime
@@ -17,6 +16,7 @@ import xarray as xr
 from shapely.geometry import Point, box
 import warnings
 from pandas.core.common import SettingWithCopyWarning
+from tqdm import tqdm
 
 # ignore warnings that cannot be fixed for specific scenario of needing .loc and .iloc
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
@@ -55,11 +55,11 @@ class BuoyDataSource(ABC):
         self.config = config
         self.buoy_config = self.config["buoy_config"][source]
 
-        self.targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
-                                     self.buoy_config["lon_range"][1],
-                                     self.buoy_config["lat_range"][0],
-                                     self.buoy_config["lat_range"][1]).get_bbox()
-        self.targeted_time_range = TargetedTimeRange(self.buoy_config["time_range"])
+        self.targeted_bbox = TargetedBbox(self.config["dataset_writer"]["lon_range"][0],
+                                          self.config["dataset_writer"]["lon_range"][1],
+                                          self.config["dataset_writer"]["lat_range"][0],
+                                          self.config["dataset_writer"]["lat_range"][1]).get_bbox()
+        self.targeted_time_range = TargetedTimeRange(self.config["dataset_writer"]["time_range"])
         self.data_dir = os.path.join(get_path_to_project(os.getcwd()), self.config["data_dir"])
         self.data = self.get_buoy_data(self.buoy_config)
 
@@ -80,7 +80,7 @@ class BuoyDataSource(ABC):
         The ocean_field is a forecast.
         """
 
-        self.data = interp_xarray(self.data, ocean_field, "forecast_data_source")
+        self.data = self.interp_xarray(self.data, ocean_field, "forecast_data_source")
         print(f"Percentage of failed interp: {100*np.isnan(self.data['u_forecast']).sum()/self.data.shape[0]}%")
         return self.data
 
@@ -92,19 +92,30 @@ class BuoyDataSource(ABC):
         The ocean_field is a hindcast.
         """
 
-        self.data = interp_xarray(self.data, ocean_field, "hindcast_data_source")
+        self.data = self.interp_xarray(self.data, ocean_field, "hindcast_data_source")
         print(f"Percentage of failed interp: {100*np.isnan(self.data['u_hindcast']).sum()/self.data.shape[0]}%")
         return self.data
 
-    def interpolate_casadi(self, ocean_field: OceanCurrentField) -> pd.DataFrame:
-        # TODO: problem is that the entire spatio-temporal rage cannot be fit, need to interpolate
-        # over patches of entire range -> additional logic needed to handle that!
-        t_0 = dateutil.parser.isoparse(self.buoy_config["time_range"].split("/")[0])
-        self.data = interp_hincast_casadi(self.data, self.buoy_config["lon_range"], self.buoy_config["lat_range"], t_0, ocean_field)
-        return self.data
+    def interp_xarray(self, data: pd.DataFrame, ocean_field: OceanCurrentField, data_source: str, n: int = 10) -> pd.DataFrame:
+        """
+        Interpolates the hindcast data to spatio-temporal points of buoy measurements
 
-    def _interpolation_inside_bounds(self) -> bool:
-        return False
+        data_source: str {hindcast_data_source, forecast_data_source}
+        """
+
+        data[f"u_{data_source.split('_')[0]}"] = 0
+        data[f"v_{data_source.split('_')[0]}"] = 0
+        # convert time column to datetime
+        data["time"] = pd.to_datetime(data["time"])
+
+        for i in tqdm(range(0, data.shape[0], n)):
+            interpolation = getattr(ocean_field, data_source).DataArray.interp(time=data["time"].iloc[i:i + n],
+                                                                                 lon=data["lon"].iloc[i:i + n],
+                                                                                 lat=data["lat"].iloc[i:i + n])
+            # add columns to dataframe
+            data[f"u_{data_source.split('_')[0]}"].iloc[i:i + n] = interpolation["water_u"].values.diagonal().diagonal()
+            data[f"v_{data_source.split('_')[0]}"].iloc[i:i + n] = interpolation["water_v"].values.diagonal().diagonal()
+        return data
 
 
 class BuoyDataCopernicus(BuoyDataSource):
@@ -168,7 +179,7 @@ class BuoyDataCopernicus(BuoyDataSource):
 
             # filtering and concat to df
             df_temp = df_temp.loc[(lon_cond & lat_cond & time_cond)]
-            df = pd.concat([df, df_temp])
+            df = pd.concat([df, df_temp], ignore_index=True)
 
         # remove NaN rows -> created because of u and v at different depths.
         df = df.dropna()
