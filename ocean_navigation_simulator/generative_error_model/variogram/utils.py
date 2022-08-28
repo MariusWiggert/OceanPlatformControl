@@ -33,7 +33,7 @@ def save_variogram_to_npy(variogram: Variogram, file_path: str):
 
     data_to_save = {"bins": variogram.bins,
                     "bins_count": variogram.bins_count,
-                    "res": [variogram.lon_res, variogram.lat_res, variogram.t_res],
+                    "res": variogram.res_tuple,
                     "units": variogram.units,
                     "detrend_metrics": variogram.bin_statistics
                     }

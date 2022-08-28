@@ -18,8 +18,9 @@ class Variogram:
         self.data = data
         self.bins = None
         self.bins_count = None
+        self.units = None
 
-    def detrend(self, detrend_var: AnyStr="lat", num_bins: int=5) -> Dict[str, List[float]]:
+    def detrend(self, detrend_var: AnyStr = "lat", num_bins: int = 1) -> Dict[str, List[float]]:
         """Variogram analysis assumes stationarity, therefore detrending is needed.
         
         This method can perform detrending over a specific variable (e.g. lon, lat, time)
@@ -65,7 +66,7 @@ class Variogram:
         return bin_statistics
 
     def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size: int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=False, units: str="km", logger: logging=None) -> Tuple[np.ndarray, np.ndarray]:
+        detrended: bool=True, units: str="km", is_3d: bool=True, logger: logging=None) -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. Then computes the lag value in each axis
         and the variogram value for u and v errors.
@@ -79,21 +80,25 @@ class Variogram:
         cross_buoy_pairs_only - whether or not to use point pairs from the same buoy
         detrended - use detrended value or not
         units - {degrees, km}
+        is_3d - take 3d Variogram vs 2d variogram where space dims combined by euclidean norm
         """
 
         if detrended and "detrended_u_error" not in self.data.columns:
             raise Exception("Need to run detrend method first with 'detrend=True'")
-
         self.units = units
-        self._variogram_setup(res_tuple)
+        if is_3d:
+            assert len(res_tuple) == 3, "Need res_tuple of length 3."
+            self._variogram_setup_3d(res_tuple)
+        else:
+            assert len(res_tuple) == 2, "Need res_tuple of length 2."
+            self._variogram_setup_2d(res_tuple)
 
         # setup generator to generate index pairs
         n = self.data.shape[0]
         gen = IndexPairGenerator(n, chunk_size)
 
         # make bins
-        bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
-        self.bins = np.zeros((*bin_sizes,2), dtype=np.float32)
+        self.bins = np.zeros((*self.bin_sizes, 2), dtype=np.float32)
         self.bins_count = np.zeros_like(self.bins, dtype=np.int32)
 
         # convert relevant columns to numpy before accessing
@@ -120,8 +125,10 @@ class Variogram:
         # setup mp stuff
         q = mp.Queue(maxsize=num_workers)
         iolock = mp.Lock()
-        pool = mp.Pool(num_workers, initializer=self._calculate_chunk,\
-             initargs=(q, time, lon, lat, u_error, v_error, buoy_vector, iolock))
+        chunking_method_map = {True: self._calculate_chunk_3d, False: self._calculate_chunk_2d}
+        pool = mp.Pool(num_workers,
+                       initializer=chunking_method_map[is_3d],
+                       initargs=(q, time, lon, lat, u_error, v_error, buoy_vector, iolock))
 
         # iterate over generator to get relevant indices
         number_of_pairs = int((n**2)/2 - n/2)
@@ -129,6 +136,8 @@ class Variogram:
         iteration = 0
         while True:
             indices = next(gen)
+            if cross_buoy_pairs_only:
+                self.mask_pairs_from_same_buoy(indices, buoy_vector)
             if len(indices[0]) == 0:
                 break
             q.put(indices)
@@ -145,10 +154,10 @@ class Variogram:
         pool.join()
         
         # divide bins by the count + divide by 2 for semi-variance (special func to avoid dividing by zero)
-        self.bins = np.divide(self.bins, self.bins_count, out=np.zeros_like(self.bins), where=self.bins_count!=0)/2
+        self.bins = np.divide(self.bins, self.bins_count, out=np.zeros_like(self.bins), where=self.bins_count != 0)/2
         return self.bins, self.bins_count
 
-    def _calculate_chunk(self, q: mp.Queue, time: List[int], lon: List[int], lat: List[int],\
+    def _calculate_chunk_3d(self, q: mp.Queue, time: List[int], lon: List[int], lat: List[int],\
         u_error: List[int], v_error: List[int], buoy_vector: List[str], iolock: mp.Lock) -> None:
         """Used in multiprocessing to compute the variogram values of pairs of points according to
         the indices."""
@@ -160,23 +169,6 @@ class Variogram:
                 break
             idx_i = np.array(indices[0])
             idx_j = np.array(indices[1])
-
-            # build mask to eliminate pairs from same buoy
-            if buoy_vector is not None:
-                buoy_vector_i = buoy_vector[idx_i]
-                buoy_vector_j = buoy_vector[idx_j]
-                # map each buoy name string to unique integer
-                _, integer_mapped = np.unique([buoy_vector_i, buoy_vector_j], return_inverse=True)
-                buoy_vector_mapped_i = integer_mapped[:round(len(integer_mapped)/2)]
-                buoy_vector_mapped_j = integer_mapped[round(len(integer_mapped)/2):]
-                # if integer in i and j is the same, then both points from same buoy
-                residual = buoy_vector_mapped_i - buoy_vector_mapped_j
-                mask_same_buoy = residual != 0
-                mask_idx = np.where(mask_same_buoy == True)
-
-                # only select pairs from different buoys
-                idx_i = idx_i[mask_idx]
-                idx_j = idx_j[mask_idx]
 
             # get lags in degrees and divide by bin resolution to get bin indices
             if self.units == "degrees":
@@ -204,7 +196,7 @@ class Variogram:
                 # add to bin count
                 np.add.at(self.bins_count, (lon_lag, lat_lag, t_lag), [1, 1])
 
-    def _variogram_setup(self, res_tuple: Tuple[float]):
+    def _variogram_setup_3d(self, res_tuple: Tuple[float]):
         """Helper method to declutter the main build_variogram method."""
 
         # convert time axis to datetime
@@ -213,22 +205,116 @@ class Variogram:
         earliest_date = self.data["time"].min()
         self.data["time_offset"] = self.data["time"].apply(lambda x: (x - earliest_date).seconds//3600 + (x-earliest_date).days*24)
 
-        self.lon_res, self.lat_res, self.t_res = lon_res, lat_res, t_res = res_tuple
+        self.lon_res, self.lat_res, self.t_res = res_tuple
 
         # calculate bin sizes from known extremal values and given resolutions
-        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min()+1)/t_res).astype(int)
+        self.t_bins = np.ceil((self.data["time_offset"].max() - self.data["time_offset"].min() + 1)/self.t_res).astype(int)
+
+        max_lon, min_lon = self.data["lon"].max(), self.data["lon"].min()
+        max_lat, min_lat = self.data["lat"].max(), self.data["lat"].min()
         if self.units == "degrees":
-            self.lon_bins = np.ceil((self.data["lon"].max() - self.data["lon"].min()+1)/lon_res).astype(int)
-            self.lat_bins = np.ceil((self.data["lat"].max() - self.data["lat"].min()+1)/lat_res).astype(int)
+            self.lon_bins = np.ceil((max_lon - min_lon + 1) / self.lon_res).astype(int)
+            self.lat_bins = np.ceil((max_lat - min_lat + 1) / self.lat_res).astype(int)
         elif self.units == "km":
-            max_lon, min_lon = self.data["lon"].max(), self.data["lon"].min()
-            max_lat, min_lat = self.data["lat"].max(), self.data["lat"].min()
-            min_y = 110.574 * min_lat
-            max_y = 110.574 * max_lat
-            min_x = 111.320 * min_lon * np.cos(0)
-            max_x = 111.320 * max_lon * np.cos(0)
-            self.lon_bins = np.ceil(abs((max_x-min_x)/lon_res)+5).astype(int)
-            self.lat_bins = np.ceil(abs((max_y-min_y)/lat_res)+5).astype(int)
+            max_y_lag = (110.574 * max_lat) - (110.574 * min_lat)
+            max_x_lag = (111.320 * max_lon * np.cos(0)) - (111.320 * min_lon * np.cos(0))
+            self.lon_bins = np.ceil(abs(max_x_lag/self.lon_res)+5).astype(int)
+            self.lat_bins = np.ceil(abs(max_y_lag/self.lat_res)+5).astype(int)
+        self.bin_sizes = (self.lon_bins, self.lat_bins, self.t_bins)
+        self.res_tuple = (self.lon_res, self.lat_res, self.t_res)
+
+    def _calculate_chunk_2d(self, q: mp.Queue, time: List[int], lon: List[int], lat: List[int], u_error: List[int],
+                            v_error: List[int], buoy_vector: List[str], iolock: mp.Lock) -> None:
+        """Used in multiprocessing to compute the variogram values of pairs of points according to
+        the indices."""
+
+        while True:
+            # get values for chunk
+            indices = q.get()
+            if indices is None:
+                break
+            idx_i = np.array(indices[0])
+            idx_j = np.array(indices[1])
+
+            # get lags in degrees and divide by bin resolution to get bin indices
+            if self.units == "degrees":
+                lon_lag = np.absolute(lon[idx_i] - lon[idx_j])
+                lat_lag = np.absolute(lat[idx_i] - lat[idx_j])
+                space_lag = np.floor(np.sqrt(lon_lag ** 2 + lat_lag ** 2) / self.space_res)
+            elif self.units == "km":
+                # convert lags from degrees to kilometres
+                pts1 = np.hstack((lon[idx_i].reshape(-1, 1), lat[idx_i].reshape(-1, 1)))
+                pts2 = np.hstack((lon[idx_j].reshape(-1, 1), lat[idx_j].reshape(-1, 1)))
+                lon_lag, lat_lag = convert_degree_to_km(pts1, pts2)
+                # take euclidean norm and convert to bin indices
+                space_lag = np.floor(np.sqrt(lon_lag**2 + lat_lag**2) / self.space_res).astype(int)
+
+            t_lag = np.floor((np.absolute(time[idx_i] - time[idx_j]) / self.t_res).astype(float)).astype(int)
+
+            u_squared_diff = np.square(u_error[idx_i] - u_error[idx_j]).reshape(-1, 1)
+            v_squared_diff = np.square(v_error[idx_i] - v_error[idx_j]).reshape(-1, 1)
+            squared_diff = np.hstack((u_squared_diff, v_squared_diff))
+
+            with iolock:
+                # from: https://stackoverflow.com/questions/51092737/vectorized-assignment-in-numpy
+                # add to relevant bin
+                np.add.at(self.bins, (space_lag, t_lag), squared_diff)
+                # add to bin count
+                np.add.at(self.bins_count, (space_lag, t_lag), [1, 1])
+
+    def _variogram_setup_2d(self, res_tuple: Tuple[float]):
+        """Helper method to declutter the main build_variogram method."""
+
+        # convert time axis to datetime
+        self.data["time"] = pd.to_datetime(self.data["time"])
+        # find earliest time/date and subtract from time column
+        earliest_date = self.data["time"].min()
+        self.data["time_offset"] = self.data["time"].apply(
+            lambda x: (x - earliest_date).seconds // 3600 + (x - earliest_date).days * 24)
+
+        self.space_res, self.t_res = res_tuple
+
+        # calculate bin sizes from known extremal values and given resolutions
+        self.t_bins = np.ceil(
+            (self.data["time_offset"].max() - self.data["time_offset"].min() + 1) / self.t_res).astype(int)
+
+        max_lon, min_lon = self.data["lon"].max(), self.data["lon"].min()
+        max_lat, min_lat = self.data["lat"].max(), self.data["lat"].min()
+        if self.units == "degrees":
+            max_lon_lag = max_lon - min_lon
+            max_lat_lag = max_lat - min_lat
+            self.space_bins = np.ceil((np.sqrt(max_lon_lag**2 + max_lat_lag**2) + 1) / self.space_res).astype(int)
+        elif self.units == "km":
+            max_y_lag = (110.574 * max_lat) - (110.574 * min_lat)
+            max_x_lag = (111.320 * max_lon * np.cos(0)) - (111.320 * min_lon * np.cos(0))
+            self.space_bins = np.ceil((np.sqrt(max_y_lag**2 + max_x_lag**2) / self.space_res) + 1).astype(int)
+        self.bin_sizes = (self.space_bins, self.t_bins)
+        self.res_tuple = (self.space_res, self.t_res)
+
+    def mask_pairs_from_same_buoy(self, indices, buoy_vector):
+        """build mask to eliminate pairs from same buoy.
+        """
+        # unpack indices into vectors
+        idx_i = np.array(indices[0])
+        idx_j = np.array(indices[1])
+
+        # get buoy vectors
+        buoy_vector_i = buoy_vector[idx_i]
+        buoy_vector_j = buoy_vector[idx_j]
+        # map each buoy name string to unique integer
+        _, integer_mapped = np.unique([buoy_vector_i, buoy_vector_j], return_inverse=True)
+        buoy_vector_mapped_i = integer_mapped[:round(len(integer_mapped) / 2)]
+        buoy_vector_mapped_j = integer_mapped[round(len(integer_mapped) / 2):]
+        # if integer in i and j is the same, then both points from same buoy
+        residual = buoy_vector_mapped_i - buoy_vector_mapped_j
+        mask_same_buoy = residual != 0
+        mask_idx = np.where(mask_same_buoy is True)
+
+        # only select pairs from different buoys
+        idx_i = idx_i[mask_idx]
+        idx_j = idx_j[mask_idx]
+        return np.array([idx_i, idx_j])
+
 
     def plot_detrended_bins(self) -> None:
         """Plots detrended data over time for each bin separately."""
