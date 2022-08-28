@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import yaml
-import os
 from typing import Dict, Any, List
 from tqdm import tqdm
 
@@ -70,7 +69,7 @@ class ExperimentRunner:
     def get_ground_truth(self, problem: Problem):
         """Loads the ground truth data for a specific problem.
         """
-        ground_truth = self.dataset.get_specific_data(problem.lon_range, problem.lat_range, problem.t_range)
+        ground_truth = self.dataset.get_recent_data_in_range(problem.lon_range, problem.lat_range, problem.t_range)
         ground_truth["time"] = pd.to_datetime(ground_truth["time"])
         return ground_truth
 

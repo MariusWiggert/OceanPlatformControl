@@ -98,11 +98,20 @@ class Dataset:
         list_of_dicts.sort(key=lambda dictionary: dictionary['t_range'][0])
         return list_of_dicts
 
-    def get_specific_data(self, lon_range, lat_range, t_range: List[datetime.datetime]) -> pd.DataFrame:
-        """Gets the most up to date date for a specific range.
+    def get_recent_data_in_range(self, lon_range, lat_range, t_range: List[datetime.datetime]) -> pd.DataFrame:
+        """Gets the most up-to-date date for a specific range.
         """
+        # gets first day of each file
         df = self.load_dataset(overlap=False, verbose=False)
-        # TODO: logic here is slightly flawed. Example, only one file -> only one day of points
+
+        # need to get all days of last file (as they are the most up-to-date available)
+        last_file_name = self.meta_data[-1]["file_name"]
+        last_file = pd.read_csv(os.path.join(self.dataset_path, last_file_name))
+        times_of_interest = sorted(list(set(last_file["time"])))[24:]
+        last_file = last_file[last_file["time"].isin(times_of_interest)]
+        df = pd.concat([df, last_file], ignore_index=True)
+
+        # filter for specific ranges
         df = df[(df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S")) &
                 (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))]
         df = df[(df["lon"] >= lon_range[0]+1) & (df["lon"] <= lon_range[1]-1)]
@@ -126,7 +135,7 @@ if __name__ == "__main__":
     import dateutil
     start = dateutil.parser.isoparse(problems["t_range"].split("/")[0])
     end = dateutil.parser.isoparse(problems["t_range"].split("/")[1])
-    data = dataset.get_specific_data(lon_range=problems["lon_range"],
-                                     lat_range=problems["lat_range"],
-                                     t_range=[start, end])
+    data = dataset.get_recent_data_in_range(lon_range=problems["lon_range"],
+                                            lat_range=problems["lat_range"],
+                                            t_range=[start, end])
     print(data)
