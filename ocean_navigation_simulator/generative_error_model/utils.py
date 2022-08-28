@@ -21,7 +21,7 @@ def load_config(yaml_file_config: str) -> Dict:
     config_path = os.path.join(get_path_to_project(os.getcwd()), "scenarios/generative_error_model", yaml_file_config)
     with open(config_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
-    print(f"Loaded config at: {config_path}")
+    print(f"\nLoaded config at: {config_path}.\n")
     return config
 
 
