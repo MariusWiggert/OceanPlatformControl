@@ -333,7 +333,7 @@ class VisualizeVariogram:
         if tol is None:
             tol = self.variogram.bins.shape[:-1]
         if view_range is None:
-            view_range = self.variogram.bins.shape[:-1]
+            view_range = np.array(self.variogram.bins.shape[:-1]) * np.array(self.variogram.res_tuple)
         return tol, view_range
 
     def _get_view_indices(self, view_range: Tuple[int]):
