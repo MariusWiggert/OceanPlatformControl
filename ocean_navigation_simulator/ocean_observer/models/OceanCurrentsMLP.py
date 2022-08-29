@@ -15,7 +15,8 @@ class OceanCurrentMLP(nn.Module):
             layers.append(nn.Linear(inp, out))
             if bn == 0:
                 layers.append(nn.BatchNorm1d(out))
-            layers.append(nn.ReLU())
+            if i + 1 < len(output_layers_dims):
+                layers.append(nn.ReLU())
             if bn == 1:
                 layers.append(nn.BatchNorm1d(out))
         layers.append(nn.Unflatten(1, output_shape))
@@ -26,6 +27,5 @@ class OceanCurrentMLP(nn.Module):
         # Dims input: [Batch_size, 2 (= dimensions currents), time, lat, lon]
         for l in self.layers:
             x = l(x)
-            print(l, x)
 
         return x

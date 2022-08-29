@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import argparse
-import json
 import os
 import time
 
@@ -39,26 +38,33 @@ def loss_function(output, target, add_mask=False):
     return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / non_nan_elements)
 
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimizer: torch.optim.Optimizer, epoch: int,
+          model_error: bool,
+          cfg_dataset: dict[str, any]):
     model.train()
-    # for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
-    with tqdm(train_loader, unit="batch") as tepoch:
-        for data, target in tepoch:
-            if (data, target) == (None, None):
-                continue
-            data, target = data.to(device), target.to(device)
-            optimizer.zero_grad()
-            output = model(data)
+    with torch.autograd.set_detect_anomaly(True):
+        # for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
+        with tqdm(train_loader, unit="batch") as tepoch:
+            for data, target in tepoch:
+                if (data, target) == (None, None):
+                    continue
+                data, target = data.to(device), target.to(device)
+                optimizer.zero_grad()
+                output = model(data)
+                if model_error:
+                    # todo: adapt in case of window
+                    axis = cfg_dataset["index_axis_time"]
+                    output = data.select(axis, 0).unsqueeze(axis) - output
+                loss = loss_function(output, target, add_mask=True)
+                # Backprop
+                loss.backward()
+                # update the weights
+                optimizer.step()
+                tepoch.set_postfix(loss=loss.item())
 
-            loss = loss_function(output, target, add_mask=True)
-            # Backprop
-            loss.backward()
-            # update the weights
-            optimizer.step()
-            tepoch.set_postfix(loss=loss.item())
 
-
-def test(args, model, device, test_loader, epoch):
+def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: int,
+         model_error: bool, cfg_dataset: dict[str, any]) -> None:
     model.eval()
     test_loss = 0
     initial_loss = 0
@@ -69,6 +75,10 @@ def test(args, model, device, test_loader, epoch):
                     continue
                 data, target = data.to(device), target.to(device)
                 output = model(data)
+                if model_error:
+                    # todo: adapt in case of window
+                    axis = cfg_dataset["index_axis_time"]
+                    output = data.select(axis, 0).unsqueeze(axis) - output
                 loss = loss_function(output, target, add_mask=True).item()  # sum the batch losses
                 test_loss += loss
                 # todo: adapt 0 in case where window is around xt instead of just after
@@ -133,16 +143,18 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    cfgs = json.load(open(os.getcwd() + "/config/" + args.model_type + ".json", 'r'))
+    cfgs = yaml.load(open(os.getcwd() + "/config/" + args.model_type + ".yaml", 'r'), Loader=yaml.FullLoader)
     cfg_model = cfgs.get("cfg_model", {})
     cfg_dataset = cfgs.get("cfg_dataset", {})
+    model_error = cfgs.get("model_error", True)
+    print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
 
     # Load the training and testing files
-    with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
-        config_datasets = yaml.load(f, Loader=yaml.FullLoader)
+    # with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
+    #    config_datasets = yaml.load(f, Loader=yaml.FullLoader)
 
-    dataset_training = CustomOceanCurrentsFromFiles("./data_exported_2/")
-    dataset_validation = CustomOceanCurrentsFromFiles("./data_exported_2/")
+    dataset_training = CustomOceanCurrentsFromFiles("./data_NN/data_exported_2/")
+    dataset_validation = CustomOceanCurrentsFromFiles("./data_NN/data_exported_2/")
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
@@ -162,10 +174,10 @@ def main():
     for epoch in range(1, args.epochs + 1):
         print(f"\nstarting Training epoch {epoch}/{args.epochs + 1}.")
         time.sleep(0.2)
-        train(args, model, device, train_loader, optimizer, epoch)
+        train(args, model, device, train_loader, optimizer, epoch, model_error, cfg_dataset)
         time.sleep(0.2)
         print(f"\nstarting Testing epoch {epoch}/{args.epochs + 1}.")
-        test(args, model, device, validation_loader, epoch)
+        test(args, model, device, validation_loader, epoch, model_error, cfg_dataset)
         scheduler.step()
 
     if args.save_model:
