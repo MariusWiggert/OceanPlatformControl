@@ -26,7 +26,7 @@ dataset_writer:
   lat_range: [20, 30]
   # lat_range: [-40, -20]
   # lon_range: [-120, -100]
-  time_range: "2022-04-21T13:00:00Z/2022-04-30T13:00:00Z" # in ISO8601 format
+  time_range: ""  # for buoy data slicing, set at runtime, depends on loaded forecast/hindcast
   source: "copernicus"
   dataset_type: "hindcast"
   input: "area1"

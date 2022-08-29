@@ -71,9 +71,10 @@ def main():
     v.build_variogram_gen(args.bin_res[0], args.num_workers, chunk_size=int(args.chunk_size),
                           cross_buoy_pairs_only=args.cross_buoy_pairs_only, is_3d=args.is_3d, logger=logger)
     # save to .npy
+    resolution = list(v.res_tuple)
     dim_name_map = {True: "3d", False: "2d"}
     file_name_p1 = f"{now_string}_{dim_name_map[args.is_3d]}_{config['dataset_type']}_variogram_{args.dataset_name}_"
-    file_name_p2 = f"{v.res_tuple}_{args.cross_buoy_pairs_only}_{args.no_data_overlap}.npy"
+    file_name_p2 = f"{resolution}_{args.cross_buoy_pairs_only}_{args.no_data_overlap}.npy"
     file_name = file_name_p1 + file_name_p2
     file_path = os.path.join(project_dir, config["data_dir"], "variogram", file_name)
     save_variogram_to_npy(v, file_path)
