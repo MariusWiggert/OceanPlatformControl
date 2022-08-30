@@ -1,0 +1,91 @@
+model:
+  cfg_model:
+    input_dim: 5760
+    output_layers_dims:
+      - 11520
+      - 23160
+      - 11520
+      - 2916
+      - 1152
+    batch_norm_layers:
+      - 1
+      - 1
+      - 1
+      - 1
+      - -1
+    output_shape:
+      - 2
+      - 1
+      - 24
+      - 24
+  cfg_dataset:
+    radius_lon: 1
+    radius_lat: 1
+    margin_forecast: 0
+    stride_tiles_dataset: 0.8
+    time_horizon_input_h: 5
+    time_horizon_output_h: 1
+    stride_time_dataset_h: 1
+    input_shape:
+      - 2
+      - 5
+      - 24
+      - 24
+    output_shape:
+      - 2
+      - 1
+      - 24
+      - 24
+    index_axis_time: 2
+  model_error: true
+data_generation:
+  parameters_input:
+    start_training: '2022-04-02T12:30:01Z'
+    duration_training_in_h: 720 #672 # 28 * 24
+    duration_validation_in_h: 360 # 14 * 24
+    input_tile_dims: [ 24, 24, 5 ]
+    window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
+    # if window shift = 0: input= [x{t}...x{t+4}]
+    output_tile_dims: [ 24, 24, 1 ]
+    size_per_file_in_mb: 2000
+    folder_training: "./data_tmp/"
+    folder_validation: "./data_tmp2/"
+config_neural_net:
+  training:
+    hindcast:
+      field: 'OceanCurrents'
+      source: 'hindcast_files'
+      source_settings:
+        #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+        #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+        #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+        'folder': 'data/april_may_data/hindcast_hycom_april/'
+      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+    forecast:
+      field: 'OceanCurrents'
+      source: 'forecast_files'
+      source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+        'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
+        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+        'currents': 'total'
+  validation:
+    hindcast:
+      field: 'OceanCurrents'
+      source: 'hindcast_files'
+      source_settings:
+        #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+        #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+        #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+        'folder': 'data/april_may_data/hindcast_hycom_april/'
+      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+    forecast:
+      field: 'OceanCurrents'
+      source: 'forecast_files'
+      source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+        'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
+        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+        'currents': 'total'

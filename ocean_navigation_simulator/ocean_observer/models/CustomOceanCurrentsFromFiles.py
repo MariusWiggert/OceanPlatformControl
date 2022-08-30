@@ -11,7 +11,9 @@ class CustomOceanCurrentsFromFiles(Dataset):
     GULF_MEXICO = [[GULF_MEXICO_WITHOUT_MARGIN[0][0] + MARGIN, GULF_MEXICO_WITHOUT_MARGIN[0][1] - MARGIN],
                    [GULF_MEXICO_WITHOUT_MARGIN[1][0] + MARGIN, GULF_MEXICO_WITHOUT_MARGIN[1][1] - MARGIN]]
 
-    def __init__(self, folder: str):
+    def __init__(self, folder: str, max_items: int = None):
+        if max_items is not None and max_items < 0:
+            max_items = None
         # folder = "data_exported"
         Xs, ys = list(), list()
         for path in os.listdir(folder):
@@ -25,6 +27,11 @@ class CustomOceanCurrentsFromFiles(Dataset):
         print("loading files:", Xs, ys)
         self.X = np.concatenate([np.load(fname) for fname in Xs])
         self.y = np.concatenate([np.load(fname) for fname in ys])
+
+        if max_items is not None:
+            print(f"Only considering the first {max_items} items over {len(self.X)}.")
+            self.X = self.X[:max_items]
+            self.y = self.y[:max_items]
 
     def __len__(self):
         return len(self.X)

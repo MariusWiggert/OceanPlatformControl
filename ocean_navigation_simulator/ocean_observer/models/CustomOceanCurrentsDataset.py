@@ -3,6 +3,7 @@ from typing import Any, Dict, Tuple, Optional
 
 import numpy as np
 import torch
+import xarray as xr
 from DateTime import DateTime
 from torch.utils.data import Dataset
 
@@ -134,28 +135,26 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
     def __len__(self):
         return len(self.inputs)
 
-    def __getitem__(self, idx):
-        lon, lat, time = self.inputs[idx][0:3]
+    def __get_xarray_slice(self, field: list, grid: xr.xarray):
+        lon, lat, time = field[0:3]
 
         lo, la, ti = np.logical_and(lon[0] < self.whole_grid_fc['lon'], self.whole_grid_fc['lon'] < lon[1]), \
                      np.logical_and(lat[0] < self.whole_grid_fc['lat'], self.whole_grid_fc['lat'] < lat[1]), \
                      np.logical_and(np.datetime64(time[0]) < self.whole_grid_fc['time'],
                                     self.whole_grid_fc['time'] < np.datetime64(time[1]))
-        X_xr = self.whole_grid_fc.isel(lon=lo, lat=la, time=ti)
-        X = X_xr.to_array().to_numpy()
+        return grid.isel(lon=lo, lat=la, time=ti)
 
-        # X = self.whole_grid_fc.sel(lon=slice(*lon), lat=slice(*lat), time=slice(*time)).to_array().to_numpy()
-        lon, lat, time = self.outputs[idx][0:3]
-        lo, la, ti = np.logical_and(lon[0] < self.whole_grid_hc['lon'], self.whole_grid_hc['lon'] < lon[1]), \
-                     np.logical_and(lat[0] < self.whole_grid_hc['lat'], self.whole_grid_hc['lat'] < lat[1]), \
-                     np.logical_and(np.datetime64(time[0]) < self.whole_grid_hc['time'],
-                                    self.whole_grid_hc['time'] < np.datetime64(time[1]))
-        y_xr = self.whole_grid_hc.isel(lon=lo, lat=la, time=ti)
+    def __getitem__(self, idx):
+        X_xr = self.__get_xarray_slice(self.inputs[idx], self.whole_grid_fc)
+        X = X_xr.to_array().to_numpy()
+        y_xr = self.__get_xarray_slice(self.outputs[idx], self.whole_grid_hc)
         y = y_xr.to_array().to_numpy()
+
         assert X_xr["time"][0] == y_xr["time"] and (X_xr["lon"] == y_xr["lon"]).all() and (
                 X_xr["lat"] == y_xr["lat"]).all()
-        if list(X.shape) != self.input_shape or list(y.shape) != self.output_shape:
+
+        if list(X.shape) != self.input_shape or list(y.shape) != self.output_shape or torch.isnan(
+                X).sum() or torch.isnan(y).sum():
             return None
         X, y = torch.tensor(X, dtype=self.dtype), torch.tensor(y, dtype=self.dtype)
-        X[torch.isnan(X)] = 0
         return X, y

@@ -3,6 +3,7 @@ from __future__ import print_function
 import argparse
 import os
 import time
+from typing import Tuple
 
 import torch
 import yaml
@@ -38,6 +39,26 @@ def loss_function(output, target, add_mask=False):
     return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / non_nan_elements)
 
 
+def get_accuracy(outputNN, forecast, target) -> Tuple[float, float, float]:
+    assert outputNN.shape == forecast.shape == target.shape
+    mask = torch.logical_or(torch.isnan(target), target == forecast)
+    # output_NN[mask] = 0
+    # target[mask] = 0
+    # forecast[mask] = 0
+
+    magn_NN = torch.sqrt(((outputNN - target) ** 2).nansum(axis=[1, 2, 3, 4]))
+    magn_initial = torch.sqrt(((forecast - target) ** 2).nansum(axis=[1, 2, 3, 4]))
+    perfect_FC = (magn_initial == 0).sum()
+    ratio_perfect_FC, ratio_nz_perfect_FC, mean_magn_initial_without_perfect_forecasts = 0, 0, 0
+    if perfect_FC:
+        ratio_perfect_FC = perfect_FC / len(magn_initial)
+        ratio_nz_perfect_FC = ((forecast[magn_initial == 0] ** 2).nansum(axis=[1, 2, 3, 4]) != 0).sum() / len(
+            magn_initial)
+        mean_magn_initial_without_perfect_forecasts = magn_initial[(magn_initial != 0)].mean()
+    return (
+                       magn_NN / magn_initial).nanmean().item(), ratio_perfect_FC, ratio_nz_perfect_FC, mean_magn_initial_without_perfect_forecasts
+
+
 def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimizer: torch.optim.Optimizer, epoch: int,
           model_error: bool,
           cfg_dataset: dict[str, any]):
@@ -49,18 +70,24 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
                 if (data, target) == (None, None):
                     continue
                 data, target = data.to(device), target.to(device)
+                # todo: adapt in case of window
+                axis = cfg_dataset["index_axis_time"]
+                data_same_time = data.select(axis, 0).unsqueeze(axis)
                 optimizer.zero_grad()
                 output = model(data)
                 if model_error:
-                    # todo: adapt in case of window
-                    axis = cfg_dataset["index_axis_time"]
-                    output = data.select(axis, 0).unsqueeze(axis) - output
+                    output = data_same_time - output
                 loss = loss_function(output, target, add_mask=True)
                 # Backprop
                 loss.backward()
                 # update the weights
                 optimizer.step()
-                tepoch.set_postfix(loss=loss.item())
+                ratio, perfect_fc, perfect_nz_fc, mean_magn_initial_without_perfect_forecasts = get_accuracy(output,
+                                                                                                             data_same_time,
+                                                                                                             target)
+                tepoch.set_postfix(loss=loss.item(), mean_ratio=ratio, perfect_fc=perfect_fc,
+                                   perfect_nonzero_fc=perfect_nz_fc)  # ,
+                # mean_magn_initial_without_perfect_forecasts=mean_magn_initial_without_perfect_forecasts)
 
 
 def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: int,
@@ -68,29 +95,35 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
     model.eval()
     test_loss = 0
     initial_loss = 0
+    accuracy = 0
     with torch.no_grad():
         with tqdm(test_loader, unit="batch") as tepoch:
             for data, target in tepoch:
                 if (data, target) == (None, None):
                     continue
                 data, target = data.to(device), target.to(device)
+                # todo: adapt in case of window
+                axis = cfg_dataset["index_axis_time"]
+                data_same_time = data.select(axis, 0).unsqueeze(axis)
                 output = model(data)
                 if model_error:
-                    # todo: adapt in case of window
-                    axis = cfg_dataset["index_axis_time"]
-                    output = data.select(axis, 0).unsqueeze(axis) - output
+                    output = data_same_time - output
                 loss = loss_function(output, target, add_mask=True).item()  # sum the batch losses
                 test_loss += loss
+                ratio, perfect_fc, perfect_nz_fc = get_accuracy(output, data_same_time, target)
+                accuracy += ratio
                 # todo: adapt 0 in case where window is around xt instead of just after
                 index_xt = 0
                 initial_loss += loss_function(data[:, :, [index_xt]], target, add_mask=True).item()
-                tepoch.set_postfix(loss=loss, accuracy=(100. * test_loss / initial_loss))
+                tepoch.set_postfix(loss=loss, mean_ratio=ratio, perfect_fc=perfect_fc,
+                                   perfect_nonzero_fc=perfect_nz_fc)
 
     test_loss /= len(test_loader.dataset)
     initial_loss /= len(test_loader.dataset)
+    accuracy /= len(test_loader.dataset)
 
     print(
-        f"\nTest set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}, ratio NN_loss/initial_loss:({100. * test_loss / initial_loss:.4f}%)\n")
+        f"\nTest set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}, mean ratio SUM(rmse(NN(FC_xt))/rmse(FC_xt)):({accuracy:.6f})\n")
 
 
 def main():
@@ -121,6 +154,8 @@ def main():
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     parser.add_argument('--model-type', type=str, default='mlp')
+
+    parser.add_argument('--max-batches-training-set', type=int, default=-1)
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -153,8 +188,9 @@ def main():
     # with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
     #    config_datasets = yaml.load(f, Loader=yaml.FullLoader)
 
-    dataset_training = CustomOceanCurrentsFromFiles("./data_NN/data_exported_2/")
-    dataset_validation = CustomOceanCurrentsFromFiles("./data_NN/data_exported_2/")
+    dataset_training = CustomOceanCurrentsFromFiles("./data_NN/data_training_exported/",
+                                                    max_items=args.batch_size * args.max_batches_training_set)
+    dataset_validation = CustomOceanCurrentsFromFiles("./data_NN/data_validation_exported/")
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
@@ -172,11 +208,11 @@ def main():
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        print(f"\nstarting Training epoch {epoch}/{args.epochs + 1}.")
+        print(f"\nstarting Training epoch {epoch}/{args.epochs}.")
         time.sleep(0.2)
         train(args, model, device, train_loader, optimizer, epoch, model_error, cfg_dataset)
         time.sleep(0.2)
-        print(f"\nstarting Testing epoch {epoch}/{args.epochs + 1}.")
+        print(f"\nstarting Testing epoch {epoch + 1}/{args.epochs + 1}.")
         test(args, model, device, validation_loader, epoch, model_error, cfg_dataset)
         scheduler.step()
 
