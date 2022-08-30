@@ -42,15 +42,6 @@ class DatasetWriter:
         # get buoy data and interpolate forecast to it
         buoy_data = BuoyDataCopernicus(self.config)
 
-        if self.dataset_type == "forecast":
-            buoy_data = self.get_forecast_error(buoy_data, forecast_idx)
-        else:
-            buoy_data = self.get_hindcast_error(buoy_data)
-
-
-        return buoy_data.data
-
-    def get_forecast_error(self, buoy_data: BuoyDataCopernicus, forecast_idx: int):
         # set idx to access specific forecast in folder
         self.ocean_field.forecast_data_source.rec_file_idx = forecast_idx
         # load file of specified idx
@@ -60,11 +51,8 @@ class DatasetWriter:
         # compute the error
         buoy_data.data["u_error"] = buoy_data.data["u_forecast"] - buoy_data.data["u"]
         buoy_data.data["v_error"] = buoy_data.data["v_forecast"] - buoy_data.data["v"]
-        return buoy_data
 
-    def get_hindcast_error(self, buoy_data: BuoyDataCopernicus):
-        self.ocean_field.hindcast_data_source.
-        return  buoy_data
+        return buoy_data.data
 
     def _build_time_string(self, forecast_idx: int) -> str:
         t_range = self.files_dicts[forecast_idx]["t_range"]
