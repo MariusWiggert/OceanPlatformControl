@@ -9,10 +9,13 @@ pip install git+https://dti-devops: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@gith
 pip install git+https://github.com/scikit-learn/scikit-learn.git@e358bd77e0cde248e0ee8f67c29a72e330fcc0fe
 
 
-brew install hdf5 netcdf
-git clone https://github.com/Unidata/netcdf4-python.git
-HDF5_DIR=$(brew --prefix hdf5) pip install ./netcdf4-python
+# brew install hdf5 netcdf
+# git clone https://github.com/Unidata/netcdf4-python.git
+# HDF5_DIR=$(brew --prefix hdf5) pip install ./netcdf4-python
 
+conda install -c conda-forge netCDF4
+
+brew install swig
 
 git clone https://github.com/casadi/casadi.git casadi
 cd casadi
