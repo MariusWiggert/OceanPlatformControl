@@ -1,7 +1,7 @@
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 
-from typing import Tuple, AnyStr, Dict
+from typing import Tuple, AnyStr, Dict, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -14,6 +14,7 @@ class VisualizeVariogram:
     def __init__(self, config: Dict, variogram: Variogram=None):
         self.config = config
         self.variogram = variogram
+        self.vars = None
         if variogram is not None:
             self.units = variogram.units
             self.bins_orig = variogram.bins
@@ -41,6 +42,7 @@ class VisualizeVariogram:
         # different setup for 3d or 2d variogram
         if len(variogram_dict["res"]) == 3:
             self.variogram.is_3d = True
+            self.vars = ["lon_lag", "lat_lag", "t_lag"]
             # set bin resolutions
             self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res = variogram_dict["res"]
             # compute number of bins from bins.shape
@@ -48,6 +50,7 @@ class VisualizeVariogram:
             print(f"Resolution: {[self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res]} {self.units}.")
         else:
             self.variogram.is_3d = False
+            self.vars = ["space_lag", "t_lag"]
             # set bin resolutions
             self.variogram.space_res, self.variogram.t_res = variogram_dict["res"]
             # compute number of bins from bins.shape
@@ -159,220 +162,109 @@ class VisualizeVariogram:
         print(f"\nSaved variogram data to: {file_path}")
 
     def plot_histograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int]=None) -> None:
-        """Convenience function to handle which plotting function to call."""
-        if self.variogram.is_3d:
-            self.plot_histograms_3d(tol, view_range)
-        else:
-            self.plot_histograms_2d(tol, view_range)
+        """Plots the histogram of bins in each axis [lon, lat, time] in 3d or [space, time] in 2d.
 
-    def plot_variograms(self, variable: AnyStr="u", tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int]=None) -> None:
-        """Convenience function to handle which plotting function to call."""
-        if self.variogram.is_3d:
-            self.plot_variograms_3d(variable, tol, view_range)
-        else:
-            self.plot_variograms_2d(variable, tol, view_range)
-
-    def plot_histograms_3d(self, tol: Tuple[int]=None, view_range: Tuple[int]=None) -> None:
-        """Plots the histogram of bins in each axis [lon, lat, time].
-        
         tol -        the slicing tolerance when plotting over one dimension. If the variogram was
                      infinitely dense, ideally this would be one.
         view_range - three dim list which defines the index per axis used as a cut-off when
                      visualizing the sliced plots.
         """
 
-        tol, view_range = self._plot_input_checker(tol, view_range)
-        view_indices = self._get_view_indices(view_range)
-
-        # plot histogram for each axis
-        fig, axs = plt.subplots(1, 3, figsize=(25, 10))
-
-        lon_x = self.variogram.lon_res*(np.arange(self.variogram.lon_bins)[:view_indices[0]])
-        lon_y = np.sum(self.variogram.bins_count[:, :tol[1], :tol[2], 0], axis=(1, 2))[:view_indices[0]]
-        axs[0].bar(lon_x, lon_y, width=self.variogram.lon_res-0.1, align="edge")
-        axs[0].set_xlabel(f"Lon [{self.units}]")
-        axs[0].set_ylabel("Frequency")
-        axs[0].set_xlim(left=0)
-
-        lat_x = self.variogram.lat_res*(np.arange(self.variogram.lat_bins)[:view_indices[1]])
-        lat_y = np.sum(self.variogram.bins_count[:tol[0], :, :tol[2], 0], axis=(0, 2))[:view_indices[1]]
-        axs[1].bar(lat_x, lat_y, width=self.variogram.lat_res-0.1, align="edge")
-        axs[1].set_xlabel(f"Lat [{self.units}]")
-        axs[1].set_xlim(left=0)
-
-        t_x = self.variogram.t_res*(np.arange(self.variogram.t_bins)[:view_indices[2]])
-        t_y = np.sum(self.variogram.bins_count[:tol[0], :tol[1], :, 0], axis=(0, 1))[:view_indices[2]]
-        axs[2].bar(t_x, t_y, width=self.variogram.t_res-0.1, align="edge")
-        axs[2].set_xlabel("Time [hrs]")
-        axs[2].set_xlim(left=0)
+        figure, axs = plt.subplots(1, len(self.vars), figsize=(25, 10))
+        for idx, var in enumerate(self.vars):
+            self._plot_sliced_histogram(var, idx, tol, view_range, axs[idx])
         plt.show()
 
-    def plot_histograms_2d(self, tol: Tuple[int] = None, view_range: Tuple[int] = None) -> None:
-        """Plots the histogram of bins in each axis [lon, lat, time].
+    def _plot_sliced_histogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis) -> plt.axis:
+        tol, view_range = self._plot_input_checker(idx, tol, view_range)
+        view_index = self._get_view_index(idx, view_range)
+        bin_sizes = self.variogram.bins.shape[:-1]
+
+        var_x = self.variogram.res_tuple[idx] * (np.arange(bin_sizes[idx])[:view_index])
+        if self.variogram.is_3d:
+            other_indices = [0, 1, 2]
+            del other_indices[idx]
+            var_y = np.sum(self.variogram.bins_count[:tol[0], :tol[1], :tol[2], 0], axis=tuple(other_indices))[:view_index]
+        else:
+            other_indices = [0, 1]
+            del other_indices[idx]
+            var_y = np.sum(self.variogram.bins_count[:tol[0], :tol[1], 0], axis=tuple(other_indices))[:view_index]
+
+        ax.bar(var_x, var_y, width=self.variogram.res_tuple[idx] - 0.1, align="edge")
+        units = self.units
+        if var == "t_lag":
+            units = "hrs"
+        ax.set_xlabel(f"{var} [{units}]")
+        ax.set_ylabel("Frequency")
+        ax.set_xlim(left=0)
+
+    def plot_variograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int] = None, error_variable: AnyStr = "u") -> None:
+        """Plots the sliced variogram for each axis [lon, lat, time] in 3d or [space, time] in 2d.
 
         tol -        the slicing tolerance when plotting over one dimension. If the variogram was
                      infinitely dense, ideally this would be one.
         view_range - three dim list which defines the index per axis used as a cut-off when
                      visualizing the sliced plots.
         """
-
-        tol, view_range = self._plot_input_checker(tol, view_range)
-        view_indices = self._get_view_indices(view_range)
-
-        # plot histogram for each axis
-        fig, axs = plt.subplots(1, 2, figsize=(25, 10))
-
-        space_x = self.variogram.space_res * (np.arange(self.variogram.space_bins)[:view_indices[0]])
-        space_y = np.sum(self.variogram.bins_count[:, :tol[1], 0], axis=1)[:view_indices[0]]
-        axs[0].bar(space_x, space_y, width=self.variogram.space_res - 0.1, align="edge")
-        axs[0].set_xlabel(f"Distance (Euclidean) [{self.units}]")
-        axs[0].set_ylabel("Frequency")
-        axs[0].set_xlim(left=0)
-
-        t_x = self.variogram.t_res * (np.arange(self.variogram.t_bins)[:view_indices[1]])
-        t_y = np.sum(self.variogram.bins_count[:tol[0], :, 0], axis=0)[:view_indices[1]]
-        axs[1].bar(t_x, t_y, width=self.variogram.t_res - 0.1, align="edge")
-        axs[1].set_xlabel("Time [hrs]")
-        axs[1].set_xlim(left=0)
+        figure, axs = plt.subplots(1, len(self.vars), figsize=(25, 10))
+        for idx, var in enumerate(self.vars):
+            self._plot_sliced_variogram(var, idx, tol, view_range, axs[idx], error_variable)
         plt.show()
 
-    def plot_variograms_3d(self, variable: AnyStr="u", tol: Tuple[int]=None, view_range: Tuple[int]=None) -> None:
-        """Plots the sliced variogram for each axis [lon, lat, time].
-        
-        tol -        the slicing tolerance when plotting over one dimension. If the variogram was
-                     infinitely dense, ideally this would be one.
-        view_range - three dim list which defines the index per axis used as a cut-off when
-                     visualizing the sliced plots.
-        """
+    def _plot_sliced_variogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis, error_variable: AnyStr) -> plt.axis:
+        tol, view_range = self._plot_input_checker(idx, tol, view_range)
+        view_index = self._get_view_index(idx, view_range)
+        bin_sizes = self.variogram.bins.shape[:-1]
 
-        tol, view_range = self._plot_input_checker(tol, view_range)
-        view_indices = self._get_view_indices(view_range)
-        
-        variable_map = {"u": 0, "v": 1}
+        error_variable_map = {"u": 0, "v": 1}
         try:
-            var = variable_map[variable]
+            error_var = error_variable_map[error_variable]
         except:
             raise ValueError("Specified variable does not exist")
 
-        # (Note: division needed to normalize by dims of other bins)
-        fig, axs = plt.subplots(1, 3, figsize=(25, 10))
-
         # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
-        lon_y_num = np.sum(self.variogram.bins[:, :tol[1], :tol[2], var], axis=(1, 2))[:view_indices[0]]
-        # lon_y_denom = self.variogram.bins.shape[1]*self.variogram.bins.shape[2]
-        lon_y_denom = tol[1]*tol[2]
-        axs[0].scatter(self.variogram.lon_res*(np.arange(self.variogram.lon_bins)[:view_indices[0]]) + self.variogram.lon_res,\
-            np.divide(lon_y_num, lon_y_denom, out=np.zeros_like(lon_y_num), where=lon_y_denom != 0), marker="x")
-        axs[0].set_xlabel(f"Lon lag [{self.units}]")
-        axs[0].set_ylabel("Semivariance")
-        axs[0].set_xlim(left=0)
-        axs[0].set_ylim([0, 1.5])
+        if self.variogram.is_3d:
+            other_indices = [0, 1, 2]
+            del other_indices[idx]
+            var_y_num = np.sum(self.variogram.bins[:tol[0], :tol[1], :tol[2], error_var], axis=tuple(other_indices))[:view_index]
+            var_y_denom = tol[other_indices[0]] * tol[other_indices[1]]
+        else:
+            other_indices = [0, 1]
+            del other_indices[idx]
+            var_y_num = np.sum(self.variogram.bins[:tol[0], :tol[1], error_var], axis=tuple(other_indices))[:view_index]
+            var_y_denom = tol[other_indices[0]]
 
-        lat_y_num = np.sum(self.variogram.bins[:tol[0], :, :tol[2], var], axis=(0, 2))[:view_indices[1]]
-        # lat_y_denom = self.variogram.bins.shape[0]*self.variogram.bins.shape[2]
-        lat_y_denom = tol[0]*tol[2]
-        axs[1].scatter(self.variogram.lat_res*(np.arange(self.variogram.lat_bins)[:view_indices[1]]) + self.variogram.lat_res,\
-            np.divide(lat_y_num, lat_y_denom, out=np.zeros_like(lat_y_num), where=lat_y_denom != 0), marker="x")
-        axs[1].set_xlabel(f"Lat lag [{self.units}]")
-        axs[1].set_xlim(left=0)
-        axs[1].set_ylim([0, 1.5])
+        ax.scatter(
+            self.variogram.res_tuple[idx] * (np.arange(bin_sizes[idx])[:view_index]) + self.variogram.res_tuple[idx], \
+            np.divide(var_y_num, var_y_denom, out=np.zeros_like(var_y_num), where=var_y_denom != 0), marker="x")
+        units = self.units
+        if var == "t_lag":
+            units = "hrs"
+        ax.set_xlabel(f"{var} [{units}]")
+        ax.set_ylabel("Semivariance")
+        ax.set_xlim(left=0)
+        ax.set_ylim([0, 1.5])
 
-        t_y_num = np.sum(self.variogram.bins[:tol[0], :tol[1], :, var], axis=(0, 1))[:view_indices[2]]
-        # t_y_denom = self.variogram.bins.shape[0]*self.variogram.bins.shape[1]
-        t_y_denom = tol[0]*tol[1]
-        axs[2].scatter(self.variogram.t_res*(np.arange(self.variogram.t_bins)[:view_indices[2]]) + self.variogram.t_res,\
-            np.divide(t_y_num, t_y_denom, out=np.zeros_like(t_y_num), where=t_y_denom != 0), marker="x")
-        axs[2].set_xlabel("Time lag [hrs]")
-        axs[2].set_xlim(left=0)
-        axs[2].set_ylim([0, 1.5])
-        plt.show()
-
-    def plot_variograms_2d(self, variable: AnyStr = "u", tol: Tuple[int] = None, view_range: Tuple[int] = None) -> None:
-        """Plots the sliced variogram for each axis [lon, lat, time].
-
-        tol -        the slicing tolerance when plotting over one dimension. If the variogram was
-                     infinitely dense, ideally this would be one.
-        view_range - three dim list which defines the index per axis used as a cut-off when
-                     visualizing the sliced plots.
-        """
-
-        tol, view_range = self._plot_input_checker(tol, view_range)
-        view_indices = self._get_view_indices(view_range)
-
-        variable_map = {"u": 0, "v": 1}
-        try:
-            var = variable_map[variable]
-        except:
-            raise ValueError("Specified variable does not exist")
-
-        # (Note: division needed to normalize by dims of other bins)
-        fig, axs = plt.subplots(1, 2, figsize=(25, 10))
-
-        # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
-        space_y_num = np.sum(self.variogram.bins[:, :tol[1], var], axis=1)[:view_indices[0]]
-        space_y_denom = tol[1]
-        axs[0].scatter(self.variogram.space_res * (np.arange(self.variogram.space_bins)[:view_indices[0]]) + self.variogram.space_res,
-                       np.divide(space_y_num, space_y_denom, out=np.zeros_like(space_y_num), where=space_y_denom != 0), marker="x")
-        axs[0].set_xlabel(f"Distance (Euclidean) lag [{self.units}]")
-        axs[0].set_ylabel("Semivariance")
-        axs[0].set_xlim(left=0)
-        axs[0].set_ylim([0, 1.5])
-
-        t_y_num = np.sum(self.variogram.bins[:tol[0], :, var], axis=0)[:view_indices[1]]
-        t_y_denom = tol[0]
-        axs[1].scatter(self.variogram.t_res * (np.arange(self.variogram.t_bins)[:view_indices[1]]) + self.variogram.t_res,
-                       np.divide(t_y_num, t_y_denom, out=np.zeros_like(t_y_num), where=t_y_denom != 0), marker="x")
-        axs[1].set_xlabel("Time lag [hrs]")
-        axs[1].set_xlim(left=0)
-        axs[1].set_ylim([0, 1.5])
-        plt.show()
-
-    def _plot_input_checker(self, tol: Tuple[int] = None, view_range: Tuple[int] = None):
+    def _plot_input_checker(self, idx: int, tol: Tuple[int] = None, view_range: Tuple[int] = None):
         if self.variogram.bins is None:
             raise Exception("Need to run build_variogram() first!")
         if tol is None:
             tol = self.variogram.bins.shape[:-1]
+        tol = list(tol)
+        tol[idx] = self.variogram.bins.shape[idx]
         if view_range is None:
             view_range = np.array(self.variogram.bins.shape[:-1]) * np.array(self.variogram.res_tuple)
         return tol, view_range
 
-    def _get_view_indices(self, view_range: Tuple[int]):
+    def _get_view_index(self, idx: int, view_range: Tuple[int]):
         """Calculates the indices for each axis for a given view_range."""
-        bin_sizes = self.variogram.bins.shape[:-1]
-        view_indices = []
-        for i in range(len(self.variogram.res_tuple)):
-            idx = int(view_range[i]/self.variogram.res_tuple[i])
-            if idx <= bin_sizes[i]:
-                view_indices.append(idx)
-            else:
-                raise ValueError("View range is too large!")
-        return view_indices
-
-    def plot_hist_vario_for_axis(self, axis_name: str="time", variable: str="u", cutoff=5000) -> None:
-        """Function for convenience when focusing on a single variable."""
-
-        if self.variogram.bins is None:
-            raise Exception("Need to run build_variogram() first!")
-
-        variable_map = {"u": 0, "v": 1}
-        try:
-            var = variable_map[variable]
-        except:
-            raise ValueError("Specified variable does not exist")
-
-        axis_map = {"lon": {"bins":self.variogram.lon_bins, "res":self.variogram.lon_res, "other_axes":(1,2)},
-                    "lat": {"bins":self.variogram.lat_bins, "res":self.variogram.lat_res, "other_axes":(0,2)},
-                    "time": {"bins":self.variogram.t_bins, "res":self.variogram.t_res, "other_axes":(0,1)}}
-
-        fig, axs = plt.subplots(2,1,figsize=(20,20))
-        axs[0].bar(np.arange(axis_map[axis_name]["bins"])[:cutoff]*axis_map[axis_name]["res"], np.sum(self.variogram.bins_count[:,:,:,0], axis=axis_map[axis_name]["other_axes"])[:cutoff])
-        axs[0].title.set_text(f"{axis_name}")
-        var_y_num = np.sum(self.variogram.bins[:, :, :, var], axis=axis_map[axis_name]["other_axes"])[:cutoff]
-        # var_y_denom = np.sum(self.variogram.bins_count[:,:,:,var], axis=axis_map[axis_name]["other_axes"])[:cutoff]
-        var_y_denom = self.variogram.bins.shape[axis_map[axis_name]["other_axes"][0]]*self.variogram.bins.shape[axis_map[axis_name]["other_axes"][1]]
-        axs[1].scatter(np.arange(axis_map[axis_name]["bins"])[:cutoff]*axis_map[axis_name]["res"], var_y_num/var_y_denom, marker="x")
-        axs[1].title.set_text(f"{axis_name}")
-        plt.show()
+        num_bin = self.variogram.bins.shape[idx]
+        bin_idx = int(view_range[idx]/self.variogram.res_tuple[idx])
+        if bin_idx <= num_bin:
+            view_index = bin_idx
+        else:
+            raise ValueError("View range is too large!")
+        return view_index
 
 
 def load_variogram_from_npy(file_path: str):
