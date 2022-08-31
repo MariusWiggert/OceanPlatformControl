@@ -17,18 +17,11 @@ def parse():
     parser.add_argument("--chunk_size", default=1e6, type=float, help="what size chunk the computation is performed on")
     parser.add_argument("--cross_buoy_pairs_only", action="store_true", help="read name m8")
     parser.add_argument("--units", default="km", type=str, help="choices: {'km', 'degrees'}")
+    parser.add_argument("--dataset_type", default="forecast", type=str, help="{'forecast', 'hindcast', 'synthetic'}")
     parser.add_argument("--dataset_name", default="area1", type=str, help="Region the data is in.")
     parser.add_argument("--dataset_size", default="large", type=str, help="{large -> month, small -> single file}")
     parser.add_argument("--no_data_overlap", action="store_false", help="Should errors between two forecasts overlap in time")
     return parser
-
-
-def t_or_f(arg):
-    ua = str(arg).upper()
-    if 'TRUE'.startswith(ua):
-        return True
-    elif 'FALSE'.startswith(ua):
-        return False
 
 
 @timer
@@ -44,8 +37,8 @@ def main():
     logger = setup_logger(log_dir, now_string)
 
     # load data
-    dataset = Dataset(args.dataset_name, config)
-    logger.info(f"Using {config['dataset_type'].upper()} data.\n")
+    dataset = Dataset(config["data_dir"], args.dataset_type, args.dataset_name)
+    logger.info(f"Using {args.dataset_type.upper()} data.\n")
     if args.dataset_size == "large":
         data = dataset.load_dataset(overlap=args.no_data_overlap)
     else:
@@ -73,7 +66,7 @@ def main():
     # save to .npy
     resolution = list(v.res_tuple)
     dim_name_map = {True: "3d", False: "2d"}
-    file_name_p1 = f"{now_string}_{dim_name_map[args.is_3d]}_{config['dataset_type']}_variogram_{args.dataset_name}_"
+    file_name_p1 = f"{now_string}_{dim_name_map[args.is_3d]}_{args.dataset_type}_variogram_{args.dataset_name}_"
     file_name_p2 = f"{resolution}_{args.cross_buoy_pairs_only}_{args.no_data_overlap}.npy"
     file_name = file_name_p1 + file_name_p2
     file_path = os.path.join(project_dir, config["data_dir"], "variogram", file_name)
