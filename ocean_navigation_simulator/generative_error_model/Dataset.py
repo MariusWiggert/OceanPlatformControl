@@ -24,20 +24,20 @@
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project, load_config
 import pandas as pd
 import os
-from typing import List, Dict
+from typing import List
 import datetime
 
 
 class Dataset:
     """This class handles the data loading for the Variogram computation and the ExperimentRunner.
     """
-    def __init__(self, dataset_name: str, config: Dict):
-        self.config = config
+    def __init__(self, data_dir: str, dataset_type: str, dataset_name: str):
 
         # check if dataset exists
         root = get_path_to_project(os.getcwd())
-        self.dataset_type = config["dataset_type"]
-        self.dataset_dir = os.path.join(root, self.config["data_dir"], f"dataset_{self.dataset_type}_error")
+        self.data_dir = data_dir
+        self.dataset_type = dataset_type
+        self.dataset_dir = os.path.join(root, data_dir, f"dataset_{dataset_type}_error")
         self.datasets = os.listdir(self.dataset_dir)
         if dataset_name not in self.datasets:
             raise ValueError(f"Specified dataset {dataset_name} does not exist!")
@@ -46,7 +46,7 @@ class Dataset:
         self.dataset_path = os.path.join(self.dataset_dir, dataset_name)
         self.meta_data = self.build_meta_data_list()
 
-    def load_dataset(self, overlap: bool=True, verbose: bool=True) -> pd.DataFrame:
+    def load_dataset(self, overlap: bool=True, verbose: bool=False) -> pd.DataFrame:
         """Loads entire dataset specified.
         """
         dataset_files = os.listdir(self.dataset_path)
@@ -130,12 +130,7 @@ class Dataset:
 
 if __name__ == "__main__":
     config = load_config("config_buoy_data.yaml")
-    problems = config["experiment_runner"]["problems"][0]["data_ranges"]
-    dataset = Dataset("area1", config)
-    import dateutil
-    start = dateutil.parser.isoparse(problems["t_range"].split("/")[0])
-    end = dateutil.parser.isoparse(problems["t_range"].split("/")[1])
-    data = dataset.get_recent_data_in_range(lon_range=problems["lon_range"],
-                                            lat_range=problems["lat_range"],
-                                            t_range=[start, end])
+    data_dir = "data/drifter_data"
+    dataset = Dataset(data_dir, "synthetic", "area1")
+    data = dataset.load_file("synthetic_data_error_lon_[-140,-120]_lat_[20,30]_time_2022-04-21T13:00:00Z__2022-04-30T13:00:00Z.csv")
     print(data)

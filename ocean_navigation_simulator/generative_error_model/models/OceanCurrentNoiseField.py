@@ -13,10 +13,11 @@ import datetime
 class OceanCurrentNoiseField(GenerativeModel):
     """Uses noise model to construct a field of noise values."""
 
-    def __init__(self, harmonic_params: List[Dict[str, List[float]]]):
+    def __init__(self, harmonic_params: List[Dict[str, List[float]]], detrend_statistics: np.ndarray):
         u_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["U_COMP"]]
         v_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["V_COMP"]]
         self.model = SimplexNoiseModel(u_comp_harmonics, v_comp_harmonics)
+        self.detrend_statistics = detrend_statistics
 
     def reset(self, rng: np.random.default_rng) -> None:
         """Initializes the simplex noise with a new random number generator."""
@@ -53,6 +54,10 @@ class OceanCurrentNoiseField(GenerativeModel):
                     noise[i, j, k, :] = np.array([float(point_noise.u.meters_per_second),
                                                   float(point_noise.v.meters_per_second)])
 
+        # reintroduce trends into error
+        noise[:, :, :, 0] = noise[:, :, :, 0] * self.detrend_statistics[0, 1] + self.detrend_statistics[0, 0]
+        noise[:, :, :, 1] = noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
+
         ds = xr.Dataset(
             data_vars=dict(
                 u_error=(["lon", "lat", "time"], noise[:, :, :, 0]),
@@ -87,7 +92,7 @@ def test():
     harmonic_params = {"U_COMP": [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]],
                        "V_COMP": [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]]}
 
-    noise_field = OceanCurrentNoiseField(harmonic_params)
+    noise_field = OceanCurrentNoiseField(harmonic_params, np.array([[0.5, 0.5], [0.5, 0.5]]))
     rng = np.random.default_rng(21)  # try different seeds to see if deterministic
     noise_field.reset(rng)
     lon_range = [20, 22]
