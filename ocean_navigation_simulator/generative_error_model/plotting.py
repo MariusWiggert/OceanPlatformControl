@@ -34,4 +34,4 @@ def plot_buoy_data_at_time_step(df: pd.DataFrame, plot: bool=False):
     if plot:
         plt.show()
     else:
-        return fig, scatter_plot, ax
+        return fig, scatter_plot

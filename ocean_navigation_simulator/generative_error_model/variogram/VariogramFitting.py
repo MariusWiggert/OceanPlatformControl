@@ -71,17 +71,19 @@ class VariogramFitting:
         weights_list = []
         for i, component in enumerate(self.model.components):
             if constrain_weighting:
+                # constrain sum of weights to 1.
                 if i == self.num_components-1:
                     params.add(f"{component.prefix}s", value=1/self.num_components, expr=f"1.0 - {' - '.join(weights_list)}", max=1, min=0)
                 else:
                     params.add(f"{component.prefix}s", value=1/self.num_components, max=1, min=0)
                 for range_var in self.range_vars:
-                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 1000, max=2000, min=10)
+                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 500, max=2000, min=10)
                 weights_list.append(f"{component.prefix}s")
             else:
+                # no contraints
                 params.add(f"{component.prefix}s", value=1/self.num_components, max=1, min=0)
                 for range_var in self.range_vars:
-                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 1000, max=2000, min=10)
+                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 500, max=2000, min=10)
         return params
 
     def plot_all_dims(self, save_path: str = None):
