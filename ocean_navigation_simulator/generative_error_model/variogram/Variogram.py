@@ -137,7 +137,7 @@ class Variogram:
         while True:
             indices = next(gen)
             if cross_buoy_pairs_only:
-                self.mask_pairs_from_same_buoy(indices, buoy_vector)
+                indices = self.mask_pairs_from_same_buoy(indices, buoy_vector)
             if len(indices[0]) == 0:
                 break
             q.put(indices)
@@ -314,7 +314,6 @@ class Variogram:
         idx_i = idx_i[mask_idx]
         idx_j = idx_j[mask_idx]
         return np.array([idx_i, idx_j])
-
 
     def plot_detrended_bins(self) -> None:
         """Plots detrended data over time for each bin separately."""
