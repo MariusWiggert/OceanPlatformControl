@@ -95,13 +95,29 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                     datetime_fc_start + stride_time_dataset):
                 start_interval_dt = datetime.datetime.combine(datetime_fc_start,
                                                               time_restart) - duration_per_forecast_file
-                self.whole_grid_fc = self.whole_grid_fc.merge(self.ocean_field.forecast_data_source \
-                                                              .get_data_over_area(*self.GULF_MEXICO,
-                                                                                  [start_interval_dt,
-                                                                                   start_interval_dt + duration_per_forecast_file],
-                                                                                  spatial_resolution=self.spatial_resolution_forecast,
-                                                                                  temporal_resolution=self.temporal_resolution_forecast),
-                                                              compat='override')
+                self.whole_grid_fc = self.ocean_field.forecast_data_source \
+                    .get_data_over_area(*self.GULF_MEXICO,
+                                        [start_interval_dt,
+                                         start_interval_dt + duration_per_forecast_file],
+                                        spatial_resolution=self.spatial_resolution_forecast,
+                                        temporal_resolution=self.temporal_resolution_forecast).combine_first(
+                    self.whole_grid_fc)
+                # after_merge = self.ocean_field.forecast_data_source \
+                #     .get_data_over_area(*self.GULF_MEXICO,
+                #                         [start_interval_dt,
+                #                          start_interval_dt + duration_per_forecast_file],
+                #                         spatial_resolution=self.spatial_resolution_forecast,
+                #                         temporal_resolution=self.temporal_resolution_forecast).combine_first(
+                #     self.whole_grid_fc)
+                # print("before: ", np.isnan(self.ocean_field.forecast_data_source \
+                #                            .get_data_over_area(*self.GULF_MEXICO,
+                #                                                [start_interval_dt,
+                #                                                 start_interval_dt + duration_per_forecast_file],
+                #                                                spatial_resolution=self.spatial_resolution_forecast,
+                #                                                temporal_resolution=self.temporal_resolution_forecast).to_array().to_numpy()).sum(),
+                #       np.isnan(self.whole_grid_fc.to_array().to_numpy()).sum(),
+                #       "\nafter: ", np.isnan(after_merge.to_array().to_numpy()).sum())
+                # self.whole_grid_fc = after_merge
             datetime_fc_start += stride_time_dataset
             dims_sizes[2] += 1
         print("putting all inputs in memory")
@@ -112,13 +128,12 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
 
         self.all_inputs = []
         start_interval_dt = datetime.datetime.combine(datetime_fc_start, time_restart) - duration_per_forecast_file
-        self.whole_grid_fc = self.whole_grid_fc.merge(self.ocean_field.forecast_data_source \
-                                                      .get_data_over_area(*self.GULF_MEXICO,
-                                                                          [start_interval_dt,
-                                                                           start_interval_dt + duration_per_forecast_file],
-                                                                          spatial_resolution=self.spatial_resolution_forecast,
-                                                                          temporal_resolution=self.temporal_resolution_forecast),
-                                                      compat='override')
+        self.whole_grid_fc = self.ocean_field.forecast_data_source \
+            .get_data_over_area(*self.GULF_MEXICO,
+                                [start_interval_dt,
+                                 start_interval_dt + duration_per_forecast_file],
+                                spatial_resolution=self.spatial_resolution_forecast,
+                                temporal_resolution=self.temporal_resolution_forecast).combine_first(self.whole_grid_fc)
         self.whole_grid_hc = self.ocean_field.hindcast_data_source \
             .get_data_over_area(*self.GULF_MEXICO_WITHOUT_MARGIN,
                                 [start_forecast, self.end_date + margin_time + self.time_horizon_output],
@@ -135,7 +150,7 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
     def __len__(self):
         return len(self.inputs)
 
-    def __get_xarray_slice(self, field: list, grid: xr.xarray):
+    def __get_xarray_slice(self, field: list, grid: xr):
         lon, lat, time = field[0:3]
 
         lo, la, ti = np.logical_and(lon[0] < self.whole_grid_fc['lon'], self.whole_grid_fc['lon'] < lon[1]), \
@@ -153,8 +168,11 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         assert X_xr["time"][0] == y_xr["time"] and (X_xr["lon"] == y_xr["lon"]).all() and (
                 X_xr["lat"] == y_xr["lat"]).all()
 
-        if list(X.shape) != self.input_shape or list(y.shape) != self.output_shape or torch.isnan(
-                X).sum() or torch.isnan(y).sum():
+        if list(X.shape) != self.input_shape or list(y.shape) != self.output_shape or np.isnan(
+                X).sum() or np.isnan(y).sum():
+            # print([np.isnan(X_xr.isel(time=i).to_array().to_numpy()).sum() for i in range(5)],
+            #       [np.isnan(y_xr.isel(time=i).to_array().to_numpy()).sum() for i in range(1)], X_xr.isel(
+            #         time=0).to_array().to_numpy().size)
             return None
         X, y = torch.tensor(X, dtype=self.dtype), torch.tensor(y, dtype=self.dtype)
         return X, y

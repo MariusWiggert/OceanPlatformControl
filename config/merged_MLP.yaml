@@ -1,5 +1,15 @@
+---
+arguments_model_runner:
+  yaml_file_datasets: "config_neural_net"
+  batch_size: 4096
+  model_type: "mlp"
+  log_interval: 1
+  lr: 0.001
+arguments_script_convert_data:
+  yaml_file_datasets: "config_neural_net"
+  model_type: "mlp"
 model:
-  cfg_model:
+  cfg_neural_network:
     input_dim: 5760
     output_layers_dims:
       - 11520
@@ -42,14 +52,15 @@ data_generation:
   parameters_input:
     start_training: '2022-04-02T12:30:01Z'
     duration_training_in_h: 720 #672 # 28 * 24
+    start_validation: '2022-05-04T12:30:01Z'
     duration_validation_in_h: 360 # 14 * 24
     input_tile_dims: [ 24, 24, 5 ]
     window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 24, 24, 1 ]
     size_per_file_in_mb: 2000
-    folder_training: "./data_tmp/"
-    folder_validation: "./data_tmp2/"
+    folder_training: "./data_NN/data_training_30_days_without_nan/"
+    folder_validation: "./data_NN/data_validation_30_days_without_nan/"
 config_neural_net:
   training:
     hindcast:
@@ -78,7 +89,7 @@ config_neural_net:
         #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
         #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
         #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
-        'folder': 'data/april_may_data/hindcast_hycom_april/'
+        'folder': 'data/april_may_data/hindcast_hycom_may/'
       #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
     forecast:
       field: 'OceanCurrents'

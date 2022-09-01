@@ -6,12 +6,14 @@ import time
 from typing import Tuple
 
 import torch
+import wandb
 import yaml
 from torch import optim
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 
+from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import CustomOceanCurrentsFromFiles
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid import OceanCurrentCNNSubgrid
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
@@ -39,7 +41,7 @@ def loss_function(output, target, add_mask=False):
     return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / non_nan_elements)
 
 
-def get_accuracy(outputNN, forecast, target) -> Tuple[float, float, float]:
+def get_accuracy(outputNN, forecast, target) -> Tuple[float, float, float, float]:
     assert outputNN.shape == forecast.shape == target.shape
     mask = torch.logical_or(torch.isnan(target), target == forecast)
     # output_NN[mask] = 0
@@ -55,8 +57,8 @@ def get_accuracy(outputNN, forecast, target) -> Tuple[float, float, float]:
         ratio_nz_perfect_FC = ((forecast[magn_initial == 0] ** 2).nansum(axis=[1, 2, 3, 4]) != 0).sum() / len(
             magn_initial)
         mean_magn_initial_without_perfect_forecasts = magn_initial[(magn_initial != 0)].mean()
-    return (
-                       magn_NN / magn_initial).nanmean().item(), ratio_perfect_FC, ratio_nz_perfect_FC, mean_magn_initial_without_perfect_forecasts
+    return (magn_NN / magn_initial).nanmean().item(), ratio_perfect_FC, \
+           ratio_nz_perfect_FC, mean_magn_initial_without_perfect_forecasts
 
 
 def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimizer: torch.optim.Optimizer, epoch: int,
@@ -65,6 +67,7 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
     model.train()
     with torch.autograd.set_detect_anomaly(True):
         # for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
+        total_loss = 0
         with tqdm(train_loader, unit="batch") as tepoch:
             for data, target in tepoch:
                 if (data, target) == (None, None):
@@ -78,6 +81,7 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
                 if model_error:
                     output = data_same_time - output
                 loss = loss_function(output, target, add_mask=True)
+                total_loss += loss.item()
                 # Backprop
                 loss.backward()
                 # update the weights
@@ -88,6 +92,7 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
                 tepoch.set_postfix(loss=loss.item(), mean_ratio=ratio, perfect_fc=perfect_fc,
                                    perfect_nonzero_fc=perfect_nz_fc)  # ,
                 # mean_magn_initial_without_perfect_forecasts=mean_magn_initial_without_perfect_forecasts)
+            # wandb.log({'epoch_loss': total_loss / len(train_loader.dataset), })
 
 
 def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: int,
@@ -110,7 +115,9 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
                     output = data_same_time - output
                 loss = loss_function(output, target, add_mask=True).item()  # sum the batch losses
                 test_loss += loss
-                ratio, perfect_fc, perfect_nz_fc = get_accuracy(output, data_same_time, target)
+                ratio, perfect_fc, perfect_nz_fc, mean_magn_initial_without_perfect_forecasts = get_accuracy(output,
+                                                                                                             data_same_time,
+                                                                                                             target)
                 accuracy += ratio
                 # todo: adapt 0 in case where window is around xt instead of just after
                 index_xt = 0
@@ -127,37 +134,65 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
 
 
 def main():
+    wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")
+    os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch model')
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=14, metavar='N',
-                        help='number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
-                        help='learning rate (default: 1.0)')
-    parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-                        help='Learning rate step gamma (default: 0.7)')
-    parser.add_argument('--yaml-file-datasets', type=str, default='',
-                        help='filname of the yaml file to use to download the data in the folder scenarios/neural_networks')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA training')
-    parser.add_argument('--dry-run', action='store_true', default=False,
-                        help='quickly check a single pass')
-    parser.add_argument('--silicon', action='store_true', default=False,
-                        help='enable Mac silicon optimization')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                        help='how many batches to wait before logging training status')
-    parser.add_argument('--save-model', action='store_true', default=False,
-                        help='For Saving the current Model')
-    parser.add_argument('--model-type', type=str, default='mlp')
+    # parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+    #                     help='input batch size for training (default: 64)')
+    # parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+    #                     help='input batch size for testing (default: 1000)')
+    # parser.add_argument('--epochs', type=int, default=14, metavar='N',
+    #                     help='number of epochs to train (default: 14)')
+    # parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+    #                     help='learning rate (default: 1.0)')
+    # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
+    #                     help='Learning rate step gamma (default: 0.7)')
+    # parser.add_argument('--yaml-file-datasets', type=str, default='',
+    #                     help='filname of the yaml file to use to download the data in the folder scenarios/neural_networks')
+    # parser.add_argument('--no-cuda', action='store_true', default=False,
+    #                     help='disables CUDA training')
+    # parser.add_argument('--dry-run', action='store_true', default=False,
+    #                     help='quickly check a single pass')
+    # parser.add_argument('--silicon', action='store_true', default=False,
+    #                     help='enable Mac silicon optimization')
+    # parser.add_argument('--seed', type=int, default=1, metavar='S',
+    #                     help='random seed (default: 1)')
+    # parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+    #                     help='how many batches to wait before logging training status')
+    # parser.add_argument('--save-model', action='store_true', default=False,
+    #                     help='For Saving the current Model')
+    # parser.add_argument('--model-type', type=str, default='mlp')
+    #
+    # parser.add_argument('--max-batches-training-set', type=int, default=-1)
+    # parser.add_argument('--max-batches-validation-set', type=int, default=-1)
+    # args = parser.parse_args()
+    # cfgs = yaml.load(open(os.getcwd() + "/config/" + args.file_configs + ".yaml", 'r'), Loader=yaml.FullLoader)
 
-    parser.add_argument('--max-batches-training-set', type=int, default=-1)
+    # ALTERNATIVE:
+    parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
+    config_file = parser.parse_args().file_configs + ".yaml"
+    all_cfgs = yaml.load(open(config_file, 'r'),
+                         Loader=yaml.FullLoader)
+    args = all_cfgs.get("arguments_model_runner", {})
+    args.setdefault("batch_size", 64)
+    args.setdefault("test_batch_size", 1000)
+    args.setdefault("epochs", 14)
+    args.setdefault("lr", 1.0)
+    args.setdefault("gamma", 0.7)
+    args.setdefault("yaml_file_datasets", "")
+    args.setdefault("no_cuda", False)
+    args.setdefault("dry_run", False)
+    args.setdefault("silicon", False)
+    args.setdefault("seed", 1)
+    args.setdefault("log_interval", 10)
+    args.setdefault("save_model", False)
+    args.setdefault("model_type", "mlp")
+    args.setdefault("max_batches_training_set", -1)
+    args.setdefault("max_batches_validation_set", -1)
+    args = DotDict(args)
+    # END ALTERNATIVE
 
-    args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     torch.manual_seed(args.seed)
@@ -178,29 +213,36 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    cfgs = yaml.load(open(os.getcwd() + "/config/" + args.model_type + ".yaml", 'r'), Loader=yaml.FullLoader)
-    cfg_model = cfgs.get("cfg_model", {})
-    cfg_dataset = cfgs.get("cfg_dataset", {})
-    model_error = cfgs.get("model_error", True)
+    cfg_model = all_cfgs.get("model", {})
+    cfg_neural_network = cfg_model.get("cfg_neural_network", {})
+    cfg_dataset = cfg_model.get("cfg_dataset", {})
+    model_error = cfg_model.get("model_error", True)
+
+    cfg_data_generation = all_cfgs.get("data_generation", {})
+    folder_training = cfg_data_generation["parameters_input"]["folder_training"]
+    folder_validation = cfg_data_generation["parameters_input"]["folder_validation"]
     print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
 
     # Load the training and testing files
     # with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
     #    config_datasets = yaml.load(f, Loader=yaml.FullLoader)
 
-    dataset_training = CustomOceanCurrentsFromFiles("./data_NN/data_training_exported/",
+    wandb.config = {"learning_rate": args.lr,
+                    "model_type": args.model_type} | cfg_neural_network
+    wandb.save(config_file)
+    dataset_training = CustomOceanCurrentsFromFiles(folder_training,
                                                     max_items=args.batch_size * args.max_batches_training_set)
-    dataset_validation = CustomOceanCurrentsFromFiles("./data_NN/data_validation_exported/")
+    dataset_validation = CustomOceanCurrentsFromFiles(folder_validation)
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
     model_type = args.model_type
     if model_type == 'mlp':
-        model = OceanCurrentMLP(**cfg_model)
+        model = OceanCurrentMLP(**cfg_neural_network)
     elif model_type == 'cnn':
-        model = OceanCurrentCNNSubgrid(**cfg_model)
+        model = OceanCurrentCNNSubgrid(**cfg_neural_network)
     else:
-        model = OceanCurrentMLP(**cfg_model)
+        model = OceanCurrentMLP(**cfg_neural_network)
 
     model = model.to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
@@ -212,7 +254,7 @@ def main():
         time.sleep(0.2)
         train(args, model, device, train_loader, optimizer, epoch, model_error, cfg_dataset)
         time.sleep(0.2)
-        print(f"\nstarting Testing epoch {epoch + 1}/{args.epochs + 1}.")
+        print(f"\nstarting Testing epoch {epoch}/{args.epochs}.")
         test(args, model, device, validation_loader, epoch, model_error, cfg_dataset)
         scheduler.step()
 
