@@ -6,14 +6,19 @@ Install Anaconda OR miniconda (only one of them) [Link](https://docs.conda.io/pr
 
 ### If you only develop on OceanPlatformControl
 
+**FOR Mac M1:**
+
 1. Clone project repo: 
 `git clone https://github.com/MariusWiggert/OceanPlatformControl.git`
-2. In the terminal, navigate inside the project repo and run the install bash script
-`source set_up_ocean_platform_env_with_hj.sh`
+2. In the terminal, navigate inside the project repo and run the install bash script of the `m1` folder
+`chmod 700 m1/setup_m1.sh`
+`python3 m1/setup_m1.sh`
+3. then execute the setup.py in the repo folder with pip install
+   `pip install -e .`
 
 ### If you develop on OceanPlatformControl and hj_reachability simulatenously
 
-3. Now you need to download our two repos and put them in the same top_folder
+1. Now you need to download our two repos and put them in the same top_folder
 * top_folder
     * OceanPlatformControl
     * hj_reachability_c3
