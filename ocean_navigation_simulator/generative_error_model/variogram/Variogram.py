@@ -137,7 +137,9 @@ class Variogram:
         while True:
             indices = next(gen)
             if cross_buoy_pairs_only:
+                print(indices.shape)
                 indices = self.mask_pairs_from_same_buoy(indices, buoy_vector)
+                print(indices.shape)
             if len(indices[0]) == 0:
                 break
             q.put(indices)
@@ -308,7 +310,7 @@ class Variogram:
         # if integer in i and j is the same, then both points from same buoy
         residual = buoy_vector_mapped_i - buoy_vector_mapped_j
         mask_same_buoy = residual != 0
-        mask_idx = np.where(mask_same_buoy is True)
+        mask_idx = np.where(mask_same_buoy == True)  # need == here!
 
         # only select pairs from different buoys
         idx_i = idx_i[mask_idx]
@@ -362,16 +364,16 @@ class Variogram:
             mean_v[i] = (bin_dict[key]["v_error"][0])
             std_v[i] = (bin_dict[key]["v_error"][1])
 
-        fig, axs = plt.subplots(1,2, figsize=(20,8))
+        fig, axs = plt.subplots(1, 2, figsize=(20, 8))
         axs[0].plot(x, mean_u, label="mean u")
         axs[0].fill_between(x, mean_u-2*std_u, mean_u+2*std_u, facecolor="b", alpha=0.5)
         axs[0].title.set_text("u error mean +- 2 std")
-        axs[0].set_ylim([-1,1])
+        axs[0].set_ylim([-1, 1])
         axs[0].grid()
         axs[1].plot(x, mean_v, label="mean v")
         axs[1].fill_between(x, mean_v-2*std_v, mean_v+2*std_v, facecolor="b", alpha=0.5)
         axs[1].title.set_text("v error mean +- 2 std")
-        axs[1].set_ylim([-1,1])
+        axs[1].set_ylim([-1, 1])
         axs[1].grid()
 
         fig.suptitle(f"Trend for '{detrend_var}'", size=20)
