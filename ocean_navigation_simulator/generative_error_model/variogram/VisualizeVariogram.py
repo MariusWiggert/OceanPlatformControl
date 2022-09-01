@@ -274,7 +274,7 @@ def load_variogram_from_npy(file_path: str):
         "bins_count": data.item().get("bins_count"),
         "res": data.item().get("res"),
         "units": data.item().get("units"),
-        "detrend_metrics": list(data.item().get("detrend_metrics"))
+        "detrend_metrics": list(data.item().get("detrend_metrics").values())[0]
     }
     return variogram_dict
    

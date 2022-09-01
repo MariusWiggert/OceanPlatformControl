@@ -34,12 +34,12 @@ class ExperimentRunner:
         model_config = self.config["model"]
         if model_config["type"] == "simplex_noise":
             self.model_config = model_config["simplex_noise"]
-            harmonic_params = model_config["simplex_noise"][self.dataset_name]
+            harmonic_params = model_config["simplex_noise"][self.dataset_name]["harmonics"]
             if type(harmonic_params) is str:
                 harmonic_params = np.load(os.path.join(self.project_path, self.data_dir, harmonic_params), allow_pickle=True)
                 harmonic_params = {"U_COMP": harmonic_params.item().get("U_COMP"),
                                    "V_COMP": harmonic_params.item().get("V_COMP")}
-            detrend_stats = np.array(self.model_config["detrend_stats"])
+            detrend_stats = np.array(self.model_config[self.dataset_name]["detrend_stats"])
             self.model = OceanCurrentNoiseField(harmonic_params, detrend_stats)
             self.rng = np.random.default_rng(12345678)
             self.model.reset(self.rng)
@@ -50,7 +50,7 @@ class ExperimentRunner:
         # read in problems and create problems list
         self.problem = self.get_problems()
         # quick way to create more problems for same area
-        self.problems = [increment_time(self.problem[0], days) for days in range(10)]
+        self.problems = [increment_time(self.problem[0], days) for days in range(1)]
         self.dataset = Dataset(self.data_dir, self.dataset_type, self.dataset_name)
         self.data = pd.DataFrame(columns={"time", "lon", "lat", "u_error", "v_error"})
 
@@ -70,8 +70,9 @@ class ExperimentRunner:
     def run_problem(self, problem: Problem) -> pd.DataFrame:
         ground_truth = self.get_ground_truth(problem)
         noise_field = self.model.get_noise(problem)
+        # noise_field.to_netcdf("/home/jonas/Downloads/temp/sample_noise.nc")
 
-        synthetic_error = self._get_samples_from_synthetic(noise_field, ground_truth)
+        synthetic_error = ExperimentRunner._get_samples_from_synthetic(noise_field, ground_truth)
         self.save_data(synthetic_error, problem)
         return synthetic_error
 
@@ -100,7 +101,8 @@ class ExperimentRunner:
             problems.append(Problem(lon_range, lat_range, t_range))
         return problems
 
-    def _get_samples_from_synthetic(self, noise_field: xr.Dataset, ground_truth: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def _get_samples_from_synthetic(noise_field: xr.Dataset, ground_truth: pd.DataFrame) -> pd.DataFrame:
         """Takes the generated error and takes samples where buoys are located in space and time.
         """
         synthetic_data = ground_truth[["time", "lon", "lat"]]
@@ -114,6 +116,7 @@ class ExperimentRunner:
             synthetic_data["u_error"].iloc[i:i+n] = noise_field_interp["u_error"].values.diagonal().diagonal()
             synthetic_data["v_error"].iloc[i:i+n] = noise_field_interp["v_error"].values.diagonal().diagonal()
         print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.\n")
+        synthetic_data = synthetic_data.dropna()
         return synthetic_data
 
     def save_data(self, synthetic_error_samples: pd.DataFrame, problem: Problem) -> None:
@@ -145,7 +148,7 @@ class ExperimentRunner:
 
 
 def increment_time(problem: Problem, days: int):
-    """Takes a Problem and increments the time range by one day.
+    """Takes a Problem and increments the time range by one day.500
     """
     problem = copy.deepcopy(problem)
     for i in range(len(problem.t_range)):
