@@ -137,9 +137,7 @@ class Variogram:
         while True:
             indices = next(gen)
             if cross_buoy_pairs_only:
-                print(indices.shape)
                 indices = self.mask_pairs_from_same_buoy(indices, buoy_vector)
-                print(indices.shape)
             if len(indices[0]) == 0:
                 break
             q.put(indices)

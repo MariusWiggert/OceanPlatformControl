@@ -22,6 +22,7 @@ class VariogramFitting:
         self.range_vars = None
         self.model = None
         self.num_components = None
+        self.popt = None
         lags = []
         for lag_var in lag_vars:
             lags.append(self.data[lag_var].to_numpy().reshape(-1, 1))
@@ -86,18 +87,64 @@ class VariogramFitting:
                     params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 500, max=2000, min=10)
         return params
 
-    def plot_all_dims(self, save_path: str = None):
+    def plot_all_dims(self, save_path: str = None, plot_empirical: bool = False):
         """Plot the sliced fitted function over all lag variables.
         """
         figure, axs = plt.subplots(len(self.lag_vars), figsize=(20, 20))
         for idx, var in enumerate(self.lag_vars):
-            self._plot_sliced_variogram(var, axs[idx])
+            self._plot_sliced_variogram(var, axs[idx], plot_empirical=plot_empirical)
         plt.tight_layout()
         if save_path:
             plt.savefig(save_path, pad_inches=0, facecolor="white")
         return figure
 
-    def _plot_sliced_variogram(self, var: str, ax: plt.axis) -> plt.axis:
+    def load_params(self, input_path: str) -> None:
+        """Load previously exported parameters from file.
+        """
+        params = np.load(input_path, allow_pickle=True)
+        params_map = {"u_semivariance": "U_COMP",
+                      "v_semivariance": "V_COMP"}
+        params = np.array(params.item().get(params_map[self.error_var]))
+        model_type = gaussian_3d
+        self.range_vars = ["r_lon", "r_lat", "r_t"]
+        if len(self.lag_vars) == 2:
+            params = params[:, [0, 1, 3]]  # remove doubled space axis
+            model_type = gaussian_2d
+            self.range_vars = ["r_space", "r_t"]
+
+        # create model and add require number of components.
+        self.model = Model(model_type, prefix=f"g0_")
+        for i in range(1, params.shape[0]):
+            self.model += Model(model_type, prefix=f"g{i}_")
+        print(f"Number of models: {len(self.model.components)}")
+        print(f"Type of model: {model_type.__name__}")
+
+        # initialize parameters
+        model_params = lmfit.Parameters()
+        for i, component in enumerate(self.model.components):
+            model_params.add(f"{component.prefix}s", value=params[i, 0])
+            for j, range_var in enumerate(self.range_vars):
+                model_params.add(f"{component.prefix}{range_var}", value=params[i, j + 1])
+        self.popt = params
+
+    def save_params(self, output_path: str) -> None:
+        """For now this saved the same the same parameters for 'u and 'v'.
+        """
+        params = self.popt
+        if len(self.lag_vars) == 2:
+            # need to convert 2d params to 3d
+            params = np.hstack((params[:, 0].reshape(-1, 1),
+                                params[:, 1].reshape(-1, 1),
+                                params[:, 1].reshape(-1, 1),
+                                params[:, 2].reshape(-1, 1)))
+
+        params_dict = {"U_COMP": [], "V_COMP": []}
+        for i in range(params.shape[0]):
+            params_dict["U_COMP"].append(params[i])
+            params_dict["V_COMP"].append(params[i])
+        np.save(output_path, params_dict)
+
+    def _plot_sliced_variogram(self, var: str, ax: plt.axis, plot_empirical: bool = False) -> plt.axis:
         """Plots the fitted function vs the empirical data points.
         """
         if var not in self.lag_vars:
@@ -105,12 +152,13 @@ class VariogramFitting:
 
         # get data for fitted function line plot
         lags, function_semivariance = self._get_sliced_fitted_function_data(var)
-        # get data for empirical points scatter plot
-        empirical_lags, empirical_semivariance = self._get_sliced_empirical_data(var)
-
-        # visualize slice
         ax.plot(lags, function_semivariance, label="fitted function", color="orange")
-        ax.scatter(empirical_lags, empirical_semivariance, label="empirical points")
+
+        if not plot_empirical:
+            # get data for empirical points scatter plot
+            empirical_lags, empirical_semivariance = self._get_sliced_empirical_data(var)
+            ax.scatter(empirical_lags, empirical_semivariance, label="empirical points")
+
         ax.legend()
         ax.set_xlim(left=0)
         ax.set_ylim([0, 1.5])

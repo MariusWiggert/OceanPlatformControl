@@ -42,7 +42,6 @@ class ExperimentRunner:
             detrend_stats = np.array(self.model_config[self.dataset_name]["detrend_stats"])
             self.model = OceanCurrentNoiseField(harmonic_params, detrend_stats)
             self.rng = np.random.default_rng(12345678)
-            self.model.reset(self.rng)
             print(f"Using {model_config['type']} model.")
         if model_config["type"] == "gan":
             raise Exception("GAN model has not been implemented yet!")
@@ -63,9 +62,9 @@ class ExperimentRunner:
 
     def run_all_problems(self):
         for problem in self.problems:
+            self.reset()
             print(f"Running: {problem}")
             self.run_problem(problem)
-            self.reset()
 
     def run_problem(self, problem: Problem) -> pd.DataFrame:
         ground_truth = self.get_ground_truth(problem)
