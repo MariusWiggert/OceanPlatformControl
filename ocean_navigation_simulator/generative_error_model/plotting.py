@@ -61,7 +61,7 @@ def interactive_sampled_noise(data: xr.Dataset):
         # update curve
         new_img = u_error[:, :, time_idx]
         img.set_data(new_img)
-        img.set_clim([new_img.min(), new_img.max()])
+        img.set_clim([u_error.min, u_error.max])
         fig.canvas.draw()
         fig.canvas.flush_events()
 
