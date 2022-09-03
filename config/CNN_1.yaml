@@ -1,17 +1,13 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 2
-  model_type: "mlp"
+  batch_size: 4096
+  model_type: "cnn"
   log_interval: 1
-  lr: 1
-  epochs: 300
-  folder_figure: "./figures/"
-  max_batches_training_set: 1
-  max_batches_validation_set: 1
+  lr: 0.001
+  folder_figure: "./figures/mlp_"
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
-  model_type: "mlp"
 model:
   cfg_neural_network:
     input_dim: 5760
@@ -20,14 +16,12 @@ model:
       - 23160
       - 11520
       - 2916
-      - 2916
       - 1152
     batch_norm_layers:
-      - -1
-      - -1
-      - -1
-      - -1
-      - -1
+      - 1
+      - 1
+      - 1
+      - 1
       - -1
     output_shape:
       - 2
@@ -66,11 +60,7 @@ data_generation:
     output_tile_dims: [ 24, 24, 1 ]
     size_per_file_in_mb: 2000
     folder_training: "./data_NN/data_training_30_days_without_nan/"
-    shuffle_training: False
-    folder_validation: "./data_NN/data_training_30_days_without_nan/"
-    shuffle_validation: False
-    #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
-    #folder_validation: "./data_NN/data_validation_exported/"
+    folder_validation: "./data_NN/data_validation_30_days_without_nan/"
 config_neural_net:
   training:
     hindcast:

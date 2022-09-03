@@ -16,7 +16,7 @@ class CustomOceanCurrentsFromFiles(Dataset):
             max_items = None
         # folder = "data_exported"
         Xs, ys = list(), list()
-        for path in os.listdir(folder):
+        for path in sorted(os.listdir(folder)):
             # check if current path is a file
             full_path = os.path.join(folder, path)
             if os.path.isfile(full_path):
@@ -25,8 +25,9 @@ class CustomOceanCurrentsFromFiles(Dataset):
                 if path.endswith("_y.npy"):
                     ys.append(full_path)
         print("loading files:", Xs, ys)
-        self.X = np.concatenate([np.load(fname) for fname in Xs])
-        self.y = np.concatenate([np.load(fname) for fname in ys])
+        # TODO: remove the slicing
+        self.X = np.concatenate([np.load(fname) for fname in Xs[0:1]])
+        self.y = np.concatenate([np.load(fname) for fname in ys[0:1]])
 
         if max_items is not None:
             print(f"Only considering the first {max_items} items over {len(self.X)}.")

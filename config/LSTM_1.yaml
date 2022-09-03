@@ -1,76 +1,58 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 2
-  model_type: "mlp"
+  batch_size: 4096
+  model_type: "rnn"
   log_interval: 1
-  lr: 1
-  epochs: 300
+  lr: 0.001
   folder_figure: "./figures/"
-  max_batches_training_set: 1
-  max_batches_validation_set: 1
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
-  model_type: "mlp"
 model:
   cfg_neural_network:
-    input_dim: 5760
-    output_layers_dims:
-      - 11520
-      - 23160
-      - 11520
-      - 2916
-      - 2916
-      - 1152
-    batch_norm_layers:
-      - -1
-      - -1
-      - -1
-      - -1
-      - -1
-      - -1
-    output_shape:
-      - 2
-      - 1
-      - 24
-      - 24
+    input_shape: [ 2, 24, 24 ] # Not include the time dimension
+    hidden_size: 1152 #2*24*24
+    output_shape: [ 2, 24, 24 ] # Not include the time dimension
+    type_cell: 'lstm'
+    #size_layers_after_rnn: []
+    num_layers: 2
+    bidirectional: True
+    dropout: 0
+    init_weights_function: "randn"
   cfg_dataset:
     radius_lon: 1
     radius_lat: 1
     margin_forecast: 0
-    stride_tiles_dataset: 0.8
-    time_horizon_input_h: 5
-    time_horizon_output_h: 1
-    stride_time_dataset_h: 1
+    stride_tiles_dataset: 0.1
+    time_horizon_input_h: 12
+    time_horizon_output_h: 12
+    stride_time_dataset_h: 12
     input_shape:
       - 2
-      - 5
+      - 12
       - 24
       - 24
     output_shape:
       - 2
-      - 1
+      - 12
       - 24
       - 24
     index_axis_time: 2
+    shift_window_input: 0
   model_error: true
 data_generation:
   parameters_input:
     start_training: '2022-04-02T12:30:01Z'
-    duration_training_in_h: 720 #672 # 28 * 24
+    duration_training_in_h: 240 #672 # 28 * 24
     start_validation: '2022-05-04T12:30:01Z'
-    duration_validation_in_h: 360 # 14 * 24
-    input_tile_dims: [ 24, 24, 5 ]
+    duration_validation_in_h: 240 # 14 * 24
+    input_tile_dims: [ 24, 24, 12 ]
     window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
     # if window shift = 0: input= [x{t}...x{t+4}]
-    output_tile_dims: [ 24, 24, 1 ]
+    output_tile_dims: [ 24, 24, 12 ]
     size_per_file_in_mb: 2000
-    folder_training: "./data_NN/data_training_30_days_without_nan/"
-    shuffle_training: False
-    folder_validation: "./data_NN/data_training_30_days_without_nan/"
-    shuffle_validation: False
-    #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
-    #folder_validation: "./data_NN/data_validation_exported/"
+    folder_training: "./data_NN/data_training_10_days_lstm/"
+    folder_validation: "./data_NN/data_training_10_days_lstm/"
 config_neural_net:
   training:
     hindcast:
