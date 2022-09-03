@@ -34,12 +34,12 @@ class ExperimentRunner:
         model_config = self.config["model"]
         if model_config["type"] == "simplex_noise":
             self.model_config = model_config["simplex_noise"]
-            harmonic_params = model_config["simplex_noise"][self.dataset_name]["harmonics"]
-            if type(harmonic_params) is str:
-                harmonic_params = np.load(os.path.join(self.project_path, self.data_dir, harmonic_params), allow_pickle=True)
-                harmonic_params = {"U_COMP": harmonic_params.item().get("U_COMP"),
-                                   "V_COMP": harmonic_params.item().get("V_COMP")}
-            detrend_stats = np.array(self.model_config[self.dataset_name]["detrend_stats"])
+            parameters = model_config["simplex_noise"][self.dataset_name]
+            parameters = np.load(os.path.join(self.project_path, self.data_dir, parameters), allow_pickle=True)
+            harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
+                               "V_COMP": parameters.item().get("V_COMP")}
+            detrend_stats = parameters.item().get("detrend_metrics")
+            print(harmonic_params, detrend_stats)
             self.model = OceanCurrentNoiseField(harmonic_params, detrend_stats)
             self.rng = np.random.default_rng(12345678)
             print(f"Using {model_config['type']} model.")

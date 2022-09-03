@@ -1,10 +1,11 @@
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 
-from typing import Tuple, AnyStr, Dict, Union
+from typing import Tuple, AnyStr, Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pandas as pd
 
 
 class VisualizeVariogram:
@@ -149,6 +150,8 @@ class VisualizeVariogram:
         return arr
 
     def save_variogram(self, file_path: str) -> None:
+        """Saves entire variogram data to file.
+        """
         if self.variogram.bins is None:
             raise Exception("Need to build variogram first before you can save it!")
 
@@ -160,6 +163,27 @@ class VisualizeVariogram:
                         }
         np.save(file_path, data_to_save)
         print(f"\nSaved variogram data to: {file_path}")
+
+    def save_tuned_variogram_2d(self, view_range: List[int], file_path: str):
+        """Converts hand-tuned variogram to dataframe and saves it.
+        """
+        space_lag, time_lag = [], []
+        u_semivariance, v_semivariance = [], []
+        for space in range(int(view_range[0]/self.variogram.res_tuple[0])):
+            for time in range(int(view_range[1]/self.variogram.res_tuple[1])):
+                u_semivariance.append(self.variogram.bins[space, time, 0])
+                v_semivariance.append(self.variogram.bins[space, time, 1])
+                space_lag.append((space+1)*self.variogram.space_res)
+                time_lag.append((time+1)*self.variogram.t_res)
+
+        df = pd.DataFrame({"space_lag": space_lag,
+                           "t_lag": time_lag,
+                           "u_semivariance": u_semivariance,
+                           "v_semivariance": v_semivariance,
+                           "detrend_u": [self.variogram.detrend_metrics["u_error"] for _ in range(len(space_lag))],
+                           "detrend_v": [self.variogram.detrend_metrics["v_error"] for _ in range(len(space_lag))]})
+        df.to_csv(file_path, index=False)
+        print(f"Saved hand-tuned variogram at {file_path}.")
 
     def plot_histograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int]=None) -> None:
         """Plots the histogram of bins in each axis [lon, lat, time] in 3d or [space, time] in 2d.

@@ -4,6 +4,7 @@ from typing import List, Tuple
 import pandas as pd
 from lmfit.models import Model
 import lmfit
+import ast
 
 
 class VariogramFitting:
@@ -23,10 +24,17 @@ class VariogramFitting:
         self.model = None
         self.num_components = None
         self.popt = None
+
+        # Get lags in right format
         lags = []
         for lag_var in lag_vars:
             lags.append(self.data[lag_var].to_numpy().reshape(-1, 1))
         self.lags = np.hstack(tuple(lags))
+
+        # Converting string to list
+        detrend_u = ast.literal_eval(data["detrend_u"][0])
+        detrend_v = ast.literal_eval(data["detrend_v"][0])
+        self.detrend_metrics = [detrend_u, detrend_v]
 
     def fit_model(self, num_of_components: int, method: str = "leastsq", constrain_weighting: bool = False, verbose: bool = False):
         """Uses the lags and their associated values and fits multiple stacked gaussian models to it.
@@ -142,6 +150,7 @@ class VariogramFitting:
         for i in range(params.shape[0]):
             params_dict["U_COMP"].append(params[i])
             params_dict["V_COMP"].append(params[i])
+        params_dict["detrend_metrics"] = self.detrend_metrics
         np.save(output_path, params_dict)
 
     def _plot_sliced_variogram(self, var: str, ax: plt.axis, plot_empirical: bool = True) -> plt.axis:
