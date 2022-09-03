@@ -9,6 +9,7 @@ import cartopy.feature as cfeature
 import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+import numpy as np
 
 
 def plot_buoy_data_time_collapsed(df: pd.DataFrame):
@@ -52,7 +53,9 @@ def interactive_sampled_noise(data: xr.Dataset):
     slider_time = Slider(axtime, 'time', 0, len(time), valinit=0, valstep=1)
 
     ax = fig.add_subplot()
-    img = ax.imshow(u_error[:, :, 0])
+    xlimits = [data["lon"].min(), np.round(data["lon"].max())]
+    ylimits = [data["lat"].min(), np.round(data["lat"].max())]
+    img = ax.imshow(u_error[:, :, 0], extent=[xlimits[0], xlimits[1], ylimits[0], ylimits[1]])
     fig.colorbar(mappable=img, ax=ax)
 
     def update(val):

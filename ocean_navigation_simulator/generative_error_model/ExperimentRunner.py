@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import yaml
-from typing import Dict, Any, List
+from typing import Dict, List
 from tqdm import tqdm
 import datetime
 import os
@@ -49,7 +49,7 @@ class ExperimentRunner:
         # read in problems and create problems list
         self.problem = self.get_problems()
         # quick way to create more problems for same area
-        self.problems = [increment_time(self.problem[0], days) for days in range(1)]
+        self.problems = [increment_time(self.problem[0], days) for days in range(10)]
         self.dataset = Dataset(self.data_dir, self.dataset_type, self.dataset_name)
         self.data = pd.DataFrame(columns={"time", "lon", "lat", "u_error", "v_error"})
 
@@ -61,6 +61,9 @@ class ExperimentRunner:
         self.model.reset(new_rng)
 
     def run_all_problems(self):
+        # save first noise field
+        self.reset()
+        self.model.get_noise(self.problems[0]).to_netcdf("~/Downloads/temp/sample_noise.nc")
         for problem in self.problems:
             self.reset()
             print(f"Running: {problem}")
@@ -69,7 +72,6 @@ class ExperimentRunner:
     def run_problem(self, problem: Problem) -> pd.DataFrame:
         ground_truth = self.get_ground_truth(problem)
         noise_field = self.model.get_noise(problem)
-        # noise_field.to_netcdf("/home/jonas/Downloads/temp/sample_noise.nc")
 
         synthetic_error = ExperimentRunner._get_samples_from_synthetic(noise_field, ground_truth)
         self.save_data(synthetic_error, problem)

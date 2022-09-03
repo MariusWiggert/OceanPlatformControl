@@ -87,7 +87,7 @@ class VariogramFitting:
                     params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 500, max=2000, min=10)
         return params
 
-    def plot_all_dims(self, save_path: str = None, plot_empirical: bool = False):
+    def plot_all_dims(self, save_path: str = None, plot_empirical: bool = True):
         """Plot the sliced fitted function over all lag variables.
         """
         figure, axs = plt.subplots(len(self.lag_vars), figsize=(20, 20))
@@ -144,7 +144,7 @@ class VariogramFitting:
             params_dict["V_COMP"].append(params[i])
         np.save(output_path, params_dict)
 
-    def _plot_sliced_variogram(self, var: str, ax: plt.axis, plot_empirical: bool = False) -> plt.axis:
+    def _plot_sliced_variogram(self, var: str, ax: plt.axis, plot_empirical: bool = True) -> plt.axis:
         """Plots the fitted function vs the empirical data points.
         """
         if var not in self.lag_vars:
@@ -154,7 +154,7 @@ class VariogramFitting:
         lags, function_semivariance = self._get_sliced_fitted_function_data(var)
         ax.plot(lags, function_semivariance, label="fitted function", color="orange")
 
-        if not plot_empirical:
+        if plot_empirical:
             # get data for empirical points scatter plot
             empirical_lags, empirical_semivariance = self._get_sliced_empirical_data(var)
             ax.scatter(empirical_lags, empirical_semivariance, label="empirical points")

@@ -16,9 +16,8 @@ model:
   type: "simplex_noise"
   simplex_noise:
     area1:
-      U_COMP: [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]]
-      V_COMP: [[0.5, 702.5, 1407.3, 245.0], [0.5, 302.5, 1207.3, 187.0]]
-      detrend_stats: [0.17, 0.17]
+      harmonics: "variogram_params/tuned_2d_hindcast_area1_False_True.npy"
+      detrend_stats: [[-0.06938, 0.19566], [-0.03512, 0.19983]]
   gan: "space holder"
 
 dataset_writer:
