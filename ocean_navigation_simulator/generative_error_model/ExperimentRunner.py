@@ -39,8 +39,7 @@ class ExperimentRunner:
             harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
                                "V_COMP": parameters.item().get("V_COMP")}
             detrend_stats = parameters.item().get("detrend_metrics")
-            print(harmonic_params, detrend_stats)
-            self.model = OceanCurrentNoiseField(harmonic_params, detrend_stats)
+            self.model = OceanCurrentNoiseField(harmonic_params, np.array(detrend_stats))
             self.rng = np.random.default_rng(12345678)
             print(f"Using {model_config['type']} model.")
         if model_config["type"] == "gan":
@@ -49,7 +48,7 @@ class ExperimentRunner:
         # read in problems and create problems list
         self.problem = self.get_problems()
         # quick way to create more problems for same area
-        self.problems = [increment_time(self.problem[0], days) for days in range(10)]
+        self.problems = [increment_time(self.problem[0], days) for days in range(40)]
         self.dataset = Dataset(self.data_dir, self.dataset_type, self.dataset_name)
         self.data = pd.DataFrame(columns={"time", "lon", "lat", "u_error", "v_error"})
 
@@ -63,7 +62,7 @@ class ExperimentRunner:
     def run_all_problems(self):
         # save first noise field
         self.reset()
-        self.model.get_noise(self.problems[0]).to_netcdf("~/Downloads/temp/sample_noise.nc")
+        self.model.get_noise_vec(self.problems[0]).to_netcdf(os.path.join(self.project_path, self.data_dir, "sample_noise.nc"))
         for problem in self.problems:
             self.reset()
             print(f"Running: {problem}")
@@ -71,7 +70,7 @@ class ExperimentRunner:
 
     def run_problem(self, problem: Problem) -> pd.DataFrame:
         ground_truth = self.get_ground_truth(problem)
-        noise_field = self.model.get_noise(problem)
+        noise_field = self.model.get_noise_vec(problem)
 
         synthetic_error = ExperimentRunner._get_samples_from_synthetic(noise_field, ground_truth)
         self.save_data(synthetic_error, problem)
