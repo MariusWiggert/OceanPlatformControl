@@ -87,15 +87,10 @@ class OceanCurrentNoiseField(GenerativeModel):
         # and time pairs at a time for which lat is const.
         noise = np.zeros((len(lon_locs), len(lat_locs), len(t_locs), 2))
         for i, lat_loc in enumerate(lat_locs):
-            x_km = []
-            y_km = None
-            for lon_loc in lon_locs:
-                x, y = convert_degree_to_km(lon_loc - lon_range[0], lat_loc - lat_range[0])
-                y_km = y
-                x_km.append(x)
-            # convert to numpy
-            x_km = np.array(x_km)
-            y_km = np.array([y_km])
+            # constant latitude for conversion of lon values
+            lat_pos = np.full(len(lon_locs), lat_loc)
+            x_km, y_km = convert_degree_to_km(lon_locs - lon_range[0], lat_pos - lat_range[0])
+            y_km = np.array([y_km[0]])
 
             noise[:, i, :, :] = np.squeeze(self.model.get_noise_vec(x_km, y_km, t_locs), axis=1)
 
