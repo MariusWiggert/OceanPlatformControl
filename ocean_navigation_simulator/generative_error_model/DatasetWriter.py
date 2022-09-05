@@ -36,6 +36,7 @@ class DatasetWriter:
 
         self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
+        self.DataArray = None
 
     def get_error(self, forecast_idx: int) -> pd.DataFrame:
         """Loads next file from OceanCurrentSource and interpolate with BuoyData"""
@@ -46,6 +47,13 @@ class DatasetWriter:
         self.ocean_field.forecast_data_source.rec_file_idx = forecast_idx
         # load file of specified idx
         self.ocean_field.forecast_data_source.load_ocean_current_from_idx()
+        # slice data to appropriate size
+        self.DataArray = self.ocean_field.forecast_data_source.DataArray
+        lon_range = self.config['dataset_writer']['lon_range']
+        lat_range = self.config['dataset_writer']['lat_range']
+        self.ocean_field.forecast_data_source.DataArray = self.DataArray.sel(lon=slice(*lon_range),
+                                                                             lat=slice(*lat_range))
+        # interpolate to buoy positions
         buoy_data.interpolate_forecast(self.ocean_field)
 
         # compute the error
