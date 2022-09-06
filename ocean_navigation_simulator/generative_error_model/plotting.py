@@ -45,18 +45,18 @@ def interactive_sampled_noise(data: xr.Dataset):
 
     u_error = data["u_error"].values.transpose((1, 0, 2))
     v_error = data["v_error"].values.transpose((1, 0, 2))
-    print(type(v_error))
     time = data["time"].values
     fig = plt.figure(figsize=(20, 12))
     plt.subplots_adjust(bottom=0.35)
     axtime = plt.axes([0.25, 0.2, 0.65, 0.03])
-    slider_time = Slider(axtime, 'time', 0, len(time), valinit=0, valstep=1)
+    slider_time = Slider(axtime, 'time', 0, len(time)-1, valinit=0, valstep=1)
 
     ax = fig.add_subplot()
     xlimits = [data["lon"].min(), np.round(data["lon"].max())]
     ylimits = [data["lat"].min(), np.round(data["lat"].max())]
     img = ax.imshow(u_error[:, :, 0], extent=[xlimits[0], xlimits[1], ylimits[0], ylimits[1]])
     fig.colorbar(mappable=img, ax=ax)
+    img.set_clim([u_error.min(), u_error.max()])
 
     def update(val):
         # amp is the current value of the slider
@@ -64,7 +64,6 @@ def interactive_sampled_noise(data: xr.Dataset):
         # update curve
         new_img = u_error[:, :, time_idx]
         img.set_data(new_img)
-        img.set_clim([u_error.min, u_error.max])
         fig.canvas.draw()
         fig.canvas.flush_events()
 

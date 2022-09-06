@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import yaml
-from typing import Dict, List
+from typing import Dict, List, Optional
 from tqdm import tqdm
 import datetime
 import os
@@ -59,22 +59,28 @@ class ExperimentRunner:
         new_rng = np.random.default_rng(new_seed)
         self.model.reset(new_rng)
 
-    def run_all_problems(self):
+    def run_all_problems(self, error_only: bool = True):
         # save first noise field
         self.reset()
-        self.model.get_noise_vec(self.problems[0]).to_netcdf(os.path.join(self.project_path, self.data_dir, "sample_noise.nc"))
+        self.model.get_noise_vec(self.problems[0]).to_netcdf(os.path.join(self.project_path, self.data_dir, "sampled_noise.nc"))
         for problem in self.problems:
             self.reset()
             print(f"Running: {problem}")
-            self.run_problem(problem, sampling_method="random")
+            self.run_problem(problem, sampling_method="real")
 
-    def run_problem(self, problem: Problem, sampling_method: str = "real") -> pd.DataFrame:
+    def run_problem(self, problem: Problem, error_only: bool, sampling_method: str = "real") -> Optional[pd.DataFrame]:
         noise_field = self.model.get_noise_vec(problem)
+        self.save_noise_field(noise_field, problem, self.dataset_name)
+
+        # this is true if dont want to reconstruct the variogram for validation.
+        if error_only:
+            return None
 
         if sampling_method == "real":
             ground_truth = self.get_ground_truth(problem)
             synthetic_error = ExperimentRunner._get_samples_from_synthetic(noise_field, ground_truth)
-            self.save_data(synthetic_error, problem, self.dataset_name)
+            # self.save_data(synthetic_error, problem, self.dataset_name)
+            self.save_data(synthetic_error, problem, "adjusted_range_test")
         elif sampling_method == "random":
             synthetic_error = ExperimentRunner._get_random_samples_from_synthetic(noise_field, 20)
             self.save_data(synthetic_error, problem, "random_samples")
@@ -127,7 +133,7 @@ class ExperimentRunner:
         return synthetic_data
 
     @staticmethod
-    def _get_random_samples_from_synthetic(noise_field: xr.DataArray, num_samples: int):
+    def _get_random_samples_from_synthetic(noise_field: xr.Dataset, num_samples: int):
         """Instead of sampling the simplex noise at actual buoy points, this methods
         just uses random positions in space for each time step to sample the noise.
         """
@@ -163,7 +169,7 @@ class ExperimentRunner:
         """
         synthetic_error_dir = os.path.join(self.project_path,
                                            self.data_dir,
-                                           f"dataset_synthetic_error",
+                                           "dataset_synthetic_error",
                                            folder_name)
         if not os.path.exists(synthetic_error_dir):
             os.makedirs(synthetic_error_dir)
@@ -175,6 +181,21 @@ class ExperimentRunner:
         file_path = os.path.join(synthetic_error_dir, file_name)
         if not os.path.exists(file_path):
             synthetic_error_samples.to_csv(file_path, index=False)
+
+    def save_noise_field(self, noise_field: xr.Dataset, problem: Problem, folder_name: str):
+        """Save the noise fields create by OceanCurrentNoiseField.
+        """
+        noise_field_dir = os.path.join(self.project_path, self.data_dir, "synthetic_error", folder_name)
+        if not os.path.exists(noise_field_dir):
+            os.makedirs(noise_field_dir)
+
+        date_format = "%Y-%m-%dT%H:%M:%SZ"
+        file_name = f"synthetic_data_error_lon_[{problem.lon_range[0]},{problem.lon_range[1]}]_"\
+                    f"lat_[{problem.lat_range[0]},{problem.lat_range[1]}]_"\
+                    f"time_{problem.t_range[0].strftime(date_format)}__{problem.t_range[1].strftime(date_format)}.nc"
+        file_path = os.path.join(noise_field_dir, file_name)
+        if not os.path.exists(file_path):
+            noise_field.to_netcdf(file_path)
 
     def _calculate_metrics(self, ground_truth, synthetic_error) -> Dict[str, float]:
         metrics = dict()
@@ -200,7 +221,7 @@ def increment_time(problem: Problem, days: int):
 @timer
 def main():
     ex_runner = ExperimentRunner(yaml_file_config="config_buoy_data.yaml")
-    ex_runner.run_all_problems()
+    ex_runner.run_all_problems(error_only=False)
 
 
 if __name__ == "__main__":
