@@ -1,18 +1,14 @@
-"""
-All the metrics for used for evaluating the forecast - buoy error
-"""
-
 import numpy as np
-import matplotlib.pyplot as plt
+import xarray as xr
 import pandas as pd
-from typing import Callable, Dict, Any
+from typing import Callable, Dict, Any, List
 
 
 def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, Any]]]:
     """Returns a dict where each key-value pairs corresponds to the metric name and its corresponding
     function."""
 
-    return {"rmse": rmse, "vector_correlation": calc_vector_correlation}
+    return {"rmse": rmse, "vector_correlation": vector_correlation}
 
 
 def rmse(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, float]:
@@ -21,10 +17,58 @@ def rmse(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, 
     return {"rmse": rmse_val}
 
 
-def calc_vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured, print_out=False):
+def rmse_over_time(df: pd.DataFrame) -> Dict[str, List[float]]:
+    df["hour"] = df["time"].apply(lambda x: x[:13])
+    hours = sorted(set(df["hour"].tolist()))
+    rmse_data = []
+    for hour in hours:
+        rmse_data.append(np.sqrt(((df[df["hour"] == hour]["u_error"])**2 +
+                                  (df[df["hour"] == hour]["v_error"])**2)).mean())
+    return {"rmse": rmse_data}
+
+
+def rmse_over_time_xr(error: xr.Dataset):
+    rmse_val = np.sqrt((error["u_error"].mean(dim=("lon", "lat"))).values**2 +
+                       (error["v_error"].mean(dim=("lon", "lat"))).values**2)
+    return rmse_val
+
+
+def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset):
+    # rename forecast variables and slice forecast to size of error
+    forecast = forecast.rename({"longitude": "lon",
+                                "latitude": "lat",
+                                "utotal": "u_error",
+                                "vtotal": "v_error"})
+
+    # need to slice forecast to match size of error
+    lon_range = [error["lon"].values.min(), error["lon"].values.max()]
+    lat_range = [error["lat"].values.min(), error["lat"].values.max()]
+    time_range = [error["time"].values.min(), error["time"].values.max()]
+    forecast = forecast.sel(lon=slice(*lon_range),
+                            lat=slice(*lat_range),
+                            time=slice(*time_range))
+
+    # convert error to float32
+    error["lon"] = error["lon"].astype(np.float32)
+    error["lat"] = error["lat"].astype(np.float32)
+    error["u_error"] = error["u_error"].astype(np.float32)
+    error["v_error"] = error["v_error"].astype(np.float32)
+    ground_truth = error + forecast
+
+    # compute vector correlation for each hour
+    vector_correlation_per_hour = []
+    for time in ground_truth["time"]:
+        gt_u_error = ground_truth["u_error"].sel(time=time).values
+        gt_v_error = ground_truth["v_error"].sel(time=time).values
+        fc_u_error = forecast["u_error"].sel(time=time).values
+        fc_v_error = forecast["v_error"].sel(time=time).values
+        vector_correlation_per_hour.append(vector_correlation(gt_u_error, gt_v_error, fc_u_error, fc_v_error))
+    return np.array(vector_correlation_per_hour)
+
+
+def vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured, print_out=False):
     """
-    Calculates the vector correlation for one buoy for a specific day,
-    where one day typically has 24 measurements.
+    Calculates the vector correlation for two sets of measurements.
     """
 
     # Flatten out the vectors
@@ -37,65 +81,20 @@ def calc_vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v
     full_variable_vec = np.vstack((measured_vec, hindcast_vec))
     Covariance_matrix = np.cov(full_variable_vec)
     # calculation for vector correlation
-    Sigma_11 = Covariance_matrix[:2,:2]
-    Sigma_22 = Covariance_matrix[2:,2:]
-    Sigma_12 = Covariance_matrix[:2,2:]
-    Sigma_21 = Covariance_matrix[2:,:2]
+    sigma_11 = Covariance_matrix[:2, :2]
+    sigma_22 = Covariance_matrix[2:, 2:]
+    sigma_12 = Covariance_matrix[:2, 2:]
+    sigma_21 = Covariance_matrix[2:, :2]
     # Matrix multiplications
     epsilon = 0
     try:
-        vector_correlation = np.trace(np.linalg.inv(Sigma_11) @ Sigma_12 @ np.linalg.inv(Sigma_22) @ Sigma_21)
+        vector_correlation = np.trace(np.linalg.inv(sigma_11) @ sigma_12 @ np.linalg.inv(sigma_22) @ sigma_21)
     except:
         vector_correlation = np.NaN
         while np.isnan(vector_correlation):
             epsilon += 5e-5
-            vector_correlation = np.trace(np.linalg.inv(Sigma_11 + epsilon*np.eye(2)) @ Sigma_12 @ np.linalg.inv(Sigma_22 + epsilon*np.eye(2)) @ Sigma_21)
+            vector_correlation = np.trace(np.linalg.inv(sigma_11 + epsilon*np.eye(2)) @ sigma_12 @ np.linalg.inv(sigma_22 + epsilon*np.eye(2)) @ sigma_21)
             if epsilon > 1e-1:
+                print("Could not compute vector correlation!")
                 break
     return vector_correlation
-
-def get_vector_correlation_per_day(df_day):
-    """
-    Calculates the vector correlation per day for each buoy and takes the average over all buoys
-
-    Expects a dataframe with data from one or more buoys over one day
-    """
-    buoy_names = set(df_day["buoy"].tolist())
-    vec_corr_total = 0
-    for name in buoy_names:
-        points_buoy = df_day[df_day["buoy"] == name]
-        vec_corr = calc_vector_correlation(points_buoy["u_hindcast"],
-                                                points_buoy["v_hindcast"],
-                                                points_buoy["u"],
-                                                points_buoy["v"])
-        if np.isnan(vec_corr):
-            vec_corr = 0
-        vec_corr_total += vec_corr
-    if len(buoy_names) != 0:
-        return vec_corr_total/len(buoy_names)
-    return -1
-
-
-def get_vector_correlation_over_time(df):
-    """
-    Gets the vector correlation over the entire time range covered in the dataframe
-    """
-    df["day"] = df["time"].apply(lambda x: x[:10])
-    days = sorted(set(df["day"].tolist()))
-    vec_corr = []
-    for day in days:
-        df_day = df[df["day"] == day]
-        vec_corr.append(get_vector_correlation_per_day(df_day))
-    df_vec_corr = pd.DataFrame({"day": days, "vec_corr": vec_corr})
-    return df_vec_corr
-
-
-def plot_metric(time, metric, supress_nth_label = 24):
-    fig, ax = plt.subplots(figsize=(20,6))
-    plt.plot(time, metric)
-
-    # to supress most labels
-    for n, label in enumerate(ax.xaxis.get_ticklabels()):
-        if n % supress_nth_label != 0:
-            label.set_visible(False)
-    plt.show()
