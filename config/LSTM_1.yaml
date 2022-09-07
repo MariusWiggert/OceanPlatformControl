@@ -1,23 +1,36 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 4096
+  batch_size: 128
   model_type: "rnn"
   log_interval: 1
-  lr: 0.001
+  lr: 0.001 # put 0.005
+  epochs: 40
   folder_figure: "./figures/"
+  # dropout: 0.5
+  optimizer:
+    name: "Adam"
+    parameters:
+      betas: [ 0.95, 0.9995 ]
+      eps: 0.001
+  scheduler:
+    name: "ReduceLROnPlateau"
+    parameters:
+      mode: 'min'
+      factor: 0.2
+      patience: 6
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
 model:
   cfg_neural_network:
     input_shape: [ 2, 24, 24 ] # Not include the time dimension
-    hidden_size: 1152 #2*24*24
+    hidden_size: 300 #1152 #2*24*24
     output_shape: [ 2, 24, 24 ] # Not include the time dimension
     type_cell: 'lstm'
     #size_layers_after_rnn: []
-    num_layers: 2
-    bidirectional: True
-    dropout: 0
+    num_layers: 1
+    bidirectional: False
+    dropout: 0.8
     init_weights_function: "randn"
   cfg_dataset:
     radius_lon: 1
@@ -43,7 +56,7 @@ model:
 data_generation:
   parameters_input:
     start_training: '2022-04-02T12:30:01Z'
-    duration_training_in_h: 240 #672 # 28 * 24
+    duration_training_in_h: 720 #672 # 28 * 24
     start_validation: '2022-05-04T12:30:01Z'
     duration_validation_in_h: 240 # 14 * 24
     input_tile_dims: [ 24, 24, 12 ]
@@ -51,8 +64,8 @@ data_generation:
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 24, 24, 12 ]
     size_per_file_in_mb: 2000
-    folder_training: "./data_NN/data_training_10_days_lstm/"
-    folder_validation: "./data_NN/data_training_10_days_lstm/"
+    folder_training: "./data_NN/data_training_30_days_lstm_full/"
+    folder_validation: "./data_NN/data_validation_10_days_lstm_full/"
 config_neural_net:
   training:
     hindcast:

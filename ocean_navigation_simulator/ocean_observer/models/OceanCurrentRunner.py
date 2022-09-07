@@ -1,11 +1,11 @@
 from __future__ import print_function
 
 import argparse
-import gc
 import os
 import time
 from datetime import datetime
-from typing import Tuple, List
+from typing import Tuple, List, Any
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import CustomOceanCurrentsFromFiles
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid import OceanCurrentCNNSubgrid
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid_2 import OceanCurrentCNNSubgrid
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsRNN import OceanCurrentRNN
 
@@ -32,19 +32,10 @@ def collate_fn(batch):
     return torch.utils.data.dataloader.default_collate(batch_filtered)
 
 
-def loss_function(output, target, add_mask=False):
-    assert output.shape == target.shape
-    if add_mask:
-        mask = torch.isnan(target)
-        output[mask] = 0
-        target[mask] = 0
-        reduction = 'sum'
-        non_nan_elements = (mask == False).sum()
-    else:
-        reduction = 'mean'
-        non_nan_elements = 1
+def loss_function(prediction, target):
+    assert prediction.shape == target.shape
 
-    return torch.sqrt(F.mse_loss(output, target, reduction=reduction) / non_nan_elements)
+    return torch.sqrt(F.mse_loss(prediction, target, reduction='mean'))
 
 
 def get_accuracy(outputNN, forecast, target) -> Tuple[float, list[float]]:
@@ -56,13 +47,102 @@ def get_accuracy(outputNN, forecast, target) -> Tuple[float, list[float]]:
 
     magn_NN = torch.sqrt(((outputNN - target) ** 2).nansum(axis=[1, 2, 3, 4]))
     magn_initial = torch.sqrt(((forecast - target) ** 2).nansum(axis=[1, 2, 3, 4]))
-    ratio_perfect_FC, ratio_nz_perfect_FC, mean_magn_initial_without_perfect_forecasts = 0, 0, 0
     if (magn_initial == 0).sum():
         raise Exception("Found Nans! Should not have happened")
 
     all_ratios = magn_NN / magn_initial
 
     return all_ratios.mean().item(), all_ratios.tolist()
+
+
+def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
+    args_optimizer['lr'] = lr
+    if name.lower() == "adam":
+        return optim.Adam(model.parameters(), **args_optimizer)
+    raise warn("No optimizer!")
+    return None
+
+
+def get_scheduler(cfg_scheduler, optimizer) -> Tuple[optim.lr_scheduler._LRScheduler, bool]:
+    name = cfg_scheduler.get("name", "")
+    if name.lower() == "reducelronplateau":
+        print(f"arguments scheduler: {cfg_scheduler}")
+        return optim.lr_scheduler.ReduceLROnPlateau(optimizer, **cfg_scheduler.get("parameters", {})), True
+    raise warn("No scheduler!")
+    return None, False
+
+
+def get_model(args, cfg_neural_network, device):
+    model_type = args.model_type
+    if model_type == 'mlp':
+        model = OceanCurrentMLP(**cfg_neural_network)
+    elif model_type == 'cnn':
+        model = OceanCurrentCNNSubgrid(**cfg_neural_network)
+    elif model_type == 'rnn':
+        model = OceanCurrentRNN(**cfg_neural_network)
+    else:
+        model = OceanCurrentMLP(**cfg_neural_network)
+
+    return model.to(device)
+
+
+def __create_loss_plot(args, train_losses, test_losses, mean_ratio_train, mean_ratio_test):
+    # Plot the loss and the LR
+
+    plt.figure()
+    fig, ax = plt.subplots()
+    ax.plot(train_losses, color='green', marker='o')
+    ax.plot(test_losses, color='red', marker='o')
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss", color='green')
+    ax2 = ax.twinx()
+    ax2.plot(mean_ratio_train, color='lightgreen')
+    ax2.plot(mean_ratio_test, color='orangered')
+    ax2.set_ylabel("Mean_ratio", color='blue')
+    folder = os.path.abspath(
+        args.get("folder_figure", "./") + args["model_type"] + "/" + now.strftime("%d-%m-%Y_%H-%M-%S") + "/")
+    filename = f"_loss_and_lr_{len(mean_ratio_train)}.png"
+    os.makedirs(folder, exist_ok=True)
+    print(f"saving file {filename} histogram at: {folder}")
+    fig.savefig(os.path.join(folder, filename))
+
+
+def __create_histogram(list_ratios: List[float], epoch, args, is_training, n_bins=30):
+    legend_name = "training" if is_training else "validation"
+    plt.figure()
+    list_ratios = np.array(list_ratios)
+    list_ratios[list_ratios == np.inf] = 100
+    plt.hist(list_ratios, bins=n_bins)
+
+    plt.axvline(x=1, color='b', label='x=1')
+    plt.title(
+        f"Histogram for {legend_name} at epoch {epoch} with mean {list_ratios.mean():.2f}, std: {list_ratios.std():.2f}")
+    plt.xlabel("ratio rmse(NN)/rmse(FC)")
+    plt.ylabel(f"frequency (over {len(list_ratios)} samples)")
+
+    folder = os.path.abspath(
+        args.get("folder_figure", "./") + args["model_type"] + "/" + now.strftime("%d-%m-%Y_%H-%M-%S") + "/")
+    filename = f'epoch{epoch}_{legend_name}_loss{(f"{list_ratios.mean():.2f}").replace(".", "_")}.png'
+    os.makedirs(folder, exist_ok=True)
+    print(f"saving file {filename} histogram at: {folder}")
+    plt.savefig(os.path.join(folder, filename))
+    plt.close()
+
+    # wandb histogram
+    # data = [[i, ratio] for i, ratio in enumerate(list_ratios)]
+    # fields = {"x": "sample",
+    #           "value": "ratios"}
+    # # table = wandb.Table(data=data, columns=fields)
+    # # wandb.log({'histogram_ratio_rmses': wandb.plot.histogram(table, "ratios", title="Ratio NN vs FC Distribution")})
+    # # Use the table to populate the new custom chart preset
+    # # To use your own saved chart preset, change the vega_spec_name
+    # my_custom_chart = wandb.plot_table(vega_spec_name="carey/new_chart",
+    #                                    data_table=table,
+    #                                    fields=fields,
+    #                                    )
+    # # Log the plot to have it show up in the UI
+    # wandb.log({"custom_chart": my_custom_chart})
 
 
 def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimizer: torch.optim.Optimizer, epoch: int,
@@ -89,7 +169,7 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
                 output = model(data)
                 if model_error:
                     output = data_same_time - output
-                loss = loss_function(output, target, add_mask=True)
+                loss = loss_function(output, target)
                 total_loss += loss.item()
                 # Backprop
                 loss.backward()
@@ -101,30 +181,13 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
                 all_ratios += list_ratios
                 tepoch.set_postfix(loss=loss.item(), mean_ratio=ratio)
             # wandb.log({'epoch_loss': total_loss / len(train_loader.dataset), })
+        total_loss /= len(train_loader)
         __create_histogram(all_ratios, epoch, args, True)
-        print(f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%")
+        print(f"Training loss: {loss}")
+        print(f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%, ",
+              (np.array(list_ratios)))
 
-
-def __create_histogram(list_ratios: List[float], epoch, args, is_training, n_bins=30):
-    legend_name = "training" if is_training else "validation"
-    plt.figure()
-    list_ratios = np.array(list_ratios)
-    list_ratios[list_ratios == np.inf] = 100
-    plt.hist(list_ratios, bins=n_bins)
-
-    plt.axvline(x=1, color='b', label='x=1')
-    plt.title(
-        f"Histogram for {legend_name} at epoch {epoch} with mean {list_ratios.mean():.2f}, std: {list_ratios.std():.2f}")
-    plt.xlabel("ratio rmse(NN)/rmse(FC)")
-    plt.ylabel(f"frequency (over {len(list_ratios)} samples)")
-
-    folder = os.path.abspath(
-        args.get("folder_figure", "./") + args["model_type"] + "/" + now.strftime("%d-%m-%Y_%H-%M-%S") + "/")
-    filename = f'epoch{epoch}_{legend_name}_loss{(f"{list_ratios.mean():.2f}").replace(".", "_")}.png'
-    os.makedirs(folder, exist_ok=True)
-    print(f"saving file {filename} histogram at: {folder}")
-    plt.savefig(os.path.join(folder, filename))
-    plt.close()
+        return total_loss, np.array(list_ratios).mean()
 
 
 def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: int,
@@ -134,6 +197,7 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
     initial_loss = 0
     accuracy = 0
     list_ratios = list()
+
     with torch.no_grad():
         with tqdm(test_loader, unit="batch") as tepoch:
             for data, target in tepoch:
@@ -148,7 +212,7 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
                 output = model(data)
                 if model_error:
                     output = data_same_time - output
-                loss = loss_function(output, target, add_mask=True).item()  # sum the batch losses
+                loss = loss_function(output, target).item()  # sum the batch losses
                 test_loss += loss
                 ratio, all_ratios = get_accuracy(output,
                                                  data_same_time,
@@ -156,7 +220,7 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
                 list_ratios += all_ratios
                 # TODO: change that
                 accuracy += ratio
-                initial_loss += loss_function(data_same_time, target, add_mask=True).item()
+                initial_loss += loss_function(data_same_time, target).item()
                 tepoch.set_postfix(loss=loss, mean_ratio=ratio)
 
     test_loss /= len(test_loader)
@@ -164,20 +228,39 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
     accuracy /= len(test_loader)
 
     __create_histogram(all_ratios, epoch, args, False)
-    print(f"percentage of ratios <= 1: {((np.array(list_ratios) <= 0).sum() / len(list_ratios) * 100):.4f}%")
+    print(f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%")
 
     print(
-        f"Test set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}, mean ratio SUM(rmse(NN(FC_xt))/rmse(FC_xt)):({accuracy:.6f})\n")
-    return test_loss
+        f"Test set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}\n"
+        f"mean ratio SUM(rmse(NN(FC_xt))/rmse(FC_xt)):({accuracy:.6f})\n"
+        f"Percentage increase: {((initial_loss - test_loss) / initial_loss):.3f}")
+    return test_loss, np.array(list_ratios).mean()
 
 
-def main():
-    wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")
-    os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
+def end_training(model, args, train_losses, validation_losses, train_ratios, validation_ratios):
+    train_losses = np.array(train_losses)
+    validation_losses = np.array(validation_losses)
+    train_ratios = np.array(train_ratios)
+    validation_ratios = np.array(validation_ratios)
+    __create_loss_plot(args, train_losses, validation_losses, train_ratios, validation_ratios)
 
-    gc.collect()
+    print(
+        f"Training over. Best validation loss {validation_ratios.min()} at epoch {validation_ratios.argmin()}\n"
+        f" with losses train:{train_losses[validation_ratios.argmin()]} test:{validation_losses[validation_ratios.argmin()]}.\n"
+        f" List of all the training ratios: {train_losses}")
+
+    if args.save_model:
+        torch.save(model.state_dict(), f"{args.model_type}.pt")
+
+    # Log the summary metric using the test set
+    # wandb.summary['test_accuracy'] = ...
+    wandb.summary['best_validation_ratio'] = validation_ratios.min()
+    wandb.finish()
+
+
+def get_args(all_cfgs):
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch model')
+    # parser = argparse.ArgumentParser(description='PyTorch model')
     # parser.add_argument('--batch-size', type=int, default=64, metavar='N',
     #                     help='input batch size for training (default: 64)')
     # parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
@@ -210,10 +293,6 @@ def main():
     # cfgs = yaml.load(open(os.getcwd() + "/config/" + args.file_configs + ".yaml", 'r'), Loader=yaml.FullLoader)
 
     # ALTERNATIVE:
-    parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
-    config_file = parser.parse_args().file_configs + ".yaml"
-    all_cfgs = yaml.load(open(config_file, 'r'),
-                         Loader=yaml.FullLoader)
     args = all_cfgs.get("arguments_model_runner", {})
     args.setdefault("batch_size", 64)
     args.setdefault("test_batch_size", 1000)
@@ -230,29 +309,44 @@ def main():
     args.setdefault("model_type", "mlp")
     args.setdefault("max_batches_training_set", -1)
     args.setdefault("max_batches_validation_set", -1)
-    args = DotDict(args)
+    return DotDict(args), all_cfgs
     # END ALTERNATIVE
 
+
+def main():
+    wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")  # , name=f"experiment_{}")
+    print(f"starting run: {wandb.run.name}")
+    os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
+    # gc.collect()
+    parser = argparse.ArgumentParser(description='yaml config file path')
+    parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
+    config_file = parser.parse_args().file_configs + ".yaml"
+    all_cfgs = yaml.load(open(config_file, 'r'),
+                         Loader=yaml.FullLoader)
+    args, all_cfgs = get_args(all_cfgs)
+
     use_cuda = not args.no_cuda and torch.cuda.is_available()
+    device = 'cuda' if use_cuda else 'cpu'
 
     torch.manual_seed(args.seed)
 
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = device
     print("device:", device)
-    dtype = torch.float32
     if args.silicon:
-        dtype = torch.float
         device = torch.device("mps")
 
     cfg_model = all_cfgs.get("model", {})
-    cfg_neural_network = cfg_model.get("cfg_neural_network", {})
+    cfg_neural_network = cfg_model.get("cfg_neural_network", {}) | {"device": device}
     cfg_dataset = cfg_model.get("cfg_dataset", {})
-    model_error = cfg_model.get("model_error", True)
-
+    cfg_optimizer = args.get("optimizer", {})
+    cfg_scheduler = args.get("scheduler", {})
     cfg_data_generation = all_cfgs.get("data_generation", {})
+    model_error = cfg_model.get("model_error", True)
+    print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
     folder_training = cfg_data_generation["parameters_input"]["folder_training"]
     folder_validation = cfg_data_generation["parameters_input"]["folder_validation"]
-    print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
+    if folder_training == folder_validation:
+        warn("Training and validation use the same dataset!!!")
 
     train_kwargs = {'batch_size': args.batch_size,
                     'shuffle': cfg_data_generation['parameters_input'].get('shuffle_training', True)}
@@ -264,12 +358,7 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    # Load the training and testing files
-    # with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
-    #    config_datasets = yaml.load(f, Loader=yaml.FullLoader)
-
-    wandb.config = {"learning_rate": args.lr,
-                    "model_type": args.model_type} | cfg_neural_network
+    wandb.config.update(args, allow_val_change=True)
     wandb.save(config_file)
     dataset_training = CustomOceanCurrentsFromFiles(folder_training,
                                                     max_items=args.batch_size * args.max_batches_training_set)
@@ -278,61 +367,49 @@ def main():
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
-    model_type = args.model_type
-    if model_type == 'mlp':
-        model = OceanCurrentMLP(**cfg_neural_network)
-    elif model_type == 'cnn':
-        model = OceanCurrentCNNSubgrid(**cfg_neural_network)
-    elif model_type == 'rnn':
-        model = OceanCurrentRNN(**cfg_neural_network)
-    else:
-        model = OceanCurrentMLP(**cfg_neural_network)
 
-    model = model.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    print(f"optimizer: {optimizer}")
+    model = get_model(args, cfg_neural_network, device)
+    optimizer = get_optimizer(model, cfg_optimizer.get("name", ""), cfg_optimizer.get("parameters", {}), args.lr)
 
     # scheduler = schedulers.StepLR(optimizer, step_size=1, gamma=args.gamma)
-    # scheduler = schedulers.ReduceLROnPlateau(optimizer)  # , step_size=1, gamma=args.gamma)
-    losses = np.zeros(args.epochs)
-    lrs = np.zeros(args.epochs)
-    for epoch in range(1, args.epochs + 1):
-        # if hasattr(scheduler, 'get_last_lr'):
-        #     lrs[epoch - 1] = scheduler.get_last_lr()[0]
-        # else:
-        lrs[epoch - 1] = optimizer.param_groups[-1]['lr']
-        print(lrs[epoch - 1])
-        print(f"starting Training epoch {epoch}/{args.epochs}.")
-        time.sleep(0.2)
-        train(args, model, device, train_loader, optimizer, epoch, model_error, cfg_dataset)
-        time.sleep(0.2)
-        print(f"starting Testing epoch {epoch}/{args.epochs}.")
-        losses[epoch - 1] = test(args, model, device, validation_loader, epoch, model_error, cfg_dataset)
-        # scheduler.step()
-        # scheduler.step(losses[-1])
+    scheduler, scheduler_step_takes_argument = get_scheduler(cfg_scheduler, optimizer)
+    print(f"optimizer: {optimizer}")
 
-    # Plot the loss and the LR
-    plt.figure()
-    fig, ax = plt.subplots()
-    ax.plot(losses, color='green', marker='o')
+    train_ratios, test_ratios = list(), list()
+    train_losses, test_losses = list(), list()
+    try:
+        for epoch in range(1, args.epochs + 1):
+            metrics = {}
 
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss", color='green')
-    ax2 = ax.twinx()
-    ax2.plot(lrs, color='blue')
-    ax2.set_ylabel("Learning rate", color='blue')
-    folder = os.path.abspath(
-        args.get("folder_figure", "./") + args["model_type"] + "/" + now.strftime("%d-%m-%Y_%H-%M-%S") + "/")
-    filename = f"_loss_and_lr.png"
-    os.makedirs(folder, exist_ok=True)
-    print(f"saving file {filename} histogram at: {folder}")
-    fig.savefig(os.path.join(folder, filename))
+            # Training
+            print(f"starting Training epoch {epoch}/{args.epochs}.")
+            time.sleep(0.2)
+            loss, ratio = train(args, model, device, train_loader, optimizer, epoch,
+                                model_error, cfg_dataset)
+            train_losses.append(loss)
+            train_ratios.append(ratio)
+            metrics |= {"train_loss": loss, "train_ratio": ratio}
 
-    print(
-        f"Training over. Best validation loss {losses.min()} at epoch {losses.argmin()}. List of all the losses: {losses}")
+            # Testing
+            print(f"starting Testing epoch {epoch}/{args.epochs}.")
+            time.sleep(0.2)
+            loss, ratio = test(args, model, device, validation_loader, epoch,
+                               model_error, cfg_dataset)
+            test_losses.append(loss)
+            test_ratios.append(ratio)
+            metrics |= {"test_loss": loss, "test_ratio": ratio, "learning rate": optimizer.param_groups[0]['lr']}
+            if scheduler is not None:
+                if scheduler_step_takes_argument:
+                    scheduler.step(loss)
+                    print(f"current lr: {optimizer.param_groups[0]['lr']}")
+                else:
+                    scheduler.step()
+            wandb.log(metrics)
 
-    if args.save_model:
-        torch.save(model.state_dict(), f"{args.model_type}.pt")
+            if epoch % 30 == 0:
+                __create_loss_plot(args, train_losses, test_losses, train_ratios, test_ratios)
+    finally:
+        end_training(model, args, train_losses, test_losses, train_ratios, test_ratios)
 
 
 if __name__ == '__main__':

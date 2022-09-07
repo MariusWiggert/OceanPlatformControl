@@ -1,18 +1,28 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 2
+  batch_size: 128 #64 #16 #32
   model_type: "mlp"
-  log_interval: 1
-  lr: 1
-  epochs: 300
   folder_figure: "./figures/"
   max_batches_training_set: 1
   max_batches_validation_set: 1
+  log_interval: 1
+  lr: 0.01
+  epochs: 10  #50
+  folder_figure: "./figures/"
+  max_batches_training_set: 1
+  max_batches_validation_set: 1
+  optimizer:
+    name: "Adam"
+    parameters:
+      betas: [ 0.95, 0.9995 ]
+      eps: 0.01
+
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
   model_type: "mlp"
 model:
+  model_error: true
   cfg_neural_network:
     input_dim: 5760
     output_layers_dims:
@@ -34,6 +44,13 @@ model:
       - 1
       - 24
       - 24
+    dropout_layers:
+      - 0.5
+      - 0.5
+      - 0.5
+      - 0.5
+      - 0.5
+      - 0
   cfg_dataset:
     radius_lon: 1
     radius_lat: 1
@@ -53,7 +70,6 @@ model:
       - 24
       - 24
     index_axis_time: 2
-  model_error: true
 data_generation:
   parameters_input:
     start_training: '2022-04-02T12:30:01Z'
@@ -66,9 +82,10 @@ data_generation:
     output_tile_dims: [ 24, 24, 1 ]
     size_per_file_in_mb: 2000
     folder_training: "./data_NN/data_training_30_days_without_nan/"
-    shuffle_training: False
-    folder_validation: "./data_NN/data_training_30_days_without_nan/"
-    shuffle_validation: False
+    shuffle_training: True
+    #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
+    folder_validation: "./data_NN/data_validation_2/"
+    shuffle_validation: True
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
     #folder_validation: "./data_NN/data_validation_exported/"
 config_neural_net:

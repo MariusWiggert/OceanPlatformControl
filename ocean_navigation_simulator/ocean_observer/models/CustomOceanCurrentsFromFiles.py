@@ -38,4 +38,5 @@ class CustomOceanCurrentsFromFiles(Dataset):
         return len(self.X)
 
     def __getitem__(self, idx):
+        # return self.X[idx % 2], self.y[idx % 2]
         return self.X[idx], self.y[idx]

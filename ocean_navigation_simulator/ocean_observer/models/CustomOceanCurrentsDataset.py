@@ -44,7 +44,7 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         self.output_shape = cfg_dataset["output_shape"]
         self.time_horizon_input = datetime.timedelta(hours=cfg_dataset.get('time_horizon_input_h', 5))
         self.time_horizon_output = datetime.timedelta(hours=cfg_dataset.get('time_horizon_output_h', 1))
-        if self.time_horizon_input > 24 or self.time_horizon_output > 24:
+        if self.time_horizon_input.seconds / 3600 > 24 or self.time_horizon_output.seconds / 3600 > 24:
             raise Exception(
                 "NOT supported time horizon input and output should be <= 24 hours or adapt dataset algorithm!!!!")
 
