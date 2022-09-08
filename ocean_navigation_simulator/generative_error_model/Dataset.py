@@ -114,8 +114,8 @@ class Dataset:
         # filter for specific ranges
         df = df[(df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S")) &
                 (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))]
-        df = df[(df["lon"] >= lon_range[0]+1) & (df["lon"] <= lon_range[1]-1)]
-        df = df[(df["lat"] >= lat_range[0]+1) & (df["lat"] <= lat_range[1]-1)]
+        df = df[(df["lon"] >= lon_range[0]) & (df["lon"] <= lon_range[1])]
+        df = df[(df["lat"] >= lat_range[0]) & (df["lat"] <= lat_range[1])]
         return df
 
     def print_df_meta_data(self, data: pd.DataFrame):

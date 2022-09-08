@@ -141,7 +141,9 @@ class NoisyCurrentComponent:
             total_weight_squared += harmonic.weight**2
 
         # Scale to recover the desired empirical variance
+        # Note: Dont immediately multiply by sqrt of weight in loop because want to normalize weight
         weighted_noise /= total_weight
+        # Note: need to scale in this way because actual weight is proportional to sill (harmonic weight)
         weighted_noise *= np.sqrt(total_weight / total_weight_squared)
 
         return weighted_noise
@@ -193,6 +195,7 @@ class NoisyCurrentHarmonic:
 
         time_in_hours = np.array([elapsed_time.astype('timedelta64[h]')/np.timedelta64(1, 'h') for elapsed_time in elapsed_times])
 
+        # magnitude is needed to scale the noise to a variance of 1.
         return NOISE_MAGNITUDE * self._simplex_generator.noise3array(
             x / self.x_range + self._offsets.x,
             y / self.y_range + self._offsets.y,

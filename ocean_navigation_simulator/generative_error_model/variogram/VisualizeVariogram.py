@@ -12,16 +12,21 @@ class VisualizeVariogram:
     """Loads or receives a Variogram object and visualizes the histograms and variograms
     in each dimension."""
 
-    def __init__(self, config: Dict, variogram: Variogram=None):
+    def __init__(self, config: Dict, variogram: Variogram = None):
         self.config = config
         self.variogram = variogram
         self.vars = None
-        if variogram is not None:
+        if self.variogram is not None:
             self.units = variogram.units
             self.bins_orig = variogram.bins
             self.bins_count_orig = variogram.bins_count
             self.res_orig = variogram.res_tuple
             self.variogram.is_3d = True if len(variogram.res_tuple) == 3 else False
+            if self.variogram.is_3d:
+                self.vars = ["lon_lag", "lat_lag", "t_lag"]
+            else:
+                self.vars = ["space_lag", "t_lag"]
+
 
         self.project_path = get_path_to_project(os.getcwd())
 
@@ -185,7 +190,7 @@ class VisualizeVariogram:
         df.to_csv(file_path, index=False)
         print(f"Saved hand-tuned variogram at {file_path}.")
 
-    def plot_histograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int]=None) -> None:
+    def plot_histograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int] = None) -> None:
         """Plots the histogram of bins in each axis [lon, lat, time] in 3d or [space, time] in 2d.
 
         tol -        the slicing tolerance when plotting over one dimension. If the variogram was
