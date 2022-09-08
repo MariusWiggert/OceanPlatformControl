@@ -5,6 +5,7 @@ import pandas as pd
 from lmfit.models import Model
 import lmfit
 import ast
+import os
 
 
 class VariogramFitting:
@@ -146,12 +147,32 @@ class VariogramFitting:
                                 params[:, 1].reshape(-1, 1),
                                 params[:, 2].reshape(-1, 1)))
 
+        param_map = {"u": "U_COMP", "v": "V_COMP"}
+        component = param_map[self.error_var[0]]
+        print(component)
+        other_component = list(param_map.values())
+        other_component.remove(component)
+        other_component = other_component[0]
+        print(other_component)
         params_dict = {"U_COMP": [], "V_COMP": []}
-        for i in range(params.shape[0]):
-            params_dict["U_COMP"].append(params[i])
-            params_dict["V_COMP"].append(params[i])
-        params_dict["detrend_metrics"] = self.detrend_metrics
+
+        if os.path.exists(output_path):
+            # if file already exists -> update file with current popt params
+            loaded_params = np.load(output_path, allow_pickle=True)
+            detrend_metrics = loaded_params.item().get("detrend_metrics")
+            other_params = loaded_params.item().get(other_component)
+            for i in range(params.shape[0]):
+                params_dict[component].append(params[i])
+            params_dict[other_component] = other_params
+            params_dict["detrend_metrics"] = detrend_metrics
+        else:
+            # if file does not exist write new file
+            for i in range(params.shape[0]):
+                params_dict[component].append(params[i])
+            params_dict["detrend_metrics"] = self.detrend_metrics
+
         np.save(output_path, params_dict)
+        print(f"Saved {params_dict}")
 
     def _plot_sliced_variogram(self, var: str, ax: plt.axis, plot_empirical: bool = True) -> plt.axis:
         """Plots the fitted function vs the empirical data points.
