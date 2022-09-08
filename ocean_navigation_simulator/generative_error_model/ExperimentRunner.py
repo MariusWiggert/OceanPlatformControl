@@ -66,11 +66,13 @@ class ExperimentRunner:
         for problem in self.problems:
             self.reset()
             print(f"Running: {problem}")
-            self.run_problem(problem, sampling_method="real")
+            self.run_problem(problem, error_only=error_only, sampling_method="real")
 
     def run_problem(self, problem: Problem, error_only: bool, sampling_method: str = "real") -> Optional[pd.DataFrame]:
         noise_field = self.model.get_noise_vec(problem)
-        self.save_noise_field(noise_field, problem, self.dataset_name)
+        # folder_name = self.dataset_name
+        folder_name = self.dataset_name
+        self.save_noise_field(noise_field, problem, folder_name)
 
         # this is true if dont want to reconstruct the variogram for validation.
         if error_only:
@@ -79,8 +81,7 @@ class ExperimentRunner:
         if sampling_method == "real":
             ground_truth = self.get_ground_truth(problem)
             synthetic_error = ExperimentRunner._get_samples_from_synthetic(noise_field, ground_truth)
-            # self.save_data(synthetic_error, problem, self.dataset_name)
-            self.save_data(synthetic_error, problem, "adjusted_range_test")
+            self.save_data(synthetic_error, problem, folder_name)
         elif sampling_method == "random":
             synthetic_error = ExperimentRunner._get_random_samples_from_synthetic(noise_field, 20)
             self.save_data(synthetic_error, problem, "random_samples")
@@ -128,7 +129,7 @@ class ExperimentRunner:
                                                     lat=synthetic_data.iloc[i:i+n]["lat"])
             synthetic_data["u_error"].iloc[i:i+n] = noise_field_interp["u_error"].values.diagonal().diagonal()
             synthetic_data["v_error"].iloc[i:i+n] = noise_field_interp["v_error"].values.diagonal().diagonal()
-        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.\n")
+        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.")
         synthetic_data = synthetic_data.dropna()
         return synthetic_data
 
@@ -137,7 +138,6 @@ class ExperimentRunner:
         """Instead of sampling the simplex noise at actual buoy points, this methods
         just uses random positions in space for each time step to sample the noise.
         """
-        # TODO: implement this by just sampling randomly in entire volume
         time_range = [noise_field["time"][0].values, noise_field["time"][-1].values]
         time_steps = len(noise_field["time"].values)
         lon_range = [noise_field["lon"].values.min(), noise_field["lon"].values.max()]
@@ -159,9 +159,8 @@ class ExperimentRunner:
                                                     lat=synthetic_data.iloc[i:i+n]["lat"])
             synthetic_data["u_error"].iloc[i:i+n] = noise_field_interp["u_error"].values.diagonal().diagonal()
             synthetic_data["v_error"].iloc[i:i+n] = noise_field_interp["v_error"].values.diagonal().diagonal()
-        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.\n")
+        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.")
         synthetic_data = synthetic_data.dropna()
-
         return synthetic_data
 
     def save_data(self, synthetic_error_samples: pd.DataFrame, problem: Problem, folder_name: str) -> None:
@@ -181,6 +180,7 @@ class ExperimentRunner:
         file_path = os.path.join(synthetic_error_dir, file_name)
         if not os.path.exists(file_path):
             synthetic_error_samples.to_csv(file_path, index=False)
+            print(f"Saved synthetic error dataset to: {synthetic_error_dir}.\n")
 
     def save_noise_field(self, noise_field: xr.Dataset, problem: Problem, folder_name: str):
         """Save the noise fields create by OceanCurrentNoiseField.
@@ -196,6 +196,7 @@ class ExperimentRunner:
         file_path = os.path.join(noise_field_dir, file_name)
         if not os.path.exists(file_path):
             noise_field.to_netcdf(file_path)
+            print(f"Saved noise field to: {noise_field_dir}.")
 
     def _calculate_metrics(self, ground_truth, synthetic_error) -> Dict[str, float]:
         metrics = dict()
