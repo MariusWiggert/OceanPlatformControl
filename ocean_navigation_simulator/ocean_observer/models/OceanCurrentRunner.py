@@ -19,6 +19,7 @@ from tqdm import tqdm
 from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import CustomOceanCurrentsFromFiles
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid_2 import OceanCurrentCNNSubgrid
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentUnetLSTM import OceanCurrentUnetLSTM
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsRNN import OceanCurrentRNN
 
@@ -80,6 +81,8 @@ def get_model(args, cfg_neural_network, device):
         model = OceanCurrentCNNSubgrid(**cfg_neural_network)
     elif model_type == 'rnn':
         model = OceanCurrentRNN(**cfg_neural_network)
+    elif model_type == 'unetlstm':
+        model = OceanCurrentUnetLSTM(**cfg_neural_network)
     else:
         model = OceanCurrentMLP(**cfg_neural_network)
 

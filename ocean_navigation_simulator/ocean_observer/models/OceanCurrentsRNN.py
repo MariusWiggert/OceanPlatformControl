@@ -54,7 +54,7 @@ class OceanCurrentRNN(nn.Module):
         #          dilation=False))
 
         # Linear case
-        self.final_size = 1152
+        self.final_size = output_size
         layers_after_RNN.append(nn.Flatten())
         layers_after_RNN.append(nn.Linear(hidden_size * (2 if self.bidirectional else 1), self.final_size))
         # Not supported yet

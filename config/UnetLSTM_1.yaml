@@ -1,25 +1,25 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 16
-  model_type: "cnn"
+  batch_size: 2
+  model_type: "unetlstm"
   log_interval: 1
-  lr: 0.0001
-  epochs: 200
+  lr: 0.1
+  epochs: 300
   folder_figure: "./figures/"
-  max_batches_training_set: 2000
+  max_batches_training_set: 2 #2000
   max_batches_validation_set: -1
   optimizer:
     name: "Adam"
     parameters:
       betas: [ 0.95, 0.9995 ]
       eps: 0.000001
-      weight_decay: 0.005 # instead of 0.02 #0.15
+      weight_decay: 0 #0.005 # instead of 0.02 #0.15
   scheduler:
     name: "ReduceLROnPlateau"
     parameters:
       mode: 'min'
-      factor: 0.5
+      factor: 0.1
       patience: 10
       threshold: 0.005
 arguments_script_convert_data:
