@@ -43,7 +43,7 @@ specific_settings = {
     'deg_around_xt_xT_box': 1.,  # area over which to run HJ_reachability
     'accuracy': 'high',
     'artificial_dissipation_scheme': 'local_local',
-    'T_goal_in_seconds': 3600*24*5,
+    'T_goal_in_seconds': 3600*24*10,
     'use_geographic_coordinate_system': True,
     'progress_bar': True,
     'initial_set_radii': [0.1, 0.1],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
@@ -59,12 +59,13 @@ planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 #%% Plot the problem on the map
-problem.plot(data_source=arena.ocean_field.hindcast_data_source)
+ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area()
+problem.plot(ax=ax)
 plt.show()
 #%% Various plotting of the reachability computations
 # planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5,
 #                                    alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
-# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=3600*24*1, granularity_in_h=5, time_to_reach=True)
+# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=3600*24*10, granularity_in_h=5, time_to_reach=False)
 planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5)
 
 #%%

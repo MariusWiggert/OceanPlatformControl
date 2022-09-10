@@ -181,8 +181,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
 
     def load_ocean_current_from_idx(self):
         """Helper Function to load an OceanCurrent object."""
-        self.DataArray = open_formatted_xarray(
-            self.files_dicts[self.rec_file_idx]['file'],
+        self.DataArray = format_xarray(
+            data_frame = xr.open_mfdataset([self.files_dicts[self.rec_file_idx]['file']]),
             currents=self.source_config_dict['source_settings'].get("currents", 'normal'))
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
@@ -235,8 +235,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'])
 
         # Step 2: open the respective file as multi dataset
-        self.DataArray = xr.open_mfdataset([h_dict['file'] for h_dict in self.files_dicts]).isel(depth=0)
-        self.DataArray = format_xarray(self.DataArray,
+        self.DataArray = format_xarray(data_frame=xr.open_mfdataset([h_dict['file'] for h_dict in self.files_dicts]),
                                        currents=source_config_dict['source_settings'].get('currents', 'normal'))
 
         # Step 3: Check if multi-file (then dask) or not
@@ -296,11 +295,6 @@ def get_file_dicts(folder: AnyStr) -> List[dict]:
     return list_of_dicts
 
 
-def open_formatted_xarray(filepath: AnyStr, currents: AnyStr = 'normal') -> xr:
-    data_frame = xr.open_dataset(filepath).isel(depth=0)
-    return format_xarray(data_frame=data_frame, currents=currents)
-
-
 def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
     """Helper Function to format Data Arrays consistently.
     Args:
@@ -308,6 +302,14 @@ def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
           currents: String either 'normal' then uo, vo from Copernicus is used or
                     'total' then the total including tidal and wave drift is used.
     """
+    # select the 0 depth dimension
+    if "depth" in data_frame.coords:
+        data_frame = data_frame.isel(depth=0)
+    # for the generated noise fields
+    if "u_error" in data_frame.keys():
+        # TODO: a hack because of Jonas file, need to change that!
+        data_frame = data_frame.transpose("time", "lat", "lon")
+        return data_frame[['u_error', 'v_error']].rename({'u_error': 'water_u', 'v_error': 'water_v'})
     if 'HYCOM' in data_frame.attrs['source']:
         data_frame["time"] = data_frame["time"].dt.round("H")
         return data_frame
@@ -322,7 +324,7 @@ def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
 
 def get_grid_dict_from_file(file: AnyStr) -> dict:
     """Helper function to create a grid dict from a local nc3 file."""
-    f = open_formatted_xarray(file)
+    f = format_xarray(xr.open_dataset(file))
     # get the time coverage in POSIX
     t_grid = get_posix_time_from_np64(f.variables['time'].data)
     y_range = [f.variables['lat'].data[0], f.variables['lat'].data[-1]]

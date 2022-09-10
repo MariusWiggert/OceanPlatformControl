@@ -149,7 +149,7 @@ class DataSource(abc.ABC):
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
-                                    spatial_res: Optional[float] = None,
+                                    spatial_resolution: Optional[float] = None,
                                     return_ax: Optional[bool] = False, ax = None,
                                     **kwargs):
         """Plot the data at a specific time over an area defined by the x and y intervals.
@@ -157,7 +157,7 @@ class DataSource(abc.ABC):
           time:             time for which to plot the data either posix or datetime.datetime object
           x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
           y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-          spatial_res:      Per default (None) the data_source resolution is used otherwise the selected one.
+          spatial_resolution:Per default (None) the data_source resolution is used otherwise the selected one.
           return_ax:        if True returns ax, otherwise renders plots with plt.show()
           ax:               input axis object to plot on top of
           **kwargs:         Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
@@ -169,7 +169,7 @@ class DataSource(abc.ABC):
 
         # Step 1: get the area data
         area_xarray = self.get_data_over_area(x_interval, y_interval, [time, time + datetime.timedelta(seconds=1)],
-                                              spatial_resolution=spatial_res)
+                                              spatial_resolution=spatial_resolution)
 
         # interpolate to specific time
         atTimeArray = area_xarray.interp(time=time.replace(tzinfo=None))

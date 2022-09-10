@@ -60,7 +60,7 @@ ocean_field = OceanCurrentField(hindcast_source_dict=ocean_source_dict,
                                 use_geographic_coordinate_system=False)
 # %% visualize currents
 ocean_field.forecast_data_source.plot_data_at_time_over_area(
-    time=10, x_interval=[-2, 10], y_interval=[-2, 10], return_ax=False, spatial_res=None)
+    time=10, x_interval=[-2, 10], y_interval=[-2, 10], return_ax=False, spatial_resolution=None)
 # %% Input to animate the currents
 x_interval = [-2, 10]
 y_interval = [-2, 10]
@@ -153,7 +153,7 @@ spatial_res = 5
 # %% Plot data at time over area
 arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
     time=platform_state.date_time, x_interval=x_interval, y_interval=y_interval, return_ax=False,
-    spatial_res=spatial_res, figsize=(12, 6))
+    spatial_resolution=spatial_res, figsize=(12, 6))
 # %% animate data over time and area
 arena.seaweed_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval,
                                                       t_interval=t_interval,
