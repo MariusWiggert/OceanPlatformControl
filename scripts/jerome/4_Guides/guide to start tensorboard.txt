@@ -1,0 +1,9 @@
+
+
+# On Laptop
+ssh -i ~/.ssh/azure -L 6006:127.0.0.1:6006 ubuntu@20.55.80.215
+
+# On Head Node
+tensorboard --logdir='/seaweed-storage/ray_results'
+
+

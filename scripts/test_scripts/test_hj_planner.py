@@ -5,11 +5,12 @@ from tqdm import tqdm
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
 import time
-arena = ArenaFactory.create(scenario_name='gulf_of_mexico_files')
+
+arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_forecast_Copernicus_hindcast')
 #
 #% Plot to check if loading worked
 t_0 = datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc)
@@ -30,7 +31,7 @@ y_interval = [24, 26]
 x_0 = PlatformState(lon=units.Distance(deg=-82.5), lat=units.Distance(deg=23.7),
                     date_time=datetime.datetime(2021, 11, 22, 12, 0, tzinfo=datetime.timezone.utc))
 x_T = SpatialPoint(lon=units.Distance(deg=-80.3), lat=units.Distance(deg=24.6))
-problem = Problem(start_state=x_0, end_region=x_T, target_radius=0.1)
+problem = NavigationProblem(start_state=x_0, end_region=x_T, target_radius=0.1)
 #% Plot the problem function -> To create
 
 #%Instantiate the HJ Planner

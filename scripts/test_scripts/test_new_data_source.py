@@ -21,7 +21,7 @@ source_dict = {'field': 'SolarIrradiance',
                        'temporal_resolution': 3600,
                    }}
 #%% Step 2: Instantiate the field
-solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
+solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, casadi_cache_dict=casadi_cache_dict)
 #%% Test settings to use it
 t_0 = datetime.datetime(2022, 4, 11, 0, 0, 0, tzinfo=datetime.timezone.utc)
 # t_0 = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=10)
@@ -59,13 +59,13 @@ solar_field.hindcast_data_source.solar_rad_casadi
 
 #%% Create the source dict for the ocean currents
 source_dict = {'field': 'OceanCurrents'}
-# source_dict['source'] = 'opendap'
-# source_dict['source_settings'] = {
-#                    'service': 'copernicus',
-#                    'currents': 'total', # if we want to take the normal uo, vo currents or 'total' for tide, normal added
-#                    'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
-#                    # 'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh',
-#                    'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'}
+source_dict['source'] = 'opendap'
+source_dict['source_settings'] = {
+                   'service': 'copernicus',
+                   'currents': 'total', # if we want to take the normal uo, vo currents or 'total' for tide, normal added
+                   'USERNAME': 'mmariuswiggert', 'PASSWORD': 'tamku3-qetroR-guwneq',
+                   # 'DATASET_ID': 'global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh',
+                   'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'}
 
 # #%% forecast file options (if in local folder)
 # forecast_file_config_dict = {'source': 'forecast_files',
@@ -74,91 +74,26 @@ source_dict = {'field': 'OceanCurrents'}
 #                    'folder': "data/forecast_test/"# "data/cop_fmrc/"
 #                }}
 # #% Hindcast file dict (if in local folder)
-source_dict['source'] = 'hindcast_files'
-source_dict['source_settings'] = {
-                   'folder': "data/sampled_noise/"} #"data/hindcast_test/"
-
+# source_dict['source'] = 'hindcast_files'
 # source_dict['source_settings'] = {
 #                    'folder': "data/single_day_hindcasts/"} #"data/hindcast_test/"
-#%%
-import xarray as xr
-DF  = xr.open_dataset("data/sampled_noise/sampled_noise.nc")
-#%%
-import xarray as xr
-DF_file  = xr.open_dataset("data/hindcast_test/2021_11_20-12_31_hourly.nc4")
-#%%
-DF
-#%%
-DF.transpose("time", "lat", "lon")
-#%%
-DF_file.isel(depth=0, time=0)
+
 #%% Create the ocean Field
-ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
-#%%
-ocean_field.hindcast_data_source
+ocean_field = OceanCurrentField(hindcast_source_dict=source_dict, casadi_cache_dict=casadi_cache_dict)
 #%% Use it
 # t_0 = datetime.datetime.now() + datetime.timedelta(hours=10)
-t_0 = datetime.datetime(2021, 11, 22, 23, 30, tzinfo=datetime.timezone.utc)
+t_0 = datetime.datetime(2022, 4, 4, 23, 30, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=1)]
 x_interval=[-82, -80]
 y_interval=[24, 26]
 x_0 = PlatformState(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=23.5), date_time=t_0)
 x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24.2))
-#%%
-t_0 = datetime.datetime(2022, 4, 22, 14, 30, tzinfo=datetime.timezone.utc)
-t_interval = [t_0, t_0 + datetime.timedelta(days=5)]
-x_interval=[-135, -121]
-y_interval=[20, 29]
 #%% plot it
-area_xarray = ocean_field.hindcast_data_source.get_data_over_area(x_interval, y_interval,
-                                                                  [t_0, t_0 + datetime.timedelta(seconds=1)],
-                                                                  spatial_resolution=0.4)
-area_xarray.isel(time=0).plot.quiver(x='lon', y='lat', u='water_u', v='water_v', add_guide=False)
-plt.show()
-#%%
-xarray=area_xarray
-time_idx = 0
-xarray = xarray.fillna(0)
-# Step 1: Make the data ready for plotting
-# check if time-dimension already collapsed or not yet
-if xarray['time'].size != 1:
-    xarray = xarray.isel(time=time_idx)
-# calculate magnitude if not in there yet
-if not 'magnitude' in xarray.keys():
-    xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
-from ocean_navigation_simulator.utils.units import get_posix_time_from_np64, get_datetime_from_np64
-time = get_datetime_from_np64(xarray['time'].data)
-
-# Step 2: Create ax object
-# ax = plt.axes()
-ax = ocean_field.hindcast_data_source.set_up_geographic_ax()
-ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
-
-# underly with current magnitude
-vmax = np.max(xarray['magnitude'].max()).item()
-#
-# set and format colorbar
-xarray['magnitude'].plot(cmap='jet', vmin=0, vmax=vmax, alpha=0.5, ax=ax, add_colorbar=False)
-# xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False, alpha=0.5)
-
-
-plt.show()
-#%%
-# ocean_field.hindcast_data_source.plot_xarray_for_animation(time_idx=0, xarray = area_xarray)
-ocean_field.hindcast_data_source.plot_data_from_xarray(time_idx=0, xarray=area_xarray)
-plt.show()
-#%%
-# ocean_field.hindcast_data_source.plot_data_from_xarray(
-#     time_idx=0, xarray: xr, var_to_plot: AnyStr = None,
-#                               vmin: Optional[float] = None, vmax: Optional[float] = None,
-#                               alpha: Optional[float] = 1., ax: plt.axes = None,
-#                               fill_nan: bool = True)
 ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=t_0, x_interval=x_interval, y_interval=y_interval, plot_type = 'quiver',
-    spatial_resolution=0.3)
+    time=t_0, x_interval=x_interval, y_interval=y_interval,
+    plot_type='streamline', return_ax=False)
 #%%
-ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              spatial_res=0.3)
+ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval)
 #%%
 ocean_field.hindcast_data_source.update_casadi_dynamics(x_0)
 vec_point = ocean_field.get_ground_truth(x_0.to_spatio_temporal_point())
@@ -234,7 +169,7 @@ forecast_current_source = {
 #%% Create the ocean Field
 ocean_field = OceanCurrentField(hindcast_source_dict=true_current_source,
                                 forecast_source_dict=forecast_current_source,
-                                sim_cache_dict=sim_cache_dict,
+                                casadi_cache_dict=casadi_cache_dict,
                                 use_geographic_coordinate_system=False)
 #%% visualize it
 ocean_field.plot_true_at_time_over_area(time=datetime.datetime.fromtimestamp(10, tz=datetime.timezone.utc),

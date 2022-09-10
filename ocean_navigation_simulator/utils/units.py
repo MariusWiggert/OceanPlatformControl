@@ -16,6 +16,7 @@
 """Common unit conversion functions and classes."""
 
 import datetime as datetime
+import json
 import typing
 
 import matplotlib.pyplot as plt
@@ -131,6 +132,9 @@ class Distance:
     def __ge__(self, other: 'Distance') -> bool:
         return self.m >= other.m
 
+    def __repr__(self) -> str:
+        return f"{self.deg:.2f}°"
+
 
 class Velocity:
     """A compact velocity unit."""
@@ -194,7 +198,7 @@ class Velocity:
         else:
             raise ValueError(f'Cannot compare velocity and {type(other)}')
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return f'{self.mps} m/s'
 
 

@@ -58,7 +58,7 @@ def check_feasibility_2D_w_sim(problem, T_hours_forward, deg_around_xt_xT_box, g
                             problem=problem)
 
     # Step 3: Extract if it reached and if yes the time.
-    sim.run(T_in_h=T_hours_forward)
+    sim.evaluation_run(T_in_h=T_hours_forward)
 
     # Step 4: Make problem object back to plan_on_gt as original
     problem.plan_on_gt = plan_setting
@@ -255,41 +255,3 @@ def run_forward_reachability(problem, T_hours_forward=100, deg_around_xt_xT_box=
         return True, T_earliest_in_h, feasibility_planner
 
 
-def check_if_x_is_reachable(feasibility_planner, x, time):
-    """ Function to check if a certain point x is reachable at the datetime time using a run planner object."""
-    # check if the planner was run already
-    if feasibility_planner.all_values is None:
-        raise ValueError("the reachability planner needs to be run before we can check reachability.")
-    times = feasibility_planner.times
-    if times[0] < times[-1]:  # ascending times
-        idx_start_time_closest = bisect.bisect_right(times, time.timestamp(), hi=len(times) - 1)
-    else:  # descending times
-        idx_start_time_closest = -bisect.bisect_right(times[::-1], time.timestamp())
-
-    return feasibility_planner.grid.interpolate(feasibility_planner.all_values[idx_start_time_closest, ...], x) <= 0
-
-
-def get_bounding_square_of_reachable_set(feasibility_planner, time):
-    """Function to get the square lower and upper bounds of the reachable set at a specific time."""
-    # check if the planner was run already
-    if feasibility_planner.all_values is None:
-        raise ValueError("the reachability planner needs to be run before we can check reachability.")
-    # get the square around the reachable set
-    val_at_t = interp1d(feasibility_planner.times, feasibility_planner.all_values, axis=0,
-                        kind='linear')(time.timestamp()).squeeze()
-    coordinate_vectors = feasibility_planner.grid.coordinate_vectors
-    ndim = len(val_at_t.shape)
-    bounding_dicts = []
-    for dim in range(ndim):
-        first = True
-        for idx in range(len(coordinate_vectors[dim])):
-            I = [slice(None)] * ndim
-            I[dim] = idx
-            inside = np.any(val_at_t[tuple(I)] < 0)
-            if inside and first:
-                lo = coordinate_vectors[dim][idx]
-                first = False
-            if inside and not first:
-                hi = coordinate_vectors[dim][idx]
-        bounding_dicts.append({"lo":lo, "hi":hi})
-    return bounding_dicts

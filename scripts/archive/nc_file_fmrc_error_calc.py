@@ -251,7 +251,7 @@ sim = OceanNavSimulator(sim_config_dict="simulator.yaml",
                         control_config_dict='reach_controller.yaml',
                         problem=prob)
 start = time.time()
-sim.run(T_in_h=10)
+sim.evaluation_run(T_in_h=10)
 print("Took : ", time.time() - start)
 print("Arrived after {} h".format((sim.trajectory[3, -1] - sim.trajectory[3, 0]) / 3600))
 # 67.0 exactly!

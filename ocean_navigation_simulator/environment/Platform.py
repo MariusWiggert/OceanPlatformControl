@@ -16,10 +16,9 @@ import time
 import math
 from typing import Dict, Optional
 
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.environment.data_sources.SolarIrradiance.SolarIrradianceSource import \
-    SolarIrradianceSource
-from ocean_navigation_simulator.environment.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
+from ocean_navigation_simulator.data_sources import OceanCurrentSource
+from ocean_navigation_simulator.data_sources.SolarIrradiance import SolarIrradianceSource
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
@@ -42,7 +41,6 @@ class PlatformAction:
     def __getitem__(self, item):
         return self.__array__()[item]
 
-
     @staticmethod
     def from_xy_propulsion(x_propulsion: float, y_propulsion: float):
         """Helper function to initialize a PlatformAction based on xy actuation.
@@ -63,13 +61,19 @@ class Platform:
     This class holds the system state vector and equations of motion
     (simulate_step) for simulating a seaweed platform.
     """
+    ocean_source: OceanCurrentSource = None
+    solar_source: SolarIrradianceSource = None
+    seaweed_source: SeaweedGrowthSource = None
+    state: PlatformState = None
 
     def __init__(self,
-                 platform_dict: Dict,
-                 ocean_source: OceanCurrentSource,
-                 use_geographic_coordinate_system: bool,
-                 solar_source: Optional[SolarIrradianceSource] = None,
-                 seaweed_source: Optional[SeaweedGrowthSource] = None):
+            platform_dict: Dict,
+            ocean_source: OceanCurrentSource,
+            use_geographic_coordinate_system: bool,
+            solar_source: SolarIrradianceSource = None,
+            seaweed_source: SeaweedGrowthSource = None,
+            verbose: Optional[int] = 0,
+        ):
 
         # Set the major member variables
         self.platform_dict = platform_dict
@@ -78,6 +82,7 @@ class Platform:
         self.solar_source = solar_source
         self.seaweed_source = seaweed_source
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
+        self.verbose = verbose
 
         self.model_battery = self.solar_source is not None
         self.model_seaweed = self.solar_source is not None and self.seaweed_source is not None
@@ -126,7 +131,8 @@ class Platform:
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
         self.F_x_next = self.get_casadi_dynamics()
-        #print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
+        if self.verbose > 0:
+            print(f'Platform: Initialize Casadi + Dynamics ({time.time() - start:.1f}s)')
 
     def update_dynamics(self, state: PlatformState):
         """Run in the step loop of arena."""
@@ -137,10 +143,12 @@ class Platform:
             if solar_change:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
-            print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
+            if self.verbose > 0:
+                print(f'Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)')
 
     def get_casadi_dynamics(self):
         # TODO: split up in three functions with varying level of complexities: 1) lat, lon, 2) adding battery, 3) adding seaweed mass
+        # Note: lat, lon depend on battery if used
         # Could also be done with subclassing of Platform.
         ##### Equations #####
         start = time.time()
@@ -200,5 +208,10 @@ class Platform:
             [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)],
         )
-        #print(f'Set Platform Equations: {time.time() - start:.2f}s')
+        if self.verbose > 0:
+            print(f'Platform: Set Equations ({time.time() - start:.1f}s)')
         return F_next
+
+    def __del__(self):
+        # print('__del__ called in Platform')
+        pass

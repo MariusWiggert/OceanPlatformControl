@@ -1,0 +1,60 @@
+casadi_cache_dict:
+    deg_around_x_t: 0.2
+    time_around_x_t: 86400.0 # 3600 * 24 =
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.1
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 600.0
+
+use_geographic_coordinate_system: True
+
+spatial_boundary: null
+
+ocean_dict:
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'opendap'
+        source_settings:
+            service: 'copernicus'
+            currents: 'total'
+            USERNAME: 'mmariuswiggert'
+            PASSWORD: 'tamku3-qetroR-guwneq'
+            DATASET_ID: 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'
+    forecast: null
+
+solar_dict:
+    hindcast:
+        field: 'SolarIrradiance'
+        source: 'analytical_wo_caching'
+        source_settings:
+            boundary_buffers: [0.2, 0.2]
+            x_domain: [-180, 180]
+            y_domain: [-90, 90]
+            temporal_domain: [2020-01-01 00:00:00Z, 2023-01-10 00:00:00Z]
+            spatial_resolution: 0.1
+            temporal_resolution: 3600.0
+    forecast: null
+
+seaweed_dict:
+    hindcast:
+        field: 'SeaweedGrowth'
+        source: 'GEOMAR'
+        source_settings:
+            filepath: './data/Nutrients/2021_monthly_nutrients_and_temp.nc'
+    forecast: null
+
+platform_state:
+    lon: -83.69599051807417
+    lat: 27.214803181574762
+    date_time: 2021-11-20 12:00:00Z
+    battery_charge: 0
+    seaweed_mass: 0
+
+end_region:
+    lon: -83.99317002359827
+    lat: 27.32464464432537
