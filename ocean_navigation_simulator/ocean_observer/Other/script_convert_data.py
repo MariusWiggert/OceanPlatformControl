@@ -60,27 +60,27 @@ def main():
 
     start_training = dateParser.parse(cfg_parameters_input["start_training"])
     duration_training = datetime.timedelta(hours=cfg_parameters_input["duration_training_in_h"])
-    start_validation = dateParser.parse(cfg_parameters_input["start_validation"])
-    duration_validation = datetime.timedelta(hours=cfg_parameters_input["duration_validation_in_h"])
+    # start_validation = dateParser.parse(cfg_parameters_input["start_validation"])
+    # duration_validation = datetime.timedelta(hours=cfg_parameters_input["duration_validation_in_h"])
 
     array_input = cfg_parameters_input["input_tile_dims"]
     input_tile_dims = (array_input[0], array_input[1], datetime.timedelta(hours=array_input[2]))
     array_output = cfg_parameters_input["output_tile_dims"]
     output_tile_dims = (array_output[0], array_output[1], datetime.timedelta(hours=array_output[2]))
-    # dataset_training = CustomOceanCurrentsDatasetSubgrid(config_datasets["training"], start_training,
-    #                                                      start_training + duration_training,
-    #                                                      input_tile_dims, output_tile_dims, cfg_dataset, dtype=dtype)
-    dataset_validation = CustomOceanCurrentsDatasetSubgrid(config_datasets["validation"],
-                                                           start_validation,
-                                                           start_validation + duration_validation,
-                                                           input_tile_dims, output_tile_dims, cfg_dataset, dtype=dtype)
+    dataset_training = CustomOceanCurrentsDatasetSubgrid(config_datasets["training"], start_training,
+                                                         start_training + duration_training,
+                                                         input_tile_dims, output_tile_dims, cfg_dataset, dtype=dtype)
+    # dataset_validation = CustomOceanCurrentsDatasetSubgrid(config_datasets["validation"],
+    #                                                        start_validation,
+    #                                                        start_validation + duration_validation,
+    #                                                        input_tile_dims, output_tile_dims, cfg_dataset, dtype=dtype)
 
-    # train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
-    validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
+    train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
+    # validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
 
     size_file_in_byte = cfg_parameters_input["size_per_file_in_mb"] * (2 << 20)
-    for loader, folder in [  # (train_loader, cfg_parameters_input["folder_training"]), ]:
-        (validation_loader, cfg_parameters_input["folder_validation"])]:
+    for loader, folder in [(train_loader, cfg_parameters_input["folder_training"]),
+                           ]:  # (validation_loader, cfg_parameters_input["folder_validation"])]:
         print(f"starting adding files to {folder}.")
         X, y = list(), list()
         index = 0

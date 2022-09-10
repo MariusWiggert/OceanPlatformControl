@@ -19,6 +19,7 @@ from tqdm import tqdm
 from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import CustomOceanCurrentsFromFiles
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid_2 import OceanCurrentCNNSubgrid
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentConvLSTM import OceanCurrentConvLSTM
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentUnetLSTM import OceanCurrentUnetLSTM
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsRNN import OceanCurrentRNN
@@ -83,6 +84,8 @@ def get_model(args, cfg_neural_network, device):
         model = OceanCurrentRNN(**cfg_neural_network)
     elif model_type == 'unetlstm':
         model = OceanCurrentUnetLSTM(**cfg_neural_network)
+    elif model_type == 'convlstm':
+        model = OceanCurrentConvLSTM(**cfg_neural_network)
     else:
         model = OceanCurrentMLP(**cfg_neural_network)
 
@@ -128,7 +131,7 @@ def __create_histogram(list_ratios: List[float], epoch, args, is_training, n_bin
         args.get("folder_figure", "./") + args["model_type"] + "/" + now.strftime("%d-%m-%Y_%H-%M-%S") + "/")
     filename = f'epoch{epoch}_{legend_name}_loss{(f"{list_ratios.mean():.2f}").replace(".", "_")}.png'
     os.makedirs(folder, exist_ok=True)
-    print(f"saving file {filename} histogram at: {folder}")
+    # print(f"saving file {filename} histogram at: {folder}")
     plt.savefig(os.path.join(folder, filename))
     plt.close()
 
@@ -186,9 +189,9 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
             # wandb.log({'epoch_loss': total_loss / len(train_loader.dataset), })
         total_loss /= len(train_loader)
         __create_histogram(all_ratios, epoch, args, True)
-        print(f"Training loss: {loss}")
-        print(f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%, ",
-              (np.array(list_ratios)))
+        print(
+            f"Training loss: {loss}" + f"% of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%, mean ratio{(np.array(list_ratios).mean())}",
+        )
 
         return total_loss, np.array(list_ratios).mean()
 
@@ -231,12 +234,10 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
     accuracy /= len(test_loader)
 
     __create_histogram(all_ratios, epoch, args, False)
-    print(f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%")
-
     print(
-        f"Test set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}\n"
-        f"mean ratio SUM(rmse(NN(FC_xt))/rmse(FC_xt)):({accuracy:.6f})\n"
-        f"Percentage increase: {((initial_loss - test_loss) / initial_loss):.3f}")
+        f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}% "
+        f"Test set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}"
+        f"mean ratio SUM(rmse(NN(FC_xt))/rmse(FC_xt)):({accuracy:.6f}) % increase: {((initial_loss - test_loss) / initial_loss) * 100:.3f}")
     return test_loss, np.array(list_ratios).mean()
 
 
@@ -347,7 +348,11 @@ def main():
     model_error = cfg_model.get("model_error", True)
     print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
     folder_training = cfg_data_generation["parameters_input"]["folder_training"]
+    if isinstance(folder_training, str):
+        folder_training = [folder_training]
     folder_validation = cfg_data_generation["parameters_input"]["folder_validation"]
+    if isinstance(folder_validation, str):
+        folder_validation = [folder_validation]
     if folder_training == folder_validation:
         warn("Training and validation use the same dataset!!!")
 
@@ -367,6 +372,8 @@ def main():
                                                     max_items=args.batch_size * args.max_batches_training_set)
     dataset_validation = CustomOceanCurrentsFromFiles(folder_validation,
                                                       max_items=args.batch_size * args.max_batches_validation_set)
+
+    print(f"lengths ds: training:{len(dataset_training)}, validation:{len(dataset_validation)}")
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)

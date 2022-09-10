@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -11,23 +12,24 @@ class CustomOceanCurrentsFromFiles(Dataset):
     GULF_MEXICO = [[GULF_MEXICO_WITHOUT_MARGIN[0][0] + MARGIN, GULF_MEXICO_WITHOUT_MARGIN[0][1] - MARGIN],
                    [GULF_MEXICO_WITHOUT_MARGIN[1][0] + MARGIN, GULF_MEXICO_WITHOUT_MARGIN[1][1] - MARGIN]]
 
-    def __init__(self, folder: str, max_items: int = None):
+    def __init__(self, folders: List[str], max_items: int = None, ):
         if max_items is not None and max_items < 0:
             max_items = None
         # folder = "data_exported"
         Xs, ys = list(), list()
-        for path in sorted(os.listdir(folder)):
-            # check if current path is a file
-            full_path = os.path.join(folder, path)
-            if os.path.isfile(full_path):
-                if path.endswith("_X.npy"):
-                    Xs.append(full_path)
-                if path.endswith("_y.npy"):
-                    ys.append(full_path)
+        for folder in folders:
+            for path in sorted(os.listdir(folder)):
+                # check if current path is a file
+                full_path = os.path.join(folder, path)
+                if os.path.isfile(full_path):
+                    if path.endswith("_X.npy"):
+                        Xs.append(full_path)
+                    if path.endswith("_y.npy"):
+                        ys.append(full_path)
         print("loading files:", Xs, ys)
         # TODO: remove the slicing
-        self.X = np.concatenate([np.load(fname) for fname in Xs[0:1]])
-        self.y = np.concatenate([np.load(fname) for fname in ys[0:1]])
+        self.X = np.concatenate([np.load(fname) for fname in Xs])
+        self.y = np.concatenate([np.load(fname) for fname in ys])
 
         if max_items is not None:
             print(f"Only considering the first {max_items} items over {len(self.X)}.")

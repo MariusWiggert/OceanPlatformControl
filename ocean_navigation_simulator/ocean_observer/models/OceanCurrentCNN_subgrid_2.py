@@ -6,7 +6,7 @@ import torch.nn as nn
 class OceanCurrentCNNSubgrid(nn.Module):
 
     def __init__(self, ch_sz: list[int], device: str = 'cpu', init_weights_value: float = 0.01, activation="relu",
-                 downsizing_method="conv"):
+                 downsizing_method="conv", dropout_encoder=0, dropout_decoder=0, dropout_bottom=0):
         super(OceanCurrentCNNSubgrid, self).__init__()
         self.init_weights_value = init_weights_value
         self.activation = activation
@@ -14,25 +14,36 @@ class OceanCurrentCNNSubgrid(nn.Module):
         # Encoder
         # ch_sz = [2, 16, 32, 64, 92]
         self.bloc_left_1 = nn.Sequential(self.__get_same_dims_bloc(ch_sz[0], ch_sz[1]),
-                                         self.__get_same_dims_bloc(ch_sz[1], ch_sz[1]))
+                                         nn.Dropout3d(dropout_encoder),
+                                         self.__get_same_dims_bloc(ch_sz[1], ch_sz[1]),
+                                         nn.Dropout3d(dropout_encoder), )
         self.bloc_left_2 = nn.Sequential(self.__get_downsizing_bloc(ch_sz[1], ch_sz[1]),
-                                         self.__get_same_dims_bloc(ch_sz[1], ch_sz[2]))
+                                         self.__get_same_dims_bloc(ch_sz[1], ch_sz[2]),
+                                         nn.Dropout3d(dropout_encoder), )
         self.bloc_left_3 = nn.Sequential(self.__get_downsizing_bloc(ch_sz[2], ch_sz[2]),
-                                         self.__get_same_dims_bloc(ch_sz[2], ch_sz[3]))
+                                         self.__get_same_dims_bloc(ch_sz[2], ch_sz[3]),
+                                         nn.Dropout3d(dropout_encoder), )
 
         # If 4 levels
         self.bloc_bottom = nn.Sequential(self.__get_downsizing_bloc(ch_sz[3], ch_sz[3]),
-                                         self.__get_same_dims_bloc(ch_sz[3], ch_sz[3]))
+                                         self.__get_same_dims_bloc(ch_sz[3], ch_sz[3]),
+                                         nn.Dropout3d(dropout_bottom), )
 
         self.bloc_right_3 = nn.Sequential(self.__get_upsizing_bloc(ch_sz[3], ch_sz[3], output_padding=(0, 1, 1)),
                                           self.__get_same_dims_bloc(ch_sz[3], ch_sz[3]),
-                                          self.__get_same_dims_bloc(ch_sz[3], ch_sz[3]))
+                                          nn.Dropout3d(dropout_decoder),
+                                          self.__get_same_dims_bloc(ch_sz[3], ch_sz[3]),
+                                          nn.Dropout3d(dropout_decoder))
         self.bloc_right_2 = nn.Sequential(self.__get_upsizing_bloc(ch_sz[3], ch_sz[2], output_padding=(1, 1, 1)),
                                           self.__get_same_dims_bloc(ch_sz[2], ch_sz[2]),
-                                          self.__get_same_dims_bloc(ch_sz[2], ch_sz[2]))
+                                          nn.Dropout3d(dropout_decoder),
+                                          self.__get_same_dims_bloc(ch_sz[2], ch_sz[2]),
+                                          nn.Dropout3d(dropout_decoder))
         self.bloc_right_1 = nn.Sequential(self.__get_upsizing_bloc(ch_sz[2], ch_sz[1], output_padding=1),
                                           self.__get_same_dims_bloc(ch_sz[1], ch_sz[1]),
-                                          self.__get_same_dims_bloc(ch_sz[1], ch_sz[1]))
+                                          nn.Dropout3d(dropout_decoder),
+                                          self.__get_same_dims_bloc(ch_sz[1], ch_sz[1]),
+                                          nn.Dropout3d(dropout_decoder))
         self.bloc_final = self.__get_final_bloc(ch_sz[1], ch_sz[0])
 
         all_blocs = [self.bloc_left_1, self.bloc_left_2, self.bloc_left_3, self.bloc_bottom, self.bloc_right_3,
@@ -45,9 +56,7 @@ class OceanCurrentCNNSubgrid(nn.Module):
         # Dims input: [Batch_size, 2 (= dimensions currents), time, lat, lon]
         x1l = self.bloc_left_1(x)
         x2l = self.bloc_left_2(x1l)
-
         x3l = self.bloc_left_3(x2l)
-
         # if 4 levels
         x_bottom = self.bloc_bottom(x3l)
         x3r = self.__upsize_and_add_residual(self.bloc_right_3, x_bottom, x3l)

@@ -1,37 +1,36 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 4
-  model_type: "cnn"
+  batch_size: 24
+  model_type: "convlstm"
   log_interval: 1
-  lr: 0.0001 #0.0003
+  lr: 0.01
   epochs: 200
   folder_figure: "./figures/"
-  max_batches_training_set: 2000
+  lstm_hidden: 400
+  max_batches_training_set: -1 #2000
   max_batches_validation_set: -1
+  do_validation: True
   optimizer:
     name: "Adam"
     parameters:
       betas: [ 0.95, 0.9995 ]
       eps: 0.000001
-      weight_decay: 0.00001 #0.0010 #0.005 # instead of 0.02 #0.15
+      weight_decay: 0.006 #0.005 # instead of 0.02 #0.15
   scheduler:
     name: "ReduceLROnPlateau"
     parameters:
       mode: 'min'
-      factor: 0.2
-      patience: 7
+      factor: 0.3
+      patience: 4
       threshold: 0.005
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
 model:
   cfg_neural_network:
-    ch_sz: [ 2, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
+    ch_sz: [ 2, 40 ] #[ 2, 8, 16, 32, 64 ]
     activation: "relu"
-    downsizing_method: "avgpool"
-    dropout_encoder: 0.1
-    dropout_bottom: 0.4
-    dropout_decoder: 0.3
+    downsizing_method: "conv"
   cfg_dataset:
     radius_lon: 1
     radius_lat: 1
@@ -63,9 +62,11 @@ data_generation:
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 24, 24, 1 ]
     size_per_file_in_mb: 2000
-    folder_training: "./data_NN/data_training_35_days_cnn_full_bigger_stride/"
+    folder_training: "./data_NN/data_training_10_days_lstm_full/"
+    shuffle_training: False
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
-    folder_validation: "./data_NN/data_validation_10_days_cnn_full_bigger_stride/"
+    folder_validation: "./data_NN/data_validation_10_days_lstm_full/"
+    shuffle_validation: False
     #folder_validation: "./data_NN/data_training_10_days_lstm/"
 config_neural_net:
   training:
