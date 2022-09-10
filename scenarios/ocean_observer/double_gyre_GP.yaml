@@ -1,0 +1,63 @@
+sim_cache_dict:
+    deg_around_x_t: 10.0
+    time_around_x_t: 10.0
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.5
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 0.05
+
+use_geographic_coordinate_system: False
+
+ocean_dict:
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'analytical'
+        source_settings:
+            name: 'PeriodicDoubleGyre'
+            boundary_buffers: [ 0.2, 0.2 ]
+            x_domain: [ 0, 2 ]
+            y_domain: [ 0, 1 ]
+            temporal_domain: [ 0, 100 ]
+            spatial_resolution: 0.05
+            temporal_resolution: 1
+            v_amplitude: 0.5
+            epsilon_sep: 0
+            period_time: 10000
+    forecast:
+        field: 'OceanCurrents'
+        source: 'analytical'
+        source_settings:
+            name: 'PeriodicDoubleGyre'
+            boundary_buffers: [ 0.2, 0.2 ]
+            x_domain: [ 0, 2 ]
+            y_domain: [ 0, 1 ]
+            temporal_domain: [ 0, 100 ]
+            spatial_resolution: 0.05
+            temporal_resolution: 1
+            v_amplitude: 0.55
+            epsilon_sep: 0
+            period_time: 10000
+
+solar_dict:
+    hindcast: null
+    forecast: null
+
+seaweed_dict:
+    hindcast: null
+    forecast: null
+
+platform_state:
+    lon: 0
+    lat: 0
+    date_time: 1970-01-01 00:00:00Z
+    battery_charge: 0
+    seaweed_mass: 0
+
+end_region:
+    lon: 0.8
+    lat: 0.8

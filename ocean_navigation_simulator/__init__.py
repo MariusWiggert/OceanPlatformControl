@@ -1,14 +1,6 @@
 # Make sub-folders visible to the module
-from ocean_navigation_simulator import steering_controllers
-from ocean_navigation_simulator import planners
-from ocean_navigation_simulator import utils
-from ocean_navigation_simulator import evaluation
-
-# Make certain classes directly accessible
-from ocean_navigation_simulator.simulator import OceanNavSimulator
-from ocean_navigation_simulator.problem import Problem #, WaypointTrackingProblem
+from ocean_navigation_simulator import controllers, environment, ocean_observer, problem_factories, utils
 
 # specify version (for pip installation)
-__version__ = "0.0.1"
-__all__ = ("OceanNavSimulator", "Problem", #"WaypointTrackingProblem",
-           "steering_controllers", "utils", "planners", "evaluation")
+__version__ = "0.1.0"
+__all__ = ("controllers", "environment", "ocean_observer", "problem_factories", "utils")
