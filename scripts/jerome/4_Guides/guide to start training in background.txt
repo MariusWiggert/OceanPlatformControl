@@ -1,0 +1,16 @@
+
+nohup python scripts/jerome/6_Reinforcement\ Learning/train_ray.py &> train.log &
+ps a
+kill -9 PID
+tail -f train.log
+
+press ctrl-Z
+disown -h %1
+bg 1
+
+
+
+
+tmux
+ctrl+b then D
+tmux attach

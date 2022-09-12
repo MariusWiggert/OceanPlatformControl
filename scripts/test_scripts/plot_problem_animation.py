@@ -2,7 +2,7 @@
 import datetime
 import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
 
-sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
+casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 # %Solar irradiance Test
 # Step 1: create the specification dict
 source_dict = {'field': 'SolarIrradiance',
@@ -17,7 +17,7 @@ source_dict = {'field': 'SolarIrradiance',
                    'temporal_resolution': 3600,
                }}
 # % Step 2: Instantiate the field
-solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, sim_cache_dict=sim_cache_dict)
+solar_field = SolarIrradianceField.SolarIrradianceField(hindcast_source_dict=source_dict, casadi_cache_dict=casadi_cache_dict)
 
 # %% render animation
 x_interval = [-120, 120]
@@ -31,13 +31,13 @@ temporal_res = 3600 * 3
 #                                                              spatial_resolution=spatial_res, temporal_resolution=temporal_res)
 
 solar_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              temporal_res=temporal_res, spatial_res=spatial_res,
+                                              temporal_resolution=temporal_res, spatial_resolution=spatial_res,
                                               output="solar_animation.mp4")
 
 # %% Ocean Animation Test
 from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
 
-sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
+casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 # % Analytical Ocean Current Example
 ocean_source_dict = {
     'field': 'OceanCurrents',
@@ -56,7 +56,7 @@ ocean_source_dict = {
     }}
 # Create the ocean Field
 ocean_field = OceanCurrentField(hindcast_source_dict=ocean_source_dict,
-                                sim_cache_dict=sim_cache_dict,
+                                casadi_cache_dict=casadi_cache_dict,
                                 use_geographic_coordinate_system=False)
 # %% visualize currents
 ocean_field.forecast_data_source.plot_data_at_time_over_area(
@@ -76,7 +76,7 @@ def add_dot(ax, posix_time):
 
 # %
 ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              temporal_res=temporal_res, spatial_res=spatial_res, add_ax_func=add_dot,
+                                              temporal_resolution=temporal_res, spatial_resolution=spatial_res, add_ax_func=add_dot,
                                               output="currents_animation.mp4", figsize=(24, 12))
 
 # %% Test Seaweed Growth Visualization
@@ -95,7 +95,7 @@ platform_dict = {
     'dt_in_s': 600,
     'use_geographic_coordinate_system': True,
 }
-sim_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 3}
+casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 3}
 solar_source_dict = {
     'field': 'SolarIrradiance',
     'source': 'analytical_wo_caching',
@@ -128,7 +128,7 @@ ocean_source_dict = {'field': 'OceanCurrents',
                          'DATASET_ID': 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'}}
 
 arena = Arena(
-    sim_cache_dict=sim_cache_dict,
+    casadi_cache_dict=casadi_cache_dict,
     platform_dict=platform_dict,
     ocean_dict={'hindcast': ocean_source_dict, 'forecast': None},
     solar_dict={'hindcast': solar_source_dict, 'forecast': None},
@@ -157,5 +157,5 @@ arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
 # %% animate data over time and area
 arena.seaweed_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval,
                                                       t_interval=t_interval,
-                                                      temporal_res=temporal_res, spatial_res=spatial_res,
+                                                      temporal_resolution=temporal_res, spatial_resolution=spatial_res,
                                                       output="growth_animation.mp4", figsize=(12, 6))
