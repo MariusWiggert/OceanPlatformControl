@@ -12,7 +12,7 @@ import yaml
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.utils.units import Velocity, Distance
 
-seed = 30031996
+seed = 4  # 30031996
 tile_radius = 1
 delta_points = 1 / 12
 lon_left, lon_right = -95.362841, -85.766062
@@ -34,7 +34,7 @@ all_intervals = [(start_date, end_date), (start_date_2, end_date_2)]
 duration_simulation_default = datetime.timedelta(days=5)
 max_velocity = Velocity(mps=1)
 distance_start_end_point = max_velocity * duration_simulation_default
-file_to_check_boundaries = "./data/april_may_data/forecast_Copernicus_april_may/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-03-30T12:30:00Z-2022-03-30T12:30:00Z-2022-04-08T23:30:00Z.nc"
+file_used_to_check_boundaries = "./data/april_may_data/forecast_Copernicus_april_may/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-03-30T12:30:00Z-2022-03-30T12:30:00Z-2022-04-08T23:30:00Z.nc"
 
 
 def generate_end_point(initial_point: SpatialPoint) -> SpatialPoint:
@@ -135,7 +135,7 @@ def problems_to_yaml(problems: list[str], dir_name: str, filename: str):
 def check_area_to_have_no_nan():
     global lon_left, lon_right, lat_top, lat_bottom
 
-    lon_lat_xarray = xr.open_dataset(file_to_check_boundaries).isel(depth=0, time=0)
+    lon_lat_xarray = xr.open_dataset(file_used_to_check_boundaries).isel(depth=0, time=0)
     len_lat = len(lon_lat_xarray["latitude"])
     print("start shrinking area")
     while np.isnan(lon_lat_xarray.sel(longitude=slice(lon_left - tile_radius, lon_right + tile_radius)).isel(

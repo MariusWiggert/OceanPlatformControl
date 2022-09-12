@@ -10,7 +10,7 @@ import pandas as pd
 import statsmodels.api as sm
 import xarray
 import yaml
-from fitter import Fitter
+# from fitter import Fitter
 from scipy.stats import norm
 
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
@@ -67,7 +67,8 @@ class ExperimentRunner:
     def __init__(self, yaml_file_config: Union[str, Dict[str, any]], filename_problems=None,
                  position: Optional[
                      Tuple[Tuple[float, float, datetime.datetime], Tuple[float, float]]] = None,
-                 to_modify: Dict[str, any] = {}):
+                 dict_field_yaml_to_update: Dict[str, any] = {}, folder_problems="scenarios/ocean_observer/",
+                 folder_config_file="scenarios/ocean_observer/"):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
 
@@ -76,15 +77,15 @@ class ExperimentRunner:
             "ocean_navigation_simulator/env/scenarios/"
         """
         if type(yaml_file_config) is str:
-            with open(f'scenarios/ocean_observer/{yaml_file_config}.yaml') as f:
+            with open(f'{folder_config_file}{yaml_file_config}.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
                 self.variables = config["experiment_runner"]
         else:
             config = yaml_file_config
             self.variables = config["experiment_runner"]
 
-        # Modify the values given in the dict to_modify
-        for str_keys, new_value in to_modify.items():
+        # Modify the values from the yaml file with the values from dict_field_yaml_to_update
+        for str_keys, new_value in dict_field_yaml_to_update.items():
             t = self.variables
             all_keys = str_keys.split(".")
             for key_dic in all_keys[:-1]:
@@ -92,7 +93,7 @@ class ExperimentRunner:
             t[all_keys[-1]] = new_value
 
         if filename_problems is not None:
-            self.variables["problems_file"] = f'scenarios/ocean_observer/{filename_problems}.yaml'
+            self.variables["problems_file"] = f'{folder_problems}{filename_problems}.yaml'
 
         if self.variables.get("use_real_data", True):
             problems = []
@@ -372,7 +373,7 @@ class ExperimentRunner:
             #     self.last_observation = self.arena.step(action_to_apply)
             file = self.last_file_used
             fc = self.__step_simulation(controller, fit_model=True,
-                                        lon_lat_time_intervals_to_output=intervals_lon_lat_time)
+                                        lon_lat_time_intervals_to_get=intervals_lon_lat_time)
             print(file == self.last_file_used, file, self.last_file_used)
             if file != self.last_file_used:
                 self.print_errors()
@@ -429,7 +430,10 @@ class ExperimentRunner:
                     merged[key + "_" + str(h)] += [all_hours[h]]
         return results, results_per_h, merged, self.list_dates_when_new_files
 
-    def run_next_problem(self) -> Dict[str, Any]:
+    def has_next_problem(self):
+        return self.problem_factory.has_problems_remaining()
+
+    def run_next_problem(self, get_inputs_and_outputs=False) -> Dict[str, Any]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
         observer. Gather "number_burnin_steps" observations without fitting the model and then start predicting the
         model at each timestep and evaluate for that timestep the prediction compared to the hindcast.
@@ -437,7 +441,7 @@ class ExperimentRunner:
         Returns:
             dictionary with the pairs: (metric_name, 1d array containing the output from that metric at each timestep)
         """
-        if not self.problem_factory.has_problems_remaining():
+        if not self.has_next_problem():
             raise StopIteration()
 
         problem = self.problem_factory.next_problem()
@@ -450,7 +454,6 @@ class ExperimentRunner:
         if burnin > 0:
             for i in range(burnin):
                 self.__step_simulation(controller, fit_model=False)
-                # position = arena_obs.platform_state.to_spatial_point()
             print(f"End of burnin ({burnin} steps)")
         print("start predicting")
 
@@ -460,11 +463,16 @@ class ExperimentRunner:
         metrics_per_h = []
         results = []
 
+        if get_inputs_and_outputs:
+            inputs_and_outputs = ([], [], [], [])
+
         # Now we run the algorithm
         for i in range(self.variables["number_steps_prediction"]):
-            model_prediction = self.__step_simulation(controller, fit_model=True)
-            if not i:
-                print("Shape predictions: ", dict(model_prediction.dims))
+            print(f"step:{i}/{self.variables['number_steps_prediction']}")
+            model_prediction = self.__step_simulation(controller, fit_model=True,
+                                                      dim_lon_lat=24 if get_inputs_and_outputs else None)
+            # if not i:
+            #    print("Shape predictions: ", dict(model_prediction.dims))
             # get ground truth
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
                 *self.__get_lon_lat_time_intervals(ground_truth=True),
@@ -474,36 +482,50 @@ class ExperimentRunner:
 
             # compute the metrics and log the results
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
-            results.append(self.last_prediction_ground_truth)
-            name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
-            directions = self.variables.get("direction_current", ["uv"])
-            metric = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions)
-            metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
-                                                                                per_hour=True)
-            # In case of Nan only
-            if len(metric_per_hour) == 0:
-                continue
-            if not len(metrics_names):
-                metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
-                metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
 
-            metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
-                [self.last_observation.platform_state.date_time.timestamp(),
-                 (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(axis=-1) ** 0.5).mean()])))
+            if get_inputs_and_outputs:
+                inputs_and_outputs[0].append(
+                    self.last_prediction_ground_truth.predictions_over_area.to_array().to_numpy())
+                inputs_and_outputs[1].append(self.last_prediction_ground_truth.ground_truth.to_array().to_numpy())
+                inputs_and_outputs[2].append(self.observer.prediction_model.measurement_locations)
+                inputs_and_outputs[3].append(self.observer.prediction_model.measured_current_errors)
+            else:
+                results.append(self.last_prediction_ground_truth)
+                name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
+                directions = self.variables.get("direction_current", ["uv"])
+                metric = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions)
+                metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
+                                                                                    per_hour=True)
+                # In case of Nan only
+                if len(metric_per_hour) == 0:
+                    continue
+                if not len(metrics_names):
+                    metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
+                    metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
 
-            values_per_h = np.stack(list(metric_per_hour.values()))
-            # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
-            #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
-            times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
-                                   ndmin=2)
-            metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
-            # print(
-            #    f"step {i + 1}/{self.variables['number_steps_prediction']}, time:{self.last_observation.platform_state.date_time}, metrics: {list(zip(metrics_names, metrics[-1]))}")
+                metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
+                    [self.last_observation.platform_state.date_time.timestamp(),
+                     (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(axis=-1) ** 0.5).mean()])))
 
-        metrics = np.array(metrics)
-        metrics_per_h = np.array(metrics_per_h)
-        return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, {name: metrics_per_h[:, i, :] for i, name
-                                                                               in enumerate(metrics_per_h_names)}
+                values_per_h = np.stack(list(metric_per_hour.values()))
+                # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
+                #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
+                times_per_h = np.array(
+                    [self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
+                    ndmin=2)
+                metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
+                # print(
+                #    f"step {i + 1}/{self.variables['number_steps_prediction']}, time:{self.last_observation.platform_state.date_time}, metrics: {list(zip(metrics_names, metrics[-1]))}")
+
+        if get_inputs_and_outputs:
+            return [np.concatenate(elem, axis=1) for elem in inputs_and_outputs[:2]], inputs_and_outputs[2], \
+                   inputs_and_outputs[3]
+        else:
+            metrics = np.array(metrics)
+            metrics_per_h = np.array(metrics_per_h)
+            return {name: metrics[:, i] for i, name in enumerate(metrics_names)}, {name: metrics_per_h[:, i, :] for
+                                                                                   i, name
+                                                                                   in enumerate(metrics_per_h_names)}
 
     def __create_plots(self, last_metrics: Optional[np.ndarray] = None,
                        last_metrics_per_h: Optional[np.ndarray] = None):
@@ -526,7 +548,8 @@ class ExperimentRunner:
             self.last_prediction_ground_truth.plot_3d(variable)
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True,
-                          lon_lat_time_intervals_to_output: Optional[Tuple] = None) -> Union['xarray', None]:
+                          lon_lat_time_intervals_to_get: Optional[Tuple] = None, dim_lon_lat=None) -> Union[
+        'xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
          model. We save the last observation.
 
@@ -544,9 +567,9 @@ class ExperimentRunner:
         if (self.last_file_used != self.last_observation.forecast_data_source.DataArray.encoding['source']) or \
                 self.last_file_used is None:
             if self.variables.get("clear_observations_when_new_file", False):
-                print("clearing observations", self.last_observation.forecast_data_source.DataArray.encoding['source'],
-                      "\n",
-                      self.last_file_used)
+                # print("clearing observations", self.last_observation.forecast_data_source.DataArray.encoding['source'],
+                #      "\n",
+                #      self.last_file_used)
                 self.observer.reset()
 
             self.last_file_used = self.last_observation.forecast_data_source.DataArray.encoding['source']
@@ -560,7 +583,7 @@ class ExperimentRunner:
             # print(
             #     f"after fitted we obtain error predicted: {self.observer.get_data_at_point(point.lon.deg, point.lat.deg, point.date_time)}  at point:{point.lon.deg, point.lat.deg, point.date_time}")
             predictions = self.observer.get_data_over_area(*(
-                lon_lat_time_intervals_to_output if lon_lat_time_intervals_to_output is not None else self.__get_lon_lat_time_intervals()),
+                lon_lat_time_intervals_to_get if lon_lat_time_intervals_to_get is not None else self.__get_lon_lat_time_intervals()),
                                                            temporal_resolution=self.variables.get(
                                                                "delta_between_predictions_in_sec", None))
             # todo: quick fix, Find why the predictions are not always the same shape:
@@ -568,6 +591,18 @@ class ExperimentRunner:
             if len(predictions["time"]) > n_steps:
                 predictions = predictions.isel(time=range(n_steps))
 
+        # check that the tile has the correct size ( Might not happen sometimes when the platform is between tiles)
+        point = self.last_observation.platform_state.to_spatio_temporal_point()
+        if dim_lon_lat is not None:
+            if min(len(predictions["lon"]), len(predictions["lat"])) < dim_lon_lat:
+                raise Exception("Check config file. The radius is to small for the desired tile.")
+            while dim_lon_lat != len(predictions["lon"]):
+                i = 0 if point.lon.deg - predictions["lon"][0] < predictions["lon"][-1] - point.lon.deg else 0
+                predictions = predictions.isel(lon=slice(i, i + len(predictions["lon"]) - 1))
+            while dim_lon_lat != len(predictions["lat"]):
+                i = 0 if point.lat.deg - predictions["lat"][0] < predictions["lat"][-1] - point.lat.deg else 0
+                predictions = predictions.isel(lat=slice(i, i + len(predictions["lat"]) - 1))
+            assert len(predictions["lon"]) == len(predictions["lat"]) == dim_lon_lat
         return predictions
 
     def __get_lon_lat_time_intervals(self, ground_truth: bool = False) -> Tuple[List[float],

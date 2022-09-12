@@ -1,12 +1,17 @@
+import argparse
 import csv
 import datetime
 import os
 import sys
+from _csv import writer
+from datetime import datetime
+from datetime import timezone
 
 import numpy as np
 import torch
 import yaml
 from matplotlib import pyplot as plt
+from npy_append_array import NpyAppendArray
 from ray import tune
 from ray.tune.suggest.bayesopt import BayesOptSearch
 
@@ -244,7 +249,7 @@ def train(config_init):
     # variables = config["experiment_runner"]
 
 
-def main_tune(num_samples=500, bayes=False):
+def run_ray_tune_GP_grid(num_samples=500, bayes=False):
     # import ray
     # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
     # res = tune.run(train, config=search_space, num_samples=num_samples)
@@ -259,7 +264,7 @@ def main_tune(num_samples=500, bayes=False):
         return res.get_best_config(metric="avg", mode="min")
 
 
-def main_visualize(number_forecasts_in_days=20):
+def run_experiments_and_visualize_area(number_forecasts_in_days=20):
     # idle position
     # position = ((-86.20, 29.04, datetime.datetime(2022, 4, 19)), (-84, 28.04))
     p = -85.659, 26.15
@@ -272,7 +277,7 @@ def main_visualize(number_forecasts_in_days=20):
     exp.visualize_area(x, y, t, number_days_forecasts=number_forecasts_in_days)
 
 
-def main_visualize_noise(number_forecasts=30):
+def run_experiments_and_visualize_noise(number_forecasts=30):
     day = datetime.datetime(2022, 4, 5, 12, 00, tzinfo=datetime.timezone.utc)
     center_x, center_y = -90, 24
     rx, ry = 5, 4
@@ -282,13 +287,61 @@ def main_visualize_noise(number_forecasts=30):
                            position=[
                                (center_x, center_y, day),
                                (center_x, center_y + 3)],
-                           to_modify={"radius_area_around_platform": 5})
+                           dict_field_yaml_to_update={"radius_area_around_platform": 5})
     # results, results_per_h, merged, list_dates_when_new_files = exp.visualize_all_noise(x, y)
     exp.visualize_all_noise(x, y, number_forecasts=number_forecasts)
     print("noise")
 
 
-def main(max_number_problems_to_run=None):
+def __add_line_to_csv(to_add, folder_destination, type: str):
+    with open(folder_destination + f'{type}.csv', 'a+', newline='') as f_object:
+        # Pass the CSV  file object to the writer() function
+        writer_object = writer(f_object)
+        # Result - a writer object
+        # Pass the data in the list as an argument into the writerow() function
+        writer_object.writerow(to_add)
+        # Close the file object
+        f_object.close()
+
+
+def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
+                                      folder_destination="./data_NN_DA/export/"):
+    # todo: set 24 as field in config + add parameter for config
+    print(f"generating output into folder: {output_folder}")
+    exp = ExperimentRunner("config_GP_for_NN", filename_problems=filename_problems,
+                           folder_problems="data_NN_DA/", folder_config_file="data_NN_DA/")
+
+    results = []
+    i = 0
+    k = 0
+    while exp.has_next_problem():
+        try:
+            k += 1
+            print(f"starting problem {k}")
+            # results.append(np.array(exp.run_next_problem(get_inputs_and_outputs=True)))
+            array_fc_hc, measurement_locations, errors = exp.run_next_problem(get_inputs_and_outputs=True)
+            __export_results_to_file(array_fc_hc, folder_destination)
+            __add_line_to_csv(measurement_locations, folder_destination, "measurement")
+            __add_line_to_csv(errors, folder_destination, "error")
+            # size = sys.getsizeof(results[0]) / 1000000
+            # print(f"Number results:{len(results)}, size: {len(results) * size} MB")
+            # if size > max_mega_per_file:
+            #     __export_list_to_file(results, folder_destination, i)
+            #     i += 1
+            #     results = []
+        except ValueError:
+            print(f"error with problem: {len(results)}")
+
+    print("over")
+
+
+def __export_results_to_file(res: list, path_dir):
+    for j, s in enumerate(['x', 'y']):
+        with NpyAppendArray(path_dir + f"data_{s}.npy") as npaa:
+            npaa.append(np.ascontiguousarray(res[j].astype('float64')))
+
+
+def run_experiments_and_plot(max_number_problems_to_run=None):
     """
     Run an experiment
     """
@@ -309,8 +362,6 @@ def main(max_number_problems_to_run=None):
     # plot to see error
     metric_to_plot = "vme"
     initial, improved = metric_to_plot + "_initial", metric_to_plot + "_improved"
-    from datetime import datetime
-    from datetime import timezone
     problem_1 = results[-1]
     X = [datetime.fromtimestamp(t, tz=timezone.utc) for t in problem_1["time"]]
     y1 = problem_1[initial]
@@ -360,13 +411,20 @@ def main(max_number_problems_to_run=None):
 
 
 if __name__ == "__main__":
-    if "-R" in sys.argv or "--remote" in sys.argv:
-        main_tune(num_samples=5000)
-    elif "-V" in sys.argv or "--visualize" in sys.argv:
-        main_visualize(1)
+    print("arguments: ", sys.argv)
+    if not {"-R", "--remote"}.isdisjoint(sys.argv):
+        run_ray_tune_GP_grid(num_samples=5000)
+    elif not {"-V", "--visualize"}.isdisjoint(sys.argv):
+        run_experiments_and_visualize_area(1)
     elif not {"-N", "--noise"}.isdisjoint(sys.argv):
-        main_visualize_noise(number_forecasts=20)
+        run_experiments_and_visualize_noise(number_forecasts=20)
+    elif not {"-T", "--collect-tiles"}.isdisjoint(sys.argv):
+        parser = argparse.ArgumentParser(description='Process some integers.')
+        parser.add_argument('-T', action='store_true', help='collect tiles')
+        parser.add_argument('-f', type=str, help='file name')
+        args = parser.parse_args()
+        run_experiments_and_collect_tiles(output_folder="./data_NN_DA/", filename_problems="new_problems_2_4000")
     else:
-        main(max_number_problems_to_run=None)
+        run_experiments_and_plot(max_number_problems_to_run=None)
 
 # %%
