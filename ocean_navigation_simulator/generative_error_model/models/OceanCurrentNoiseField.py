@@ -96,8 +96,18 @@ class OceanCurrentNoiseField(GenerativeModel):
 
         # reintroduce trends into error
         noise = noise.reshape(len(lon_locs), len(lat_locs), len(t_locs), 2)
+
+        # print(f"u metrics: {noise[:, :, :, 0].mean()}, {np.sqrt(noise[:, :, :, 0].var())}")
+        # print(f"v metrics: {noise[:, :, :, 1].mean()}, {np.sqrt(noise[:, :, :, 1].var())}")
+        # # what we want:
+        # print(self.detrend_statistics[0, 0], self.detrend_statistics[0, 1])
+        # print(self.detrend_statistics[1, 0], self.detrend_statistics[1, 1])
+
         noise[:, :, :, 0] = noise[:, :, :, 0] * self.detrend_statistics[0, 1] + self.detrend_statistics[0, 0]
         noise[:, :, :, 1] = noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
+
+        # print(f"u metrics: {noise[:, :, :, 0].mean()}, {np.sqrt(noise[:, :, :, 0].var())}")
+        # print(f"v metrics: {noise[:, :, :, 1].mean()}, {np.sqrt(noise[:, :, :, 1].var())}")
 
         # need to convert time to list
         t_locs = t_locs.tolist()
@@ -156,13 +166,13 @@ def test():
     lon_range = [-140, -120]
     lat_range = [20, 30]
     t_range = [datetime.datetime(2022, 4, 21, 12, 30, 0),
-               datetime.datetime(2022, 4, 30, 12, 30, 0)]
+               datetime.datetime(2022, 5, 21, 12, 30, 0)]
     problem = Problem(lon_range, lat_range, t_range)
 
     # get the noise
     noise_field = noise_field.get_noise_vec(problem)
     print(noise_field)
-    # noise_field.to_netcdf("~/Downloads/temp/vec_sample_noise.nc")
+    noise_field.to_netcdf("~/Downloads/plots/forecast_validation/vec_sample_noise.nc")
 
 
 if __name__ == "__main__":

@@ -41,7 +41,8 @@ class CurrentVector(object):
         return f'({self.u}, {self.v})'
 
 
-OPENSIMPLEX_VARIANCE = 0.0569
+# OPENSIMPLEX_VARIANCE = 0.0569
+OPENSIMPLEX_VARIANCE = 0.0727
 # The noise's variance should match the global variance. Therefore, the
 # noise is scaled.
 NOISE_MAGNITUDE = np.sqrt(1.02/OPENSIMPLEX_VARIANCE)

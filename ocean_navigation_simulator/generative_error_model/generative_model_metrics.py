@@ -28,8 +28,8 @@ def rmse_over_time(df: pd.DataFrame) -> Dict[str, List[float]]:
 
 
 def rmse_over_time_xr(error: xr.Dataset):
-    rmse_val = np.sqrt((error["u_error"].mean(dim=("lon", "lat"))).values**2 +
-                       (error["v_error"].mean(dim=("lon", "lat"))).values**2)
+    rmse_val = np.sqrt(((error["u_error"]**2).mean(dim=("lon", "lat"))).values +
+                       ((error["v_error"]**2).mean(dim=("lon", "lat"))).values)
     return rmse_val
 
 
