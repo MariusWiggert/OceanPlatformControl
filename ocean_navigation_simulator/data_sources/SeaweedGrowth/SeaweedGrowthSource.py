@@ -1,8 +1,10 @@
 from typing import Dict
 import matplotlib.pyplot as plt
 from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import *
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import *
 from ocean_navigation_simulator.utils import units
 import datetime
+import logging
 
 # TODO: Automatically handle re-initialization of the F_NGR_per_second casadi function when the solar_rad_casadi
 # in the solar_source is updated (e.g. because of caching). Needs to happen either in Arena or Platform.
@@ -10,6 +12,7 @@ import datetime
 # From Experiments: Interpolation extrapolates outside of it's domain using the dy/dx at the boundary of the domain.
 # When the interpolation function is updated, the outside function is NOT updated! So we need to re-run set_casadi_function
 # every time the solar function does new caching!
+
 
 # Not used right now as different modality as other sources.
 class SeaweedGrowthSource(DataSource):
@@ -48,6 +51,10 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         # Adding things that are required for the AnalyticalSource to the dictionary
         source_config_dict = self.add_default_domains(source_config_dict)
         super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.ocean_field.seaweed_growth_source")
+        self.logger.setLevel(logging.INFO)
+
         # Initialize variables used to hold casadi functions.
         self.F_NGR_per_second, self.r_growth_wo_irradiance, self.r_resp = [None] * 3
         self.solar_rad_casadi = source_config_dict['source_settings']['solar_source'].solar_rad_casadi

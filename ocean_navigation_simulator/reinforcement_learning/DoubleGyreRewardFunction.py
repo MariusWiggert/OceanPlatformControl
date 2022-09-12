@@ -1,6 +1,6 @@
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
-from ocean_navigation_simulator.environment.RewardFunction import RewardFunction
+from ocean_navigation_simulator.reinforcement_learning.RewardFunction import RewardFunction
 
 
 class  DoubleGyreRewardFunction(RewardFunction):

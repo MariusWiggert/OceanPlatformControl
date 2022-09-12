@@ -19,8 +19,8 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
 from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import OceanRewardFunction
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
-from ocean_navigation_simulator.scripts.Utils import Utils
-from ocean_navigation_simulator.utils.bcolors import bcolors
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
+from ocean_navigation_simulator.reinforcement_learning.bcolors import bcolors
 
 
 class OceanEnv(gym.Env):
@@ -33,7 +33,7 @@ class OceanEnv(gym.Env):
         config: Optional[dict] = {},
         verbose: Optional[int] = 0,
     ):
-        with Utils.timing(f'OceanEnv[Worker {worker_index}]: Created ({{:.1f}}s)', verbose):
+        with cluster_utils.timing(f'OceanEnv[Worker {worker_index}]: Created ({{:.1f}}s)', verbose):
             self.worker_index = worker_index
             self.config = config
             self.verbose = verbose
@@ -66,7 +66,7 @@ class OceanEnv(gym.Env):
             self.resets += 1
             self.problem = self.problem_factory.next_problem()
             self.prev_obs = self.arena.reset(self.problem.start_state)
-            self.hindcast_planner = HJReach2DPlanner.from_plan(
+            self.hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
                 folder=f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
                 problem=self.problem,
                 verbose=self.verbose-1,
@@ -185,7 +185,7 @@ class OceanEnv(gym.Env):
         self.hindcast_planner.plot_hj_frame(ax)
         ax.autoscale()
         # plt.title('')
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         os.makedirs(self.results_folder, exist_ok=True)
         ax.get_figure().savefig(f'{self.results_folder}Reset {self.resets} Group {self.problem.extra_info["group"]} Batch {self.problem.extra_info["batch"]} Index {self.problem.extra_info["factory_index"]}.png')
         plt.clf()

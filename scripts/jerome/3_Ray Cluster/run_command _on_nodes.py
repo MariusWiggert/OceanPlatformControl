@@ -7,7 +7,7 @@ import datetime
 import time
 import pytz
 
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
@@ -42,7 +42,7 @@ script_start_time = time.time()
 
 COMMAND = 'rm -rf /tmp/hycom_forecast; rm -rf /tmp/hycom_hindcast/'
 
-Utils.run_command_on_all_nodes(COMMAND)
+cluster_utils.run_command_on_all_nodes(COMMAND)
 
 # import ray
 # from tqdm import tqdm

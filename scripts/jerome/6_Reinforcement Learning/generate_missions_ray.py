@@ -2,14 +2,14 @@ import datetime
 import time
 import pytz
 
-from ocean_navigation_simulator.scripts.GenerationRunner import GenerationRunner
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts.GenerationRunner import GenerationRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 from ocean_navigation_simulator.utils import units
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.init_ray()
+cluster_utils.init_ray()
 
 runner = GenerationRunner(
     name='7_test',

@@ -1,6 +1,7 @@
 import abc
 import datetime
 import time
+import logging
 from typing import List, Optional, Dict
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
 # import gin # We don't use gin because it doesn't work well with the C3 Data Types. Hence, we use settings_dicts.
@@ -17,8 +18,7 @@ class DataField(abc.ABC):
         casadi_cache_dict: Dict,
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
-        use_geographic_coordinate_system: Optional[bool] = True,
-        verbose: Optional[int] = 0,
+        use_geographic_coordinate_system: Optional[bool] = True
     ):
         """Initialize the source objects from the respective settings dicts.
         Args:
@@ -32,26 +32,23 @@ class DataField(abc.ABC):
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
-        # Step 2: Create Forecast Source
+        # Step 1: Create Hindcast Source
         start = time.time()
         hindcast_source_dict['casadi_cache_settings'] = casadi_cache_dict
         hindcast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
         self.hindcast_data_source = self.instantiate_source_from_dict(hindcast_source_dict)
-        if verbose > 0:
-            print(f'DataField: Create Hindcast Source ({time.time() - start:.1f}s)')
+        self.logger.info(f'DataField: Create Hindcast Source ({time.time() - start:.1f}s)')
 
         # Step 2: Create Forecast Source if different from Hindcast
         if forecast_source_dict is None:
-            if verbose > 0:
-                print("DataField: Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
+            self.logger.info("DataField: Forecast is the same as Hindcast for {}.".format(hindcast_source_dict['field']))
             self.forecast_data_source = self.hindcast_data_source
         else:
             start = time.time()
             forecast_source_dict['casadi_cache_settings'] = casadi_cache_dict
             forecast_source_dict['use_geographic_coordinate_system'] = use_geographic_coordinate_system
             self.forecast_data_source = self.instantiate_source_from_dict(forecast_source_dict)
-            if verbose > 0:
-                print(f'DataField: Create Forecast Source ({time.time() - start:.1f}s)')
+            self.logger.info(f'DataField: Create Forecast Source ({time.time() - start:.1f}s)')
 
     def get_forecast(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns forecast at a point in the field.
@@ -63,7 +60,8 @@ class DataField(abc.ABC):
         return self.forecast_data_source.get_data_at_point(spatio_temporal_point)
 
     def get_forecast_area(self, x_interval: List[float], y_interval: List[float], t_interval: List[datetime.datetime],
-                          spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None) -> xr:
+                          spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None,
+                          most_recent_fmrc_at_time: Optional[datetime.datetime] = None) -> xr:
         """A function to receive the forecast for a specific area over a time interval.
         Args:
           x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
@@ -71,12 +69,14 @@ class DataField(abc.ABC):
           t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
+          most_recent_fmrc_at_time: Specify to use the forecast that was most recent at a specific time.
         Returns:
           data_array                    in xarray format that contains the grid and the values
         """
         return self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval,
                                                             spatial_resolution=spatial_resolution,
-                                                            temporal_resolution=temporal_resolution)
+                                                            temporal_resolution=temporal_resolution,
+                                                            most_recent_fmrc_at_time=most_recent_fmrc_at_time)
 
     def get_ground_truth(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns true data at a point in the field.

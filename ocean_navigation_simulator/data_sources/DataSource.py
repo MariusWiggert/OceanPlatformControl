@@ -2,8 +2,8 @@
 import abc
 import datetime
 import os
-import warnings
 from functools import partial
+import logging
 from typing import List, AnyStr, Optional, Tuple, Union, Any, Callable
 
 import cartopy.crs as ccrs
@@ -22,6 +22,8 @@ from ocean_navigation_simulator.utils import units
 class DataSource(abc.ABC):
     """Base class for various data sources."""
 
+    logger: logging.Logger = logging.getLogger("data_source")
+
     @abc.abstractmethod
     def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
@@ -30,26 +32,23 @@ class DataSource(abc.ABC):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-    def check_for_casadi_dynamics_update(self, state: PlatformState, verbose: bool = False) -> bool:
+    def check_for_casadi_dynamics_update(self, state: PlatformState) -> bool:
         """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
             Args:
                 state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
+                logger: logging object
             """
         out_x_range = not (self.casadi_grid_dict['x_range'][0] < state.lon.deg < self.casadi_grid_dict['x_range'][1])
         out_y_range = not (self.casadi_grid_dict['y_range'][0] < state.lat.deg < self.casadi_grid_dict['y_range'][1])
         out_t_range = not (self.casadi_grid_dict['t_range'][0] <= state.date_time < self.casadi_grid_dict['t_range'][1])
 
         if out_x_range or out_y_range or out_t_range:
-            if verbose > 0:
-                if out_x_range:
-                    print(
-                        f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
-                if out_y_range:
-                    print(
-                        f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
-                if out_t_range:
-                    print(
-                        f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
+            if out_x_range:
+                self.logger.debug(f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}')
+            if out_y_range:
+                self.logger.debug(f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}')
+            if out_t_range:
+                self.logger.debug(f'Updating Interpolation (T: {self.casadi_grid_dict["t_range"][0]}, {state.date_time}, {self.casadi_grid_dict["t_range"][1]}')
 
             self.update_casadi_dynamics(state)
             return True
@@ -106,26 +105,57 @@ class DataSource(abc.ABC):
         return t_interval, lat_bnds, lon_bnds
 
     @staticmethod
-    def get_grid_dict_from_xr(xrDF: xr) -> dict:
+    def get_lon_lat_time_interval_of_trajectory(
+        end_region: Optional[SpatialPoint] = None,
+        margin: Optional[float] = 0,
+    ) -> Tuple[List[float], List[float], List[float]]:
+        """
+        Helper function to find the interval around start/trajectory/goal.
+        Args:
+            end_region: Optional[SpatialPoint]
+            margin: Optional[float]
+
+        Returns:
+            lon_interval:  [x_lower, x_upper] in degrees
+            lat_interval:  [y_lower, y_upper] in degrees
+            time_interval: [t_lower, t_upper] in posix time
+        """
+        if end_region is None:
+            lon_min = np.min(self.state_trajectory[:, 0])
+            lon_max = np.max(self.state_trajectory[:, 0])
+            lat_min = np.min(self.state_trajectory[:, 1])
+            lat_max = np.max(self.state_trajectory[:, 1])
+        else:
+            lon_min = min([np.min(self.state_trajectory[:, 0]), end_region.lon.deg])
+            lon_max = max([np.max(self.state_trajectory[:, 0]), end_region.lon.deg])
+            lat_min = min([np.min(self.state_trajectory[:, 1]), end_region.lat.deg])
+            lat_max = max([np.max(self.state_trajectory[:, 1]), end_region.lat.deg])
+
+        return [lon_min - margin, lon_max + margin], [lat_min - margin, lat_max + margin], [self.state_trajectory[0, 2], self.state_trajectory[-1, 2]]
+
+    @staticmethod
+    def get_grid_dict_from_xr(xrDF: xr, source: Optional[AnyStr] = None) -> dict:
         """Helper function to extract the grid dict from an xrarray"""
 
         grid_dict = {
             "t_range": [units.get_datetime_from_np64(np64) for np64 in [xrDF["time"].data[0], xrDF["time"].data[-1]]],
             "y_range": [xrDF["lat"].data[0], xrDF["lat"].data[-1]],
-            'y_grid': xrDF["lat"].data,
             "x_range": [xrDF["lon"].data[0], xrDF["lon"].data[-1]],
-            'x_grid': xrDF["lon"].data,
-            't_grid': [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data],
-            'spatial_land_mask': np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask,
             'spatial_res': xrDF["lat"].data[1] - xrDF["lat"].data[0],
             'temporal_res': (xrDF["time"].data[1] - xrDF["time"].data[0]) / np.timedelta64(1, 's')
         }
+        if source != 'opendap' and 'water_u' in xrDF.variables:
+            # If xrDF is not opendap, extract additional information (otherwise too big)
+            grid_dict['y_grid'] = xrDF["lat"].data
+            grid_dict['x_grid'] = xrDF["lon"].data
+            grid_dict['t_grid'] = [units.get_posix_time_from_np64(np64) for np64 in xrDF["time"].data]
+            grid_dict['spatial_land_mask'] = np.ma.masked_invalid(xrDF.variables['water_u'].data[0, :, :]).mask
 
         return grid_dict
 
     @staticmethod
     def array_subsetting_sanity_check(array: xr, x_interval: List[float], y_interval: List[float],
-                                      t_interval: List[datetime.datetime]):
+                                      t_interval: List[datetime.datetime], logger: logging.Logger):
         """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         # Step 1: collateral check is any dimension 0?
         if 0 in (len(array.coords['lat']), len(array.coords['lon']), len(array.coords['time'])):
@@ -139,15 +169,15 @@ class DataSource(abc.ABC):
 
         # Step 2: Data partially not in the array check
         if array.coords['lat'].data[0] > y_interval[0] or array.coords['lat'].data[-1] < y_interval[1]:
-            warnings.warn(
+            logger.warning(
                 f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}]).",
                 RuntimeWarning)
         if array.coords['lon'].data[0] > x_interval[0] or array.coords['lon'].data[-1] < x_interval[1]:
-            warnings.warn(
+            logger.warning(
                 f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).",
                 RuntimeWarning)
         if units.get_datetime_from_np64(array.coords['time'].data[-1]) < t_interval[1]:
-            warnings.warn("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
+            logger.warning("The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning)
 
     def plot_data_at_time_over_area(self, time: Union[datetime.datetime, float],
                                     x_interval: List[float], y_interval: List[float],
@@ -238,6 +268,7 @@ class DataSource(abc.ABC):
         folder_to_save_in = "generated_media/" if not output.startswith('/') else ''
 
         # Now render it to a file
+        import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if output in ['safari', 'jupyter']:
@@ -344,7 +375,7 @@ class DataSource(abc.ABC):
 
     def animate_data(self, x_interval: List[float], y_interval: List[float],
                      t_interval: List[Union[datetime.datetime, float]],
-                     spatial_res: Optional[float] = None, temporal_res: Optional[float] = None,
+                     spatial_resolution: Optional[float] = None, temporal_resolution: Optional[float] = None,
                      add_ax_func: Optional[Callable] = None,
                      fps: int = 10, output: AnyStr = "data_animation.mp4", forward_time: bool = True, **kwargs):
         """Basis function to animate data over a specific area and time interval.
@@ -352,8 +383,8 @@ class DataSource(abc.ABC):
               x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
               y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
               t_interval:       List of the lower and upper time either datetime.datetime or posix.
-              spatial_res:      Per default (None) the data_source resolution is used otherwise the selected one.
-              temporal_res:     Per default (None) the data_source temp resolution is used otherwise the selected one.
+              spatial_resolution:   Per default (None) the data_source resolution is used otherwise the selected one.
+              temporal_resolution:  Per default (None) the data_source temp resolution is used otherwise the selected one.
               add_ax_func:      function handle what to add on top of the current visualization
                                 signature needs to be such that it takes an axis object and time as input
                                 e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
@@ -368,7 +399,7 @@ class DataSource(abc.ABC):
         # Step 1: get the data_subset for animation
         xarray = self.get_data_over_area(
             x_interval=x_interval, y_interval=y_interval,
-            t_interval=t_interval, spatial_resolution=spatial_res, temporal_resolution=temporal_res)
+            t_interval=t_interval, spatial_resolution=spatial_resolution, temporal_resolution=temporal_resolution)
 
         # Calculate min and max over the full tempo-spatial array
         if self.source_config_dict['field'] == 'OceanCurrents':
@@ -474,7 +505,7 @@ class XarraySource(abc.ABC):
             lat=slice(y_interval_extended[0], y_interval_extended[1]))
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
-        DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval)
+        DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
 
         # Step 4: perform interpolation to a specific resolution if requested
         if spatial_resolution is not None or temporal_resolution is not None:
@@ -612,7 +643,7 @@ class AnalyticalSource(abc.ABC):
         subset = self.create_xarray(grids_dict, data_tuple)
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
-        DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval)
+        DataSource.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
 
         return subset
 

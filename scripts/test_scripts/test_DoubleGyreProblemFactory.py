@@ -5,6 +5,7 @@ import time
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
+from ocean_navigation_simulator.utils.plotting_utils import get_index_from_posix_time
 
 
 start = time.time()
@@ -48,7 +49,7 @@ fig.show()
 
 def add_colored_trajecotry_and_problem(ax, posix_time):
     for i, arena in enumerate(arenas):
-        index = arena.get_index_from_posix_time(posix_time)
+        index = get_index_from_posix_time(posix_time)
         color = 'green' if success[i] else 'red'
 
         ax = arena.plot_state_trajectory_on_map(
@@ -81,8 +82,8 @@ arenas[0].ocean_field.hindcast_data_source.animate_data(
     x_interval=[-0.2,2.2],
     y_interval=[-0.1,1.1],
     t_interval=[0,20],
-    temporal_res=0.1,
-    spatial_res=0.1,
+    temporal_resolution=0.1,
+    spatial_resolution=0.1,
     output='safari',
     add_ax_func=add_colored_trajecotry_and_problem,
 )

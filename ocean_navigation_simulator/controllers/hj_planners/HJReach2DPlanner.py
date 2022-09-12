@@ -10,6 +10,7 @@ from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import 
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
+from ocean_navigation_simulator.environment.Platform import PlatformAction
 import hj_reachability as hj
 import xarray as xr
 from typing import Union, Optional
@@ -41,6 +42,7 @@ class HJReach2DPlanner(HJPlannerBase):
         )
 
     def get_initial_values(self, direction) -> jnp.ndarray:
+        """ Setting the initial values for the HJ PDE solver."""
         if direction == "forward":
             center = self.x_t
             return hj.shapes.shape_ellipse(
@@ -66,8 +68,7 @@ class HJReach2DPlanner(HJPlannerBase):
         else:
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")
 
-
-    def save_plan(self, folder):
+    def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok = True)
         # Settings
         with open(folder + 'specific_settings.pickle', 'wb') as file:
@@ -89,16 +90,18 @@ class HJReach2DPlanner(HJPlannerBase):
         # Used in Start Sampling
         with open(folder + 'characteristic_vec.pickle', 'wb') as file:
             pickle.dump(self.characteristic_vec, file)
+        with open(folder + 'offset_vec.pickle', 'wb') as file:
+            pickle.dump(self.characteristic_vec, file)
         with open(folder + 'initial_values.pickle', 'wb') as file:
             pickle.dump(self.initial_values, file)
 
     @staticmethod
-    def from_plan(folder, problem: NavigationProblem, verbose: Optional[int] = 0):
+    def from_saved_planner_state(folder, problem: NavigationProblem, verbose: Optional[int] = 0):
         # Settings
         with open(folder + 'specific_settings.pickle', 'rb') as file:
             specific_settings= pickle.load(file)
 
-        planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings, verbose=verbose)
+        planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 
         # Used in Replanning
         with open(folder + 'last_fmrc_idx_planned_with.pickle', 'rb') as file:
@@ -117,13 +120,17 @@ class HJReach2DPlanner(HJPlannerBase):
         # Used in Start Sampling
         with open(folder + 'characteristic_vec.pickle', 'rb') as file:
             planner.characteristic_vec = pickle.load(file)
+        with open(folder + 'offset_vec.pickle', 'rb') as file:
+            planner.offset_vec = pickle.load(file)
         with open(folder + 'initial_values.pickle', 'rb') as file:
             planner.initial_values = pickle.load(file)
         planner.set_interpolator()
 
         return planner
 
+
 class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
+    #TODO: this does not work after redesign with the state and action classes, needs to be adjusted if used.
     """Version of the HJReach2DPlanner that contains a heuristic to adjust the control, when the locally sensed
     current error (forecasted_vec - sensed_vec) is above a certain threshold.
     """
@@ -189,7 +196,7 @@ class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
         """Go in the direction of the target with full power. See superclass for args and return value."""
 
         lon, lat = x_t[0][0], x_t[1][0]
-        lon_target, lat_target = self.x_T[0], self.x_T[1]
+        lon_target, lat_target = self.problem.end_region.lon.deg, self.problem.end_region.lat.deg
 
         dlon = lon_target - lon
         dlat = lat_target - lat

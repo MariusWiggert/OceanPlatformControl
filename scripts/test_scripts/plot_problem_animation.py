@@ -31,7 +31,7 @@ temporal_res = 3600 * 3
 #                                                              spatial_resolution=spatial_res, temporal_resolution=temporal_res)
 
 solar_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              temporal_res=temporal_res, spatial_res=spatial_res,
+                                              temporal_resolution=temporal_res, spatial_resolution=spatial_res,
                                               output="solar_animation.mp4")
 
 # %% Ocean Animation Test
@@ -76,7 +76,7 @@ def add_dot(ax, posix_time):
 
 # %
 ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              temporal_res=temporal_res, spatial_res=spatial_res, add_ax_func=add_dot,
+                                              temporal_resolution=temporal_res, spatial_resolution=spatial_res, add_ax_func=add_dot,
                                               output="currents_animation.mp4", figsize=(24, 12))
 
 # %% Test Seaweed Growth Visualization
@@ -157,5 +157,5 @@ arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
 # %% animate data over time and area
 arena.seaweed_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval,
                                                       t_interval=t_interval,
-                                                      temporal_res=temporal_res, spatial_res=spatial_res,
+                                                      temporal_resolution=temporal_res, spatial_resolution=spatial_res,
                                                       output="growth_animation.mp4", figsize=(12, 6))

@@ -8,6 +8,7 @@ Problem Factories generate Problems. They can either be completely random and in
 or they use a pre-generated finite list. For reproducibility a seed can be fed at generation.
 """
 
+
 class ProblemFactory(abc.ABC):
     """
     Interface for a problem generator.

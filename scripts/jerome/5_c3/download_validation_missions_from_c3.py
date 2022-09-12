@@ -1,9 +1,9 @@
 from tqdm import tqdm
 import pandas as pd
 import ocean_navigation_simulator.utils.paths as paths
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 
-c3 = Utils.get_c3()
+c3 = cluster_utils.get_c3()
 
 #%%
 missions = c3.Mission.fetch(spec={'filter': 'experiment.id=="Short_Horizon_CopernicusGT"'})

@@ -19,7 +19,8 @@ import logging
 from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.problem_factories.ShortMissionProblemFactory import ShortMissionProblemFactory
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
+
 
 class GenerationRunner:
     def __init__(
@@ -46,7 +47,7 @@ class GenerationRunner:
         self.results_folder = f'/seaweed-storage/generation/{self.name}_{self.timestring}/'
 
         # Step 2: Save configuration
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         with open(f'{self.results_folder}config.pickle', 'wb') as f:
             pickle.dump(self.problem_factory_config, f)
@@ -71,7 +72,7 @@ class GenerationRunner:
         self.problems = [problem for problems in self.ray_results for problem in problems]
 
         # Step 4: Save Results
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         self.problems_df = pd.DataFrame(self.problems)
         self.problems_df.to_csv(f'{self.results_folder}problems.csv')
 
@@ -120,15 +121,15 @@ class GenerationRunner:
             generate_time = time.time()-generate_start
 
             # Step 2: Plot Batch
-            Utils.ensure_storage_connection()
+            cluster_utils.ensure_storage_connection()
             os.makedirs(batch_folder, exist_ok = True)
             plot_start = time.time()
             problem_factory.plot_batch(batch_size, filename=f'{batch_folder}animation.gif')
             plot_time = time.time()-plot_start
 
             # step 3: Save Batch Planner
-            Utils.ensure_storage_connection()
-            problem_factory.hindcast_planner.save_plan(batch_folder)
+            cluster_utils.ensure_storage_connection()
+            problem_factory.hindcast_planner.save_planner_state(batch_folder)
 
             # Step 4: Format Batch Results
             try:
@@ -151,7 +152,7 @@ class GenerationRunner:
             batch_results = [problem.to_dict() | batch_info for index, problem in enumerate(problems)]
 
             # Step 5: Save Batch Results
-            Utils.ensure_storage_connection()
+            cluster_utils.ensure_storage_connection()
             pd.DataFrame(batch_results).to_csv(f'{batch_folder}/problems.csv')
 
             if verbose > 0:
@@ -170,7 +171,7 @@ class GenerationRunner:
     def analyse_generation(
         results_folder: str,
     ):
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f'{results_folder}problems.csv')
 
         ram_numerical = np.array([float(row['batch_ram'].removesuffix('MB').replace(',', '')) for index, row in problems_df.iterrows()])
@@ -189,7 +190,7 @@ class GenerationRunner:
         n: Optional[int] = 100,
     ):
         # Step 1:
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f'{results_folder}problems.csv').head(n=n)
         target_df = problems_df[problems_df['factory_index'] == 0]
         analysis_folder = f'{results_folder}analysis/'

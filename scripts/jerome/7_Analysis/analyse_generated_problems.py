@@ -1,7 +1,4 @@
-import pandas as pd
-import numpy as np
-from matplotlib import pyplot as plt
-from ocean_navigation_simulator.scripts.GenerationRunner import GenerationRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts.GenerationRunner import GenerationRunner
 
 ##### Analyse Specific Batch
 # BATCH = 63

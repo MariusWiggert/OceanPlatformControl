@@ -1,10 +1,12 @@
+import time
 from typing import Optional
 import pandas as pd
 import ray
+import os
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
 
 
 class BaselineRunner:
@@ -17,7 +19,7 @@ class BaselineRunner:
         self.generation_folder = generation_folder
         self.verbose = verbose
 
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         self.problems_df = pd.read_csv(f'{generation_folder}problems.csv').head(n=5)
 
         if verbose > 0:

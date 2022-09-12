@@ -16,7 +16,7 @@ from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import OceanNNModel
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
 
 
 class RLRunner:
@@ -50,10 +50,10 @@ class RLRunner:
         self.checkpoints_folder = f'{self.results_folder}checkpoints/'
 
         # Step 2: Save configuration
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(self.config_folder)
-        Utils.clean_results(f'/seaweed-storage/experiments/', verbose=1)
+        cluster_utils.clean_results(f'/seaweed-storage/experiments/', verbose=1)
         json.dump(self.agent_config,                open(f'{self.config_folder}agent_config.json', "w"), indent=4)
         json.dump(self.ocean_env_config,            open(f'{self.config_folder}ocean_env_config.json', "w"), indent=4)
         json.dump(self.feature_constructor_config,  open(f'{self.config_folder}feature_constructor_config.json', "w"), indent=4)
@@ -105,7 +105,7 @@ class RLRunner:
             result = self.agent.train()
             self.train_times.append(time.time() - train_start)
 
-            Utils.ensure_storage_connection()
+            cluster_utils.ensure_storage_connection()
             os.makedirs(self.checkpoints_folder, exist_ok=True)
             self.agent.save(self.checkpoints_folder)
 

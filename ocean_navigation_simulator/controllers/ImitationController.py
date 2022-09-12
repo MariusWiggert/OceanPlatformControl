@@ -4,9 +4,9 @@ import numpy as np
 import torch
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.controllers.HjPlanners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 TRUE_CURRENT_LENGTH = 5
@@ -22,7 +22,7 @@ class ImitationController(HJReach2DPlanner):
 
     def __init__(
         self,
-        problem: Problem,
+        problem: NavigationProblem,
         platform_dict
     ):
         """

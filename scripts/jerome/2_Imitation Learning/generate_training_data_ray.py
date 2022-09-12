@@ -9,7 +9,7 @@ from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.env.Platform import PlatformState
 from ocean_navigation_simulator.env.PlatformState import SpatialPoint
 from ocean_navigation_simulator.env.utils import units
-from ocean_navigation_simulator.scripts.generate_training_data_for_imitation import generate_training_data_for_imitation
+from ocean_navigation_simulator.reinforcement_learning.scripts import generate_training_data_for_imitation
 
 script_start_time = time.time()
 

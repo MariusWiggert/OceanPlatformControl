@@ -4,9 +4,9 @@ from ocean_navigation_simulator.controllers.NaiveController import NaiveControll
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 
-Utils.ensure_storage_connection()
+cluster_utils.ensure_storage_connection()
 problem_factory = FileMissionProblemFactory()
 problem = problem_factory.next_problem()
 

@@ -15,15 +15,15 @@ import pytz
 import ray
 from ray.rllib.agents.dqn.apex import ApexTrainer
 
-from ocean_navigation_simulator.scripts.RLRunner import RLRunner
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts.RLRunner import RLRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.init_ray()
-Utils.ensure_storage_connection()
+cluster_utils.init_ray()
+cluster_utils.ensure_storage_connection()
 
 runner = RLRunner(
     name='custom_model',

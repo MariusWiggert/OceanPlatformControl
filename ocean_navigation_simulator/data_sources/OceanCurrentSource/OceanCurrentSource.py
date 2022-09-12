@@ -1,6 +1,7 @@
 import datetime
 import os
 from typing import List, AnyStr, Optional, Union
+import logging
 
 import casadi as ca
 import dask.array.core
@@ -30,6 +31,7 @@ from ocean_navigation_simulator.utils.units import get_posix_time_from_np64, get
 # TODO: NaN handling as obstacles in the HJ planner would be really useful! (especially for analytical!)
 # TODO: Does not work well yet for getting the most recent forecast point data (because needs to load casadi in)
 # TODO: Clean up the mess with get_data_at_point, maybe by checking if caching function exists or not?
+# Note: Error files from generated noise from jonas reading is a hack right now, need to change that!
 
 
 class OceanCurrentSource(DataSource):
@@ -45,6 +47,7 @@ class OceanCurrentSource(DataSource):
 
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
+
 
     # Plotting Functions for OceanCurrents specifically
     @staticmethod
@@ -137,9 +140,13 @@ class OceanCurrentSource(DataSource):
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
     """ Class for OceanCurrentSources that are based on Xarray in contrast to an analytical function.
     It is the base-class for the various hindcast and forecast data sources."""
+
     def __init__(self, source_config_dict: dict):
         """See init of OceanCurrentSource, XarraySource  for details."""
         super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.ocean_field.ocean_source")
+        self.logger.setLevel(logging.INFO)
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.dask_array = None
 
@@ -171,15 +178,13 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
             dataframe = dataframe.compute()
         return dataframe
 
-
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
         return OceanCurrentVector(u=data_xarray['water_u'].item(), v=data_xarray['water_v'].item())
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
-    # TODO: Make it work with multiple Global HYCOM FMRC Files (a bit of extra logic, but possible)
-    # TODO: Make it such that we can specify from which fmrc index we want the data.
+    # TODO: Make it work with multiple files for one forecast (a bit of extra logic, but possible)
     """Data Source Object that accesses and manages multiple daily HYCOM files as source."""
 
     def __init__(self, source_config_dict: dict):
@@ -202,12 +207,14 @@ class ForecastFileSource(OceanCurrentSourceXarray):
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[Union[datetime.datetime, int]],
                            spatial_resolution: Optional[float] = None,
-                           temporal_resolution: Optional[float] = None) -> xr:
+                           temporal_resolution: Optional[float] = None,
+                           most_recent_fmrc_at_time: Optional[datetime.datetime] = None) -> xr:
         # format to datetime object
         if not isinstance(t_interval[0], datetime.datetime):
             t_interval = [datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc) for time in t_interval]
-        # Step 1: Make sure we use the most recent forecast available
-        self.check_for_most_recent_fmrc_dataframe(t_interval[0])
+        # Step 1: Make sure we use the right forecast either most_recent_fmrc_at_time or default t_interval[0]
+        self.check_for_most_recent_fmrc_dataframe(
+            most_recent_fmrc_at_time if most_recent_fmrc_at_time is not None else t_interval[0])
 
         return super().get_data_over_area(x_interval, y_interval, t_interval,
                                           spatial_resolution=spatial_resolution,
@@ -216,7 +223,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
     def load_ocean_current_from_idx(self):
         """Helper Function to load an OceanCurrent object."""
         self.DataArray = format_xarray(
-            data_frame = xr.open_mfdataset([self.files_dicts[self.rec_file_idx]['file']]),
+            data_frame=xr.open_dataset(self.files_dicts[self.rec_file_idx]['file']),
             currents=self.source_config_dict['source_settings'].get("currents", 'normal'))
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
@@ -289,14 +296,14 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
             self.DataArray = xr.open_dataset(
                 copernicusmarine_datastore(source_config_dict['source_settings']['DATASET_ID'],
                                            source_config_dict['source_settings']['USERNAME'],
-                                           source_config_dict['source_settings']['PASSWORD'])).isel(depth=0)
+                                           source_config_dict['source_settings']['PASSWORD']))
             self.DataArray = format_xarray(self.DataArray,
                                            currents=source_config_dict['source_settings'].get('currents', 'normal'))
         else:
-            raise ValueError("Only opendap Copernicus implemented for now.")
+            raise ValueError("Only opendap Copernicus implemented for now, HYCOM also has opendap.")
 
         # Step 2: derive the grid_dict for the xarray
-        self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+        self.grid_dict = self.get_grid_dict_from_xr(self.DataArray, self.source_config_dict['source'])
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
@@ -349,7 +356,7 @@ def format_xarray(data_frame: xr, currents: AnyStr = 'normal') -> xr:
             return data_frame[['uo', 'vo']].rename({'uo': 'water_u', 'vo': 'water_v'})
     # for the generated noise fields
     elif "u_error" in data_frame.keys():
-        # TODO: a hack because of Jonas file, need to change that!
+        # Note: a hack because of Jonas file, need to change that!
         data_frame = data_frame.transpose("time", "lat", "lon")
         return data_frame[['u_error', 'v_error']].rename({'u_error': 'water_u', 'v_error': 'water_v'})
 

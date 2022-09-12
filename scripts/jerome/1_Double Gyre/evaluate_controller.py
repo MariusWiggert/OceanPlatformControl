@@ -14,6 +14,7 @@ from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstruc
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
 from ocean_navigation_simulator.reinforcement_learning.DoubleGyreEnv import DoubleGyreEnv
 from scripts.jerome.old import clean_ray_results
+from ocean_navigation_simulator.utils.plotting_utils import get_index_from_posix_time
 
 script_start_time = time.time()
 
@@ -104,7 +105,7 @@ if not os.path.isdir(plot_folder):
 
 def add_colored_trajecotry_and_problem(ax, posix_time):
     for i, arena in enumerate(arenas):
-        index = arena.get_index_from_posix_time(posix_time)
+        index = get_index_from_posix_time(posix_time)
         color = 'green' if success[i] else 'red'
         arena.plot_all_on_map(
             ax=ax,
@@ -132,8 +133,8 @@ arenas[0].ocean_field.hindcast_data_source.animate_data(
     x_interval=[-0.2,2.2],
     y_interval=[-0.1,1.1],
     t_interval=[0,20],
-    temporal_res=0.1,
-    spatial_res=0.1,
+    temporal_resolution=0.1,
+    spatial_resolution=0.1,
     output='safari',
     add_ax_func=add_colored_trajecotry_and_problem,
 )

@@ -6,11 +6,12 @@ from typing import Optional, List
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils import units
 
 
 class ArenaFactory:
+    """Factory to create an arena with specific settings and download the needed files from C3 storage."""
     @staticmethod
     def create(
         scenario_name: str,
@@ -21,7 +22,8 @@ class ArenaFactory:
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 0
     ) -> Arena:
-        with Utils.timing(f'ArenaFactory: Creating Arena for {scenario_name} ({{:.1f}}s)', verbose):
+        """If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files."""
+        with units.timing(f'ArenaFactory: Creating Arena for {scenario_name} ({{:.1f}}s)', verbose):
             # Step 1: Load Configuration
             with open(f'config/arena/{scenario_name}.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
@@ -39,7 +41,7 @@ class ArenaFactory:
 
             # Step 2: Download Hindcast
             if t_interval is not None and config['ocean_dict']['hindcast'] is not None and config['ocean_dict']['hindcast']['source']=='hindcast_files':
-                with Utils.timing('ArenaFactory: - Download Hindcast Files ({:.1f}s)', verbose):
+                with units.timing('ArenaFactory: - Download Hindcast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
                         archive_source=config['ocean_dict']['hindcast']['source_settings']['source'],
                         archive_type=config['ocean_dict']['hindcast']['source_settings']['type'],
@@ -51,7 +53,7 @@ class ArenaFactory:
 
             # Step 3: Download Forecast
             if t_interval is not None and config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
-                with Utils.timing('ArenaFactory: - Download Forecast Files ({:.1f}s)', verbose):
+                with units.timing('ArenaFactory: - Download Forecast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
                         archive_source=config['ocean_dict']['forecast']['source_settings']['source'],
                         archive_type=config['ocean_dict']['forecast']['source_settings']['type'],
@@ -69,8 +71,7 @@ class ArenaFactory:
                 use_geographic_coordinate_system=config['use_geographic_coordinate_system'],
                 solar_dict=config['solar_dict'],
                 seaweed_dict=config['seaweed_dict'],
-                spatial_boundary=config['spatial_boundary'],
-                verbose=verbose-1
+                spatial_boundary=config['spatial_boundary']
             )
 
     @staticmethod
@@ -114,6 +115,7 @@ class ArenaFactory:
 
     @staticmethod
     def download_filelist(c3, files, download_folder, verbose: Optional[int] = 0):
+        """Helper Function to download files from a list in a thread safe manner."""
         # Step 1: Download Files thread-safe with atomic os.rename
         temp_folder = f'{download_folder}{os.getpid()}/'
         for file in files.objs:
@@ -150,7 +152,8 @@ class ArenaFactory:
         verbose: Optional[int] = 0
     ):
         # Step 1: Find relevant files
-        files = ArenaFactory.get_filelist(c3=Utils.get_c3(verbose-1), archive_source=archive_source, archive_type=archive_type, t_interval=t_interval)
+        files = ArenaFactory.get_filelist(c3=cluster_utils.get_c3(verbose - 1), archive_source=archive_source,
+                                          archive_type=archive_type, t_interval=t_interval)
 
         # Step 2: Check File Count
         if files.count < (t_interval[1]-t_interval[0]).days + 1:
@@ -160,4 +163,4 @@ class ArenaFactory:
         ArenaFactory.check_spacial_coverage(files, points)
 
         # Step 4: Download files thread-safe
-        ArenaFactory.download_filelist(Utils.get_c3(verbose-1), files, download_folder, verbose)
+        ArenaFactory.download_filelist(cluster_utils.get_c3(verbose - 1), files, download_folder, verbose)

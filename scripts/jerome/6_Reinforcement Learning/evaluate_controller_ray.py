@@ -5,13 +5,13 @@ import pytz
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
-from ocean_navigation_simulator.scripts.EvaluationRunner import EvaluationRunner
-from ocean_navigation_simulator.scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts.EvaluationRunner import EvaluationRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y_%m_%d_%H_%M_%S")}')
 script_start_time = time.time()
 
-Utils.init_ray()
+cluster_utils.init_ray()
 
 
 runner = EvaluationRunner(
