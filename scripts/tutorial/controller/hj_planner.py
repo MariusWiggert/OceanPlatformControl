@@ -61,12 +61,12 @@ planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 # % Run reachability planner
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
-# % Various plotting of the reachability computations
-# planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5, alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
+# %% Various plotting of the reachability computations
+planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5, alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
 # planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=0, granularity_in_h=5, time_to_reach=False)
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, filename="test_reach_animation.mp4")
-planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with_opt_ctrl=True,
-                                    filename="test_reach_animation_w_ctrl.mp4", forward_time=True)
+# planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with_opt_ctrl=True,
+#                                     filename="test_reach_animation_w_ctrl.mp4", forward_time=True)
 #%% save planner state and reload it
 # Save it to a folder
 # planner.save_planner_state("saved_planner/")
@@ -77,7 +77,7 @@ planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with
 # loaded_planner._update_current_data(observation=observation)
 # planner = loaded_planner
 # %% Let the controller run closed-loop within the arena (the simulation loop)
-for i in tqdm(range(int(3600 * 24 * 1 / 600))):  # 3 days
+for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 

@@ -11,6 +11,6 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 ArenaFactory.download_required_files(
                         archive_source="HYCOM",
                         archive_type="hindcast",
-                        download_folder="data/downloaded_hindcast_files",
+                        download_folder="tmp/downloaded_hindcast_files",
                         t_interval=t_interval,
                         verbose=2)

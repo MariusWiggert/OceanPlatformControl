@@ -29,6 +29,7 @@ forecast_source_dict = {
     'source_settings': {
         'folder': "data/forecast_test/"
     }}
+
 #%% Create the ocean Field object (containing both the hindcast and optionally the forecast source)
 ocean_field = OceanCurrentField(hindcast_source_dict=hindcast_source_dict,
                                 forecast_source_dict=forecast_source_dict,
