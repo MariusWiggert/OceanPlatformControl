@@ -60,14 +60,14 @@ class VariogramFitting:
 
         params = self.initialise_parameters(constrain_weighting=constrain_weighting)
         # TODO: try weights (need to be same shape as data)
-        weights_1d = list(np.logspace(0.1, 1, self.lags.shape[0]))
+        weights_1d = list(np.logspace(0.1, 1, self.lags.shape[0]))[::-1]
         weights = weights_1d
         # fit model: data points, parameters, lags for the data points (dependent variables)
         result = self.model.fit(self.data[self.error_var],
                                 params=params,
                                 lag_vec=self.lags,
                                 method=method,
-                                weights=None)
+                                weights=weights)
 
         self.popt = np.array(list(result.params.valuesdict().values())).reshape(-1, len(self.lag_vars)+1)
         print(f"Parameters:\n {self.popt}")
@@ -149,11 +149,9 @@ class VariogramFitting:
 
         param_map = {"u": "U_COMP", "v": "V_COMP"}
         component = param_map[self.error_var[0]]
-        print(component)
         other_component = list(param_map.values())
         other_component.remove(component)
         other_component = other_component[0]
-        print(other_component)
         params_dict = {"U_COMP": [], "V_COMP": []}
 
         if os.path.exists(output_path):
