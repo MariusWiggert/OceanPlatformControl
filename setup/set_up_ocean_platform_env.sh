@@ -8,7 +8,7 @@ else
     echo -e "\033[0;33mInstalling Ocean Platform Environment Version $VERSION\033[0m"
 
     # restore original .bashrc and add conda hooks
-    /bin/cp /etc/skel/.bashrc ~/
+    #/bin/cp /etc/skel/.bashrc ~/
     #(which conda && echo 'eval "$(conda shell.bash hook)"' >> ~/.bashrc) || true
     conda init bash > /dev/null
     source ~/.bashrc
