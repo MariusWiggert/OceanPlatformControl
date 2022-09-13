@@ -41,5 +41,5 @@ The `ExperimentRunner` class uses the `OceanCurrentNoiseField` class which gener
 noise according to the parameters obtained from the variogram analysis. An example output is shown below:
 
 <p align="center" width="100%">
-    <img width="80%" src="assets/noise_field_example.png"> 
+    <img width="80%" src="assets/noise.gif"> 
 </p>
