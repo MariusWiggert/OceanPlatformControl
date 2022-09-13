@@ -106,7 +106,7 @@ class HJPlannerBase(Controller):
         # create a variable that persists across runs of self.plan() to reference the currently reload data
         self.current_data_t_0, self.current_data_t_T = [None] * 2
         # Two variables to enable both re-planning with fixed frequency and only when new forecast available
-        self.last_data_source, self.last_fmrc_idx_planned_with, self.last_planning_posix = [None] * 3
+        self.last_data_source, self.last_fmrc_time_planned_with, self.last_planning_posix = [None] * 3
 
         # this is just a variable that persists after planning for plotting/debugging
         self.x_t = None
@@ -164,7 +164,10 @@ class HJPlannerBase(Controller):
     def replan_if_necessary(self, observation: ArenaObservation):
         if self._check_for_replanning(observation):
             if 'load_plan' in self.specific_settings and self.specific_settings['load_plan']:
-                self.restore_variables(folder=f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index+1}')
+                folder = f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index+1}/'
+                self.restore_variables(folder=folder)
+                if self.verbose > 0:
+                    print(f'HJPlannerBase: Plan reloaded from {folder}')
             else:
                 start = time.time()
 
@@ -183,8 +186,8 @@ class HJPlannerBase(Controller):
                     self.save_plan(f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index}/')
                     self.planner_cache_index += 1
 
-            if self.verbose > 0:
-                print(f'HJPlannerBase: Replanning ({time.time() - start:.1f}s)')
+                if self.verbose > 0:
+                    print(f'HJPlannerBase: Replanning ({time.time() - start:.1f}s)')
 
     def _check_for_replanning(self, observation: ArenaObservation) -> bool:
         """Helper Function to check if we want to replan with HJ Reachability.
@@ -192,23 +195,23 @@ class HJPlannerBase(Controller):
             observation: observation returned by the simulator (containing the forecast_data_source)
         """
         # For the first round for sure
-        if self.last_fmrc_idx_planned_with is None:
-            old = self.last_fmrc_idx_planned_with
+        if self.last_fmrc_time_planned_with is None:
+            old = self.last_fmrc_time_planned_with
             # data and logging variables need to be initialized at first round
-            self.last_fmrc_idx_planned_with = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
+            self.last_fmrc_time_planned_with = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
                 time=observation.platform_state.date_time)
             if self.verbose > 0:
-                print(f'HJPlannerBase: Planning because of no Forecast Index (Old: {old}, New: {self.last_fmrc_idx_planned_with}).')
+                print(f'HJPlannerBase: Planning because of no forecast (Old: {old}, New: {self.last_fmrc_time_planned_with}).')
             return True
         # Check for re-planning with new forecast
         if self.specific_settings['replan_on_new_fmrc']:
-            old = self.last_fmrc_idx_planned_with
+            old = self.last_fmrc_time_planned_with
             if self._new_forecast_data_available(observation):
                 # If the data_source is an observer, delete all error measurements from the old forecast.
                 if isinstance(self.last_data_source, Observer):
                     self.last_data_source.reset()
                 if self.verbose > 0:
-                    print(f"HJPlannerBase: Planning because of new Forecast (Old: {old}, New: {self.last_fmrc_idx_planned_with})")
+                    print(f"HJPlannerBase: Planning because of new forecast (Old: {old}, New: {self.last_fmrc_time_planned_with})")
                 return True
         # Check for re-planning after fixed time intervals
         if self.specific_settings['replan_every_X_seconds'] is not None:
@@ -226,12 +229,12 @@ class HJPlannerBase(Controller):
             observation: observation returned by the simulator (containing the forecast_data_source)
         """
         # Get the idx for the most recent file
-        most_current_fmrc_idx_at_time = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
+        most_current_fmrc_time = observation.forecast_data_source.check_for_most_recent_fmrc_dataframe(
             time=observation.platform_state.date_time)
         # Check if this is after our last planned one
-        if most_current_fmrc_idx_at_time != self.last_fmrc_idx_planned_with:
+        if most_current_fmrc_time != self.last_fmrc_time_planned_with:
             # update the current data in the jax interpolatn
-            self.last_fmrc_idx_planned_with = most_current_fmrc_idx_at_time
+            self.last_fmrc_time_planned_with = most_current_fmrc_time
             return True
         else:
             return False
@@ -568,8 +571,8 @@ class HJPlannerBase(Controller):
         self.nondim_dynamics.offset_vec = self.offset_vec
 
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
-        if self.verbose > 0:
-            print("HJPlannerBase: Cache Size ", hj.solver._solve._cache_size())
+        # if self.verbose > 0:
+            # print("HJPlannerBase: Cache Size ", hj.solver._solve._cache_size())
         hj.solver._solve._clear_cache()
         xla._xla_callable.cache_clear()
 
@@ -833,7 +836,9 @@ class HJPlannerBase(Controller):
             method='linear',
         )
 
-    def interpolate_value_function_in_hours(self, observation: ArenaObservation = None, point: SpatioTemporalPoint = None, width_deg: float = 0, width: int = 1) -> np.ndarray:
+    def interpolate_value_function_in_hours(self, observation: ArenaObservation = None,
+                                            point: SpatioTemporalPoint = None, width_deg: float = 0,
+                                            width: int = 1) -> np.ndarray:
         try:
             if observation is not None:
                 self.replan_if_necessary(observation)
@@ -846,15 +851,19 @@ class HJPlannerBase(Controller):
             out_t = point.date_time.timestamp()
             mx, my = np.meshgrid(out_x, out_y)
 
-            return self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel())).reshape((width, width)).squeeze()
+            try:
+                return self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel())).reshape((width, width)).squeeze()
+            except:
+                print(f'out_t: {out_t - self.current_data_t_0:.0f}', f'out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]', f'out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]')
+                print(
+                    f'reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]',
+                    f'self.grid.states.x: [{self.grid.states[0, 0, 1]:.2f}, {self.grid.states[0, -1, 1]:.2f}]',
+                    f'self.grid.states.x: [{self.grid.states[0, 0, 0]:.2f}, {self.grid.states[-1, 0, 0]:.2f}]',
+                )
+                raise
         except:
-            print(f'out_t: {out_t - self.current_data_t_0:.0f}', f'out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]', f'out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]')
-            print(
-                f'reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]',
-                f'self.grid.states.x: [{self.grid.states[0, 0, 1]:.2f}, {self.grid.states[0, -1, 1]:.2f}]',
-                f'self.grid.states.x: [{self.grid.states[0, 0, 0]:.2f}, {self.grid.states[-1, 0, 0]:.2f}]',
-            )
             raise
+
 
     def sample_from_reachable_coordinates(
         self,
@@ -907,8 +916,8 @@ class HJPlannerBase(Controller):
         with open(folder + 'specific_settings.pickle', 'wb') as file:
             pickle.dump(self.specific_settings, file)
         # Used in Replanning
-        with open(folder + 'last_fmrc_idx_planned_with.pickle', 'wb') as file:
-            pickle.dump(self.last_fmrc_idx_planned_with, file)
+        with open(folder + 'last_fmrc_time_planned_with.pickle', 'wb') as file:
+            pickle.dump(self.last_fmrc_time_planned_with, file)
         with open(folder + 'planner_cache_index.pickle', 'wb') as file:
             pickle.dump(self.planner_cache_index, file)
         # Used in Interpolation
@@ -935,8 +944,8 @@ class HJPlannerBase(Controller):
         Utils.ensure_storage_connection()
 
         # Used in Replanning
-        with open(folder + 'last_fmrc_idx_planned_with.pickle', 'rb') as file:
-            self.last_fmrc_idx_planned_with = pickle.load(file)
+        with open(folder + 'last_fmrc_time_planned_with.pickle', 'rb') as file:
+            self.last_fmrc_time_planned_with = pickle.load(file)
         with open(folder + 'planner_cache_index.pickle', 'rb') as file:
             self.planner_cache_index = pickle.load(file)
         # Used in Interpolation

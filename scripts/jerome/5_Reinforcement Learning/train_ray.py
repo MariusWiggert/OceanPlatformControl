@@ -22,11 +22,11 @@ from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Util
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.init_ray()
+Utils.ray_init()
 Utils.ensure_storage_connection()
 
 runner = RLRunner(
-    name='forecast_planner_test',
+    name='baseline_hj_planner_hindcast',
     scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     agent_class=ApexTrainer,
     agent_config={
@@ -53,7 +53,7 @@ runner = RLRunner(
         "rollout_fragment_length": 100,
         ## Workers
         "num_gpus": 1,
-        "num_workers": 1,
+        "num_workers": 102,
         "num_cpus_per_worker": 1,
         "num_gpus_per_worker": 0,
         "placement_strategy": "SPREAD",
@@ -61,7 +61,7 @@ runner = RLRunner(
         "recreate_failed_workers": True,
     },
     ocean_env_config={
-        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/with_forecast_100_batches_2022_08_26_19_00_56/',
+        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_replanning_2022_08_26_21_42_41/',
         'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         'arena_steps_per_env_step': 1,
         'actions': 8,
@@ -82,7 +82,7 @@ runner = RLRunner(
         'target_bonus': 0,
         'fail_punishment': 0,
     },
-    verbose=20
+    verbose=2
 )
 # 10 iterations ~ 42min (6min + 9 * 4min) @ 70 cores, 500MB Animations
 # 100 iterations ~ 420min = 7h, 5GB Animation

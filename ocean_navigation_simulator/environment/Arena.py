@@ -34,6 +34,13 @@ class ArenaObservation:
     true_current_at_state: OceanCurrentVector           # measured current at platform_state
     forecast_data_source: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]            # Data Source of the forecast
 
+    def replace_datasource(self, datasource: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]):
+        return ArenaObservation(
+            platform_state=self.platform_state,
+            true_current_at_state=self.true_current_at_state,
+            forecast_data_source=datasource
+        )
+
 class Arena:
     """A OceanPlatformArena in which an ocean platform moves through a current field."""
     ocean_field: OceanCurrentField = None

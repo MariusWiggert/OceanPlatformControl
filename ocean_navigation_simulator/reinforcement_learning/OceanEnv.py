@@ -14,6 +14,7 @@ import psutil
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
@@ -125,7 +126,8 @@ class OceanEnv(gym.Env):
             elif self.config['fake'] == 'hj_planner_forecast':
                 platform_action = self.forecast_planner.get_action(observation=self.prev_obs)
             elif self.config['fake'] == 'hj_planner_hindcast':
-                platform_action = self.hindcast_planner.get_action(observation=self.prev_obs)
+                # Hindcast Planner needs to receive hindcast datasource
+                platform_action = self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
             elif isinstance(action, np.ndarray):
                 platform_action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
             elif isinstance(action, PlatformAction):
@@ -138,8 +140,14 @@ class OceanEnv(gym.Env):
 
             problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.config['feature_constructor_config']['ttr']['xy_width_degree']/2)
             done = problem_status != 0
-            features = self.feature_constructor.get_features_from_state(observation=observation if not done else self.prev_obs, problem=self.problem)
-            reward = self.reward_function.get_reward(self.prev_obs, observation if not done else self.prev_obs, self.problem, problem_status)
+            features = self.feature_constructor.get_features_from_state(observation=(observation if not done else self.prev_obs), problem=self.problem)
+            reward = self.reward_function.get_reward(
+                # Hindcast Planner needs to receive hindcast datasource
+                prev_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+                curr_obs=(observation if not done else self.prev_obs).replace_datasource(self.arena.ocean_field.hindcast_data_source),
+                problem=self.problem,
+                problem_status=problem_status
+            )
             self.rewards.append(reward)
 
             if done:
@@ -157,7 +165,7 @@ class OceanEnv(gym.Env):
                         st=self.steps,
                         t=self.problem.passed_seconds(observation.platform_state) / 3600,
                         rew=sum(self.rewards),
-                        ttr=self.hindcast_planner.interpolate_value_function_in_hours(observation=self.prev_obs),
+                        ttr=self.hindcast_planner.interpolate_value_function_in_hours(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source)),
                         stt=1000 * (time.time() - self.reset_start_time) / self.steps,
                         ep=time.time() - self.reset_start_time,
                         res=self.reset_end_time - self.reset_start_time,
@@ -166,12 +174,13 @@ class OceanEnv(gym.Env):
                     ))
             else:
                 if self.verbose > 1:
-                    print("OceanEnv[Worker {w}, Reset {r}]: Step {st} @ {ph:.0f}h {pm:.0f}min (step: {t:.1f}ms, {mem:,.0f}MB)".format(
+                    print("OceanEnv[Worker {w}, Reset {r}]: Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time} (step: {t:.1f}ms, {mem:,.0f}MB)".format(
                         w=self.worker_index,
                         r=self.resets,
                         st=self.steps,
                         ph=self.problem.passed_seconds(observation.platform_state)//3600,
                         pm=self.problem.passed_seconds(observation.platform_state)%3600/60,
+                        sim_time=observation.platform_state.date_time,
                         t=1000*(time.time()-step_start),
                         mem=psutil.Process().memory_info().rss / 1e6,
                     ))

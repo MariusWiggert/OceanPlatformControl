@@ -25,7 +25,7 @@ sns.set_theme()
 
 class Utils:
     @staticmethod
-    def init_ray(mode='cluster'):
+    def ray_init(mode='cluster'):
         start = time.time()
         # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
         # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
@@ -48,6 +48,10 @@ class Utils:
     {len(active_nodes)} nodes in total
     {cpu_available}/{cpu_total} CPU resources available
     {gpu_available}/{gpu_total} GPU resources available''')
+
+    @staticmethod
+    def ray_down():
+        os.system('ray down setup/ray-config-cpu.yaml')
 
     @staticmethod
     def clean_results(

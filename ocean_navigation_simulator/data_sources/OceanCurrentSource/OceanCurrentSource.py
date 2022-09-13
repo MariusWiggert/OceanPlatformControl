@@ -230,7 +230,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             self.load_ocean_current_from_idx()
 
         # always return the most current idx
-        return self.rec_file_idx
+        return self.files_dicts[self.rec_file_idx]['t_range'][0]
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         """We overwrite it because we don't want that Forecast needs caching..."""

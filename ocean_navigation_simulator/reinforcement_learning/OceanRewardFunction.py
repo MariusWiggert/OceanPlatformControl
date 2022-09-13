@@ -35,7 +35,8 @@ class  OceanRewardFunction(RewardFunction):
         Returns:
             a float representing reward
         """
-        prev_ttr = self.planner.interpolate_value_function_in_hours(observation=prev_obs).item()
-        curr_ttr = self.planner.interpolate_value_function_in_hours(observation=curr_obs).item()
+        if problem_status == 0:
+            prev_ttr = self.planner.interpolate_value_function_in_hours(observation=prev_obs).item()
+            curr_ttr = self.planner.interpolate_value_function_in_hours(observation=curr_obs).item()
 
-        return (prev_ttr - curr_ttr) + (self.config['target_bonus'] if problem_status > 0 else 0) + (self.config['fail_punishment'] if problem_status < 0 else 0)
+        return ((prev_ttr - curr_ttr) if problem_status==0 else 0) + (self.config['target_bonus'] if problem_status > 0 else 0) + (self.config['fail_punishment'] if problem_status < 0 else 0)

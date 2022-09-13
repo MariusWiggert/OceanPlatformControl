@@ -17,10 +17,10 @@ from ocean_navigation_simulator.utils import units
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.init_ray()
+Utils.ray_init()
 
 runner = GenerationRunner(
-    name='with_forecast_1000_batches',
+    name='fixed_replanning',
     scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     # Only Hindcast:
             # -- GPU: 1 batch: 80s  = ~1.5min
@@ -33,7 +33,7 @@ runner = GenerationRunner(
     # With Forecast:
         # Measured: 1 batch @ 1 machine: 9min 47s -> 100 batches / 10min -> 600 batches / 1h
     groups=1,
-    batches_per_group=100,
+    batches_per_group=96,
     batch_size=8,
     ray_options={
         'max_retries': 10,
@@ -63,7 +63,7 @@ runner = GenerationRunner(
         # if 'target_radius' is big the target is reached sooner than expected
         'start_distance_from_frame': 0.5,
         'target_distance_from_frame': 1.0,
-        'problem_target_radius': 0.05,
+        'problem_target_radius': 0.02,
         'target_min_distance': 0.15,
         # 'grid_res' has to be smaller than target_radius to prevent hj_solver errors
         'hj_planner': {

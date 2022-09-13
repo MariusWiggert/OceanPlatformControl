@@ -11,7 +11,7 @@ from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Util
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y_%m_%d_%H_%M_%S")}')
 script_start_time = time.time()
 
-Utils.init_ray()
+Utils.ray_init()
 
 
 runner = EvaluationRunner(

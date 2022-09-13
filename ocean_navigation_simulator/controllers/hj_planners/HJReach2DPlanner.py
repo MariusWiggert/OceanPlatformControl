@@ -76,6 +76,9 @@ class HJReach2DPlanner(HJPlannerBase):
         planner = HJReach2DPlanner(problem=problem, specific_settings=re_specific_settings | specific_settings, verbose=verbose)
         planner.restore_variables(folder=folder)
 
+        if planner.verbose > 0:
+            print(f'HJPlannerBase: Plan loaded from {folder} with fmrc_time={planner.last_fmrc_time_planned_with}')
+
         return planner
 
 class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
