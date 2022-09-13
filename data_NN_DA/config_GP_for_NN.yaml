@@ -13,7 +13,7 @@ experiment_runner:
 
   #number_burnin_steps: 50
   number_burnin_steps: 0
-  number_steps_prediction: 2 #96 #120
+  number_steps_prediction: 96 #96 #120
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
   radius_area_around_platform: 0.9 #0.04665226 #3.89189189

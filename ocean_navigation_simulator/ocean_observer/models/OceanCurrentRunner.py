@@ -1,18 +1,21 @@
 from __future__ import print_function
 
 import argparse
+import math
 import os
 import time
 from datetime import datetime
 from typing import Tuple, List, Any
 from warnings import warn
 
+import kornia
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import wandb
 import yaml
 from torch import optim
+from torch.autograd import grad
 from torch.nn import functional as F
 from tqdm import tqdm
 
@@ -34,8 +37,51 @@ def collate_fn(batch):
     return torch.utils.data.dataloader.default_collate(batch_filtered)
 
 
-def loss_function(prediction, target):
-    assert prediction.shape == target.shape
+def compute_burger_loss(input, u, v):
+    # value r_e from paper by Taco de Wolff
+    Re = math.pi / 0.01
+
+    kornia.filters.SpatialGradient3d(mode='diff', order=2)
+
+    u_t = grad(u, t, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+    v_t = grad(v, t, create_graph=True, grad_outputs=torch.ones_like(v))[0]
+    u_x = grad(u, x, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+    v_x = grad(v, x, create_graph=True, grad_outputs=torch.ones_like(v))[0]
+    u_xx = grad(u_x, x, create_graph=True, grad_outputs=torch.ones_like(u_x))[0]
+    v_xx = grad(v_x, x, create_graph=True, grad_outputs=torch.ones_like(v_x))[0]
+    u_y = grad(u, y, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+    v_y = grad(v, y, create_graph=True, grad_outputs=torch.ones_like(v))[0]
+    u_yy = grad(u_y, y, create_graph=True, grad_outputs=torch.ones_like(u_y))[0]
+    v_yy = grad(v_y, y, create_graph=True, grad_outputs=torch.ones_like(v_y))[0]
+    p1 = u_t + u * u_x + v * v_y - 1 / Re * (u_xx + u_yy)
+    p2 = v_t + u * v_x + v * v_y - 1 / Re * (v_xx + v_yy)
+    return p1 + p2
+
+    # def f(self, x, t, u):
+    #     u_t = grad(u, t, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+    #     u_x = grad(u, x, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+    #     u_xx = grad(u_x, x, create_graph=True, grad_outputs=torch.ones_like(u_x))[0]
+    #
+    #     return u_t + self.lambda1 * u * u_x - self.lambda2 * u_xx
+
+
+def loss_function(prediction, target, input=None):
+    # dimensions: [batch_size, currents, time, lon, lat]
+    # assert prediction.shape == target.shape and (input is None or input.shape == target.shape)
+    # losses = []
+    # losses.append(torch.sqrt(F.mse_loss(prediction, target, reduction='mean')))
+    #
+    # # x FC input current u
+    # # y FC input current v
+    # # t time of forecasts
+    # # u = improved forecast current u
+    # # v = improved forecast current u
+    # x, y = input[:, 0], target[:, 1]
+    # u, v = prediction[:, 0], prediction[:, 0]
+    # pinn_loss = compute_burger_loss(x, y, t, u, v)
+    #
+    # losses.append(torch.sqrt(F.mse_loss(pinn_loss, torch.zeros_like(pinn_loss), reduction='mean')))
+    # return losses
 
     return torch.sqrt(F.mse_loss(prediction, target, reduction='mean'))
 
