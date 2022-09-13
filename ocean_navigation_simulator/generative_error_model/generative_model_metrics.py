@@ -53,7 +53,9 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset):
     error["lat"] = error["lat"].astype(np.float32)
     error["u_error"] = error["u_error"].astype(np.float32)
     error["v_error"] = error["v_error"].astype(np.float32)
-    ground_truth = error + forecast
+    # Note: addition isnot cummutative in this case as axis will be different order
+    # and thus a slice at a specific time would be differently ordered.
+    ground_truth = forecast + error
 
     # compute vector correlation for each hour
     vector_correlation_per_hour = []
