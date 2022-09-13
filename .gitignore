@@ -13,3 +13,5 @@ generated_media/
 ./data/
 ./models/
 ./results/
+# Setup file from Jerome
+setup/env*

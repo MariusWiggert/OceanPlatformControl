@@ -48,7 +48,7 @@ else
     pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
 
     # install other python requirements via pip
-    pip install -r OceanPlatformControl/setup/requirements.txt
+    pip install -r requirements.txt
 
     # install requirements needed by ray head node
     pip install -U azure-cli-core azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource msrestazure
