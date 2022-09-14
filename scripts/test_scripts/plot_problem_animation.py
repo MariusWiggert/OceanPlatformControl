@@ -1,6 +1,6 @@
 # % Solar animation Test
 import datetime
-import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
+import ocean_navigation_simulator.data_sources.SolarIrradianceField as SolarIrradianceField
 
 casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 # %Solar irradiance Test
@@ -35,7 +35,7 @@ solar_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=
                                               output="solar_animation.mp4")
 
 # %% Ocean Animation Test
-from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
 
 casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 # % Analytical Ocean Current Example
@@ -81,9 +81,9 @@ ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=
 
 # %% Test Seaweed Growth Visualization
 import datetime
-from ocean_navigation_simulator.env.Arena import Arena
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.env.utils import units
+from ocean_navigation_simulator.environment.Arena import Arena
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.utils import units
 
 platform_dict = {
     'battery_cap_in_wh': 400.0,
@@ -132,7 +132,8 @@ arena = Arena(
     platform_dict=platform_dict,
     ocean_dict={'hindcast': ocean_source_dict, 'forecast': None},
     solar_dict={'hindcast': solar_source_dict, 'forecast': None},
-    seaweed_dict={'hindcast': seaweed_source_dict, 'forecast': None}
+    seaweed_dict={'hindcast': seaweed_source_dict, 'forecast': None},
+    use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
 )
 # %% Plot plot_R_growth_wo_Irradiance (what it calculates at the start)
 platform_state = PlatformState(lon=units.Distance(deg=-50),
