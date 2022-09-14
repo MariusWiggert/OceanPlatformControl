@@ -305,7 +305,7 @@ def __add_line_to_csv(to_add, folder_destination, type: str):
 
 
 def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
-                                      folder_destination="./data_NN_DA/export_2/"):
+                                      folder_destination="./data_NN_DA/export/"):
     # todo: set 24 as field in config + add parameter for config
     print(f"generating output into folder: {output_folder}")
     exp = ExperimentRunner("config_GP_for_NN", filename_problems=filename_problems,
@@ -337,6 +337,11 @@ def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
 
 def __export_results_to_file(res: list, path_dir):
     for j, s in enumerate(['x', 'y']):
+        isExist = os.path.exists(path_dir)
+        if not isExist:
+            # Create a new directory because it does not exist
+            os.makedirs(path_dir)
+            print(f"The new directory is created: {path_dir}!")
         with NpyAppendArray(path_dir + f"data_{s}.npy") as npaa:
             npaa.append(np.ascontiguousarray(res[j].astype('float64')))
 
