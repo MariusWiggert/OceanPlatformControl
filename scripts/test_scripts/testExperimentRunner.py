@@ -423,7 +423,7 @@ if __name__ == "__main__":
         parser.add_argument('-T', action='store_true', help='collect tiles')
         parser.add_argument('-f', type=str, help='file name')
         args = parser.parse_args()
-        run_experiments_and_collect_tiles(output_folder="./data_NN_DA/", filename_problems="new_problems_2_4000")
+        run_experiments_and_collect_tiles(output_folder="./data_NN_DA/", filename_problems=args.f)
     else:
         run_experiments_and_plot(max_number_problems_to_run=None)
 

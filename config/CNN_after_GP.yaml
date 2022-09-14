@@ -1,0 +1,117 @@
+---
+arguments_model_runner:
+  yaml_file_datasets: "config_neural_net"
+  batch_size: 32
+  model_type: "cnn"
+  log_interval: 1
+  lr: 0.0001 #0.0003
+  epochs: 200
+  folder_figure: "./figures/"
+  max_batches_training_set: -1
+  max_batches_validation_set: -1
+  optimizer:
+    name: "Adam"
+    parameters:
+      betas: [ 0.95, 0.9995 ]
+      eps: 0.000001
+      weight_decay: 0.000001 #0.0010 #0.005 # instead of 0.02 #0.15
+  scheduler:
+    name: "ReduceLROnPlateau"
+    parameters:
+      mode: 'min'
+      factor: 0.2
+      patience: 7
+      threshold: 0.005
+arguments_script_convert_data:
+  yaml_file_datasets: "config_neural_net"
+model:
+  cfg_neural_network:
+    ch_sz: [ 2, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
+    activation: "relu"
+    downsizing_method: "conv" #"avgpool"
+    dropout_encoder: 0.02
+    dropout_bottom: 0.4
+    dropout_decoder: 0.2
+  cfg_dataset:
+    radius_lon: 1
+    radius_lat: 1
+    margin_forecast: 0
+    stride_tiles_dataset: 2
+    time_horizon_input_h: 12
+    time_horizon_output_h: 12
+    stride_time_dataset_h: 12
+    input_shape:
+      - 2
+      - 12
+      - 24
+      - 24
+    output_shape:
+      - 2
+      - 12
+      - 24
+      - 24
+    index_axis_time: 2
+  model_error: false
+data_generation:
+  parameters_input:
+    start_training: '2022-06-01T12:30:01Z'
+    #start_training: '2022-07-01T12:30:01Z'
+    #start_training: '2022-07-31T12:30:01Z'
+    duration_training_in_h: 720 #2160 #672 # 28 * 24
+    #start_validation: '2022-08-2T12:30:01Z'
+    #duration_validation_in_h: 360 # 14 * 24
+    input_tile_dims: [ 24, 24, 5 ]
+    window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
+    # if window shift = 0: input= [x{t}...x{t+4}]
+    output_tile_dims: [ 24, 24, 1 ]
+    size_per_file_in_mb: 2000
+    #folder_training: "./data_NN/data_training_july_cnn_full_bigger_stride/"
+    folder_training: [ "./data_NN/data_training_35_days_cnn_full_bigger_stride/",
+                       "./data_NN/data_training_june_cnn_full_bigger_stride/" ,
+                       "./data_NN/data_training_july_cnn_full_bigger_stride/" ,
+                       "./data_NN/data_training_august_cnn_full_bigger_stride/" ]
+    #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
+    #folder_validation: "./data_NN/data_validation_july_cnn_full_bigger_stride/"
+    #folder_validation: "./data_NN/data_validation_august_cnn_full_bigger_stride/"
+    #folder_validation: "./data_NN/data_training_10_days_lstm/"
+    folder_validation: "./data_NN/data_validation_10_days_cnn_full_bigger_stride/"
+config_neural_net:
+  training:
+    hindcast:
+      field: 'OceanCurrents'
+      source: 'hindcast_files'
+      source_settings:
+        #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+        #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+        #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+        'folder': 'data/forecast_c3_script/test_download_hc/'
+        #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+        'currents': 'total'
+    forecast:
+      field: 'OceanCurrents'
+      source: 'forecast_files'
+      source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+        'folder': 'data/forecast_c3_script/test_download_fc/'
+        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+        'currents': 'total'
+#  validation:
+#    hindcast:
+#      field: 'OceanCurrents'
+#      source: 'hindcast_files'
+#      source_settings:
+#        #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+#        #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+#        #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+#        'folder': 'data/april_may_data/hindcast_hycom_may/'
+#      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+#    forecast:
+#      field: 'OceanCurrents'
+#      source: 'forecast_files'
+#      source_settings:
+#        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+#        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+#        'folder': 'data/april_may_data/forecast_Copernicus_april_may/'
+#        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+#        'currents': 'total'

@@ -52,7 +52,7 @@ class PredictionsAndGroundTruthOverArea:
         for s, f in get_metrics().items():
             for d in directions:
                 if not check_nans(self.ground_truth_area, self.improved_forecast, current=d):
-                    if metrics is None or s in set(metrics):
+                    if metrics is None or (isinstance(metrics, set) and s in metrics) or s == metrics:
                         res |= f(self.ground_truth_area, self.improved_forecast, self.initial_forecast,
                                  per_hour=per_hour,
                                  current=d)

@@ -489,6 +489,7 @@ class ExperimentRunner:
                 inputs_and_outputs[1].append(self.last_prediction_ground_truth.ground_truth.to_array().to_numpy())
                 inputs_and_outputs[2].append(self.observer.prediction_model.measurement_locations)
                 inputs_and_outputs[3].append(self.observer.prediction_model.measured_current_errors)
+                print(f"rmse step: {self.last_prediction_ground_truth.compute_metrics('rmse').get('rmse_ratio', '')}")
             else:
                 results.append(self.last_prediction_ground_truth)
                 name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
