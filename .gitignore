@@ -15,3 +15,4 @@ generated_media/
 ./results/
 # Setup file from Jerome
 setup/env*
+tmp/
