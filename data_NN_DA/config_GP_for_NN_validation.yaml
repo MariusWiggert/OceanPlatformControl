@@ -23,7 +23,8 @@ experiment_runner:
   clear_observations_when_new_file: True
 
   use_real_data: True
-  scenario_used: "gulf_of_mexico_files_april_june_july_august"
+  #scenario_used: "gulf_of_mexico_files_april_june_july_august"
+  scenario_used: "gulf_of_mexico_files_may"
   #problems_file: "./scenarios/ocean_observer/all_problems.yaml"
 #  problems:
 #    - initial_position:

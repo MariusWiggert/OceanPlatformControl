@@ -12,7 +12,6 @@ import yaml
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.utils.units import Velocity, Distance
 
-seed = 4  # 30031996
 tile_radius = 1
 delta_points = 1 / 12
 lon_left, lon_right = -95.362841, -85.766062
@@ -25,11 +24,12 @@ def get_area_coordinates():
 
 
 # tl, tr, bl, br (lon, lat)
-start_date = datetime.datetime(2022, 4, 1, 12, 00, 00)
-end_date = datetime.datetime(2022, 4, 30, 12, 00, 00)
-start_date_2 = datetime.datetime(2022, 6, 1, 12, 00, 00)  # June
-end_date_2 = datetime.datetime(2022, 8, 31, 12, 00, 00)
-all_intervals = [(start_date, end_date), (start_date_2, end_date_2)]
+# start_date = datetime.datetime(2022, 4, 1, 12, 00, 00)
+# end_date = datetime.datetime(2022, 4, 30, 12, 00, 00)
+# start_date_2 = datetime.datetime(2022, 6, 1, 12, 00, 00)  # June
+# end_date_2 = datetime.datetime(2022, 8, 31, 12, 00, 00)
+# all_intervals = [(start_date, end_date), (start_date_2, end_date_2)]
+all_intervals = [(datetime.datetime(2022, 5, 1, 12, 00, 00), datetime.datetime(2022, 5, 31, 12, 00, 00))]
 
 duration_simulation_default = datetime.timedelta(days=5)
 max_velocity = Velocity(mps=1)
@@ -118,12 +118,12 @@ def problem_format(problem: tuple[SpatioTemporalPoint, SpatialPoint]):
     return {"initial_position": point_to_dict(start), "target": point_to_dict(end)}
 
 
-def problems_to_yaml(problems: list[str], dir_name: str, filename: str):
+def problems_to_yaml(problems: list[str], dir_name: str, filename: str, seed: int):
     if dir_name is None:
         dir_name = "."
     if filename is None:
-        filename = "problems"
-    suffix = f"_{len(problems)}.yaml"
+        filename = f"{len(problems)}_problems"
+    suffix = f"_{seed}.yaml"
 
     path = os.path.join(dir_name, filename + suffix)
     with open(path, 'w') as f:
@@ -156,8 +156,8 @@ def check_area_to_have_no_nan():
                                                            lon_right + tile_radius)).to_array().to_numpy()).sum()
 
 
-def main(dir_name=None, filename=None, number_problems=40):
-    print("VERIFY check_if_square_margin_to_shore")
+def main(dir_name=None, filename=None, number_problems=40, seed=10):
+    print(f"seed: {seed}")
     random.seed(seed)
 
     check_area_to_have_no_nan()
@@ -166,7 +166,7 @@ def main(dir_name=None, filename=None, number_problems=40):
     starts = generate_temporal_points_within_boundaries(number_problems)
     problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
 
-    path = problems_to_yaml(problems, dir_name=dir_name, filename=filename)
+    path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
     print(f"problems exported to {path} = {os.path.abspath(path)}")
 
 
@@ -175,5 +175,6 @@ if __name__ == "__main__":
     parser.add_argument('--dir-name', dest='dir', type=str, help='path of the directory')
     parser.add_argument('--file-name', dest='file', type=str, help='filename of the list')
     parser.add_argument('--num-problems', dest='problems', type=int, help='number of problems wanted')
+    parser.add_argument('--seed', dest='seed', type=int)
     args = parser.parse_args()
-    main(args.dir, args.file, args.problems)
+    main(args.dir, args.file, args.problems, args.seed)

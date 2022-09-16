@@ -168,34 +168,38 @@ def write_row_csv(path, row):
     f.close()
 
 
-def train(config_init):
+def train(config_init=None, filename_problems=None):
     # Create a file for the log of all the results
     file_csv = os.path.join(os.path.dirname(os.getcwd()), "results.csv")
     print("path file:", file_csv)
     # os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
     os.chdir("/home/seaweed/test")
-    if "num_threads" in config_init:
-        torch.set_num_threads(config_init.pop("num_threads"))
-    yaml_file_config = "./scenarios/ocean_observer/config_real_data_GP.yaml"
-    config = {k: v for k, v in config_init.items() if v is not None and not k.endswith("_2")}
-    config_2 = {k[:-2]: v for k, v in config_init.items() if v is not None and k.endswith("_2")}
-    filename_problems = config.pop("filename_problems", None)
+    if config_init is not None:
+        if "num_threads" in config_init:
+            torch.set_num_threads(config_init.pop("num_threads"))
+        yaml_file_config = "./scenarios/ocean_observer/config_real_data_GP.yaml"
+        # dict for the two kernels
+        config = {k: v for k, v in config_init.items() if v is not None and not k.endswith("_2")}
+        config_2 = {k[:-2]: v for k, v in config_init.items() if v is not None and k.endswith("_2")}
+        filename_problems = config.pop("filename_problems", None)
+
     # print("dir:", directory)
     with open(yaml_file_config) as f:
         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
-        type_kernel = config.pop("kernel")
-        type_kernel_2 = config_2.pop("kernel", None)
-        sigma_exp_squared = abs(config.pop("sigma_exp"))
-        sigma_exp_squared_2 = abs(config_2.pop("sigma_exp", 1))
-        # Not supported yet
-        # if type in ["product", "sum"]:
-        #     config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
-        #         "type": type,
-        #         "kernel_1": ,
-        #         "kernel_2":
-        #     }
-        scaling = config.pop("scaling", None)
-        scaling_2 = config_2.pop("scaling", None)
+        if config_init is not None:
+            type_kernel = config.pop("kernel")
+            type_kernel_2 = config_2.pop("kernel", None)
+            sigma_exp_squared = abs(config.pop("sigma_exp"))
+            sigma_exp_squared_2 = abs(config_2.pop("sigma_exp", 1))
+            # Not supported yet
+            # if type in ["product", "sum"]:
+            #     config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
+            #         "type": type,
+            #         "kernel_1": ,
+            #         "kernel_2":
+            #     }
+            scaling = config.pop("scaling", None)
+            scaling_2 = config_2.pop("scaling", None)
         config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = \
             {"type": type_kernel,
              "scaling": scaling,
@@ -243,7 +247,7 @@ def train(config_init):
             write_row_csv(file_csv, merged_mean.keys())
         write_row_csv(file_csv, merged_mean.values())
 
-        # return {"avg": np.array([r["vme_improved"] for r in results]).mean()}
+        print({"avg": np.array([r["vme_improved"] for r in results]).mean()})
         tune.report(score=np.array([r["vme_improved"] for r in results]).mean())
 
     # variables = config["experiment_runner"]
@@ -304,8 +308,7 @@ def __add_line_to_csv(to_add, folder_destination, type: str):
         f_object.close()
 
 
-def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
-                                      folder_destination="./data_NN_DA/export/"):
+def run_experiments_and_collect_tiles(output_folder: str, filename_problems):
     # todo: set 24 as field in config + add parameter for config
     print(f"generating output into folder: {output_folder}")
     exp = ExperimentRunner("config_GP_for_NN", filename_problems=filename_problems,
@@ -320,9 +323,9 @@ def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
             print(f"starting problem {k}")
             # results.append(np.array(exp.run_next_problem(get_inputs_and_outputs=True)))
             array_fc_hc, measurement_locations, errors = exp.run_next_problem(get_inputs_and_outputs=True)
-            __export_results_to_file(array_fc_hc, folder_destination)
-            __add_line_to_csv(measurement_locations, folder_destination, "measurement")
-            __add_line_to_csv(errors, folder_destination, "error")
+            __export_results_to_file(array_fc_hc, output_folder)
+            __add_line_to_csv(measurement_locations, output_folder, "measurement")
+            __add_line_to_csv(errors, output_folder, "error")
             # size = sys.getsizeof(results[0]) / 1000000
             # print(f"Number results:{len(results)}, size: {len(results) * size} MB")
             # if size > max_mega_per_file:
@@ -344,6 +347,15 @@ def __export_results_to_file(res: list, path_dir):
             print(f"The new directory is created: {path_dir}!")
         with NpyAppendArray(path_dir + f"data_{s}.npy") as npaa:
             npaa.append(np.ascontiguousarray(res[j].astype('float64')))
+
+
+def run_experiments_on_kernel():
+    # yaml.load("./config_GP_for_NN.yaml")
+    # train(config_init=)
+    exp = ExperimentRunner("config_GP_for_NN", filename_problems="4000_problems_1",
+                           folder_config_file="data_NN_DA/", folder_problems="data_NN_DA/")
+    # results, results_per_h, merged, list_dates_when_new_files = exp.visualize_all_noise(x, y)
+    exp.run_all_problems(max_number_problems_to_run=12)
 
 
 def run_experiments_and_plot(max_number_problems_to_run=None):
@@ -427,8 +439,11 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description='Process some integers.')
         parser.add_argument('-T', action='store_true', help='collect tiles')
         parser.add_argument('-f', type=str, help='file name')
+        parser.add_argument('-folder-destination', type=str)
         args = parser.parse_args()
-        run_experiments_and_collect_tiles(output_folder="./data_NN_DA/", filename_problems=args.f)
+        run_experiments_and_collect_tiles(output_folder=args.folder_destination, filename_problems=args.f)
+    elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
+        run_experiments_on_kernel()
     else:
         run_experiments_and_plot(max_number_problems_to_run=None)
 

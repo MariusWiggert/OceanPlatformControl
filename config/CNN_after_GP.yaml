@@ -1,7 +1,7 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 32
+  batch_size: 128 #32
   model_type: "cnn"
   log_interval: 1
   lr: 0.0001 #0.0003
@@ -26,7 +26,8 @@ arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
 model:
   cfg_neural_network:
-    ch_sz: [ 2, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
+    ch_sz: [ 8, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
+    final_number_channels: 2
     activation: "relu"
     downsizing_method: "conv" #"avgpool"
     dropout_encoder: 0.02
@@ -40,6 +41,7 @@ model:
     time_horizon_input_h: 12
     time_horizon_output_h: 12
     stride_time_dataset_h: 12
+    indices_chanels_initial_fc: [ 4,5 ]
     input_shape:
       - 2
       - 12
@@ -66,15 +68,14 @@ data_generation:
     output_tile_dims: [ 24, 24, 1 ]
     size_per_file_in_mb: 2000
     #folder_training: "./data_NN/data_training_july_cnn_full_bigger_stride/"
-    folder_training: [ "./data_NN/data_training_35_days_cnn_full_bigger_stride/",
-                       "./data_NN/data_training_june_cnn_full_bigger_stride/" ,
-                       "./data_NN/data_training_july_cnn_full_bigger_stride/" ,
-                       "./data_NN/data_training_august_cnn_full_bigger_stride/" ]
+    folder_training: [ "./data_NN_DA/GP_all_files/test_1",
+                       "./data_NN_DA/GP_all_files/test_2", ]
+    #"./data_NN_DA/GP_all_files/test_3" ]
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
     #folder_validation: "./data_NN/data_validation_july_cnn_full_bigger_stride/"
     #folder_validation: "./data_NN/data_validation_august_cnn_full_bigger_stride/"
     #folder_validation: "./data_NN/data_training_10_days_lstm/"
-    folder_validation: "./data_NN/data_validation_10_days_cnn_full_bigger_stride/"
+    folder_validation: "./data_NN_DA/GP_all_files/test_3"
 config_neural_net:
   training:
     hindcast:

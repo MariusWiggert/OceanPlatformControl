@@ -1,27 +1,24 @@
 from __future__ import print_function
 
 import argparse
-import math
 import os
 import time
 from datetime import datetime
 from typing import Tuple, List, Any
 from warnings import warn
 
-import kornia
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import wandb
 import yaml
 from torch import optim
-from torch.autograd import grad
 from torch.nn import functional as F
 from tqdm import tqdm
 
 from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import CustomOceanCurrentsFromFiles
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid_2 import OceanCurrentCNNSubgrid
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN import OceanCurrentCNNSubgrid
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentConvLSTM import OceanCurrentConvLSTM
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentUnetLSTM import OceanCurrentUnetLSTM
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import OceanCurrentMLP
@@ -31,38 +28,36 @@ now = datetime.now()
 
 
 def collate_fn(batch):
-    batch_filtered = list(filter(lambda x: x is not None, batch))
+    batch_filtered = list(filter(lambda x: x[0] is not None, batch))
     if not len(batch_filtered):
         return None, None
     return torch.utils.data.dataloader.default_collate(batch_filtered)
 
 
-def compute_burger_loss(input, u, v):
-    # value r_e from paper by Taco de Wolff
-    Re = math.pi / 0.01
+# def compute_burger_loss(input, u, v):
+#     # value r_e from paper by Taco de Wolff
+#     Re = math.pi / 0.01
+#
+#     u_t = grad(u, t, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+#     v_t = grad(v, t, create_graph=True, grad_outputs=torch.ones_like(v))[0]
+#     u_x = grad(u, x, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+#     v_x = grad(v, x, create_graph=True, grad_outputs=torch.ones_like(v))[0]
+#     u_xx = grad(u_x, x, create_graph=True, grad_outputs=torch.ones_like(u_x))[0]
+#     v_xx = grad(v_x, x, create_graph=True, grad_outputs=torch.ones_like(v_x))[0]
+#     u_y = grad(u, y, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+#     v_y = grad(v, y, create_graph=True, grad_outputs=torch.ones_like(v))[0]
+#     u_yy = grad(u_y, y, create_graph=True, grad_outputs=torch.ones_like(u_y))[0]
+#     v_yy = grad(v_y, y, create_graph=True, grad_outputs=torch.ones_like(v_y))[0]
+#     p1 = u_t + u * u_x + v * v_y - 1 / Re * (u_xx + u_yy)
+#     p2 = v_t + u * v_x + v * v_y - 1 / Re * (v_xx + v_yy)
+#     return p1 + p2
 
-    kornia.filters.SpatialGradient3d(mode='diff', order=2)
-
-    u_t = grad(u, t, create_graph=True, grad_outputs=torch.ones_like(u))[0]
-    v_t = grad(v, t, create_graph=True, grad_outputs=torch.ones_like(v))[0]
-    u_x = grad(u, x, create_graph=True, grad_outputs=torch.ones_like(u))[0]
-    v_x = grad(v, x, create_graph=True, grad_outputs=torch.ones_like(v))[0]
-    u_xx = grad(u_x, x, create_graph=True, grad_outputs=torch.ones_like(u_x))[0]
-    v_xx = grad(v_x, x, create_graph=True, grad_outputs=torch.ones_like(v_x))[0]
-    u_y = grad(u, y, create_graph=True, grad_outputs=torch.ones_like(u))[0]
-    v_y = grad(v, y, create_graph=True, grad_outputs=torch.ones_like(v))[0]
-    u_yy = grad(u_y, y, create_graph=True, grad_outputs=torch.ones_like(u_y))[0]
-    v_yy = grad(v_y, y, create_graph=True, grad_outputs=torch.ones_like(v_y))[0]
-    p1 = u_t + u * u_x + v * v_y - 1 / Re * (u_xx + u_yy)
-    p2 = v_t + u * v_x + v * v_y - 1 / Re * (v_xx + v_yy)
-    return p1 + p2
-
-    # def f(self, x, t, u):
-    #     u_t = grad(u, t, create_graph=True, grad_outputs=torch.ones_like(u))[0]
-    #     u_x = grad(u, x, create_graph=True, grad_outputs=torch.ones_like(u))[0]
-    #     u_xx = grad(u_x, x, create_graph=True, grad_outputs=torch.ones_like(u_x))[0]
-    #
-    #     return u_t + self.lambda1 * u * u_x - self.lambda2 * u_xx
+# def f(self, x, t, u):
+#     u_t = grad(u, t, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+#     u_x = grad(u, x, create_graph=True, grad_outputs=torch.ones_like(u))[0]
+#     u_xx = grad(u_x, x, create_graph=True, grad_outputs=torch.ones_like(u_x))[0]
+#
+#     return u_t + self.lambda1 * u * u_x - self.lambda2 * u_xx
 
 
 def loss_function(prediction, target, input=None):
@@ -82,16 +77,11 @@ def loss_function(prediction, target, input=None):
     #
     # losses.append(torch.sqrt(F.mse_loss(pinn_loss, torch.zeros_like(pinn_loss), reduction='mean')))
     # return losses
-
-    return torch.sqrt(F.mse_loss(prediction, target, reduction='mean'))
+    return torch.sqrt(F.mse_loss(prediction, target, reduction='mean') + 1e-8)
 
 
 def get_accuracy(outputNN, forecast, target) -> Tuple[float, list[float]]:
     assert outputNN.shape == forecast.shape == target.shape
-    mask = torch.logical_or(torch.isnan(target), target == forecast)
-    # output_NN[mask] = 0
-    # target[mask] = 0
-    # forecast[mask] = 0
 
     magn_NN = torch.sqrt(((outputNN - target) ** 2).nansum(axis=[1, 2, 3, 4]))
     magn_initial = torch.sqrt(((forecast - target) ** 2).nansum(axis=[1, 2, 3, 4]))
@@ -209,13 +199,21 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
             for data, target in tepoch:
                 if (data, target) == (None, None):
                     continue
-                data, target = data.to(device), target.to(device)
+
+                data, target = data.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
                 # todo: adapt in case of window
                 axis = cfg_dataset["index_axis_time"]
                 shift_input = cfg_dataset.get("shift_window_input", 0)
                 # We take the matching input timesteps with the output timesteps
                 data_same_time = torch.moveaxis(
                     torch.moveaxis(data, axis, 0)[shift_input:shift_input + target.shape[2]], 0, axis)
+
+                axis = cfg_dataset.get("index_axis_channel", 1)
+                indices_chanels_initial_fc = cfg_dataset.get("indices_chanels_initial_fc", None)
+                if indices_chanels_initial_fc is not None:
+                    data_same_time = torch.moveaxis(
+                        torch.moveaxis(data_same_time, axis, 0)[indices_chanels_initial_fc], 0, axis)
+
                 # data_same_time = data.select(axis, 0).unsqueeze(axis)
                 optimizer.zero_grad()
                 output = model(data)
@@ -255,12 +253,19 @@ def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: i
             for data, target in tepoch:
                 if (data, target) == (None, None):
                     continue
-                data, target = data.to(device), target.to(device)
+                data, target = data.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
                 axis = cfg_dataset["index_axis_time"]
                 shift_input = cfg_dataset.get("shift_window_input", 0)
                 # We take the matching input timesteps with the output timesteps
                 data_same_time = torch.moveaxis(
                     torch.moveaxis(data, axis, 0)[shift_input:shift_input + target.shape[2]], 0, axis)
+
+                axis = cfg_dataset.get("index_axis_channel", 1)
+                indices_chanels_initial_fc = cfg_dataset.get("indices_chanels_initial_fc", None)
+                if indices_chanels_initial_fc is not None:
+                    data_same_time = torch.moveaxis(
+                        torch.moveaxis(data_same_time, axis, 0)[indices_chanels_initial_fc], 0, axis)
+
                 output = model(data)
                 if model_error:
                     output = data_same_time - output

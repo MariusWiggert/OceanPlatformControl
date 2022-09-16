@@ -470,7 +470,7 @@ class ExperimentRunner:
         for i in range(self.variables["number_steps_prediction"]):
             print(f"step:{i}/{self.variables['number_steps_prediction']}")
             model_prediction = self.__step_simulation(controller, fit_model=True,
-                                                      dim_lon_lat=24 if get_inputs_and_outputs else None)
+                                                      dim_lon_lat=12 if get_inputs_and_outputs else None)
             # if not i:
             #    print("Shape predictions: ", dict(model_prediction.dims))
             # get ground truth
