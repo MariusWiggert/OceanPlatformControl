@@ -29,7 +29,7 @@ def get_area_coordinates():
 # start_date_2 = datetime.datetime(2022, 6, 1, 12, 00, 00)  # June
 # end_date_2 = datetime.datetime(2022, 8, 31, 12, 00, 00)
 # all_intervals = [(start_date, end_date), (start_date_2, end_date_2)]
-all_intervals = [(datetime.datetime(2022, 5, 1, 12, 00, 00), datetime.datetime(2022, 5, 31, 12, 00, 00))]
+all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
 
 duration_simulation_default = datetime.timedelta(days=5)
 max_velocity = Velocity(mps=1)
@@ -157,17 +157,19 @@ def check_area_to_have_no_nan():
 
 
 def main(dir_name=None, filename=None, number_problems=40, seed=10):
-    print(f"seed: {seed}")
-    random.seed(seed)
+    for i in range(1, 4, 1):
+        seed = i
+        print(f"seed: {seed}")
+        random.seed(seed * 3)
 
-    check_area_to_have_no_nan()
+        check_area_to_have_no_nan()
 
-    # for _ in range(number_problems):
-    starts = generate_temporal_points_within_boundaries(number_problems)
-    problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
+        # for _ in range(number_problems):
+        starts = generate_temporal_points_within_boundaries(number_problems)
+        problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
 
-    path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
-    print(f"problems exported to {path} = {os.path.abspath(path)}")
+        path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
+        print(f"problems exported to {path} = {os.path.abspath(path)}")
 
 
 if __name__ == "__main__":

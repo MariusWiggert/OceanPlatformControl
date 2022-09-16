@@ -311,7 +311,7 @@ def __add_line_to_csv(to_add, folder_destination, type: str):
 def run_experiments_and_collect_tiles(output_folder: str, filename_problems):
     # todo: set 24 as field in config + add parameter for config
     print(f"generating output into folder: {output_folder}")
-    exp = ExperimentRunner("config_GP_for_NN", filename_problems=filename_problems,
+    exp = ExperimentRunner("config_GP_for_NN_validation", filename_problems=filename_problems,
                            folder_problems="data_NN_DA/", folder_config_file="data_NN_DA/")
 
     results = []

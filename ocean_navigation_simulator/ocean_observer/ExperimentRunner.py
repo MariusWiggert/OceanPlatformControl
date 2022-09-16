@@ -470,7 +470,7 @@ class ExperimentRunner:
         for i in range(self.variables["number_steps_prediction"]):
             print(f"step:{i}/{self.variables['number_steps_prediction']}")
             model_prediction = self.__step_simulation(controller, fit_model=True,
-                                                      dim_lon_lat=12 if get_inputs_and_outputs else None)
+                                                      dim_lon_lat=24 if get_inputs_and_outputs else None)
             # if not i:
             #    print("Shape predictions: ", dict(model_prediction.dims))
             # get ground truth
@@ -489,6 +489,7 @@ class ExperimentRunner:
                 inputs_and_outputs[1].append(self.last_prediction_ground_truth.ground_truth.to_array().to_numpy())
                 inputs_and_outputs[2].append(self.observer.prediction_model.measurement_locations)
                 inputs_and_outputs[3].append(self.observer.prediction_model.measured_current_errors)
+                print(inputs_and_outputs[0][-1].shape)
                 print(f"rmse step: {self.last_prediction_ground_truth.compute_metrics('rmse').get('rmse_ratio', '')}")
             else:
                 results.append(self.last_prediction_ground_truth)
