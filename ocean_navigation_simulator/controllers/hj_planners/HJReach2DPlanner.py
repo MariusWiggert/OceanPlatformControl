@@ -21,7 +21,7 @@ class HJReach2DPlanner(HJPlannerBase):
     gpus: float = 1.0
 
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
-        return jnp.array(x)[:2]
+        return jnp.array(x.__array__())[:2]
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
@@ -33,7 +33,7 @@ class HJReach2DPlanner(HJPlannerBase):
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
         # initialize grid using the grids_dict x-y shape as shape
-        self.grid = hj.Grid.from_grid_definition_and_initial_values(
+        self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
                 lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item()]),
                 hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item()])
