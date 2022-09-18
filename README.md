@@ -14,7 +14,7 @@ source  set_up_ocean_platform_env.sh
 ```
 
 ### Minimal setup
-Recreate the minimal setup of Marius. As of now **broken** for some **JAX** imports, see [Issue 33](https://github.com/MariusWiggert/OceanPlatformControl/issues/33).
+Recreate the minimal setup of Marius with hj_reachability (v0.4).
 ```sh
 cd setup/
 conda create -y -n ocean_minimal python=3.9.11
@@ -22,11 +22,9 @@ conda activate ocean_minimal
 conda install -y -c jupyter cartopy ffmpeg
 pip install --upgrade pip
 pip install git+https://github.com/c3aidti/c3python
-pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
 pip install -r requirements_minimal.txt
-# To get the same version of jaxlib as in Marius environment uncomment the next two lines.
-# pip uninstall jaxlib
-# pip install jaxlib==0.1.73
+# hj_reachability needs to be installed after jax
+pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
 ```
 ### If you develop on OceanPlatformControl and hj_reachability simulatenously
 
