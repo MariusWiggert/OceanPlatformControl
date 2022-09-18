@@ -13,3 +13,10 @@ generated_media/
 ./data/
 ./models/
 ./results/
+# Setup file from Jerome
+setup/env*
+# New dir structure
+tmp/
+data/
+models/
+results/
