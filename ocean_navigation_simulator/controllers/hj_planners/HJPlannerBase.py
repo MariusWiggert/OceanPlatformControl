@@ -360,7 +360,7 @@ class HJPlannerBase(Controller):
             def termination_condn(x_target, r, x, t):
                 return np.linalg.norm(x_target - x) <= r
 
-            termination_condn = partial(termination_condn, jnp.array(self.problem.end_region),
+            termination_condn = partial(termination_condn, jnp.array(self.problem.end_region.__array__()),
                                         self.problem.target_radius)
             self._extract_trajectory(self.get_x_from_full_state(x_t), termination_condn=termination_condn)
             # arrange to forward times by convention for plotting and open-loop control (aka closed-loop with this)
@@ -553,7 +553,7 @@ class HJPlannerBase(Controller):
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
         self.logger.debug("HJPlannerBase: Cache Size ", hj.solver._solve._cache_size())
         hj.solver._solve._clear_cache()
-        xla._xla_callable.cache_clear()
+        # xla._xla_callable.cache_clear()
 
         # For now only using interpolation in jnp (no analytical function)
 
