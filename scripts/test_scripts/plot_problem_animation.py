@@ -114,7 +114,7 @@ seaweed_source_dict = {
     'field': 'SeaweedGrowth',
     'source': 'GEOMAR',
     'source_settings': {
-        'filepath': './data/Nutrients/2021_monthly_nutrients_and_temp.nc',
+        'filepath': './data/nutrients/2021_monthly_nutrients_and_temp.nc',
     }
 }
 ocean_source_dict = {'field': 'OceanCurrents',
