@@ -7,6 +7,7 @@ fitter==1.4.1
 gym==0.21.0
 ipython==8.5.0
 jax==0.2.24
+lxml==4.8.0
 matplotlib==3.4.3
 netCDF4==1.6.0
 numpy==1.21.3
