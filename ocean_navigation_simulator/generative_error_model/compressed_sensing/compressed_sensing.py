@@ -51,14 +51,14 @@ def perform_CS(forecast: xr.Dataset, modes: np.ndarray, buoy_error_data: pd.Data
     # perform CS
     vx = cp.Variable(A.shape[-1])
 
-    # Problem formulation 1
-    objective = cp.Minimize(cp.norm(vx, 1))
-    constraints = [A @ vx == y]
-    prob = cp.Problem(objective, constraints)
+    # # Problem formulation 1
+    # objective = cp.Minimize(cp.norm(vx, 1))
+    # constraints = [A @ vx == y]
+    # prob = cp.Problem(objective, constraints)
 
-    # # Just least squares
-    # objective = cp.sum_squares(A @ vx - y)
-    # prob = cp.Problem(cp.Minimize(objective))
+    # Just least squares
+    objective = cp.sum_squares(A @ vx - y)
+    prob = cp.Problem(cp.Minimize(objective))
 
     # # LASSO
     # gamma = cp.Parameter(nonneg=True)
