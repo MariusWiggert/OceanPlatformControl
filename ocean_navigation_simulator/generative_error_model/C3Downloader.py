@@ -1,12 +1,17 @@
 # source: "https://github.com/MariusWiggert/OceanPlatformControl/blob/Jerome_reinforcement_learning/
 # ocean_navigation_simulator/environment/ArenaFactory.py"
 
-from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
-
 from c3python import C3Python
 import datetime
 from typing import List
 import os
+
+
+def get_path_to_project(static_path: str) -> str:
+    file_split = static_path.split("/")
+    end_idx = file_split.index("OceanPlatformControl")
+    relative_path = "/".join(file_split[:end_idx+1])
+    return relative_path
 
 
 def get_user_dir():
@@ -15,6 +20,9 @@ def get_user_dir():
 
 
 class C3Downloader:
+    """Need to have a valid keyfile in /home/usr/.ssh/ for authentication with C3 before being able
+    to use this class.
+    """
 
     def __init__(self, forecast_hindcast: str="forecast"):
         c3 = C3Python(
