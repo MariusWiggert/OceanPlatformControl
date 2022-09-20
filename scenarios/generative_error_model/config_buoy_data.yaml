@@ -10,14 +10,13 @@ experiment_runner:
     - data_ranges:
         lon_range: [-140, -120]
         lat_range: [20, 30]
-        t_range: "2022-04-21T13:00:00Z/2022-04-30T13:00:00Z" # in ISO8601 format
+        t_range: "2022-04-21T12:30:00Z/2022-04-30T12:30:00Z" # in ISO8601 format
 
 model:
   type: "simplex_noise"
   simplex_noise:
-    area1:
-      harmonics: "variogram_params/tuned_2d_hindcast_area1_False_True.npy"
-      detrend_stats: [[-0.06938, 0.19566], [-0.03512, 0.19983]]
+    area1: "variogram_params/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+#    area1: "variogram_params/tuned_2d_hindcast_area1_True_True.npy"
   gan: "space holder"
 
 dataset_writer:
@@ -27,9 +26,9 @@ dataset_writer:
   # lon_range: [-120, -100]
   time_range: ""  # for buoy data slicing, set at runtime, depends on loaded forecast/hindcast
   source: "copernicus"
-  dataset_type: "hindcast"
+  dataset_type: "forecast"
   input: "area1"
-  output: "area_test"
+  output: "area1"
 
 buoy_config:
   copernicus:
