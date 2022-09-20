@@ -56,7 +56,7 @@ def perform_CS(forecast: xr.Dataset, modes: np.ndarray, buoy_error_data: pd.Data
     # constraints = [A @ vx == y]
     # prob = cp.Problem(objective, constraints)
 
-    # Just least squares
+    # Least squares -> might be problematic if ill-conditioned
     objective = cp.sum_squares(A @ vx - y)
     prob = cp.Problem(cp.Minimize(objective))
 
