@@ -1,10 +1,21 @@
- # source: "https://github.com/MariusWiggert/OceanPlatformControl/blob/Jerome_reinforcement_learning/
-# ocean_navigation_simulator/environment/ArenaFactory.py"
-
 from c3python import C3Python
 import datetime
-from typing import List
+from typing import List, Optional
 import os
+
+## How to get c3 Keyfile set up
+# Step 1: generate the public and private keys locally on your computer
+# in terminal run 'openssl genrsa -out c3-rsa.pem 2048' -> this generates the private key in the c3-rsa.pem file
+# for public key from it run 'openssl rsa -in c3-rsa.pem -outform PEM -pubout -out public.pem'
+# Step 2: move the c3-rsa.pem file to a specific folder
+# Step 3: Log into C3, start jupyter service and in a cell update your users public key by
+# user = c3.User.get("mariuswiggert@berkeley.edu")
+# user = user.get("publicKey")
+# user.publicKey = "<public key from file>"
+# user.merge()
+
+KEYFILE = '/path/to/your/c3-rsa.pem'
+USERNAME = 'your.name@berkeley.edu'
 
 
 def get_path_to_project(static_path: str) -> str:
@@ -14,29 +25,20 @@ def get_path_to_project(static_path: str) -> str:
     return relative_path
 
 
-def get_user_dir():
-    path_parts = os.getcwd().split("/")
-    return "/".join(path_parts[:3])
-
-
 class C3Downloader:
-    """Need to have a valid keyfile in /home/usr/.ssh/ for authentication with C3 before being able
-    to use this class.
+    """Downloads forecast and hindcast files from C3.
+    [Please check above for generating a keyfile associated with your Berkeley email.]
     """
 
-    def __init__(self, forecast_hindcast: str="forecast"):
+    def __init__(self):
         c3 = C3Python(
             url='https://dev01-seaweed-control.c3dti.ai',
             tenant='seaweed-control',
             tag='dev01',
-            keyfile=os.path.join(get_user_dir(), '.ssh/c3-rsa'),
-            username='jonas.dieker@berkeley.edu',
+            keyfile=KEYFILE,
+            username=USERNAME,
         ).get_c3()
         self.c3 = c3
-        if forecast_hindcast == "forecast":
-            self.data_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/forecasts/")
-        if forecast_hindcast == "hindcast":
-            self.data_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/hindcasts/")
 
     def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
         """
@@ -44,7 +46,7 @@ class C3Downloader:
             source: str {Copernicus, Hycom}
             type_of_data: str {forecast, hindcast}
             region: str {Region 1, Region 2, etc., GoM}
-            time_interval: List[datetime.datetime}
+            time_interval: List[datetime.datetime]
         """
         time_start = time_interval[0]
         time_end = time_interval[1]
@@ -83,25 +85,32 @@ class C3Downloader:
     def download_files(self, files_list: List[C3Python], download_folder: str):
         if files_list is None:
             raise ValueError("No files present on C3 with specified requirements!")
-        download_root = os.path.join(self.data_dir, download_folder)
-        print(f"Downloading forecasts/hindcasts to: {download_root}.\n")
+        if not os.path.exists(download_folder):
+            os.makedirs(download_folder)
+        print(f"Downloading files to: {download_folder}.\n")
         for file in files_list:
             filename = os.path.basename(file.file.contentLocation)
             url = file.file.url
             filesize = file.file.contentLength
-            if not os.path.exists(os.path.join(download_root, filename)) or os.path.getsize(os.path.join(download_root, filename)) != filesize:
-                self.c3.Client.copyFilesToLocalClient(url, download_root)
+            if not os.path.exists(os.path.join(download_folder, filename)) or os.path.getsize(os.path.join(download_folder, filename)) != filesize:
+                self.c3.Client.copyFilesToLocalClient(url, download_folder)
                 print(f"Downloaded {filename}")
                 # TODO: check file size!
-            if os.path.getsize(os.path.join(download_root, filename)) != filesize:
+            if os.path.getsize(os.path.join(download_folder, filename)) != filesize:
                 raise Exception(
-                    f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_root + filename)}B.")
+                    f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + filename)}B.")
             else:
-                os.system(f"touch {os.path.join(download_root, filename)}")
+                os.system(f"touch {os.path.join(download_folder, filename)}")
+
+
+def test():
+    """Adjust this function for manual downloading or testing.
+    """
+    c3_downloader = C3Downloader()
+    time_interval = [datetime.datetime(2022, 4, 21, 12, 0, 0), datetime.datetime(2022, 4, 22, 12, 0, 0)]
+    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
+    c3_downloader.download_files(files, "/absolute/path/where/to/save/files")
 
 
 if __name__ == "__main__":
-    c3_downloader = C3Downloader()
-    time_interval = [datetime.datetime(2022, 4, 21, 12, 0, 0), datetime.datetime(2022, 6, 15, 12, 0, 0)]
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "Region 1", time_interval)
-    c3_downloader.download_files(files, "area1")
+    test()
