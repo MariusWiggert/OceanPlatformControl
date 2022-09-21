@@ -1,7 +1,7 @@
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
 
-from typing import Tuple, AnyStr, Dict, List
+from typing import Tuple, AnyStr, List
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -12,8 +12,7 @@ class VisualizeVariogram:
     """Loads or receives a Variogram object and visualizes the histograms and variograms
     in each dimension."""
 
-    def __init__(self, config: Dict, variogram: Variogram = None):
-        self.config = config
+    def __init__(self, variogram: Variogram = None):
         self.variogram = variogram
         self.vars = None
         if self.variogram is not None:
@@ -26,15 +25,12 @@ class VisualizeVariogram:
                 self.vars = ["lon_lag", "lat_lag", "t_lag"]
             else:
                 self.vars = ["space_lag", "t_lag"]
-
-
         self.project_path = get_path_to_project(os.getcwd())
 
-    def read_variogram_from_file(self, file_name: str=None):
+    def read_variogram_from_file(self, file_name: str):
         """Reads variogram data from file and creates a Variogram object."""
 
-        variogram_dir = os.path.join(self.project_path, self.config["data_dir"], "variogram")
-        variogram_file = os.path.join(variogram_dir, file_name)
+        variogram_file = file_name
         if not os.path.exists(variogram_file):
             raise ValueError(f"Variogram file '{variogram_file.split('/')[-1]}' does not exist!")
         print(f"Loaded variogram from: {variogram_file.split('/')[-1]}.")
@@ -202,7 +198,7 @@ class VisualizeVariogram:
         figure, axs = plt.subplots(1, len(self.vars), figsize=(25, 10))
         for idx, var in enumerate(self.vars):
             self._plot_sliced_histogram(var, idx, tol, view_range, axs[idx])
-        plt.show()
+        # plt.show()
 
     def _plot_sliced_histogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis) -> plt.axis:
         tol, view_range = self._plot_input_checker(idx, tol, view_range)
@@ -238,7 +234,7 @@ class VisualizeVariogram:
         figure, axs = plt.subplots(1, len(self.vars), figsize=(25, 10))
         for idx, var in enumerate(self.vars):
             self._plot_sliced_variogram(var, idx, tol, view_range, axs[idx], error_variable)
-        plt.show()
+        # plt.show()
 
     def _plot_sliced_variogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis, error_variable: AnyStr) -> plt.axis:
         tol, view_range = self._plot_input_checker(idx, tol, view_range)
