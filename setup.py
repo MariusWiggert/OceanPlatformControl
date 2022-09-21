@@ -30,6 +30,8 @@ setuptools.setup(
     packages = setuptools.find_packages(),
     python_requires='>=3.9.7',
     # Included core requirements: https://packaging.python.org/discussions/install-requires-vs-requirements/
-    install_requires=['jupyterlab', 'numpy', 'tqdm', 'pandas', 'seaborn',
-                      'plotly', 'matplotlib', 'casadi', 'ffmpeg', 'imageio', 'netCDF4', 'datetime'],
+
+    # please install requirements manually from .txt
+    #install_requires=['jupyterlab', 'numpy', 'tqdm', 'pandas', 'seaborn',
+    #                  'plotly', 'matplotlib', 'casadi', 'ffmpeg', 'imageio', 'netCDF4', 'datetime'],
 )

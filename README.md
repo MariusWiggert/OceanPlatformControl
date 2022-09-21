@@ -15,6 +15,9 @@ source  set_up_ocean_platform_env.sh
 
 ### Minimal setup
 Recreate the minimal setup of Marius with hj_reachability (v0.4).
+
+**LINUX** (might also work on x86 macs but not tested yet)
+
 ```sh
 cd setup/
 conda create -y -n ocean_minimal python=3.9.11
@@ -26,6 +29,26 @@ pip install -r requirements_minimal.txt
 # hj_reachability needs to be installed after jax
 pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
 ```
+**MAC M1 ARM**
+
+First create a conda environment
+
+```sh
+conda create -y -n ocean_minimal python=3.9
+conda activate ocean_minimal
+```
+
+Then run the installation script (you might have to run `chmod 700 setup/m1_install.sh` before):
+
+```sh
+./setup/m1_install.sh
+```
+
+
+
+
+
+
 ### If you develop on OceanPlatformControl and hj_reachability simulatenously
 
 3. Now you need to download our two repos and put them in the same top_folder
@@ -77,3 +100,13 @@ OceanPlatformControl/
 - There is other data available to download that was used in previous experiments (e.g. analytical_currents are samples where it is possible to calculate the currents everywhere because you know the physical model, e.g. of a double gyre).
 - Both Hycom and Copernicus use a resolution of 1/12th degree (~7km).
 - Hycom uses 1/25th degree in the Gulf of Mexico (GOM).
+
+
+### Testing your installation 
+
+For testing your installation you can run the tutorial scripts (make sure you run them from the root repo folder and the folder generated_media exists in the root repo folder):
+
+i.e.:
+
+`python3 scripts/tutorial/controller/hj_planner.py`
+
