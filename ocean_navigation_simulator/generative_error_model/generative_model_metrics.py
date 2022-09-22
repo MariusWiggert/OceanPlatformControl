@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 import pandas as pd
-from typing import Callable, Dict, Any, List
+from typing import Callable, Dict, Any, List, Tuple
 
 
 def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, Any]]]:
@@ -17,19 +17,19 @@ def rmse(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, 
     return {"rmse": rmse_val}
 
 
-def rmse_over_time(df: pd.DataFrame) -> Dict[str, List[float]]:
+def rmse_over_time(df: pd.DataFrame, variables: Tuple[str, str]) -> Dict[str, List[float]]:
     df["hour"] = df["time"].apply(lambda x: x[:13])
     hours = sorted(set(df["hour"].tolist()))
     rmse_data = []
     for hour in hours:
-        rmse_data.append(np.sqrt(((df[df["hour"] == hour]["u_error"])**2 +
-                                  (df[df["hour"] == hour]["v_error"])**2)).mean())
+        rmse_data.append(np.sqrt(((df[df["hour"] == hour][variables[0]])**2 +
+                                  (df[df["hour"] == hour][variables[1]])**2)).mean())
     return {"rmse": rmse_data}
 
 
-def rmse_over_time_xr(error: xr.Dataset):
-    rmse_val = np.sqrt(((error["u_error"]**2).mean(dim=("lon", "lat"))).values +
-                       ((error["v_error"]**2).mean(dim=("lon", "lat"))).values)
+def rmse_over_time_xr(error: xr.Dataset, variables: Tuple[str, str]):
+    rmse_val = np.sqrt(((error[variables[0]]**2).mean(dim=("lon", "lat"))).values +
+                       ((error[variables[1]]**2).mean(dim=("lon", "lat"))).values)
     return rmse_val
 
 
