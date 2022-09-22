@@ -1,3 +1,6 @@
+from ocean_navigation_simulator.utils.units import timing
+from ocean_navigation_simulator.utils.cluster_utils import get_c3
+
 from c3python import C3Python
 import datetime
 from typing import List, Optional
@@ -14,15 +17,8 @@ import os
 # user.publicKey = "<public key from file>"
 # user.merge()
 
-KEYFILE = '/path/to/your/c3-rsa.pem'
-USERNAME = 'your.name@berkeley.edu'
-
-
-def get_path_to_project(static_path: str) -> str:
-    file_split = static_path.split("/")
-    end_idx = file_split.index("OceanPlatformControl")
-    relative_path = "/".join(file_split[:end_idx+1])
-    return relative_path
+KEYFILE = 'setup/c3_keys/c3-rsa.pem'
+USERNAME = 'mariuswiggert@berkeley.edu'
 
 
 class C3Downloader:
@@ -31,13 +27,7 @@ class C3Downloader:
     """
 
     def __init__(self):
-        c3 = C3Python(
-            url='https://dev01-seaweed-control.c3dti.ai',
-            tenant='seaweed-control',
-            tag='dev01',
-            keyfile=KEYFILE,
-            username=USERNAME,
-        ).get_c3()
+        c3 = get_c3()
         self.c3 = c3
 
     def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
@@ -109,7 +99,7 @@ def test():
     c3_downloader = C3Downloader()
     time_interval = [datetime.datetime(2022, 4, 21, 12, 0, 0), datetime.datetime(2022, 4, 22, 12, 0, 0)]
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
-    c3_downloader.download_files(files, "/absolute/path/where/to/save/files")
+    c3_downloader.download_files(files, "/dir/where/to/save/files")
 
 
 if __name__ == "__main__":
