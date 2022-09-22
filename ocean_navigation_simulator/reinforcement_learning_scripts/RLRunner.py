@@ -59,7 +59,7 @@ class RLRunner:
         Utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(self.config_folder)
-        Utils.clean_results(f'/seaweed-storage/experiments/{self.scenario_name}/', verbose=1, delete=False)
+        Utils.clean_results(f'/seaweed-storage/experiments/{self.scenario_name}/', verbose=1, delete=True)
         json.dump(self.agent_config,                open(f'{self.config_folder}agent_config.json', "w"), indent=4)
         json.dump(self.ocean_env_config,            open(f'{self.config_folder}ocean_env_config.json', "w"), indent=4)
         json.dump(self.feature_constructor_config,  open(f'{self.config_folder}feature_constructor_config.json', "w"), indent=4)

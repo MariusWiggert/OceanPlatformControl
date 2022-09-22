@@ -23,7 +23,7 @@ Utils.ray_init()
 Utils.ensure_storage_connection()
 
 runner = RLRunner(
-    name='integrated_model_64_64_units',
+    name='baseline_hj_planner_hindcast',
     scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     agent_class=ApexTrainer,
     agent_config={
@@ -58,12 +58,12 @@ runner = RLRunner(
         "recreate_failed_workers": True,
     },
     ocean_env_config={
-        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_forecast_50000_batches_2022_09_20_15_26_45/',
+        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_forecast_50000_batches/',
         'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         'arena_steps_per_env_step': 1,
         'actions': 8,
         'render': False,
-        'fake': False, #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
+        'fake': 'hj_planner_hindcast', #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
     },
     feature_constructor_config={
         'num_measurements': 0,

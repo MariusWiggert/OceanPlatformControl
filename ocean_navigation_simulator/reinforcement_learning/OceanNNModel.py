@@ -8,7 +8,7 @@ tf1, tf, tfv = try_import_tf()
 # Example: https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
 
 class OceanNNModel(DistributionalQTFModel):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name, num_atoms, hidden_units, **kw):
+    def __init__(self, obs_space, action_space, num_outputs, model_config, name, num_atoms, hidden_units, use_custom, **kw):
         super(OceanNNModel, self).__init__(
             obs_space, action_space, num_outputs, model_config, name, **kw
         )

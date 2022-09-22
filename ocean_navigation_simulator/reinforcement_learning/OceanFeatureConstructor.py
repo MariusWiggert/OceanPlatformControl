@@ -60,13 +60,15 @@ class  OceanFeatureConstructor(FeatureConstructor):
             repeats = np.repeat(measurements[-1:], repeats=(self.config['num_measurements']-self.measurements.shape[0]), axis=0)
             measurements = np.append(measurements, repeats, axis=0)
 
+        map = np.zeros((self.config['map']['xy_width_points'], self.config['map']['xy_width_points'], 0), dtype='float32')
+
         # Step 2: Get TTR Map on grid
         if self.config['map']['ttr_forecast']:
-            ttr_foreacst = self.forecast_planner.interpolate_value_function_in_hours(observation, width_deg=self.config['map']['xy_width_degree'], width=self.config['map']['xy_width_points'])
-        if self.config['map']['ttr_hin']:
-            ttr_foreacst = self.forecast_planner.interpolate_value_function_in_hours(observation, width_deg=self.config['map']['xy_width_degree'], width=self.config['map']['xy_width_points'])
-
-        # ttr_map = np.expand_dims(ttr_map, axis=2)
+            ttr_forecast = self.forecast_planner.interpolate_value_function_in_hours(observation, width_deg=self.config['map']['xy_width_degree'], width=self.config['map']['xy_width_points'])
+            map = np.concatenate((map, np.expand_dims(ttr_forecast, axis=2)), axis=2, dtype='float32')
+        if self.config['map']['ttr_hindcast']:
+            ttr_hindcast = self.hindcast_planner.interpolate_value_function_in_hours(observation, width_deg=self.config['map']['xy_width_degree'], width=self.config['map']['xy_width_points'])
+            map = np.concatenate((map, np.expand_dims(ttr_hindcast, axis=2)), axis=2, dtype='float32')
 
         # Step 3: Get GP Observer on grid
         if len(self.config['map']['observer']) > 0:
@@ -82,8 +84,6 @@ class  OceanFeatureConstructor(FeatureConstructor):
                 lat=np.linspace(observation.platform_state.lat.deg - self.config['map']['xy_width_degree'] / 2, observation.platform_state.lat.deg + self.config['map']['xy_width_degree'] / 2, self.config['map']['xy_width_points']),
                 method='linear'
             )[self.config['map']['observer']].to_array().to_numpy().astype('float32').swapaxes(0,1).swapaxes(1,2)
-            map = np.concatenate((ttr_map, gp_map), axis=2)
-        else:
-            map = ttr_map
+            map = np.concatenate((map, gp_map), axis=2, dtype='float32')
 
-        return (measurements, ttr_map) if self.config['num_measurements'] > 0 else ttr_map
+        return (measurements, map.squeeze()) if self.config['num_measurements'] > 0 else map.squeeze()
