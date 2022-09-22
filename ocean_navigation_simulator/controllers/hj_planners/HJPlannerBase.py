@@ -260,10 +260,17 @@ class HJPlannerBase(Controller):
                 rel_time = self.reach_times[-1]
 
             # Extract the optimal control from the calculated value function at the specific platform state.
-            u_out, _ = self.nondim_dynamics.dimensional_dynamics.get_opt_ctrl_from_values(
-                grid=self.grid, x=self.get_x_from_full_state(state),
-                time=rel_time,
-                times=self.reach_times, all_values=self.all_values)
+            try:
+                u_out, _ = self.nondim_dynamics.dimensional_dynamics.get_opt_ctrl_from_values(
+                    grid=self.grid, x=self.get_x_from_full_state(state),
+                    time=rel_time,
+                    times=self.reach_times, all_values=self.all_values)
+            except:
+                print(f'self.last_fmrc_time_planned_with: {self.last_fmrc_time_planned_with}')
+                print(f'rel_time: {rel_time:.0f}')
+                print(f'self.reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]')
+                raise
+
 
         return PlatformAction(magnitude=u_out[0], direction=u_out[1])
 
