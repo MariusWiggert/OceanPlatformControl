@@ -33,7 +33,20 @@ def rmse_over_time_xr(error: xr.Dataset, variables: Tuple[str, str]):
     return rmse_val
 
 
-def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset):
+def vector_correlation_over_time(data: pd.DataFrame) -> np.ndarray:
+    data["hour"] = data["time"].apply(lambda x: x[:13])
+    hours = sorted(set(data["hour"].tolist()))
+    vec_corr = []
+    for hour in hours:
+        buoy_u = data[data["hour"] == hour]["u"]
+        buoy_v = data[data["hour"] == hour]["v"]
+        forecast_u = data[data["hour"] == hour]["u_forecast"]
+        forecast_v = data[data["hour"] == hour]["v_forecast"]
+        vec_corr.append(vector_correlation(buoy_u, buoy_v, forecast_u, forecast_v))
+    return np.array(vec_corr)
+
+
+def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> np.ndarray:
     # rename forecast variables and slice forecast to size of error
     forecast = forecast.rename({"longitude": "lon",
                                 "latitude": "lat",

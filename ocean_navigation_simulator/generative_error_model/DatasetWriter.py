@@ -64,8 +64,10 @@ class DatasetWriter:
 
     def _build_time_string(self, forecast_idx: int) -> str:
         t_range = self.files_dicts[forecast_idx]["t_range"]
-        time_string_start = (t_range[0] + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        time_string_end = (t_range[1] + timedelta(hours=-6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # time_string_start = (t_range[0] + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # time_string_end = (t_range[1] + timedelta(hours=-6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        time_string_start = (t_range[0]).strftime("%Y-%m-%dT%H:%M:%SZ")
+        time_string_end = (t_range[1]).strftime("%Y-%m-%dT%H:%M:%SZ")
         time_string = time_string_start + "/" + time_string_end
         return time_string
 
