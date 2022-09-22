@@ -17,7 +17,7 @@ class Observer:
     the given areas.
     """
 
-    def __init__(self, config: Dict[str, Any], verbose: Optional[int] = 10):
+    def __init__(self, config: Dict[str, Any], verbose: Optional[int] = 0):
         """Create the observer object
         Args:
             config: dictionary from the yaml file used to specify the parameters of the prediction model.
