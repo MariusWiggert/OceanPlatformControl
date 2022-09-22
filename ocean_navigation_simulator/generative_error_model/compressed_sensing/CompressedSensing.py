@@ -147,6 +147,13 @@ def perform_CS(forecast: xr.Dataset, modes: np.ndarray, buoy_error_data: pd.Data
     # objective = cp.Minimize(error + gamma*cp.norm(vx, 1))
     # prob = cp.Problem(objective, constraints)
 
+    # # Tikhonov Regularization
+    # gamma = cp.Parameter(nonneg=True)
+    # gamma.value = 0.05
+    # error = cp.sum_squares(A @ vx - y)
+    # objective = cp.Minimize(error + gamma*cp.norm(vx, 2))
+    # prob = cp.Problem(objective, constraints)
+
     prob.solve()
 
     if prob.status in ["infeasible", "unbounded"]:

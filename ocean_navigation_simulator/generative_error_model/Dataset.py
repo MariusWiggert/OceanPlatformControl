@@ -1,26 +1,3 @@
-# # Notes for implementation:
-# # need to replace double underscore in csv file name
-# # to forward slash to recover the time str part of name
-
-# from torch.utils.data import Dataset
-# import pandas as pd
-# import yaml
-# import glob
-
-# class CurrentErrorDataset(Dataset):
-#     def __init__(self, yaml_file_config):
-#         with open(yaml_file_config) as f:
-#             self.config = yaml.load(f, Loader=yaml.FullLoader)
-#         self.data_dir = self.config["output_dir"]
-#         self.data_files = list(glob.glob(os.path.join(self.data_dir, f"*.csv")))
-
-#     def __len__(self):
-#         return len(self.data_files)
-
-#     def __getitem__(self, idx):
-#         errors = pd.red_csv(self.data_files[idx])
-#         return errors
-
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project, load_config
 import pandas as pd
 import os
@@ -32,6 +9,7 @@ class Dataset:
     """This class handles the data loading for the Variogram computation and the ExperimentRunner.
     """
     def __init__(self, data_dir: str, dataset_type: str, dataset_name: str):
+        # TODO: change this convoluted way of deciding what data to load.
 
         # check if dataset exists
         root = get_path_to_project(os.getcwd())
@@ -44,7 +22,8 @@ class Dataset:
 
         self.dataset_name = dataset_name
         self.dataset_path = os.path.join(self.dataset_dir, dataset_name)
-        self.meta_data = self.build_meta_data_list()
+        # TODO: find better way to get meta-data -> e.g. read in files and check extremal values.
+        # self.meta_data = self.build_meta_data_list()
 
     def load_dataset(self, overlap: bool=True, verbose: bool=False) -> pd.DataFrame:
         """Loads entire dataset specified.
@@ -59,7 +38,7 @@ class Dataset:
                 times = sorted(list(set(df_temp["time"])))[:24]
                 df_temp = df_temp[df_temp["time"].isin(times)]
             df = pd.concat([df, df_temp], ignore_index=True)
-        print(f"Loaded {self.dataset_name} from {self.dataset_type}s.")
+        print(f"Loaded {self.dataset_name} from {self.dataset_type}.")
         if verbose:
             self.print_df_meta_data(df)
         return df

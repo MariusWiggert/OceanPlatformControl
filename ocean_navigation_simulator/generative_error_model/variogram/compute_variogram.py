@@ -61,7 +61,7 @@ def main():
         data_overlap={args.no_data_overlap}\n""")
 
     # compute variogram
-    v.build_variogram_gen(args.bin_res[0], args.num_workers, chunk_size=int(args.chunk_size),
+    v.build_variogram(args.bin_res[0], args.num_workers, chunk_size=int(args.chunk_size),
                           cross_buoy_pairs_only=args.cross_buoy_pairs_only, is_3d=args.is_3d, logger=logger)
     # save to .npy
     resolution = list(v.res_tuple)

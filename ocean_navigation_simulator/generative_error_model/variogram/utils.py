@@ -3,6 +3,9 @@ from ocean_navigation_simulator.generative_error_model.variogram.Variogram impor
 from typing import List
 import pandas as pd
 import numpy as np
+import xarray as xr
+import itertools
+from typing import Tuple
 
 
 def save_tuned_empirial_variogram_3d(vvis: VisualizeVariogram, view_range: List[int], file_path: str):
@@ -58,3 +61,35 @@ def save_variogram_to_npy(variogram: Variogram, file_path: str):
                     }
     np.save(file_path, data_to_save)
     print(f"\nSaved variogram data to: {file_path}")
+
+
+def sample_from_xr(data: xr.Dataset, num_samples, variables: Tuple[str, str] = ("u_error", "v_error")) -> pd.DataFrame:
+    """Creates random sparse samples from dense data to be used in variogram computation.
+    Note: Num of output points might differ from specified since NaN values are dropped.
+    """
+    lon_len = len(data["lon"].values)
+    lat_len = len(data["lat"].values)
+    time_len = len(data["time"].values)
+    total_len = lon_len * lat_len * time_len
+
+    idx = np.random.choice(list(range(total_len)), size=num_samples)
+
+    lon = data["lon"].values.reshape(-1)
+    lat = data["lat"].values.reshape(-1)
+    time = data["time"].values.reshape(-1)
+
+    axes = np.array(list(itertools.product(lon, lat, time)))[idx]
+    lon = axes[:, 0]
+    lat = axes[:, 1]
+    time = axes[:, 2]
+    u_error = data[variables[0]].values.reshape(-1)[idx]
+    v_error = data[variables[1]].values.reshape(-1)[idx]
+
+    data = pd.DataFrame({"lon": lon,
+                         "lat": lat,
+                         "time": time,
+                         "u_error": u_error,
+                         "v_error": v_error})
+
+    data = data.dropna()
+    return data

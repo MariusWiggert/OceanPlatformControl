@@ -11,11 +11,12 @@ import logging
 
 class Variogram:
     """
-    Handles all the required variogram analysis functionality needed.
+    Handles all the required variogram computation functionality needed.
     """
 
-    def __init__(self, data: pd.DataFrame=None):
+    def __init__(self, data: pd.DataFrame=None, variables: Tuple[str, str] = ("u_error", "v_error")):
         self.data = data
+        self.variables = variables
         self.bins = None
         self.bins_count = None
         self.units = None
@@ -65,8 +66,9 @@ class Variogram:
             /bin_statistics[x[f"{detrend_var}_bins"]]["v_error"][1], axis=1)
         return bin_statistics
 
-    def build_variogram_gen(self, res_tuple: Tuple[float], num_workers: int, chunk_size: int, cross_buoy_pairs_only: bool=True,\
-        detrended: bool=True, units: str="km", is_3d: bool=True, logger: logging=None) -> Tuple[np.ndarray, np.ndarray]:
+    def build_variogram(self, res_tuple: Tuple[float], num_workers: int, chunk_size: int,
+                        cross_buoy_pairs_only: bool=True, detrended: bool=True, units: str="km", is_3d: bool=True,
+                        logger: logging=None) -> Tuple[np.ndarray, np.ndarray]:
 
         """Find all possible pairs of points. Then computes the lag value in each axis
         and the variogram value for u and v errors.
