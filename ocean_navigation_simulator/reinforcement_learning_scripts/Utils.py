@@ -124,7 +124,7 @@ class Utils:
                     url='https://dev01-seaweed-control.c3dti.ai',
                     tenant='seaweed-control',
                     tag='dev01',
-                    keyfile='setup/c3-rsa',
+                    keyfile='setup/keys/c3-rsa-jerome',
                     username='jeanninj@berkeley.edu',
                 ).get_c3()
         return Utils._c3
