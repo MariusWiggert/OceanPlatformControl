@@ -212,10 +212,9 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             if time > self.files_dicts[self.rec_file_idx]['t_range'][1]:
                 raise ValueError("No current data in the last file for requested time.")
             else:
-                return self.rec_file_idx
+                return self.files_dicts[self.rec_file_idx]['t_range'][0]
         # otherwise check if a more recent one is available or we need to use an older one
-        elif not (self.files_dicts[self.rec_file_idx]['t_range'][0] <=
-                  time < self.files_dicts[self.rec_file_idx + 1]['t_range'][0]):
+        elif not (self.files_dicts[self.rec_file_idx]['t_range'][0] <= time < self.files_dicts[self.rec_file_idx + 1]['t_range'][0]):
             # Filter on the list to get all files where t_0 is contained.
             dics_containing_t_0 = list(
                 filter(lambda dic: dic['t_range'][0] < time < dic['t_range'][1], self.files_dicts))
