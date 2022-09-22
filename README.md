@@ -48,9 +48,27 @@ Then run the installation script (you might have to run `chmod 700 setup/m1_inst
 ./setup/m1_install.sh
 ```
 
+**WINDOWS**
 
+JAX depends on XLA which needs to be installed as the jaxlib package, which is (officialy) only supported on Linux (Ubuntu) and macOS for now,
+according to the github https://github.com/google/jax
 
+Fix: Install Ubuntu on *Windows Subsystem for Linux (WSL)* by oppening PowerShell as administrator and run:
+```sh
+wsl --install
+```
+which will enable all the features necessary to run WSL and install the Ubuntu distribution.
+Alternatively, follow:
+https://ubuntu.com/tutorials/install-ubuntu-on-wsl2-on-windows-11-with-gui-support#1-overview
 
+Visual Studio Code is well suited for developing in WSL and makes the integration easy, see: 
+https://code.visualstudio.com/docs/remote/wsl
+
+For visualization of figures, Windows 11 (> Build 22000) supports running Linux GUI apps and allows interactive plotting.
+For Windows 10, no direct GUI support which means that plt.show() for example won't work directly. 
+Other solutions exist, such as saving the figure or workarounds provided by the community.
+
+Once you have WSL installed and running, install conda or miniconda and follow the same instructions as for the *minimal setup for Linux*.
 
 
 ### If you develop on OceanPlatformControl and hj_reachability simulatenously
