@@ -18,18 +18,21 @@ Recreate the minimal setup of Marius with hj_reachability (v0.4).
 
 **LINUX** (might also work on x86 macs but not tested yet)
 
+First create a conda environment
+
 ```sh
-cd setup/
 conda create -y -n ocean_minimal python=3.9.11
 conda activate ocean_minimal
-conda install -y -c jupyter cartopy ffmpeg
-pip install --upgrade pip
-pip install git+https://github.com/c3aidti/c3python
-pip install -r requirements_minimal.txt
-# hj_reachability needs to be installed after jax
-pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
-pip install -e .
 ```
+
+Then run the installation script (you might have to run `chmod 700 setup/install.sh` before):
+
+```sh
+./setup/install.sh
+```
+
+
+
 **MAC M1 ARM**
 
 First create a conda environment
