@@ -18,7 +18,11 @@ from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import OceanNNModel
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
-
+"""
+    RLRunner takes configurations to run a RL training with Rllib and hides away all the ugly stuff
+    needed to run Rllib. It creates folder for results, saves configurations, registers Environment and
+    Model with Rllib and finally prints results after each training iteration.    
+"""
 class RLRunner:
     def __init__(
         self,
@@ -55,7 +59,7 @@ class RLRunner:
         Utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(self.config_folder)
-        # Utils.clean_results(f'/seaweed-storage/experiments/{self.scenario_name}/', verbose=1)
+        Utils.clean_results(f'/seaweed-storage/experiments/{self.scenario_name}/', verbose=1, delete=False)
         json.dump(self.agent_config,                open(f'{self.config_folder}agent_config.json', "w"), indent=4)
         json.dump(self.ocean_env_config,            open(f'{self.config_folder}ocean_env_config.json', "w"), indent=4)
         json.dump(self.feature_constructor_config,  open(f'{self.config_folder}feature_constructor_config.json', "w"), indent=4)
@@ -78,11 +82,12 @@ class RLRunner:
         # Step 4: Register Model
         # https://docs.ray.io/en/latest/rllib/package_ref/models.html
         # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
-        # ModelCatalog.register_custom_model("OceanNNModel", OceanNNModel)
-        # self.agent_config["model"] = {
-        #     "custom_model": "OceanNNModel",
-        #     "custom_model_config": self.model_config,
-        # }
+        if self.model_config['use_custom']:
+            ModelCatalog.register_custom_model("OceanNNModel", OceanNNModel)
+            self.agent_config["model"] = {
+                "custom_model": "OceanNNModel",
+                "custom_model_config": self.model_config,
+            }
 
         # Step 5: Success Metric
         # https://docs.ray.io/en/latest/rllib/rllib-training.html#callbacks-and-custom-metrics
@@ -95,6 +100,8 @@ class RLRunner:
                 if info['problem_status'] > 0:
                     episode.custom_metrics["arrival_time_in_h"] = info["arrival_time_in_h"]
                 episode.custom_metrics["ram_usage_MB"] = info["ram_usage_MB"]
+                episode.custom_metrics["episode_time"] = info["episode_time"]
+                episode.custom_metrics["average_step_time"] = info["average_step_time"]
         self.agent_config["callbacks"] = CustomCallback
 
         self.agent = agent_class(self.agent_config, logger_creator=lambda config: UnifiedLogger(config, self.results_folder, loggers=None))

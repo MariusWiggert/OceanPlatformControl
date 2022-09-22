@@ -1,5 +1,6 @@
 import time
 
+import numpy as np
 import yaml
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
@@ -34,7 +35,11 @@ for i in range(100):
 		x_interval=[arena_observation.platform_state.lon.deg-WIDTH_DEG/2, arena_observation.platform_state.lon.deg+WIDTH_DEG/2],
 		y_interval=[arena_observation.platform_state.lat.deg-WIDTH_DEG/2, arena_observation.platform_state.lat.deg+WIDTH_DEG/2],
 		t_interval=[arena_observation.platform_state.date_time, arena_observation.platform_state.date_time],
-		spatial_resolution=WIDTH_DEG/WIDTH,
+	).interp(
+        lon=np.linspace(arena_observation.platform_state.lon.deg-WIDTH_DEG/2, arena_observation.platform_state.lon.deg+WIDTH_DEG/2, WIDTH),
+        lat=np.linspace(arena_observation.platform_state.lat.deg-WIDTH_DEG/2, arena_observation.platform_state.lat.deg+WIDTH_DEG/2, WIDTH),
+	 	time=np.datetime64(arena_observation.platform_state.date_time.replace(tzinfo=None)),
+		method='linear'
 	)
 	# print(arena_observation)
 	print(data)

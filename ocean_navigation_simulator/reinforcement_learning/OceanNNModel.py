@@ -37,6 +37,7 @@ class OceanNNModel(DistributionalQTFModel):
         layers = []
         layers.append(tf.keras.layers.Input(shape=obs_space.shape, name="input_layer"))
         layers.append(tf.keras.layers.Flatten(name="flatten_layer")(layers[-1]))
+
         for index, units in enumerate(hidden_units):
             layers.append(
                 tf.keras.layers.Dense(

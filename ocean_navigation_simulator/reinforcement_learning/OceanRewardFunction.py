@@ -6,9 +6,9 @@ from ocean_navigation_simulator.environment.NavigationProblem import NavigationP
 from ocean_navigation_simulator.environment.RewardFunction import RewardFunction
 
 
-class  OceanRewardFunction(RewardFunction):
-    def __init__(self, planner: HJReach2DPlanner, config = {}, verbose: Optional[int] = 0):
-        self.planner = planner
+class OceanRewardFunction(RewardFunction):
+    def __init__(self, hindcast_planner: HJReach2DPlanner, config = {}, verbose: Optional[int] = 0):
+        self.hindcast_planner = hindcast_planner
         self.config = config
         self.verbose =verbose
 
@@ -36,7 +36,7 @@ class  OceanRewardFunction(RewardFunction):
             a float representing reward
         """
         if problem_status == 0:
-            prev_ttr = self.planner.interpolate_value_function_in_hours(observation=prev_obs).item()
-            curr_ttr = self.planner.interpolate_value_function_in_hours(observation=curr_obs).item()
+            prev_ttr = self.hindcast_planner.interpolate_value_function_in_hours(observation=prev_obs).item()
+            curr_ttr = self.hindcast_planner.interpolate_value_function_in_hours(observation=curr_obs).item()
 
         return ((prev_ttr - curr_ttr) if problem_status==0 else 0) + (self.config['target_bonus'] if problem_status > 0 else 0) + (self.config['fail_punishment'] if problem_status < 0 else 0)

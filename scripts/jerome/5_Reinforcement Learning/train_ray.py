@@ -1,6 +1,3 @@
-# import warnings
-# warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 import sys
 sys.path.extend(['/home/ubuntu/OceanPlatformControl'])
 print('Python %s on %s' % (sys.version, sys.platform))
@@ -26,7 +23,7 @@ Utils.ray_init()
 Utils.ensure_storage_connection()
 
 runner = RLRunner(
-    name='baseline_hj_planner_hindcast',
+    name='integrated_model_64_64_units',
     scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     agent_class=ApexTrainer,
     agent_config={
@@ -39,7 +36,7 @@ runner = RLRunner(
         # "soft_horizon": True,
         # "no_done_at_end": False,
         ## Model
-        "hiddens": [1, 1],
+        "hiddens": [64, 64],
         ## DQN
         "num_atoms": 1,
         "n_step": 1,
@@ -61,22 +58,26 @@ runner = RLRunner(
         "recreate_failed_workers": True,
     },
     ocean_env_config={
-        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_replanning_2022_08_26_21_42_41/',
+        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_forecast_50000_batches_2022_09_20_15_26_45/',
         'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         'arena_steps_per_env_step': 1,
         'actions': 8,
         'render': False,
-        'fake': 'hj_planner_forecast', #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
+        'fake': False, #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
     },
     feature_constructor_config={
         'num_measurements': 0,
-        'ttr': {
-            'xy_width_degree': 0.2,
+        'map': {
+            'xy_width_degree': 0.5,
             'xy_width_points': 5,
+            'ttr_forecast': True,
+            'ttr_hindcast': False,
+            'observer': [], # list from: error_u, error_v, std_error_u, std_error_v, initial_forecast_u, initial_forecast_v, water_u, water_v
         },
     },
     model_config={
-        'hidden_units': [32, 32],
+        'use_custom': True,
+        'hidden_units': [64, 64],
     },
     reward_function_config={
         'target_bonus': 0,
@@ -86,7 +87,7 @@ runner = RLRunner(
 )
 # 10 iterations ~ 42min (6min + 9 * 4min) @ 70 cores, 500MB Animations
 # 100 iterations ~ 420min = 7h, 5GB Animation
-runner.run(iterations=10)
+runner.run(iterations=100)
 
 ray.shutdown()
 

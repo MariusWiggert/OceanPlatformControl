@@ -173,12 +173,13 @@ class GenerationRunner:
                 print(f'GenerationRunner: Running Forecast Planning ({forecast_time:.1f}s)')
 
             if verbose > 0:
-                print(f'GenerationRunner: Finished Batch {batch} Group {group} (total: {time.time()-batch_start_time:.1f}s, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s)')
+                print(f'GenerationRunner: Finished Batch {batch} Group {group} (total: {time.time()-batch_start_time:.1f}s, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s), RAM: {batch_info["batch_ram"]}')
 
         except Exception as e:
             shutil.rmtree(batch_folder, ignore_errors=True)
             if verbose > 0:
                 print(f'GenerationRunner: Aborted Batch {batch} Group {group}')
+                print(e)
             sys.exit()
 
         return batch_results

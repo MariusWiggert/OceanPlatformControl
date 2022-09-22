@@ -88,12 +88,13 @@ class OceanEnv(gym.Env):
                 verbose=self.verbose-1,
             )
             self.feature_constructor = OceanFeatureConstructor(
-                planner=self.forecast_planner,
+                forecast_planner=self.forecast_planner,
+                hindcast_planner=self.hindcast_planner,
                 config=self.config['feature_constructor_config'],
                 verbose=self.verbose-1
             )
             self.reward_function = OceanRewardFunction(
-                planner=self.hindcast_planner,
+                hindcast_planner=self.hindcast_planner,
                 config=self.config['reward_function_config'],
                 verbose=self.verbose-1
             )
@@ -114,85 +115,84 @@ class OceanEnv(gym.Env):
         return self.feature_constructor.get_features_from_state(observation=self.prev_obs, problem=self.problem)
 
     def step(self, action: np.ndarray) -> Tuple[type(OceanFeatureConstructor.get_observation_space), float, bool, dict]:
-        try:
-            step_start = time.time()
+        step_start = time.time()
 
-            self.steps += 1
+        self.steps += 1
 
-            if self.config['fake'] == 'random':
-                platform_action = PlatformAction(magnitude=1, direction=self.random.integers(self.config['actions']) * 2 * np.pi / self.config['actions'])
-            elif self.config['fake'] == 'naive':
-                platform_action = self.naive_controller.get_action(observation=self.prev_obs)
-            elif self.config['fake'] == 'hj_planner_forecast':
-                platform_action = self.forecast_planner.get_action(observation=self.prev_obs)
-            elif self.config['fake'] == 'hj_planner_hindcast':
-                # Hindcast Planner needs to receive hindcast datasource
-                platform_action = self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
-            elif isinstance(action, np.ndarray):
-                platform_action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
-            elif isinstance(action, PlatformAction):
-                platform_action = action
-            else:
-                platform_action = PlatformAction(magnitude=1, direction=action * 2 * np.pi / self.config['actions'])
+        if self.config['fake'] == 'random':
+            platform_action = PlatformAction(magnitude=1, direction=self.random.integers(self.config['actions']) * 2 * np.pi / self.config['actions'])
+        elif self.config['fake'] == 'naive':
+            platform_action = self.naive_controller.get_action(observation=self.prev_obs)
+        elif self.config['fake'] == 'hj_planner_forecast':
+            platform_action = self.forecast_planner.get_action(observation=self.prev_obs)
+        elif self.config['fake'] == 'hj_planner_hindcast':
+            # Hindcast Planner needs to receive hindcast datasource
+            platform_action = self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
+        elif isinstance(action, np.ndarray):
+            platform_action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
+        elif isinstance(action, PlatformAction):
+            platform_action = action
+        else:
+            platform_action = PlatformAction(magnitude=1, direction=action * 2 * np.pi / self.config['actions'])
 
-            for i in range(self.config['arena_steps_per_env_step']):
-                observation = self.arena.step(platform_action)
+        for i in range(self.config['arena_steps_per_env_step']):
+            observation = self.arena.step(platform_action)
 
-            problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.config['feature_constructor_config']['ttr']['xy_width_degree']/2)
-            done = problem_status != 0
-            features = self.feature_constructor.get_features_from_state(observation=(observation if not done else self.prev_obs), problem=self.problem)
-            reward = self.reward_function.get_reward(
-                # Hindcast Planner needs to receive hindcast datasource
-                prev_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
-                curr_obs=(observation if not done else self.prev_obs).replace_datasource(self.arena.ocean_field.hindcast_data_source),
-                problem=self.problem,
-                problem_status=problem_status
-            )
-            self.rewards.append(reward)
+        problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.config['feature_constructor_config']['map']['xy_width_degree']/2)
+        done = problem_status != 0
+        features = self.feature_constructor.get_features_from_state(observation=(observation if not done else self.prev_obs), problem=self.problem)
+        reward = self.reward_function.get_reward(
+            # Hindcast Planner needs to receive hindcast datasource
+            prev_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            curr_obs=(observation if not done else self.prev_obs).replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            problem=self.problem,
+            problem_status=problem_status
+        )
+        self.rewards.append(reward)
 
-            if done:
-                if self.verbose > 0:
-                    render_start = time.time()
-                    if self.config['render']:
-                        self.render()
-                    print("OceanEnv[Worker {w}, Reset {r}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}) (step Ø: {stt:.1f}ms, episode: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
-                        w=self.worker_index,
-                        r=self.resets,
-                        g=self.problem.extra_info["group"],
-                        b=self.problem.extra_info["batch"],
-                        i=self.problem.extra_info["factory_index"],
-                        su=f"{bcolors.OKGREEN}Success{bcolors.ENDC}" if problem_status > 0 else (f"{bcolors.FAIL}Timeout{bcolors.ENDC}" if problem_status == -1 else (f"{bcolors.FAIL}Stranded{bcolors.ENDC}" if problem_status == -2 else f"{bcolors.FAIL}Outside Arena{bcolors.ENDC}")),
-                        st=self.steps,
-                        t=self.problem.passed_seconds(observation.platform_state) / 3600,
-                        rew=sum(self.rewards),
-                        ttr=self.hindcast_planner.interpolate_value_function_in_hours(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source)),
-                        stt=1000 * (time.time() - self.reset_start_time) / self.steps,
-                        ep=time.time() - self.reset_start_time,
-                        res=self.reset_end_time - self.reset_start_time,
-                        ren=time.time() - render_start,
-                        mem=psutil.Process().memory_info().rss / 1e6
-                    ))
-            else:
-                if self.verbose > 1:
-                    print("OceanEnv[Worker {w}, Reset {r}]: Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time} (step: {t:.1f}ms, {mem:,.0f}MB)".format(
-                        w=self.worker_index,
-                        r=self.resets,
-                        st=self.steps,
-                        ph=self.problem.passed_seconds(observation.platform_state)//3600,
-                        pm=self.problem.passed_seconds(observation.platform_state)%3600/60,
-                        sim_time=observation.platform_state.date_time,
-                        t=1000*(time.time()-step_start),
-                        mem=psutil.Process().memory_info().rss / 1e6,
-                    ))
+        if done:
+            if self.verbose > 0:
+                render_start = time.time()
+                if self.config['render']:
+                    self.render()
+                print("OceanEnv[Worker {w}, Reset {r}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}) (step Ø: {stt:.1f}ms, episode: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
+                    w=self.worker_index,
+                    r=self.resets,
+                    g=self.problem.extra_info["group"],
+                    b=self.problem.extra_info["batch"],
+                    i=self.problem.extra_info["factory_index"],
+                    su=f"{bcolors.OKGREEN}Success{bcolors.ENDC}" if problem_status > 0 else (f"{bcolors.FAIL}Timeout{bcolors.ENDC}" if problem_status == -1 else (f"{bcolors.FAIL}Stranded{bcolors.ENDC}" if problem_status == -2 else f"{bcolors.FAIL}Outside Arena{bcolors.ENDC}")),
+                    st=self.steps,
+                    t=self.problem.passed_seconds(observation.platform_state) / 3600,
+                    rew=sum(self.rewards),
+                    ttr=self.hindcast_planner.interpolate_value_function_in_hours(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source)),
+                    stt=1000 * (time.time() - self.reset_start_time) / self.steps,
+                    ep=time.time() - self.reset_start_time,
+                    res=self.reset_end_time - self.reset_start_time,
+                    ren=time.time() - render_start,
+                    mem=psutil.Process().memory_info().rss / 1e6
+                ))
+        else:
+            if self.verbose > 1:
+                print("OceanEnv[Worker {w}, Reset {r}]: Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time} (step: {t:.1f}ms, {mem:,.0f}MB)".format(
+                    w=self.worker_index,
+                    r=self.resets,
+                    st=self.steps,
+                    ph=self.problem.passed_seconds(observation.platform_state)//3600,
+                    pm=self.problem.passed_seconds(observation.platform_state)%3600/60,
+                    sim_time=observation.platform_state.date_time,
+                    t=1000*(time.time()-step_start),
+                    mem=psutil.Process().memory_info().rss / 1e6,
+                ))
 
-            self.prev_obs = observation
-        except Exception as e:
-            print(f'{bcolors.FAIL}{e}{bcolors.ENDC}')
+        self.prev_obs = observation
 
         return features, reward, done, {
             'problem_status': problem_status,
             'arrival_time_in_h': self.problem.passed_seconds(observation.platform_state)/3600,
             'ram_usage_MB': int(psutil.Process().memory_info().rss / 1e6),
+            'episode_time': time.time()-self.reset_start_time,
+            'average_step_time': (time.time()-self.reset_start_time)/self.steps,
         }
 
     def render(self, mode="human"):

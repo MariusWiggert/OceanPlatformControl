@@ -20,20 +20,22 @@ script_start_time = time.time()
 Utils.ray_init()
 
 runner = GenerationRunner(
-    name='fixed_replanning',
+    name='test',
     scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     # Only Hindcast:
             # -- GPU: 1 batch: 80s  = ~1.5min
-            # Calculated: 1200 batches @ 8 gpus ~ 3.75h
+        # Calculated: 1200 batches @ 8 gpus ~ 3.75h
             # -- CPU: 1 batch: 150s = ~3min
-            # Measured: 96 batches @ 96 cores: 7min 17s
-            # Measured: 384 batches @ 96 cores = 20min, 21min 37s
-            # Measured: 10'000 batches @ 96 core = 9h 31min 33s
-            # Calculated: 1'000 batches @ 96 core ~ 54min, 10'000 batches @ 96 core ~ 9h,
+        # Measured: 96 batches @ 96 cores: 7min 17s
+        # Measured: 384 batches @ 96 cores = 20min, 21min 37s
+        # Measured: 10'000 batches @ 96 core = 9h 31min 33s
+        # Calculated: 1'000 batches @ 96 core ~ 54min, 10'000 batches @ 96 core ~ 9h,
     # With Forecast:
-        # Measured: 1 batch @ 1 machine: 9min 47s -> 100 batches / 10min -> 600 batches / 1h
-    groups=1,
-    batches_per_group=96,
+        # Measured:
+            # 1 batch @ 1 machine: 9min 47s -> 100 batches / 10min -> 600 batches / 1h -> 10'000 batches / 16.6h
+            # 96 Batches = 8.5GB -> 5'000 batches = 442GB
+    groups=50,
+    batches_per_group=100,
     batch_size=8,
     ray_options={
         'max_retries': 10,
