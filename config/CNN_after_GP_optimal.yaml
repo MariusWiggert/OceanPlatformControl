@@ -5,16 +5,17 @@ arguments_model_runner:
   model_type: "cnn"
   log_interval: 1
   lr: 0.0001 #0.0003
-  epochs: 200
+  epochs: 25
   folder_figure: "./figures/"
   max_batches_training_set: -1
   max_batches_validation_set: -1
+  lambda_physical_loss: 0 #0.05 #0.02
   optimizer:
     name: "Adam"
     parameters:
       betas: [ 0.95, 0.9995 ]
-      eps: 0.000001
-      weight_decay: 0.0001 #0.0010 #0.005 # instead of 0.02 #0.15
+      eps: 0.00001 #0.000001
+      weight_decay: 0.0003 #0.0010 #0.005 # instead of 0.02 #0.15
   scheduler:
     name: "ReduceLROnPlateau"
     parameters:
@@ -26,13 +27,14 @@ arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
 model:
   cfg_neural_network:
-    ch_sz: [ 8, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
+    initial_channels: [ 0,1,2,3,4,5 ]
+    ch_sz: [ 6, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
     final_number_channels: 2
     activation: "relu"
     downsizing_method: "conv" #"avgpool"
-    dropout_encoder: 0.1
-    dropout_bottom: 0.5
-    dropout_decoder: 0.5
+    dropout_encoder: 0.02
+    dropout_bottom: 0.2
+    dropout_decoder: 0.1
   cfg_dataset:
     radius_lon: 1
     radius_lat: 1
@@ -53,7 +55,7 @@ model:
       - 24
       - 24
     index_axis_time: 2
-  model_error: false
+  model_error: true
 data_generation:
   parameters_input:
     start_training: '2022-06-01T12:30:01Z'

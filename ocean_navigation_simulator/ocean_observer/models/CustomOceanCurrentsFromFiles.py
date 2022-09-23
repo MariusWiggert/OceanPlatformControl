@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 
@@ -57,5 +58,4 @@ class CustomOceanCurrentsFromFiles(Dataset):
         if np.isnan(x).any() or np.isnan(y).any():
             return None, None
 
-        return x, y
-        # return self.X[idx], self.y[idx]
+        return torch.tensor(x), torch.tensor(y)

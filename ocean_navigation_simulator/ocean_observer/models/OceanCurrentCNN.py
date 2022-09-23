@@ -7,11 +7,12 @@ class OceanCurrentCNNSubgrid(nn.Module):
 
     def __init__(self, ch_sz: list[int], device: str = 'cpu', init_weights_value: float = 0.01, activation="relu",
                  downsizing_method="conv", dropout_encoder=0, dropout_decoder=0, dropout_bottom=0,
-                 final_number_channels=2):
+                 final_number_channels=2, initial_channels=[0, 1, 2, 3, 4, 5]):
         super(OceanCurrentCNNSubgrid, self).__init__()
         self.init_weights_value = init_weights_value
         self.activation = activation
         self.downsizing_method = downsizing_method
+        self.initial_channels = initial_channels
         # Encoder
         # ch_sz = [2, 16, 32, 64, 92]
         self.bloc_left_1 = nn.Sequential(self.__get_same_dims_bloc(ch_sz[0], ch_sz[1]),
@@ -55,6 +56,7 @@ class OceanCurrentCNNSubgrid(nn.Module):
 
     def forward(self, x):
         # Dims input: [Batch_size, 2 (= dimensions currents), time, lat, lon]
+        x = x[:, self.initial_channels]
         x1l = self.bloc_left_1(x)
         x2l = self.bloc_left_2(x1l)
         x3l = self.bloc_left_3(x2l)

@@ -9,6 +9,7 @@ arguments_model_runner:
   folder_figure: "./figures/"
   max_batches_training_set: 2 #2000
   max_batches_validation_set: -1
+  lambda_burgers_loss: 0.3
   optimizer:
     name: "Adam"
     parameters:

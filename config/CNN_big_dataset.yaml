@@ -5,10 +5,12 @@ arguments_model_runner:
   model_type: "cnn"
   log_interval: 1
   lr: 0.0001 #0.0003
-  epochs: 200
+  epochs: 40
   folder_figure: "./figures/"
   max_batches_training_set: -1
   max_batches_validation_set: -1
+  lambda_burgers_loss: 0.02
+  seed: 30011996
   optimizer:
     name: "Adam"
     parameters:

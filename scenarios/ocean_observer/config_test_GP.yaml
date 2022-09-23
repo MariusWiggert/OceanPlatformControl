@@ -13,11 +13,11 @@ experiment_runner:
 
   #number_burnin_steps: 50
   number_burnin_steps: 0
-  number_steps_prediction: 120
+  number_steps_prediction: 96 #120
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
-  radius_area_around_platform: 0.5 #0.04665226 #3.89189189
-  number_steps_to_predict: 24
+  radius_area_around_platform: 3 #2 #0.5 #0.04665226 #3.89189189
+  number_steps_to_predict: 36 #24
   gt_additional_area: 1.
   gt_additional_time: 3600
   clear_observations_when_new_file: True

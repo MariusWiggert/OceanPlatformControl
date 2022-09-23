@@ -358,14 +358,18 @@ def run_experiments_on_kernel():
     exp.run_all_problems(max_number_problems_to_run=12)
 
 
-def run_experiments_and_plot(max_number_problems_to_run=None):
+def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=False):
     """
     Run an experiment
     """
     # np.random.seed(0)
     exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3")
-    results, results_per_h, merged, list_dates_when_new_files = exp.run_all_problems(
-        max_number_problems_to_run=max_number_problems_to_run)
+    all_results = exp.run_all_problems(
+        max_number_problems_to_run=max_number_problems_to_run, compute_for_all_radius_and_lag=plot_error_3d)
+    if plot_error_3d:
+        results, results_per_h, merged, list_dates_when_new_files, results_grids = all_results
+    else:
+        results, results_per_h, merged, list_dates_when_new_files = all_results
     print("final results:", results)
 
     '''
@@ -375,6 +379,26 @@ def run_experiments_and_plot(max_number_problems_to_run=None):
     -------------------------------------------------------------------------------
     -------------------------------------------------------------------------------
     '''
+
+    if plot_error_3d:
+        # print the 3d plots
+        for key in results_grids.keys():
+            if key.startswith("rmse"):
+                to_plot = np.array(results_grids[key]).mean(axis=0)
+                name = key[:-len("_all_lags_and_radius")].replace("_", " ")
+                hf = plt.figure()
+                plt.title(name)
+
+                ha = hf.add_subplot(111, projection='3d')
+                ha.set_xlabel("lag")
+                ha.set_ylabel("radius")
+                ha.set_zlabel(name)
+
+                X, Y = np.meshgrid(range(to_plot.shape[0]),
+                                   range(to_plot.shape[1]))  # `plot_surface` expects `x` and `y` data to be 2D
+                ha.plot_surface(X.T, Y.T, to_plot)
+
+                plt.show()
 
     # plot to see error
     metric_to_plot = "vme"
@@ -444,7 +468,9 @@ if __name__ == "__main__":
         run_experiments_and_collect_tiles(output_folder=args.folder_destination, filename_problems=args.f)
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
+    elif not {"-3d"}.isdisjoint(sys.argv):
+        run_experiments_and_plot(max_number_problems_to_run=50, plot_error_3d=True)
     else:
-        run_experiments_and_plot(max_number_problems_to_run=None)
+        run_experiments_and_plot(max_number_problems_to_run=2)
 
 # %%

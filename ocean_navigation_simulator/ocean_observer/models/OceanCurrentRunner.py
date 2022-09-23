@@ -1,10 +1,11 @@
 from __future__ import print_function
 
 import argparse
+import math
 import os
 import time
 from datetime import datetime
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Optional
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -59,8 +60,58 @@ def collate_fn(batch):
 #
 #     return u_t + self.lambda1 * u * u_x - self.lambda2 * u_xx
 
+def compute_conservation_mass_loss(pred):
+    # prediction shape: batch_size x channels[u,v] x time x lat [v] = rows x lon [u] = cols
 
-def loss_function(prediction, target, input=None):
+    # top left removes last col, last row
+    # top right removes first col, last row
+    # bottom left removes last col, first row
+    # bottom right removes first col, first row
+    prediction = torch.clone(pred)
+    top_left = prediction[..., :-1, :-1]
+    top_right = prediction[..., :-1, 1:]
+    bottom_left = prediction[..., 1:, :-1]
+    bottom_right = prediction[..., 1:, 1:]
+
+    top_left[:, 1] *= -1
+    top_right[:, [0, 1]] *= -1
+    bottom_right[:, 0] *= -1
+
+    all_losses = top_left + top_right + bottom_left + bottom_right
+    return torch.sqrt(F.mse_loss(all_losses, torch.zeros_like(all_losses)))
+
+
+def compute_burgers_loss(prediction, Re=math.pi / 0.01):
+    # Add the boundaries
+    X, Y = prediction.shape[-2:]
+    batches = len(prediction)
+    boundary_u_t0 = torch.tensor(
+        [[[math.sin(math.pi * x / X) * math.cos(math.pi * y / Y) for y in range(Y)] for x in range(X)]]).expand(batches,
+                                                                                                                -1, -1)
+    boundary_v_t0 = torch.tensor(
+        [[[math.cos(math.pi * x / X) * math.sin(math.pi * y / Y) for y in range(Y)] for x in range(X)]]).expand(batches,
+                                                                                                                -1, -1)
+    # only pad t in 1 dim, pad lon,lat in two dimensions
+    prediction_padded = F.pad(prediction, (1, 1, 1, 1, 1, 0, 0, 0, 0, 0))
+
+    # apply the boundary counditions on the time side
+    prediction_padded[:, 0, 0, 1:-1, 1:-1] = boundary_u_t0
+    prediction_padded[:, 1, 0, 1:-1, 1:-1] = boundary_v_t0
+
+    u, v = prediction[:, [0]], prediction[:, [1]]
+    dt = (prediction_padded[:, :, 1:, :, :] - prediction_padded[:, :, :-1])[..., 1:-1, 1:-1]
+    dx = (prediction_padded[:, :, :, 1:] - prediction_padded[:, :, :, :-1])[..., 1:, :, 1:-1]
+    dy = (prediction_padded[:, :, :, :, 1:] - prediction_padded[:, :, :, :, :-1])[..., 1:, 1:-1, :]
+    dxx = dx[:, :, :, 1:] - dx[:, :, :, -1:]
+    dyy = dy[:, :, :, :, 1:] - dy[:, :, :, :, -1:]
+    dx = dx[:, :, :, :-1]
+    dy = dy[:, :, :, :, :-1]
+    l1 = dt + u * dx + v * dy - 1 / Re * (dxx + dyy)
+    l2 = dt + u * dx + v * dy - 1 / Re * (dxx + dyy)
+    return torch.sqrt(F.mse_loss(l1 + l2, torch.zeros_like(l1)))
+
+
+def loss_function(prediction, target, _lambda=0):
     # dimensions: [batch_size, currents, time, lon, lat]
     # assert prediction.shape == target.shape and (input is None or input.shape == target.shape)
     # losses = []
@@ -77,17 +128,28 @@ def loss_function(prediction, target, input=None):
     #
     # losses.append(torch.sqrt(F.mse_loss(pinn_loss, torch.zeros_like(pinn_loss), reduction='mean')))
     # return losses
-    return torch.sqrt(F.mse_loss(prediction, target, reduction='mean') + 1e-8)
+    loss_hindcast = torch.sqrt(F.mse_loss(prediction, target, reduction='mean') + 1e-8)
+    if not _lambda:
+        return loss_hindcast, loss_hindcast.item(), 0
+    else:
+        # loss_burger = compute_burgers_loss(prediction)
+        loss_conservation = compute_conservation_mass_loss(prediction)
+        physical_loss = loss_conservation
+        return (1 - _lambda) * loss_hindcast + _lambda * physical_loss, loss_hindcast.item(), physical_loss.item()
 
 
-def get_accuracy(outputNN, forecast, target) -> Tuple[float, list[float]]:
-    assert outputNN.shape == forecast.shape == target.shape
-
-    magn_NN = torch.sqrt(((outputNN - target) ** 2).nansum(axis=[1, 2, 3, 4]))
+def get_ratio_accuracy(output_NN, forecast, target) -> Tuple[float, list[float]]:
+    assert output_NN.shape == forecast.shape == target.shape
+    # Dimensions: batch x currents x time x lon x lat
+    magn_NN = torch.sqrt(((output_NN - target) ** 2).nansum(axis=[1, 2, 3, 4]))
     magn_initial = torch.sqrt(((forecast - target) ** 2).nansum(axis=[1, 2, 3, 4]))
     if (magn_initial == 0).sum():
-        raise Exception("Found Nans! Should not have happened")
-
+        # print(magn_initial.shape, (magn_initial == 0), (magn_initial == 0).sum())
+        # raise Exception("Found Nans! Should not have happened")
+        print("removing nans", (magn_initial == 0).sum())
+        f = (magn_initial != 0)
+        magn_NN = magn_NN[f]
+        magn_initial = magn_initial[f]
     all_ratios = magn_NN / magn_initial
 
     return all_ratios.mean().item(), all_ratios.tolist()
@@ -128,23 +190,23 @@ def get_model(args, cfg_neural_network, device):
     return model.to(device)
 
 
-def __create_loss_plot(args, train_losses, test_losses, mean_ratio_train, mean_ratio_test):
+def __create_loss_plot(args, train_losses, validation_losses, mean_ratio_train, mean_ratio_validation, use_pinn=False):
     # Plot the loss and the LR
 
     plt.figure()
     fig, ax = plt.subplots()
     ax.plot(train_losses, color='green', marker='o')
-    ax.plot(test_losses, color='red', marker='o')
+    ax.plot(validation_losses, color='red', marker='o')
 
     ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss", color='green')
+    ax.set_ylabel("Loss ", color='green')
     ax2 = ax.twinx()
     ax2.plot(mean_ratio_train, color='lightgreen')
-    ax2.plot(mean_ratio_test, color='orangered')
+    ax2.plot(mean_ratio_validation, color='orangered')
     ax2.set_ylabel("Mean_ratio", color='blue')
     folder = os.path.abspath(
         args.get("folder_figure", "./") + args["model_type"] + "/" + now.strftime("%d-%m-%Y_%H-%M-%S") + "/")
-    filename = f"_loss_and_lr_{len(mean_ratio_train)}.png"
+    filename = f"_loss_and_lr_{len(mean_ratio_train)}_{'pinn' if use_pinn else 'no_pinn'}.png"
     os.makedirs(folder, exist_ok=True)
     print(f"saving file {filename} histogram at: {folder}")
     fig.savefig(os.path.join(folder, filename))
@@ -187,21 +249,28 @@ def __create_histogram(list_ratios: List[float], epoch, args, is_training, n_bin
     # wandb.log({"custom_chart": my_custom_chart})
 
 
-def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimizer: torch.optim.Optimizer, epoch: int,
-          model_error: bool,
-          cfg_dataset: dict[str, any]):
-    model.train()
-    with torch.autograd.set_detect_anomaly(True):
-        # for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
-        total_loss = 0
-        all_ratios = []
-        with tqdm(train_loader, unit="batch") as tepoch:
+def loop_train_validation(training_mode: bool, args, model, device, data_loader: torch.utils.data.DataLoader,
+                          epoch: int, model_error: bool, cfg_dataset: dict[str, any],
+                          optimizer: Optional[torch.optim.Optimizer] = None):
+    if training_mode:
+        model.train()
+    else:
+        model.eval()
+
+    total_loss_pinn = 0
+    total_loss_hindcast = 0
+    total_loss_overall = 0
+    initial_loss_pinn = 0
+    initial_losses_no_pinn = 0
+    initial_loss_overall = 0
+
+    list_ratios = list()
+    with (torch.autograd.set_detect_anomaly(True) if training_mode else torch.no_grad()):
+        with tqdm(data_loader, unit="batch") as tepoch:
             for data, target in tepoch:
                 if (data, target) == (None, None):
                     continue
-
                 data, target = data.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
-                # todo: adapt in case of window
                 axis = cfg_dataset["index_axis_time"]
                 shift_input = cfg_dataset.get("shift_window_input", 0)
                 # We take the matching input timesteps with the output timesteps
@@ -214,95 +283,65 @@ def train(args, model, device, train_loader: torch.utils.data.DataLoader, optimi
                     data_same_time = torch.moveaxis(
                         torch.moveaxis(data_same_time, axis, 0)[indices_chanels_initial_fc], 0, axis)
 
-                # data_same_time = data.select(axis, 0).unsqueeze(axis)
-                optimizer.zero_grad()
+                if training_mode:
+                    optimizer.zero_grad()
                 output = model(data)
                 if model_error:
                     output = data_same_time - output
-                loss = loss_function(output, target)
-                total_loss += loss.item()
-                # Backprop
-                loss.backward()
-                # update the weights
-                optimizer.step()
-                ratio, list_ratios = get_accuracy(output,
-                                                  data_same_time,
-                                                  target)
-                all_ratios += list_ratios
-                tepoch.set_postfix(loss=loss.item(), mean_ratio=ratio)
-            # wandb.log({'epoch_loss': total_loss / len(train_loader.dataset), })
-        total_loss /= len(train_loader)
+
+                # Compute the loss
+                total_loss, loss_hindcast, loss_pinn = loss_function(output, target, args.lambda_physical_loss)
+                init_total_loss, init_loss_hindcast, init_loss_pinn = loss_function(data_same_time, target,
+                                                                                    args.lambda_physical_loss)
+                initial_losses_no_pinn += init_loss_hindcast
+                initial_loss_pinn += init_loss_pinn
+                initial_loss_overall += init_total_loss.item()
+
+                total_loss_pinn += loss_pinn
+                total_loss_hindcast += loss_hindcast
+                total_loss_overall += total_loss.item()
+                ratio, all_ratios = get_ratio_accuracy(output,
+                                                       data_same_time,
+                                                       target)
+
+                list_ratios += all_ratios
+                if training_mode:
+                    total_loss.backward()
+                    optimizer.step()
+
+                # tepoch.set_postfix(loss=str(round(loss_with_pinn.item(), 2)), mean_ratio=str(round(ratio, 2)),
+                #                    loss_pinn=str(round(loss_without_pinn.item(), 2)))
+                tepoch.set_postfix(loss=str(round(total_loss.item(), 3)))
+        total_loss_overall /= len(data_loader)
+        total_loss_pinn /= len(data_loader)
+        total_loss_hindcast /= len(data_loader)
         __create_histogram(all_ratios, epoch, args, True)
         print(
-            f"Training loss: {loss}" + f"% of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}%, mean ratio{(np.array(list_ratios).mean())}",
-        )
+            f"{'Training' if training_mode else 'Validation'} avg loss: {total_loss_overall:.2f}" +
+            f"  % of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.2f}%," +
+            f" mean ratio{(np.array(list_ratios).mean()):.2f}" +
+            f"Pinn loss: {total_loss_pinn} Hindcast loss: {total_loss_hindcast}")
 
-        return total_loss, np.array(list_ratios).mean()
-
-
-def test(args, model, device, test_loader: torch.utils.data.DataLoader, epoch: int,
-         model_error: bool, cfg_dataset: dict[str, any]) -> float:
-    model.eval()
-    test_loss = 0
-    initial_loss = 0
-    accuracy = 0
-    list_ratios = list()
-
-    with torch.no_grad():
-        with tqdm(test_loader, unit="batch") as tepoch:
-            for data, target in tepoch:
-                if (data, target) == (None, None):
-                    continue
-                data, target = data.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
-                axis = cfg_dataset["index_axis_time"]
-                shift_input = cfg_dataset.get("shift_window_input", 0)
-                # We take the matching input timesteps with the output timesteps
-                data_same_time = torch.moveaxis(
-                    torch.moveaxis(data, axis, 0)[shift_input:shift_input + target.shape[2]], 0, axis)
-
-                axis = cfg_dataset.get("index_axis_channel", 1)
-                indices_chanels_initial_fc = cfg_dataset.get("indices_chanels_initial_fc", None)
-                if indices_chanels_initial_fc is not None:
-                    data_same_time = torch.moveaxis(
-                        torch.moveaxis(data_same_time, axis, 0)[indices_chanels_initial_fc], 0, axis)
-
-                output = model(data)
-                if model_error:
-                    output = data_same_time - output
-                loss = loss_function(output, target).item()  # sum the batch losses
-                test_loss += loss
-                ratio, all_ratios = get_accuracy(output,
-                                                 data_same_time,
-                                                 target)
-                list_ratios += all_ratios
-                # TODO: change that
-                accuracy += ratio
-                initial_loss += loss_function(data_same_time, target).item()
-                tepoch.set_postfix(loss=loss, mean_ratio=ratio)
-
-    test_loss /= len(test_loader)
-    initial_loss /= len(test_loader)
-    accuracy /= len(test_loader)
-
-    __create_histogram(all_ratios, epoch, args, False)
-    print(
-        f"percentage of ratios <= 1: {((np.array(list_ratios) <= 1).sum() / len(list_ratios) * 100):.4f}% "
-        f"Test set: Average loss: {test_loss:.6f}, Without NN: {initial_loss:.6f}"
-        f"mean ratio SUM(rmse(NN(FC_xt))/rmse(FC_xt)):({accuracy:.6f}) % increase: {((initial_loss - test_loss) / initial_loss) * 100:.3f}")
-    return test_loss, np.array(list_ratios).mean()
+        return total_loss_overall, total_loss_pinn, total_loss_hindcast, np.array(list_ratios).mean()
 
 
-def end_training(model, args, train_losses, validation_losses, train_ratios, validation_ratios):
-    train_losses = np.array(train_losses)
-    validation_losses = np.array(validation_losses)
+def end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
+                 validation_losses_pinn, train_ratios, validation_ratios):
+    train_losses_no_pinn = np.array(train_losses_no_pinn)
+    train_losses_pinn = np.array(train_losses_pinn)
+    validation_losses_no_pinn = np.array(validation_losses_no_pinn)
+    validation_losses_pinn = np.array(validation_losses_pinn)
     train_ratios = np.array(train_ratios)
     validation_ratios = np.array(validation_ratios)
-    __create_loss_plot(args, train_losses, validation_losses, train_ratios, validation_ratios)
+    __create_loss_plot(args, train_losses_no_pinn, train_losses_no_pinn, train_ratios, validation_ratios,
+                       use_pinn=False)
+    __create_loss_plot(args, train_losses_pinn, train_losses_pinn, train_ratios, validation_ratios, use_pinn=True)
 
     print(
         f"Training over. Best validation loss {validation_ratios.min()} at epoch {validation_ratios.argmin()}\n"
-        f" with losses train:{train_losses[validation_ratios.argmin()]} test:{validation_losses[validation_ratios.argmin()]}.\n"
-        f" List of all the training ratios: {train_losses}")
+        f" with losses train pinn:{train_losses_pinn[validation_ratios.argmin()]} test:{validation_losses_pinn[validation_ratios.argmin()]}.\n"
+        f" with losses train no pinn:{train_losses_no_pinn[validation_ratios.argmin()]} test:{validation_losses_no_pinn[validation_ratios.argmin()]}.\n"
+        f" List of all the training losses with pinn: {train_losses_pinn}")
 
     if args.save_model:
         torch.save(model.state_dict(), f"{args.model_type}.pt")
@@ -364,15 +403,16 @@ def get_args(all_cfgs):
     args.setdefault("model_type", "mlp")
     args.setdefault("max_batches_training_set", -1)
     args.setdefault("max_batches_validation_set", -1)
+    args.setdefault("lambda_physical_loss", 0)
     return DotDict(args), all_cfgs
     # END ALTERNATIVE
 
 
 def main():
+    # for lambda_physical_loss in [0.01, 0.02, 0.03, 0.001, 0.2, 0.4]:
     wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")  # , name=f"experiment_{}")
     print(f"starting run: {wandb.run.name}")
     os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
-    # gc.collect()
     parser = argparse.ArgumentParser(description='yaml config file path')
     parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
     config_file = parser.parse_args().file_configs + ".yaml"
@@ -384,7 +424,6 @@ def main():
     device = 'cuda' if use_cuda else 'cpu'
 
     torch.manual_seed(args.seed)
-
     device = device
     print("device:", device)
     if args.silicon:
@@ -406,6 +445,9 @@ def main():
         folder_validation = [folder_validation]
     if folder_training == folder_validation:
         warn("Training and validation use the same dataset!!!")
+
+    # args.lambda_physical_loss = lambda_physical_loss
+    print(f"Weight physical loss: {args.lambda_physical_loss}")
 
     train_kwargs = {'batch_size': args.batch_size,
                     'shuffle': cfg_data_generation['parameters_input'].get('shuffle_training', True)}
@@ -436,8 +478,11 @@ def main():
     scheduler, scheduler_step_takes_argument = get_scheduler(cfg_scheduler, optimizer)
     print(f"optimizer: {optimizer}")
 
-    train_ratios, test_ratios = list(), list()
-    train_losses, test_losses = list(), list()
+    max_loss = math.inf
+    train_ratios, validation_ratios = list(), list()
+    train_losses_overall, validation_losses_overall = list(), list()
+    train_losses_no_pinn, validation_losses_no_pinn = list(), list()
+    train_losses_pinn, validation_losses_pinn = list(), list()
     try:
         for epoch in range(1, args.epochs + 1):
             metrics = {}
@@ -445,32 +490,56 @@ def main():
             # Training
             print(f"starting Training epoch {epoch}/{args.epochs}.")
             time.sleep(0.2)
-            loss, ratio = train(args, model, device, train_loader, optimizer, epoch,
-                                model_error, cfg_dataset)
-            train_losses.append(loss)
+            overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(True, args, model, device,
+                                                                                 train_loader,
+                                                                                 epoch, model_error, cfg_dataset,
+                                                                                 optimizer)
+            train_losses_overall.append(overall_loss)
+            train_losses_no_pinn.append(loss_no_pinn)
+            train_losses_pinn.append(loss_pinn)
             train_ratios.append(ratio)
-            metrics |= {"train_loss": loss, "train_ratio": ratio}
+            metrics |= {"train_loss": overall_loss, "train_loss_pinn": loss_pinn, "train_loss_hc": loss_no_pinn,
+                        "train_ratio": ratio}
 
             # Testing
             print(f"starting Testing epoch {epoch}/{args.epochs}.")
             time.sleep(0.2)
-            loss, ratio = test(args, model, device, validation_loader, epoch,
-                               model_error, cfg_dataset)
-            test_losses.append(loss)
-            test_ratios.append(ratio)
-            metrics |= {"test_loss": loss, "test_ratio": ratio, "learning rate": optimizer.param_groups[0]['lr']}
+            overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(False, args, model, device,
+                                                                                 validation_loader, epoch,
+                                                                                 model_error, cfg_dataset)
+            validation_losses_overall.append(overall_loss)
+            validation_losses_pinn.append(loss_pinn)
+            validation_losses_no_pinn.append(loss_no_pinn)
+            validation_ratios.append(ratio)
+            metrics |= {"validation_loss": overall_loss, "validation_loss_pinn": loss_pinn,
+                        "validation_loss_no_pinn": loss_no_pinn,
+                        "validation_ratio": ratio,
+                        "learning rate": optimizer.param_groups[0]['lr']}
             if scheduler is not None:
                 if scheduler_step_takes_argument:
-                    scheduler.step(loss)
+                    scheduler.step(loss_pinn)
                     print(f"current lr: {optimizer.param_groups[0]['lr']}")
                 else:
                     scheduler.step()
             wandb.log(metrics)
+            if max_loss > overall_loss:
+                max_loss = overall_loss
+
+                name_file = f'model_{epoch}.h5'
+                print(f"saved model at epoch {epoch}: {name_file}")
+                torch.save(model.state_dict(), os.path.join(wandb.run.dir, name_file))
+                wandb.save(name_file)
 
             if epoch % 30 == 0:
-                __create_loss_plot(args, train_losses, test_losses, train_ratios, test_ratios)
+                __create_loss_plot(args, train_losses_pinn, validation_losses_pinn, train_ratios, validation_ratios,
+                                   True)
+                __create_loss_plot(args, train_losses_no_pinn, validation_losses_no_pinn, train_ratios,
+                                   validation_ratios,
+                                   False)
     finally:
-        end_training(model, args, train_losses, test_losses, train_ratios, test_ratios)
+        end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
+                     validation_losses_pinn,
+                     train_ratios, validation_ratios)
 
 
 if __name__ == '__main__':

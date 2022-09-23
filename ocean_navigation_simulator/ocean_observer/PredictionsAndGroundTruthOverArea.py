@@ -33,13 +33,13 @@ class PredictionsAndGroundTruthOverArea:
         self.ground_truth = ground_truth.interp_like(predictions_over_area, method='linear')
         self.initial_forecast = np.moveaxis(predictions_over_area[["initial_forecast_u", "initial_forecast_v"]]
                                             .to_array().to_numpy(), 0, -1).reshape(reshape_dims)
-        self.improved_forecast = np.moveaxis(predictions_over_area[["water_u", "water_v"]].to_array().to_numpy(), 0,
-                                             -1).reshape(reshape_dims)
-        self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]].to_array().to_numpy(), 0,
-                                             -1).reshape(reshape_dims)
+        self.improved_forecast = np.moveaxis(predictions_over_area[["water_u", "water_v"]]
+                                             .to_array().to_numpy(), 0, -1).reshape(reshape_dims)
+        self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]]
+                                             .to_array().to_numpy(), 0, -1).reshape(reshape_dims)
 
     def compute_metrics(self, metrics: Union[Set[str], str, None] = None, directions: list[str] = ['uv'],
-                        per_hour: bool = False) -> Dict[str, any]:
+                        per_hour: bool = False, compute_for_all_radius_and_lag=False) -> Dict[str, any]:
         """ Compute and return the metrics provided or all if none is provided.
 
         Args:
@@ -48,14 +48,53 @@ class PredictionsAndGroundTruthOverArea:
         Returns:
             A dict containing as key-values metric_id-metric_result
         """
+        if isinstance(metrics, list):
+            metrics = set(metrics)
         res = dict()
         for s, f in get_metrics().items():
             for d in directions:
                 if not check_nans(self.ground_truth_area, self.improved_forecast, current=d):
                     if metrics is None or (isinstance(metrics, set) and s in metrics) or s == metrics:
                         res |= f(self.ground_truth_area, self.improved_forecast, self.initial_forecast,
-                                 per_hour=per_hour,
-                                 current=d)
+                                 per_hour=per_hour, current=d)
+
+                        # Compute the whole grid. Could not make the code simpler, sorry :')
+                        if compute_for_all_radius_and_lag and d == 'uv':
+                            ground_truth = self.ground_truth.to_array()
+                            # shape (2,max_lag,lon,lat)
+                            max_lag, lon_lat = ground_truth.shape[1], ground_truth.shape[2]
+                            # todo: Remove that
+                            # if ground_truth.shape[-2:] != (96, 96):  # (48, 48):
+                            #    print("error")
+
+                            grid_all_lags_and_radius = np.zeros((max_lag, (lon_lat + 1) // 2))
+                            if lon_lat % 2 == 0:  # even
+                                middle_left = (lon_lat - 1) // 2
+                                middle_right = middle_left + 1
+                            else:
+                                middle_left = middle_right = (lon_lat - 1) // 2
+                            # Put the current as the last axis for the 3
+                            gt = np.moveaxis(self.ground_truth.to_array().to_numpy(), 0, -1)
+                            imp_fc = np.moveaxis(
+                                self.predictions_over_area[["water_u", "water_v"]].to_array().to_numpy(), 0, -1)
+                            init_fc = np.moveaxis(self.predictions_over_area[
+                                                      ["initial_forecast_u",
+                                                       "initial_forecast_v"]].to_array().to_numpy(), 0, -1)
+                            for i in range(grid_all_lags_and_radius.shape[0]):
+                                for j in range(grid_all_lags_and_radius.shape[1]):
+                                    # take only the middle of the array!
+                                    dict_metric_name_res = f(
+                                        gt[:(i + 1), (middle_left - j):(middle_right + 1 + j),
+                                        (middle_left - j):(middle_right + 1 + j)],
+                                        imp_fc[:(i + 1), (middle_left - j):(middle_right + 1 + j),
+                                        (middle_left - j):(middle_right + 1 + j)],
+                                        init_fc[:(i + 1), (middle_left - j):(middle_right + 1 + j),
+                                        (middle_left - j):(middle_right + 1 + j)])
+                                    for name, f_res in dict_metric_name_res.items():
+                                        name_with_suffix = name + "_all_lags_and_radius"
+                                        if name_with_suffix not in res:
+                                            res[name_with_suffix] = np.copy(grid_all_lags_and_radius)
+                                        res[name_with_suffix][i, j] = f_res
         return res
 
     def visualize_initial_error(self, list_predictions: List[Tuple['xr', 'xr']], spatial_res=None,

@@ -11,6 +11,7 @@ arguments_model_runner:
   max_batches_training_set: -1 #2000
   max_batches_validation_set: -1
   do_validation: True
+  lambda_burgers_loss: 0.05
   optimizer:
     name: "Adam"
     parameters:

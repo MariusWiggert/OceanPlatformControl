@@ -9,14 +9,19 @@ arguments_model_runner:
   log_interval: 1
   lr: 0.01
   epochs: 10  #50
-  folder_figure: "./figures/"
-  max_batches_training_set: 1
-  max_batches_validation_set: 1
+  lambda_burgers_loss: 0.3
   optimizer:
     name: "Adam"
     parameters:
       betas: [ 0.95, 0.9995 ]
       eps: 0.01
+  scheduler:
+    name: "ReduceLROnPlateau"
+    parameters:
+      mode: 'min'
+      factor: 0.2
+      patience: 7
+      threshold: 0.005
 
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
