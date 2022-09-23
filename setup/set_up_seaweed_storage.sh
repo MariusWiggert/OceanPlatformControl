@@ -22,7 +22,7 @@ if [ -f "/seaweed-storage/connected" ]; then
 else
     echo -e "\033[0;33mReconnecting Seaweed Storage.\033[0m"
     sudo fusermount -q -u /seaweed-storage
-    sshfs -o ssh_command='ssh -i /home/ubuntu/OceanPlatformControl/setup/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
+    sshfs -o ssh_command='ssh -i /home/ubuntu/OceanPlatformControl/setup/keys/azure -o StrictHostKeyChecking=no' ubuntu@20.55.80.215:/seaweed-storage /seaweed-storage -o default_permissions
 
     if [ -f "/seaweed-storage/connected" ]; then
         echo -e "\033[0;32m/seaweed-storage reconnected.\033[0m"
