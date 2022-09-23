@@ -17,7 +17,12 @@ class  FeatureConstructor(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_features_from_state(self, observation: ArenaObservation, problem: Problem) -> np.ndarray:
+    def get_features_from_state(
+        self,
+        forecast_observation: ArenaObservation,
+        hindcast_observation: ArenaObservation,
+        problem: Problem
+    ) -> np.ndarray:
         """
         Converts the observation to use relative positions
         Args:

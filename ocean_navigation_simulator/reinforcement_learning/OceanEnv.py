@@ -14,7 +14,6 @@ import psutil
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
-from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
@@ -140,7 +139,11 @@ class OceanEnv(gym.Env):
 
         problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.config['feature_constructor_config']['map']['xy_width_degree']/2)
         done = problem_status != 0
-        features = self.feature_constructor.get_features_from_state(observation=(observation if not done else self.prev_obs), problem=self.problem)
+        features = self.feature_constructor.get_features_from_state(
+            fc_obs=(observation if not done else self.prev_obs),
+            hc_obs=(observation if not done else self.prev_obs).replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            problem=self.problem
+        )
         reward = self.reward_function.get_reward(
             # Hindcast Planner needs to receive hindcast datasource
             prev_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
