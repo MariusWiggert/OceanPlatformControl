@@ -1,6 +1,7 @@
 import os
 import datetime
 import pickle
+import pprint
 import shutil
 import socket
 import sys
@@ -15,7 +16,6 @@ import ray
 import pynvml
 import os
 import logging
-
 from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
@@ -59,6 +59,8 @@ class GenerationRunner:
         os.makedirs(self.results_folder)
         with open(f'{self.results_folder}config.pickle', 'wb') as f:
             pickle.dump(self.problem_factory_config, f)
+        with open(f'{self.config_folder}config.json', "wt") as f:
+            pprint.pprint(self.problem_factory_config, stream=f)
 
         # Step 3: Run Generation with Ray
         if verbose > 0:

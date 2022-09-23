@@ -1,14 +1,29 @@
+import gym
 from ray.rllib.agents.dqn.distributional_q_tf_model import DistributionalQTFModel
 from ray.rllib.models.tf.misc import normc_initializer
 from ray.rllib.utils.framework import try_import_tf
+from ray.rllib.utils.typing import ModelConfigDict
+
 tf1, tf, tfv = try_import_tf()
 
 
 # Documentation: https://docs.ray.io/en/latest/rllib/package_ref/models.html
 # Example: https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
+# https://github.com/ray-project/ray/blob/master/rllib/examples/models/parametric_actions_model.py
 
 class OceanNNModel(DistributionalQTFModel):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name, num_atoms, hidden_units, use_custom, **kw):
+    def __init__(
+        self,
+        obs_space: gym.spaces.Space,
+        action_space: gym.spaces.Space,
+        num_outputs: int,
+        model_config: ModelConfigDict,
+        name: str,
+        q_hiddens=(256,),
+        add_layer_norm: bool = False,
+        use_custom: bool = False,
+        **kw
+    ):
         super(OceanNNModel, self).__init__(
             obs_space, action_space, num_outputs, model_config, name, **kw
         )
@@ -38,7 +53,7 @@ class OceanNNModel(DistributionalQTFModel):
         layers.append(tf.keras.layers.Input(shape=obs_space.shape, name="input_layer"))
         layers.append(tf.keras.layers.Flatten(name="flatten_layer")(layers[-1]))
 
-        for index, units in enumerate(hidden_units):
+        for index, units in enumerate(q_hiddens):
             layers.append(
                 tf.keras.layers.Dense(
                     units,

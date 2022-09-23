@@ -57,7 +57,7 @@ class Utils:
     def clean_results(
         folder: str = '~/ray_results',
         filter: str = '',
-        iteration_limit: Optional[int] = 2,
+        iteration_limit: Optional[int] = 10,
         delete: Optional[bool] = True,
         ignore_most_recent: Optional[int] = 1,
         verbose: Optional[int] = 0,
@@ -100,7 +100,7 @@ class Utils:
         def run_command_on_node(ip, command):
             print(f"##### Starting Command on Node {ip}")
             node_start_time = time.time()
-            os.system(f"ssh -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'")
+            os.system(f"ssh -o StrictHostKeyChecking=no -i ./setup/keys/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'")
             node_time = time.time() - node_start_time
             # print(f"## Node {ip} finished in {node_time / 60:.0f}min {node_time % 60:.0f}s.")
 
