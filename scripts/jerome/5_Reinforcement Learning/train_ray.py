@@ -13,17 +13,12 @@ import ray
 from ray.rllib.agents.dqn.apex import ApexTrainer
 
 from ocean_navigation_simulator.reinforcement_learning_scripts.RLRunner import RLRunner
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
-
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.ray_init()
-Utils.ensure_storage_connection()
-
 runner = RLRunner(
-    name='baseline_hj_planner_hindcast',
+    name='integrated_noflatten_256_256_32_32_0.2deg',
     scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
     agent_class=ApexTrainer,
     agent_config={
@@ -36,10 +31,15 @@ runner = RLRunner(
         # "soft_horizon": True,
         # "no_done_at_end": False,
         ## Model
-        "hiddens": [64, 64],
+        "hiddens": [32, 32],
+        "model": {
+            'fcnet_hiddens': [256, 256],
+            'fcnet_activation': 'tanh',
+        },
         ## DQN
         "num_atoms": 1,
         "n_step": 1,
+        "noisy": False,
         "dueling": True,
         "double_q": True,
         ## Training
@@ -63,21 +63,25 @@ runner = RLRunner(
         'arena_steps_per_env_step': 1,
         'actions': 8,
         'render': False,
-        'fake': 'hj_planner_hindcast', #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
+        'fake': False, #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
     },
     feature_constructor_config={
         'num_measurements': 0,
         'map': {
-            'xy_width_degree': 0.5,
+            'xy_width_degree': 0.2,
             'xy_width_points': 5,
-            'ttr_forecast': True,
-            'ttr_hindcast': False,
-            'observer': [], # list from: error_u, error_v, std_error_u, std_error_v, initial_forecast_u, initial_forecast_v, water_u, water_v
+            'flatten': False,
+            'features': {
+                'ttr_forecast': True,
+                'ttr_hindcast': False,
+                'observer': [], # list from: error_u, error_v, std_error_u, std_error_v, initial_forecast_u, initial_forecast_v, water_u, water_v
+            }
         },
     },
     model_config={
-        'use_custom': True,
-        'hidden_units': [64, 64],
+        'use_custom': False,
+        'q_hiddens': [64, 64],
+        'add_layer_norm': False,
     },
     reward_function_config={
         'target_bonus': 0,

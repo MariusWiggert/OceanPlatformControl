@@ -6,22 +6,24 @@ import json
 import time
 import os
 from typing import Optional, Type, Dict
-
 import pytz
 import ray
 from ray.rllib import RolloutWorker, BaseEnv, Policy
 from ray.rllib.evaluation import Episode
 from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
+import wandb
+import pprint
+import zipfile
 
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import OceanNNModel
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 """
-    RLRunner takes configurations to run a RL training with Rllib and hides away all the ugly stuff
+    RLRunner take a configuration to run a RL training with Rllib and hides away all the ugly stuff
     needed to run Rllib. It creates folder for results, saves configurations, registers Environment and
-    Model with Rllib and finally prints results after each training iteration.    
+    Model with Rllib and finally prints results after each training iteration.
 """
 class RLRunner:
     def __init__(
@@ -49,13 +51,30 @@ class RLRunner:
         self.iterations = 0
         self.train_times = []
 
+        print(f'Training started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
+
+        Utils.ray_init()
+        Utils.ensure_storage_connection()
+
         # Step 1: Prepare Paths
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
         self.results_folder = f'/seaweed-storage/experiments/{self.scenario_name}/{self.name}_{self.timestring}/'
         self.config_folder = f'{self.results_folder}config/'
         self.checkpoints_folder = f'{self.results_folder}checkpoints/'
 
-        # Step 2: Save configuration
+        # Step 2: Start Wights & Biases
+        wandb.tensorboard.patch(
+            root_logdir=self.results_folder,
+            tensorboard_x=True
+        )
+        wandb.init(
+            project="RL for underactuated navigation",
+            entity="ocean-platform-control",
+            dir="/seaweed-storage/",
+            name=f'{self.name}_{self.timestring}'
+        )
+
+        # Step 3: Save configuration
         Utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(self.config_folder)
@@ -66,7 +85,14 @@ class RLRunner:
         json.dump(self.model_config,                open(f'{self.config_folder}model_config.json', "w"), indent=4)
         json.dump(self.reward_function_config,      open(f'{self.config_folder}reward_function_config.json', "w"), indent=4)
 
-        # Step 3: Register Env
+        # Step 4: Save Source Files
+        # with zipfile.ZipFile(f'{self.results_folder}source.zip', 'w') as file:
+        #     file.write('./config', 'config')
+        #     file.write('./ocean_navigation_simulation', 'ocean_navigation_simulation')
+        #     file.write('./scripts', 'scripts')
+        #     file.write('./setup', 'setup')
+
+        # Step 5: Register Env
         # env_config: env_config.num_workers, env_config.worker_index, env_config.vector_index, env_config.remote
         self.agent_config["env"] = "OceanEnv"
         ray.tune.registry.register_env("OceanEnv", lambda env_config: OceanEnv(
@@ -79,9 +105,16 @@ class RLRunner:
             verbose=self.verbose-1
         ))
 
-        # Step 4: Register Model
-        # https://docs.ray.io/en/latest/rllib/package_ref/models.html
-        # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
+        # Step 6: Register Model
+        # Documentation:
+        #   https://docs.ray.io/en/latest/rllib/package_ref/models.html
+        #   https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
+        # Usage:
+        #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/distributional_q_tf_model.py
+        #       https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/tf/tf_modelv2.py
+        #       https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/modelv2.py
+        #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/dqn_tf_policy.py
+        #
         if self.model_config['use_custom']:
             ModelCatalog.register_custom_model("OceanNNModel", OceanNNModel)
             self.agent_config["model"] = {
@@ -89,7 +122,7 @@ class RLRunner:
                 "custom_model_config": self.model_config,
             }
 
-        # Step 5: Success Metric
+        # Step 7: Success Metric
         # https://docs.ray.io/en/latest/rllib/rllib-training.html#callbacks-and-custom-metrics
         # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
         class CustomCallback(ray.rllib.agents.callbacks.DefaultCallbacks):
@@ -106,7 +139,19 @@ class RLRunner:
 
         self.agent = agent_class(self.agent_config, logger_creator=lambda config: UnifiedLogger(config, self.results_folder, loggers=None))
 
-    def run(self, iterations = 100, silent=False):
+        with open(f'{self.config_folder}agent_config_final.json', "wt") as f:
+            pprint.pprint(self.agent.config, stream=f)
+
+        # for model in [
+        #     self.agent.get_policy().model.base_model,
+        #     self.agent.get_policy().model.q_value_head,
+        #     self.agent.get_policy().model.state_value_head
+        # ]:
+        #     model.summary()
+
+        print('test')
+
+    def run(self, iterations=100, silent=False):
         print(f"Starting training with {iterations} iterations:")
 
         for iteration in range(1, iterations + 1):
