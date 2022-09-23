@@ -1,0 +1,69 @@
+algorithm: 'apex-dqn'
+
+# https://docs.ray.io/en/releases-1.13.0/rllib/rllib-algorithms.html#apex
+# https://docs.ray.io/en/releases-1.13.0/rllib/rllib-algorithms.html#dqn
+# https://docs.ray.io/en/releases-1.13.0/rllib/rllib-training.html#common-parameters
+# https://docs.ray.io/en/latest/rllib/rllib-models.html#default-model-config-settings
+algorithm_config:
+    # ENvironment
+    env: 'OceanEnv'
+    ## Framework
+    framework: 'tf2'
+    eager_tracing: True
+    ## Episodes
+    # "batch_mode": "complete_episodes",
+    # "horizon": 10000,
+    # "soft_horizon": True,
+    # "no_done_at_end": False,
+    ## Model
+    model:
+        fcnet_hiddens: [256, 256]
+        fcnet_activation: 'tanh'
+    hiddens: [64, 64]
+    ## DQN
+    num_atoms: 1
+    n_step: 1
+    dueling: True
+    double_q: True
+    ## Training
+    replay_buffer_config:
+        learning_starts: 50000
+    train_batch_size: 512
+    rollout_fragment_length: 100
+    ## Workers
+    num_gpus: 1
+    num_workers: 102
+    num_cpus_per_worker: 1
+    num_gpus_per_worker: 0
+    placement_strategy: 'SPREAD'
+    ignore_worker_failures: True
+    recreate_failed_workers: True
+
+
+ocean_env_config:
+    generation_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_forecast_50000_batches_2022_09_20_15_26_45/'
+    scenario_name: 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast'
+    arena_steps_per_env_step: 1
+    actions: 8
+    render: False
+    fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
+
+feature_constructor_config:
+    num_measurements: 0
+    map:
+        xy_width_degree: 0.2
+        xy_width_points: 5
+        flatten: False
+        features:
+            ttr_forecast: True
+            ttr_hindcast: False
+            observer: [] # list from: error_u, error_v, std_error_u, std_error_v, initial_forecast_u, initial_forecast_v, water_u, water_v
+
+model_config:
+    use_custom: False
+    q_hiddens: [64, 64]
+    add_layer_norm: False
+
+reward_function_config:
+    target_bonus: 0
+    fail_punishment: 0
