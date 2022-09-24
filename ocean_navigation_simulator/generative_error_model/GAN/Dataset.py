@@ -1,19 +1,25 @@
-import torch
 import numpy as np
 import xarray as xr
 import pandas as pd
-from PIL import Image
 from torch.utils.data import Dataset
 import os
+from warnings import warn
 import torchvision.transforms as transforms
-import glob
 
 
 class BuoyForecastError(Dataset):
 
-    def __init__(self, data_dir, transform=None) -> None:
-        self.data_dir = data_dir
+    def __init__(self, fc_dir, gt_dir, transform=None) -> None:
+        self.fc_dir = fc_dir
+        self.gt_dir = gt_dir
         self.transform = transform
+
+        # get all required file names
+        self.fc_file_names = sorted(os.listdir(self.fc_dir))
+        self.error_file_names = sorted(os.listdir(self.gt_dir))
+
+        if len(self.fc_file_names) != len(self.error_file_names):
+            warn("Datasets do not contain same number of files!")
 
     def __len__(self):
         return
@@ -23,15 +29,12 @@ class BuoyForecastError(Dataset):
         file_idx = idx // 227
         time_step_idx = idx % 227
 
-        fc_dir = os.path.join(self.data_dir, "forecasts/area1")
-        error_dir = os.path.join(self.data_dir, "dataset_forecast_error/area1")
-
-        fc_file_name = sorted(os.listdir(fc_dir))[file_idx]
-        error_file_name = sorted(os.listdir(error_dir))[file_idx]
+        self.fc_file_name = self.fc_file_names[file_idx]
+        self.error_file_name = self.error_file_names[file_idx]
 
         # get time step for FC
-        fc_file = xr.load_dataset(os.path.join(fc_dir, fc_file_name)).sel(longitude=slice(-140, -120 - 1/12),
-                                                                          latitude=slice(20, 30 - 1/12))
+        fc_file = xr.load_dataset(os.path.join(self.fc_dir, self.fc_file_name)).sel(longitude=slice(-140, -120 - 1/12),
+                                                         latitude=slice(20, 30 - 1/12))
         fc_file_u = fc_file["utotal"]
         fc_file_v = fc_file["vtotal"]
         fc_u = fc_file_u.isel(time=time_step_idx).values.squeeze()
@@ -41,7 +44,7 @@ class BuoyForecastError(Dataset):
         fc = np.concatenate([fc_u, fc_v], axis=2)
 
         # get time step for error
-        error_file = pd.read_csv(os.path.join(error_dir, error_file_name))
+        error_file = pd.read_csv(os.path.join(self.gt_dir, self.error_file_name))
         error_file["hour"] = error_file["time"].apply(lambda x: x[:13])
         hours = sorted(set(error_file["hour"].tolist()))
         sparse_error_time_step = error_file[error_file["hour"].values == hours[time_step_idx]]
@@ -70,8 +73,10 @@ def round_to_multiple(numbers: np.ndarray, multiple: float = 1 / 12):
 
 
 def test():
-    data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data"
-    dataset = BuoyForecastError(data_dir)
+    data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
+    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area1")
+    gt_dir = os.path.join(data_dir, "data/drifter_data/dataset_forecast_error/area1")
+    dataset = BuoyForecastError(fc_dir, gt_dir)
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 

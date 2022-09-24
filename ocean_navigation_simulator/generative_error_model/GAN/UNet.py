@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
+import yaml
 
 
 class DoubleConv(nn.Module):
@@ -73,7 +74,15 @@ class UNet(nn.Module):
 
 
 def test():
-    unet = UNet()
+    config_file = "../../../scenarios/generative_error_model/config_dl_training.yaml"
+    cfgs = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
+    unet = UNet(in_channels=cfgs["model"]["in_channels"],
+                out_channels=cfgs["model"]["out_channels"],
+                features=cfgs["model"]["features"])
+    test_input = torch.randn((1, 2, 121, 241))
+    preds = unet(test_input)
+    print(f"Output shape: {preds.shape}.")
+    assert preds.shape == test_input.shape, "output shape differs from input shape"
 
 
 if __name__ == "__main__":

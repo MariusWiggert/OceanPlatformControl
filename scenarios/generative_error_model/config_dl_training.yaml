@@ -1,0 +1,23 @@
+model: "unet"
+
+unet:
+  in_channels: 2
+  out_channels: 2
+  features: [64, 128, 256, 512]
+
+train:
+  learning_rate: 1e-4
+  batch_size: 2
+  test_batch_size: 2
+  epochs: 100
+  loss_type: "L2"
+  dataset_fraction: 1
+
+optimizer:
+
+
+dataset:
+  forecasts: "data/drifter_data/forecasts/area1"
+  ground_truth: "data/drifter_data/dataset_forecast_error/area1"
+  shuffle: True
+
