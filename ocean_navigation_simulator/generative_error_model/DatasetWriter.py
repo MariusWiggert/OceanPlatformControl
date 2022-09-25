@@ -4,7 +4,6 @@ from ocean_navigation_simulator.generative_error_model.utils import get_path_to_
 
 import pandas as pd
 import os
-from datetime import timedelta
 
 
 class DatasetWriter:
@@ -47,12 +46,14 @@ class DatasetWriter:
         self.ocean_field.forecast_data_source.rec_file_idx = forecast_idx
         # load file of specified idx
         self.ocean_field.forecast_data_source.load_ocean_current_from_idx()
-        # slice data to appropriate size
-        self.DataArray = self.ocean_field.forecast_data_source.DataArray
-        lon_range = self.config['dataset_writer']['lon_range']
-        lat_range = self.config['dataset_writer']['lat_range']
-        self.ocean_field.forecast_data_source.DataArray = self.DataArray.sel(lon=slice(*lon_range),
-                                                                             lat=slice(*lat_range))
+
+        # # slice data to appropriate size
+        # self.DataArray = self.ocean_field.forecast_data_source.DataArray
+        # lon_range = self.config['dataset_writer']['lon_range']
+        # lat_range = self.config['dataset_writer']['lat_range']
+        # self.ocean_field.forecast_data_source.DataArray = self.DataArray.sel(lon=slice(*lon_range),
+        #                                                                      lat=slice(*lat_range))
+
         # interpolate to buoy positions
         buoy_data.interpolate_forecast(self.ocean_field)
 

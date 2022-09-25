@@ -21,7 +21,6 @@ from tqdm import tqdm
 # ignore warnings that cannot be fixed for specific scenario of needing .loc and .iloc
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
-# TODO: Filter for latest/monthly, otherwise have points twice ...
 
 @dataclass
 class TargetedBbox:
@@ -175,7 +174,7 @@ class BuoyDataCopernicus(BuoyDataSource):
             # filtering conditions
             lon_cond = ((df_temp["lon"] >= min(self.targeted_bbox[0], self.targeted_bbox[2])) & (df_temp["lon"] <= max(self.targeted_bbox[0], self.targeted_bbox[2])))
             lat_cond = ((df_temp["lat"] >= self.targeted_bbox[1]) & (df_temp["lat"] <= self.targeted_bbox[3]))
-            time_cond = ((df_temp["time"] >= np.datetime64(self.targeted_time_range.get_start())) & (df_temp["time"] <= np.datetime64(self.targeted_time_range.get_end())))
+            time_cond = ((df_temp["time"] >= np.datetime64(self.targeted_time_range.get_start())) & (df_temp["time"] <= np.datetime64(self.targeted_time_range.get_end() + datetime.timedelta(hours=1))))
 
             # filtering and concat to df
             df_temp = df_temp.loc[(lon_cond & lat_cond & time_cond)]
