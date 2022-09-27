@@ -16,6 +16,7 @@ def _get_version():
 with open("README.md", "r", encoding="utf-8") as fh: 
     long_description = fh.read() 
 
+style_packages = ["black==22.8.0", "flake8==5.0.4", "isort==5.10.1"]
 test_packages = ["pytest==7.1.3", "pytest-cov==3.0.0"]
 
 setuptools.setup(
@@ -32,6 +33,7 @@ setuptools.setup(
     packages = setuptools.find_packages(),
     python_requires='>=3.9.7',
     extras_require={
+        "dev": style_packages + test_packages,
         "test": test_packages,
     },
     # Included core requirements: https://packaging.python.org/discussions/install-requires-vs-requirements/
