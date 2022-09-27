@@ -16,6 +16,8 @@ def _get_version():
 with open("README.md", "r", encoding="utf-8") as fh: 
     long_description = fh.read() 
 
+test_packages = ["pytest==7.1.3", "pytest-cov==3.0.0"]
+
 setuptools.setup(
     name = 'ocean_navigation_simulator',
     version = _get_version(),
@@ -29,6 +31,9 @@ setuptools.setup(
     license = 'MIT',
     packages = setuptools.find_packages(),
     python_requires='>=3.9.7',
+    extras_require={
+        "test": test_packages,
+    },
     # Included core requirements: https://packaging.python.org/discussions/install-requires-vs-requirements/
 
     # please install requirements manually from .txt

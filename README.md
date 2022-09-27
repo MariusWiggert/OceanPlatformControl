@@ -132,3 +132,10 @@ i.e.:
 
 `python3 scripts/tutorial/controller/hj_planner.py`
 
+
+## Development
+
+To install the development packages (tests, linting, etc.), run
+```sh
+python3 -m pip install -e ".[dev]"
+```
