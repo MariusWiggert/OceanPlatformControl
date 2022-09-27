@@ -1,4 +1,5 @@
 model: "unet"
+wandb_mode: "online"
 
 unet:
   in_channels: 2
@@ -7,17 +8,22 @@ unet:
 
 train:
   learning_rate: 1e-4
-  batch_size: 2
+  batch_size: 1
   test_batch_size: 2
-  epochs: 100
-  loss_type: "L2"
+  epochs: 20
+  loss_type: "sparse_mse"
   dataset_fraction: 1
 
 optimizer:
-
+  name: "Adam"
+  parameters:
+    betas: [0.95, 0.9995]
+    eps: 0.00001
+    weight_decay: 0.0003
 
 dataset:
   forecasts: "data/drifter_data/forecasts/area1"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
-  shuffle: True
+  shuffle: False
+  len: 1
 
