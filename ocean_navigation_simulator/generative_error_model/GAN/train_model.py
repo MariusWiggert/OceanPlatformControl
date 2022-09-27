@@ -102,7 +102,7 @@ def validation(model, dataloader, device, cfgs_train):
 def clean_up_training():
     # report best losses
     # potential plots
-    pass
+    wandb.finish()
 
 
 def main():
@@ -115,6 +115,8 @@ def main():
                entity="ocean-platform-control",
                **wandb_cfgs)
     wandb.config = all_cfgs
+    print(all_cfgs)
+    wandb.save(config_file, base_path="./")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Running on: {device}.")
