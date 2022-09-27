@@ -6,14 +6,14 @@ from ocean_navigation_simulator.environment.NavigationProblem import NavigationP
 from ocean_navigation_simulator.reinforcement_learning.RewardFunction import RewardFunction
 
 
-class  OceanRewardFunction(RewardFunction):
-    def __init__(self, planner: HJReach2DPlanner, config = {}, verbose: Optional[int] = 0):
+class OceanRewardFunction(RewardFunction):
+    def __init__(self, planner: HJReach2DPlanner, config={}, verbose: Optional[int] = 0):
         self.planner = planner
         self.config = config
-        self.verbose =verbose
+        self.verbose = verbose
 
     @staticmethod
-    def get_reward_range(config = {}):
+    def get_reward_range(config={}):
         # Reward Upper Bound: at most 10min = 1/6h
         return -float("inf"), float("inf")
 
@@ -22,7 +22,7 @@ class  OceanRewardFunction(RewardFunction):
         prev_obs: ArenaObservation,
         curr_obs: ArenaObservation,
         problem: NavigationProblem,
-        problem_status: int
+        problem_status: int,
     ) -> float:
         """
         Reward function based on double gyre paper
@@ -38,4 +38,8 @@ class  OceanRewardFunction(RewardFunction):
         prev_ttr = self.planner.interpolate_value_function_in_hours(observation=prev_obs).item()
         curr_ttr = self.planner.interpolate_value_function_in_hours(observation=curr_obs).item()
 
-        return (prev_ttr - curr_ttr) + (self.config['target_bonus'] if problem_status > 0 else 0) + (self.config['fail_punishment'] if problem_status < 0 else 0)
+        return (
+            (prev_ttr - curr_ttr)
+            + (self.config["target_bonus"] if problem_status > 0 else 0)
+            + (self.config["fail_punishment"] if problem_status < 0 else 0)
+        )

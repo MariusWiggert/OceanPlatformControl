@@ -1,14 +1,26 @@
 from ray.rllib.agents.dqn.distributional_q_tf_model import DistributionalQTFModel
 from ray.rllib.models.tf.misc import normc_initializer
 from ray.rllib.utils.framework import try_import_tf
+
 tf1, tf, tfv = try_import_tf()
 
 
 # Documentation: https://docs.ray.io/en/latest/rllib/package_ref/models.html
 # Example: https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
 
+
 class OceanNNModel(DistributionalQTFModel):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name, num_atoms, hidden_units, **kw):
+    def __init__(
+        self,
+        obs_space,
+        action_space,
+        num_outputs,
+        model_config,
+        name,
+        num_atoms,
+        hidden_units,
+        **kw,
+    ):
         super(OceanNNModel, self).__init__(
             obs_space, action_space, num_outputs, model_config, name, **kw
         )

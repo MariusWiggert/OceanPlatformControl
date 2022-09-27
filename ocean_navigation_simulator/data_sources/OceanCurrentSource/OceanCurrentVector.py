@@ -13,33 +13,29 @@ import ocean_navigation_simulator.utils.units as units
 
 class OceanCurrentVector(NamedTuple):
     """Describes the OceanCurrents at a given location."""
+
     u: units.Velocity
     v: units.Velocity
 
-    def add(self, other: 'OceanCurrentVector') -> 'OceanCurrentVector':
+    def add(self, other: "OceanCurrentVector") -> "OceanCurrentVector":
         if not isinstance(other, OceanCurrentVector):
-            raise NotImplementedError(
-                f'Cannot add OceanCurrentVector with {type(other)}')
+            raise NotImplementedError(f"Cannot add OceanCurrentVector with {type(other)}")
         return OceanCurrentVector(self.u + other.u, self.v + other.v)
 
-    def subtract(self, other: 'OceanCurrentVector') -> 'OceanCurrentVector':
+    def subtract(self, other: "OceanCurrentVector") -> "OceanCurrentVector":
         if not isinstance(other, OceanCurrentVector):
-            raise NotImplementedError(
-                f'Cannot subtract OceanCurrentVector with {type(other)}')
+            raise NotImplementedError(f"Cannot subtract OceanCurrentVector with {type(other)}")
         return OceanCurrentVector(self.u - other.u, self.v - other.v)
 
     def __array__(self) -> np.ndarray:
         return np.array([self.u, self.v]).squeeze()
 
     def __str__(self) -> str:
-        return f'({self.u}, {self.v})'
+        return f"({self.u}, {self.v})"
 
     @staticmethod
     def from_numpy(arr):
         """
         Helper function to initialize a OceanCurrentVector based on numpy arraay.
         """
-        return OceanCurrentVector(
-            u=units.Velocity(mps=arr[0]),
-            v=units.Velocity(mps=arr[1])
-        )
+        return OceanCurrentVector(u=units.Velocity(mps=arr[0]), v=units.Velocity(mps=arr[1]))

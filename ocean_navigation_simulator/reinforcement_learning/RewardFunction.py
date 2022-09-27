@@ -18,6 +18,6 @@ class RewardFunction(abc.ABC):
         prev_state: ArenaObservation,
         curr_state: ArenaObservation,
         problem: NavigationProblem,
-        problem_status: int
+        problem_status: int,
     ) -> float:
         pass

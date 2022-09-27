@@ -2,12 +2,14 @@
 # warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import sys
-sys.path.extend(['/home/ubuntu/OceanPlatformControl', '/home/ubuntu/OceanPlatformControl'])
-print('Python %s on %s' % (sys.version, sys.platform))
+
+sys.path.extend(["/home/ubuntu/OceanPlatformControl", "/home/ubuntu/OceanPlatformControl"])
+print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
 
 import os
-os.environ['RAY_DISABLE_MEMORY_MONITOR']='1'
+
+os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 
 import datetime
 import time
@@ -19,14 +21,16 @@ from ocean_navigation_simulator.reinforcement_learning.scripts.RLRunner import R
 from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
 
 
-print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
+print(
+    f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}'
+)
 script_start_time = time.time()
 
 cluster_utils.init_ray()
 cluster_utils.ensure_storage_connection()
 
 runner = RLRunner(
-    name='custom_model',
+    name="custom_model",
     agent_class=ApexTrainer,
     agent_config={
         ## Framework
@@ -60,28 +64,28 @@ runner = RLRunner(
         "recreate_failed_workers": True,
     },
     ocean_env_config={
-        'generation_folder': '/seaweed-storage/generation/increased_planner_area/',
-        'scenario_name': 'gulf_of_mexico_HYCOM_hindcast',
-        'arena_steps_per_env_step': 1,
-        'actions': 8,
-        'render': False,
-        'fake': False, #one of: False, 'random', 'naive, 'hj_planner'
+        "generation_folder": "/seaweed-storage/generation/increased_planner_area/",
+        "scenario_name": "gulf_of_mexico_HYCOM_hindcast",
+        "arena_steps_per_env_step": 1,
+        "actions": 8,
+        "render": False,
+        "fake": False,  # one of: False, 'random', 'naive, 'hj_planner'
     },
     feature_constructor_config={
-        'num_measurements': 0,
-        'ttr': {
-            'xy_width_degree': 0.2,
-            'xy_width_points': 5,
+        "num_measurements": 0,
+        "ttr": {
+            "xy_width_degree": 0.2,
+            "xy_width_points": 5,
         },
     },
     model_config={
-        'hidden_units': [32, 32],
+        "hidden_units": [32, 32],
     },
     reward_function_config={
-        'target_bonus': 0,
-        'fail_punishment': 0,
+        "target_bonus": 0,
+        "fail_punishment": 0,
     },
-    verbose=2
+    verbose=2,
 )
 # 10 iterations ~ 42min (6min + 9 * 4min) @ 70 cores, 500MB Animations
 # 100 iterations ~ 420min = 7h, 5GB Animation
@@ -89,5 +93,7 @@ runner.run(iterations=100)
 
 ray.shutdown()
 
-script_time = time.time()-script_start_time
-print(f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s.")
+script_time = time.time() - script_start_time
+print(
+    f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s."
+)

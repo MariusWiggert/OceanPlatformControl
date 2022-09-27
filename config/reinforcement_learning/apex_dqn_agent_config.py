@@ -44,8 +44,6 @@ apex_dqn_agent_config = {
     #   beginning to end. Data collection will not stop unless the episode
     #   terminates or a configured horizon (hard or soft) is hit.
     "batch_mode": "truncate_episodes",
-
-
     # === Settings for the Trainer process ===
     # Discount factor of the MDP.
     "gamma": 0.99,
@@ -57,8 +55,6 @@ apex_dqn_agent_config = {
     "train_batch_size": 200,
     # Arguments to pass to the policy optimizer. These vary by optimizer.
     "optimizer": {},
-
-
     # ========= Environment Settings =========
     # Number of steps after which the episode is forced to terminate. Defaults
     # to `env.spec.max_episode_steps` (if present) for Gym envs.
@@ -144,8 +140,6 @@ apex_dqn_agent_config = {
     # Set to None for using no preprocessor. In this case, the model will have
     # to handle possibly complex observations from the environment.
     "preprocessor_pref": "deepmind",
-
-
     # ========= Debug Settings =========
     # Set the ray.rllib.* log level for the agent process and its workers.
     # Should be one of DEBUG, INFO, WARN, or ERROR. The DEBUG level will also
@@ -173,7 +167,6 @@ apex_dqn_agent_config = {
     "log_sys_usage": True,
     # Use fake (infinite speed) sampler. For testing only.
     "fake_sampler": False,
-
     # === Deep Learning Framework Settings ===
     # tf: TensorFlow (static-graph)
     # tf2: TensorFlow 2.x (eager or traced, if eager_tracing=True)
@@ -193,8 +186,6 @@ apex_dqn_agent_config = {
     # Only necessary for framework=[tf2|tfe].
     # Set to None to ignore the re-trace count and never throw an error.
     "eager_max_retraces": 20,
-
-
     # === Exploration Settings ===
     # Default exploration behavior, iff `explore`=None is passed into
     # compute_action(s).
@@ -210,8 +201,6 @@ apex_dqn_agent_config = {
     #     "type": "StochasticSampling",
     #     # Add constructor kwargs here (if any).
     # },
-
-
     # === Evaluation Settings ===
     # Evaluate with every `evaluation_interval` training iterations.
     # The evaluation stats will be reported under the "evaluation" metric key.
@@ -251,7 +240,6 @@ apex_dqn_agent_config = {
         # "env_config": {...},
         # "explore": False
     },
-
     # === Resource Settings ===
     # Number of GPUs to allocate to the trainer process. Note that not all
     # algorithms can take advantage of trainer GPUs. Support for multi-GPU
@@ -288,8 +276,6 @@ apex_dqn_agent_config = {
     #   to span multiple nodes.
     # "STRICT_SPREAD": Packs bundles across distinct nodes.
     "placement_strategy": "SPREAD",
-
-
     # ========= DQN-specific Settings =========
     # === Model ===
     # Number of atoms for representing the distribution of return. When
@@ -311,7 +297,6 @@ apex_dqn_agent_config = {
     "double_q": True,
     # N-step Q learning
     "n_step": 1,
-
     # === Replay buffer ===
     # Deprecated, use capacity in replay_buffer_config instead.
     # "replay_buffer_config": {
@@ -338,11 +323,9 @@ apex_dqn_agent_config = {
     # - This is False AND restoring from a checkpoint that does contain
     #   buffer data.
     "store_buffer_in_checkpoints": False,
-
     # Callback to run before learning on a multi-agent batch of
     # experiences.
     "before_learn_on_batch": None,
-
     # The intensity with which to update the model (vs collecting samples
     # from the env). If None, uses the "natural" value of:
     # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
@@ -359,24 +342,19 @@ apex_dqn_agent_config = {
     # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further
     # details.
     # "training_intensity": None,
-
     # === Parallelism ===
     # Whether to compute priorities on workers.
     # "worker_side_prioritization": False,
-
     # Experimental flag.
     # If True, the execution plan API will not be used. Instead,
     # a Trainer's `training_iteration` method will be called as-is each
     # training iteration.
     # "_disable_execution_plan_api": True,
-
-
     # ========= Ape-X-specific Settings =========
     "n_step": 3,
     "num_gpus": 1,
     "num_workers": 8,
     "num_gpus_per_worker": 1,
-
     "replay_buffer_config": {
         # For now we don't use the new ReplayBuffer API here
         "_enable_replay_buffer_api": False,
@@ -399,7 +377,6 @@ apex_dqn_agent_config = {
     # replay shards to be created on node(s) other than the one
     # on which the learner is located.
     "replay_buffer_shards_colocated_with_driver": True,
-
     "learning_starts": 50000,
     "train_batch_size": 512,
     "rollout_fragment_length": 100,

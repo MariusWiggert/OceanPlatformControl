@@ -11,9 +11,15 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.reinforcement_learning.RewardFunction import RewardFunction
 from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 
-from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
-from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
-from ocean_navigation_simulator.reinforcement_learning.DoubleGyreRewardFunction import DoubleGyreRewardFunction
+from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import (
+    DoubleGyreProblemFactory,
+)
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import (
+    DoubleGyreFeatureConstructor,
+)
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreRewardFunction import (
+    DoubleGyreRewardFunction,
+)
 
 
 class DoubleGyreEnv(gym.Env):
@@ -24,7 +30,7 @@ class DoubleGyreEnv(gym.Env):
     metadata = {"render_modes": []}
     reward_range: Tuple = None
     observation_space: gym.spaces.Box = None
-    spec = None # might use for max_episode_steps
+    spec = None  # might use for max_episode_steps
 
     problem_factory: ProblemFactory = None
     problem: NavigationProblem = None
@@ -38,7 +44,7 @@ class DoubleGyreEnv(gym.Env):
     def __init__(
         self,
         config,
-        scenario_name = 'double_gyre',
+        scenario_name="double_gyre",
     ):
         """
         Constructs a basic Platform Learning Environment.
@@ -49,18 +55,20 @@ class DoubleGyreEnv(gym.Env):
         Args:
             seed: PRNG seed for the environment
         """
-        self.seed = config['seed'] if 'seed' in config else 2022
-        self.arena_steps_per_env_step = config['arena_steps_per_env_step'] if 'arena_steps_per_env_step' in config else 1
+        self.seed = config["seed"] if "seed" in config else 2022
+        self.arena_steps_per_env_step = (
+            config["arena_steps_per_env_step"] if "arena_steps_per_env_step" in config else 1
+        )
 
         self.arena = ArenaFactory.create(scenario_name=scenario_name)
-        self.problem_factory = DoubleGyreProblemFactory(seed=self.seed, scenario_name='simplified')
+        self.problem_factory = DoubleGyreProblemFactory(seed=self.seed, scenario_name="simplified")
         self.reward_function = DoubleGyreRewardFunction()
         self.feature_constructor = DoubleGyreFeatureConstructor()
 
         self.action_space = gym.spaces.Box(
             low=np.array([-np.pi], dtype=np.float32),
             high=np.array([np.pi], dtype=np.float32),
-            shape=(1,)
+            shape=(1,),
         )
         # self.action_space = gym.spaces.Discrete(360)
         self.reward_range = self.reward_function.get_rewarrd_range()
@@ -92,23 +100,27 @@ class DoubleGyreEnv(gym.Env):
         crashed = not self.arena.is_inside_arena() or self.arena.is_on_land()
         terminate = solved or unsolvable or crashed
 
-        reward = self.reward_function.get_reward(self.prev_state, arena_obs.platform_state, self.problem, solved, crashed)
+        reward = self.reward_function.get_reward(
+            self.prev_state, arena_obs.platform_state, self.problem, solved, crashed
+        )
 
         # if terminate:
         #     print('terminate')
         #     self.reset()
 
-        model_obs = self.feature_constructor.get_features_from_state(obs=arena_obs, problem=self.problem)
+        model_obs = self.feature_constructor.get_features_from_state(
+            obs=arena_obs, problem=self.problem
+        )
         self.prev_state = arena_obs.platform_state
 
         return model_obs, reward, terminate, {}
 
     def reset(
-            self,
-            *,
-            seed: Optional[int] = None,
-            return_info: bool = False,
-            options: Optional[dict] = None,
+        self,
+        *,
+        seed: Optional[int] = None,
+        return_info: bool = False,
+        options: Optional[dict] = None,
     ):
         """
         Resets the environment.
@@ -131,7 +143,9 @@ class DoubleGyreEnv(gym.Env):
 
         arena_obs = self.arena.reset(self.problem.start_state)
         self.prev_state = arena_obs.platform_state
-        model_obs = self.feature_constructor.get_features_from_state(obs=arena_obs, problem=self.problem)
+        model_obs = self.feature_constructor.get_features_from_state(
+            obs=arena_obs, problem=self.problem
+        )
 
         if return_info:
             pass

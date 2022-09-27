@@ -20,12 +20,21 @@ class HighwayProblem(Problem):
         return state.distance(self.end_region) <= self.radius
 
     def plot(
-            self,
-            ax: matplotlib.axes.Axes,
-            color: Optional[str] = 'green',
+        self,
+        ax: matplotlib.axes.Axes,
+        color: Optional[str] = "green",
     ) -> matplotlib.axes.Axes:
-        ax.scatter(self.start_state.lon.deg, self.start_state.lat.deg, facecolors='none', edgecolors=color, marker='o',
-                   s=50, label='start')
-        ax.add_patch(plt.plot(self.end_region.lon.deg, self.end_region.lat.deg,c=color, label='goal'))
+        ax.scatter(
+            self.start_state.lon.deg,
+            self.start_state.lat.deg,
+            facecolors="none",
+            edgecolors=color,
+            marker="o",
+            s=50,
+            label="start",
+        )
+        ax.add_patch(
+            plt.plot(self.end_region.lon.deg, self.end_region.lat.deg, c=color, label="goal")
+        )
 
         return ax

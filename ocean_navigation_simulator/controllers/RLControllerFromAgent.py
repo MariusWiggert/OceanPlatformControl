@@ -34,7 +34,9 @@ class RLControllerFromAgent(Controller):
         Returns:
             SimulatorAction dataclass
         """
-        obs = self.feature_constructor.get_features_from_state(observation=observation, problem=self.problem)
+        obs = self.feature_constructor.get_features_from_state(
+            observation=observation, problem=self.problem
+        )
         action = self.agent.compute_action(observation=obs, explore=False)
 
         # go towards the center of the target with full power
