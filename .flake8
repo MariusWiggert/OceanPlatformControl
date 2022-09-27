@@ -1,5 +1,5 @@
 [flake8]
-exclude = venv
+exclude = venv, scripts/archive
 ignore = E501, W503, E226
 max-line-length = 79
 
