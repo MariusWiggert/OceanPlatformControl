@@ -103,10 +103,13 @@ class C3Downloader:
 
 if __name__ == "__main__":
     c3_downloader = C3Downloader()
-    time_interval = [datetime.datetime(2022, 3, 1, 12, 0, 0), datetime.datetime(2022, 8, 31, 12, 0, 0)]
+    time_interval = [datetime.datetime(2022, 4, 28, 12, 0, 0), datetime.datetime(2022, 6, 10, 12, 0, 0)]
     # time_interval = [datetime.datetime(2022, 6, 1, 12, 0, 0), datetime.datetime(2022, 9, 1, 12, 0, 0)]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
-    c3_downloader.download_files(files, "test_download_hc_march_august")
+    c3_downloader.download_files(files, "hc_may")
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
-    c3_downloader.download_files(files, "test_download_fc_march_august")
+    c3_downloader.download_files(files, "fc_may")
+    # time_interval = [datetime.datetime(2022, 6, 1, 12, 0, 0), datetime.datetime(2022, 6, 10, 12, 0, 0)]
+    # files = c3_downloader.get_files_list("Copernicus", "hindcast", "Region 1", time_interval)
+    # c3_downloader.download_files(files, "test")
     print("--- over ---")

@@ -172,8 +172,9 @@ def get_scheduler(cfg_scheduler, optimizer) -> Tuple[optim.lr_scheduler._LRSched
     return None, False
 
 
-def get_model(args, cfg_neural_network, device):
-    model_type = args.model_type
+def get_model(model_type, cfg_neural_network, device):
+    path = cfg_neural_network.pop("path_parameters", None)
+
     if model_type == 'mlp':
         model = OceanCurrentMLP(**cfg_neural_network)
     elif model_type == 'cnn':
@@ -185,7 +186,10 @@ def get_model(args, cfg_neural_network, device):
     elif model_type == 'convlstm':
         model = OceanCurrentConvLSTM(**cfg_neural_network)
     else:
-        model = OceanCurrentMLP(**cfg_neural_network)
+        raise Exception("invalid model type provided.")
+    if path is not None:
+        model.load_state_dict(torch.load(path, map_location=device))
+        model.eval()
 
     return model.to(device)
 
@@ -404,7 +408,7 @@ def get_args(all_cfgs):
     args.setdefault("max_batches_training_set", -1)
     args.setdefault("max_batches_validation_set", -1)
     args.setdefault("lambda_physical_loss", 0)
-    return DotDict(args), all_cfgs
+    return DotDict(args)
     # END ALTERNATIVE
 
 
@@ -418,7 +422,7 @@ def main():
     config_file = parser.parse_args().file_configs + ".yaml"
     all_cfgs = yaml.load(open(config_file, 'r'),
                          Loader=yaml.FullLoader)
-    args, all_cfgs = get_args(all_cfgs)
+    args = get_args(all_cfgs)
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = 'cuda' if use_cuda else 'cpu'
@@ -471,7 +475,7 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
 
-    model = get_model(args, cfg_neural_network, device)
+    model = get_model(args.model_type, cfg_neural_network, device)
     optimizer = get_optimizer(model, cfg_optimizer.get("name", ""), cfg_optimizer.get("parameters", {}), args.lr)
 
     # scheduler = schedulers.StepLR(optimizer, step_size=1, gamma=args.gamma)

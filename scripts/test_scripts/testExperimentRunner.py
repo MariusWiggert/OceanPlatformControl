@@ -4,8 +4,6 @@ import datetime
 import os
 import sys
 from _csv import writer
-from datetime import datetime
-from datetime import timezone
 
 import numpy as np
 import torch
@@ -268,17 +266,23 @@ def run_ray_tune_GP_grid(num_samples=500, bayes=False):
         return res.get_best_config(metric="avg", mode="min")
 
 
-def run_experiments_and_visualize_area(number_forecasts_in_days=20):
+def run_experiments_and_visualize_area(number_forecasts_in_days=20, yaml_file_config="config_test_GP",
+                                       folder_config_file=None, use_NN=False):
     # idle position
     # position = ((-86.20, 29.04, datetime.datetime(2022, 4, 19)), (-84, 28.04))
-    p = -85.659, 26.15
+    p = -85.659, 27.15
     d = datetime.datetime(2022, 4, 2, 21, 30, tzinfo=datetime.timezone.utc)
-    position = ((*p, d), (-90, 30))  # (p[0] + 2, p[1] + 2))
-    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3", position=position)
+    position = ((*p, d), (-90, 30))
+    if folder_config_file is not None:
+        exp = ExperimentRunner(yaml_file_config, filename_problems="all_problems_3", position=position,
+                               folder_config_file=folder_config_file)
+    else:
+        exp = ExperimentRunner(yaml_file_config, filename_problems="all_problems_3", position=position)
     # x, y, t = [-90, -80], [24, 30], [d, d + datetime.timedelta(days=1, hours=1)]
-    x, y, t = [-88, -82], [25, 29], [d, d + datetime.timedelta(days=1, hours=1)]
+    # x, y, t = [-88, -82], [25, 29], [d, d + datetime.timedelta(days=1, hours=1)]
+    x, y, t = [-88 + 1 / 12, -82], [24, 30], [d, d + datetime.timedelta(days=1, hours=1)]
 
-    exp.visualize_area(x, y, t, number_days_forecasts=number_forecasts_in_days)
+    exp.visualize_area(x, y, t, number_days_forecasts=number_forecasts_in_days, use_NN=use_NN)
 
 
 def run_experiments_and_visualize_noise(number_forecasts=30):
@@ -315,11 +319,11 @@ def run_experiments_and_collect_tiles(output_folder: str, filename_problems):
                            folder_problems="data_NN_DA/", folder_config_file="data_NN_DA/")
 
     results = []
-    i = 0
     k = 0
     while exp.has_next_problem():
         try:
             k += 1
+            print(k)
             print(f"starting problem {k}")
             # results.append(np.array(exp.run_next_problem(get_inputs_and_outputs=True)))
             array_fc_hc, measurement_locations, errors = exp.run_next_problem(get_inputs_and_outputs=True)
@@ -453,6 +457,7 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
 
 if __name__ == "__main__":
     print("arguments: ", sys.argv)
+    parser = argparse.ArgumentParser(description='Process the arguments.')
     if not {"-R", "--remote"}.isdisjoint(sys.argv):
         run_ray_tune_GP_grid(num_samples=5000)
     elif not {"-V", "--visualize"}.isdisjoint(sys.argv):
@@ -460,12 +465,18 @@ if __name__ == "__main__":
     elif not {"-N", "--noise"}.isdisjoint(sys.argv):
         run_experiments_and_visualize_noise(number_forecasts=20)
     elif not {"-T", "--collect-tiles"}.isdisjoint(sys.argv):
-        parser = argparse.ArgumentParser(description='Process some integers.')
-        parser.add_argument('-T', action='store_true', help='collect tiles')
+        parser.add_argument('-T', "--collect-tiles", action='store_true', help='collect tiles')
         parser.add_argument('-f', type=str, help='file name')
         parser.add_argument('-folder-destination', type=str)
         args = parser.parse_args()
         run_experiments_and_collect_tiles(output_folder=args.folder_destination, filename_problems=args.f)
+    elif not {"--visualize-results-NN"}.isdisjoint(sys.argv):
+        parser.add_argument('--visualize-results-NN', action='store_true', help='visualize results of the NN.')
+        parser.add_argument('--config-file', type=str, help='file name')
+        parser.add_argument('--config-folder', type=str, help='folder where the yaml file is located')
+        args = parser.parse_args()
+        run_experiments_and_visualize_area(number_forecasts_in_days=1, yaml_file_config=args.config_file,
+                                           folder_config_file=args.config_folder, use_NN=True)
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
     elif not {"-3d"}.isdisjoint(sys.argv):

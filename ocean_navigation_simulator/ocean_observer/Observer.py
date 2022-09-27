@@ -4,12 +4,14 @@ import datetime
 from typing import Dict, Any, List, Union, Optional, Tuple
 
 import numpy as np
+import torch
 import xarray
 import xarray as xr
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentGP import OceanCurrentGP
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import get_model
 
 
 class Observer:
@@ -17,13 +19,20 @@ class Observer:
     the given areas.
     """
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], device="cpu"):
         """Create the observer object
         Args:
             config: dictionary from the yaml file used to specify the parameters of the prediction model.
         """
         self.prediction_model = self.instantiate_model_from_dict(config.get("model"))
         print("Model: ", self.prediction_model)
+        if "NN" in config.get("model", {}):
+            NN_dict = config["model"]["NN"]
+            self.model_error = NN_dict["model_error"]
+            self.NN = get_model(NN_dict["type"], NN_dict["parameters"], device)
+        else:
+            self.NN = None
+
         self.forecast_data_source = None
 
     @staticmethod
@@ -64,6 +73,17 @@ class Observer:
                               "time": reference_xr['time'],
                               "lat": reference_xr['lat'],
                               "lon": reference_xr['lon']})
+
+    def evaluate_NN(self, data):
+        data_array = np.expand_dims(data.to_array().to_numpy(), 0)
+        torch_data = torch.tensor(data_array[:, [0, 1, 2, 3, 4, 5]], dtype=torch.float)
+        return self.NN(torch_data)[0].detach().numpy()
+        # 1) Check the input size
+        # if len(data["time"]) > n_steps:
+        #     data = data.isel(time=slice(1, n_steps + 1))
+        # 2) Pad with 0's
+        # data_array = remove_borders_GP_predictions_lon_lat(data_array, radius_platform)
+        # 3) evaluate NN
 
     def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
                            t_interval: List[Union[datetime.datetime, int]], spatial_resolution: Optional[float] = None,

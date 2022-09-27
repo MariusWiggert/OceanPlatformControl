@@ -23,7 +23,8 @@ experiment_runner:
   clear_observations_when_new_file: True
 
   use_real_data: True
-  scenario_used: "gulf_of_mexico_files_april_june_july_august"
+  #scenario_used: "gulf_of_mexico_files_april_june_july_august"
+  scenario_used: "gulf_of_mexico_files_may"
   #problems_file: "./scenarios/ocean_observer/all_problems.yaml"
 #  problems:
 #    - initial_position:
@@ -60,3 +61,17 @@ observer:
         parameters:
           length_scale_bounds: "fixed"
           nu: 1.5
+
+    NN:
+      type: "cnn"
+      model_error: true
+      parameters:
+        path_parameters: "./models_parameters/model_13.h5"
+        initial_channels: [ 0,1,2,3,4,5 ]
+        ch_sz: [ 6, 64, 128, 256, 256 ] #[ 2, 32, 64, 128, 192 ]
+        final_number_channels: 2
+        activation: "relu"
+        downsizing_method: "conv" #"avgpool"
+        dropout_encoder: 0.02
+        dropout_bottom: 0.2
+        dropout_decoder: 0.1

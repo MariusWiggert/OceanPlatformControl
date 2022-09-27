@@ -341,7 +341,7 @@ class ExperimentRunner:
         print(
             f"std mean over all the observations:{np.array(stds).mean()}\n mean of error magnitude over all the overvations {np.array(errors_magn).mean()}\nall magnitudes:{np.array(errors_magn)}")
 
-    def visualize_area(self, interval_lon, interval_lat, interval_time, number_days_forecasts=50):
+    def visualize_area(self, interval_lon, interval_lat, interval_time, number_days_forecasts=50, use_NN=False):
         if not self.problem_factory.has_problems_remaining():
             raise StopIteration()
 
@@ -355,6 +355,7 @@ class ExperimentRunner:
         list_forecast_hindcast = []
         list_datetime_when_new_forecast_files = [self.arena.platform.state.date_time]
         list_gp_output = []
+        list_NN_output = []
         self.__step_simulation(controller, fit_model=True)
         for i in range(number_days_forecasts * 24):
             print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state.date_time)
@@ -376,13 +377,13 @@ class ExperimentRunner:
             #     action_to_apply = controller.get_action(self.last_observation)
             #     self.last_observation = self.arena.step(action_to_apply)
             file = self.last_file_used
-            fc = self.__step_simulation(controller, fit_model=True,
-                                        lon_lat_time_intervals_to_get=intervals_lon_lat_time)
-            print(file == self.last_file_used, file, self.last_file_used)
+            fc = self.__step_simulation(controller, fit_model=True, dim_lon_lat=24 if use_NN else None,
+                                        lon_lat_time_intervals_to_get=intervals_lon_lat_time, use_NN=use_NN)
+            if use_NN:
+                fc, fc_NN = fc
+                list_NN_output.append(fc_NN)
             if file != self.last_file_used:
-                self.print_errors()
                 list_datetime_when_new_forecast_files.append(self.arena.platform.state.date_time)
-                print("file added to list:", list_datetime_when_new_forecast_files)
 
             list_gp_output.append(self.observer.get_data_over_area(*intervals_lon_lat_time,
                                                                    spatial_resolution=0.025,
@@ -395,12 +396,11 @@ class ExperimentRunner:
             hc = hc.assign_coords(depth=fc.depth.to_numpy().tolist())
             obj = PredictionsAndGroundTruthOverArea(fc, hc)
             list_forecast_hindcast.append((obj.predictions_over_area, obj.ground_truth))
-        self.print_errors()
         obj.visualize_initial_error(list_forecast_hindcast,
                                     tuple_trajectory_history_new_files=(
                                         self.arena.state_trajectory[:, :3], list_datetime_when_new_forecast_files),
                                     radius_area=self.variables.get("radius_area_around_platform", None),
-                                    gp_outputs=list_gp_output)
+                                    gp_outputs=list_gp_output, NN_outputs=list_NN_output)
 
     def run_all_problems(self, max_number_problems_to_run=None,
                          compute_for_all_radius_and_lag=False) -> Tuple[
@@ -602,8 +602,8 @@ class ExperimentRunner:
             self.last_prediction_ground_truth.plot_3d(variable)
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True,
-                          lon_lat_time_intervals_to_get: Optional[Tuple] = None, dim_lon_lat=None) -> Union[
-        'xarray', None]:
+                          lon_lat_time_intervals_to_get: Optional[Tuple] = None, dim_lon_lat=None, use_NN=False) -> \
+            Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
          model. We save the last observation.
 
@@ -633,17 +633,15 @@ class ExperimentRunner:
         if fit_model:
             self.observer.fit()
 
-            # point = self.arena.platform.state.to_spatio_temporal_point()
-            # print(
-            #     f"after fitted we obtain error predicted: {self.observer.get_data_at_point(point.lon.deg, point.lat.deg, point.date_time)}  at point:{point.lon.deg, point.lat.deg, point.date_time}")
-            predictions = self.observer.get_data_over_area(*(
-                lon_lat_time_intervals_to_get if lon_lat_time_intervals_to_get is not None else self.__get_lon_lat_time_intervals()),
-                                                           temporal_resolution=self.variables.get(
-                                                               "delta_between_predictions_in_sec", None))
-            # todo: quick fix, Find why the predictions are not always the same shape:
             n_steps = self.variables.get("number_steps_to_predict", 12)
+            coords = lon_lat_time_intervals_to_get if lon_lat_time_intervals_to_get is not None else self.__get_lon_lat_time_intervals()
+            temporal_res = self.variables.get("delta_between_predictions_in_sec", None)
+
+            predictions = self.observer.get_data_over_area(*coords, temporal_resolution=temporal_res)
+
+            # todo: quick fix, Find why the predictions are not always the same shape:
             if len(predictions["time"]) > n_steps:
-                predictions = predictions.isel(time=range(n_steps))
+                predictions = predictions.isel(time=slice(1, n_steps + 1))
 
         # check that the tile has the correct size ( Might not happen sometimes when the platform is between tiles)
         point = self.last_observation.platform_state.to_spatio_temporal_point()
@@ -657,6 +655,11 @@ class ExperimentRunner:
                 i = 0 if point.lat.deg - predictions["lat"][0] < predictions["lat"][-1] - point.lat.deg else 0
                 predictions = predictions.isel(lat=slice(i, i + len(predictions["lat"]) - 1))
             assert len(predictions["lon"]) == len(predictions["lat"]) == dim_lon_lat
+
+        if use_NN:
+            predictions_NN = self.observer.evaluate_NN(predictions)
+            return predictions, predictions_NN
+
         return predictions
 
     def __get_lon_lat_time_intervals(self, ground_truth: bool = False) -> Tuple[List[float],

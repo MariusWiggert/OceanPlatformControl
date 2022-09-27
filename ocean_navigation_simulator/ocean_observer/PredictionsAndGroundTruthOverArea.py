@@ -99,7 +99,8 @@ class PredictionsAndGroundTruthOverArea:
 
     def visualize_initial_error(self, list_predictions: List[Tuple['xr', 'xr']], spatial_res=None,
                                 tuple_trajectory_history_new_files: Optional[Tuple[np.array, List[DateTime]]] = None,
-                                radius_area: float = None, gp_outputs: Optional[List['xr']] = None):
+                                radius_area: float = None, gp_outputs: Optional[List['xr']] = None,
+                                NN_outputs: Optional[List[np.array]] = None):
         print("visualize initial error")
         # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
         #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
@@ -129,8 +130,19 @@ class PredictionsAndGroundTruthOverArea:
                                                                   return_cbar=True)
         ax2 = OceanCurrentSource.plot_data_from_xarray(0, initial_forecasts[0], ax=ax2, colorbar=False)
         ax3, self.cbar_3 = OceanCurrentSource.plot_data_from_xarray(0, errors_predicted[0], ax=ax3, return_cbar=True)
-        ax4, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(0, (std_output[0] if gp_outputs is not None else
-                                                                        errors_predicted[0]), ax=ax4, return_cbar=True)
+        if NN_outputs is None:
+            ax4, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(0, (std_output[0] if gp_outputs is not None else
+                                                                            errors_predicted[0]), ax=ax4,
+                                                                        return_cbar=True)
+        else:
+            initial_forecasts
+            ls_NN_xr = [xr.Dataset(data_vars=dict(water_u=(["time", "lon", "lat"], output[0]),
+                                                  water_v=(["time", "lon", "lat"], output[1])),
+                                   coords=dict(lon=range(24), lat=range(24), time=initial_forecasts[i].time)) for
+                        i, output in enumerate(NN_outputs)]
+            ax4, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(0, ls_NN_xr[0], ax=ax4, return_cbar=True)
+        list_for_ax4 = ls_NN_xr if NN_outputs is not None else (std_output if gp_outputs is not None else
+                                                                errors_predicted)
 
         # x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
 
@@ -156,7 +168,10 @@ class PredictionsAndGroundTruthOverArea:
             ax1.set_title("Error forecast vs hindcast [m/s]")
             ax2.set_title("Forecast currents [m/s]")
             ax3.set_title("Error currents predicted by the GP [m/s]")
-            ax4.set_title("std predicted by the GP (zoomed in) [m/s]")
+            if NN_outputs is not None:
+                ax4.set_title("Error by the NN (zoomed in) [m/s]")
+            else:
+                ax4.set_title("std of the error from the GP [m/s]")
 
             # Print trajectory
             if tuple_trajectory_history_new_files is not None:
@@ -192,8 +207,13 @@ class PredictionsAndGroundTruthOverArea:
                         lat=slice(y - radius_area / 2, y + radius_area))
                     # print("error:", error_small_window)
                     self.cbar_4.remove()
-                    _, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(lag, std_output[
-                        index_prediction] if gp_outputs is not None else error_small_window, ax=ax4, return_cbar=True)
+                    if NN_outputs is None and gp_outputs is None:
+                        elem = error_small_window
+                        vmin, vmax = None, None
+                    else:
+                        elem = list_for_ax4[index_prediction]
+                    _, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(lag, elem, ax=ax4, return_cbar=True,
+                                                                              vmin=vmin, vmax=vmax)
                     for ax in [ax1, ax2, ax3, ax4]:
                         rect = patches.Rectangle((x - radius_area, y - radius_area), radius_area * 2,
                                                  radius_area * 2,

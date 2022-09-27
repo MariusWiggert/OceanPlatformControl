@@ -4,8 +4,8 @@ arguments_model_runner:
   batch_size: 32 #128 #32
   model_type: "cnn"
   log_interval: 1
-  lr: 0.0001 #0.0003
-  epochs: 25
+  lr: 0.00006 #0.0003
+  epochs: 45
   folder_figure: "./figures/"
   max_batches_training_set: -1
   max_batches_validation_set: -1
@@ -20,8 +20,8 @@ arguments_model_runner:
     name: "ReduceLROnPlateau"
     parameters:
       mode: 'min'
-      factor: 0.2
-      patience: 7
+      factor: 0.5
+      patience: 3
       threshold: 0.005
 arguments_script_convert_data:
   yaml_file_datasets: "config_neural_net"
