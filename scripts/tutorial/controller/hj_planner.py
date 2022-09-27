@@ -11,7 +11,7 @@ from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
-arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_hindcast_local')
+arena = ArenaFactory.create(scenario_name='gulf_of_mexico_LongTermAverageSource')
 # we can also download the respective files directly to a temp folder, then t_interval needs to be set
 # % Specify Navigation Problem
 x_0 = PlatformState(lon=units.Distance(deg=-82.5), lat=units.Distance(deg=23.7),
