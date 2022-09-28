@@ -170,9 +170,12 @@ class ExperimentRunner:
                 self.last_observation = self.arena.step(action_to_apply)
             dims = self.__get_lon_lat_time_intervals(ground_truth=False)
             dims = [x, y, dims[-1]]
-            fc = self.observer.get_data_over_area(*dims,
-                                                  temporal_resolution=self.variables.get(
-                                                      "delta_between_predictions_in_sec", None))
+            # fc = self.observer.get_data_over_area(*dims,
+            #                                       temporal_resolution=self.variables.get(
+            #                                           "delta_between_predictions_in_sec", None))
+            r = self.variables.get("radius_area_around_platform", 1)
+            t = self.variables.get("number_steps_to_predict", 12) * 3600
+            fc = self.observer.get_data_around_platform(self.last_observation, r, t, )
             margin_area = self.variables.get("gt_additional_area", 0.5)
             margin_time = datetime.timedelta(seconds=self.variables.get("gt_additional_time", 3600))
             dims = [[x[0] - margin_area, x[1] + margin_area], [y[0] - margin_area, y[1] + margin_area],
@@ -356,6 +359,8 @@ class ExperimentRunner:
         list_datetime_when_new_forecast_files = [self.arena.platform.state.date_time]
         list_gp_output = []
         list_NN_output = []
+        radius = self.variables.get("radius_area_around_platform", 1)
+        lags_in_sec = self.variables.get("number_steps_to_predict", 12) * 3600
         self.__step_simulation(controller, fit_model=True)
         for i in range(number_days_forecasts * 24):
             print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state.date_time)
@@ -385,11 +390,13 @@ class ExperimentRunner:
             if file != self.last_file_used:
                 list_datetime_when_new_forecast_files.append(self.arena.platform.state.date_time)
 
-            list_gp_output.append(self.observer.get_data_over_area(*intervals_lon_lat_time,
-                                                                   spatial_resolution=0.025,
-                                                                   temporal_resolution=self.variables.get(
-                                                                       "delta_between_predictions_in_sec", None))[
-                                      ["error_u", "error_v", "std_error_u", "std_error_v"]])
+            # list_gp_output.append(self.observer.get_data_over_area(*intervals_lon_lat_time,
+            #                                                        spatial_resolution=0.025,
+            #                                                        temporal_resolution=self.variables.get(
+            #                                                            "delta_between_predictions_in_sec", None))[
+            #                           ["error_u", "error_v", "std_error_u", "std_error_v"]])
+
+            list_gp_output.append(self.observer.get_data_around_platform(self.last_observation, radius, lags_in_sec))
             hc = self.arena.ocean_field.hindcast_data_source. \
                 get_data_over_area(*intervals_lon_lat_time_with_margin,
                                    temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
@@ -422,6 +429,7 @@ class ExperimentRunner:
                 type(max_number_problems_to_run) != int or max_number_problems_to_run > 0):
             try:
                 i += 1
+                print(f"Problem no:{i}/{max_number_problems_to_run}")
                 res_tuple = self.run_next_problem(
                     compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
                 if compute_for_all_radius_and_lag:
@@ -526,14 +534,15 @@ class ExperimentRunner:
                 results.append(self.last_prediction_ground_truth)
                 name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
                 directions = self.variables.get("direction_current", ["uv"])
-                metric = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
-                                                                           compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
+                metric = self.last_prediction_ground_truth. \
+                    compute_metrics(name_metrics, directions=directions,
+                                    compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
                 metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
                                                                                     per_hour=True)
                 metric_grid = dict()
                 if compute_for_all_radius_and_lag:
                     for key in list(metric.keys()):
-                        if key.endswith("_all_lags_and_radius"):
+                        if key.endswith("_all_lags_and_radius") or key.endswith("_per_lag_and_radius"):
                             metric_grid[key] = metric[key]
                             del metric[key]
                 for key, val in metric_grid.items():
@@ -637,11 +646,16 @@ class ExperimentRunner:
             coords = lon_lat_time_intervals_to_get if lon_lat_time_intervals_to_get is not None else self.__get_lon_lat_time_intervals()
             temporal_res = self.variables.get("delta_between_predictions_in_sec", None)
 
-            predictions = self.observer.get_data_over_area(*coords, temporal_resolution=temporal_res)
+            radius_space = self.variables.get("radius_area_around_platform", 1)
+            lags_in_second = self.variables.get("number_steps_to_predict", 12) * 3600
+            predictions = self.observer.get_data_around_platform(
+                self.last_observation.platform_state.to_spatio_temporal_point(), radius_space,
+                lags_in_second=lags_in_second, temporal_resolution=3600)
+            # predictions = self.observer.get_data_over_area(*coords, temporal_resolution=temporal_res)
 
             # todo: quick fix, Find why the predictions are not always the same shape:
-            if len(predictions["time"]) > n_steps:
-                predictions = predictions.isel(time=slice(1, n_steps + 1))
+            # if len(predictions["time"]) > n_steps:
+            #    predictions = predictions.isel(time=slice(1, n_steps + 1))
 
         # check that the tile has the correct size ( Might not happen sometimes when the platform is between tiles)
         point = self.last_observation.platform_state.to_spatio_temporal_point()
@@ -657,7 +671,7 @@ class ExperimentRunner:
             assert len(predictions["lon"]) == len(predictions["lat"]) == dim_lon_lat
 
         if use_NN:
-            predictions_NN = self.observer.evaluate_NN(predictions)
+            predictions_NN = self.observer.evaluate_neural_net(predictions)
             return predictions, predictions_NN
 
         return predictions

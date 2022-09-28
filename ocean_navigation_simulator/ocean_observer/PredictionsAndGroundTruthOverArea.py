@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timezone
 from typing import Union, Dict, Set, Optional, List, Tuple
 
@@ -38,6 +39,21 @@ class PredictionsAndGroundTruthOverArea:
         self.ground_truth_area = np.moveaxis(self.ground_truth[["water_u", "water_v"]]
                                              .to_array().to_numpy(), 0, -1).reshape(reshape_dims)
 
+    def get_subforecast_centered(self, matrix, middle_left, middle_right, index_time, index_radius):
+        return matrix[:(index_time + 1), (middle_left - index_radius):(middle_right + 1 + index_radius),
+               (middle_left - index_radius):(middle_right + 1 + index_radius)]
+
+    def get_subforecast_borders(self, matrix, middle_left, middle_right, idx_time, index_radius):
+        borders = self.get_subforecast_centered(matrix, middle_left, middle_right, idx_time, index_radius)[idx_time]
+        if borders.shape[1] <= 2:
+            return borders
+        inside = self.get_subforecast_centered(matrix, middle_left, middle_right, idx_time, index_radius - 1)[idx_time]
+        value_for_mask = math.inf
+        inside_mask = np.pad(inside, [(1, 1), (1, 1), (0, 0)], mode='constant', constant_values=value_for_mask)
+        inside = np.pad(inside, [(1, 1), (1, 1), (0, 0)])
+        outside_mask = inside_mask == value_for_mask
+        return (borders - inside)[outside_mask].reshape(-1, 1, 2)
+
     def compute_metrics(self, metrics: Union[Set[str], str, None] = None, directions: list[str] = ['uv'],
                         per_hour: bool = False, compute_for_all_radius_and_lag=False) -> Dict[str, any]:
         """ Compute and return the metrics provided or all if none is provided.
@@ -67,6 +83,7 @@ class PredictionsAndGroundTruthOverArea:
                             # if ground_truth.shape[-2:] != (96, 96):  # (48, 48):
                             #    print("error")
 
+                            # collect data for the 3d plots
                             grid_all_lags_and_radius = np.zeros((max_lag, (lon_lat + 1) // 2))
                             if lon_lat % 2 == 0:  # even
                                 middle_left = (lon_lat - 1) // 2
@@ -83,15 +100,27 @@ class PredictionsAndGroundTruthOverArea:
                             for i in range(grid_all_lags_and_radius.shape[0]):
                                 for j in range(grid_all_lags_and_radius.shape[1]):
                                     # take only the middle of the array!
+
+                                    # Take the subset of the forecast
                                     dict_metric_name_res = f(
-                                        gt[:(i + 1), (middle_left - j):(middle_right + 1 + j),
-                                        (middle_left - j):(middle_right + 1 + j)],
-                                        imp_fc[:(i + 1), (middle_left - j):(middle_right + 1 + j),
-                                        (middle_left - j):(middle_right + 1 + j)],
-                                        init_fc[:(i + 1), (middle_left - j):(middle_right + 1 + j),
-                                        (middle_left - j):(middle_right + 1 + j)])
+                                        self.get_subforecast_centered(gt, middle_left, middle_right, i, j),
+                                        self.get_subforecast_centered(imp_fc, middle_left, middle_right, i, j),
+                                        self.get_subforecast_centered(init_fc, middle_left, middle_right, i, j)
+                                    )
+
+                                    dict_metric_name_res_per_elem = f(
+                                        self.get_subforecast_borders(gt, middle_left, middle_right, i, j),
+                                        self.get_subforecast_borders(imp_fc, middle_left, middle_right, i, j),
+                                        self.get_subforecast_borders(init_fc, middle_left, middle_right, i, j)
+                                    )
+
                                     for name, f_res in dict_metric_name_res.items():
                                         name_with_suffix = name + "_all_lags_and_radius"
+                                        if name_with_suffix not in res:
+                                            res[name_with_suffix] = np.copy(grid_all_lags_and_radius)
+                                        res[name_with_suffix][i, j] = f_res
+                                    for name, f_res in dict_metric_name_res_per_elem.items():
+                                        name_with_suffix = name + "_per_lag_and_radius"
                                         if name_with_suffix not in res:
                                             res[name_with_suffix] = np.copy(grid_all_lags_and_radius)
                                         res[name_with_suffix][i, j] = f_res

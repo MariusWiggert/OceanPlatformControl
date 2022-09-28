@@ -191,9 +191,11 @@ def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["u
             return 1.0 - ((A != 0).sum() / float(A.size))
 
         percents = np.array([percent_nan(ground_truth[i, ..., axis_current]) for i in range(len(ground_truth))])
-        print(f"contain NaNs (direction: {current}): ground_truth:", np.isnan(ground_truth[..., axis_current]).sum(),
-              "\tforecast:",
-              np.isnan(improved_predictions[..., axis_current]).sum(), "per time: ",
-              percents)
+        size = improved_predictions[..., axis_current].size
+        # if current == "uv":
+        #     print(
+        #         f"contain NaNs ({current}): "
+        #         f"ground_truth:{(np.isnan(ground_truth[..., axis_current]).sum() / size):.2f}%",
+        #         f"\tforecast:{(np.isnan(improved_predictions[..., axis_current]).sum() / size):.2f}%")
         return (percents == 1).all()
     return False

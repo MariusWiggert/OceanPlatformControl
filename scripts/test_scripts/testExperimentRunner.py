@@ -389,9 +389,15 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
         for key in results_grids.keys():
             if key.startswith("rmse"):
                 to_plot = np.array(results_grids[key]).mean(axis=0)
-                name = key[:-len("_all_lags_and_radius")].replace("_", " ")
+                if key.endswith("_all_lags_and_radius"):
+                    legend = "All lags and radius merged"
+                    name = key[:-len("_all_lags_and_radius")]
+                else:
+                    legend = "each lag and radius separated"
+                    name = key[:-len("per_lag_and_radius")]
+                name = name.replace("_", " ")
                 hf = plt.figure()
-                plt.title(name)
+                plt.title(name + " - " + legend)
 
                 ha = hf.add_subplot(111, projection='3d')
                 ha.set_xlabel("lag")
@@ -408,7 +414,7 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
     metric_to_plot = "vme"
     initial, improved = metric_to_plot + "_initial", metric_to_plot + "_improved"
     problem_1 = results[-1]
-    X = [datetime.fromtimestamp(t, tz=timezone.utc) for t in problem_1["time"]]
+    X = [datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in problem_1["time"]]
     y1 = problem_1[initial]
     y2 = problem_1[improved]
     y1_mean = np.array([r[initial] for r in results]).mean(axis=0)
@@ -480,7 +486,7 @@ if __name__ == "__main__":
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
     elif not {"-3d"}.isdisjoint(sys.argv):
-        run_experiments_and_plot(max_number_problems_to_run=50, plot_error_3d=True)
+        run_experiments_and_plot(max_number_problems_to_run=10, plot_error_3d=True)
     else:
         run_experiments_and_plot(max_number_problems_to_run=2)
 
