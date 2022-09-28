@@ -1,12 +1,16 @@
 import yaml
 
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import (
     FileMissionProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
+from ocean_navigation_simulator.reinforcement_learning.scripts import (
+    cluster_utils,
+)
 
 cluster_utils.ensure_storage_connection()
 problem_factory = FileMissionProblemFactory()
@@ -18,7 +22,7 @@ arena = ArenaFactory.create(
 arena_observation = arena.reset(problem.start_state)
 controller = NaiveController(problem=problem)
 
-with open(f"config/ocean_observer/config_GP_for_reinforcement_learning.yaml") as f:
+with open("config/ocean_observer/config_GP_for_reinforcement_learning.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 observer = Observer(config["observer"])
 

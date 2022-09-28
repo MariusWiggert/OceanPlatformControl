@@ -1,10 +1,26 @@
-from typing import Dict
-import matplotlib.pyplot as plt
-from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import *
-from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import *
-from ocean_navigation_simulator.utils import units
 import datetime
 import logging
+from typing import Dict, List
+
+import casadi as ca
+import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+
+from ocean_navigation_simulator.data_sources.DataSource import (
+    AnalyticalSource,
+    DataSource,
+)
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import (
+    compute_R_growth_without_irradiance,
+    compute_R_resp,
+    irradianceFactor,
+)
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatioTemporalPoint,
+)
+from ocean_navigation_simulator.utils import units
 
 # TODO: Automatically handle re-initialization of the F_NGR_per_second casadi function when the solar_rad_casadi
 # in the solar_source is updated (e.g. because of caching). Needs to happen either in Arena or Platform.

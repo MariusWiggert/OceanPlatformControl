@@ -1,4 +1,5 @@
 import datetime
+
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.utils import units
 
@@ -29,7 +30,9 @@ solar_source = AnalyticalSolarIrradiance(solar_source_dict)
 # solar_source.update_casadi_dynamics(platform_state) # Only if we need caching but
 
 #%%Instantiate the Seaweed Growth Field -> this takes ≈40 seconds
-from ocean_navigation_simulator.data_sources.SeaweedGrowthField import SeaweedGrowthField
+from ocean_navigation_simulator.data_sources.SeaweedGrowthField import (
+    SeaweedGrowthField,
+)
 
 seaweed_source_dict = {
     "field": "SeaweedGrowth",

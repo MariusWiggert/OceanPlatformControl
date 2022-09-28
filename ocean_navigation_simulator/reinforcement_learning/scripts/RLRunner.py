@@ -3,19 +3,23 @@
 
 import datetime
 import json
-import time
 import os
-from typing import Optional, Type, Dict
+import time
+from typing import Dict, Optional, Type
 
 import pytz
 import ray
-from ray.rllib import RolloutWorker, BaseEnv, Policy
+from ray.rllib import BaseEnv, Policy, RolloutWorker
 from ray.rllib.evaluation import Episode
-from ray.rllib.models import ModelCatalog
+
+# from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
-from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import OceanNNModel
+
+# from ocean_navigation_simulator.reinforcement_learning.OceanNNModel import (
+#     OceanNNModel,
+# )
 from ocean_navigation_simulator.utils import cluster_utils
 
 
@@ -55,7 +59,7 @@ class RLRunner:
         cluster_utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(self.config_folder)
-        cluster_utils.clean_results(f"/seaweed-storage/experiments/", verbose=1)
+        cluster_utils.clean_results("/seaweed-storage/experiments/", verbose=1)
         json.dump(self.agent_config, open(f"{self.config_folder}agent_config.json", "w"), indent=4)
         json.dump(
             self.ocean_env_config, open(f"{self.config_folder}ocean_env_config.json", "w"), indent=4

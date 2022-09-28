@@ -2,12 +2,13 @@
     This test script can be run on a newly generated cluster to check if it works. The processes
     return their IP + PID. This helps to see if all the nodes work and if the work is balanced.
 """
-from collections import Counter
+import os
 import socket
 import time
+from collections import Counter
+
 import ray
 from requests import get
-import os
 
 print("Script started ...")
 script_start_time = time.time()

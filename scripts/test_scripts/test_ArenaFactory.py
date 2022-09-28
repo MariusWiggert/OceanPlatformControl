@@ -1,4 +1,3 @@
-import pandas as pd
 import os
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory

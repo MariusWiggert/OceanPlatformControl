@@ -1,18 +1,27 @@
 import datetime
 import time
-from typing import Optional, Union, List
-import numpy as np
 import warnings
-from matplotlib import patches
+from typing import List, Optional, Union
+
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import patches
 
-
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatioTemporalPoint,
+)
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 from ocean_navigation_simulator.utils import units
 
 
@@ -144,7 +153,7 @@ class ShortMissionProblemFactory(ProblemFactory):
         # Step 2: Reject if on land
         if self.arena.is_on_land(target.to_spatial_point()):
             if self.verbose > 0:
-                print(f"ShortMissionProblemFactory: Target aborted because it was on land.")
+                print("ShortMissionProblemFactory: Target aborted because it was on land.")
             return False
 
         # Step 3: Generate backward HJ Planner for this target

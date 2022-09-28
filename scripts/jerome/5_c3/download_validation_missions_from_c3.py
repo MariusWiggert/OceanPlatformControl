@@ -1,7 +1,10 @@
-from tqdm import tqdm
 import pandas as pd
+from tqdm import tqdm
+
 import ocean_navigation_simulator.utils.paths as paths
-from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
+from ocean_navigation_simulator.reinforcement_learning.scripts import (
+    cluster_utils,
+)
 
 c3 = cluster_utils.get_c3()
 

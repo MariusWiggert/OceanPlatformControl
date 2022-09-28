@@ -1,8 +1,11 @@
+import bisect
+import math
+
+import numpy as np
+
 from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import (
     WaypointTrackingController,
 )
-import numpy as np
-import math, bisect
 
 
 class simple_P_tracker(WaypointTrackingController):

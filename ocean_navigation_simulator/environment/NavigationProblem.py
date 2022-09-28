@@ -1,11 +1,14 @@
 import dataclasses
 import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 import matplotlib
 from matplotlib import pyplot as plt
 
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils import units
 

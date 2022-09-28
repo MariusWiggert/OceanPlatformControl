@@ -1,12 +1,14 @@
 import abc
 import datetime
 import time
-import logging
-from typing import List, Optional, Dict
-from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
+from typing import Dict, List, Optional
 
 # import gin # We don't use gin because it doesn't work well with the C3 Data Types. Hence, we use settings_dicts.
 import xarray as xr
+
+from ocean_navigation_simulator.environment.PlatformState import (
+    SpatioTemporalPoint,
+)
 
 
 class DataField(abc.ABC):

@@ -1,8 +1,10 @@
 # from ocean_navigation_simulator.planners import Planner
-from ocean_navigation_simulator.utils import simulation_utils
 import math
+
 import casadi as ca
 import numpy as np
+
+from ocean_navigation_simulator.utils import simulation_utils
 
 
 class AStarState:

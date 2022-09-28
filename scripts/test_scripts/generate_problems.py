@@ -8,8 +8,11 @@ from typing import Union
 import numpy as np
 import yaml
 
-from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
-from ocean_navigation_simulator.utils.units import Velocity, Distance
+from ocean_navigation_simulator.environment.PlatformState import (
+    SpatialPoint,
+    SpatioTemporalPoint,
+)
+from ocean_navigation_simulator.utils.units import Distance, Velocity
 
 number_problems = 40
 seed = 30031996

@@ -1,5 +1,4 @@
 import abc
-from typing import List
 
 from ocean_navigation_simulator.environment import NavigationProblem
 

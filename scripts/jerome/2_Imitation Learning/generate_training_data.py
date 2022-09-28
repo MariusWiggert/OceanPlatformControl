@@ -1,6 +1,7 @@
-import pandas as pd
-from datetime import datetime
 import gc
+from datetime import datetime
+
+import pandas as pd
 
 from ocean_navigation_simulator.env.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.env.NavigationProblem import NavigationProblem

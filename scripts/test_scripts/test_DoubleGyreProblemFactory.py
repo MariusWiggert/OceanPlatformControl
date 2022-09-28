@@ -1,14 +1,18 @@
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 import time
 
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import (
     DoubleGyreProblemFactory,
 )
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
-from ocean_navigation_simulator.utils.plotting_utils import get_index_from_posix_time
-
+from ocean_navigation_simulator.utils.plotting_utils import (
+    get_index_from_posix_time,
+)
 
 start = time.time()
 

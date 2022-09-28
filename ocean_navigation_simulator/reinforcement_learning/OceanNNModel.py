@@ -1,4 +1,6 @@
-from ray.rllib.agents.dqn.distributional_q_tf_model import DistributionalQTFModel
+from ray.rllib.agents.dqn.distributional_q_tf_model import (
+    DistributionalQTFModel,
+)
 from ray.rllib.models.tf.misc import normc_initializer
 from ray.rllib.utils.framework import try_import_tf
 

@@ -1,8 +1,10 @@
-from ocean_navigation_simulator.planners.planner import Planner
+import bisect
+
 import casadi as ca
 import numpy as np
+
+from ocean_navigation_simulator.planners.planner import Planner
 from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
-import bisect
 
 
 class IpoptPlanner(Planner):

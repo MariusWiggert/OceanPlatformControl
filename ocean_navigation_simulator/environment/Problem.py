@@ -1,5 +1,6 @@
 import abc
 import dataclasses
+
 import matplotlib.axes
 
 from ocean_navigation_simulator.environment.Platform import PlatformState

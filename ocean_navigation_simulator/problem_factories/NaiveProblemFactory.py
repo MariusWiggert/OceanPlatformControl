@@ -1,7 +1,9 @@
 from typing import List
 
 from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 
 
 class NaiveProblemFactory(ProblemFactory):

@@ -3,30 +3,37 @@
 
 import os
 import pickle
-import time
 import socket
+import time
 from types import SimpleNamespace
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
+import gym
 import matplotlib.pyplot as plt
 import numpy as np
-import gym
 import psutil
 
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import (
     FileMissionProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import (
-    OceanRewardFunction,
-)
+from ocean_navigation_simulator.reinforcement_learning.bcolors import bcolors
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import (
     OceanFeatureConstructor,
 )
-from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
-from ocean_navigation_simulator.reinforcement_learning.bcolors import bcolors
+from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import (
+    OceanRewardFunction,
+)
+from ocean_navigation_simulator.reinforcement_learning.scripts import (
+    cluster_utils,
+)
 
 
 class OceanEnv(gym.Env):

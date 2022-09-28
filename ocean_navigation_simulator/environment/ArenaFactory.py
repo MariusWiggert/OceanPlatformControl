@@ -1,13 +1,15 @@
-import yaml
-import os
 import datetime
-from typing import Optional, List
+import os
+from typing import List, Optional
+
+import yaml
 
 from ocean_navigation_simulator.environment.Arena import Arena
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.utils import cluster_utils
-from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils import cluster_utils, units
 
 
 class ArenaFactory:

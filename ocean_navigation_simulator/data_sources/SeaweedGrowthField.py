@@ -1,5 +1,6 @@
-from typing import Optional, Dict
 import logging
+from typing import Dict, Optional
+
 from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthGEOMAR,

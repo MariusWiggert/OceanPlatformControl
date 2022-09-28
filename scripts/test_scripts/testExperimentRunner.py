@@ -10,7 +10,9 @@ from matplotlib import pyplot as plt
 from ray import tune
 from ray.tune.suggest.bayesopt import BayesOptSearch
 
-from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
+from ocean_navigation_simulator.ocean_observer.ExperimentRunner import (
+    ExperimentRunner,
+)
 
 
 def conditional_parameters(str_accepted: list[str], to_return, is_kernel_1: bool = True):
@@ -322,8 +324,7 @@ def main(max_number_problems_to_run=None):
     # plot to see error
     metric_to_plot = "vme"
     initial, improved = metric_to_plot + "_initial", metric_to_plot + "_improved"
-    from datetime import datetime
-    from datetime import timezone
+    from datetime import datetime, timezone
 
     problem_1 = results[-1]
     X = [datetime.fromtimestamp(t, tz=timezone.utc) for t in problem_1["time"]]

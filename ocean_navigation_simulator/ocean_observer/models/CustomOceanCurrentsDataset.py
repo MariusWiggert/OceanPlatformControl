@@ -1,11 +1,13 @@
 import datetime
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from DateTime import DateTime
 from torch.utils.data import Dataset
 
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 
 
 class CustomOceanCurrentsDataset(Dataset):
@@ -47,7 +49,7 @@ class CustomOceanCurrentsDataset(Dataset):
     def __getitem__(self, idx):
         start = self.start_date + datetime.timedelta(days=idx)
         end_input = start + self.input_cell_size[self.IDX_TIME]
-        end_output = start + self.output_cell_size[self.IDX_TIME]
+        # end_output = start + self.output_cell_size[self.IDX_TIME]
         input = self.ocean_field.forecast_data_source.get_data_over_area(
             *self.GULF_MEXICO,
             [start, end_input],

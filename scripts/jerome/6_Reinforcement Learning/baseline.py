@@ -1,8 +1,11 @@
 import datetime
 import time
+
 import pytz
 
-from ocean_navigation_simulator.reinforcement_learning.scripts.BaselineRunner import BaselineRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts.BaselineRunner import (
+    BaselineRunner,
+)
 
 print(
     f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}'

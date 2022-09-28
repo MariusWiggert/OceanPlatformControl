@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import datetime
-from typing import Dict, Any, List, Union, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import xarray
 import xarray as xr
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentGP import OceanCurrentGP
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentGP import (
+    OceanCurrentGP,
+)
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
+    OceanCurrentModel,
+)
 
 
 class Observer:

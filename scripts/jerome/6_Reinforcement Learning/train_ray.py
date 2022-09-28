@@ -13,13 +13,17 @@ os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 
 import datetime
 import time
+
 import pytz
 import ray
 from ray.rllib.agents.dqn.apex import ApexTrainer
 
-from ocean_navigation_simulator.reinforcement_learning.scripts.RLRunner import RLRunner
-from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
-
+from ocean_navigation_simulator.reinforcement_learning.scripts import (
+    cluster_utils,
+)
+from ocean_navigation_simulator.reinforcement_learning.scripts.RLRunner import (
+    RLRunner,
+)
 
 print(
     f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}'

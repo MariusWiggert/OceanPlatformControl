@@ -1,10 +1,12 @@
-import time
+import os
 from typing import Optional
+
 import pandas as pd
 import ray
-import os
 
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 from ocean_navigation_simulator.utils import cluster_utils
 
@@ -60,7 +62,7 @@ class BaselineRunner:
         while not done:
             action = controller.get_action(env.prev_obs)
 
-            start = time.time()
+            # start = time.time()
             features, reward, done, info = env.step(action)
             # print(f'OceanEnv Step {step} ({time.time()-start:.1f}s)')
             # print(features.shape, reward, done, info)

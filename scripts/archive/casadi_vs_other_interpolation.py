@@ -23,9 +23,10 @@ x_T = [-80.4, 24.2]
 
 deg_around_x_t: 2
 t_horizon_sim: 10
+from datetime import datetime, timezone
+
 #%% get the data
 import ocean_navigation_simulator.utils as utils
-from datetime import datetime, timezone
 
 # Step 0: set up time and lat/lon bounds for data sub-setting
 x_t = sim.cur_state.flatten()
@@ -95,9 +96,9 @@ print((time.time() - start_time) * 1000)
 # Then we can just add in actual solar fields too if we want to
 #%%
 import jax.numpy as jnp
+import jax.scipy.ndimage
 import numpy as np
 from jax import jit
-import jax.scipy.ndimage
 from scipy import interpolate
 
 

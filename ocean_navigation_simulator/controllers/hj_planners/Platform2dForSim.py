@@ -1,8 +1,9 @@
+from typing import Union
+
 import jax.lax
 import jax.numpy as jnp
-from hj_reachability import dynamics, sets, interpolation
-from typing import AnyStr, Union
 import xarray as xr
+from hj_reachability import dynamics, interpolation, sets
 
 
 def transform_to_geographic_velocity(state, dx1, dx2):

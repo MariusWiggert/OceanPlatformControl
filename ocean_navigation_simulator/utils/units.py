@@ -3,14 +3,16 @@
 
 """Common unit conversion functions and classes."""
 
+import contextlib
 import datetime as datetime
-import typing
 import time
+import typing
+from math import floor, log10
 from typing import Optional
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import contextlib
 
 _METERS_PER_FOOT = 0.3048
 _METERS_PER_DEG_LAT_LON = 111120
@@ -447,17 +449,11 @@ def posix_to_rel_seconds_in_year(posix_timestamp: float) -> float:
     return np.mod(posix_timestamp - correction_seconds, 365 * 24 * 3600)
 
 
-from math import log10, floor
-
-
 def round_to_sig_digits(x, sig_digit):
     if x == 0:
         return 0
     else:
         return round(x, sig_digit - int(floor(log10(abs(x)))) - 1)
-
-
-import matplotlib
 
 
 def format_datetime_x_axis(ax: plt.axis):

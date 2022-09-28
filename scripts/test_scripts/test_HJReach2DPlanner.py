@@ -1,14 +1,14 @@
 import numpy as np
-import scipy
-import casadi as ca
 
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import (
     FileMissionProblemFactory,
 )
 
 problem_factory = FileMissionProblemFactory(
-    csv_file=f"/seaweed-storage/generation/3_increased_timeout/problems.csv"
+    csv_file="/seaweed-storage/generation/3_increased_timeout/problems.csv"
 )
 problem = problem_factory.next_problem()
 

@@ -1,9 +1,14 @@
-from typing import Optional, List
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 
 
 class FileMissionProblemFactory(ProblemFactory):

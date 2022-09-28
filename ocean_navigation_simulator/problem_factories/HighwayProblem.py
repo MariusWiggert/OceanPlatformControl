@@ -1,11 +1,13 @@
 from dataclasses import dataclass
-import math
 from typing import Optional
 
 import matplotlib
 from matplotlib import pyplot as plt
 
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils.units import Distance
 

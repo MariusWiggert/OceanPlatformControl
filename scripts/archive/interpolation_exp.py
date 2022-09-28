@@ -1,15 +1,17 @@
-import matplotlib.pyplot as plt
-from scipy import interpolate
-import numpy as np
-import sys
-from ocean_navigation_simulator.problem import Problem
-from ocean_navigation_simulator.utils import simulation_utils, plotting_utils
-from ocean_navigation_simulator import OceanNavSimulator
-from ocean_navigation_simulator.planners import HJReach2DPlanner
 import datetime
 import os
-import hj_reachability as hj
+import sys
 import time
+
+import hj_reachability as hj
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import interpolate
+
+from ocean_navigation_simulator import OceanNavSimulator
+from ocean_navigation_simulator.planners import HJReach2DPlanner
+from ocean_navigation_simulator.problem import Problem
+from ocean_navigation_simulator.utils import plotting_utils, simulation_utils
 
 #%%
 platform_config_dict = {

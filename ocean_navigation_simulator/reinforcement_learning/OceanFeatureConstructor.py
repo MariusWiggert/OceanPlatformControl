@@ -1,15 +1,18 @@
-import datetime
-import math
-import time
 from typing import Optional, Tuple
 
 import gym
 import numpy as np
 
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.FeatureConstructor import (
+    FeatureConstructor,
+)
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 
 """
     Feature Constructors should take in the ArenaObservation and other relavant information, make any featurization changes,
@@ -56,7 +59,7 @@ class OceanFeatureConstructor(FeatureConstructor):
         #     measurements = np.append(measurements, repeats, axis=0)
 
         # Step 1: Get TTR Map on grid
-        start = time.time()
+        # start = time.time()
         ttr_map = self.planner.interpolate_value_function_in_hours(
             observation,
             width_deg=self.config["ttr"]["xy_width_degree"],

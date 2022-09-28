@@ -1,5 +1,6 @@
 # % Solar animation Test
 import datetime
+
 import ocean_navigation_simulator.data_sources.SolarIrradianceField as SolarIrradianceField
 
 casadi_cache_dict = {"deg_around_x_t": 1, "time_around_x_t": 3600 * 24 * 1}
@@ -46,7 +47,9 @@ solar_field.hindcast_data_source.animate_data(
 )
 
 # %% Ocean Animation Test
-from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 
 casadi_cache_dict = {"deg_around_x_t": 1, "time_around_x_t": 3600 * 24 * 1}
 # % Analytical Ocean Current Example
@@ -103,6 +106,7 @@ ocean_field.hindcast_data_source.animate_data(
 
 # %% Test Seaweed Growth Visualization
 import datetime
+
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
 from ocean_navigation_simulator.utils import units

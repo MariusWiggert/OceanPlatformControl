@@ -1,8 +1,12 @@
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from typing import Dict, Optional, Union, Tuple, List, AnyStr, Literal, Callable
+from typing import AnyStr, Callable, List, Optional, Tuple
+
 import numpy as np
-from matplotlib import pyplot as plt, patches
+from matplotlib import pyplot as plt
+
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 
 
 def get_lon_lat_time_interval_from_trajectory(

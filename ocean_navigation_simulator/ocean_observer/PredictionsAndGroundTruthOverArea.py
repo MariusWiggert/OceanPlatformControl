@@ -1,14 +1,17 @@
 from datetime import datetime, timezone
-from typing import Union, Dict, Set, Optional, List, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import xarray as xr
 from DateTime import DateTime
-from matplotlib import pyplot as plt, patches
-from matplotlib.widgets import Slider, Button
+from matplotlib import patches
+from matplotlib import pyplot as plt
+from matplotlib.widgets import Button, Slider
 
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
-from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics
+from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import (
+    get_metrics,
+)
 from ocean_navigation_simulator.utils import units
 
 
@@ -297,7 +300,7 @@ class PredictionsAndGroundTruthOverArea:
         update_maps(0, 0, ax1, ax2, ax3, ax4)
         plt.show()
         keyboardClick = False
-        while keyboardClick != True:
+        while keyboardClick is not True:
             keyboardClick = plt.waitforbuttonpress()
 
     def visualize_improvement_forecasts(

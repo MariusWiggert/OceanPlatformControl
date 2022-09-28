@@ -1,14 +1,18 @@
 import datetime as dt
-
-from tqdm import tqdm
 import time
 
-from ocean_navigation_simulator.controllers.ImitationController import ImitationController
+from tqdm import tqdm
+
+from ocean_navigation_simulator.controllers.ImitationController import (
+    ImitationController,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import (
-    DoubleGyreProblemFactory,
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
 )
 from ocean_navigation_simulator.utils import units
 

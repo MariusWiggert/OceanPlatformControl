@@ -1,9 +1,7 @@
-import time
 import datetime
+import time
 
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
-
 
 script_start = time.time()
 

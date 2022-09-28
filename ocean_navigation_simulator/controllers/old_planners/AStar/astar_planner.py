@@ -1,14 +1,10 @@
-import bisect
-
-from ocean_navigation_simulator.utils.a_star_state import AStarState
-from ocean_navigation_simulator.planners.planner import Planner
-from ocean_navigation_simulator.utils.in_bounds_utils import InBounds
 import heapq
 import math
-import casadi as ca
-import numpy as np
-import matplotlib.pyplot as plt
 import time as t
+
+from ocean_navigation_simulator.planners.planner import Planner
+from ocean_navigation_simulator.utils.a_star_state import AStarState
+from ocean_navigation_simulator.utils.in_bounds_utils import InBounds
 
 
 class AStarPlanner(Planner):

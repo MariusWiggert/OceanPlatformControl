@@ -1,5 +1,13 @@
 import datetime
+
+import matplotlib.pyplot as plt
 from tqdm import tqdm
+
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.Platform import PlatformState
+from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
+from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.utils import units
 
 # # %%
 # import xarray as xr
@@ -14,12 +22,6 @@ from tqdm import tqdm
 #
 # %%
 
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.Platform import PlatformState
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.utils import units
-import matplotlib.pyplot as plt
 
 arena = ArenaFactory.create(scenario_name="multi_reach_fails_test")
 #
@@ -49,7 +51,9 @@ problem = Problem(start_state=x_0, end_region=x_T, target_radius=0.1)
 # % Plot the problem function -> To create
 
 # %Instantiate the HJ Planner
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 
 specific_settings = {
     "replan_on_new_fmrc": True,
@@ -122,7 +126,9 @@ for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 720*10 min = 5 days
 #%% Check if the piping works!
 # query forecast for a specific point
 # Step 1: get the x,y,t bounds for current position, goal position and settings.
-from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
+from ocean_navigation_simulator.environment.data_sources.DataSources import (
+    DataSource,
+)
 
 t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
     x_0=observation.platform_state.to_spatio_temporal_point(),
@@ -172,12 +178,15 @@ data_xarray_true_interp = data_xarray_true.interp_like(
 )
 #%%
 (data_xarray_observer["initial_forecast_u"] - data_xarray_true_interp["water_u"]).max()
+import yaml
+
 # %% Major TODOS:
 # 1) Modify Forecast Source to take in the fmrc index queried for accessing the area and for a point
 # 2) Finally set-up a logger and logging mechanisms! Otherwise this is just a mess...
 # %% Re-init Arena
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-import yaml
+from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 
 with open("scenarios/multi_reach_fails_test.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)

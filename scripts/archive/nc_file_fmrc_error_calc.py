@@ -5,8 +5,7 @@ import hj_reachability as hj
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ocean_navigation_simulator import OceanNavSimulator
-from ocean_navigation_simulator import utils
+from ocean_navigation_simulator import OceanNavSimulator, utils
 from ocean_navigation_simulator.problem import Problem
 
 # % Settings to feed into the planner
@@ -88,10 +87,11 @@ calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time=hou
     hours_to_hj_solve_timescale=hours_to_abs_time,
 )
 
+from datetime import datetime
+
 # Definition of the forecast error here.
 # Select the Forecast as basis
 import xarray as xr
-from datetime import datetime
 
 idx = 0
 print(problem.forecast_data_source["content"][idx]["t_range"][0])
@@ -167,8 +167,8 @@ np.abs(
 ).mean(axis=[1, 2])
 # %%
 from ocean_navigation_simulator.utils.calc_fmrc_error import (
-    calc_speed_RMSE,
     calc_abs_angle_difference,
+    calc_speed_RMSE,
     calc_vector_corr_over_time,
 )
 

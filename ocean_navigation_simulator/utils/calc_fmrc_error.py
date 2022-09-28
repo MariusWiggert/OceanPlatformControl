@@ -175,7 +175,7 @@ def get_hindcast_from_copernicus(HYCOM_Forecast, t_interval, lat_interval, lon_i
 #
 #     return {'RMSE_velocity': RMSE, 'angle_diff': angle_diff, 'vector_correlation':vec_corr}
 
-### HELPER FUNCTIONS
+# HELPER FUNCTIONS
 def calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
     """Helper function to calculate the RMSE on current speed."""
     RMSE_speed = np.sqrt(

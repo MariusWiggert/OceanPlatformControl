@@ -1,7 +1,7 @@
 import datetime
 import math
 from collections import defaultdict
-from typing import Union, Tuple, List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import dateutil
 import matplotlib.pyplot as plt
@@ -15,17 +15,26 @@ from scipy.stats import norm
 
 import ocean_navigation_simulator.ocean_observer.metrics.plot_metrics as plot_metrics
 from ocean_navigation_simulator.controllers import Controller
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
-from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
+from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import (
     PredictionsAndGroundTruthOverArea,
 )
-from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import HighwayProblemFactory
-from ocean_navigation_simulator.problem_factories.NaiveProblemFactory import NaiveProblemFactory
+from ocean_navigation_simulator.problem_factories.HighwayProblemFactory import (
+    HighwayProblemFactory,
+)
+from ocean_navigation_simulator.problem_factories.NaiveProblemFactory import (
+    NaiveProblemFactory,
+)
 from ocean_navigation_simulator.utils.units import Distance
 
 

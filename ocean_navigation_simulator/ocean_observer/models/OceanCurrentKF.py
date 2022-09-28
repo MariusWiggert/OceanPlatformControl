@@ -1,10 +1,12 @@
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
 
 import numpy as np
 from filterpy.common import Q_discrete_white_noise
 from filterpy.kalman import KalmanFilter
 
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
+    OceanCurrentModel,
+)
 
 
 class OceanCurrentKF(OceanCurrentModel):

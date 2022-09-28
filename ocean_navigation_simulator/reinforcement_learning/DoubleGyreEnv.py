@@ -1,16 +1,21 @@
-from typing import Tuple, Optional, Union, Text
-import numpy as np
+from typing import Optional, Text, Tuple, Union
+
 import gym
+import numpy as np
 
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.FeatureConstructor import (
+    FeatureConstructor,
+)
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.reinforcement_learning.RewardFunction import RewardFunction
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
-
+from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import (
     DoubleGyreProblemFactory,
 )
@@ -19,6 +24,9 @@ from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstruc
 )
 from ocean_navigation_simulator.reinforcement_learning.DoubleGyreRewardFunction import (
     DoubleGyreRewardFunction,
+)
+from ocean_navigation_simulator.reinforcement_learning.RewardFunction import (
+    RewardFunction,
 )
 
 

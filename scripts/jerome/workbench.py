@@ -1,6 +1,7 @@
 # %%
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 import datetime
+
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 
 arena = ArenaFactory.create(scenario_name="gulf_of_mexico_Copernicus_forecast_and_hindcast")
 # %%

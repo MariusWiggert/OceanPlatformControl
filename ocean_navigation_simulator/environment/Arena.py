@@ -4,34 +4,49 @@
 """
 import dataclasses
 import datetime as dt
-from typing import Dict, Optional, Union, Tuple, List, AnyStr, Literal, Callable
+import logging
+import time
+from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
+
 import matplotlib
 import numpy as np
-from matplotlib import pyplot as plt, patches
-import time
-import logging
+from matplotlib import patches
+from matplotlib import pyplot as plt
 
-from ocean_navigation_simulator.environment.Platform import Platform, PlatformAction
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
-from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import (
     OceanCurrentSourceAnalytical,
 )
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
-    OceanCurrentSourceXarray,
     OceanCurrentSource,
+    OceanCurrentSourceXarray,
     OceanCurrentVector,
 )
-from ocean_navigation_simulator.data_sources.SeaweedGrowthField import SeaweedGrowthField
-from ocean_navigation_simulator.data_sources.SolarIrradianceField import SolarIrradianceField
-from ocean_navigation_simulator.utils.units import format_datetime_x_axis
+from ocean_navigation_simulator.data_sources.SeaweedGrowthField import (
+    SeaweedGrowthField,
+)
+from ocean_navigation_simulator.data_sources.SolarIrradianceField import (
+    SolarIrradianceField,
+)
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.Platform import (
+    Platform,
+    PlatformAction,
+)
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
+from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils.plotting_utils import (
+    animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
 )
-from ocean_navigation_simulator.utils.plotting_utils import animate_trajectory
-
+from ocean_navigation_simulator.utils.units import format_datetime_x_axis
 
 # TODO: discuss why spatial_boundary dictionary? Why collect_trajectory shouldn't this be default?
 # TODO: check if logging works

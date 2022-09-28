@@ -3,9 +3,16 @@ from typing import Optional
 
 import numpy as np
 
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 from ocean_navigation_simulator.utils import units
 
 

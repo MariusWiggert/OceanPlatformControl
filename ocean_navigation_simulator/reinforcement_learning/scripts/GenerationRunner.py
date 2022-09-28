@@ -1,5 +1,6 @@
-import os
 import datetime
+import logging
+import os
 import pickle
 import shutil
 import socket
@@ -7,14 +8,13 @@ import sys
 import time
 from types import SimpleNamespace
 from typing import Optional
+
 import numpy as np
 import pandas as pd
 import psutil
+import pynvml
 import pytz
 import ray
-import pynvml
-import logging
-
 from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.problem_factories.ShortMissionProblemFactory import (

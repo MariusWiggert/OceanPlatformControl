@@ -1,7 +1,7 @@
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import (
     FileMissionProblemFactory,
 )
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.utils import units
 
 # Water Start

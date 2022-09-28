@@ -1,12 +1,14 @@
 import datetime
+
 import numpy as np
 
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 from ocean_navigation_simulator.environment.PlatformState import (
-    SpatioTemporalPoint,
     PlatformState,
     SpatialPoint,
 )
-from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.utils import units
 
 # For fast interpolation of currents we cache part of the spatio-temporal data around x_t in a casadi function

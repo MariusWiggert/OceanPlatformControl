@@ -1,9 +1,9 @@
 import casadi as ca
-from src.utils import hycom_utils, non_lin_opt_utils
-from src.utils.archive import kernels, particles, gif_utils
-import parcels as p
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import parcels as p
+from src.utils import hycom_utils, non_lin_opt_utils
+from src.utils.archive import gif_utils, kernels, particles
 
 #%% Load in data as fieldset
 # large field fixed cur

@@ -1,13 +1,13 @@
 # TODO: this is not working after refactoring yet!
-import numpy as np
-from ocean_navigation_simulator.planners import HJReach2DPlanner
-import ocean_navigation_simulator
-import hj_reachability as hj
-import bisect
-from scipy.interpolate import interp1d
-import jax.numpy as jnp
-from functools import partial
 import math
+from functools import partial
+
+import hj_reachability as hj
+import jax.numpy as jnp
+import numpy as np
+
+import ocean_navigation_simulator
+from ocean_navigation_simulator.planners import HJReach2DPlanner
 
 
 def check_feasibility_2D_w_sim(
@@ -294,7 +294,7 @@ def run_forward_reachability(
 
     reached, T_earliest_in_h = feasibility_planner.get_t_earliest_for_target_region()
     # not reached
-    if reached == False:
+    if not reached:
         print("Not_reached")
         return False, None, feasibility_planner
     else:

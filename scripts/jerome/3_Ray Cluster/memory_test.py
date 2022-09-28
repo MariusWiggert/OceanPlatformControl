@@ -1,6 +1,9 @@
-import os, psutil
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 import gc
+import os
+
+import psutil
+
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 
 pid = os.getpid()
 process = psutil.Process()

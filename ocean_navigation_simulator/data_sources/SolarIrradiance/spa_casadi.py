@@ -12,12 +12,11 @@ and has been adapted to only use NumPy and also be casadi compatible.
 # Contributors:
 # Created by Tony Lorenzo (@alorenzo175), Univ. of Arizona, 2015
 
-import os
-import threading
 import warnings
 
-import numpy as np
 import casadi as ca
+import numpy as np
+
 
 # These functions are necessary to "casadize" the algorithm.
 def rad2deg(x):
@@ -1033,7 +1032,7 @@ def solar_position_numpy(
     delta = geocentric_sun_declination(lamd, epsilon, beta)
     if sst:
         return v, alpha, delta
-    m = sun_mean_longitude(jme)
+    # m = sun_mean_longitude(jme)
     # eot = equation_of_time(m, alpha, delta_psi, epsilon)
     H = local_hour_angle(v, lon, alpha)
     xi = equatorial_horizontal_parallax(R)

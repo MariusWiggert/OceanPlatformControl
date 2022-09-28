@@ -1,24 +1,30 @@
 #%%
+import os
 import pickle
+import time
 
 import numpy as np
 import ray.rllib.utils
 from ray.rllib.agents.ppo import PPOTrainer
 from tqdm import tqdm
-import time
-import os
 
-from ocean_navigation_simulator.controllers.RLControllerFromAgent import RLControllerFromAgent
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import (
-    DoubleGyreFeatureConstructor,
+from ocean_navigation_simulator.controllers.RLControllerFromAgent import (
+    RLControllerFromAgent,
 )
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import (
     DoubleGyreProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.DoubleGyreEnv import DoubleGyreEnv
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreEnv import (
+    DoubleGyreEnv,
+)
+from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import (
+    DoubleGyreFeatureConstructor,
+)
+from ocean_navigation_simulator.utils.plotting_utils import (
+    get_index_from_posix_time,
+)
 from scripts.jerome.old import clean_ray_results
-from ocean_navigation_simulator.utils.plotting_utils import get_index_from_posix_time
 
 script_start_time = time.time()
 
@@ -98,7 +104,6 @@ success_rate = sum([1 if s else 0 for s in success]) / len(success)
 print(f"Success Rate: {success_rate:.1%}")
 
 plot_folder = model_path + "plots/"
-import os
 
 if not os.path.isdir(plot_folder):
     os.mkdir(plot_folder)

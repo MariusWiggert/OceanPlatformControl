@@ -1,11 +1,12 @@
 import datetime
+
 import matplotlib.pyplot as plt
 
+import ocean_navigation_simulator.data_sources.SolarIrradianceField as SolarIrradianceField
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
-import ocean_navigation_simulator.data_sources.SolarIrradianceField as SolarIrradianceField
 from ocean_navigation_simulator.utils import units
 
 casadi_cache_dict = {"deg_around_x_t": 1, "time_around_x_t": 3600 * 24 * 1}

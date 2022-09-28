@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 
 from ocean_navigation_simulator.utils.units import format_datetime_x_axis
 
-
 # For each metric we have a plotting function
 
 

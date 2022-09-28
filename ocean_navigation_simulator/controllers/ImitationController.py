@@ -1,13 +1,16 @@
-from os.path import dirname, abspath
+from os.path import abspath, dirname
 
 import numpy as np
 import torch
 
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
-from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 TRUE_CURRENT_LENGTH = 5
 TTR_MAP_IN_WIDTH = 15

@@ -2,6 +2,7 @@ import datetime
 import os
 import time
 from typing import Optional
+
 import pandas as pd
 import psutil
 import ray
@@ -9,7 +10,9 @@ import requests
 import torch
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 
 
 class EvaluationRunner:

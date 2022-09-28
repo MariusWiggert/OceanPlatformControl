@@ -1,10 +1,11 @@
 """Provides the solar_rad function, which calcluates incoming radiation at a 
 time, latitude, and longitude in the units W/m^2"""
 
+import casadi as ca
 import numpy as np
+
 import ocean_navigation_simulator.data_sources.SolarIrradiance.spa as spa
 import ocean_navigation_simulator.data_sources.SolarIrradiance.spa_casadi as spa_casadi
-import casadi as ca
 
 
 def solar_rad_ca(t_lat_lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
