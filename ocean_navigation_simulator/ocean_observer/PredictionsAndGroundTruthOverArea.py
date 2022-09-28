@@ -300,7 +300,7 @@ class PredictionsAndGroundTruthOverArea:
         update_maps(0, 0, ax1, ax2, ax3, ax4)
         plt.show()
         keyboardClick = False
-        while keyboardClick is not True:
+        while keyboardClick != False:
             keyboardClick = plt.waitforbuttonpress()
 
     def visualize_improvement_forecasts(

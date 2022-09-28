@@ -294,7 +294,7 @@ def run_forward_reachability(
 
     reached, T_earliest_in_h = feasibility_planner.get_t_earliest_for_target_region()
     # not reached
-    if not reached:
+    if reached == False:
         print("Not_reached")
         return False, None, feasibility_planner
     else:

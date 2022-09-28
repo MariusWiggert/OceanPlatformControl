@@ -81,7 +81,7 @@ def init_ray(mode="cluster"):
     )
     print(f"Code sent to ray nodes in {time.time() - start:.1f}s")
 
-    active_nodes = list(filter(lambda node: node["Alive"] is True, ray.nodes()))
+    active_nodes = list(filter(lambda node: node["Alive"] == True, ray.nodes()))
     cpu_total = ray.cluster_resources()["CPU"] if "CPU" in ray.cluster_resources() else 0
     gpu_total = ray.cluster_resources()["GPU"] if "GPU" in ray.cluster_resources() else 0
     cpu_available = ray.available_resources()["CPU"] if "CPU" in ray.available_resources() else 0
