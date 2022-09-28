@@ -71,7 +71,8 @@ class RLRunner:
             project="RL for underactuated navigation",
             entity="ocean-platform-control",
             dir="/seaweed-storage/",
-            name=f'{self.name}_{self.timestring}'
+            name=f'{self.name}',
+            tags=["baseline" if self.ocean_env_config['fake'] is not False else 'experiment'],
         )
 
         # Step 3: Save configuration
@@ -94,7 +95,6 @@ class RLRunner:
 
         # Step 5: Register Env
         # env_config: env_config.num_workers, env_config.worker_index, env_config.vector_index, env_config.remote
-        self.agent_config["env"] = "OceanEnv"
         ray.tune.registry.register_env("OceanEnv", lambda env_config: OceanEnv(
             worker_index=env_config.worker_index,
             config= self.ocean_env_config | {
@@ -132,6 +132,7 @@ class RLRunner:
                     episode.custom_metrics["success"] = info['problem_status'] > 0
                 if info['problem_status'] > 0:
                     episode.custom_metrics["arrival_time_in_h"] = info["arrival_time_in_h"]
+                episode.custom_metrics["problem_status"] = info["problem_status"]
                 episode.custom_metrics["ram_usage_MB"] = info["ram_usage_MB"]
                 episode.custom_metrics["episode_time"] = info["episode_time"]
                 episode.custom_metrics["average_step_time"] = info["average_step_time"]
@@ -142,19 +143,23 @@ class RLRunner:
         with open(f'{self.config_folder}agent_config_final.json', "wt") as f:
             pprint.pprint(self.agent.config, stream=f)
 
-        # for model in [
-        #     self.agent.get_policy().model.base_model,
-        #     self.agent.get_policy().model.q_value_head,
-        #     self.agent.get_policy().model.state_value_head
-        # ]:
-        #     model.summary()
+        # pprint(self.agent.get_policy().model)
+
+        model = self.agent.get_policy().model
+
+        for model in [
+            self.agent.get_policy().model.flatten[0].base_model,
+            self.agent.get_policy().model.q_value_head,
+            self.agent.get_policy().model.state_value_head
+         ]:
+             model.summary()
 
         print('test')
 
-    def run(self, iterations=100, silent=False):
-        print(f"Starting training with {iterations} iterations:")
+    def run(self, epochs=100, silent=False):
+        print(f"Starting training with {epochs} epochs:")
 
-        for iteration in range(1, iterations + 1):
+        for epoch in range(1, epochs + 1):
             train_start = time.time()
             result = self.agent.train()
             self.train_times.append(time.time() - train_start)
@@ -166,10 +171,10 @@ class RLRunner:
             self.results.append(result)
 
             if self.verbose and not silent:
-                self.print_result(result, iteration, iterations)
+                self.print_result(result, epoch, epochs)
 
-    def print_result(self, result, iteration, iterations):
-        print(f'--------- Iteration {iteration} (Total Samples: {result["info"]["num_env_steps_trained"]}) ---------')
+    def print_result(self, result, epoch, epochs):
+        print(f'--------- Epoch {epoch} (Total Samples: {result["info"]["num_env_steps_trained"]}) ---------')
 
         print(f'-- Episode Rewards [Min: {result["episode_reward_min"]:.1f}, Mean: {result["episode_reward_mean"]:.2f}, Max: {result["episode_reward_max"]:.1f}]  --')
         print(f'[{", ".join([f"{elem:.1f}" for elem in result["hist_stats"]["episode_reward"][-min(50, result["episodes_this_iter"]):]])}]')
@@ -185,6 +190,6 @@ class RLRunner:
 
         print('-- Timing --')
         train_time = self.train_times[-1]
-        print(f'Iteration Time: {train_time/60:.2f}min ({iterations * (train_time) / 60:.1f}min for {iterations} iterations, {(iterations - iteration) * (train_time) / 60:.1f}min to go)')
+        print(f'Iteration Time: {train_time/60:.2f}min ({epochs * (train_time) / 60:.1f}min for {epoch} iterations, {(epochs - epoch) * (train_time) / 60:.1f}min to go)')
         # pprint(result["sampler_perf"])
         # print(f'total time per step: {sum(result["sampler_perf"].values()):.2f}ms')

@@ -78,7 +78,6 @@ class  OceanFeatureConstructor(FeatureConstructor):
         # Step 2: Get TTR Map on grid
         if self.config['map']['features']['ttr_forecast']:
             ttr_forecast = self.forecast_planner.interpolate_value_function_in_hours(fc_obs, width_deg=self.config['map']['xy_width_degree'], width=self.config['map']['xy_width_points'])
-            print(ttr_forecast.dtype)
             map = np.concatenate((map, np.expand_dims(ttr_forecast, axis=2)), axis=2, dtype='float32')
         if self.config['map']['features']['ttr_hindcast']:
             ttr_hindcast = self.hindcast_planner.interpolate_value_function_in_hours(hc_obs, width_deg=self.config['map']['xy_width_degree'], width=self.config['map']['xy_width_points'])
@@ -97,7 +96,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
                 lon=np.linspace(fc_obs.platform_state.lon.deg - self.config['map']['xy_width_degree'] / 2, fc_obs.platform_state.lon.deg + self.config['map']['xy_width_degree'] / 2, self.config['map']['xy_width_points']),
                 lat=np.linspace(fc_obs.platform_state.lat.deg - self.config['map']['xy_width_degree'] / 2, fc_obs.platform_state.lat.deg + self.config['map']['xy_width_degree'] / 2, self.config['map']['xy_width_points']),
                 method='linear'
-            )[self.config['map']['observer']].to_array().to_numpy().astype('float32').swapaxes(0,1).swapaxes(1,2)
+            )[self.config['map']['features']['observer']].to_array().to_numpy().astype('float32').swapaxes(0,1).swapaxes(1,2)
             map = np.concatenate((map, gp_map), axis=2, dtype='float32')
 
         if self.config['map']['flatten']:

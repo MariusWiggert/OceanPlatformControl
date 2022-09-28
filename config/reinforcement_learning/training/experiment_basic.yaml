@@ -4,8 +4,9 @@ algorithm: 'apex-dqn'
 # https://docs.ray.io/en/releases-1.13.0/rllib/rllib-algorithms.html#dqn
 # https://docs.ray.io/en/releases-1.13.0/rllib/rllib-training.html#common-parameters
 # https://docs.ray.io/en/latest/rllib/rllib-models.html#default-model-config-settings
+# https://github.com/ray-project/ray/issues/9425
 algorithm_config:
-    # ENvironment
+    # Environment
     env: 'OceanEnv'
     ## Framework
     framework: 'tf2'

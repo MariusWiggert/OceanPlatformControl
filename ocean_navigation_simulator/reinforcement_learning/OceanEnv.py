@@ -111,7 +111,11 @@ class OceanEnv(gym.Env):
 
         self.reset_end_time = time.time ()
 
-        return self.feature_constructor.get_features_from_state(observation=self.prev_obs, problem=self.problem)
+        return self.feature_constructor.get_features_from_state(
+            fc_obs=self.prev_obs,
+            hc_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            problem=self.problem
+        )
 
     def step(self, action: np.ndarray) -> Tuple[type(OceanFeatureConstructor.get_observation_space), float, bool, dict]:
         step_start = time.time()
