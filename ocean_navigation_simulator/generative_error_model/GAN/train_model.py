@@ -2,7 +2,9 @@ from Dataset import BuoyForecastError
 from UNet import UNet
 
 import wandb
+import os
 import argparse
+import datetime
 import yaml
 import torch
 from torch.utils.data import DataLoader
@@ -11,11 +13,14 @@ from torch.nn import functional as F
 from typing import Dict, Callable, Any
 from warnings import warn
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 # TODO: overfit on single batch
 # TODO: vis fixed batch during course of training
 # TODO: verify loss @ init
+
+now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
 
 def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
@@ -46,9 +51,9 @@ def loss_function(predictions, target, type: str = "mse"):
     """Handles which loss is to be used.
     """
     if type == "mse":
-        loss = F.mse_loss(predictions, target, reduction="mean")
+        loss = F.mse_loss(predictions, target, reduction="sum")
     elif type == "sparse_mse":
-        loss = torch.where(target != 0, (target**2 + predictions**2)/2, 0).sum()
+        loss = torch.where(target != 0, (target - predictions)**2/2, 0).sum()
     return loss
 
 
@@ -72,7 +77,7 @@ def train(model, dataloader, device, optimizer, cfgs_train):
                 optimizer.step()
 
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
-                wandb.log({"loss": loss.item()})
+                wandb.log({"train_loss": loss.item()})
 
     avg_loss = total_loss / len(dataloader)
     print(f"Training avg loss: {avg_loss:.2f}.")
@@ -93,16 +98,25 @@ def validation(model, dataloader, device, cfgs_train):
                 total_loss += loss.item()
 
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
+                wandb.log({"val_loss": loss.item()})
 
     avg_loss = total_loss / len(dataloader)
     print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
 
 
-def clean_up_training():
+def clean_up_training(model, dataloader, base_path: str):
     # report best losses
     # potential plots
     wandb.finish()
+    torch.save(model, os.path.join(base_path, now_str))
+
+    # hack to save overfitted sample
+    model.eval()
+    input = next(iter(dataloader))[0]
+    output = model(input).cpu().detach().numpy()
+    plt.imsave(os.path.join(base_path, "training_sample.png"), input[0, 0])
+    plt.imsave(os.path.join(base_path, "overfitted_sample.png"), output[0, 0])
 
 
 def main():
@@ -113,10 +127,9 @@ def main():
     wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
+               config=all_cfgs,
                **wandb_cfgs)
-    wandb.config = all_cfgs
-    print(all_cfgs)
-    wandb.save(config_file, base_path="./")
+    wandb.save(config_file)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Running on: {device}.")
@@ -167,7 +180,7 @@ def main():
             print(f"Epoch metrics: {metrics}.")
 
     finally:
-        clean_up_training()
+        clean_up_training(model, train_loader, all_cfgs["save_base_path"])
 
 
 if __name__ == "__main__":
