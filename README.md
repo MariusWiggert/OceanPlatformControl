@@ -176,3 +176,6 @@ make test
 make style
 ```
 </details>
+
+### IDE settings (VScode, Pycharm)
+You can also change settings in your IDE to do auto formatting (black) on save and run flake8 on save if you do not want to run them via terminal. Here are articles to setup [black on Pycharm](https://akshay-jain.medium.com/pycharm-black-with-formatting-on-auto-save-4797972cf5de), [black on VScode](https://dev.to/adamlombard/how-to-use-the-black-python-code-formatter-in-vscode-3lo0), [flake8 on VScode](https://code.visualstudio.com/docs/python/linting).
