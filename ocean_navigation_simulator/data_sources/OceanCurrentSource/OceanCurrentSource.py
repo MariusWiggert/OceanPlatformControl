@@ -92,7 +92,7 @@ class OceanCurrentSource(DataSource):
         if xarray["time"].size != 1:
             xarray = xarray.isel(time=time_idx)
         # calculate magnitude if not in there yet
-        if not "magnitude" in xarray.keys():
+        if "magnitude" not in xarray.keys():
             xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
         time = get_datetime_from_np64(xarray["time"].data)
 
@@ -118,7 +118,7 @@ class OceanCurrentSource(DataSource):
             if int(vmin * 10) == int(vmax * 10):
                 precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
             cbar.set_ticklabels(
-                ["{:.{prec}f}".format(l, prec=precision) for l in cbar.get_ticks().tolist()]
+                ["{:.{prec}f}".format(t, prec=precision) for t in cbar.get_ticks().tolist()]
             )
         # Plot on ax object
         if plot_type == "streamline":

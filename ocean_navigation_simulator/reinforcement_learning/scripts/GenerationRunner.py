@@ -13,7 +13,6 @@ import psutil
 import pytz
 import ray
 import pynvml
-import os
 import logging
 
 from matplotlib import pyplot as plt

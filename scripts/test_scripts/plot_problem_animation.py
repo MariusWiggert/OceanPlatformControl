@@ -104,7 +104,7 @@ ocean_field.hindcast_data_source.animate_data(
 # %% Test Seaweed Growth Visualization
 import datetime
 from ocean_navigation_simulator.environment.Arena import Arena
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.environment.PlatformState import PlatformState
 from ocean_navigation_simulator.utils import units
 
 platform_dict = {

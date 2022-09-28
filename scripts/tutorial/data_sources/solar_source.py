@@ -2,7 +2,6 @@ import datetime
 import matplotlib.pyplot as plt
 
 from ocean_navigation_simulator.environment.PlatformState import (
-    SpatioTemporalPoint,
     PlatformState,
     SpatialPoint,
 )

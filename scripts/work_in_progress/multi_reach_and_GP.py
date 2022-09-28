@@ -1,5 +1,4 @@
 import datetime
-import numpy as np
 from tqdm import tqdm
 
 # # %%
@@ -13,7 +12,7 @@ from tqdm import tqdm
 # DataArray = xr.open_mfdataset([h_dict['file'] for h_dict in files_dicts]).isel(depth=0)
 # DataArray["time"] = DataArray["time"].dt.round("H")
 #
-## %%
+# %%
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformState
@@ -21,7 +20,6 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
-import time
 
 arena = ArenaFactory.create(scenario_name="multi_reach_fails_test")
 #
@@ -106,7 +104,6 @@ observer_config = {
                 "scaling": {"latitude": 1, "longitude": 1, "time": 10000},  # [m]  # [m]  # [s]
                 "type": "matern",
                 "parameters": {"length_scale_bounds": "fixed"},
-                # type: "RBF"
             },
             "time_horizon_predictions_in_sec": 3600,
         }
@@ -182,7 +179,7 @@ data_xarray_true_interp = data_xarray_true.interp_like(
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 import yaml
 
-with open(f"scenarios/multi_reach_fails_test.yaml") as f:
+with open("scenarios/multi_reach_fails_test.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 arena.ocean_field = OceanCurrentField(
