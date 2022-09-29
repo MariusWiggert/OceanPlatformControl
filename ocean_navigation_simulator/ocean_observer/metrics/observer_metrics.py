@@ -15,7 +15,8 @@ def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float,
     Returns:
         That dictionary
     """
-    return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse, "vme": vme}
+    return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse, "vme": vme,
+            "ratio_per_tile": ratio_per_tile}
 
 
 def __get_axis_current(current) -> Tuple[list[int], str]:
@@ -27,8 +28,7 @@ def __get_axis_current(current) -> Tuple[list[int], str]:
 
 
 def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, per_hour: bool = False,
-       sigma_square_division: float = 1e-6, current=['uv']) -> \
-        Dict[str, float]:
+       sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
     """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
        the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
        initial forecast.
@@ -131,11 +131,11 @@ def vme(ground_truth: ndarray, improved_predictions: ndarray, initial_prediction
     axis_current, extension_str_2 = __get_axis_current(current)
     extension_str += extension_str_2
 
-    vmes["vme_improved" + extension_str] = __vector_magntitude_error(ground_truth[..., axis_current],
-                                                                     improved_predictions[..., axis_current],
-                                                                     axis=axis)
-    vmes["vme_initial" + extension_str] = __vector_magntitude_error(ground_truth[..., axis_current],
-                                                                    initial_predictions[..., axis_current], axis=axis)
+    vmes["vme_improved" + extension_str] = __vector_magnitude_error(ground_truth[..., axis_current],
+                                                                    improved_predictions[..., axis_current],
+                                                                    axis=axis)
+    vmes["vme_initial" + extension_str] = __vector_magnitude_error(ground_truth[..., axis_current],
+                                                                   initial_predictions[..., axis_current], axis=axis)
     vmes["vme_ratio" + extension_str] = vmes["vme_improved" + extension_str] / (
             vmes["vme_initial" + extension_str] + sigma_ratio)
 
@@ -155,7 +155,7 @@ def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = Non
     return np.sqrt(np.nanmean((v1 - v2) ** 2, axis=axis))
 
 
-def __vector_magntitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
+def __vector_magnitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
     """Internal function to compute the vme
 
     Args:
@@ -168,6 +168,27 @@ def __vector_magntitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tup
     """
     return np.nanmean(np.sqrt(np.sum(((v1 - v2) ** 2), axis=-1, keepdims=True)), axis=axis)
     # return np.nanmean(np.sum(np.abs(v1 - v2), axis=-1, keepdims=True), axis=axis)
+
+
+def ratio_per_tile(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
+                   per_hour: bool = False,
+                   sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
+    """Internal function to compute the vme
+
+        Args:
+            v1: vector 1, dim: time x lon*lat x 2
+            v2: vector 2, dim: time x lon*lat x 2
+            axis:
+
+        Returns:
+            ratio per tile between the two matrices v1 and v2
+        """
+    if per_hour:
+        UserWarning("Per hour not implemented by ratio per tile.")
+    axis_current = -1
+    ratios = ((ground_truth - improved_predictions) ** 2).sum(axis=axis_current) / \
+             (((ground_truth - initial_predictions) ** 2).sum(axis=axis_current) + sigma_square_division)
+    return np.nanmean(ratios)
 
 
 def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["uv"]) -> bool:

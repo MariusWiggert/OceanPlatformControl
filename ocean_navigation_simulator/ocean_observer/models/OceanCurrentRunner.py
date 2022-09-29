@@ -166,6 +166,24 @@ def get_ratio_accuracy(output_NN, forecast, target) -> Tuple[float, list[float]]
     return all_ratios.mean().item(), all_ratios.tolist()
 
 
+def get_ratio_accuracy_corrected(output_NN, forecast, target) -> Tuple[float, list[float]]:
+    assert output_NN.shape == forecast.shape == target.shape
+    # Dimensions: batch 0 x currents 1 x time 2 x lon 3 x lat 4
+    magn_NN = torch.sqrt(((output_NN - target) ** 2).nansum(axis=[1, 3, 4]))
+    magn_initial = torch.sqrt(((forecast - target) ** 2).nansum(axis=[1, 3, 4]))
+    if (magn_initial == 0).sum():
+        # print(magn_initial.shape, (magn_initial == 0), (magn_initial == 0).sum())
+        # raise Exception("Found Nans! Should not have happened")
+        print("removing nans", (magn_initial == 0).sum())
+        f = (magn_initial != 0)
+        magn_NN = magn_NN[f]
+        magn_initial = magn_initial[f]
+    # Mean over time
+    all_ratios = np.sqrt((magn_NN / magn_initial)).mean(axis=-1)
+
+    return all_ratios.mean().item(), all_ratios.tolist()
+
+
 def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
     args_optimizer['lr'] = lr
     if name.lower() == "adam":

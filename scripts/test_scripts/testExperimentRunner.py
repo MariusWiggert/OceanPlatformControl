@@ -2,6 +2,7 @@ import argparse
 import csv
 import datetime
 import os
+import pickle
 import sys
 from _csv import writer
 
@@ -372,12 +373,11 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
         max_number_problems_to_run=max_number_problems_to_run, compute_for_all_radius_and_lag=plot_error_3d)
     if plot_error_3d:
         results, results_per_h, merged, list_dates_when_new_files, results_grids = all_results
+
+        with open('results_grids_2.pickle', 'wb') as handle:
+            pickle.dump(results_grids, handle, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         results, results_per_h, merged, list_dates_when_new_files = all_results
-    import pickle
-
-    with open('results_grids_2.pickle', 'wb') as handle:
-        pickle.dump(results_grids, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("final results:", results)
 
     '''

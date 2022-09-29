@@ -9,19 +9,20 @@ Typical usage:
     platform.simulate_step(current_field, command, stride)
     print(platform.x, platform.y)
 """
-from dataclasses import dataclass
-import casadi as ca
-import numpy as np
-import time
 import math
+import time
+from dataclasses import dataclass
 from typing import Dict, Optional
 
+import casadi as ca
+import numpy as np
+
+from ocean_navigation_simulator.environment.PlatformState import PlatformState
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.environment.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
 from ocean_navigation_simulator.environment.data_sources.SolarIrradiance.SolarIrradianceSource import \
     SolarIrradianceSource
-from ocean_navigation_simulator.environment.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
 
 @dataclass
@@ -41,7 +42,6 @@ class PlatformAction:
 
     def __getitem__(self, item):
         return self.__array__()[item]
-
 
     @staticmethod
     def from_xy_propulsion(x_propulsion: float, y_propulsion: float):
@@ -92,7 +92,7 @@ class Platform:
         else:
             self.battery_capacity = units.Energy(watt_hours=platform_dict['battery_cap_in_wh'])
 
-        self.state, self.F_x_next = [None]*2
+        self.state, self.F_x_next = [None] * 2
 
     def set_state(self, state: PlatformState):
         """Helper function to set the state."""
@@ -110,8 +110,8 @@ class Platform:
         """
         # check if the cached dynamics need to be updated
         self.update_dynamics(self.state)
-
-        state_numpy = np.array(self.F_x_next(np.array(self.state), np.array(action), self.dt_in_s)).astype('float64').flatten()
+        state_numpy = np.array(self.F_x_next(np.array(self.state), np.array(action), self.dt_in_s)).astype(
+            'float64').flatten()
         self.state = PlatformState.from_numpy(state_numpy)
 
         return self.state
@@ -126,7 +126,7 @@ class Platform:
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
         self.F_x_next = self.get_casadi_dynamics()
-        #print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
+        # print(f'Initialize Casadi + Dynamics: {time.time() - start:.2f}s')
 
     def update_dynamics(self, state: PlatformState):
         """Run in the step loop of arena."""
@@ -144,14 +144,14 @@ class Platform:
         # Could also be done with subclassing of Platform.
         ##### Equations #####
         start = time.time()
-        sym_lon_degree      = ca.MX.sym('lon')          # in deg or m
-        sym_lat_degree      = ca.MX.sym('lat')          # in deg or m
-        sym_time            = ca.MX.sym('time')         # in posix
-        sym_battery         = ca.MX.sym('battery')      # in Joule
-        sym_seaweed_mass    = ca.MX.sym('battery')      # in Kg
-        sym_dt              = ca.MX.sym('dt')           # in s
-        sym_u_thrust        = ca.MX.sym('u_thrust')     # in % of u_max
-        sym_u_angle         = ca.MX.sym('u_angle')      # in radians
+        sym_lon_degree = ca.MX.sym('lon')  # in deg or m
+        sym_lat_degree = ca.MX.sym('lat')  # in deg or m
+        sym_time = ca.MX.sym('time')  # in posix
+        sym_battery = ca.MX.sym('battery')  # in Joule
+        sym_seaweed_mass = ca.MX.sym('battery')  # in Kg
+        sym_dt = ca.MX.sym('dt')  # in s
+        sym_u_thrust = ca.MX.sym('u_thrust')  # in % of u_max
+        sym_u_angle = ca.MX.sym('u_angle')  # in radians
 
         # Model Battery: Intermediate Variables for capping thrust so that battery never goes below 0
         if self.model_battery:
@@ -159,7 +159,7 @@ class Platform:
                 ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
             energy_available_in_J = sym_battery + sym_solar_charging * sym_dt
             energy_required_for_u_max = self.drag_factor * self.u_max.mps ** 3
-            sym_u_thrust_capped = ca.fmin( sym_u_thrust,(energy_available_in_J/energy_required_for_u_max) ** (1./3))
+            sym_u_thrust_capped = ca.fmin(sym_u_thrust, (energy_available_in_J / energy_required_for_u_max) ** (1. / 3))
             sym_power_consumption = self.drag_factor * (self.u_max.mps * sym_u_thrust_capped) ** 3
         else:
             sym_solar_charging = 0
@@ -175,15 +175,17 @@ class Platform:
         # Transform the delta_meters from propulsion to the global coordinate system used.
         if self.use_geographic_coordinate_system:
             # Equations for delta in latitude and longitude direction in degree
-            sym_lon_delta_deg_per_s = 180 * sym_lon_delta_meters_per_s / math.pi / 6371000 / ca.cos(math.pi * sym_lat_degree / 180)
+            sym_lon_delta_deg_per_s = 180 * sym_lon_delta_meters_per_s / math.pi / 6371000 / ca.cos(
+                math.pi * sym_lat_degree / 180)
             sym_lat_delta_deg_per_s = 180 * sym_lat_delta_meters_per_s / math.pi / 6371000
-        else: # Global coordinate system in meters
+        else:  # Global coordinate system in meters
             sym_lon_delta_deg_per_s = sym_lon_delta_meters_per_s
             sym_lat_delta_deg_per_s = sym_lat_delta_meters_per_s
 
         # Model Seaweed Growth
         if self.model_seaweed:
-            sym_growth_factor = self.seaweed_source.F_NGR_per_second(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+            sym_growth_factor = self.seaweed_source.F_NGR_per_second(
+                ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
         else:
             sym_growth_factor = 0
 
@@ -197,8 +199,9 @@ class Platform:
 
         F_next = ca.Function(
             'F_x_next',
-            [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
+            [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass),
+             ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)],
         )
-        #print(f'Set Platform Equations: {time.time() - start:.2f}s')
+        # print(f'Set Platform Equations: {time.time() - start:.2f}s')
         return F_next

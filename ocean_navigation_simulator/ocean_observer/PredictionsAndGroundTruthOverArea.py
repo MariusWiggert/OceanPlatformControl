@@ -28,6 +28,7 @@ class PredictionsAndGroundTruthOverArea:
             uncertainty
             ground_truth: xarray Dataset that contains the hindcast currents.
         """
+        # dimension is time x lon*lat x 2
         reshape_dims = (len(predictions_over_area["time"]), -1, 2)
         self.predictions_over_area = predictions_over_area
         # interpolate ground_truth to same grid as the predictions
@@ -79,9 +80,6 @@ class PredictionsAndGroundTruthOverArea:
                             ground_truth = self.ground_truth.to_array()
                             # shape (2,max_lag,lon,lat)
                             max_lag, lon_lat = ground_truth.shape[1], ground_truth.shape[2]
-                            # todo: Remove that
-                            # if ground_truth.shape[-2:] != (96, 96):  # (48, 48):
-                            #    print("error")
 
                             # collect data for the 3d plots
                             grid_all_lags_and_radius = np.zeros((max_lag, (lon_lat + 1) // 2))

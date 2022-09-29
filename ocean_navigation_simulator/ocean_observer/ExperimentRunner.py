@@ -32,6 +32,9 @@ class OutOfGridError(Exception):
     pass
 
 
+POINTS_PER_DEGREE = 12
+
+
 def _plot_metrics_per_h(metrics: dict[str, any]) -> None:
     c = 5
     r = math.ceil(len(metrics["time"][0]) / c)
@@ -466,7 +469,7 @@ class ExperimentRunner:
     def has_next_problem(self):
         return self.problem_factory.has_problems_remaining()
 
-    def run_next_problem(self, get_inputs_and_outputs=False,
+    def run_next_problem(self, compute_metrics_per_h=False, get_inputs_and_outputs=False,
                          compute_for_all_radius_and_lag: Optional[bool] = False) -> Dict[str, Any]:
         """ Run the next problem. It creates a NaiveToTargetController based on the problem, reset the arena and
         observer. Gather "number_burnin_steps" observations without fitting the model and then start predicting the
@@ -503,8 +506,7 @@ class ExperimentRunner:
         dim_lon_lat = None
         if get_inputs_and_outputs or compute_for_all_radius_and_lag:
             if "radius_area_around_platform" in self.variables:
-                pts_per_degree = 12
-                dim_lon_lat = self.variables["radius_area_around_platform"] * 2 * pts_per_degree + 1
+                dim_lon_lat = self.variables["radius_area_around_platform"] * 2 * POINTS_PER_DEGREE + 1
             else:
                 dim_lon_lat = 25
 
@@ -513,17 +515,14 @@ class ExperimentRunner:
             print(f"step:{i}/{self.variables['number_steps_prediction']}")
 
             model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
-            # if not i:
-            #    print("Shape predictions: ", dict(model_prediction.dims))
+
             # get ground truth
             ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
                 *self.__get_lon_lat_time_intervals(ground_truth=True),
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
-            # print("ground_truth:", ground_truth)
             ground_truth = ground_truth.assign_coords(depth=model_prediction.depth.to_numpy().tolist())
             # compute the metrics and log the results
             self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
-
             if get_inputs_and_outputs:
                 inputs_and_outputs[0].append(
                     self.last_prediction_ground_truth.predictions_over_area.to_array().to_numpy())
@@ -537,39 +536,40 @@ class ExperimentRunner:
                 metric = self.last_prediction_ground_truth. \
                     compute_metrics(name_metrics, directions=directions,
                                     compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
-                metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics, directions=directions,
-                                                                                    per_hour=True)
-                metric_grid = dict()
+                if compute_metrics_per_h:
+                    metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics,
+                                                                                        directions=directions,
+                                                                                        per_hour=True)
                 if compute_for_all_radius_and_lag:
+                    metric_grid = dict()
                     for key in list(metric.keys()):
                         if key.endswith("_all_lags_and_radius") or key.endswith("_per_lag_and_radius"):
                             metric_grid[key] = metric[key]
                             del metric[key]
-                for key, val in metric_grid.items():
-                    metric_grids[key].append(val)
+                    for key, val in metric_grid.items():
+                        metric_grids[key].append(val)
                 # for key in metric_grids.keys()
                 #     del metric
 
                 # In case of Nan only
-                if len(metric_per_hour) == 0:
-                    continue
-                if not len(metrics_names):
-                    metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
-                    metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
+                if compute_metrics_per_h:
+                    if not len(metrics_names):
+                        metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
+                        metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
 
-                metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
-                    [self.last_observation.platform_state.date_time.timestamp(),
-                     (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(axis=-1) ** 0.5).mean()])))
+                    # add the metric computed to the list of the corresponding metric list from the dictionary
+                    metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
+                        [self.last_observation.platform_state.date_time.timestamp(),
+                         (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(
+                             axis=-1) ** 0.5).mean()])))
 
-                values_per_h = np.stack(list(metric_per_hour.values()))
-                # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
-                #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
-                times_per_h = np.array(
-                    [self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
-                    ndmin=2)
-                metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
-                # print(
-                #    f"step {i + 1}/{self.variables['number_steps_prediction']}, time:{self.last_observation.platform_state.date_time}, metrics: {list(zip(metrics_names, metrics[-1]))}")
+                    values_per_h = np.stack(list(metric_per_hour.values()))
+                    # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
+                    #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
+                    times_per_h = np.array(
+                        [self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
+                        ndmin=2)
+                    metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
 
         if get_inputs_and_outputs:
             return [np.concatenate(elem, axis=1) for elem in inputs_and_outputs[:2]], inputs_and_outputs[2], \
@@ -611,7 +611,8 @@ class ExperimentRunner:
             self.last_prediction_ground_truth.plot_3d(variable)
 
     def __step_simulation(self, controller: Controller, fit_model: bool = True,
-                          lon_lat_time_intervals_to_get: Optional[Tuple] = None, dim_lon_lat=None, use_NN=False) -> \
+                          lon_lat_time_intervals_to_get: Optional[Tuple] = None, dim_lon_lat=None, use_NN=False,
+                          get_list_files_used=False) -> \
             Union['xarray', None]:
         """ Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
          model. We save the last observation.
@@ -627,48 +628,30 @@ class ExperimentRunner:
         """
         action_to_apply = controller.get_action(self.last_observation)
         self.last_observation = self.arena.step(action_to_apply)
-        if (self.last_file_used != self.last_observation.forecast_data_source.DataArray.encoding['source']) or \
-                self.last_file_used is None:
+        self.observer.observe(self.last_observation)
+
+        # Keep track of the last file used for forecasts
+
+        if get_list_files_used and self.last_file_used is None or (
+                self.last_file_used != self.last_observation.forecast_data_source.DataArray.encoding['source']):
             if self.variables.get("clear_observations_when_new_file", False):
                 print(f"clearing observations old files:\n{self.last_file_used}\n"
                       f"{self.last_observation.forecast_data_source.DataArray.encoding['source']}\n"
                       f"new observation:{self.last_observation.platform_state.date_time}")
-                self.observer.reset()
 
             self.last_file_used = self.last_observation.forecast_data_source.DataArray.encoding['source']
             self.list_dates_when_new_files.append(self.last_observation.platform_state.date_time)
-        self.observer.observe(self.last_observation)
+
         predictions = None
         if fit_model:
             self.observer.fit()
-
-            n_steps = self.variables.get("number_steps_to_predict", 12)
-            coords = lon_lat_time_intervals_to_get if lon_lat_time_intervals_to_get is not None else self.__get_lon_lat_time_intervals()
-            temporal_res = self.variables.get("delta_between_predictions_in_sec", None)
 
             radius_space = self.variables.get("radius_area_around_platform", 1)
             lags_in_second = self.variables.get("number_steps_to_predict", 12) * 3600
             predictions = self.observer.get_data_around_platform(
                 self.last_observation.platform_state.to_spatio_temporal_point(), radius_space,
-                lags_in_second=lags_in_second, temporal_resolution=3600)
-            # predictions = self.observer.get_data_over_area(*coords, temporal_resolution=temporal_res)
-
-            # todo: quick fix, Find why the predictions are not always the same shape:
-            # if len(predictions["time"]) > n_steps:
-            #    predictions = predictions.isel(time=slice(1, n_steps + 1))
-
-        # check that the tile has the correct size ( Might not happen sometimes when the platform is between tiles)
-        point = self.last_observation.platform_state.to_spatio_temporal_point()
-        if dim_lon_lat is not None:
-            if min(len(predictions["lon"]), len(predictions["lat"])) < dim_lon_lat:
-                raise OutOfGridError("Check config file. The radius is to small for the desired tile.")
-            while dim_lon_lat != len(predictions["lon"]):
-                i = 0 if point.lon.deg - predictions["lon"][0] < predictions["lon"][-1] - point.lon.deg else 0
-                predictions = predictions.isel(lon=slice(i, i + len(predictions["lon"]) - 1))
-            while dim_lon_lat != len(predictions["lat"]):
-                i = 0 if point.lat.deg - predictions["lat"][0] < predictions["lat"][-1] - point.lat.deg else 0
-                predictions = predictions.isel(lat=slice(i, i + len(predictions["lat"]) - 1))
-            assert len(predictions["lon"]) == len(predictions["lat"]) == dim_lon_lat
+                lags_in_second=lags_in_second,
+                temporal_resolution=self.variables.get("delta_between_predictions_in_sec", 3600))
 
         if use_NN:
             predictions_NN = self.observer.evaluate_neural_net(predictions)
