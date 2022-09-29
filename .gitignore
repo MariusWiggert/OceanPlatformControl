@@ -2,6 +2,7 @@
 .DS_Store*
 __pycache__*
 *.png
+*.pdf
 *.gif
 *.log
 *.egg-info
@@ -21,3 +22,4 @@ tmp/
 data/
 models/
 results/
+casadi/

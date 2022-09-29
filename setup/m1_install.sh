@@ -4,8 +4,6 @@
 
 # conda create -y -n ocean_minimal python=3.9
 # conda activate ocean_minimal
-
-
 conda install -y -c jupyter cartopy ffmpeg
 pip install --upgrade pip
 pip install git+https://github.com/c3aidti/c3python
