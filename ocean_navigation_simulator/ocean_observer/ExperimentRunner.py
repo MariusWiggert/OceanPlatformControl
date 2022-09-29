@@ -504,9 +504,9 @@ class ExperimentRunner:
         if get_inputs_and_outputs or compute_for_all_radius_and_lag:
             if "radius_area_around_platform" in self.variables:
                 pts_per_degree = 12
-                dim_lon_lat = self.variables["radius_area_around_platform"] * 2 * pts_per_degree
+                dim_lon_lat = self.variables["radius_area_around_platform"] * 2 * pts_per_degree + 1
             else:
-                dim_lon_lat = 24
+                dim_lon_lat = 25
 
         # Now we run the simulation
         for i in range(self.variables["number_steps_prediction"]):

@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from IPython.display import HTML
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.utils import units
@@ -296,7 +297,8 @@ class DataSource(abc.ABC):
     def plot_data_from_xarray(time_idx: int, xarray: xr, var_to_plot: AnyStr = None,
                               vmin: Optional[float] = None, vmax: Optional[float] = None,
                               alpha: Optional[float] = 1., ax: plt.axes = None,
-                              fill_nan: bool = True) -> matplotlib.pyplot.axes:
+                              colorbar: bool = True, fill_nan: bool = True,
+                              return_cbar=False) -> matplotlib.pyplot.axes:
         """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -332,13 +334,26 @@ class DataSource(abc.ABC):
             vmax = xarray[var_to_plot].max()
         if vmin is None:
             vmin = xarray[var_to_plot].min()
-        xarray[var_to_plot].plot(cmap='viridis', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        im = xarray[var_to_plot].plot(cmap='viridis', vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False)
+        # set and format colorbar
+        if colorbar:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
+            cbar = plt.colorbar(im, orientation="vertical", cax=cax)
+            cbar.ax.set_ylabel('current velocity in m/s')
+            cbar.set_ticks(cbar.get_ticks())
+            precision = 1
+            if int(vmin * 10) == int(vmax * 10):
+                precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
+            cbar.set_ticklabels(['{:.{prec}f}'.format(l, prec=precision) for l in cbar.get_ticks().tolist()])
 
         # Label the plot
         ax.set_title("Variable: {var} \n at Time: {t}".format(
             var=var_to_plot,
             t="Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC')))
 
+        if return_cbar:
+            return ax, cbar
         return ax
 
     def animate_data(self, x_interval: List[float], y_interval: List[float],

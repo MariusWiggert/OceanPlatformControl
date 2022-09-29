@@ -1,0 +1,43 @@
+use_geographic_coordinate_system: True
+
+sim_cache_dict:
+  deg_around_x_t: 1.5
+  time_around_x_t: 432000. # 3600 * 24 * 5
+
+platform_dict:
+  battery_cap_in_wh: 400.0
+  u_max_in_mps: 0.1
+  motor_efficiency: 1.0
+  solar_panel_size: 0.5
+  solar_efficiency: 0.2
+  drag_factor: 675.0
+  dt_in_s: 3600.0
+
+ocean_dict:
+  hindcast:
+    field: 'OceanCurrents'
+    source: 'hindcast_files'
+    source_settings:
+      #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+      #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+      #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+      'folder': 'forecast_c3_script/test_download_hc_march_august/'
+      'currents': 'total'
+      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+  forecast:
+    field: 'OceanCurrents'
+    source: 'forecast_files'
+    source_settings:
+      #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+      #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+      'folder': 'forecast_c3_script/test_download_fc_march_august/'
+      #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+      'currents': 'total'
+
+solar_dict:
+  hindcast: null
+  forecast: null
+
+seaweed_dict:
+  hindcast: null
+  forecast: null

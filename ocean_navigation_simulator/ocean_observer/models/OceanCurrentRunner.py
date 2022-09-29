@@ -60,25 +60,36 @@ def collate_fn(batch):
 #
 #     return u_t + self.lambda1 * u * u_x - self.lambda2 * u_xx
 
-def compute_conservation_mass_loss(pred):
+def compute_conservation_mass_loss(pred, get_all_cells=False):
     # prediction shape: batch_size x channels[u,v] x time x lat [v] = rows x lon [u] = cols
 
     # top left removes last col, last row
     # top right removes first col, last row
     # bottom left removes last col, first row
     # bottom right removes first col, first row
-    prediction = torch.clone(pred)
-    top_left = prediction[..., :-1, :-1]
-    top_right = prediction[..., :-1, 1:]
-    bottom_left = prediction[..., 1:, :-1]
-    bottom_right = prediction[..., 1:, 1:]
+    # top_left = torch.clone(prediction[..., :-1, :-1])
+    # top_right = torch.clone(prediction[..., :-1, 1:])
+    # bottom_left = torch.clone(prediction[..., 1:, :-1])
+    # bottom_right = torch.clone(prediction[..., 1:, 1:])
+    #
+    # top_left[:, [1]] *= -1
+    # top_right[:, [0, 1]] *= -1
+    # bottom_right[:, [0]] *= -1
+    top_left = pred[..., :-1, :-1]
+    top_right = pred[..., :-1, 1:]
+    bottom_left = pred[..., 1:, :-1]
+    bottom_right = pred[..., 1:, 1:]
+    all_losses = (-top_left[:, [1]] + top_left[:, [0]] - top_right +
+                  bottom_left - bottom_right[:, [0]] + bottom_right[:, [1]]).sum(axis=1)
 
-    top_left[:, 1] *= -1
-    top_right[:, [0, 1]] *= -1
-    bottom_right[:, 0] *= -1
-
-    all_losses = top_left + top_right + bottom_left + bottom_right
-    return torch.sqrt(F.mse_loss(all_losses, torch.zeros_like(all_losses)))
+    # set nans to 0
+    total_size = all_losses.nelement()
+    num_nans = torch.isnan(all_losses).sum().item()
+    all_losses[torch.isnan(all_losses)] = 0
+    res = torch.sqrt(F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction='sum') / (total_size - num_nans))
+    if get_all_cells:
+        return res, all_losses
+    return res
 
 
 def compute_burgers_loss(prediction, Re=math.pi / 0.01):
@@ -404,7 +415,6 @@ def get_args(all_cfgs):
     args.setdefault("seed", 1)
     args.setdefault("log_interval", 10)
     args.setdefault("save_model", False)
-    args.setdefault("model_type", "mlp")
     args.setdefault("max_batches_training_set", -1)
     args.setdefault("max_batches_validation_set", -1)
     args.setdefault("lambda_physical_loss", 0)
@@ -413,137 +423,137 @@ def get_args(all_cfgs):
 
 
 def main():
-    # for lambda_physical_loss in [0.01, 0.02, 0.03, 0.001, 0.2, 0.4]:
-    wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")  # , name=f"experiment_{}")
-    print(f"starting run: {wandb.run.name}")
-    os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
-    parser = argparse.ArgumentParser(description='yaml config file path')
-    parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
-    config_file = parser.parse_args().file_configs + ".yaml"
-    all_cfgs = yaml.load(open(config_file, 'r'),
-                         Loader=yaml.FullLoader)
-    args = get_args(all_cfgs)
+    for lambda_physical_loss in [0.01, 0.02, 0.03, 0.001, 0.2, 0.4]:
+        wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")  # , name=f"experiment_{}")
+        print(f"starting run: {wandb.run.name}")
+        os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
+        parser = argparse.ArgumentParser(description='yaml config file path')
+        parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
+        config_file = parser.parse_args().file_configs + ".yaml"
+        all_cfgs = yaml.load(open(config_file, 'r'),
+                             Loader=yaml.FullLoader)
+        args = get_args(all_cfgs)
 
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
-    device = 'cuda' if use_cuda else 'cpu'
+        use_cuda = not args.no_cuda and torch.cuda.is_available()
+        device = 'cuda' if use_cuda else 'cpu'
 
-    torch.manual_seed(args.seed)
-    device = device
-    print("device:", device)
-    if args.silicon:
-        device = torch.device("mps")
+        torch.manual_seed(args.seed)
+        device = device
+        print("device:", device)
+        if args.silicon:
+            device = torch.device("mps")
 
-    cfg_model = all_cfgs.get("model", {})
-    cfg_neural_network = cfg_model.get("cfg_neural_network", {}) | {"device": device}
-    cfg_dataset = cfg_model.get("cfg_dataset", {})
-    cfg_optimizer = args.get("optimizer", {})
-    cfg_scheduler = args.get("scheduler", {})
-    cfg_data_generation = all_cfgs.get("data_generation", {})
-    model_error = cfg_model.get("model_error", True)
-    print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
-    folder_training = cfg_data_generation["parameters_input"]["folder_training"]
-    if isinstance(folder_training, str):
-        folder_training = [folder_training]
-    folder_validation = cfg_data_generation["parameters_input"]["folder_validation"]
-    if isinstance(folder_validation, str):
-        folder_validation = [folder_validation]
-    if folder_training == folder_validation:
-        warn("Training and validation use the same dataset!!!")
+        cfg_model = all_cfgs.get("model", {})
+        cfg_neural_network = cfg_model.get("cfg_neural_network", {}) | {"device": device}
+        cfg_dataset = cfg_model.get("cfg_dataset", {})
+        cfg_optimizer = args.get("optimizer", {})
+        cfg_scheduler = args.get("scheduler", {})
+        cfg_data_generation = all_cfgs.get("data_generation", {})
+        model_error = cfg_model.get("model_error", True)
+        print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
+        folder_training = cfg_data_generation["parameters_input"]["folder_training"]
+        if isinstance(folder_training, str):
+            folder_training = [folder_training]
+        folder_validation = cfg_data_generation["parameters_input"]["folder_validation"]
+        if isinstance(folder_validation, str):
+            folder_validation = [folder_validation]
+        if folder_training == folder_validation:
+            warn("Training and validation use the same dataset!!!")
 
-    # args.lambda_physical_loss = lambda_physical_loss
-    print(f"Weight physical loss: {args.lambda_physical_loss}")
+        args.lambda_physical_loss = lambda_physical_loss
+        print(f"Weight physical loss: {args.lambda_physical_loss}")
 
-    train_kwargs = {'batch_size': args.batch_size,
-                    'shuffle': cfg_data_generation['parameters_input'].get('shuffle_training', True)}
-    test_kwargs = {'batch_size': args.test_batch_size,
-                   'shuffle': cfg_data_generation['parameters_input'].get('shuffle_validation', True)}
-    if use_cuda:
-        cuda_kwargs = {'num_workers': 1,
-                       'pin_memory': True}
-        train_kwargs.update(cuda_kwargs)
-        test_kwargs.update(cuda_kwargs)
+        train_kwargs = {'batch_size': args.batch_size,
+                        'shuffle': cfg_data_generation['parameters_input'].get('shuffle_training', True)}
+        test_kwargs = {'batch_size': args.test_batch_size,
+                       'shuffle': cfg_data_generation['parameters_input'].get('shuffle_validation', True)}
+        if use_cuda:
+            cuda_kwargs = {'num_workers': 1,
+                           'pin_memory': True}
+            train_kwargs.update(cuda_kwargs)
+            test_kwargs.update(cuda_kwargs)
 
-    wandb.config.update(args, allow_val_change=True)
-    wandb.save(config_file)
-    dataset_training = CustomOceanCurrentsFromFiles(folder_training,
-                                                    max_items=args.batch_size * args.max_batches_training_set)
-    dataset_validation = CustomOceanCurrentsFromFiles(folder_validation,
-                                                      max_items=args.batch_size * args.max_batches_validation_set)
+        wandb.config.update(args, allow_val_change=True)
+        wandb.save(config_file)
+        dataset_training = CustomOceanCurrentsFromFiles(folder_training,
+                                                        max_items=args.batch_size * args.max_batches_training_set)
+        dataset_validation = CustomOceanCurrentsFromFiles(folder_validation,
+                                                          max_items=args.batch_size * args.max_batches_validation_set)
 
-    print(f"lengths ds: training:{len(dataset_training)}, validation:{len(dataset_validation)}")
+        print(f"lengths ds: training:{len(dataset_training)}, validation:{len(dataset_validation)}")
 
-    train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
-    validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
+        train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
+        validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
 
-    model = get_model(args.model_type, cfg_neural_network, device)
-    optimizer = get_optimizer(model, cfg_optimizer.get("name", ""), cfg_optimizer.get("parameters", {}), args.lr)
+        model = get_model(args.model_type, cfg_neural_network, device)
+        optimizer = get_optimizer(model, cfg_optimizer.get("name", ""), cfg_optimizer.get("parameters", {}), args.lr)
 
-    # scheduler = schedulers.StepLR(optimizer, step_size=1, gamma=args.gamma)
-    scheduler, scheduler_step_takes_argument = get_scheduler(cfg_scheduler, optimizer)
-    print(f"optimizer: {optimizer}")
+        # scheduler = schedulers.StepLR(optimizer, step_size=1, gamma=args.gamma)
+        scheduler, scheduler_step_takes_argument = get_scheduler(cfg_scheduler, optimizer)
+        print(f"optimizer: {optimizer}")
 
-    max_loss = math.inf
-    train_ratios, validation_ratios = list(), list()
-    train_losses_overall, validation_losses_overall = list(), list()
-    train_losses_no_pinn, validation_losses_no_pinn = list(), list()
-    train_losses_pinn, validation_losses_pinn = list(), list()
-    try:
-        for epoch in range(1, args.epochs + 1):
-            metrics = {}
+        max_loss = math.inf
+        train_ratios, validation_ratios = list(), list()
+        train_losses_overall, validation_losses_overall = list(), list()
+        train_losses_no_pinn, validation_losses_no_pinn = list(), list()
+        train_losses_pinn, validation_losses_pinn = list(), list()
+        try:
+            for epoch in range(1, args.epochs + 1):
+                metrics = {}
 
-            # Training
-            print(f"starting Training epoch {epoch}/{args.epochs}.")
-            time.sleep(0.2)
-            overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(True, args, model, device,
-                                                                                 train_loader,
-                                                                                 epoch, model_error, cfg_dataset,
-                                                                                 optimizer)
-            train_losses_overall.append(overall_loss)
-            train_losses_no_pinn.append(loss_no_pinn)
-            train_losses_pinn.append(loss_pinn)
-            train_ratios.append(ratio)
-            metrics |= {"train_loss": overall_loss, "train_loss_pinn": loss_pinn, "train_loss_hc": loss_no_pinn,
-                        "train_ratio": ratio}
+                # Training
+                print(f"starting Training epoch {epoch}/{args.epochs}.")
+                time.sleep(0.2)
+                overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(True, args, model, device,
+                                                                                     train_loader,
+                                                                                     epoch, model_error, cfg_dataset,
+                                                                                     optimizer)
+                train_losses_overall.append(overall_loss)
+                train_losses_no_pinn.append(loss_no_pinn)
+                train_losses_pinn.append(loss_pinn)
+                train_ratios.append(ratio)
+                metrics |= {"train_loss": overall_loss, "train_loss_pinn": loss_pinn, "train_loss_hc": loss_no_pinn,
+                            "train_ratio": ratio}
 
-            # Testing
-            print(f"starting Testing epoch {epoch}/{args.epochs}.")
-            time.sleep(0.2)
-            overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(False, args, model, device,
-                                                                                 validation_loader, epoch,
-                                                                                 model_error, cfg_dataset)
-            validation_losses_overall.append(overall_loss)
-            validation_losses_pinn.append(loss_pinn)
-            validation_losses_no_pinn.append(loss_no_pinn)
-            validation_ratios.append(ratio)
-            metrics |= {"validation_loss": overall_loss, "validation_loss_pinn": loss_pinn,
-                        "validation_loss_no_pinn": loss_no_pinn,
-                        "validation_ratio": ratio,
-                        "learning rate": optimizer.param_groups[0]['lr']}
-            if scheduler is not None:
-                if scheduler_step_takes_argument:
-                    scheduler.step(loss_pinn)
-                    print(f"current lr: {optimizer.param_groups[0]['lr']}")
-                else:
-                    scheduler.step()
-            wandb.log(metrics)
-            if max_loss > overall_loss:
-                max_loss = overall_loss
+                # Testing
+                print(f"starting Testing epoch {epoch}/{args.epochs}.")
+                time.sleep(0.2)
+                overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(False, args, model, device,
+                                                                                     validation_loader, epoch,
+                                                                                     model_error, cfg_dataset)
+                validation_losses_overall.append(overall_loss)
+                validation_losses_pinn.append(loss_pinn)
+                validation_losses_no_pinn.append(loss_no_pinn)
+                validation_ratios.append(ratio)
+                metrics |= {"validation_loss": overall_loss, "validation_loss_pinn": loss_pinn,
+                            "validation_loss_no_pinn": loss_no_pinn,
+                            "validation_ratio": ratio,
+                            "learning rate": optimizer.param_groups[0]['lr']}
+                if scheduler is not None:
+                    if scheduler_step_takes_argument:
+                        scheduler.step(loss_pinn)
+                        print(f"current lr: {optimizer.param_groups[0]['lr']}")
+                    else:
+                        scheduler.step()
+                wandb.log(metrics)
+                if max_loss > overall_loss:
+                    max_loss = overall_loss
 
-                name_file = f'model_{epoch}.h5'
-                print(f"saved model at epoch {epoch}: {name_file}")
-                torch.save(model.state_dict(), os.path.join(wandb.run.dir, name_file))
-                wandb.save(name_file)
+                    name_file = f'model_{epoch}.h5'
+                    print(f"saved model at epoch {epoch}: {name_file}")
+                    torch.save(model.state_dict(), os.path.join(wandb.run.dir, name_file))
+                    wandb.save(name_file)
 
-            if epoch % 30 == 0:
-                __create_loss_plot(args, train_losses_pinn, validation_losses_pinn, train_ratios, validation_ratios,
-                                   True)
-                __create_loss_plot(args, train_losses_no_pinn, validation_losses_no_pinn, train_ratios,
-                                   validation_ratios,
-                                   False)
-    finally:
-        end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
-                     validation_losses_pinn,
-                     train_ratios, validation_ratios)
+                if epoch % 30 == 0:
+                    __create_loss_plot(args, train_losses_pinn, validation_losses_pinn, train_ratios, validation_ratios,
+                                       True)
+                    __create_loss_plot(args, train_losses_no_pinn, validation_losses_no_pinn, train_ratios,
+                                       validation_ratios,
+                                       False)
+        finally:
+            end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
+                         validation_losses_pinn,
+                         train_ratios, validation_ratios)
 
 
 if __name__ == '__main__':

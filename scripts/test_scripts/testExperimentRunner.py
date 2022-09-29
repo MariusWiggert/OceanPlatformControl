@@ -374,6 +374,10 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
         results, results_per_h, merged, list_dates_when_new_files, results_grids = all_results
     else:
         results, results_per_h, merged, list_dates_when_new_files = all_results
+    import pickle
+
+    with open('results_grids_2.pickle', 'wb') as handle:
+        pickle.dump(results_grids, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("final results:", results)
 
     '''
@@ -387,7 +391,7 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
     if plot_error_3d:
         # print the 3d plots
         for key in results_grids.keys():
-            if key.startswith("rmse"):
+            if key.startswith("r2"):
                 to_plot = np.array(results_grids[key]).mean(axis=0)
                 if key.endswith("_all_lags_and_radius"):
                     legend = "All lags and radius merged"
@@ -486,7 +490,7 @@ if __name__ == "__main__":
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
     elif not {"-3d"}.isdisjoint(sys.argv):
-        run_experiments_and_plot(max_number_problems_to_run=10, plot_error_3d=True)
+        run_experiments_and_plot(max_number_problems_to_run=200, plot_error_3d=True)
     else:
         run_experiments_and_plot(max_number_problems_to_run=2)
 

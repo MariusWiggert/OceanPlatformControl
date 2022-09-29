@@ -15,6 +15,7 @@ data = xr.open_dataset(file)
 # %%
 def plot(data, j=0):
     f, ax = plt.subplots(1)
+    print(f"data used: {data.isel(time=j).to_array('surf_el')}")
     data.isel(time=j).to_array("surf_el").plot(ax=ax)
     # Major ticks every 20, minor ticks every 5
     major_ticks_lon = np.arange(min(data['lon']), max(data['lon']), 24 * 1 / 12)
@@ -40,4 +41,8 @@ plot(data, 10)
 plot(data, 16)
 plot(data, 22)
 # plot(data, 400)
+# %%
+
+print("What is used to print:", data.isel(time=0).to_array('surf_el'))
+
 # %%
