@@ -42,7 +42,7 @@ class OceanCurrentGP(OceanCurrentModel):
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
             parameters_model["optimizer"] = self.config_dict["optimizer"]
-        print("PARAMETERS_MODEL:", parameters_model)
+        print("parameters model:", parameters_model)
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
         print(f"Gaussian Process created: {self.model}")
 

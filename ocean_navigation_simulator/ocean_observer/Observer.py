@@ -200,6 +200,11 @@ class Observer:
 
         self.prediction_model.observe(observation_location, measured_current_error)
 
+        # Todo: probably remove this. Added to stop if the forecast is missing
+        if len(self.prediction_model.measurement_locations) > 24:
+            UserWarning("Error: forecast file missing. Problem stopped")
+            raise Exception("Error: forecast file missing. Problem stopped")
+
     # Forwarding functions as it replaces the forecast_data_source
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at

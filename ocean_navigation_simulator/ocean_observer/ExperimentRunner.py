@@ -426,14 +426,14 @@ class ExperimentRunner:
         results = []
         results_per_h = []
         results_grids = defaultdict(list)
-        i = -1
+        i = 0
 
         # Run all the problems and gather all the data
         while self.problem_factory.has_problems_remaining() and (
-                type(max_number_problems_to_run) != int or max_number_problems_to_run > 0):
+                type(max_number_problems_to_run) != int or max_number_problems_to_run > i):
             try:
-                i += 1
                 print(f"Problem no:{i}/{max_number_problems_to_run}")
+                i += 1
                 res_tuple = self.run_next_problem(
                     compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
                 if compute_for_all_radius_and_lag:
@@ -445,10 +445,10 @@ class ExperimentRunner:
                 results.append(res)
                 results_per_h.append(res_per_h)
                 self.__create_plots(results[-1], results_per_h[-1])
-                if type(max_number_problems_to_run) == int:
-                    max_number_problems_to_run -= 1
             except OutOfGridError:
                 print(f"Problem {i} skipped, was too close of the area boundaries.")
+            except ValueError as e:
+                print(f"Error timestamp: {e}")
 
         # reformat the results
         merged = defaultdict(list)
@@ -512,84 +512,90 @@ class ExperimentRunner:
                 dim_lon_lat = 25
 
         # Now we run the simulation
-        for i in range(self.variables["number_steps_prediction"]):
-            # print(f"step:{i}/{self.variables['number_steps_prediction']}")
+        i = 0
+        try:
+            for i in range(self.variables["number_steps_prediction"]):
+                if i % 20 == 0:
+                    print(f"step:{i}/{self.variables['number_steps_prediction']}")
 
-            model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
+                model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
 
-            # get ground truth
-            ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
-                *self.__get_lon_lat_time_intervals(ground_truth=True),
-                temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
-            ground_truth = ground_truth.assign_coords(depth=model_prediction.depth.to_numpy().tolist())
-            # compute the metrics and log the results
-            self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
-            if get_inputs_and_outputs:
-                inputs_and_outputs[0].append(
-                    self.last_prediction_ground_truth.predictions_over_area.to_array().to_numpy())
-                inputs_and_outputs[1].append(self.last_prediction_ground_truth.ground_truth.to_array().to_numpy())
-                inputs_and_outputs[2].append(self.observer.prediction_model.measurement_locations)
-                inputs_and_outputs[3].append(self.observer.prediction_model.measured_current_errors)
-            else:
-                results.append(self.last_prediction_ground_truth)
-                name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
-                directions = self.variables.get("direction_current", ["uv"])
-                metric = self.last_prediction_ground_truth. \
-                    compute_metrics(name_metrics, directions=directions,
-                                    compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
-                if compute_metrics_per_h:
-                    metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics,
-                                                                                        directions=directions,
-                                                                                        per_hour=True)
-                if compute_for_all_radius_and_lag:
-                    metric_grid = dict()
-                    for key in list(metric.keys()):
-                        if key.endswith("_all_lags_and_radius") or key.endswith("_per_lag_and_radius"):
-                            metric_grid[key] = metric[key]
-                            del metric[key]
-                    for key, val in metric_grid.items():
-                        metric_grids[key].append(val)
-                # for key in metric_grids.keys()
-                #     del metric
+                # get ground truth
+                ground_truth = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
+                    *self.__get_lon_lat_time_intervals(ground_truth=True),
+                    temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
+                ground_truth = ground_truth.assign_coords(depth=model_prediction.depth.to_numpy().tolist())
+                # compute the metrics and log the results
+                self.last_prediction_ground_truth = PredictionsAndGroundTruthOverArea(model_prediction, ground_truth)
+                if get_inputs_and_outputs:
+                    inputs_and_outputs[0].append(
+                        self.last_prediction_ground_truth.predictions_over_area.to_array().to_numpy())
+                    inputs_and_outputs[1].append(self.last_prediction_ground_truth.ground_truth.to_array().to_numpy())
+                    inputs_and_outputs[2].append(self.observer.prediction_model.measurement_locations)
+                    inputs_and_outputs[3].append(self.observer.prediction_model.measured_current_errors)
+                else:
+                    results.append(self.last_prediction_ground_truth)
+                    name_metrics = self.variables["metrics"] if "metrics" in self.variables.keys() else None
+                    directions = self.variables.get("direction_current", ["uv"])
+                    metric = self.last_prediction_ground_truth. \
+                        compute_metrics(name_metrics, directions=directions,
+                                        compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
+                    if compute_metrics_per_h:
+                        metric_per_hour = self.last_prediction_ground_truth.compute_metrics(name_metrics,
+                                                                                            directions=directions,
+                                                                                            per_hour=True)
+                    if compute_for_all_radius_and_lag:
+                        metric_grid = dict()
+                        for key in list(metric.keys()):
+                            if key.endswith("_all_lags_and_radius") or key.endswith("_per_lag_and_radius"):
+                                metric_grid[key] = metric[key]
+                                del metric[key]
+                        for key, val in metric_grid.items():
+                            metric_grids[key].append(val)
+                    # for key in metric_grids.keys()
+                    #     del metric
 
-                # In case of Nan only
-                if compute_metrics_per_h:
-                    if not len(metrics_names):
-                        metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
-                        metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
+                    # In case of Nan only
+                    if compute_metrics_per_h:
+                        if not len(metrics_per_h_names):
+                            metrics_per_h_names = ["time"] + list(metric_per_hour.keys())
+
+                        values_per_h = np.stack(list(metric_per_hour.values()))
+                        # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
+                        #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
+                        times_per_h = np.array(
+                            [self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
+                            ndmin=2)
+                        metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
 
                     # add the metric computed to the list of the corresponding metric list from the dictionary
+                    if not len(metrics_names):
+                        metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
                     metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
                         [self.last_observation.platform_state.date_time.timestamp(),
                          (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(
                              axis=-1) ** 0.5).mean()])))
-
-                    values_per_h = np.stack(list(metric_per_hour.values()))
-                    # times_per_h = np.array([self.last_observation.platform_state.date_time.timestamp() + int(datetime.timedelta(
-                    #    hours=i).seconds * 1e6) for i in range(values_per_h.shape[1])], ndmin=2)
-                    times_per_h = np.array(
-                        [self.last_observation.platform_state.date_time.timestamp()] * values_per_h.shape[1],
-                        ndmin=2)
-                    metrics_per_h.append(np.concatenate((times_per_h, values_per_h)))
-
-        if get_inputs_and_outputs:
-            return [np.concatenate(elem, axis=1) for elem in inputs_and_outputs[:2]], inputs_and_outputs[2], \
-                   inputs_and_outputs[3]
-        else:
-            metrics = np.array(metrics)
-            metrics_per_h = np.array(metrics_per_h)
-            res0, res1 = {name: metrics[:, i] for i, name in enumerate(metrics_names)}, \
-                         {name: metrics_per_h[:, i, :] for i, name in enumerate(metrics_per_h_names)}
-            if compute_for_all_radius_and_lag:
-                for key in metric_grids.keys():
-                    d1 = min([a.shape[0] for a in metric_grids[key]])
-                    d2 = min([a.shape[1] for a in metric_grids[key]])
-                    print(d1, max([a.shape[0] for a in metric_grids[key]]), d2,
-                          max([a.shape[1] for a in metric_grids[key]]))
-                    metric_grids[key] = np.array([a[:d1, :d2] for a in metric_grids[key]]).mean(axis=0)
-                return res0, res1, dict(metric_grids)
+        except ValueError as e:
+            print(f"exception caught at step: {i}. Problem stopped. \n{e}")
+        finally:
+            if get_inputs_and_outputs:
+                return [np.concatenate(elem, axis=1) for elem in inputs_and_outputs[:2]], inputs_and_outputs[2], \
+                       inputs_and_outputs[3]
             else:
-                return res0, res1
+                metrics = np.array(metrics)
+                metrics_per_h = np.array(metrics_per_h)
+                res0, res1 = {name: metrics[:, i] for i, name in enumerate(metrics_names)}, \
+                             {name: metrics_per_h[:, i, :] for i, name in enumerate(metrics_per_h_names)}
+                if compute_for_all_radius_and_lag:
+                    for key in metric_grids.keys():
+                        d1 = min([a.shape[0] for a in metric_grids[key]])
+                        d2 = min([a.shape[1] for a in metric_grids[key]])
+                        print(d1, max([a.shape[0] for a in metric_grids[key]]), d2,
+                              max([a.shape[1] for a in metric_grids[key]]))
+                        metric_grids[key] = np.array([a[:d1, :d2] for a in metric_grids[key]]).mean(axis=0)
+                    return res0, res1, dict(metric_grids)
+                else:
+                    return res0, res1
 
     def __create_plots(self, last_metrics: Optional[np.ndarray] = None,
                        last_metrics_per_h: Optional[np.ndarray] = None):

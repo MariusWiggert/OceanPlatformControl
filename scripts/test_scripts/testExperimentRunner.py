@@ -88,7 +88,7 @@ search_space = {
     "filename_config": "config_GP_025_12",
     "folder_problems": "ablation_study/problems/",
     "folder_config": "ablation_study/configs_GP/",
-    "max_problems": 200,
+    "max_problems": 2,
     # product and sum are not supported yet
     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
     "kernel": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
@@ -198,8 +198,8 @@ def train(config_from_bayes=None, filename_problems=None):
     file_csv = os.path.join(f"./ablation_study/results_grids/", f"results_{filename}.csv")
     print("path file:", file_csv)
 
-    os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
-    # os.chdir("/home/seaweed/test")
+    # os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
+    os.chdir("/home/killian2k/seaweed/OceanPlatformControl")
     if full_dict is not None:
         if "num_threads" in full_dict:
             torch.set_num_threads(full_dict.pop("num_threads"))
