@@ -131,7 +131,8 @@ class ExperimentRunner:
                   SpatialPoint(Distance(deg=10), Distance(deg=10)))])
 
         self.observer = Observer(config["observer"])
-        self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"])
+        self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"],
+                                         folder_scenario=self.variables["folder_scenario"])
         self.last_observation, self.last_prediction_ground_truth = None, None
         self.last_file_used = None
         self.list_dates_when_new_files = []
@@ -512,7 +513,7 @@ class ExperimentRunner:
 
         # Now we run the simulation
         for i in range(self.variables["number_steps_prediction"]):
-            print(f"step:{i}/{self.variables['number_steps_prediction']}")
+            # print(f"step:{i}/{self.variables['number_steps_prediction']}")
 
             model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
 
@@ -634,10 +635,9 @@ class ExperimentRunner:
 
         if get_list_files_used and self.last_file_used is None or (
                 self.last_file_used != self.last_observation.forecast_data_source.DataArray.encoding['source']):
-            if self.variables.get("clear_observations_when_new_file", False):
-                print(f"clearing observations old files:\n{self.last_file_used}\n"
-                      f"{self.last_observation.forecast_data_source.DataArray.encoding['source']}\n"
-                      f"new observation:{self.last_observation.platform_state.date_time}")
+            # print(f"clearing observations old files:\n{self.last_file_used}\n"
+            #       f"{self.last_observation.forecast_data_source.DataArray.encoding['source']}\n"
+            #       f"new observation:{self.last_observation.platform_state.date_time}")
 
             self.last_file_used = self.last_observation.forecast_data_source.DataArray.encoding['source']
             self.list_dates_when_new_files.append(self.last_observation.platform_state.date_time)

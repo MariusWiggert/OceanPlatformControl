@@ -31,14 +31,13 @@ class OceanCurrentGP(OceanCurrentModel):
         self.life_span_observations_in_sec = config_dict.get("life_span_observations_in_sec", 24 * 3600)  # 24 hours.
 
         parameters_model = {}
-        # Base: {'type': 'matern',
-        # 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849},
-        # 'sigma_exp_squared': 2.3561,
-        # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
         if "kernel" in self.config_dict:
-            parameters_model["kernel"] = self.__get_kernel(
-                self.config_dict["kernel"]) * (self.__get_kernel(self.config_dict["kernel_2"],
-                                                                 False) if "kernel_2" in self.config_dict else 1)
+            print("ker:", self.config_dict)
+            if "kernel_2" in self.config_dict:
+                parameters_model["kernel"] = self.__get_kernel(self.config_dict["kernel"]) * \
+                                             self.__get_kernel(self.config_dict["kernel_2"], False)
+            else:
+                parameters_model["kernel"] = self.__get_kernel(self.config_dict["kernel"])
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:

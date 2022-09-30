@@ -29,12 +29,27 @@ def get_area_coordinates():
 # start_date_2 = datetime.datetime(2022, 6, 1, 12, 00, 00)  # June
 # end_date_2 = datetime.datetime(2022, 8, 31, 12, 00, 00)
 # all_intervals = [(start_date, end_date), (start_date_2, end_date_2)]
-all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
+# April not included
+may_to_mid_august = (
+    datetime.datetime(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+    datetime.datetime(2022, 8, 15, 12, 30, tzinfo=datetime.timezone.utc))
+june_september = (
+    datetime.datetime(2022, 6, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+    datetime.datetime(2022, 9, 15, 12, 30, tzinfo=datetime.timezone.utc))
+may = (datetime.datetime(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+       datetime.datetime(2022, 5, 31, 12, 30, tzinfo=datetime.timezone.utc))
+july_september = (
+    datetime.datetime(2022, 7, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+    datetime.datetime(2022, 9, 15, 12, 30, tzinfo=datetime.timezone.utc))
+# all_intervals = [may_to_mid_august]
+# all_intervals = [june_september]
+all_intervals = [may, july_september]
 
-duration_simulation_default = datetime.timedelta(days=5)
+# all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
+duration_simulation_default = datetime.timedelta(days=4)
 max_velocity = Velocity(mps=1)
 distance_start_end_point = max_velocity * duration_simulation_default
-file_used_to_check_boundaries = "./data/april_may_data/forecast_Copernicus_april_may/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-03-30T12:30:00Z-2022-03-30T12:30:00Z-2022-04-08T23:30:00Z.nc"
+file_used_to_check_boundaries = "data_ablation_study/fc/april/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-04T12:30:00Z-2022-04-04T12:30:00Z-2022-04-13T23:30:00Z.nc"
 
 
 def generate_end_point(initial_point: SpatialPoint) -> SpatialPoint:
@@ -157,22 +172,20 @@ def check_area_to_have_no_nan():
 
 
 def main(dir_name=None, filename=None, number_problems=40, seed=10):
-    for i in range(1, 4, 1):
-        seed = i
-        print(f"seed: {seed}")
-        random.seed(seed * 3)
+    print(f"seed: {seed}")
 
-        check_area_to_have_no_nan()
+    check_area_to_have_no_nan()
 
-        # for _ in range(number_problems):
-        starts = generate_temporal_points_within_boundaries(number_problems)
-        problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
+    # for _ in range(number_problems):
+    starts = generate_temporal_points_within_boundaries(number_problems)
+    problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
 
-        path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
-        print(f"problems exported to {path} = {os.path.abspath(path)}")
+    path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
+    print(f"problems exported to {path} = {os.path.abspath(path)}")
 
 
 if __name__ == "__main__":
+    print("start creating problems")
     parser = argparse.ArgumentParser(description="file_path")
     parser.add_argument('--dir-name', dest='dir', type=str, help='path of the directory')
     parser.add_argument('--file-name', dest='file', type=str, help='filename of the list')
@@ -180,3 +193,4 @@ if __name__ == "__main__":
     parser.add_argument('--seed', dest='seed', type=int)
     args = parser.parse_args()
     main(args.dir, args.file, args.problems, args.seed)
+    print("Over.")

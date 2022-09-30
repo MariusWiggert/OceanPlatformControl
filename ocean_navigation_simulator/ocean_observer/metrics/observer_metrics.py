@@ -142,6 +142,27 @@ def vme(ground_truth: ndarray, improved_predictions: ndarray, initial_prediction
     return vmes
 
 
+def ratio_per_tile(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
+                   per_hour: bool = False,
+                   sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
+    """Internal function to compute the vme
+
+        Args:
+            v1: vector 1, dim: time x lon*lat x 2
+            v2: vector 2, dim: time x lon*lat x 2
+            axis:
+
+        Returns:
+            ratio per tile between the two matrices v1 and v2
+        """
+    if per_hour:
+        UserWarning("Per hour not implemented by ratio per tile.")
+    axis_current = -1
+    ratios = ((ground_truth - improved_predictions) ** 2).sum(axis=axis_current) / \
+             (((ground_truth - initial_predictions) ** 2).sum(axis=axis_current) + sigma_square_division)
+    return {"ratio_per_tile": np.nanmean(ratios)}
+
+
 def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
     """ Internal function to compute the rmse
 
@@ -168,27 +189,6 @@ def __vector_magnitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tupl
     """
     return np.nanmean(np.sqrt(np.sum(((v1 - v2) ** 2), axis=-1, keepdims=True)), axis=axis)
     # return np.nanmean(np.sum(np.abs(v1 - v2), axis=-1, keepdims=True), axis=axis)
-
-
-def ratio_per_tile(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
-                   per_hour: bool = False,
-                   sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
-    """Internal function to compute the vme
-
-        Args:
-            v1: vector 1, dim: time x lon*lat x 2
-            v2: vector 2, dim: time x lon*lat x 2
-            axis:
-
-        Returns:
-            ratio per tile between the two matrices v1 and v2
-        """
-    if per_hour:
-        UserWarning("Per hour not implemented by ratio per tile.")
-    axis_current = -1
-    ratios = ((ground_truth - improved_predictions) ** 2).sum(axis=axis_current) / \
-             (((ground_truth - initial_predictions) ** 2).sum(axis=axis_current) + sigma_square_division)
-    return np.nanmean(ratios)
 
 
 def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["uv"]) -> bool:

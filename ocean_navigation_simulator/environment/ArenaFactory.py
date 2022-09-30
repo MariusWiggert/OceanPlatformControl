@@ -1,12 +1,15 @@
 import string
+
 import yaml
+
 from ocean_navigation_simulator.environment.Arena import Arena
 
 
 class ArenaFactory:
     @staticmethod
-    def create(scenario_name: string) -> Arena:
-        with open(f'scenarios/{scenario_name}.yaml') as f:
+    def create(scenario_name: string, folder_scenario: string = None) -> Arena:
+        path = (f'scenario/' if folder_scenario is None else f'{folder_scenario}/') + f'{scenario_name}.yaml'
+        with open(path) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         return Arena(

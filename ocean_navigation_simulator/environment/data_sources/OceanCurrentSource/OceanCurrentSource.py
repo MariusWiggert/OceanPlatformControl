@@ -155,8 +155,13 @@ class ForecastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'],
-                                          currents=source_config_dict['source_settings'].get('currents', 'normal'))
+        folders = source_config_dict['source_settings']['folder']
+        self.files_dicts = []
+        if type(folders) != list:
+            list(folders)
+        for folder in folders:
+            self.files_dicts += get_file_dicts(folder,
+                                               currents=source_config_dict['source_settings'].get('currents', 'normal'))
 
         # Step 2: derive the time coverage and grid_dict for from the first file
         self.t_forecast_coverage = [
@@ -236,11 +241,16 @@ class HindcastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        if "currents" in source_config_dict['source_settings']:
-            self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'],
-                                              currents=source_config_dict['source_settings']['currents'])
-        else:
-            self.files_dicts = get_file_dicts(source_config_dict['source_settings']['folder'])
+        folders = source_config_dict['source_settings']['folder']
+        self.files_dicts = []
+        if type(folders) != list:
+            list(folders)
+        for folder in folders:
+            if "currents" in source_config_dict['source_settings']:
+                self.files_dicts += get_file_dicts(folder,
+                                                   currents=source_config_dict['source_settings']['currents'])
+            else:
+                self.files_dicts += get_file_dicts(folder)
 
         # Step 2: open the respective file as multi dataset
         self.DataArray = xr.open_mfdataset([h_dict['file'] for h_dict in self.files_dicts]).isel(depth=0)
