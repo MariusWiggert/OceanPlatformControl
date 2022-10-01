@@ -137,7 +137,7 @@ class Platform:
             if solar_change:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
-            print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
+            # print(f'Update Casadi + Dynamics: {time.time() - start:.2f}s')
 
     def get_casadi_dynamics(self):
         # TODO: split up in three functions with varying level of complexities: 1) lat, lon, 2) adding battery, 3) adding seaweed mass

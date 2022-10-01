@@ -17,17 +17,17 @@ experiment_runner:
   number_steps_prediction: 96
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
-  radius_area_around_platform: 0.25
-  number_steps_to_predict: 12
-  gt_additional_area: 0.2
+  radius_area_around_platform: 0.5
+  number_steps_to_predict: 24
+  gt_additional_area: 0.1
   gt_additional_time: 3600
 
   use_real_data: True
-  scenario_used: "gm_GP_025_12"
+  scenario_used: "gm_GP_05_24"
   folder_scenario: "./ablation_study/configs_GP"
 
 observer:
-  life_span_observations_in_sec: 100000
+  life_span_observations_in_sec: 100000 # 12 * 3600
 
   model:
 

@@ -414,7 +414,7 @@ class ExperimentRunner:
                                     gp_outputs=list_gp_output, NN_outputs=list_NN_output)
 
     def run_all_problems(self, max_number_problems_to_run=None,
-                         compute_for_all_radius_and_lag=False) -> Tuple[
+                         compute_for_all_radius_and_lag=False, create_plots=False) -> Tuple[
         List[Dict[str, any]], List[Dict[str, any]], Dict[str, any], Dict[str, list]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
         provide the metrics computed for each problem
@@ -434,8 +434,7 @@ class ExperimentRunner:
             try:
                 print(f"Problem no:{i}/{max_number_problems_to_run}")
                 i += 1
-                res_tuple = self.run_next_problem(
-                    compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
+                res_tuple = self.run_next_problem(compute_for_all_radius_and_lag=compute_for_all_radius_and_lag)
                 if compute_for_all_radius_and_lag:
                     res, res_per_h, res_grid_dict = res_tuple
                     for key, val in res_grid_dict.items():
@@ -444,7 +443,8 @@ class ExperimentRunner:
                     res, res_per_h = res_tuple
                 results.append(res)
                 results_per_h.append(res_per_h)
-                self.__create_plots(results[-1], results_per_h[-1])
+                if create_plots:
+                    self.__create_plots(results[-1], results_per_h[-1])
             except OutOfGridError:
                 print(f"Problem {i} skipped, was too close of the area boundaries.")
             except ValueError as e:
@@ -453,7 +453,7 @@ class ExperimentRunner:
         # reformat the results
         merged = defaultdict(list)
         for key in results[-1].keys():
-            merged[key] = [r[key].mean() for r in results]
+            merged[key] = np.array([np.nanmean(np.array(r[key])) for r in results if key in r])
         for key in results_per_h[-1].keys():
             if key == "time":
                 continue
@@ -515,8 +515,8 @@ class ExperimentRunner:
         i = 0
         try:
             for i in range(self.variables["number_steps_prediction"]):
-                if i % 20 == 0:
-                    print(f"step:{i}/{self.variables['number_steps_prediction']}")
+                # if i % 20 == 0:
+                #    print(f"step:{i}/{self.variables['number_steps_prediction']}")
 
                 model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
 
@@ -571,6 +571,7 @@ class ExperimentRunner:
                     # add the metric computed to the list of the corresponding metric list from the dictionary
                     if not len(metrics_names):
                         metrics_names = ["time", "mean_magnitude_forecast"] + list(metric.keys())
+                    # add the time and mean magnitude to the metrics list
                     metrics.append(np.insert(np.fromiter(metric.values(), dtype=float), 0, np.array(
                         [self.last_observation.platform_state.date_time.timestamp(),
                          (np.array(self.last_prediction_ground_truth.initial_forecast ** 2).sum(
@@ -584,8 +585,12 @@ class ExperimentRunner:
             else:
                 metrics = np.array(metrics)
                 metrics_per_h = np.array(metrics_per_h)
-                res0, res1 = {name: metrics[:, i] for i, name in enumerate(metrics_names)}, \
-                             {name: metrics_per_h[:, i, :] for i, name in enumerate(metrics_per_h_names)}
+                if metrics.ndim == 1:
+                    res0 = {name: np.array([m[i] for m in metrics if len(m) > 2]) for i, name in
+                            enumerate(metrics_names)}
+                else:
+                    res0 = {name: metrics[:, i] for i, name in enumerate(metrics_names)}
+                res1 = {name: metrics_per_h[:, i, :] for i, name in enumerate(metrics_per_h_names)}
                 if compute_for_all_radius_and_lag:
                     for key in metric_grids.keys():
                         d1 = min([a.shape[0] for a in metric_grids[key]])

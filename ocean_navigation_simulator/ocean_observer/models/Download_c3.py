@@ -32,8 +32,8 @@ class C3Downloader:
             username='killian.kaempf@berkeley.edu',
         )
         self.c3 = c3.get_c3()
-        self.data_dir_fc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/fc")
-        self.data_dir_hc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/hc")
+        self.data_dir_fc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/fc_2")
+        self.data_dir_hc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/hc_2")
 
     def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
         """
@@ -120,21 +120,21 @@ if __name__ == "__main__":
     c3_downloader.download_files(files, "june", True)
 
     m = "july"
-    time_interval = [datetime.datetime(2022, 6, 1, 0, 0, 0), datetime.datetime(2022, 7, 1, 0, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, True)
-
-    m = "august"
     time_interval = [datetime.datetime(2022, 7, 1, 0, 0, 0), datetime.datetime(2022, 8, 1, 0, 0, 0)]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
     c3_downloader.download_files(files, m, False)
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
     c3_downloader.download_files(files, m, True)
 
+    m = "august"
+    time_interval = [datetime.datetime(2022, 8, 1, 0, 0, 0), datetime.datetime(2022, 9, 1, 0, 0, 0)]
+    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
+    c3_downloader.download_files(files, m, False)
+    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
+    c3_downloader.download_files(files, m, True)
+
     m = "september"
-    time_interval = [datetime.datetime(2022, 8, 1, 0, 0, 0), datetime.datetime(2022, 8, 16, 0, 0, 0)]
+    time_interval = [datetime.datetime(2022, 9, 1, 0, 0, 0), datetime.datetime(2022, 9, 16, 0, 0, 0)]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
     c3_downloader.download_files(files, m, False)
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)

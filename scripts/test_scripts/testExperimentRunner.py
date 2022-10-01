@@ -12,6 +12,7 @@ import yaml
 from matplotlib import pyplot as plt
 from npy_append_array import NpyAppendArray
 from ray import tune
+from ray.air import session
 # from ray.tune.suggest.bayesopt import BayesOptSearch
 from ray.tune.search.bayesopt import BayesOptSearch
 
@@ -75,7 +76,7 @@ def conditional_parameters(str_accepted: list[str], to_return, is_kernel_1: bool
 
 
 # Matern search space
-
+current_dir = os.getcwd()
 search_space_bayes = {
     "sigma_exp": (0.00001, 10),
     "latitude": (1e-2, 5),
@@ -83,12 +84,17 @@ search_space_bayes = {
     "time": (7200, 43200)
 }
 
+search_space_without_bayes = {
+    "sigma_exp": .5,
+    "latitude": .22,
+    "longitude": .44,  # tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
+    "time": 5700
+}
+
 search_space = {
-    "filename_problems": "4000_problems_to_mid_august_1",
-    "filename_config": "config_GP_025_12",
     "folder_problems": "ablation_study/problems/",
     "folder_config": "ablation_study/configs_GP/",
-    "max_problems": 2,
+    # "max_problems": 120,
     # product and sum are not supported yet
     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
     "kernel": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
@@ -180,7 +186,7 @@ def write_row_csv(path, row):
     f.close()
 
 
-def train(config_from_bayes=None, filename_problems=None):
+def train(config_from_bayes=None):
     # Create a file for the log of all the results
     print("CONFIG INIT:", config_from_bayes)
     # Copy the bayes parameter to the full dict
@@ -195,11 +201,11 @@ def train(config_from_bayes=None, filename_problems=None):
     max_problems = full_dict.pop("max_problems", None)
     folder_problems = full_dict.pop("folder_problems", "scenarios/ocean_observer/")
     folder_config = full_dict.pop("folder_config", "scenarios/ocean_observer/")
-    file_csv = os.path.join(f"./ablation_study/results_grids/", f"results_{filename}.csv")
+    file_csv = os.path.join(f"./ablation_study/results_grids/", f"results_{filename}_{filename_problems}.csv")
     print("path file:", file_csv)
 
-    # os.chdir("/Users/fedosha/polybox/semester4/codebase/OceanPlatformControl/")
-    os.chdir("/home/killian2k/seaweed/OceanPlatformControl")
+    os.chdir(current_dir)
+    # os.chdir("/home/killian2k/seaweed/OceanPlatformControl")
     if full_dict is not None:
         if "num_threads" in full_dict:
             torch.set_num_threads(full_dict.pop("num_threads"))
@@ -260,12 +266,11 @@ def train(config_from_bayes=None, filename_problems=None):
         exp = ExperimentRunner(config_yaml, filename_problems=filename_problems, folder_problems=folder_problems,
                                folder_config_file=folder_config)
         results, results_per_h, merged, _ = exp.run_all_problems(max_number_problems_to_run=max_problems)
-
         # Save the results in the csv file
         merged_mean = {}
         for k in merged.keys():
             if k != "time":
-                merged_mean["mean_" + str(k)] = np.array(merged[k]).mean()
+                merged_mean["mean_" + str(k)] = np.nanmean(merged[k])
         merged_mean |= merged
         merged_mean = {"kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
                        "kernel_2": str(
@@ -276,29 +281,50 @@ def train(config_from_bayes=None, filename_problems=None):
 
         # print({"avg": np.array([r["vme_improved"] for r in results]).mean()})
         # tune.report(score=np.array([r["vme_improved"] for r in results]).mean())
-        tune.report(r2=np.array([r["r2"] for r in results]).mean())
-        tune.report(vme_improved=np.array([r["vme_improved"] for r in results]).mean())
-        tune.report(rmse_improved=np.array([r["rmse_improved"] for r in results]).mean())
-        tune.report(ratio_per_tile=np.array([r["ratio_per_tile"] for r in results]).mean())
+        print("R2:", np.nanmean(np.hstack([r["r2"] for r in results])))
+        session.report({"r2": np.nanmean(np.hstack([r["r2"] for r in results])),
+                        "vme_improved": np.nanmean(np.hstack([r["vme_improved"] for r in results])),
+                        "rmse_improved": np.nanmean(np.hstack([r["rmse_improved"] for r in results])),
+                        "ratio_per_tile": np.nanmean(np.hstack([r["ratio_per_tile"] for r in results]))})
 
     # variables = config["experiment_runner"]
 
 
-def run_ray_tune_GP_grid(num_samples=500, bayes=False):
+def train_without_tune(filename_problem, filename_config, num_samples=500, problems_per_sample=120, research_state=1,
+                       bayes=False,
+                       random_search_space=40):
+    search_space["max_problems"] = problems_per_sample
+    search_space["filename_problems"] = filename_problem
+    search_space["filename_config"] = filename_config
+    train(search_space_without_bayes)
+
+
+def run_ray_tune_GP_grid(filename_problem, filename_config, num_samples=500, problems_per_sample=120, research_state=1,
+                         bayes=False,
+                         random_search_space=40, ):
     # import ray
     # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
     # res = tune.run(train, config=search_space, num_samples=num_samples)
     # return res.get_best_config(metric="r2_avg", mode="max")
     # return res.get_best_config(metric="avg", mode="min")
     if bayes:
+        search_space["max_problems"] = problems_per_sample
+        search_space["filename_problems"] = filename_problem
+        search_space["filename_config"] = filename_config
+
         bayesopt = BayesOptSearch(space=search_space_bayes,
                                   metric="r2", mode="max",
-                                  random_state=1,
-                                  random_search_steps=30)
+                                  random_state=research_state,
+                                  random_search_steps=random_search_space)
         tuner = tune.Tuner(train, tune_config=tune.TuneConfig(
             search_alg=bayesopt,
+            num_samples=num_samples
         ))
-        tuner.fit()
+        try:
+            tuner.fit()
+        finally:
+            bayesopt.save(
+                f"ablation_study/checkpoints/GP_grid_{num_samples}_{problems_per_sample}_{research_state}.pkl")
     else:
         res = tune.run(train, config=search_space, num_samples=num_samples)
         # return res.get_best_config(metric="r2_avg", mode="max")
@@ -506,8 +532,32 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
 if __name__ == "__main__":
     print("arguments: ", sys.argv)
     parser = argparse.ArgumentParser(description='Process the arguments.')
-    if not {"-R", "--remote"}.isdisjoint(sys.argv):
-        run_ray_tune_GP_grid(num_samples=5000, bayes=True)
+    if not {"-R", "--run-grid"}.isdisjoint(sys.argv):
+        parser.add_argument('-R', "--run-grid", action='store_true', help='run the grid.')
+        parser.add_argument('--num-samples', type=int)
+        parser.add_argument('--problems-per-sample', type=int)
+        parser.add_argument('--research-state', type=int, default=1)
+        parser.add_argument('--random-search-space', type=int)
+        parser.add_argument('--filename-problem', type=str)
+        parser.add_argument('--filename-config', type=str)
+        args = parser.parse_args()
+        run_ray_tune_GP_grid(args.filename_problem, args.filename_config, num_samples=args.num_samples,
+                             problems_per_sample=args.problems_per_sample,
+                             research_state=args.research_state, bayes=True,
+                             random_search_space=args.random_search_space)
+    elif not {"-D", "--debug"}.isdisjoint(sys.argv):
+        parser.add_argument('-D', "--debug", action='store_true', help='run the grid.')
+        parser.add_argument('--num-samples', type=int)
+        parser.add_argument('--problems-per-sample', type=int)
+        parser.add_argument('--research-state', type=int, default=1)
+        parser.add_argument('--random-search-space', type=int)
+        parser.add_argument('--filename-problem', type=str)
+        parser.add_argument('--filename-config', type=str)
+        args = parser.parse_args()
+        train_without_tune(args.filename_problem, args.filename_config, num_samples=args.num_samples,
+                           problems_per_sample=args.problems_per_sample,
+                           research_state=args.research_state, bayes=True,
+                           random_search_space=args.random_search_space)
     elif not {"-V", "--visualize"}.isdisjoint(sys.argv):
         run_experiments_and_visualize_area(1)
     elif not {"-N", "--noise"}.isdisjoint(sys.argv):

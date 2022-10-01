@@ -157,9 +157,10 @@ def ratio_per_tile(ground_truth: ndarray, improved_predictions: ndarray, initial
         """
     if per_hour:
         UserWarning("Per hour not implemented by ratio per tile.")
-    axis_current = -1
-    ratios = ((ground_truth - improved_predictions) ** 2).sum(axis=axis_current) / \
-             (((ground_truth - initial_predictions) ** 2).sum(axis=axis_current) + sigma_square_division)
+    axis_current = 2
+    axis_space = 1
+    ratios = ((ground_truth - improved_predictions) ** 2).sum(axis=(axis_current, axis_space)) / \
+             (((ground_truth - initial_predictions) ** 2).sum(axis=(axis_current, axis_space)) + sigma_square_division)
     return {"ratio_per_tile": np.nanmean(ratios)}
 
 

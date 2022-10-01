@@ -19,7 +19,7 @@ ocean_dict:
     source: 'hindcast_files'
     source_settings:
       'folder':
-        #- 'data_ablation_study/hc/april'
+        #- 'data_ablation_study/hc/april/'
         - 'data_ablation_study/hc/may/'
         - 'data_ablation_study/hc/june/'
         - 'data_ablation_study/hc/april/'
