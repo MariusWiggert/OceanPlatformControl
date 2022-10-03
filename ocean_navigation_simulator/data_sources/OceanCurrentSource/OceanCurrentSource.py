@@ -312,10 +312,8 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 class LongTermAverageSource(OceanCurrentSource): # figure out inheritance 
     def __init__(self, source_config_dict: dict):
-        print("++++++")
-        print(source_config_dict)
-        self.forecast_data_source = ForecastFileSource(source_config_dict['forecast_dict']) 
-        self.monthly_avg_data_source = HindcastFileSource(source_config_dict['monthly_avg_dict']) # defaults currents to normal 
+        self.forecast_data_source = ForecastFileSource(source_config_dict['forecast']) 
+        self.monthly_avg_data_source = HindcastFileSource(source_config_dict['monthly_avg']) # defaults currents to normal 
         self.source_config_dict = source_config_dict
         # self.t_0 = source_config_dict['t0'] # not sure what to do here 
 
@@ -355,7 +353,7 @@ def get_file_dicts(folder: AnyStr, currents='normal') -> List[dict]:
     {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
     """
     # get a list of files from the folder
-    files_list = [folder + f for f in os.listdir(folder) if
+    files_list = [folder + '/' + f for f in os.listdir(folder) if
                   (os.path.isfile(os.path.join(folder, f)) and f != '.DS_Store')]
 
     # iterate over all files to extract the grids and put them in an ordered list of dicts
