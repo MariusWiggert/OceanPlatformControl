@@ -1,4 +1,5 @@
 import datetime
+from multiprocessing.sharedctypes import Value
 import os
 from typing import List, AnyStr, Optional, Union
 import logging
@@ -45,7 +46,6 @@ class OceanCurrentSource(DataSource):
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
         """
-
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
 
@@ -312,8 +312,9 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 class LongTermAverageSource(OceanCurrentSource): # figure out inheritance 
     def __init__(self, source_config_dict: dict):
-        self.forecast_data_source = ForecastFileSource(source_config_dict['forecast']) 
-        self.monthly_avg_data_source = HindcastFileSource(source_config_dict['monthly_avg']) # defaults currents to normal 
+        self.u_curr_func, self.v_curr_func = [None] * 2
+        self.forecast_data_source = ForecastFileSource(source_config_dict['source_settings']['forecast']) 
+        self.monthly_avg_data_source = HindcastFileSource(source_config_dict['source_settings']['average']) # defaults currents to normal 
         self.source_config_dict = source_config_dict
         # self.t_0 = source_config_dict['t0'] # not sure what to do here 
 
@@ -323,14 +324,20 @@ class LongTermAverageSource(OceanCurrentSource): # figure out inheritance
                         temporal_resolution: Optional[float] = None) -> xr:
         # Query as much forecast data as is possible 
         print("T_INTERVAL: " + str(t_interval))
-        forecast_dataframe = self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
-        # last_time = forecast_dataframe["time"].resample(how="last")
-        # print("301")
-        # print(last_time)
-        remaining_t_interval = [get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1]), t_interval[1]] # may not work 
+        try: 
+            forecast_dataframe = self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
+            end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
+        except ValueError: 
+            monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
+            return monthly_average_dataframe
+
+
+        if end_forecast_time >= t_interval[1]: 
+            return forecast_dataframe
+        
+        remaining_t_interval = [end_forecast_time, t_interval[1]] # may not work 
         print("REMAINING T INTERVAL: " + str(remaining_t_interval))
         monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, remaining_t_interval, spatial_resolution, temporal_resolution)
-
         return xr.concat([forecast_dataframe, monthly_average_dataframe], dim="time")
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:

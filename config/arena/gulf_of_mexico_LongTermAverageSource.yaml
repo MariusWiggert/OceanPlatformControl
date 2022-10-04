@@ -23,20 +23,25 @@ ocean_dict:
             folder: "data/hindcast_test"
             source: "HYCOM"
             type: "hindcast"
+   
     forecast:
-        field: 'OceanCurrents'
-        source: 'forecast_files'
-        source_settings:
-            folder: "data/forecast_test"
-            source: "HYCOM"
-            type: "forecast"
-    monthly_avg:
         field: 'OceanCurrents'
         source: 'longterm_average'
         source_settings:
-            folder: "data/monthly_average"
-            source: "HYCOM"
-            type: "hindcast"
+          forecast:
+            field: 'OceanCurrents'
+            source: 'forecast_files'
+            source_settings:
+              folder: "data/forecast_test"
+              source: "HYCOM"
+              type: "forecast"
+          average:
+            field: 'OceanCurrents'
+            source: 'longterm_average'
+            source_settings:
+              folder: "data/monthly_average"
+              source: "HYCOM"
+              type: "average"
 
 solar_dict:
     hindcast: null
