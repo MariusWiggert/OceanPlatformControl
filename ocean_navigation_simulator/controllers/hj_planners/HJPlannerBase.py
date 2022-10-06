@@ -835,7 +835,7 @@ class HJPlannerBase(Controller):
 
     def set_interpolator(self):
         ttr_values = (self.all_values - self.all_values.min(axis=(1,2))[:,None,None])
-        ttr_values = ttr_values / np.abs(self.all_values.min()) * (self.reach_times[-1] - self.reach_times[0]) / 3600
+        ttr_values = ttr_values / np.abs(self.all_values.min()) * np.abs(self.reach_times[-1] - self.reach_times[0]) / 3600
 
         self.interpolator = scipy.interpolate.RegularGridInterpolator(
             points=(self.current_data_t_0 + self.reach_times, self.grid.states[:, 0, 0], self.grid.states[0, :, 1]),
@@ -870,7 +870,6 @@ class HJPlannerBase(Controller):
                 raise
         except:
             raise
-
 
     def sample_from_reachable_coordinates(
         self,

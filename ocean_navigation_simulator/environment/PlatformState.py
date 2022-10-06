@@ -19,6 +19,13 @@ class SpatialPoint:
     lon: units.Distance
     lat: units.Distance
 
+    # https://www.movable-type.co.uk/scripts/latlong.html
+    def distance(self, other) -> float:
+        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
+
+    def angle(self, other) -> float:
+        return math.atan2(self.lon.deg-other.lon.deg, self.lat.deg - other.lat.deg)
+
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])
 
@@ -27,9 +34,6 @@ class SpatialPoint:
 
     def __getitem__(self, item):
         return self.__array__()[item]
-
-    def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
 
     def __repr__(self):
         return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°]"
@@ -59,6 +63,9 @@ class SpatioTemporalPoint:
         return self.__array__()[item]
 
     def distance(self, other) -> float:
+        return self.to_spatial_point().distance(other)
+
+    def angle(self, other) -> float:
         return self.to_spatial_point().distance(other)
 
     def to_spatial_point(self) -> SpatialPoint:

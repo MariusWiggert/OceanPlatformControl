@@ -50,8 +50,8 @@ class Utils:
     {gpu_available}/{gpu_total} GPU resources available''')
 
     @staticmethod
-    def ray_down():
-        os.system('ray down setup/ray-config-cpu.yaml')
+    def destroy_cluster():
+        os.system('ray down -y setup/ray-config.yaml')
 
     @staticmethod
     def clean_results(

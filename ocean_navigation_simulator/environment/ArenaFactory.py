@@ -2,6 +2,7 @@ import yaml
 import os
 import datetime
 from typing import Optional, List
+import mergedeep
 
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
@@ -14,6 +15,7 @@ class ArenaFactory:
     @staticmethod
     def create(
         scenario_name: str,
+        scenario_config: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,
         points: Optional[List[SpatialPoint]] = None,
         x_interval: Optional[List[units.Distance]] = None,
@@ -25,6 +27,8 @@ class ArenaFactory:
             # Step 1: Load Configuration
             with open(f'config/arena/{scenario_name}.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
+                # https://mergedeep.readthedocs.io/en/latest/
+                mergedeep.merge(config, scenario_config)
 
             # Step 2: Add Spatial Boundary
             if x_interval is not None and y_interval is not None:

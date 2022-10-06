@@ -12,7 +12,7 @@ import time
 
 
 from ocean_navigation_simulator.environment.Platform import Platform, PlatformAction
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
+from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState, SpatioTemporalPoint
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents import OceanCurrentSourceAnalytical
@@ -33,6 +33,19 @@ class ArenaObservation:
     platform_state: PlatformState                       # position, time, battery
     true_current_at_state: OceanCurrentVector           # measured current at platform_state
     forecast_data_source: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]            # Data Source of the forecast
+
+    def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
+        return ArenaObservation(
+            platform_state=PlatformState(
+                lon=point.lon,
+                lat=point.lat,
+                date_time=point.date_time,
+                battery_charge=self.platform_state.battery_charge,
+                seaweed_mass=self.platform_state.seaweed_mass,
+            ),
+            true_current_at_state=self.true_current_at_state,
+            forecast_data_source=self.forecast_data_source
+        )
 
     def replace_datasource(self, datasource: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]):
         return ArenaObservation(

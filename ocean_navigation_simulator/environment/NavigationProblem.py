@@ -27,6 +27,9 @@ class NavigationProblem(Problem):
     def distance(self, state: PlatformState) -> float:
         return self.end_region.distance(state.to_spatial_point())
 
+    def angle(self, state: PlatformState) -> float:
+        return self.end_region.angle(state.to_spatial_point())
+
     def is_done(self, state: PlatformState) -> int:
         if self.passed_seconds(state) >= self.timeout.total_seconds():
             return -1
