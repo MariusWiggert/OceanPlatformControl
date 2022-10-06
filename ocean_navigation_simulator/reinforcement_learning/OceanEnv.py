@@ -1,6 +1,3 @@
-# import warnings
-# warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 import os
 import pickle
 import time
@@ -11,6 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import gym
 import psutil
+import random
+import tensorflow as tf
+import torch
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
@@ -35,28 +35,39 @@ class OceanEnv(gym.Env):
 
     def __init__(
         self,
+        config: dict,
+        feature_constructor_config: dict,
+        reward_function_config: dict,
         worker_index: Optional[int] = 0,
-        config: Optional[dict] = {},
         verbose: Optional[int] = 0,
     ):
         with Utils.timing(f'OceanEnv[Worker {worker_index}]: Created ({{:.1f}}s)', verbose):
-            self.worker_index = worker_index
             self.config = config
+            self.feature_constructor_config = feature_constructor_config
+            self.reward_function_config = reward_function_config
+            self.worker_index = worker_index
             self.verbose = verbose
+
             self.private_ip = socket.gethostbyname(socket.gethostname())
-            self.results_folder = f'{self.config["experiments_folder"]}/workers/worker {worker_index} ({self.private_ip})/'
+            self.results_folder = f'{self.config["experiment_folder"]}/workers/worker {worker_index} ({self.private_ip})/'
             self.steps = None
             self.resets = 0
 
             self.random = np.random.default_rng(self.worker_index)
+            tf.random.set_seed(self.worker_index)
+            np.random.seed(self.worker_index)
+            random.seed(self.worker_index)
+            torch.manual_seed(self.worker_index)
+
             self.action_space = gym.spaces.Discrete(self.config['actions'])
-            self.observation_space = OceanFeatureConstructor.get_observation_space(self.config['feature_constructor_config'])
-            self.reward_range = OceanRewardFunction.get_reward_range(self.config['reward_function_config'])
+            self.observation_space = OceanFeatureConstructor.get_observation_space(self.feature_constructor_config)
+            self.reward_range = OceanRewardFunction.get_reward_range(self.reward_function_config)
             self.problem_factory = FileMissionProblemFactory(seed=self.worker_index, csv_file=f'{self.config["generation_folder"]}problems.csv')
             with open(f'{self.config["generation_folder"]}config.pickle', 'rb') as file:
                 self.problem_config = pickle.load(file)
             self.arena = ArenaFactory.create(
                 scenario_name=self.config['scenario_name'],
+                scenario_config=self.config['scenario_config'],
                 x_interval=self.problem_config['x_range'],
                 y_interval=self.problem_config['y_range'],
                 t_interval=self.problem_config['t_range'],
@@ -75,6 +86,9 @@ class OceanEnv(gym.Env):
             self.hindcast_planner = HJReach2DPlanner.from_plan(
                 folder=f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
                 problem=self.problem,
+                specific_settings={
+                    'save_after_planning': False,
+                },
                 verbose=self.verbose-1,
             )
             self.forecast_planner = HJReach2DPlanner.from_plan(
@@ -83,18 +97,20 @@ class OceanEnv(gym.Env):
                 specific_settings={
                     'load_plan': True,
                     'planner_path': f'{self.config["generation_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
+                    'save_after_planning': False,
                 },
                 verbose=self.verbose-1,
             )
             self.feature_constructor = OceanFeatureConstructor(
                 forecast_planner=self.forecast_planner,
                 hindcast_planner=self.hindcast_planner,
-                config=self.config['feature_constructor_config'],
+                config=self.feature_constructor_config,
                 verbose=self.verbose-1
             )
             self.reward_function = OceanRewardFunction(
+                forecast_planner=self.forecast_planner,
                 hindcast_planner=self.hindcast_planner,
-                config=self.config['reward_function_config'],
+                config=self.reward_function_config,
                 verbose=self.verbose-1
             )
             if self.config['fake'] == 'naive':
@@ -122,26 +138,26 @@ class OceanEnv(gym.Env):
 
         self.steps += 1
 
-        if self.config['fake'] == 'random':
-            platform_action = PlatformAction(magnitude=1, direction=self.random.integers(self.config['actions']) * 2 * np.pi / self.config['actions'])
-        elif self.config['fake'] == 'naive':
-            platform_action = self.naive_controller.get_action(observation=self.prev_obs)
-        elif self.config['fake'] == 'hj_planner_forecast':
-            platform_action = self.forecast_planner.get_action(observation=self.prev_obs)
-        elif self.config['fake'] == 'hj_planner_hindcast':
-            # Hindcast Planner needs to receive hindcast datasource
-            platform_action = self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
-        elif isinstance(action, np.ndarray):
-            platform_action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
-        elif isinstance(action, PlatformAction):
-            platform_action = action
-        else:
-            platform_action = PlatformAction(magnitude=1, direction=action * 2 * np.pi / self.config['actions'])
-
         for i in range(self.config['arena_steps_per_env_step']):
+            if self.config['fake'] == 'random':
+                platform_action = PlatformAction(magnitude=1, direction=self.random.integers(self.config['actions']) * 2 * np.pi / self.config['actions'])
+            elif self.config['fake'] == 'naive':
+                platform_action = self.naive_controller.get_action(observation=self.prev_obs)
+            elif self.config['fake'] == 'hj_planner_forecast':
+                platform_action = self.forecast_planner.get_action(observation=self.prev_obs)
+            elif self.config['fake'] == 'hj_planner_hindcast':
+                # Hindcast Planner needs to receive hindcast datasource
+                platform_action = self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
+            elif isinstance(action, np.ndarray):
+                platform_action = PlatformAction(magnitude=1, direction=action[0] * 2 * np.pi / self.config['actions'])
+            elif isinstance(action, PlatformAction):
+                platform_action = action
+            else:
+                platform_action = PlatformAction(magnitude=1, direction=action * 2 * np.pi / self.config['actions'])
+
             observation = self.arena.step(platform_action)
 
-        problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.config['feature_constructor_config']['map']['xy_width_degree']/2)
+        problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.feature_constructor_config['local_map']['xy_width_degree']/2)
         done = problem_status != 0
         features = self.feature_constructor.get_features_from_state(
             fc_obs=(observation if not done else self.prev_obs),
@@ -150,8 +166,10 @@ class OceanEnv(gym.Env):
         )
         reward = self.reward_function.get_reward(
             # Hindcast Planner needs to receive hindcast datasource
-            prev_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
-            curr_obs=(observation if not done else self.prev_obs).replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            prev_fc_obs=self.prev_obs,
+            curr_fc_obs=(observation if not done else self.prev_obs),
+            prev_hc_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            curr_hc_obs=(observation if not done else self.prev_obs).replace_datasource(self.arena.ocean_field.hindcast_data_source),
             problem=self.problem,
             problem_status=problem_status
         )
@@ -162,7 +180,7 @@ class OceanEnv(gym.Env):
                 render_start = time.time()
                 if self.config['render']:
                     self.render()
-                print("OceanEnv[Worker {w}, Reset {r}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}) (step Ø: {stt:.1f}ms, episode: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
+                print("OceanEnv[Worker {w}, Reset {r}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}, TTR Start: {ttrs:.1f}h) (step Ø: {stt:.1f}ms, episode: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
                     w=self.worker_index,
                     r=self.resets,
                     g=self.problem.extra_info["group"],
@@ -173,6 +191,10 @@ class OceanEnv(gym.Env):
                     t=self.problem.passed_seconds(observation.platform_state) / 3600,
                     rew=sum(self.rewards),
                     ttr=self.hindcast_planner.interpolate_value_function_in_hours(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source)),
+                    ttrs=self.hindcast_planner.interpolate_value_function_in_hours(
+                        observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source).replace_spatio_temporal_point(self.problem.start_state.to_spatio_temporal_point())
+                    ),
+                    opt=self.problem.extra_info['optimal_time_in_h'],
                     stt=1000 * (time.time() - self.reset_start_time) / self.steps,
                     ep=time.time() - self.reset_start_time,
                     res=self.reset_end_time - self.reset_start_time,

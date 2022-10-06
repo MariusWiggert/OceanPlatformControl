@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="6"
+VERSION="5"
 
 if [ -f "env_$VERSION" ]; then
     echo -e "\033[0;32mOcean Platform Environment Version $VERSION already installed\033[0m"
