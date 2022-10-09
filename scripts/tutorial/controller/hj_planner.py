@@ -43,7 +43,7 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.forecast_data_source.convert_
     x_T=x_T, deg_around_x0_xT_box=1,
     temp_horizon_in_s=3600)
 
-# x_0.date_time = 2021-11-24 12:00:00+00:00 -> should just plot the forecast stuff 
+# # x_0.date_time = 2021-11-24 12:00:00+00:00 -> should just plot the forecast stuff 
 time_forecast = datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc)
 ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
     time=time_forecast, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True)
@@ -57,6 +57,7 @@ problem.plot(ax=ax)
 plt.show()
 
 d = arena.ocean_field.forecast_data_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds, t_interval=[time_forecast, time_average])
+print(d)
 # %% Instantiate the HJ Planner
 # specific_settings = {
 #     'replan_on_new_fmrc': True,

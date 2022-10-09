@@ -323,7 +323,6 @@ class LongTermAverageSource(OceanCurrentSource): # figure out inheritance
                         spatial_resolution: Optional[float] = None,
                         temporal_resolution: Optional[float] = None) -> xr:
         # Query as much forecast data as is possible 
-        print("T_INTERVAL: " + str(t_interval))
         try: 
             forecast_dataframe = self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
             end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
@@ -336,7 +335,6 @@ class LongTermAverageSource(OceanCurrentSource): # figure out inheritance
             return forecast_dataframe
         
         remaining_t_interval = [end_forecast_time, t_interval[1]] # may not work 
-        print("REMAINING T INTERVAL: " + str(remaining_t_interval))
         monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, remaining_t_interval, spatial_resolution, temporal_resolution)
         return xr.concat([forecast_dataframe, monthly_average_dataframe], dim="time")
 
