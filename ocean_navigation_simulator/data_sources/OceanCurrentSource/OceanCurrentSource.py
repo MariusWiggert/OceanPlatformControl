@@ -1,7 +1,9 @@
 import datetime
+from multiprocessing.sharedctypes import Value
 import os
 from typing import List, AnyStr, Optional, Union
 import logging
+from calendar import month
 
 import casadi as ca
 import dask.array.core
@@ -44,7 +46,6 @@ class OceanCurrentSource(DataSource):
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
         """
-
         self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
         self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
 
@@ -309,6 +310,46 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
         return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
                                   v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
 
+class LongTermAverageSource(OceanCurrentSource): # figure out inheritance 
+    def __init__(self, source_config_dict: dict):
+        self.u_curr_func, self.v_curr_func = [None] * 2
+        self.forecast_data_source = ForecastFileSource(source_config_dict['source_settings']['forecast']) 
+        self.monthly_avg_data_source = HindcastFileSource(source_config_dict['source_settings']['average']) # defaults currents to normal 
+        self.source_config_dict = source_config_dict
+        # self.t_0 = source_config_dict['t0'] # not sure what to do here 
+
+    def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
+                        t_interval: List[Union[datetime.datetime, int]],
+                        spatial_resolution: Optional[float] = None,
+                        temporal_resolution: Optional[float] = None) -> xr:
+        # Query as much forecast data as is possible 
+        try: 
+            forecast_dataframe = self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
+            end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
+        except ValueError: 
+            monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution)
+            return monthly_average_dataframe
+
+
+        if end_forecast_time >= t_interval[1]: 
+            return forecast_dataframe
+        
+        remaining_t_interval = [end_forecast_time, t_interval[1]] # may not work 
+        monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, remaining_t_interval, spatial_resolution, temporal_resolution)
+        return xr.concat([forecast_dataframe, monthly_average_dataframe], dim="time")
+
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+        """Helper function to check update the self.OceanCurrent if a new forecast is available at
+        the specified input time.
+        Args:
+          time: datetime object
+        """
+        return self.forecast_data_source.check_for_most_recent_fmrc_dataframe(time)
+
+    # Not sure if I can just all this 
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        """We overwrite it because we don't want that Forecast needs caching..."""
+        return self.forecast_data_source.get_data_at_point(spatio_temporal_point==spatio_temporal_point)
 
 # Helper functions across the OceanCurrentSource objects
 def get_file_dicts(folder: AnyStr, currents='normal') -> List[dict]:
@@ -317,7 +358,7 @@ def get_file_dicts(folder: AnyStr, currents='normal') -> List[dict]:
     {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
     """
     # get a list of files from the folder
-    files_list = [folder + f for f in os.listdir(folder) if
+    files_list = [folder + '/' + f for f in os.listdir(folder) if
                   (os.path.isfile(os.path.join(folder, f)) and f != '.DS_Store')]
 
     # iterate over all files to extract the grids and put them in an ordered list of dicts
