@@ -29,6 +29,8 @@ seaborn==0.11.2
 setuptools==65.3.0
 statsmodels==0.13.2
 torch==1.12.0
+torchsummary==1.5.1
+torchinfo==1.7.1
 tqdm==4.64
 xarray==0.21.1
 wandb==0.13.3
