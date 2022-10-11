@@ -64,7 +64,7 @@ class NavigationProblem(Problem):
             timeout=datetime.timedelta(hours=mission['timeout_in_h']),
             x_range=[units.Distance(deg=mission['x_range_l']), units.Distance(deg=mission['x_range_h'])] if 'x_range_l' in mission else None,
             y_range=[units.Distance(deg=mission['y_range_l']), units.Distance(deg=mission['y_range_h'])] if 'x_range_h' in mission else None,
-            extra_info=mission.to_dict(),
+            extra_info=mission.to_dict() | {'index': mission.name},
         )
 
     def to_dict(self) -> dict:
