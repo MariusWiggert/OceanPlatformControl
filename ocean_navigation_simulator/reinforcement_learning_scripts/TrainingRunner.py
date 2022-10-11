@@ -8,7 +8,7 @@ import numpy as np
 import pytz
 import ray
 from ray.rllib import RolloutWorker, BaseEnv, Policy
-from ray.rllib.agents.dqn.apex import ApexTrainer
+from ray.rllib.algorithms.apex_dqn import ApexDQN
 from ray.rllib.evaluation import Episode
 from ray.rllib.models import ModelCatalog
 from ray.train import Trainer
@@ -23,6 +23,7 @@ import torchsummary
 from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 from ocean_navigation_simulator.reinforcement_learning.OceanDenseTorchModel import OceanDenseTorchModel
 from ocean_navigation_simulator.reinforcement_learning.OceanDenseTFModel import OceanDenseTFModel
+from ocean_navigation_simulator.reinforcement_learning.OceanEnvFactory import OceanEnvFactory
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 from ocean_navigation_simulator.utils.bcolors import bcolors
 
@@ -47,8 +48,6 @@ class TrainingRunner:
         self.results = []
         self.train_times = []
 
-        Utils.ray_init()
-
         # Step 1: Prepare Paths & Folders
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
         self.config['folders'] = {}
@@ -65,11 +64,7 @@ class TrainingRunner:
         os.makedirs(self.config['folders']['results'])
         os.makedirs(self.config['folders']['checkpoints'])
 
-        # Step 2: Augment Configuration
-        if self.config['environment']['fake']:
-            self.config['algorithm']['explore'] = False
-
-        # Step 3: Start Weights & Biases
+        # Step 2: Start Weights & Biases
         Utils.ensure_storage_connection()
         wandb.tensorboard.patch(
             root_logdir=self.config['folders']['experiment'],
@@ -79,42 +74,39 @@ class TrainingRunner:
             project="RL for underactuated navigation",
             entity="ocean-platform-control",
             dir="/seaweed-storage/",
-            name=f'{self.name}',
+            name=f'{self.name}_{self.timestring}',
             tags=["baseline" if self.config['environment']['fake'] else 'experiment'] + tags,
             config=self.config,
         )
+        with open(f"{self.config['folders']['experiment']}wandb_run_id", 'wt') as f:
+            f.write(wandb.run.id)
 
-        # Step 4: Save configuration & source
+        # Step 3: Save configuration & source
         json.dump(self.config, open(f"{self.config['folders']['config']}config.json", "w"), indent=4)
         wandb.save(f"{self.config['folders']['config']}config.json")
+
         # with zipfile.ZipFile(f'{self.experiment_folder}source.zip', 'w') as file:
         #     file.write('config', 'config')
         #     file.write('ocean_navigation_simulation', 'ocean_navigation_simulation')
         #     file.write('scripts', 'scripts')
         #     file.write('setup', 'setup')
 
+        # Step 4: Fix Seeds
+        np.random.seed(self.config['algorithm']['seed'])
+        random.seed(self.config['algorithm']['seed'])
+        torch.manual_seed(self.config['algorithm']['seed'])
+
         # Step 5: Register Env
-        # env_config: env_config.num_workers, env_config.worker_index, env_config.vector_index, env_config.remote
-        ray.tune.registry.register_env("OceanEnv", lambda env_config: OceanEnv(
+        ray.tune.registry.register_env("OceanEnv", OceanEnvFactory(
             config=self.config['environment'],
             feature_constructor_config=self.config['feature_constructor'],
             reward_function_config=self.config['reward_function'],
             folders=self.config['folders'],
-            worker_index=env_config.worker_index,
-            env_config=env_config,
-            verbose=self.verbose-1
+            empty_env=False,
+            verbose=self.verbose-1,
         ))
 
         # Step 6: Register Model
-        # Documentation:
-        #   https://docs.ray.io/en/latest/rllib/package_ref/models.html
-        #   https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
-        #   https://docs.ray.io/en/latest/rllib/rllib-models.html#custom-models-implementing-your-own-forward-logic
-        # Usage:
-        #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/distributional_q_tf_model.py
-        #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/tf/tf_modelv2.py
-        #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/modelv2.py
-        #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/dqn_tf_policy.py
         if self.config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTFModel':
             ModelCatalog.register_custom_model("OceanDenseTFModel", OceanDenseTFModel)
         elif self.config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTorchModel':
@@ -123,7 +115,7 @@ class TrainingRunner:
         # Step 7: Custom Metric
         # https://docs.ray.io/en/latest/rllib/rllib-training.html#callbacks-and-custom-metrics
         # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
-        class CustomCallback(ray.rllib.agents.callbacks.DefaultCallbacks):
+        class CustomCallback(ray.rllib.algorithms.callbacks.DefaultCallbacks):
             def __init__(self):
                 super().__init__()
                 self.episodes_sampled = 0
@@ -140,32 +132,28 @@ class TrainingRunner:
                 episode.custom_metrics["episode_length"] = info["average_step_time"]
                 # episode.custom_metrics["problem_index"] = info["problem"].extra_info['index']
                 self.episodes_sampled += 1
-            def on_train_result(self, trainer: Trainer, result: dict, **kwargs):
+            def on_train_result(self,*,result: dict, algorithm: Optional["Algorithm"] = None,trainer=None, **kwargs):
                 for k, v in result['custom_metrics'].copy().items():
-                    result['custom_metrics'][f"{k}_min"] = min(v)
-                    result['custom_metrics'][f"{k}_mean"] = sum(v) / len(v)
-                    result['custom_metrics'][f"{k}_max"] = max(v)
+                    if len(v) > 0:
+                        result['custom_metrics'][f"{k}_min"] = min(v)
+                        result['custom_metrics'][f"{k}_mean"] = sum(v) / len(v)
+                        result['custom_metrics'][f"{k}_max"] = max(v)
                 result['custom_metrics']['episodes_sampled'] = self.episodes_sampled
                 self.episodes_sampled = 0
         self.config['algorithm']["callbacks"] = CustomCallback
 
-        # Step 8: Create Agent
+        # Step 7: Create Agent
         if self.config['algorithm_name'] == 'apex-dqn':
-            agent_class = ApexTrainer
+            trainer_class = ApexDQN
         else:
             raise ValueError(f"Algorithm '{self.config['algorithm_name']}' not implemented.")
-        # np.random.seed(self.config['algorithm']['seed'])
-        # random.seed(self.config['algorithm']['seed'])
-        # torch.manual_seed(self.config['algorithm']['seed'])
-        # tf.random.set_seed(self.config['algorithm']['seed'])
-        self.agent = agent_class(self.config['algorithm'], logger_creator=lambda config: UnifiedLogger(config, self.config['folders']['experiment'], loggers=None))
+        self.trainer = trainer_class(self.config['algorithm'], logger_creator=lambda config: UnifiedLogger(config, self.config['folders']['experiment'], loggers=None))
 
         # Step 9: Model & Config Data
-        wandb.config.update({'algorithm_final': self.agent.config})
+        wandb.config.update({'algorithm_final': self.trainer.config})
         with open(f"{self.config['folders']['config']}agent_config_final.json", "wt") as f:
-            pprint.pprint(self.agent.config, stream=f)
+            pprint.pprint(self.trainer.config, stream=f)
         wandb.save(f"{self.config['folders']['config']}agent_config_final.json")
-
 
         if self.config['algorithm']['framework'] == 'torch':
             self.analyze_models_torch()
@@ -173,7 +161,7 @@ class TrainingRunner:
             self.analyze_models_tf()
 
     def analyze_models_torch(self):
-        policy = self.agent.get_policy()
+        policy = self.trainer.get_policy()
         print('Policy Class', policy)
 
         torch_models = {}
@@ -208,7 +196,7 @@ class TrainingRunner:
         wandb.config.update({'trainable_variables': total_trainable_variables})
 
     def analyze_models_tf(self):
-        policy = self.agent.get_policy()
+        policy = self.trainer.get_policy()
         print('Policy Class', policy)
 
         keras_models = {}
@@ -257,7 +245,7 @@ class TrainingRunner:
             for epoch in range(1, epochs + 1):
                 # Step 1: Train epoch
                 train_start = time.time()
-                result = self.agent.train()
+                result = self.trainer.train()
                 self.results.append(result)
                 self.train_times.append(time.time() - train_start)
 
@@ -266,15 +254,15 @@ class TrainingRunner:
 
                 # Step 2: Save checkpoint
                 Utils.ensure_storage_connection()
-                self.agent.save(checkpoint_dir=self.config['folders']['checkpoints'])
-                self.agent.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
-                self.agent.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/", onnx=15)
+                self.trainer.save(checkpoint_dir=self.config['folders']['checkpoints'])
+                # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
+                # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/", onnx=15)
 
                 # Step 3: Print results
                 if self.verbose and not silent:
                     self.print_result(result, epoch, epochs)
 
-                pass
+                # wandb.synch()
         except:
             wandb.finish()
             raise
@@ -283,23 +271,33 @@ class TrainingRunner:
         return self
 
     def print_result(self, result, epoch, epochs):
-        print(f'--------- Epoch {epoch} (Total Env Steps Trained: {result["info"]["num_env_steps_trained"]}, Total Env Steps Sampled: {result["info"]["num_env_steps_sampled"]}) ---------')
+        print(f'--------- Epoch {epoch} ---------')
+
+        print(f'-- Custom Metrics --')
+        for k, v in result['custom_metrics'].items():
+            if 'mean' in k:
+                print(f'{k}: {v:.2f}')
+        print(' ')
 
         print(f'-- Episode Rewards [Min: {result["episode_reward_min"]:.1f}, Mean: {result["episode_reward_mean"]:.2f}, Max: {result["episode_reward_max"]:.1f}]  --')
         print(f'[{", ".join([f"{elem:.1f}" for elem in result["hist_stats"]["episode_reward"][-min(50, result["episodes_this_iter"]):]])}]')
         print(' ')
 
         episodes_this_iteration = result["hist_stats"]["episode_lengths"][-result["episodes_this_iter"]:]
-        print(f'-- Episode Length [Min: {min(episodes_this_iteration):.0f}, Mean: {result["episode_len_mean"]:.1f}, Max: {max(episodes_this_iteration):.0f}] --')
+        print(f'-- Reported Episode Length [Min: {min(episodes_this_iteration):.0f}, Mean: {result["episode_len_mean"]:.1f}, Max: {max(episodes_this_iteration):.0f}] --')
         print(result["hist_stats"]["episode_lengths"][-min(50, result["episodes_this_iter"]):])
-        print(f'Episodes Sampled: {result["episodes_this_iter"]} (Total: {result["episodes_total"]}, custom: {result["custom_metrics"]["episodes_sampled"]})')
-        print(f'Episode Steps Sampled: {sum(episodes_this_iteration)} (Total: {sum(result["hist_stats"]["episode_lengths"])})')
-        print(f'Env Steps Sampled:  {result["num_env_steps_sampled_this_iter"]} (Total: {result["num_env_steps_sampled"]})')
-        print(f'Env Steps Trained:  {result["num_env_steps_trained_this_iter"]} (Total: {result["num_env_steps_trained"]})')
+        print(f'Episodes Sampled: {result["episodes_this_iter"]:,} (Total: {result["episodes_total"]:,}, custom: {result["custom_metrics"]["episodes_sampled"]:,})')
+        print(f'Episode Steps Sampled: {sum(episodes_this_iteration):,} (Total: {sum(result["hist_stats"]["episode_lengths"]):,})')
+        print(' ')
+
+        print(f'-- Enivironment Steps --')
+        print(f'Env Steps Sampled:  {result["num_env_steps_sampled_this_iter"]:,} (Total: {result["num_env_steps_sampled"]:,})')
+        print(f'Env Steps Trained:  {result["num_env_steps_trained_this_iter"]:,} (Total: {result["num_env_steps_trained"]:,})')
         print(' ')
 
         print(f'-- Average Step Time: {sum(result["sampler_perf"].values()):.2f}ms --')
         print(result["sampler_perf"])
+        print(' ')
 
         print('-- Timing --')
-        print(f'Iteration Time: {self.train_times[-1]/60:.2f}min ({epochs * (self.train_times[-1]) / 60:.1f}min for {epochs} epochs, {(epochs - epoch) * (self.train_times[-1]) / 60:.1f}min to go)')
+        print(f'Iteration Time: {self.train_times[-1]/60:.2f}min ({(epochs * (self.train_times[-1])) // 3600}h {((epochs * (self.train_times[-1])) % 3600) / 60:.1f}min for {epochs} epochs, {(epochs - epoch) * (self.train_times[-1]) / 60:.1f}min to go)')

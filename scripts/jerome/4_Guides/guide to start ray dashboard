@@ -1,0 +1,5 @@
+# Revers SHH Port Forwarding
+ssh -i ~/.ssh/azure -L 8265:127.0.0.1:8265 ubuntu@52.142.47.209
+
+
+# visit: http://localhost:8265

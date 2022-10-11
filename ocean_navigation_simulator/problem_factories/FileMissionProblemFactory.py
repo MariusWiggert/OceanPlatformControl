@@ -49,7 +49,7 @@ class FileMissionProblemFactory(ProblemFactory):
             if self.limit is None:
                 available = self.problems_df.shape[0]
             else:
-                available = self.limit
+                available = min(self.limit, self.problems_df.shape[0])
 
             if self.seed is None:
                 self.indexes_available = list(range(available))

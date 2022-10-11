@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import gym
 import numpy as np
@@ -84,12 +84,17 @@ class  OceanFeatureConstructor(FeatureConstructor):
             dtype='float32',
         )
 
+    @staticmethod
+    def get_empty_features(self, config):
+        shape = self.get_map_space_from_config(config).shape
+        pass
+
     def get_features_from_state(
         self,
         fc_obs: ArenaObservation,
         hc_obs: ArenaObservation,
         problem: NavigationProblem
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Union[np.ndarray, Tuple[np.ndarray]]:
         features = ()
 
         # # Step 1: Raw Measurements
@@ -108,9 +113,14 @@ class  OceanFeatureConstructor(FeatureConstructor):
         if self.config['meta']:
             features += (self.get_meta_from_state(fc_obs, hc_obs, problem, self.config['meta']))
 
-        return features if len(features) > 1 else features[0]
+        if self.config['flatten']:
+            return np.concatenate(tuple(f.flatten() for f in features))
+        elif len(features) > 1:
+            return features
+        else:
+            return features[0]
 
-    def get_measurements_from_state(self, fc_obs, hc_obs, problem, config):
+    def get_measurements_from_state(self, fc_obs, hc_obs, problem, config) -> np.ndarray:
         self.measurements = np.append(self.measurements[1 - config:], np.array([[
             fc_obs.platform_state.lon.deg,
             fc_obs.platform_state.lat.deg,
@@ -121,7 +131,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
         repeats = np.repeat(measurements[-1:], repeats=(config - self.measurements.shape[0]), axis=0)
         return np.append(measurements, repeats, axis=0)
 
-    def get_map_from_state(self, fc_obs, hc_obs, problem, config):
+    def get_map_from_state(self, fc_obs, hc_obs, problem, config) -> np.ndarray:
         x_interval = [fc_obs.platform_state.lon.deg - config['xy_width_degree'] / 2, fc_obs.platform_state.lon.deg + config['xy_width_degree'] / 2]
         y_interval = [fc_obs.platform_state.lat.deg - config['xy_width_degree'] / 2, fc_obs.platform_state.lat.deg + config['xy_width_degree'] / 2]
         map = np.zeros((config['xy_width_points'], config['xy_width_points'], 0), dtype='float32')
@@ -214,7 +224,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
 
         return map.flatten() if config['flatten'] else map.squeeze()
 
-    def get_meta_from_state(self, fc_obs, hc_obs, problem, config):
+    def get_meta_from_state(self, fc_obs, hc_obs, problem, config) -> np.ndarray:
         features = []
 
         if 'lon' in config:
@@ -228,4 +238,4 @@ class  OceanFeatureConstructor(FeatureConstructor):
         if 'target_direction' in config:
             features += problem.angle(fc_obs.platform_state)
 
-        return features
+        return np.array(features)

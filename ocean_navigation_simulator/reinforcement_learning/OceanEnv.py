@@ -41,6 +41,7 @@ class OceanEnv(gym.Env):
         folders: dict,
         env_config,
         worker_index: Optional[int] = 0,
+        empty_env: Optional[bool] = False,
         verbose: Optional[int] = 0,
     ):
         # print(env_config)
@@ -51,6 +52,7 @@ class OceanEnv(gym.Env):
             self.reward_function_config = reward_function_config
             self.folders = folders
             self.env_config = env_config
+            self.empty_env = empty_env
             self.worker_index = worker_index
             self.verbose = verbose
 
@@ -74,23 +76,24 @@ class OceanEnv(gym.Env):
             self.reward_range = OceanRewardFunction.get_reward_range(self.reward_function_config)
 
             # Step 4: Initialize Problem Factory & Arena
-            self.problem_factory = FileMissionProblemFactory(seed=self.worker_index, csv_file=f'{self.generation_folder}problems.csv')
-            with open(f'{self.generation_folder}config/config.pickle', 'rb') as file:
-                self.problem_config = pickle.load(file)
+            if not self.empty_env:
+                self.problem_factory = FileMissionProblemFactory(seed=self.worker_index, csv_file=f'{self.generation_folder}problems.csv')
+                with open(f'{self.generation_folder}config/config.pickle', 'rb') as file:
+                    self.problem_config = pickle.load(file)
 
-            self.arena = ArenaFactory.create(
-                scenario_name=self.config['scenario_name'],
-                scenario_config=self.config['scenario_config'],
-                x_interval=self.problem_config['x_range'],
-                y_interval=self.problem_config['y_range'],
-                t_interval=self.problem_config['t_range'],
-                verbose=self.verbose-1
-            )
+                self.arena = ArenaFactory.create(
+                    scenario_name=self.config['scenario_name'],
+                    scenario_config=self.config['scenario_config'],
+                    x_interval=self.problem_config['x_range'],
+                    y_interval=self.problem_config['y_range'],
+                    t_interval=self.problem_config['t_range'],
+                    verbose=self.verbose-1
+                )
 
     def reset(self) -> np.array:
         self.reset_start_time = time.time()
 
-        if self.steps is None or self.steps > 0:
+        if self.steps is None or self.steps > 0 and not self.empty_env:
             # Step 1: Initialize Variables, Seed Problem & Reset Arena
             self.steps = 0
             self.rewards = []
@@ -147,11 +150,14 @@ class OceanEnv(gym.Env):
 
         self.reset_end_time = time.time()
 
-        return self.feature_constructor.get_features_from_state(
-            fc_obs=self.prev_obs,
-            hc_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
-            problem=self.problem
-        )
+        if self.empty_env:
+            return OceanFeatureConstructor.get_empty_features(self.feature_constructor_config)
+        else:
+            return self.feature_constructor.get_features_from_state(
+                fc_obs=self.prev_obs,
+                hc_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+                problem=self.problem
+            )
 
     def step(self, action: np.ndarray) -> Tuple[type(OceanFeatureConstructor.get_observation_space), float, bool, dict]:
         step_start = time.time()
@@ -174,6 +180,10 @@ class OceanEnv(gym.Env):
                 platform_action = action
             else:
                 platform_action = PlatformAction(magnitude=1, direction=action * 2 * np.pi / self.config['actions'])
+
+            if self.config['fake'] == 'residual':
+                # Hindcast Planner needs to receive hindcast datasource
+                platform_action += self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
 
             observation = self.arena.step(platform_action)
 

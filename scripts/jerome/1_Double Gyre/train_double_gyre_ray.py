@@ -24,5 +24,5 @@ print(f"Starting training ({runner.experiment_name}):")
 
 runner.run(iterations=400)
 
-runner.agent.get_policy().model.base_model.summary()
+runner.trainer.get_policy().model.base_model.summary()
 print(f"Total Script Time: {time.time() - script_start_time:.2f}s = {(time.time() - script_start_time) / 60:.2f}min")

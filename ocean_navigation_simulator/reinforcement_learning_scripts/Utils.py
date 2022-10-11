@@ -30,17 +30,17 @@ sns.set_theme()
 
 class Utils:
     @staticmethod
-    def ray_init(mode='cluster'):
+    def ray_init(**kwargs):
         start = time.time()
         # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
         # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
         ray.init(
-            address='ray://localhost:10001' if mode=='cluster' else 'auto',
             runtime_env={
                 'working_dir': '.',
                 'excludes': ['.git', './generated_media', './ocean_navigation_simulator', './results', './scripts'],
                 'py_modules': ['ocean_navigation_simulator'],
             },
+            **kwargs
         )
         print(f"Code sent to ray nodes in {time.time() - start:.1f}s")
 
@@ -100,7 +100,7 @@ class Utils:
         vm_list = Utils.get_vm_list(resource_group)
         print(f'VM List fetched')
 
-        ray.init()
+        ray.init(address='local')
         @ray.remote(num_cpus=0.1)
         def run_command_on_node(ip, command):
             print(f"##### Starting Command on Node {ip}")

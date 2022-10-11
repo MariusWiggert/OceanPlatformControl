@@ -73,7 +73,11 @@ class HJReach2DPlanner(HJPlannerBase):
         with open(folder + 'specific_settings.pickle', 'rb') as file:
             loaded_specific_settings = pickle.load(file)
 
-        planner = HJReach2DPlanner(problem=problem, specific_settings=loaded_specific_settings | specific_settings, verbose=verbose)
+        planner = HJReach2DPlanner(
+            problem=problem,
+            specific_settings=loaded_specific_settings | {'save_after_planning': False} | specific_settings,
+            verbose=verbose
+        )
         planner.restore_variables(folder=folder)
 
         if planner.verbose > 0:

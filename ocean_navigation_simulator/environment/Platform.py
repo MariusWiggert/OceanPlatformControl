@@ -41,6 +41,12 @@ class PlatformAction:
     def __getitem__(self, item):
         return self.__array__()[item]
 
+    def __add__(self, action):
+        return PlatformAction(magnitude=max(1, ))
+
+    def get_xy_propulsion_numpy(self):
+        return self.magnitude * np.array([math.cos(self.direction), math.sin(self.direction)])
+
     @staticmethod
     def from_xy_propulsion(x_propulsion: float, y_propulsion: float):
         """Helper function to initialize a PlatformAction based on xy actuation.

@@ -1,13 +1,23 @@
 from typing import List, Dict
 import gym
 import tensorflow as tf
-from ray.rllib.agents.dqn.distributional_q_tf_model import DistributionalQTFModel
+from ray.rllib.algorithms.dqn.distributional_q_tf_model import DistributionalQTFModel
 from ray.rllib.models import ModelV2
 from ray.rllib.models.utils import get_activation_fn
 from ray.rllib.utils.tf_utils import reduce_mean_ignore_inf
 from ray.rllib.utils.typing import ModelConfigDict, TensorType
 from ray.rllib.models.tf.misc import normc_initializer
 
+
+# Documentation:
+#   https://docs.ray.io/en/latest/rllib/package_ref/models.html
+#   https://github.com/ray-project/ray/blob/master/rllib/examples/custom_keras_model.py
+#   https://docs.ray.io/en/latest/rllib/rllib-models.html#custom-models-implementing-your-own-forward-logic
+# Usage:
+#   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/distributional_q_tf_model.py
+#   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/tf/tf_modelv2.py
+#   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/modelv2.py
+#   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/dqn_tf_policy.py
 
 class OceanDenseTFModel(DistributionalQTFModel):
     def __init__(

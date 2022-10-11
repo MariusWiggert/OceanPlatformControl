@@ -48,14 +48,16 @@ class EvaluationRunner:
         ) for problem in problems])
 
         results_df = pd.DataFrame(ray_results).set_index('index').rename_axis(None)
-        os.makedirs(config["result_folder"], exist_ok=True)
-        results_df.to_csv(f'{config["result_folder"]}evaluation_{time_string}.csv')
+        os.makedirs(f"{config['experiment']}evaluation/", exist_ok=True)
+        results_df.to_csv(f"{config['experiment']}evaluation/evaluation_{time_string}.csv")
 
-        if config.get('wandb_run_id', ''):
-            self.update_wandb_summary(
-                csv_file=f'{config["result_folder"]}evaluation_{time_string}.csv',
-                wandb_run_id = self.config['wandb_run_id'],
-            )
+        with open(f"{config['experiment']}wandb_run_id", 'rt') as f:
+            wandb_run_id = f.read()
+
+        self.update_wandb_summary(
+            csv_file=f"{config['experiment']}evaluation/evaluation_{time_string}.csv",
+            wandb_run_id=wandb_run_id,
+        )
 
     @staticmethod
     def update_wandb_summary(csv_file, wandb_run_id):
@@ -82,54 +84,38 @@ class EvaluationRunner:
         problem: NavigationProblem,
         verbose:  int = 0,
     ):
-        # Supress TF CPU warnings:
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # FATAL
-        logging.getLogger('tensorflow').setLevel(logging.FATAL)
-        logging.getLogger('absl').setLevel(logging.FATAL)
-        # Suppress GRPC warnings (not yet working):
-        # https://github.com/grpc/grpc/blob/master/doc/environment_variables.md
-        os.environ['GRPC_VERBOSITY'] = 'None' # One of: DEBUG, INFO, ERROR, NONE
-        logging.getLogger('chttp2_transport.cc').setLevel(logging.FATAL)
-
         try:
             mission_start_time = time.time()
-            if verbose > 1:
+            if verbose > 0:
                 print(f'EvaluationRunner: Started Mission {problem.extra_info["index"]:03d}')
 
             # Step 1: Create Arena
-            start = time.time()
-            arena = ArenaFactory.create(scenario_name=config['scenario_name'], problem=problem, verbose=verbose-1)
-            observation = arena.reset(platform_state=problem.start_state)
-            problem_status = arena.problem_status(problem=problem)
-            if verbose > 1:
-                print(f'EvaluationRunner: Created Arena ({time.time() - start:.1f}s)')
+            with Utils.timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
+                arena = ArenaFactory.create(scenario_name=config['scenario_name'], problem=problem, verbose=verbose-2)
+                observation = arena.reset(platform_state=problem.start_state)
+                problem_status = arena.problem_status(problem=problem)
 
             # Step 2: Create Controller
-            start = time.time()
-            problem.platform_dict = arena.platform.platform_dict
-            if config['controller']['class'].__name__ == 'RLController':
-                controller = config['controller']['class'](
-                    config=config,
-                    problem=problem,
-                    arena=arena,
-                    verbose=verbose-1,
-                )
-            else:
-                controller = config['controller']['class'](problem=problem, verbose=verbose-1)
-            if verbose > 1:
-                print(f'EvaluationRunner: Created Controller ({time.time() - start:.1f}s)')
+            with Utils.timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
+                problem.platform_dict = arena.platform.platform_dict
+                if config['controller'].__name__ == 'RLController':
+                    controller = config['controller'](
+                        config=config,
+                        problem=problem,
+                        arena=arena,
+                        verbose=verbose-2,
+                    )
+                else:
+                    controller = config['controller'](problem=problem, verbose=verbose-2)
 
             # Step 3: Run Arena
-            start = time.time()
-            steps = 0
-            while problem_status==0:
-                action = controller.get_action(observation)
-                observation = arena.step(action)
-                problem_status = arena.problem_status(problem=problem)
-                steps += 1
-
-            if verbose > 1:
-                print(f'EvaluationRunner: Run Arena ({time.time() - start:.1f}s)')
+            with Utils.timing(f'EvaluationRunner: Run Arena ({{:.1f}}s)', verbose-1):
+                steps = 0
+                while problem_status==0:
+                    action = controller.get_action(observation)
+                    observation = arena.step(action)
+                    problem_status = arena.problem_status(problem=problem)
+                    steps += 1
 
             result = {
                 'index': problem.extra_info['index'],

@@ -41,7 +41,13 @@ script_start_time = time.time()
 # COMMAND = 'pip install -U ray[default,rllib]==1.13.0'
 
 # COMMAND = 'rm -rf /tmp/hycom_forecast; rm -rf /tmp/hycom_hindcast/'
-COMMAND = 'pip install torchinfo'
+# COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
+# COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/9a7aa243aa6a74e146a7ce03d3e4d51a6917d43c/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
+
+
+COMMAND = 'pip install GPUtil'
+
+
 
 Utils.run_command_on_all_nodes(COMMAND)
 

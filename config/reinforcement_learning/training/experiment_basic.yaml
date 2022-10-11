@@ -10,9 +10,10 @@ algorithm:
     env: 'OceanEnv'
     env_config:
         evaluation: False
+    disable_env_checking: True
     seed: 2022
     ##### Framework #####
-    framework: 'tf2'
+    framework: 'torch'
 #    eager_tracing: False
     ##### DQN #####
     num_atoms: 1
@@ -81,6 +82,10 @@ algorithm:
     keep_per_episode_custom_metrics: True
 #    min_iter_time_s
 #    timesteps_per_iter: 2000
+    optimizer:
+        num_replay_buffer_shards: 1
+#    simple_optimizer: True
+    log_level: 'ERROR'
     ##### Evaluation #####
 #    evaluation_config:
 #        evaluation_interval: 1
@@ -109,9 +114,10 @@ environment:
     arena_steps_per_env_step: 1
     actions: 8
     render: False
-    fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast'
+    fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
 
 feature_constructor:
+    flatten: True
     measurements: False
     local_map:
         xy_width_degree: 0.2

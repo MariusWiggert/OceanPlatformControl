@@ -36,7 +36,10 @@ else
     pip install tensorflow==2.9.1
 
     # install Ray Lib with Dashboard and RL-lib
-    pip install -U ray[default,rllib]==1.13.0
+    # pip install -U ray[default,rllib]==1.13.0
+    # pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp38-cp38-manylinux2014_x86_64.whl"
+    pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/9a7aa243aa6a74e146a7ce03d3e4d51a6917d43c/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"
+    # pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp39-cp39-macosx_10_15_x86_64.whl"
 
     # install c3 type for python
     pip install git+https://github.com/c3aidti/c3python@0e87998fbdd22ceae6a17edd15e2b6fbf6569cae

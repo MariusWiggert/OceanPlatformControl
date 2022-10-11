@@ -16,15 +16,14 @@ from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Util
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
+Utils.ray_init(logging_level="warning")
+
 runner = TrainingRunner(
-    # name='integrated_conv_3_3_3_fc_64_dueling_64_64_forecast_and_gp_42x42_1deg',
-    # name='integrated_conv_5_5_fc_256_dueling_256_256_256_forecast_and_gp_21x21_1deg',
-    # name='custom_model_256_256_256_64_64_forecast_and_gp_error',
-    name='test_evaluation_tf',
+    name='big_torch_model_forecast_and_gp_error_300',
     tags=[],
     config=yaml.load(open(f'config/reinforcement_learning/training/experiment_basic.yaml'), Loader=yaml.FullLoader),
     verbose=2
-).run(epochs=10)
+).run(epochs=300)
 
 # Utils.destroy_cluster()
 
