@@ -80,7 +80,7 @@ class HJPlannerBase(Controller):
             'replan_every_X_seconds': None,
             'direction': 'multi-time-reach-back',
             'n_time_vector': 199,  # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-            'deg_around_xt_xT_box': 4.0,  # area over which to run HJ_reachability
+            'deg_around_xt_xT_box': 2.0,  # area over which to run HJ_reachability
             'accuracy': 'high',
             'artificial_dissipation_scheme': 'local_local',
             'T_goal_in_seconds': problem.timeout.total_seconds(),
@@ -89,7 +89,7 @@ class HJPlannerBase(Controller):
             'progress_bar': verbose > 0,
             'initial_set_radii': [problem.target_radius, problem.target_radius],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
             # Note: grid_res should always be SMALLER than initial_set_radii, otherwise reachability behaves weirdly.
-            'grid_res': 0.04,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+            'grid_res': 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             'd_max': 0.0,
             # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
             # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
