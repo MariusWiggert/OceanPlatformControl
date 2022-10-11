@@ -1,5 +1,6 @@
 from Dataset import BuoyForecastError
 from UNet import UNet
+from custom_losses import sparse_mse, total_variation
 
 import wandb
 import os
@@ -53,7 +54,9 @@ def loss_function(predictions, target, type: str = "mse"):
     if type == "mse":
         loss = F.mse_loss(predictions, target, reduction="sum")
     elif type == "sparse_mse":
-        loss = torch.where(target != 0, (target - predictions)**2/2, 0).sum()
+        loss = sparse_mse(predictions, target)
+    elif type == "sparse_mse_and_tv":
+        loss = sparse_mse(predictions, target) + 0.001*total_variation(predictions)
     return loss
 
 
@@ -128,6 +131,7 @@ def main():
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
                config=all_cfgs,
+               tags="cool stuff",
                **wandb_cfgs)
     wandb.save(config_file)
 
@@ -145,8 +149,8 @@ def main():
     cfgs_optimizer = all_cfgs["optimizer"]
 
     # load training data
-    dataset = BuoyForecastError(cfgs_dataset["forecasts"], cfgs_dataset["ground_truth"], cfgs_dataset["len"])
-    print(f"Loading forecasts from {cfgs_dataset['forecasts']} and ground truth from {cfgs_dataset['ground_truth']}.")
+    dataset = BuoyForecastError(cfgs_dataset["forecasts"], cfgs_dataset["ground_truth"], cfgs_dataset["sparse_type"], cfgs_dataset["len"])
+    print(f"Loading forecasts from {cfgs_dataset['forecasts']} and {cfgs_dataset['sparse_type']} ground truth from {cfgs_dataset['ground_truth']}.")
     dataset_len = len(dataset)
     print(f"Dataset length: {dataset_len}.")
     train_set, val_set = torch.utils.data.random_split(dataset,
