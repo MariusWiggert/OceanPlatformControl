@@ -12,7 +12,7 @@ class Controller(abc.ABC):
     """
     gpus: float = 0.0
 
-    def __init__(self, problem: NavigationProblem, verbose: Optional[int] = 0):
+    def __init__(self, problem: NavigationProblem, verbose: Optional[int] = 0, **kwargs):
         """
         Basic constructor logging the problem given at construction.
         Args:
