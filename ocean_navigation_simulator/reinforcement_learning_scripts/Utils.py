@@ -4,12 +4,17 @@ import os
 import shutil
 import socket
 import time
+from types import SimpleNamespace
 from typing import Optional
 import pandas as pd
+import psutil
+import pynvml
 import requests
 import ray
 import seaborn as sns
 from c3python import C3Python
+
+from ocean_navigation_simulator.utils.bcolors import bcolors
 
 sns.set_theme()
 
@@ -80,15 +85,15 @@ class Utils:
                         if delete:
                             shutil.rmtree(experiment, ignore_errors=True)
                         if verbose > 0:
-                            print(f'RayUtils.clean_ray_results: Delete {experiment} with {row_count} rows')
+                            print(f'RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} with {row_count} rows {bcolors.ENDC}')
                     else:
                         if verbose > 0:
-                            print(f'RayUtils.clean_ray_results: Keep {experiment} with {row_count} rows')
+                            print(f'RayUtils.clean_ray_results: Keep   {bcolors.OKGREEN}{experiment} with {row_count} rows {bcolors.ENDC}')
             else:
                 if delete:
                     shutil.rmtree(experiment, ignore_errors=True)
                 if verbose > 0:
-                    print(f'RayUtils.clean_ray_results: Delete {experiment} without progress.csv file')
+                    print(f'RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} without progress.csv file {bcolors.ENDC}')
 
     @staticmethod
     def run_command_on_all_nodes(command, resource_group='jerome-ray-cpu'):
@@ -153,3 +158,21 @@ class Utils:
         } for vm in (vm_dict if vm_dict is not None else Utils.get_vm_list())])
         with pd.option_context('display.width', 500, 'display.max_columns', 100, 'display.max_colwidth', 100):
             print(vm_df)
+
+    @staticmethod
+    def get_process_information_dict() -> dict:
+        try:
+            pynvml.nvmlInit()
+            gpu_info = pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(0))
+        except Exception as e:
+            gpu_info = SimpleNamespace(total=0, free=0, used=0)
+
+        return {
+            'process_pid': os.getpid(),
+            'process_public_ip': requests.get('https://api.ipify.org').content.decode('utf8'),
+            'process_private_ip': socket.gethostbyname(socket.gethostname()),
+            'process_ram': f'{psutil.Process().memory_info().rss / 1e6:.1f}MB',
+            'process_gpu_total': f'{gpu_info.total / 1e6:,.0f}MB',
+            'process_gpu_used': f'{gpu_info.free / 1e6:,.0f}MB',
+            'process_gpu_free': f'{gpu_info.used / 1e6:,.0f}MB',
+        }

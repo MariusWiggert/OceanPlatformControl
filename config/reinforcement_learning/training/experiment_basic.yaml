@@ -8,15 +8,18 @@ algorithm_name: 'apex-dqn'
 algorithm:
     ##### Environment #####
     env: 'OceanEnv'
+    env_config:
+        evaluation: False
     seed: 2022
     ##### Framework #####
     framework: 'tf2'
-    eager_tracing: True
-    ##### Episodes #####
-    # "batch_mode": "complete_episodes",
-    # "horizon": 10000,
-    # "soft_horizon": True,
-    # "no_done_at_end": False,
+#    eager_tracing: False
+    ##### DQN #####
+    num_atoms: 1
+    n_step: 1
+    noisy: False
+    dueling: True
+    double_q: True
     ##### Model #####
     model:
         # _use_default_native_models: True
@@ -29,69 +32,65 @@ algorithm:
 #        ]
 #        # Supported values are: "tanh", "relu", "swish" (or "silu"), "linear" (or None).
 #        conv_activation: 'relu'
-#        fcnet_hiddens: [256, 256]
-#        fcnet_activation: 'tanh'
+        fcnet_hiddens: [512, 512, 256]
+        fcnet_activation: 'tanh'
 #        post_fcnet_hiddens: [256, 256]
 #        post_fcnet_activation: 'relu'
-        custom_model: 'OceanKerasModel'
-        custom_model_config:
-###            conv_filters: [
-###                [16, [5, 5], 1],
-###                [32, [5, 5], 1],
-###            ]
-            common_units: [ 512, 512, 256 ]
-            common_activation: 'tanh'
-            common_initializer_std: [ 1, 1, 0.01 ]
-#            dueling_units: [ 64, 64 ]
-#            dueling_activation: 'relu'
+#        custom_model: 'OceanDenseTorchModel'
+#        custom_model_config:
+####            conv_filters: [
+####                [16, [5, 5], 1],
+####                [32, [5, 5], 1],
+####            ]
+#            common_units: [ 512, 512, 256 ]
+#            common_activation: [ 'tanh', 'tanh', 'tanh' ]
+#            common_initializer_std: [ 1, 1, 0.01 ]
+#            dueling_units: [ 128, 128 ]
+#            dueling_activation: [ 'relu', 'relu', 'linear' ]
+#            dueling_initializer_std: [ 1, 1, 1 ]
     hiddens: [ 128, 128 ]
-    ##### DQN #####
-    num_atoms: 1
-    n_step: 1
-    noisy: False
-    dueling: True
-    double_q: True
+    ##### Episodes #####
+#    batch_mode: 'truncate_episodes'
+#    soft_horizon: False
+#    rollout_fragment_length: 50
     ##### Training #####
-    replay_buffer_config:
-        learning_starts: 50000
-            # # For now we don't use the new ReplayBuffer API here
-            # "_enable_replay_buffer_api": False,
-            # "no_local_replay_buffer": True,
-            # "type": "MultiAgentReplayBuffer",
-            # "capacity": 2000000,
-            # "replay_batch_size": 32,
-            # "prioritized_replay_alpha": 0.6,
-            # # Beta parameter for sampling from prioritized replay buffer.
-            # "prioritized_replay_beta": 0.4,
-            # # Epsilon to add to the TD errors when updating priorities.
-            # "prioritized_replay_eps": 1e-6,
-            # # prioritized_replay_alpha: Alpha parameter controls the degree of
-            # #     prioritization in the buffer. In other words, when a buffer sample has
-            # #     a higher temporal-difference error, with how much more probability
-            # #     should it drawn to use to update the parametrized Q-network. 0.0
-            # #     corresponds to uniform probability. Setting much above 1.0 may quickly
-            # #     result as the sampling distribution could become heavily “pointy” with
-            # #     low entropy.
-            # #     prioritized_replay_beta: Beta parameter controls the degree of
-            # #     importance sampling which suppresses the influence of gradient updates
-            # #     from samples that have higher probability of being sampled via alpha
-            # #     parameter and the temporal-difference error.
-            # #     prioritized_replay_eps: Epsilon parameter sets the baseline probability
-            # #     for sampling so that when the temporal-difference error of a sample is
-            # #     zero, there is still a chance of drawing the sample.
-    train_batch_size: 512
-    rollout_fragment_length: 100
-#    timesteps_per_iteration: 50000,
-#    training_intensity: 2,
-        # "target_network_update_freq": 100000,
-        # "exploration_config": {"type": "PerWorkerEpsilonGreedy"},
-        # "worker_side_prioritization": True,
-        # # This will set the ratio of replayed from a buffer and learned
-        # # on timesteps to sampled from an environment and stored in the replay
-        # # buffer timesteps. Must be greater than 0.
+#    replay_buffer_config:
+#        capacity: 2000000
+#        learning_starts: 10000
+#        no_local_replay_buffer: True
+#        prioritized_replay_alpha: 0.6
+#        prioritized_replay_beta: 0.4
+#        prioritized_replay_eps: 0.000001
+#        replay_batch_size: 32
+#        replay_sequence_length: 1
+#        type: 'MultiAgentReplayBuffer'
+#    train_batch_size: 512
+#    timesteps_per_iteration: 10000
+#    training_intensity: 1
+# native ratio = 512 / (50 * 100) = 1/10
+#     native_ratio = config["train_batch_size"] / (
+#        config["rollout_fragment_length"]
+#        * config["num_envs_per_worker"]
+#        # Add one to workers because the local
+#        # worker usually collects experiences as well, and we avoid division by zero.
+#        * max(config["num_workers"] + 1, 1)
+#    )
+#    target_network_update_freq: 10.0e3,
+#    exploration_config: {"type": "SoftQ"}
+        # worker_side_prioritization: True,
+    keep_per_episode_custom_metrics: True
+#    min_iter_time_s
+#    timesteps_per_iter: 2000
+    ##### Evaluation #####
+#    evaluation_config:
+#        evaluation_interval: 1
+#        evaluation_duration: 1000
+#        evaluation_duration_unit: "episodes"
+#        env_config:
+#            evaluation: True
     ##### Workers #####
     num_gpus: 1
-    num_workers: 102
+    num_workers: 100
     num_cpus_per_worker: 1
     num_gpus_per_worker: 0
     placement_strategy: 'SPREAD'
@@ -101,9 +100,11 @@ algorithm:
 experiments_folder: '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/'
 
 environment:
-    generation_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/fixed_forecast_50000_batches/'
     scenario_name: 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast'
     scenario_config: {}
+
+    train_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/training_40000_problems/'
+    evaluation_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/verification_1000_problems/'
 
     arena_steps_per_env_step: 1
     actions: 8
@@ -115,21 +116,22 @@ feature_constructor:
     local_map:
         xy_width_degree: 0.2
         xy_width_points: 5
+        flatten: True
         features:
             ttr_forecast: True
             ttr_hindcast: False
             observer:
-                variables: ['error_u', 'error_v'] #['error_u', 'error_v'] #['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
-                time: [0]
+                variables: [] #['error_u', 'error_v'] #['error_u', 'error_v'] #['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
+                time: [] # offsets in h
             currents_hindcast: [] # offsets in h
             currents_forecast: [] # offsets in h
+            true_error: [0] # offsets in h
     global_map: False
     meta: False #['lon', 'lat', 'time', 'target_distance', 'target_direction', 'episode_time']
-
 
 reward_function:
     delta_ttr_forecast: 0
     delta_ttr_hindcast: 1
-    step_punishment: -0.16
+    step_punishment: 0
     target_bonus: 0
     fail_punishment: 0

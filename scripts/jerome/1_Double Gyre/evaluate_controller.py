@@ -8,7 +8,7 @@ from tqdm import tqdm
 import time
 import os
 
-from ocean_navigation_simulator.controllers.RLControllerFromAgent import RLControllerFromAgent
+from ocean_navigation_simulator.controllers.RLController import RLControllerFromAgent
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.DoubleGyreFeatureConstructor import DoubleGyreFeatureConstructor
 from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory

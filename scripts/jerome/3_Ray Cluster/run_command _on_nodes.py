@@ -41,7 +41,7 @@ script_start_time = time.time()
 # COMMAND = 'pip install -U ray[default,rllib]==1.13.0'
 
 # COMMAND = 'rm -rf /tmp/hycom_forecast; rm -rf /tmp/hycom_hindcast/'
-COMMAND = 'pip install mergedeep'
+COMMAND = 'pip install torchinfo'
 
 Utils.run_command_on_all_nodes(COMMAND)
 

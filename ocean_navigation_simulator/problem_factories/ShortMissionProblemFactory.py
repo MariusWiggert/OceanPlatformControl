@@ -229,7 +229,7 @@ class ShortMissionProblemFactory:
                 - we run until timeout (problem.is_done == -1)
                 - we reset the platform x&y to start coordinates s.t. we never runs out of area
         """
-        problem_factory = FileMissionProblemFactory(csv_file=f'{batch_folder}/problems.csv')
+        problem_factory = FileMissionProblemFactory(csv_file=f'{batch_folder}problems.csv')
         problem = problem_factory.next_problem()
 
         arena = ArenaFactory.create(scenario_name=self.scenario_name, problem=problem)

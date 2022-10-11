@@ -34,59 +34,50 @@ class GenerationRunner:
     def __init__(
         self,
         name: str,
-        scenario_name: str,
-        groups: int,
-        batches_per_group: int,
-        batch_size: int,
-        problem_factory_config: dict,
-        ray_options: dict,
+        config: {},
         verbose: Optional[int] = 0
     ):
         self.name = name
-        self.scenario_name = scenario_name
-        self.groups = groups
-        self.batches_per_group = batches_per_group
-        self.batch_size = batch_size
-        self.problem_factory_config = problem_factory_config
+        self.config = config
         self.verbose = verbose
 
-        # Step 1: Prepare Paths
-        self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
-        self.results_folder = f'/seaweed-storage/generation/{self.scenario_name}/{self.name}_{self.timestring}/'
-
-        # Step 2: Save configuration
+        # Step 1: Prepare Paths & Save configuration
         Utils.ensure_storage_connection()
+        self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
+        self.results_folder = f'/seaweed-storage/generation/{config["scenario_name"]}/{self.name}_{self.timestring}/'
+        self.config['results_folder'] = self.results_folder
         os.makedirs(self.results_folder)
-        with open(f'{self.results_folder}config.pickle', 'wb') as f:
-            pickle.dump(self.problem_factory_config, f)
-        with open(f'{self.config_folder}config.json', "wt") as f:
-            pprint.pprint(self.problem_factory_config, stream=f)
+        os.makedirs(f'{self.results_folder}config/')
+        with open(f'{self.results_folder}config/config.pickle', 'wb') as f:
+            pickle.dump(self.config, f)
+        with open(f'{self.results_folder}config/config.json', "wt") as f:
+            pprint.pprint(self.config, stream=f)
 
-        # Step 3: Run Generation with Ray
+        # Step 2: Run Generation with Ray
         if verbose > 0:
-            print(f'GenerationRunner: Generating {groups * batches_per_group} batches in {groups} groups')
+            print(f'GenerationRunner: Generating {config["size"]["groups"] * config["size"]["batches_per_group"]} batches in {config["size"]["groups"]} groups')
         self.ray_results = ray.get([self.generate_batch_ray.options(
-            num_cpus=ray_options['resources']['CPU'],
-            num_gpus=ray_options['resources']['GPU'],
-            max_retries=ray_options['max_retries'],
-            resources={i:ray_options['resources'][i] for i in ray_options['resources'] if i!='CPU' and i!= "GPU"}
+            num_cpus=config["ray_options"]['resources']['CPU'],
+            num_gpus=config["ray_options"]['resources']['GPU'],
+            max_retries=config["ray_options"]['max_retries'],
+            resources={i:config["ray_options"]['resources'][i] for i in config["ray_options"]['resources'] if i!='CPU' and i!= "GPU"}
         ).remote(
             results_folder=self.results_folder,
-            scenario_name=scenario_name,
-            problem_factory_config=problem_factory_config,
-            group=int(batch // batches_per_group),
+            scenario_name=config["scenario_name"],
+            problem_factory_config=config["problem_factory_config"],
+            group=int(batch // config["size"]["batches_per_group"]),
             batch=batch,
-            batch_size=batch_size,
+            batch_size=config["size"]["batch_size"],
             verbose=verbose,
-        ) for batch in range(groups * batches_per_group)])
+        ) for batch in range(config["size"]["groups"] * config["size"]["batches_per_group"])])
         self.problems = [problem for problems in self.ray_results for problem in problems]
 
-        # Step 4: Save Results
+        # Step 3: Save Results
         Utils.ensure_storage_connection()
         self.problems_df = pd.DataFrame(self.problems)
         self.problems_df.to_csv(f'{self.results_folder}problems.csv')
 
-        # Step 5: Analyse Generation
+        # Step 4: Analyse Generation
         GenerationRunner.analyse_generation(self.results_folder)
         GenerationRunner.plot_generation(self.results_folder)
 
@@ -131,51 +122,40 @@ class GenerationRunner:
             generate_time = time.time()-generate_start
 
             # Step 2: Plot Batch
-            plot_start = time.time()
             if problem_factory_config['plot_batch']:
+                plot_start = time.time()
                 Utils.ensure_storage_connection()
                 os.makedirs(batch_folder, exist_ok = True)
                 problem_factory.plot_batch(batch_size, filename=f'{batch_folder}animation.gif')
-            plot_time = time.time()-plot_start
+                plot_time = time.time()-plot_start
+            else:
+                plot_time = 0
 
-            # step 3: Save Batch Planner
+            # step 3: Save Hindcast Planner
             Utils.ensure_storage_connection()
             problem_factory.hindcast_planner.save_plan(f'{batch_folder}hindcast_planner/')
 
-            # Step 4: Format Batch Results
-            try:
-                pynvml.nvmlInit()
-                gpu_info = pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(0))
-            except Exception as e:
-                gpu_info = SimpleNamespace(total=0, free=0, used=0)
-            batch_info = {
-                'group': group,
-                'batch': batch,
-                'batch_pid': os.getpid(),
-                # 'batch_public_ip': requests.get('https://api.ipify.org').content.decode('utf8'),
-                'batch_private_ip': socket.gethostbyname(socket.gethostname()),
-                'batch_time': f'{ time.time()-batch_start_time:.2f}s',
-                'batch_ram': f'{psutil.Process().memory_info().rss / 1e6:,.0f}MB',
-                'batch_gpu_total': f'{gpu_info.total / 1e6:,.0f}MB',
-                'batch_gpu_used': f'{gpu_info.free / 1e6:,.0f}MB',
-                'batch_gpu_free': f'{gpu_info.used / 1e6:,.0f}MB',
-            }
-            batch_results = [problem.to_dict() | batch_info for index, problem in enumerate(problems)]
-
-            # Step 5: Save Batch Results
-            Utils.ensure_storage_connection()
-            batch_df = pd.DataFrame(batch_results)
-            batch_df.to_csv(f'{batch_folder}/problems.csv')
-
-            # Step 6: Run Forecast Planner
+            # Step 4: Run & Save Forecast Planner
             forecast_start = time.time()
             problem_factory.run_forecast(batch_folder=batch_folder)
             forecast_time = time.time()-forecast_start
-            if verbose > 1:
-                print(f'GenerationRunner: Running Forecast Planning ({forecast_time:.1f}s)')
+
+            # Step 5: Format & Save Batch Results
+            Utils.ensure_storage_connection()
+            os.makedirs(batch_folder, exist_ok = True)
+            batch_info = {
+                'group': group,
+                'batch': batch,
+                'total_time': f'{ time.time()-batch_start_time:.2f}s',
+                'generate_time': generate_time,
+                'plot_time': plot_time,
+                'forecast_time': forecast_time,
+            } | Utils.get_process_information_dict()
+            batch_results = [problem.to_dict() | batch_info for index, problem in enumerate(problems)]
+            pd.DataFrame(batch_results).to_csv(f'{batch_folder}problems.csv')
 
             if verbose > 0:
-                print(f'GenerationRunner: Finished Batch {batch} Group {group} (total: {time.time()-batch_start_time:.1f}s, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s), RAM: {batch_info["batch_ram"]}')
+                print(f'GenerationRunner: Finished Batch {batch} Group {group} (total: {batch_info["total_time"]:.1f}s, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s), RAM: {batch_info["process_ram"]}')
 
         except Exception as e:
             shutil.rmtree(batch_folder, ignore_errors=True)
