@@ -50,7 +50,7 @@ class OceanCurrentSource(DataSource):
     def plot_data_from_xarray(time_idx: int, xarray: xr, vmin: Optional[float] = 0, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
                               colorbar: bool = True, ax=None, fill_nan: bool = True,
-                              return_cbar=False) -> matplotlib.pyplot.axes:
+                              return_cbar=False, fill_space_for_cbar=True) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -97,6 +97,9 @@ class OceanCurrentSource(DataSource):
             if int(vmin * 10) == int(vmax * 10):
                 precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
             cbar.set_ticklabels(['{:.{prec}f}'.format(l, prec=precision) for l in cbar.get_ticks().tolist()])
+        elif not fill_space_for_cbar:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes(position="right", size="5%", pad=0.15, add_to_figure=False)
         # Plot on ax object
         if plot_type == 'streamline':
             # Needed because the data needs to be perfectly equally spaced
@@ -105,7 +108,7 @@ class OceanCurrentSource(DataSource):
             ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
-            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
+            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False, width=0.001)
 
         if return_cbar:
             return ax, cbar
@@ -158,7 +161,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         folders = source_config_dict['source_settings']['folder']
         self.files_dicts = []
         if type(folders) != list:
-            list(folders)
+            folders = [folders]
         for folder in folders:
             self.files_dicts += get_file_dicts(folder,
                                                currents=source_config_dict['source_settings'].get('currents', 'normal'))
@@ -215,6 +218,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                 filter(lambda dic: dic['t_range'][0] < time < dic['t_range'][1], self.files_dicts))
             # Basic Sanity Check if this list is empty no file contains t_0
             if len(dics_containing_t_0) == 0:
+                True
                 raise ValueError("None of the forecast files contains time.")
             # As the dict is time-ordered we simple need to find the idx of the last one in the dics_containing_t_0
             for idx, dic in enumerate(self.files_dicts):
@@ -244,7 +248,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         folders = source_config_dict['source_settings']['folder']
         self.files_dicts = []
         if type(folders) != list:
-            list(folders)
+            folders = [folders]
         for folder in folders:
             if "currents" in source_config_dict['source_settings']:
                 self.files_dicts += get_file_dicts(folder,

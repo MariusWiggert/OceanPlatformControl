@@ -132,25 +132,29 @@ class ExperimentRunner:
 
         self.observer = Observer(config["observer"])
         self.arena = ArenaFactory.create(scenario_name=self.variables["scenario_used"],
-                                         folder_scenario=self.variables["folder_scenario"])
+                                         folder_scenario=self.variables.get("folder_scenario", None))
         self.last_observation, self.last_prediction_ground_truth = None, None
         self.last_file_used = None
         self.list_dates_when_new_files = []
 
     @staticmethod
-    def __remove_nan_and_flatten(x):
+    def _remove_nan_and_flatten(x):
         x = x.flatten()
         return x[np.logical_not(np.isnan(x))]
 
     @staticmethod
-    def __add_normal_on_plot(data, ax):
-        mu, std = norm.fit(data)
+    def _add_normal_on_plot(data, ax, dimension):
+        # mu, std = norm.fit(data)
+        mu, std = np.mean(data), np.std(data)
         xmin, xmax = ax.get_xlim()
-        x = np.linspace(xmin, xmax, 100)
+        x = np.linspace(xmin, xmax, 400)
         p = norm.pdf(x, mu, std)
         print(f"xmin {xmin},xmax {xmax}, mu {mu}, std {std}")
-        ax.plot(x, p, 'k', linewidth=2)
-        title = "Fit Values: {:.2f} and {:.2f}".format(mu, std)
+        print()
+        obj, = ax.plot(x, p, 'k', linewidth=2)
+        obj.set_label("normal distribution")
+        ax.legend()
+        title = f"Dimension: {dimension}, mean: {mu:.2f}, std: {std:.2f}"
         ax.set_title(title)
 
     def visualize_all_noise(self, x, y, number_forecasts=30):
@@ -179,7 +183,8 @@ class ExperimentRunner:
             #                                           "delta_between_predictions_in_sec", None))
             r = self.variables.get("radius_area_around_platform", 1)
             t = self.variables.get("number_steps_to_predict", 12) * 3600
-            fc = self.observer.get_data_around_platform(self.last_observation, r, t, )
+            fc = self.observer.get_data_around_platform(
+                self.last_observation.platform_state.to_spatio_temporal_point(), r, t)
             margin_area = self.variables.get("gt_additional_area", 0.5)
             margin_time = datetime.timedelta(seconds=self.variables.get("gt_additional_time", 3600))
             dims = [[x[0] - margin_area, x[1] + margin_area], [y[0] - margin_area, y[1] + margin_area],
@@ -236,7 +241,7 @@ class ExperimentRunner:
         for dim_current in range(n_dims):
             fig, ax = plt.subplots(n_row, n_col)  # , sharey=True, sharex=True)
             for i in range(len(array_error_per_time)):
-                x = self.__remove_nan_and_flatten(array_error_per_time[i][:, dim_current])
+                x = self._remove_nan_and_flatten(array_error_per_time[i][:, dim_current])
                 ax_now = ax[i // n_col, i % n_col]
                 sm.qqplot(x, line='s', ax=ax_now)  # , fit=True)
                 ax_now.set_title(f'lag:{i},dim:{["u", "v", "magn"][dim_current]}')
@@ -246,8 +251,8 @@ class ExperimentRunner:
         # Plot the general qq plots
         fig, ax = plt.subplots(2, 1)
         dims_first = np.moveaxis(array_error_per_time, 2, 0)
-        sm.qqplot(self.__remove_nan_and_flatten(dims_first[0]), line='s', ax=ax[0])
-        sm.qqplot(self.__remove_nan_and_flatten(dims_first[1]), line='s', ax=ax[1])
+        sm.qqplot(self._remove_nan_and_flatten(dims_first[0]), line='s', ax=ax[0])
+        sm.qqplot(self._remove_nan_and_flatten(dims_first[1]), line='s', ax=ax[1])
         values_flattened = dims_first.reshape(len(dims_first), -1)
 
         # -----------------------------------------
@@ -300,9 +305,9 @@ class ExperimentRunner:
         # -----------------------------------------
         fig, ax = plt.subplots(2, 1, sharex=True, sharey=True)
         df_describe.hist("u", ax=ax[0], bins=80, density=1)
-        self.__add_normal_on_plot(df_describe["u"], ax[0])
+        self._add_normal_on_plot(df_describe["u"], ax[0])
         df_describe.hist("v", ax=ax[1], bins=80, density=True)
-        self.__add_normal_on_plot(df_describe["v"], ax[1])
+        self._add_normal_on_plot(df_describe["v"], ax[1])
         # for each lag:
         stat_lags = []
         for i in range(len(array_error_per_time)):
@@ -517,6 +522,7 @@ class ExperimentRunner:
             for i in range(self.variables["number_steps_prediction"]):
                 # if i % 20 == 0:
                 #    print(f"step:{i}/{self.variables['number_steps_prediction']}")
+                print(f"step:{i}/{self.variables['number_steps_prediction']}")
 
                 model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
 

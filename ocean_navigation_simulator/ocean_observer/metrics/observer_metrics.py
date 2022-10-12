@@ -15,7 +15,7 @@ def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float,
     Returns:
         That dictionary
     """
-    return {"r2": r2, "vector_correlation": vector_correlation, "rmse": rmse, "vme": vme,
+    return {"r2": r2, "r2official": r2official, "vector_correlation": vector_correlation, "rmse": rmse, "vme": vme,
             "ratio_per_tile": ratio_per_tile}
 
 
@@ -43,13 +43,43 @@ def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions
     """
     axis = (1, 2) if per_hour else None
     axis_current, extension_name = __get_axis_current(current)
-    return {("r2_per_h" if per_hour else "r2") + extension_name: 1 - np.nansum(
+    res = 1 - np.nansum((ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2,
+                        axis=axis) / \
+          (np.nansum(((initial_predictions[..., axis_current] - ground_truth[..., axis_current]) ** 2),
+                     axis=axis) + sigma_square_division)
+    if res > 1:
+        print("results r2 is bigger than 1")
+    return {("r2_per_h" if per_hour else "r2") + extension_name: res}
+
+
+def r2official(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
+               per_hour: bool = False,
+               sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
+    """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
+       the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
+       initial forecast.
+
+    Args:
+        ground_truth: ndarray containing the ground truth
+        improved_predictions: ndarray containing the improved forecast
+        initial_predictions: ndarray containing the initial forecast
+
+    Returns:
+        The r2 coefficient as a dictionary
+    """
+    axis = (1, 2) if per_hour else None
+    axis_current, extension_name = __get_axis_current(current)
+    return {("r2official_per_h" if per_hour else "r2official") + extension_name: 1 - np.nansum(
         (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2, axis=axis) / (
-                                                                         np.nansum(
-                                                                             ((initial_predictions[..., axis_current] -
-                                                                               ground_truth[
-                                                                                   ..., axis_current]) ** 2),
-                                                                             axis=axis) + sigma_square_division)}
+                                                                                         np.nansum(
+                                                                                             (ground_truth[
+                                                                                                  ..., axis_current] -
+                                                                                              np.nanmean(ground_truth[
+                                                                                                             ..., axis_current],
+                                                                                                         keepdims=True,
+                                                                                                         axis=(
+                                                                                                         -3, -2))) ** 2,
+                                                                                             axis=axis) + sigma_square_division)}
 
 
 def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,

@@ -8,7 +8,7 @@ from ocean_navigation_simulator.environment.Arena import Arena
 class ArenaFactory:
     @staticmethod
     def create(scenario_name: string, folder_scenario: string = None) -> Arena:
-        path = (f'scenario/' if folder_scenario is None else f'{folder_scenario}/') + f'{scenario_name}.yaml'
+        path = (f'scenarios/' if folder_scenario is None else f'{folder_scenario}/') + f'{scenario_name}.yaml'
         with open(path) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 

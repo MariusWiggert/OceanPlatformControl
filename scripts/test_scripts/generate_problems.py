@@ -30,20 +30,25 @@ def get_area_coordinates():
 # end_date_2 = datetime.datetime(2022, 8, 31, 12, 00, 00)
 # all_intervals = [(start_date, end_date), (start_date_2, end_date_2)]
 # April not included
-may_to_mid_august = (
-    datetime.datetime(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
-    datetime.datetime(2022, 8, 15, 12, 30, tzinfo=datetime.timezone.utc))
-june_september = (
-    datetime.datetime(2022, 6, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
-    datetime.datetime(2022, 9, 15, 12, 30, tzinfo=datetime.timezone.utc))
-may = (datetime.datetime(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
-       datetime.datetime(2022, 5, 31, 12, 30, tzinfo=datetime.timezone.utc))
-july_september = (
-    datetime.datetime(2022, 7, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
-    datetime.datetime(2022, 9, 15, 12, 30, tzinfo=datetime.timezone.utc))
+# may_to_mid_august = (
+#     datetime.datetime(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#     datetime.datetime(2022, 8, 15, 12, 30, tzinfo=datetime.timezone.utc))
+# june_september = (
+#     datetime.datetime(2022, 6, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#     datetime.datetime(2022, 9, 15, 12, 30, tzinfo=datetime.timezone.utc))
+# may = (datetime.datetime(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#        datetime.datetime(2022, 5, 31, 12, 30, tzinfo=datetime.timezone.utc))
+# july_september = (
+#     datetime.datetime(2022, 7, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#     datetime.datetime(2022, 9, 15, 12, 30, tzinfo=datetime.timezone.utc))
 # all_intervals = [may_to_mid_august]
 # all_intervals = [june_september]
-all_intervals = [may, july_september]
+# all_intervals = [may, july_september]
+
+# Validation
+start_date = datetime.datetime(2022, 3, 30, 12, 00, 00)
+end_date = datetime.datetime(2022, 4, 29, 12, 00, 00)
+all_intervals = [(start_date, end_date)]
 
 # all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
 duration_simulation_default = datetime.timedelta(days=4)

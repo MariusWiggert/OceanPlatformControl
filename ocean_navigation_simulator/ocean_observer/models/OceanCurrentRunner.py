@@ -323,7 +323,7 @@ def loop_train_validation(training_mode: bool, args, model, device, data_loader:
                     output = data_same_time - output
 
                 # Compute the loss
-                total_loss, loss_hindcast, loss_pinn = loss_function(output, target, args.lambda_physical_loss)
+                total_loss_batch, loss_hindcast, loss_pinn = loss_function(output, target, args.lambda_physical_loss)
                 init_total_loss, init_loss_hindcast, init_loss_pinn = loss_function(data_same_time, target,
                                                                                     args.lambda_physical_loss)
                 initial_losses_no_pinn += init_loss_hindcast
@@ -332,19 +332,19 @@ def loop_train_validation(training_mode: bool, args, model, device, data_loader:
 
                 total_loss_pinn += loss_pinn
                 total_loss_hindcast += loss_hindcast
-                total_loss_overall += total_loss.item()
+                total_loss_overall += total_loss_batch.item()
                 ratio, all_ratios = get_ratio_accuracy(output,
                                                        data_same_time,
                                                        target)
 
                 list_ratios += all_ratios
                 if training_mode:
-                    total_loss.backward()
+                    total_loss_batch.backward()
                     optimizer.step()
 
                 # tepoch.set_postfix(loss=str(round(loss_with_pinn.item(), 2)), mean_ratio=str(round(ratio, 2)),
                 #                    loss_pinn=str(round(loss_without_pinn.item(), 2)))
-                tepoch.set_postfix(loss=str(round(total_loss.item(), 3)))
+                tepoch.set_postfix(loss=str(round(total_loss_batch.item(), 3)))
         total_loss_overall /= len(data_loader)
         total_loss_pinn /= len(data_loader)
         total_loss_hindcast /= len(data_loader)

@@ -1,12 +1,15 @@
 import argparse
 import csv
 import datetime
+import gc
+import logging
 import os
 import pickle
 import sys
 from _csv import writer
 
 import numpy as np
+import ray
 import torch
 import yaml
 from matplotlib import pyplot as plt
@@ -175,7 +178,7 @@ search_space = {
 def write_row_csv(path, row):
     # open the file in the write mode
     f = open(path, 'a')
-
+    print(f"Write row to csv: {path}")
     # create the csv writer
     writer = csv.writer(f)
 
@@ -187,6 +190,7 @@ def write_row_csv(path, row):
 
 
 def train(config_from_bayes=None):
+    gc.collect()
     # Create a file for the log of all the results
     print("CONFIG INIT:", config_from_bayes)
     # Copy the bayes parameter to the full dict
@@ -281,13 +285,18 @@ def train(config_from_bayes=None):
 
         # print({"avg": np.array([r["vme_improved"] for r in results]).mean()})
         # tune.report(score=np.array([r["vme_improved"] for r in results]).mean())
-        print("R2:", np.nanmean(np.hstack([r["r2"] for r in results])))
         session.report({"r2": np.nanmean(np.hstack([r["r2"] for r in results])),
                         "vme_improved": np.nanmean(np.hstack([r["vme_improved"] for r in results])),
                         "rmse_improved": np.nanmean(np.hstack([r["rmse_improved"] for r in results])),
                         "ratio_per_tile": np.nanmean(np.hstack([r["ratio_per_tile"] for r in results]))})
 
     # variables = config["experiment_runner"]
+    del merged_mean
+    del exp
+    del results
+    del results_per_h
+    del full_dict
+    gc.collect()
 
 
 def train_without_tune(filename_problem, filename_config, num_samples=500, problems_per_sample=120, research_state=1,
@@ -301,34 +310,45 @@ def train_without_tune(filename_problem, filename_config, num_samples=500, probl
 
 def run_ray_tune_GP_grid(filename_problem, filename_config, num_samples=500, problems_per_sample=120, research_state=1,
                          bayes=False,
-                         random_search_space=40, ):
+                         random_search_space=40, load=True):
     # import ray
     # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
     # res = tune.run(train, config=search_space, num_samples=num_samples)
     # return res.get_best_config(metric="r2_avg", mode="max")
     # return res.get_best_config(metric="avg", mode="min")
+    # path_file_save_checkpoint = f"ablation_study/checkpoints/GP_grid_{num_samples}_{problems_per_sample}_{research_state}.pkl"
+    path_file_save_checkpoint = f"ablation_study/checkpoints/{filename_config}.pkl"
+    # path_file_save_checkpoint = f"ablation_study/checkpoints/GP_grid_1_12.pkl"
+    # path_file_save_checkpoint = f"ablation_study/checkpoints/GP_grid_2000_100_{research_state}.pkl"
+    res = None
     if bayes:
         search_space["max_problems"] = problems_per_sample
         search_space["filename_problems"] = filename_problem
         search_space["filename_config"] = filename_config
-
+        ray.init(_memory=2000 * 1024 * 1024, object_store_memory=200 * 1024 * 1024)
         bayesopt = BayesOptSearch(space=search_space_bayes,
                                   metric="r2", mode="max",
                                   random_state=research_state,
                                   random_search_steps=random_search_space)
+        if load:
+            bayesopt.restore(path_file_save_checkpoint)
+            print("loaded bayes config: ", path_file_save_checkpoint)
+        print("Creating the tuner.")
         tuner = tune.Tuner(train, tune_config=tune.TuneConfig(
             search_alg=bayesopt,
             num_samples=num_samples
         ))
         try:
-            tuner.fit()
+            print("fitting")
+            res = tuner.fit()
         finally:
-            bayesopt.save(
-                f"ablation_study/checkpoints/GP_grid_{num_samples}_{problems_per_sample}_{research_state}.pkl")
+            bayesopt.save(path_file_save_checkpoint)
+
     else:
         res = tune.run(train, config=search_space, num_samples=num_samples)
         # return res.get_best_config(metric="r2_avg", mode="max")
-        return res.get_best_config(metric="avg", mode="min")
+
+    return res
 
 
 def run_experiments_and_visualize_area(number_forecasts_in_days=20, yaml_file_config="config_test_GP",
@@ -388,7 +408,6 @@ def run_experiments_and_collect_tiles(output_folder: str, filename_problems):
     while exp.has_next_problem():
         try:
             k += 1
-            print(k)
             print(f"starting problem {k}")
             # results.append(np.array(exp.run_next_problem(get_inputs_and_outputs=True)))
             array_fc_hc, measurement_locations, errors = exp.run_next_problem(get_inputs_and_outputs=True)
@@ -427,19 +446,28 @@ def run_experiments_on_kernel():
     exp.run_all_problems(max_number_problems_to_run=12)
 
 
-def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=False):
+def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=False,
+                             name_config_yaml_file="config_test_GP", filename_problems="all_problems_3",
+                             folder_problems="scenarios/ocean_observer/", folder_config_file="scenarios/ocean_observer/"
+                             ):
     """
     Run an experiment
     """
     # np.random.seed(0)
-    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3")
+    exp = ExperimentRunner(name_config_yaml_file, filename_problems=filename_problems, folder_problems=folder_problems,
+                           folder_config_file=folder_config_file)
     all_results = exp.run_all_problems(
         max_number_problems_to_run=max_number_problems_to_run, compute_for_all_radius_and_lag=plot_error_3d)
     if plot_error_3d:
         results, results_per_h, merged, list_dates_when_new_files, results_grids = all_results
+        path_export = "ablation_study/export_all_results_testing_set/" + name_config_yaml_file + "_export_"
+        print(f"exporting all the objects to: {path_export}")
+        for i, obj in enumerate([results, results_per_h, merged, list_dates_when_new_files, results_grids]):
+            filename = path_export + f"{i}.pickle"
 
-        with open('results_grids_2.pickle', 'wb') as handle:
-            pickle.dump(results_grids, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            with open(filename, 'wb') as handle:
+                pickle.dump(results_grids, handle, protocol=pickle.HIGHEST_PROTOCOL)
     else:
         results, results_per_h, merged, list_dates_when_new_files = all_results
     print("final results:", results)
@@ -482,7 +510,7 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
     metric_to_plot = "vme"
     initial, improved = metric_to_plot + "_initial", metric_to_plot + "_improved"
     problem_1 = results[-1]
-    X = [datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in problem_1["time"]]
+    X = [datetime.datetime.fromtimestamp(t, tz=datetime.timezone.utc) for t in problem_1["time"]]
     y1 = problem_1[initial]
     y2 = problem_1[improved]
     y1_mean = np.array([r[initial] for r in results]).mean(axis=0)
@@ -533,6 +561,8 @@ if __name__ == "__main__":
     print("arguments: ", sys.argv)
     parser = argparse.ArgumentParser(description='Process the arguments.')
     if not {"-R", "--run-grid"}.isdisjoint(sys.argv):
+        file_log = "ablation_study/results_grids/logs_best_models.log"
+
         parser.add_argument('-R', "--run-grid", action='store_true', help='run the grid.')
         parser.add_argument('--num-samples', type=int)
         parser.add_argument('--problems-per-sample', type=int)
@@ -540,11 +570,29 @@ if __name__ == "__main__":
         parser.add_argument('--random-search-space', type=int)
         parser.add_argument('--filename-problem', type=str)
         parser.add_argument('--filename-config', type=str)
+        parser.add_argument('--load', default=True, action=argparse.BooleanOptionalAction)
+        parser.add_argument('--results', default=False, action=argparse.BooleanOptionalAction)
         args = parser.parse_args()
-        run_ray_tune_GP_grid(args.filename_problem, args.filename_config, num_samples=args.num_samples,
-                             problems_per_sample=args.problems_per_sample,
-                             research_state=args.research_state, bayes=True,
-                             random_search_space=args.random_search_space)
+
+        print("Computing 1 run and getting the results: ", args.results)
+        M = 1 if args.results else 20
+        for i in range(M):
+            print(f"run ray iteration {i + 1}/{M}")
+            results = run_ray_tune_GP_grid(args.filename_problem, args.filename_config, num_samples=args.num_samples,
+                                           problems_per_sample=args.problems_per_sample,
+                                           research_state=args.research_state, bayes=True,
+                                           random_search_space=args.random_search_space,
+                                           load=(args.load if i == 0 else True))
+            if i + 1 == M:
+                print(f"the best parameters found are: {results.get_best_result(metric='r2', mode='max')}")
+                print(f"the best parameters found are: {results.get_best_result(metric='r2', mode='max').config}")
+                logging.basicConfig(filename=file_log,
+                                    format='%(asctime)s %(message)s',
+                                    filemode='w')
+                logger = logging.getLogger()
+                logger.info(f"the best parameters found are: {results.get_best_result(metric='r2', mode='max').config}")
+            else:
+                ray.shutdown()
     elif not {"-D", "--debug"}.isdisjoint(sys.argv):
         parser.add_argument('-D', "--debug", action='store_true', help='run the grid.')
         parser.add_argument('--num-samples', type=int)
@@ -578,7 +626,15 @@ if __name__ == "__main__":
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
     elif not {"-3d"}.isdisjoint(sys.argv):
-        run_experiments_and_plot(max_number_problems_to_run=200, plot_error_3d=True)
+        parser.add_argument('-3d', action='store_true')
+        parser.add_argument('--filename-problem', type=str)
+        parser.add_argument('--problems-per-sample', type=int, default=200)
+        parser.add_argument('--filename-config', type=str)
+        args = parser.parse_args()
+        run_experiments_and_plot(max_number_problems_to_run=args.problems_per_sample, plot_error_3d=True,
+                                 filename_problems=args.filename_problem, name_config_yaml_file=args.filename_config,
+                                 folder_problems="ablation_study/problems/",
+                                 folder_config_file="ablation_study/configs_GP/")
     else:
         run_experiments_and_plot(max_number_problems_to_run=2)
 

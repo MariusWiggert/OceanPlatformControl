@@ -13,12 +13,22 @@ from ocean_navigation_simulator.utils import units
 
 print(os.getcwd())
 # %%
-folder = "forecast_c3_script/hc_may/"
+display_forecast = True
+folder_hc = "forecast_c3_script/hc_may/"
+folder_fc = "forecast_c3_script/fc_may/"
+folder = folder_fc if display_forecast else folder_hc
+legend_name = ("Forecast" if display_forecast else "Hindcast")
 files = os.listdir(folder)
 xr_hindcast = xr.Dataset()
 for file in sorted(files)[:4]:
     print(file)
-    data = xr.open_dataset(folder + file).sel(lon=slice(-94, -84), lat=slice(22.5, 27.5))
+    data = xr.open_dataset(folder + file)
+    if display_forecast:
+        data = data.sel(longitude=slice(-94, -84), latitude=slice(22.5, 27.5)).rename(longitude="lon", latitude="lat",
+                                                                                      utotal="water_u",
+                                                                                      vtotal="water_v")
+    else:
+        data = data.sel(lon=slice(-94, -84), lat=slice(22.5, 27.5))
     xr_hindcast = xr_hindcast.combine_first(data)
 xr_hindcast = xr_hindcast.isel(depth=0).drop_vars('depth')
 print(xr_hindcast)
@@ -76,7 +86,7 @@ def visualize_initial_error(xr_1, xr_2, radius_area: float = None, ):
         _, cbar_2 = DataSource.plot_data_from_xarray(lag,
                                                      xr_2.isel(time=slice(index_prediction, index_prediction + 24)),
                                                      ax=ax2, return_cbar=True)
-        ax1.set_title("Hindcast [m/s]")
+        ax1.set_title(legend_name + " [m/s]")
         ax2.set_title("loss [m/s]")
 
     time_dim = list(range(len(xr_1["time"])))
@@ -88,7 +98,7 @@ def visualize_initial_error(xr_1, xr_2, radius_area: float = None, ):
     ax_lag_time = plt.axes([0.25, 0.1, 0.65, 0.03])
     lag_time_slider = Slider(
         ax=ax_lag_time,
-        label='Lag (in hours) with hindcast',
+        label=('Lag (in hours) with ' + legend_name),
         valmin=min(time_dim),
         valmax=23,
         valinit=time_dim[0],
@@ -99,7 +109,7 @@ def visualize_initial_error(xr_1, xr_2, radius_area: float = None, ):
     axamp = plt.axes([0.1, 0.25, 0.0225, 0.63])
     forecast_slider = Slider(
         ax=axamp,
-        label="Day Hindcast",
+        label=("Day " + legend_name),
         valmin=0,
         valmax=len(xr_1.time) // 24 - 1,
         valinit=0,
