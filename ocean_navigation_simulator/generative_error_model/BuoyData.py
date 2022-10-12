@@ -54,16 +54,17 @@ class BuoyDataSource(ABC):
         self.config = config
         self.buoy_config = self.config["buoy_config"][source]
 
-        self.targeted_bbox = TargetedBbox(self.config["dataset_writer"]["lon_range"][0],
-                                          self.config["dataset_writer"]["lon_range"][1],
-                                          self.config["dataset_writer"]["lat_range"][0],
-                                          self.config["dataset_writer"]["lat_range"][1]).get_bbox()
-        self.targeted_time_range = TargetedTimeRange(self.config["dataset_writer"]["time_range"])
+        self.targeted_bbox = TargetedBbox(self.buoy_config["lon_range"][0],
+                                          self.buoy_config["lon_range"][1],
+                                          self.buoy_config["lat_range"][0],
+                                          self.buoy_config["lat_range"][1]).get_bbox()
+        self.targeted_time_range = TargetedTimeRange(self.buoy_config["time_range"])
         self.data_dir = os.path.join(get_path_to_project(os.getcwd()), self.config["data_dir"])
-        self.data = self.get_buoy_data(self.buoy_config)
+        self.data = self.get_buoy_data()
+        self.index_data = None
 
     @abstractmethod
-    def get_buoy_data(self, buoy_config: Dict) -> pd.DataFrame:
+    def get_buoy_data(self) -> pd.DataFrame:
         """
         Returns the buoy data points as a pandas DataFrame
         """
@@ -120,8 +121,9 @@ class BuoyDataSource(ABC):
 class BuoyDataCopernicus(BuoyDataSource):
     def __init__(self, config: Dict, source="copernicus"):
         super().__init__(config, source)
+        self.nc_links = None
 
-    def get_buoy_data(self, buoy_config: Dict):
+    def get_buoy_data(self):
         """
         Main method which returns the data in the specified spatio-temporal range.
         It downloads the index files, combines index files into one xarray object,
@@ -131,7 +133,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         # check if it should check for new buoy files
         download_index_files = self.buoy_config["dataset"]["download_index_files"]
         if download_index_files:
-            self.download_index_files(buoy_config["usr"], buoy_config["pas"])
+            self.download_index_files(self.buoy_config["usr"], self.buoy_config["pas"])
         self.index_data = self.get_index_file_info()
 
         self.nc_links = self.index_data["file_name"].tolist()
@@ -229,13 +231,13 @@ class BuoyDataCopernicus(BuoyDataSource):
         netcdf_collections['platform_code'] = netcdf_collections['netcdf'].str.split('.').str[0].str.split('_').str[3]
         # 4) Merging the information of all files
         if 'index_platform' in self.buoy_config["dataset"].keys():
-            headers = ['platform_code','wmo_platform_code', 'institution_edmo_code', 'last_latitude_observation', 'last_longitude_observation','last_date_observation']
+            headers = ['platform_code', 'wmo_platform_code', 'institution_edmo_code', 'last_latitude_observation', 'last_longitude_observation','last_date_observation']
             result = pd.merge(netcdf_collections, indexPlatform[headers], on='platform_code')
             return result
         else:
             return netcdf_collections
 
-    def _read_index_file_from_CWD(self, path2file: str, targeted_bbox: List[float], targeted_time_range: TargetedTimeRange, overlap_type: str="contains"):
+    def _read_index_file_from_CWD(self, path2file: str, targeted_bbox: List[float], targeted_time_range: TargetedTimeRange, overlap_type: str="intersects"):
         # Load as pandas dataframe the file in the provided path, then filter data during loading
 
         filename = os.path.basename(path2file)
@@ -283,7 +285,7 @@ class BuoyDataCopernicus(BuoyDataSource):
         except Exception as e:
             print("timeOverlap error", e)
 
-    def _spatial_overlap(self, row, targeted_bbox: List[str], overlap_type: str='intersects'):
+    def _spatial_overlap(self, row, targeted_bbox: List[str], overlap_type: str):
         # Checks if a file contains data in the specified area (targeted_bbox)
 
         def fix_negs(longitude):
@@ -347,29 +349,134 @@ class BuoyDataCopernicus(BuoyDataSource):
 
 
 class BuoyDataSofar(BuoyDataSource):
-    # TODO: setting reminder here to implement this when we have data from Sofar
-    """
-    Class to handle data from Sofar
-    """
-    def __init__(self, config: Dict):
-        super().__init(config)
 
-    def get_data(self, config: Dict):
-        pass
+    def __init__(self, config: Dict, source="sofar"):
+        super().__init__(config, source)
 
-    def read_csv_files(self):
-        """
-        Reads in all csv files which Sofar provides
-        """
-        pass
+    def get_buoy_data(self) -> pd.DataFrame:
+        """Main function which calls all sub-functions to retrieve Sofar buoy data
+        in the specified spatio-temporal range."""
 
-    def filter_data(self):
+        self.index_data = self._read_index_file(os.path.join(self.config["data_dir"], "index.csv"),
+                                                self.targeted_bbox,
+                                                self.targeted_time_range)
+        self.file_list = self.index_data["file_name"].tolist()
+        data_dir = self.config["data_dir"]
+        self.file_list = [os.path.join(data_dir, file) for file in self.file_list]
+        self.data = self.concat_buoy_data(self.file_list)
+        return self.data
+
+    def concat_buoy_data(self, file_list: List[str]) -> pd.DataFrame:
         """
-        Filters buoy data to only have spatio-temporal points as specified
-        in the config. This also help speeds up interpolation.
+        reads in all .nc files in the file_list
+        filters data for desired time and space interval
+        creates a pandas.DataFrame
         """
-        pass
+        column_names = ["time", "lon", "lat", "u", "v", "buoy"]
+        df = pd.DataFrame(columns=column_names)
+
+        for file_path in file_list:
+            df_temp = self._read_csv_file(file_path)
+            df_temp = pd.DataFrame({"buoy": df_temp["buoy"],
+                                    "time": df_temp["time"],
+                                    "lon": df_temp["lon"],
+                                    "lat": df_temp["lat"],
+                                    "u": df_temp["u"],
+                                    "v": df_temp["v"]})
+
+            df_temp["time"] = pd.to_datetime(df_temp["time"])
+
+            # filtering conditions
+            lon_cond = ((df_temp["lon"] >= min(self.targeted_bbox[0], self.targeted_bbox[2])) & (df_temp["lon"] <= max(self.targeted_bbox[0], self.targeted_bbox[2])))
+            lat_cond = ((df_temp["lat"] >= self.targeted_bbox[1]) & (df_temp["lat"] <= self.targeted_bbox[3]))
+            time_cond = ((df_temp["time"] >= self.targeted_time_range.get_start()) & (df_temp["time"] <= self.targeted_time_range.get_end() + datetime.timedelta(hours=1)))
+
+            # filtering and concat to df
+            df_temp = df_temp.loc[(lon_cond & lat_cond & time_cond)]
+            df = pd.concat([df, df_temp], ignore_index=True)
+
+        # remove NaN rows -> created because of u and v at different depths.
+        df = df.dropna()
+        df = df.drop_duplicates(subset=["time", "buoy", "lon", "lat"], keep="first")
+        return df
+
+    def _read_index_file(self, path2file: str, targeted_bbox: List[float], targeted_time_range: TargetedTimeRange, overlap_type: str="intersects"):
+        # Load as pandas dataframe the file in the provided path, then filter data during loading
+
+        filename = os.path.basename(path2file)
+        print('...Loading info from: ' + filename)
+        if targeted_bbox is not None:
+            raw_index_info = []
+            chunks = pd.read_csv(path2file, chunksize=1000)
+            for chunk in chunks:
+                chunk['spatialOverlap'] = chunk.apply(self._spatial_overlap, targeted_bbox=targeted_bbox, overlap_type=overlap_type, axis=1)
+                chunk['temporalOverlap'] = chunk.apply(self._temporal_overlap, targeted_time_range=targeted_time_range, axis=1)
+                # print(f"Num of true spatial overlap files: {chunk['spatialOverlap'].sum()}.")
+                # print(f"Num of true temporal overlap files: {chunk['temporalOverlap'].sum()}.")
+                raw_index_info.append(chunk[(chunk['spatialOverlap'] == True) & (chunk['temporalOverlap'] == True)])
+            return pd.concat(raw_index_info)
+        else:
+            raise ValueError("Please specify a Bounding Box")
+
+    def _temporal_overlap(self, row, targeted_time_range: TargetedTimeRange):
+        # Checks if a file contains data in the specified time range (targeted_time_range)
+        try:
+            targeted_ini = targeted_time_range.get_start()
+            targeted_end = targeted_time_range.get_end()
+            time_start = dateutil.parser.isoparse(row["time_coverage_start"])
+            time_end = dateutil.parser.isoparse(row["time_coverage_end"])
+            Range = namedtuple('Range', ['start', 'end'])
+            r1 = Range(start=targeted_ini, end=targeted_end)
+            r2 = Range(start=time_start, end=time_end)
+            latest_start = max(r1.start, r2.start)
+            earliest_end = min(r1.end, r2.end)
+            delta = (earliest_end - latest_start).days + 1
+            overlap = max(0, delta)
+            if overlap != 0:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print("timeOverlap error", e)
+
+    def _spatial_overlap(self, row, targeted_bbox: List[str], overlap_type: str):
+        # Checks if a file contains data in the specified area (targeted_bbox)
+
+        def fix_negs(longitude):
+            if longitude < 0:
+                return longitude + 360
+            else:
+                return longitude
+
+        result = False
+        try:
+            geospatial_lat_min = float(row['geospatial_lat_min'])
+            geospatial_lat_max = float(row['geospatial_lat_max'])
+            geospatial_lon_min = fix_negs(float(row['geospatial_lon_min']))
+            geospatial_lon_max = fix_negs(float(row['geospatial_lon_max']))
+            targeted_bounding_box = box(fix_negs(targeted_bbox[0]), targeted_bbox[1], fix_negs(targeted_bbox[2]), targeted_bbox[3])
+            bounding_box = box(geospatial_lon_min, geospatial_lat_min, geospatial_lon_max, geospatial_lat_max)
+
+            if overlap_type == "contains":
+                if targeted_bounding_box.contains(bounding_box):  # check other rules on https://shapely.readthedocs.io/en/stable/manual.html
+                    result = True
+            elif overlap_type == "intersects":
+                if targeted_bounding_box.intersects(bounding_box):  # check other rules on https://shapely.readthedocs.io/en/stable/manual.html
+                    result = True
+
+        except Exception as e:
+            print("spatialOverlap error!\n", e)
+        return result
+
+    def _read_csv_file(self, path2file: str) -> pd.DataFrame:
+        try:
+            return pd.read_csv(path2file)
+        except:
+            raise IOError("Cannot read")
+
 
 class BuoyDataNOOA(BuoyDataSource):
     # TODO: implement this using ftp (look at Copernicus class for this)
-    pass
+
+    def get_buoy_data(self, buoy_config: Dict) -> pd.DataFrame:
+        return

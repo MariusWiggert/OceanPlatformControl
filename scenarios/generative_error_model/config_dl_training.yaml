@@ -12,8 +12,8 @@ train:
   batch_size: 1
   test_batch_size: 2
   epochs: 100
-  loss_type: "sparse_mse"
-#  loss_type: "sparse_mse_and_tv"
+#  loss_type: "sparse_mse"
+  loss_type: "sparse_mse_and_tv"
   dataset_fraction: 1
 
 optimizer:
@@ -26,6 +26,7 @@ optimizer:
 dataset:
   forecasts: "data/drifter_data/forecasts/area1"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
+  sparse_type: "forecast"
   shuffle: False
   len: 1
 

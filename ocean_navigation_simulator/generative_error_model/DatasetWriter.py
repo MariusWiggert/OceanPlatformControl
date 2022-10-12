@@ -6,6 +6,9 @@ import pandas as pd
 import os
 
 
+# TODO add option to do this for Sofar data
+
+
 class DatasetWriter:
     """Uses BuoyData and OceanCurrentField to write data to file which is then read by DataLoader.
     Needed to speed up training."""
@@ -85,8 +88,8 @@ class DatasetWriter:
 
             # construct file name
             file_name = f"{self.config['dataset_writer']['source']}_{self.dataset_type}_error"\
-                        f"_lon_{self.config['dataset_writer']['lon_range']}"\
-                        f"_lat_{self.config['dataset_writer']['lat_range']}"\
+                        f"_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
+                        f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"\
                         f"_time_{self.config['dataset_writer']['time_range']}.csv"
             file_name = file_name.replace("/", "__")
 
