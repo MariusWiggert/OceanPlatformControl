@@ -44,15 +44,15 @@ class Utils:
         )
         print(f"Code sent to ray nodes in {time.time() - start:.1f}s")
 
-        active_nodes = list(filter(lambda node: node['Alive'] == True, ray.nodes()))
-        cpu_total = ray.cluster_resources()['CPU'] if 'CPU' in ray.cluster_resources() else 0
-        gpu_total = ray.cluster_resources()['GPU'] if 'GPU' in ray.cluster_resources() else 0
-        cpu_available = ray.available_resources()['CPU'] if 'CPU' in ray.available_resources() else 0
-        gpu_available = ray.available_resources()['GPU'] if 'GPU' in ray.available_resources() else 0
+        Utils.active_nodes = list(filter(lambda node: node['Alive'] == True, ray.nodes()))
+        Utils.cpus_total = ray.cluster_resources()['CPU'] if 'CPU' in ray.cluster_resources() else 0
+        Utils.gpus_total = ray.cluster_resources()['GPU'] if 'GPU' in ray.cluster_resources() else 0
+        cpus_available = ray.available_resources()['CPU'] if 'CPU' in ray.available_resources() else 0
+        gpus_available = ray.available_resources()['GPU'] if 'GPU' in ray.available_resources() else 0
         print(f'''This cluster consists of
-    {len(active_nodes)} nodes in total
-    {cpu_available}/{cpu_total} CPU resources available
-    {gpu_available}/{gpu_total} GPU resources available''')
+    {len(Utils.active_nodes)} nodes in total
+    {cpus_available}/{Utils.cpus_total} CPU resources available
+    {gpus_available}/{Utils.gpus_total} GPU resources available''')
 
     @staticmethod
     def destroy_cluster():
@@ -126,9 +126,13 @@ class Utils:
         if not hasattr(Utils, '_c3'):
             with Utils.timing('Utils: Connect to c3 ({:.1f}s)', verbose):
                 Utils._c3 = C3Python(
-                    url='https://dev01-seaweed-control.c3dti.ai',
+                    # Old Tag:
+                    # url='https://dev01-seaweed-control.c3dti.ai',
+                    # tag='dev01',
+                    # New tag:
+                    url='https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud',
                     tenant='seaweed-control',
-                    tag='dev01',
+                    tag='devseaweedrc1',
                     keyfile='setup/keys/c3-rsa-jerome',
                     username='jeanninj@berkeley.edu',
                 ).get_c3()

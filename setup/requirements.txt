@@ -3,8 +3,7 @@ chex==0.1.4
 dask==2022.3.0
 DateTime==4.3
 geopy==2.2.0
-GPUtil==1.4.0
-gym==0.21
+gym==0.23
 h5py==3.7.0
 imageio==2.21.
 ipython==7.28.0

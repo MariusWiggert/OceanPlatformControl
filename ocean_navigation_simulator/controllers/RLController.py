@@ -1,27 +1,18 @@
 import json
-
-import ray
-from ray.rllib.algorithms.apex_dqn.apex_dqn import ApexDQN
-from ray.rllib.models import ModelCatalog
+from ray.rllib.policy.policy import Policy
 
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.environment.Arena import ArenaObservation, Arena
-from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.reinforcement_learning.OceanDenseTFModel import OceanDenseTFModel
-from ocean_navigation_simulator.reinforcement_learning.OceanDenseTorchModel import OceanDenseTorchModel
-from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
-from ocean_navigation_simulator.reinforcement_learning.OceanEnvFactory import OceanEnvFactory
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 
 class RLController(Controller):
     """
-    RL-based Controller using a pre-traine rllib trainer.
+    RL-based Controller using a pre-traine rllib policy.
     """
     def __init__(
         self,
@@ -34,36 +25,24 @@ class RLController(Controller):
         self.config = config
         self.arena = arena
 
+        # Step 1: Recover Configuration
         Utils.ensure_storage_connection()
         with open(f'{config["experiment"]}config/config.json') as f:
             self.e_config = json.load(f)
 
-        if self.e_config['algorithm_name'] == 'apex-dqn':
-            trainer_class = ApexDQN
-
+        # Step 2: Modify Configuration
         self.e_config['algorithm']['num_workers'] = 0
         self.e_config['algorithm']['num_gpus'] = 0
         self.e_config['algorithm']['disable_env_checking'] = True
         self.e_config['algorithm']['optimizer']['num_replay_buffer_shards'] = 1
         self.e_config['algorithm']['log_level'] = 'ERROR'
 
-        ray.tune.registry.register_env("OceanEnv", OceanEnvFactory(
-            config=self.e_config['environment'],
-            feature_constructor_config=self.e_config['feature_constructor'],
-            reward_function_config=self.e_config['reward_function'],
-            folders=self.e_config['folders'],
-            empty_env=True,
-            verbose=self.verbose-1,
-        ))
+        # Step 3: Create Trainer
+        self.policy = Policy.from_checkpoint(
+            f'{config["experiment"]}checkpoints/checkpoint_{config["checkpoint"]:06d}/policies/default_policy'
+        )
 
-        if self.e_config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTFModel':
-            ModelCatalog.register_custom_model("OceanDenseTFModel", OceanDenseTFModel)
-        elif self.e_config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTorchModel':
-            ModelCatalog.register_custom_model("OceanDenseTorchModel", OceanDenseTorchModel)
-
-        self.trainer = trainer_class(config=self.e_config['algorithm'])
-        self.trainer.restore(f'{config["experiment"]}checkpoints/checkpoint_{config["checkpoint"]:06d}/')
-
+        # Step 4: Create Feature Constructor
         self.hindcast_planner = HJReach2DPlanner.from_plan(
             folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
             problem=self.problem,
@@ -98,7 +77,7 @@ class RLController(Controller):
             hc_obs=observation.replace_datasource(self.arena.ocean_field.hindcast_data_source),
             problem=self.problem,
         )
-        action = self.trainer.compute_single_action(observation=obs, explore=False)
+        action, _, _ = self.policy.compute_single_action(obs=obs, explore=False)
 
         # go towards the center of the target with full power
         return PlatformAction(magnitude=1, direction=action)

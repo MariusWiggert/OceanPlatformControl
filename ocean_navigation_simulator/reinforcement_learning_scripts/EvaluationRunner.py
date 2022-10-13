@@ -15,7 +15,7 @@ import wandb
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 from ocean_navigation_simulator.utils.bcolors import bcolors
 
@@ -29,13 +29,17 @@ class EvaluationRunner:
         self.config = config
         self.verbose = verbose
 
+        #  Step 1: Initialize
         time_string = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
-        problem_factory = FileMissionProblemFactory(csv_file=f"{config['missions']['folder']}problems.csv", limit=config['missions']['limit'])
-        problems = problem_factory.get_problem_list()
-
+        problems = FileProblemFactory(
+            csv_file=f"{config['missions']['folder']}problems.csv",
+            limit=config['missions']['limit'],
+            exclude=config['missions']['exclude'],
+        ).get_problem_list()
         if verbose > 0:
             print(f'EvaluationRunner: Running {len(problems)} Missions')
 
+        # Step 2: Run
         ray_results = ray.get([self.evaluation_run.options(
             num_cpus=config["ray_options"]['resources']['CPU'],
             num_gpus=config["ray_options"]['resources']['GPU'],
@@ -46,35 +50,33 @@ class EvaluationRunner:
             problem=problem,
             verbose=verbose-1,
         ) for problem in problems])
-
         results_df = pd.DataFrame(ray_results).set_index('index').rename_axis(None)
         os.makedirs(f"{config['experiment']}evaluation/", exist_ok=True)
         results_df.to_csv(f"{config['experiment']}evaluation/evaluation_{time_string}.csv")
 
+         # Step 3: Update Weights & Biases
         with open(f"{config['experiment']}wandb_run_id", 'rt') as f:
             wandb_run_id = f.read()
-
         self.update_wandb_summary(
             csv_file=f"{config['experiment']}evaluation/evaluation_{time_string}.csv",
             wandb_run_id=wandb_run_id,
+            time_string=time_string,
         )
 
     @staticmethod
-    def update_wandb_summary(csv_file, wandb_run_id):
+    def update_wandb_summary(csv_file, wandb_run_id, time_string):
         df = pd.read_csv(csv_file, index_col=0)
-
         wandb.init(
             project="RL for underactuated navigation",
             entity="ocean-platform-control",
             id=wandb_run_id,
             resume="must"
         )
-
         wandb.run.summary["validation_1000"] = {
+            'date': time_string,
             'success': df['success'].mean(),
             'running_time': df['running_time'].mean()
         }
-
         wandb.finish()
 
     @staticmethod
@@ -84,6 +86,10 @@ class EvaluationRunner:
         problem: NavigationProblem,
         verbose:  int = 0,
     ):
+        logging.getLogger('ray').setLevel(logging.WARN)
+        logging.getLogger('rllib').setLevel(logging.WARN)
+        logging.getLogger('policy').setLevel(logging.WARN)
+
         try:
             mission_start_time = time.time()
             if verbose > 0:
@@ -117,6 +123,7 @@ class EvaluationRunner:
                     problem_status = arena.problem_status(problem=problem)
                     steps += 1
 
+            # Step 4: Format Results
             result = {
                 'index': problem.extra_info['index'],
                 'controller': type(controller).__name__,

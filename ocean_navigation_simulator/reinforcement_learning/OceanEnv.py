@@ -3,20 +3,19 @@ import pickle
 import time
 import socket
 from types import SimpleNamespace
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 import gym
 import psutil
 import random
-import tensorflow as tf
 import torch
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
 from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import OceanRewardFunction
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
@@ -38,34 +37,26 @@ class OceanEnv(gym.Env):
         config: dict,
         feature_constructor_config: dict,
         reward_function_config: dict,
-        folders: dict,
-        env_config,
+        indices: Optional[List] = None,
         worker_index: Optional[int] = 0,
-        empty_env: Optional[bool] = False,
+        result_folder: Optional[str] = None,
         verbose: Optional[int] = 0,
     ):
-        # print(env_config)
-
-        with Utils.timing(f'OceanEnv[Worker {worker_index}]: Created ({{:.1f}}s)', verbose):
+        with Utils.timing(f'OceanEnv[Worker {worker_index}]: Created with {"no" if indices is None else len(indices)} indices ({{:.1f}}s)', verbose):
             self.config = config
             self.feature_constructor_config = feature_constructor_config
             self.reward_function_config = reward_function_config
-            self.folders = folders
-            self.env_config = env_config
-            self.empty_env = empty_env
+            self.indices = indices
             self.worker_index = worker_index
+            self.result_folder = result_folder
             self.verbose = verbose
 
             # Step 1: Initialize Variables
-            self.private_ip = socket.gethostbyname(socket.gethostname())
-            self.results_folder = f"{self.folders['experiment']}/workers/worker {worker_index} ({self.private_ip})/"
-            self.generation_folder = self.config["evaluation_folder"] if self.env_config['evaluation'] else self.config["train_folder"]
             self.steps = None
             self.resets = 0
 
             # Step 2: Fix Seeds
             self.random = np.random.default_rng(self.worker_index)
-            tf.random.set_seed(self.worker_index)
             np.random.seed(self.worker_index)
             random.seed(self.worker_index)
             torch.manual_seed(self.worker_index)
@@ -76,9 +67,13 @@ class OceanEnv(gym.Env):
             self.reward_range = OceanRewardFunction.get_reward_range(self.reward_function_config)
 
             # Step 4: Initialize Problem Factory & Arena
-            if not self.empty_env:
-                self.problem_factory = FileMissionProblemFactory(seed=self.worker_index, csv_file=f'{self.generation_folder}problems.csv')
-                with open(f'{self.generation_folder}config/config.pickle', 'rb') as file:
+            if not self.dummy_env:
+                self.problem_factory = FileProblemFactory(
+                    seed=self.worker_index,
+                    csv_file=f"{self.config['problem_folder']}problems.csv",
+                    indices=indices,
+                )
+                with open(f"{self.config['problem_folder']}config/config.pickle", 'rb') as file:
                     self.problem_config = pickle.load(file)
 
                 self.arena = ArenaFactory.create(
@@ -93,17 +88,17 @@ class OceanEnv(gym.Env):
     def reset(self) -> np.array:
         self.reset_start_time = time.time()
 
-        if self.steps is None or self.steps > 0 and not self.empty_env:
+        if self.steps is None or self.steps > 0:
             # Step 1: Initialize Variables, Seed Problem & Reset Arena
             self.steps = 0
-            self.rewards = []
             self.resets += 1
+            self.rewards = []
             self.problem = self.problem_factory.next_problem()
             self.prev_obs = self.arena.reset(self.problem.start_state)
 
             # Step 2: Initialize Planners, Feature Constructor, Reward Function & Controllers
             self.hindcast_planner = HJReach2DPlanner.from_plan(
-                folder=f'{self.generation_folder}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
+                folder=f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
                 problem=self.problem,
                 specific_settings={
                     'load_plan': False,
@@ -112,11 +107,11 @@ class OceanEnv(gym.Env):
                 verbose=self.verbose-1,
             )
             self.forecast_planner = HJReach2DPlanner.from_plan(
-                folder=f'{self.generation_folder}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
+                folder=f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
                 problem=self.problem,
                 specific_settings={
                     'load_plan': True,
-                    'planner_path': f'{self.generation_folder}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
+                    'planner_path': f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
                     'save_after_planning': False,
                 },
                 verbose=self.verbose-1,
@@ -138,10 +133,9 @@ class OceanEnv(gym.Env):
 
             # Step 3:
             if self.verbose > 0:
-                print('OceanEnv[Worker {w}, Reset {r}, {ev}]: Reset to Group {g} Batch {b} Index {i} ({t:.1f}s)'.format(
+                print('OceanEnv[Worker {w}, Reset {r}]: Reset to Group {g} Batch {b} Index {i} ({t:.1f}s)'.format(
                     w=self.worker_index,
                     r=self.resets,
-                    ev='Evaluation' if self.env_config['evaluation'] else 'Training',
                     g=self.problem.extra_info["group"],
                     b=self.problem.extra_info["batch"],
                     i=self.problem.extra_info["factory_index"],
@@ -150,14 +144,11 @@ class OceanEnv(gym.Env):
 
         self.reset_end_time = time.time()
 
-        if self.empty_env:
-            return OceanFeatureConstructor.get_empty_features(self.feature_constructor_config)
-        else:
-            return self.feature_constructor.get_features_from_state(
-                fc_obs=self.prev_obs,
-                hc_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
-                problem=self.problem
-            )
+        return self.feature_constructor.get_features_from_state(
+            fc_obs=self.prev_obs,
+            hc_obs=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            problem=self.problem
+        )
 
     def step(self, action: np.ndarray) -> Tuple[type(OceanFeatureConstructor.get_observation_space), float, bool, dict]:
         step_start = time.time()
@@ -212,10 +203,9 @@ class OceanEnv(gym.Env):
                 render_start = time.time()
                 if self.config['render']:
                     self.render()
-                print("OceanEnv[Worker {w}, Reset {r}, {ev}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}, TTR Start: {ttrs:.1f}h) (step Ø: {stt:.1f}ms, total: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
+                print("OceanEnv[Worker {w}, Reset {r}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}, TTR Start: {ttrs:.1f}h) (step Ø: {stt:.1f}ms, total: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
                     w=self.worker_index,
                     r=self.resets,
-                    ev='Evaluation' if self.env_config['evaluation'] else 'Training',
                     g=self.problem.extra_info["group"],
                     b=self.problem.extra_info["batch"],
                     i=self.problem.extra_info["factory_index"],
@@ -237,10 +227,9 @@ class OceanEnv(gym.Env):
                 ))
         else:
             if self.verbose > 1:
-                print("OceanEnv[Worker {w}, Reset {r}, {ev}]: Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time} (step: {t:.1f}ms, {mem:,.0f}MB)".format(
+                print("OceanEnv[Worker {w}, Reset {r}]: Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time} (step: {t:.1f}ms, {mem:,.0f}MB)".format(
                     w=self.worker_index,
                     r=self.resets,
-                    ev='Evaluation' if self.env_config['evaluation'] else 'Training',
                     st=self.steps,
                     ph=self.problem.passed_seconds(observation.platform_state)//3600,
                     pm=self.problem.passed_seconds(observation.platform_state)%3600/60,
@@ -263,18 +252,19 @@ class OceanEnv(gym.Env):
         }
 
     def render(self, mode="human"):
-        # Step 1: Plot Arena & Frames
-        ax = self.arena.plot_all_on_map(
-            problem=self.problem,
-            x_interval=[self.hindcast_planner.grid.domain.lo[0], self.hindcast_planner.grid.domain.hi[0]],
-            y_interval=[self.hindcast_planner.grid.domain.lo[1], self.hindcast_planner.grid.domain.hi[1]]
-        )
-        self.arena.plot_arena_frame_on_map(ax)
-        self.hindcast_planner.plot_hj_frame(ax)
-        ax.autoscale()
+        if not self.dummy_env:
+            # Step 1: Plot Arena & Frames
+            ax = self.arena.plot_all_on_map(
+                problem=self.problem,
+                x_interval=[self.hindcast_planner.grid.domain.lo[0], self.hindcast_planner.grid.domain.hi[0]],
+                y_interval=[self.hindcast_planner.grid.domain.lo[1], self.hindcast_planner.grid.domain.hi[1]]
+            )
+            self.arena.plot_arena_frame_on_map(ax)
+            self.hindcast_planner.plot_hj_frame(ax)
+            ax.autoscale()
 
-        # Step 2: Save Figure
-        Utils.ensure_storage_connection()
-        os.makedirs(self.results_folder, exist_ok=True)
-        ax.get_figure().savefig(f'{self.results_folder}Reset {self.resets} Group {self.problem.extra_info["group"]} Batch {self.problem.extra_info["batch"]} Index {self.problem.extra_info["factory_index"]}.png')
-        plt.clf()
+            # Step 2: Save Figure
+            Utils.ensure_storage_connection()
+            os.makedirs(self.result_folder, exist_ok=True)
+            ax.get_figure().savefig(f'{self.result_folder}Reset {self.resets} Group {self.problem.extra_info["group"]} Batch {self.problem.extra_info["batch"]} Index {self.problem.extra_info["factory_index"]}.png')
+            plt.clf()

@@ -5,6 +5,7 @@ import time
 import os
 import pytz
 
+
 os.environ['RAY_DISABLE_MEMORY_MONITOR']='1'
 sys.path.extend(['/home/ubuntu/OceanPlatformControl'])
 print('Python %s on %s' % (sys.version, sys.platform))
@@ -19,18 +20,20 @@ from ocean_navigation_simulator.controllers.RLController import RLController
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y_%m_%d_%H_%M_%S")}')
 script_start_time = time.time()
 
-Utils.ray_init(logging_level="warning")
+
+Utils.ray_init()
 
 eval_runner = EvaluationRunner(
     config={
         'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
+        'controller': RLController,
+        'experiment': '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/unique_training_data_2022_10_11_20_24_42/',
+        'checkpoint': 255,
         'missions': {
             'folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/verification_1000_problems/',
-            'limit': 10,
+            'limit': 1000,
+            'exclude': [756]
         },
-        'controller': RLController,
-        'experiment': '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/test_evaluation_torch_2022_10_11_01_25_52/',
-        'checkpoint': 1,
         'ray_options': {
             'max_retries': 10,
             'resources': {

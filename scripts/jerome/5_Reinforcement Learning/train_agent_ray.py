@@ -19,7 +19,7 @@ script_start_time = time.time()
 Utils.ray_init(logging_level="warning")
 
 runner = TrainingRunner(
-    name='big_torch_model_forecast_and_gp_error_300',
+    name='test_preprocessor',
     tags=[],
     config=yaml.load(open(f'config/reinforcement_learning/training/experiment_basic.yaml'), Loader=yaml.FullLoader),
     verbose=2

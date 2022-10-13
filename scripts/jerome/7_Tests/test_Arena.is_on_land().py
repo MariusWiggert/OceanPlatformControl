@@ -1,9 +1,9 @@
-from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.utils import units
 
 # Water Start
-problem_factory = FileMissionProblemFactory()
+problem_factory = FileProblemFactory()
 problem = problem_factory.next_problem()
 arena = ArenaFactory.create(scenario_name='gulf_of_mexico_HYCOM_hindcast', problem=problem)
 arena.reset(problem.start_state)

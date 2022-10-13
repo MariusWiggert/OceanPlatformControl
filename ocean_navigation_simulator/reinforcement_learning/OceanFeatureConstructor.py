@@ -16,15 +16,17 @@ from ocean_navigation_simulator.ocean_observer.Observer import Observer
     and then convert to a numpy array that the RL model can use.
 """
 class  OceanFeatureConstructor(FeatureConstructor):
-    def __init__(self, forecast_planner: HJReach2DPlanner, hindcast_planner: HJReach2DPlanner, config: dict, verbose: Optional[int] = 0):
+    def __init__(self, config: dict, forecast_planner: HJReach2DPlanner, hindcast_planner: HJReach2DPlanner, verbose: Optional[int] = 0):
         self.forecast_planner = forecast_planner
         self.hindcast_planner = hindcast_planner
         self.config = config
         self.verbose =verbose
 
+        # Step 1: Initialize Measurements
         if self.config['measurements'] > 0:
             self.measurements = np.zeros(shape=(0, 4))
 
+        # Step 2: Initialize Observer
         if len(self.config['local_map']['features']['observer']['variables']) > 0:
             with open(f'config/reinforcement_learning/config_GP_for_reinforcement_learning.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
@@ -40,7 +42,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
                 low=-float("inf"),
                 high=float("inf"),
                 shape=(config['measurements'], 4),
-                dtype='float32',
+                dtype=np.float32,
             )]
 
         # Step 2: Local Map
@@ -58,7 +60,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
                 low=-float("inf"),
                 high=float("inf"),
                 shape=(meta_features,),
-                dtype='float32',
+                dtype=np.float32,
             )]
 
         return gym.spaces.Tuple([f for f in features]) if len(features) > 1 else features[0]
@@ -81,13 +83,8 @@ class  OceanFeatureConstructor(FeatureConstructor):
             low=-float("inf"),
             high=float("inf"),
             shape=shape,
-            dtype='float32',
+            dtype=np.float32,
         )
-
-    @staticmethod
-    def get_empty_features(self, config):
-        shape = self.get_map_space_from_config(config).shape
-        pass
 
     def get_features_from_state(
         self,

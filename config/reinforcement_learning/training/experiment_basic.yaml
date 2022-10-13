@@ -8,13 +8,10 @@ algorithm_name: 'apex-dqn'
 algorithm:
     ##### Environment #####
     env: 'OceanEnv'
-    env_config:
-        evaluation: False
     disable_env_checking: True
     seed: 2022
     ##### Framework #####
     framework: 'torch'
-#    eager_tracing: False
     ##### DQN #####
     num_atoms: 1
     n_step: 1
@@ -108,8 +105,8 @@ environment:
     scenario_name: 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast'
     scenario_config: {}
 
-    train_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/training_40000_problems/'
-    evaluation_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/verification_1000_problems/'
+    problem_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/training_40000_problems/'
+    validation_length: 2000
 
     arena_steps_per_env_step: 1
     actions: 8
@@ -127,11 +124,11 @@ feature_constructor:
             ttr_forecast: True
             ttr_hindcast: False
             observer:
-                variables: [] #['error_u', 'error_v'] #['error_u', 'error_v'] #['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
-                time: [] # offsets in h
+                variables: ['error_u', 'error_v'] #['error_u', 'error_v'] #['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
+                time: [0] # offsets in h
             currents_hindcast: [] # offsets in h
             currents_forecast: [] # offsets in h
-            true_error: [0] # offsets in h
+            true_error: [] # offsets in h
     global_map: False
     meta: False #['lon', 'lat', 'time', 'target_distance', 'target_direction', 'episode_time']
 

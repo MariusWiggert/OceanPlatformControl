@@ -45,8 +45,9 @@ script_start_time = time.time()
 # COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/9a7aa243aa6a74e146a7ce03d3e4d51a6917d43c/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
 
 
-COMMAND = 'pip install GPUtil'
+# COMMAND = 'pip install gym==0.23'
 
+# COMMAND = 'pip install - U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/75e9722a4d9c0d8d5cb0c37eb6316553f9e0789e/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
 
 
 Utils.run_command_on_all_nodes(COMMAND)

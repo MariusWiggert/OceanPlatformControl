@@ -10,20 +10,12 @@ import ray
 from ray.rllib import RolloutWorker, BaseEnv, Policy
 from ray.rllib.algorithms.apex_dqn import ApexDQN
 from ray.rllib.evaluation import Episode
-from ray.rllib.models import ModelCatalog
-from ray.train import Trainer
-from ray.tune.logger import UnifiedLogger
 import wandb
 import pprint
-import tensorflow as tf
 import torch
-import torchinfo
 import torchsummary
 
-from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
-from ocean_navigation_simulator.reinforcement_learning.OceanDenseTorchModel import OceanDenseTorchModel
-from ocean_navigation_simulator.reinforcement_learning.OceanDenseTFModel import OceanDenseTFModel
-from ocean_navigation_simulator.reinforcement_learning.OceanEnvFactory import OceanEnvFactory
+from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import TrainerFactory
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 from ocean_navigation_simulator.utils.bcolors import bcolors
 
@@ -49,20 +41,19 @@ class TrainingRunner:
         self.train_times = []
 
         # Step 1: Prepare Paths & Folders
-        self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
-        self.config['folders'] = {}
-        self.config['folders']['experiment'] = f"{self.config['experiments_folder']}{self.name}_{self.timestring}/"
-        self.config['folders']['config'] = f"{self.config['folders']['experiment']}config/"
-        self.config['folders']['source'] = f"{self.config['folders']['experiment']}source/"
-        self.config['folders']['results'] = f"{self.config['folders']['experiment']}results/"
-        self.config['folders']['checkpoints'] = f"{self.config['folders']['experiment']}checkpoints/"
         Utils.ensure_storage_connection()
         Utils.clean_results(self.config['experiments_folder'], verbose=1, iteration_limit=10, delete=True)
-        os.makedirs(self.config['folders']['experiment'])
-        os.makedirs(self.config['folders']['config'])
-        os.makedirs(self.config['folders']['source'])
-        os.makedirs(self.config['folders']['results'])
-        os.makedirs(self.config['folders']['checkpoints'])
+        self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
+        experiment_path = f"{self.config['experiments_folder']}{self.name}_{self.timestring}/"
+        self.config['folders'] = {
+            'experiment': experiment_path,
+            'config': f"{experiment_path}config/",
+            'source': f"{experiment_path}source/",
+            'results': f"{experiment_path}results/",
+            'checkpoints': f"{experiment_path}checkpoints/",
+        }
+        for f in self.config['folders'].values():
+            os.makedirs(f)
 
         # Step 2: Start Weights & Biases
         Utils.ensure_storage_connection()
@@ -84,7 +75,6 @@ class TrainingRunner:
         # Step 3: Save configuration & source
         json.dump(self.config, open(f"{self.config['folders']['config']}config.json", "w"), indent=4)
         wandb.save(f"{self.config['folders']['config']}config.json")
-
         # with zipfile.ZipFile(f'{self.experiment_folder}source.zip', 'w') as file:
         #     file.write('config', 'config')
         #     file.write('ocean_navigation_simulation', 'ocean_navigation_simulation')
@@ -96,23 +86,7 @@ class TrainingRunner:
         random.seed(self.config['algorithm']['seed'])
         torch.manual_seed(self.config['algorithm']['seed'])
 
-        # Step 5: Register Env
-        ray.tune.registry.register_env("OceanEnv", OceanEnvFactory(
-            config=self.config['environment'],
-            feature_constructor_config=self.config['feature_constructor'],
-            reward_function_config=self.config['reward_function'],
-            folders=self.config['folders'],
-            empty_env=False,
-            verbose=self.verbose-1,
-        ))
-
-        # Step 6: Register Model
-        if self.config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTFModel':
-            ModelCatalog.register_custom_model("OceanDenseTFModel", OceanDenseTFModel)
-        elif self.config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTorchModel':
-            ModelCatalog.register_custom_model("OceanDenseTorchModel", OceanDenseTorchModel)
-
-        # Step 7: Custom Metric
+        # Step 5: Custom Metric
         # https://docs.ray.io/en/latest/rllib/rllib-training.html#callbacks-and-custom-metrics
         # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
         class CustomCallback(ray.rllib.algorithms.callbacks.DefaultCallbacks):
@@ -142,14 +116,14 @@ class TrainingRunner:
                 self.episodes_sampled = 0
         self.config['algorithm']["callbacks"] = CustomCallback
 
-        # Step 7: Create Agent
-        if self.config['algorithm_name'] == 'apex-dqn':
-            trainer_class = ApexDQN
-        else:
-            raise ValueError(f"Algorithm '{self.config['algorithm_name']}' not implemented.")
-        self.trainer = trainer_class(self.config['algorithm'], logger_creator=lambda config: UnifiedLogger(config, self.config['folders']['experiment'], loggers=None))
+        # Step 6: Create Trainer
+        self.trainer = TrainerFactory.create(
+            config=self.config,
+            logger_path=self.config['folders']['experiment'],
+            verbose=verbose-1,
+        )
 
-        # Step 9: Model & Config Data
+        # Step 7: Model & Config Data
         wandb.config.update({'algorithm_final': self.trainer.config})
         with open(f"{self.config['folders']['config']}agent_config_final.json", "wt") as f:
             pprint.pprint(self.trainer.config, stream=f)
@@ -163,37 +137,52 @@ class TrainingRunner:
     def analyze_models_torch(self):
         policy = self.trainer.get_policy()
         print('Policy Class', policy)
+        print('Preprocessor', self.trainer.workers.local_worker().preprocessors)
+        print('Filter', self.trainer.workers.local_worker().filters)
 
-        torch_models = {}
-        trainable_variables = []
+        self.torch_models = {}
+        self.trainable_variables = []
 
         try:
-            torch_models['policy.model._hidden_layers'] = (policy.model._hidden_layers, policy.model.obs_space.shape)
+            self.torch_models['policy.model._hidden_layers'] = (policy.model._hidden_layers, policy.model.obs_space.shape)
         except AttributeError:
             pass
         try:
-            torch_models['policy.model._value_branch'] = (policy.model._value_branch, (policy.model.num_outputs,))
+            self.torch_models['policy.model._value_branch'] = (policy.model._value_branch, (policy.model.num_outputs,))
         except AttributeError:
             pass
         try:
-            torch_models['policy.model.advantage_module'] = (policy.model.advantage_module, (policy.model.num_outputs,))
+            self.torch_models['policy.model.advantage_module'] = (policy.model.advantage_module, (policy.model.num_outputs,))
         except AttributeError:
             pass
         try:
-            torch_models['policy.model.value_module'] = (policy.model.value_module, (policy.model.num_outputs,))
+            self.torch_models['policy.model.value_module'] = (policy.model.value_module, (policy.model.num_outputs,))
         except AttributeError:
             pass
 
-        for name, (model, shape) in torch_models.items():
+        epoch = 0
+        Utils.ensure_storage_connection()
+        os.makedirs(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
+
+        for i, (name, (model, shape)) in enumerate(self.torch_models.items()):
             print(bcolors.OKGREEN, name, bcolors.ENDC)
             torchsummary.summary(model, input_size=shape)
-            trainable_variables.append([p.numel() for p in model.parameters() if p.requires_grad])
+            self.trainable_variables.append([p.numel() for p in model.parameters() if p.requires_grad])
+            wandb.watch(
+                models=model,
+                log='all',
+                idx=i,
+                log_freq=1,
+            )
+            dummy_input = torch.randn(shape, device="cuda")
+            # torch.save(model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.pt")
+            torch.onnx.export(model, dummy_input, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.onxx", export_params=True, opset_version=15)
 
-        total_trainable_variables = sum([sum(t) for t in trainable_variables])
-        print(f'trainable parameters: {trainable_variables}')
-        print(f'total trainable parameters: {total_trainable_variables}')
-        wandb.config.update({'trainable_variables_detail': trainable_variables})
-        wandb.config.update({'trainable_variables': total_trainable_variables})
+        self.total_trainable_variables = sum([sum(t) for t in self.trainable_variables])
+        print(f'trainable parameters: {self.trainable_variables}')
+        print(f'total trainable parameters: {self.total_trainable_variables}')
+        wandb.config.update({'trainable_variables_detail': self.trainable_variables})
+        wandb.config.update({'trainable_variables': self.total_trainable_variables})
 
     def analyze_models_tf(self):
         policy = self.trainer.get_policy()
@@ -255,8 +244,12 @@ class TrainingRunner:
                 # Step 2: Save checkpoint
                 Utils.ensure_storage_connection()
                 self.trainer.save(checkpoint_dir=self.config['folders']['checkpoints'])
-                # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
-                # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/", onnx=15)
+
+                for i, (name, (model, shape)) in enumerate(self.torch_models.items()):
+                    dummy_input = torch.randn(shape, device="cuda")
+                    torch.save(model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.pt")
+                    torch.onnx.export(model, dummy_input, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.onxx", export_params=True, opset_version=15)
+                    # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/", onnx=15)
 
                 # Step 3: Print results
                 if self.verbose and not silent:

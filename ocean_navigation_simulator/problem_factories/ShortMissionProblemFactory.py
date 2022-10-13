@@ -12,7 +12,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
-from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
 from ocean_navigation_simulator.utils import units
 
 
@@ -229,7 +229,7 @@ class ShortMissionProblemFactory:
                 - we run until timeout (problem.is_done == -1)
                 - we reset the platform x&y to start coordinates s.t. we never runs out of area
         """
-        problem_factory = FileMissionProblemFactory(csv_file=f'{batch_folder}problems.csv')
+        problem_factory = FileProblemFactory(csv_file=f'{batch_folder}problems.csv')
         problem = problem_factory.next_problem()
 
         arena = ArenaFactory.create(scenario_name=self.scenario_name, problem=problem)
