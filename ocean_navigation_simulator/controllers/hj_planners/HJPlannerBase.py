@@ -4,7 +4,6 @@ from bisect import bisect
 import matplotlib
 import numpy as np
 import abc
-import scipy
 import xarray as xr
 from typing import Tuple, Dict, List, AnyStr, Union, Callable, Optional
 from jax.interpreters import xla
@@ -44,7 +43,7 @@ class HJPlannerBase(Controller):
     Baseclass for all HJ reachability-based Planners using backwards/forwards/multi-time reachability.
         For details see: "A future for intelligent autonomous ocean observing systems" P.F.J. Lermusiaux
 
-        Note: The Baseclass is general and works for 2D, 3D, 4D System.
+        Note: The Baseclass is general and works for 2D, 3D Systems.
         In the Baseclass, the PDE is solved in non_dimensional dynamics in space and time to reduce numerical errors.
         To use this class, only the 'abstractmethod' functions need to be implemented.
 
@@ -102,6 +101,10 @@ class HJPlannerBase(Controller):
                                      # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
                                      # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
                                      'platform_dict': problem.platform_dict,
+                                     # Energy range for battery in Wh
+                                     'max_E': 400,
+                                     'min_E': 0, 
+                                     'battery_grid_size': 20 # arbitrary default number taken from Marius 3D notebook 
                                  } | specific_settings
 
         # initialize vectors for open_loop control
@@ -357,12 +360,7 @@ class HJPlannerBase(Controller):
                                       dir='multi-time-reach-back')
 
             # Now just extract it forwards releasing the vehicle at t=0
-            def termination_condn(x_target, r, x, t):
-                return np.linalg.norm(x_target - x) <= r
-
-            termination_condn = partial(termination_condn, jnp.array(self.problem.end_region.__array__()),
-                                        self.problem.target_radius)
-            self._extract_trajectory(self.get_x_from_full_state(x_t), termination_condn=termination_condn)
+            self._extract_trajectory(self.get_x_from_full_state(x_t), termination_condn=self.termination_condn)
             # arrange to forward times by convention for plotting and open-loop control (aka closed-loop with this)
             self._flip_value_func_to_forward_times()
             if self.all_values.min() < -2:
@@ -605,17 +603,7 @@ class HJPlannerBase(Controller):
         else:
             raise ValueError("Reachability Values are already in forward time.")
 
-    # Functions to access the Value Function from outside #
-    def set_interpolator(self):
-        """Helper Function to create an interpolator for the value function for fast computation."""
-        ttr_values = (self.all_values - self.all_values.min(axis=(1, 2))[:, None, None])
-        ttr_values = ttr_values / np.abs(self.all_values.min()) * (self.reach_times[-1] - self.reach_times[0]) / 3600
-
-        self.interpolator = scipy.interpolate.RegularGridInterpolator(
-            points=(self.current_data_t_0 + self.reach_times, self.grid.states[:, 0, 0], self.grid.states[0, :, 1]),
-            values=ttr_values,
-            method='linear',
-        )
+ 
 
     def interpolate_value_function_in_hours(self, observation: ArenaObservation = None,
                                             point: SpatioTemporalPoint = None, width_deg: float = 0,
@@ -668,8 +656,8 @@ class HJPlannerBase(Controller):
             add_drawing:            A callable to add a drawing to the snapshot.
             target_min_distance:    If not None, we plot the target minimum distance on top.
         """
-        if self.grid.ndim != 2:
-            raise ValueError("plot_reachability is currently only implemented for 2D sets")
+        #if self.grid.ndim != 2:
+        #    raise ValueError("plot_reachability is currently only implemented for 2D sets")
 
         # create the axis object if not fed in
         if ax is None:
@@ -697,41 +685,46 @@ class HJPlannerBase(Controller):
                 {'val_func_levels': non_dim_val_func_levels, 'y_label': y_label, 'yticklabels': abs_time_y_ticks})
 
         # plot the set on top of ax
-        ax = hj.viz._visSet2D(self.grid, val_at_t, plot_level=0, color_level='black',
-                              colorbar=is_multi_reach, obstacles=None, target_set=initial_values, return_ax=True,
-                              input_ax=ax, alpha_colorbar=alpha_color,
-                              **kwargs)
+        if self.grid.ndim == 2:
+            ax = hj.viz._visSet2D(self.grid, val_at_t, plot_level=0, color_level='black',
+                                colorbar=is_multi_reach, obstacles=None, target_set=initial_values, return_ax=True,
+                                input_ax=ax, alpha_colorbar=alpha_color,
+                                **kwargs)
 
-        ax.scatter(self.problem.start_state.lon.deg, self.problem.start_state.lat.deg, color='r', marker='o')
-        ax.scatter(self.problem.end_region.lon.deg, self.problem.end_region.lat.deg, color='g', marker='x')
+            ax.scatter(self.problem.start_state.lon.deg, self.problem.start_state.lat.deg, color='r', marker='o')
+            ax.scatter(self.problem.end_region.lon.deg, self.problem.end_region.lat.deg, color='g', marker='x')
 
-        # Add HJ-Grid Frame to Picture
-        self.plot_hj_frame(ax)
+            # Add HJ-Grid Frame to Picture
+            self.plot_hj_frame(ax)
 
-        # Add Minimal Distance from Mission generation
-        if target_min_distance is not None:
-            ax.add_patch(
-                plt.Circle((self.problem.end_region.lon.deg, self.problem.end_region.lat.deg), target_min_distance,
-                           color='r', linewidth=2, facecolor='none'))
+            # Add Minimal Distance from Mission generation
+            if target_min_distance is not None:
+                ax.add_patch(
+                    plt.Circle((self.problem.end_region.lon.deg, self.problem.end_region.lat.deg), target_min_distance,
+                            color='r', linewidth=2, facecolor='none'))
 
-        if self.specific_settings['use_geographic_coordinate_system']:
-            ax.set_title("Multi-Reach at time {}".format(datetime.fromtimestamp(
-                self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0,
-                tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')))
+            if self.specific_settings['use_geographic_coordinate_system']:
+                ax.set_title("Multi-Reach at time {}".format(datetime.fromtimestamp(
+                    self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0,
+                    tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')))
+            else:
+                ax.set_title("Multi-Reach at time {} hours".format(
+                    self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0))
+
+            if add_drawing is not None:
+                add_drawing(ax, rel_time_in_seconds)
+
+            # adjust the fig_size
+            fig = plt.gcf()
+            fig.set_size_inches(fig_size_inches[0], fig_size_inches[1])
+            if return_ax:
+                return ax
+            else:
+                plt.show()
+
         else:
-            ax.set_title("Multi-Reach at time {} hours".format(
-                self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0))
+            ax = hj.viz._visSet3D(self.grid, val_at_t, level=0)
 
-        if add_drawing is not None:
-            add_drawing(ax, rel_time_in_seconds)
-
-        # adjust the fig_size
-        fig = plt.gcf()
-        fig.set_size_inches(fig_size_inches[0], fig_size_inches[1])
-        if return_ax:
-            return ax
-        else:
-            plt.show()
 
     def plot_reachability_snapshot_over_currents(self, rel_time_in_seconds: float = 0, ax: plt.Axes = None, **kwargs):
         """ Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds over the currents.

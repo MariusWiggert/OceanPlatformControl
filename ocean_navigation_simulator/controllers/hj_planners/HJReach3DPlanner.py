@@ -6,90 +6,111 @@ import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
+import copy
 import scipy
 
-from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
+from ocean_navigation_simulator.controllers.hj_planners.Platform3dForSim import Platform3dForSim
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.utils import units
+
 import hj_reachability as hj
 import xarray as xr
 from typing import Union, Optional, Dict
 
 
-class HJReach2DPlanner(HJPlannerBase):
-    """ Reachability planner for 2D (lat, lon) reachability computation."""
+class HJReach3DPlanner(HJPlannerBase):
+    """ Reachability planner for 3D (lat, lon, bat) reachability computation."""
     gpus: float = 1.0
-    
+
     def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = ...):
         super().__init__(problem, specific_settings)
+
+        battery_center = 0.55 * self.specific_settings['max_E']*3600
+        battery_radius = 0.45 * self.specific_settings['max_E']*3600
         
-        def termination_condn(x_target, r, x, t):
-            return np.linalg.norm(x_target - x) <= r
-        
-        self.termination_condn = partial(termination_condn, jnp.array(self.problem.end_region.__array__()),
-                                self.problem.target_radius)
+        def termination_condn(x_target, r, r_b, x, t):
+            return np.linalg.norm(x_target[:2] - x[:2]) <= r and np.linalg.norm(x_target[2] - x[2]) <= r_b
+         
+        self.termination_condn = partial(termination_condn, jnp.append(jnp.array(self.problem.end_region.__array__()), battery_center),
+                                self.problem.target_radius, battery_radius)
    
+
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
-        return jnp.array(x.__array__())[:2]
+        if type(x) == PlatformState:
+            x_point = jnp.array(x.__array__())[:2]
+            return jnp.append(x_point, jnp.array(x.__array__())[3])
+        else:
+            return jnp.array(x.__array__())[:2]
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
-        """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        return Platform2dForSim(
+        """Initialize 3D (lat, lon, bat) Platform dynamics in deg/s & W."""
+        return Platform3dForSim(
             u_max=self.specific_settings['platform_dict']['u_max_in_mps'], d_max=self.specific_settings['d_max'],
             use_geographic_coordinate_system= self.specific_settings['use_geographic_coordinate_system'],
-            control_mode='min', disturbance_mode='max')
+            control_mode='min', disturbance_mode='max', c=0., D=10.)
 
     def initialize_hj_grid(self, xarray: xr) -> None:
-        """Initialize the dimensional grid in degrees lat, lon"""
-        # initialize grid using the grids_dict x-y shape as shape
+        """Initialize the dimensional grid in degrees lat, lon, bat."""
+        # initialize grid using the grids_dict x-y shape and battery capacity as shape
         self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
-                lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item()]),
-                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item()])
+                # TODO: adapt battery units
+                lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item(), self.specific_settings['min_E']*3600]), #units.Energy(watt_hours=self.specific_settings['min_E']).joule() 
+                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item(), self.specific_settings['max_E']*3600]) # units.Energy(watt_hours=self.specific_settings['max_E']).joule()) 
             ),
-            shape=(xarray['lon'].size, xarray['lat'].size)
+            shape=(xarray['lon'].size, xarray['lat'].size, self.specific_settings['battery_grid_size'])
         )
 
     def get_initial_values(self, direction) -> jnp.ndarray:
-        """ Setting the initial values for the HJ PDE solver."""
+        """ Setting the initial values for the HJ PDE solver. Setting battery center to 0.55 with radius of 0.45 -> set in 0.1 and 1.0 SoC"""
+        # TODO: adapt battery units & add to config
+        battery_center = 0.55 * self.specific_settings['max_E']*3600
+        battery_radius = 0.45 * self.specific_settings['max_E']*3600
+        
+        radii = copy.copy(self.specific_settings['initial_set_radii'])
+        radii.append(battery_radius)
+
         if direction == "forward":
             center = self.x_t
             return hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
-                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
-                radii=self.specific_settings['initial_set_radii']/self.characteristic_vec
+                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center)[:2], battery_center)),
+                radii=radii/self.characteristic_vec
             )
         elif direction == "backward":
             center = self.problem.end_region
             return hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
-                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
-                radii=[self.problem.target_radius,self.problem.target_radius]/self.characteristic_vec
+                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), battery_center)),
+                radii=radii/self.characteristic_vec
             )
         elif direction == "multi-time-reach-back":
             center = self.problem.end_region
             signed_distance = hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
-                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
-                radii=[self.problem.target_radius, self.problem.target_radius] / self.characteristic_vec
+                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), battery_center)),
+                radii=radii/self.characteristic_vec
             )
             return np.maximum(signed_distance, np.zeros(signed_distance.shape))
         else:
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")
 
+
     # Functions to access the Value Function from outside #
     def set_interpolator(self):
         """Helper Function to create an interpolator for the value function for fast computation."""
-        ttr_values = (self.all_values - self.all_values.min(axis=(1, 2))[:, None, None])
+        ttr_values = (self.all_values - self.all_values.min(axis=(1, 2, 3))[:, None, None, None])
         ttr_values = ttr_values / np.abs(self.all_values.min()) * (self.reach_times[-1] - self.reach_times[0]) / 3600
 
         self.interpolator = scipy.interpolate.RegularGridInterpolator(
-            points=(self.current_data_t_0 + self.reach_times, self.grid.states[:, 0, 0], self.grid.states[0, :, 1]),
+            points=(self.current_data_t_0 + self.reach_times, self.grid.states[:, 0, 0, 0], self.grid.states[0, :, 0, 1], self.grid.states[0, 0, :, 2]),
             values=ttr_values,
             method='linear',
         )        
+
 
     def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok = True)
@@ -124,7 +145,7 @@ class HJReach2DPlanner(HJPlannerBase):
         with open(folder + 'specific_settings.pickle', 'rb') as file:
             specific_settings= pickle.load(file)
 
-        planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
+        planner = HJReach3DPlanner(problem=problem, specific_settings=specific_settings)
 
         # Used in Replanning
         with open(folder + 'last_fmrc_idx_planned_with.pickle', 'rb') as file:
@@ -152,9 +173,9 @@ class HJReach2DPlanner(HJPlannerBase):
         return planner
 
 
-class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
+class HJReach3DPlannerWithErrorHeuristic(HJReach3DPlanner):
     #TODO: this does not work after redesign with the state and action classes, needs to be adjusted if used.
-    """Version of the HJReach2DPlanner that contains a heuristic to adjust the control, when the locally sensed
+    """Version of the HJReach3DPlanner that contains a heuristic to adjust the control, when the locally sensed
     current error (forecasted_vec - sensed_vec) is above a certain threshold.
     """
     def __init__(self, problem, specific_settings, conv_m_to_deg):
