@@ -22,9 +22,10 @@ class DoubleConv(nn.Module):
 
 class UNet(nn.Module):
     def __init__(
-            self, in_channels=6, out_channels=3, features=(64, 128, 256, 512),
+            self, in_channels=6, out_channels=3, features=(64, 128, 256, 512), dropout=False,
     ):
         super(UNet, self).__init__()
+        self.dropout = dropout
         self.ups = nn.ModuleList()
         self.downs = nn.ModuleList()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -45,6 +46,7 @@ class UNet(nn.Module):
 
         self.bottleneck = DoubleConv(features[-1], features[-1]*2)
         self.final_conv = nn.Conv2d(features[0], out_channels, kernel_size=1)
+        self.dropout = nn.Dropout(0.25)
         self.final_activation = nn.Sigmoid()
 
     def forward(self, x):
@@ -54,8 +56,11 @@ class UNet(nn.Module):
             x = down(x)
             skip_connections.append(x)
             x = self.pool(x)
+            if self.dropout:
+                x = self.dropout(x)
 
         x = self.bottleneck(x)
+        # reverse order or list
         skip_connections = skip_connections[::-1]
 
         for idx in range(0, len(self.ups), 2):

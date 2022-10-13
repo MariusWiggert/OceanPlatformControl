@@ -6,6 +6,7 @@ unet:
   in_channels: 2
   out_channels: 2
   features: [64, 128, 256, 512]
+  dropout: False
 
 train:
   learning_rate: 1e-4
@@ -13,7 +14,8 @@ train:
   test_batch_size: 2
   epochs: 100
 #  loss_type: "sparse_mse"
-  loss_type: "sparse_mse_and_tv"
+#  loss_type: "sparse_mse_and_tv"
+  loss_type: "mse"
   dataset_fraction: 1
 
 optimizer:
@@ -24,6 +26,7 @@ optimizer:
     weight_decay: 0.0003
 
 dataset:
+  type: "ForecastDataset"
   forecasts: "data/drifter_data/forecasts/area1"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
   sparse_type: "forecast"

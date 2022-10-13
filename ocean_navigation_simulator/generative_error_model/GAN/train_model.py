@@ -1,6 +1,6 @@
 from Dataset import BuoyForecastError
 from UNet import UNet
-from custom_losses import sparse_mse, total_variation
+from custom_losses import sparse_mse, total_variation, mass_conservation
 
 import wandb
 import os
@@ -28,7 +28,8 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     if model_type == "unet":
         model = UNet(in_channels=model_configs["in_channels"],
                      out_channels=model_configs["out_channels"],
-                     features=model_configs["features"])
+                     features=model_configs["features"],
+                     dropout=model_configs["dropout"])
     elif model_type == "gan":
         pass
     return model.to(device)
@@ -163,6 +164,7 @@ def main():
     print(f"Using: {model_type}.")
     print(f"Using: {cfgs_train['loss_type']}.")
     model = get_model(model_type, cfgs_model, device)
+    torch.onnx.export(model, torch.randn(1, 2, 120, 240), "my_model.onnx", )
 
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
 
