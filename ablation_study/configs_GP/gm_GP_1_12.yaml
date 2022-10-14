@@ -20,9 +20,9 @@ ocean_dict:
     source_settings:
       'folder':
         - 'data_ablation_study/hc/april/'
-  #        - 'data_ablation_study/hc/may/'
-  #        - 'data_ablation_study/hc/june/'
-  #        - 'data_ablation_study/hc/july/'
+        #        - 'data_ablation_study/hc/may/'
+        #        - 'data_ablation_study/hc/june/'
+        #        - 'data_ablation_study/hc/july/'
   #        - 'data_ablation_study/hc/august/'
   #        - 'data_ablation_study/hc/september/'
   forecast:
@@ -31,9 +31,9 @@ ocean_dict:
     source_settings:
       'folder':
         - 'data_ablation_study/fc/april/'
-      #        - 'data_ablation_study/fc/may/'
-      #        - 'data_ablation_study/fc/june/'
-      #        - 'data_ablation_study/fc/july/'
+        #        - 'data_ablation_study/fc/may/'
+        #        - 'data_ablation_study/fc/june/'
+        #        - 'data_ablation_study/fc/july/'
       #        - 'data_ablation_study/fc/august/'
       #        - 'data_ablation_study/fc/september/'
       'currents': 'total'

@@ -460,7 +460,7 @@ def run_experiments_and_plot(max_number_problems_to_run=None, plot_error_3d=Fals
         max_number_problems_to_run=max_number_problems_to_run, compute_for_all_radius_and_lag=plot_error_3d)
     if plot_error_3d:
         results, results_per_h, merged, list_dates_when_new_files, results_grids = all_results
-        path_export = "ablation_study/export_all_results_testing_set/" + name_config_yaml_file + "_export_"
+        path_export = "ablation_study/export_all_results_validation_set/" + name_config_yaml_file + "_export_"
         print(f"exporting all the objects to: {path_export}")
         for i, obj in enumerate([results, results_per_h, merged, list_dates_when_new_files, results_grids]):
             filename = path_export + f"{i}.pickle"

@@ -78,7 +78,8 @@ def r2official(ground_truth: ndarray, improved_predictions: ndarray, initial_pre
                                                                                                              ..., axis_current],
                                                                                                          keepdims=True,
                                                                                                          axis=(
-                                                                                                         -3, -2))) ** 2,
+                                                                                                             -3,
+                                                                                                             -2))) ** 2,
                                                                                              axis=axis) + sigma_square_division)}
 
 
@@ -189,8 +190,9 @@ def ratio_per_tile(ground_truth: ndarray, improved_predictions: ndarray, initial
         UserWarning("Per hour not implemented by ratio per tile.")
     axis_current = 2
     axis_space = 1
-    ratios = ((ground_truth - improved_predictions) ** 2).sum(axis=(axis_current, axis_space)) / \
-             (((ground_truth - initial_predictions) ** 2).sum(axis=(axis_current, axis_space)) + sigma_square_division)
+    ratios = np.nansum(((ground_truth - improved_predictions) ** 2), axis=(axis_current, axis_space)) / \
+             (np.nansum(((ground_truth - initial_predictions) ** 2),
+                        axis=(axis_current, axis_space)) + sigma_square_division)
     return {"ratio_per_tile": np.nanmean(ratios)}
 
 

@@ -584,6 +584,8 @@ class ExperimentRunner:
                              axis=-1) ** 0.5).mean()])))
         except ValueError as e:
             print(f"exception caught at step: {i}. Problem stopped. \n{e}")
+        except Exception as e:
+            print(f"exception caught: {e}")
         finally:
             if get_inputs_and_outputs:
                 return [np.concatenate(elem, axis=1) for elem in inputs_and_outputs[:2]], inputs_and_outputs[2], \

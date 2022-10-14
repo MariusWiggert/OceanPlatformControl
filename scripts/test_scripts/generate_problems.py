@@ -44,11 +44,15 @@ def get_area_coordinates():
 # all_intervals = [may_to_mid_august]
 # all_intervals = [june_september]
 # all_intervals = [may, july_september]
-
+mid_august = (datetime.datetime(2022, 8, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+              datetime.datetime(2022, 8, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))
+september = (datetime.datetime(2022, 8, 30, 12, 30, 1, tzinfo=datetime.timezone.utc),
+             datetime.datetime(2022, 9, 15, 12, 30, 1, tzinfo=datetime.timezone.utc))
+all_intervals = [mid_august, september]
 # Validation
-start_date = datetime.datetime(2022, 3, 30, 12, 00, 00)
-end_date = datetime.datetime(2022, 4, 29, 12, 00, 00)
-all_intervals = [(start_date, end_date)]
+# start_date = datetime.datetime(2022, 3, 30, 12, 00, 00)
+# end_date = datetime.datetime(2022, 4, 29, 12, 00, 00)
+# all_intervals = [(start_date, end_date)]
 
 # all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
 duration_simulation_default = datetime.timedelta(days=4)

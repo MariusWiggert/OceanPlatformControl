@@ -32,8 +32,8 @@ class C3Downloader:
             username='killian.kaempf@berkeley.edu',
         )
         self.c3 = c3.get_c3()
-        self.data_dir_fc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/fc_2")
-        self.data_dir_hc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/hc_2")
+        self.data_dir_fc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/fc")
+        self.data_dir_hc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/hc")
 
     def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
         """

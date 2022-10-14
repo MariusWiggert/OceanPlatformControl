@@ -218,7 +218,6 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                 filter(lambda dic: dic['t_range'][0] < time < dic['t_range'][1], self.files_dicts))
             # Basic Sanity Check if this list is empty no file contains t_0
             if len(dics_containing_t_0) == 0:
-                True
                 raise ValueError("None of the forecast files contains time.")
             # As the dict is time-ordered we simple need to find the idx of the last one in the dics_containing_t_0
             for idx, dic in enumerate(self.files_dicts):
