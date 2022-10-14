@@ -28,15 +28,12 @@ class HJReach3DPlanner(HJPlannerBase):
     def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = ...):
         super().__init__(problem, specific_settings)
 
-        battery_center = 0.55 * self.specific_settings['max_E']*3600
-        battery_radius = 0.45 * self.specific_settings['max_E']*3600
-        
-        def termination_condn(x_target, r, r_b, x, t):
-            return np.linalg.norm(x_target[:2] - x[:2]) <= r and np.linalg.norm(x_target[2] - x[2]) <= r_b
-         
-        self.termination_condn = partial(termination_condn, jnp.append(jnp.array(self.problem.end_region.__array__()), battery_center),
-                                self.problem.target_radius, battery_radius)
-   
+        # get the battery capacity in Joule from settings
+        self.battery_capacity = units.Energy(watt_hours=self.specific_settings['platform_dict']['battery_cap_in_wh']).joule
+        # set battery radius in absolute values [Joule]
+        self.specific_settings['initial_set_radii'][2] *= self.battery_capacity
+        # set absolute battery center [Joule]
+        self.specific_settings['battery_target_center'] *= self.battery_capacity
 
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
         if type(x) == PlatformState:
@@ -57,49 +54,42 @@ class HJReach3DPlanner(HJPlannerBase):
         # initialize grid using the grids_dict x-y shape and battery capacity as shape
         self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
-                # TODO: adapt battery units
-                lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item(), self.specific_settings['min_E']*3600]), #units.Energy(watt_hours=self.specific_settings['min_E']).joule() 
-                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item(), self.specific_settings['max_E']*3600]) # units.Energy(watt_hours=self.specific_settings['max_E']).joule()) 
+                lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item(), 0]), 
+                hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item(), self.battery_capacity])
             ),
             shape=(xarray['lon'].size, xarray['lat'].size, self.specific_settings['battery_grid_size'])
         )
 
     def get_initial_values(self, direction) -> jnp.ndarray:
-        """ Setting the initial values for the HJ PDE solver. Setting battery center to 0.55 with radius of 0.45 -> set in 0.1 and 1.0 SoC"""
-        # TODO: adapt battery units & add to config
-        battery_center = 0.55 * self.specific_settings['max_E']*3600
-        battery_radius = 0.45 * self.specific_settings['max_E']*3600
-        
-        radii = copy.copy(self.specific_settings['initial_set_radii'])
-        radii.append(battery_radius)
+        """ Setting the initial values for the HJ PDE solver."""
+
+        radii = self.specific_settings['initial_set_radii']
 
         if direction == "forward":
             center = self.x_t
             return hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
-                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center)[:2], battery_center)),
+                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), self.specific_settings['battery_target_center'])),
                 radii=radii/self.characteristic_vec
             )
         elif direction == "backward":
             center = self.problem.end_region
             return hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
-                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), battery_center)),
+                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), self.specific_settings['battery_target_center'])),
                 radii=radii/self.characteristic_vec
             )
         elif direction == "multi-time-reach-back":
             center = self.problem.end_region
             signed_distance = hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
-                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), battery_center)),
+                center=self._get_non_dim_state(jnp.append(self.get_x_from_full_state(center), self.specific_settings['battery_target_center'])),
                 radii=radii/self.characteristic_vec
             )
             return np.maximum(signed_distance, np.zeros(signed_distance.shape))
         else:
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")
 
-
-    # Functions to access the Value Function from outside #
     def set_interpolator(self):
         """Helper Function to create an interpolator for the value function for fast computation."""
         ttr_values = (self.all_values - self.all_values.min(axis=(1, 2, 3))[:, None, None, None])
@@ -110,8 +100,14 @@ class HJReach3DPlanner(HJPlannerBase):
             values=ttr_values,
             method='linear',
         )        
+    
+    def termination_condn(self, x, t):
+        """Helper function to determine if target region is reached"""
+        x_target = jnp.append(self.problem.end_region.__array__(), self.specific_settings['battery_target_center'])
+        r = self.specific_settings['initial_set_radii']
 
-
+        return np.linalg.norm(x_target[:2] - x[:2]) <= r[0] and np.linalg.norm(x_target[2] - x[2]) <= r[2]
+         
     def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok = True)
         # Settings

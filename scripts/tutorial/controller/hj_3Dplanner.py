@@ -52,16 +52,14 @@ specific_settings = {
     'T_goal_in_seconds': 3600 * 24 * 5,
     'use_geographic_coordinate_system': True,
     'progress_bar': True,
-    'initial_set_radii': [0.1, 0.1],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
+    'initial_set_radii': [0.1, 0.1, 0.45],  # lat in [deg], lon in [deg], battery in [%/100]. Note: for Backwards-Reachability this should be bigger.
     # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
     'grid_res': 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     'd_max': 0.0,
     # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     'platform_dict': arena.platform.platform_dict,
-    # Energy range for battery in Wh
-    'max_E': 400,
-    'min_E': 0, 
+    'battery_target_center': 0.55, # center of charge state for battery target at end point in [%/100] - radius/range is set in 'initial_set_radii'[2] -- Setting battery center to 0.55 with radius of 0.45 -> set in 0.1 and 1.0 SoC
     'battery_grid_size': 10 # arbitrary default number taken from Marius 3D notebook 
 }
 planner = HJReach3DPlanner(problem=problem, specific_settings=specific_settings)
@@ -85,7 +83,7 @@ action = planner.get_action(observation=observation)
 # loaded_planner._update_current_data(observation=observation)
 # planner = loaded_planner
 # %% Let the controller run closed-loop within the arena (the simulation loop)
-for i in tqdm(range(int(3600 * 24 * 2 / 600))):  # 3 days
+for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 

@@ -101,9 +101,7 @@ class HJPlannerBase(Controller):
                                      # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
                                      # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
                                      'platform_dict': problem.platform_dict,
-                                     # Energy range for battery in Wh
-                                     'max_E': 400,
-                                     'min_E': 0, 
+                                     'battery_target_center': 400, # center of charge state for battery target at end point in Wh - radius/range is set in 'initial_set_radii'[2]
                                      'battery_grid_size': 20 # arbitrary default number taken from Marius 3D notebook 
                                  } | specific_settings
 

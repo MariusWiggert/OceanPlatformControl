@@ -24,12 +24,6 @@ class HJReach2DPlanner(HJPlannerBase):
     
     def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = ...):
         super().__init__(problem, specific_settings)
-        
-        def termination_condn(x_target, r, x, t):
-            return np.linalg.norm(x_target - x) <= r
-        
-        self.termination_condn = partial(termination_condn, jnp.array(self.problem.end_region.__array__()),
-                                self.problem.target_radius)
    
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
         return jnp.array(x.__array__())[:2]
@@ -89,7 +83,13 @@ class HJReach2DPlanner(HJPlannerBase):
             points=(self.current_data_t_0 + self.reach_times, self.grid.states[:, 0, 0], self.grid.states[0, :, 1]),
             values=ttr_values,
             method='linear',
-        )        
+        )
+
+    def termination_condn(self, x, t):
+        """Helper function to determine if target region is reached"""
+        x_target = jnp.array(self.problem.end_region.__array__())
+        r = self.problem.target_radius
+        return np.linalg.norm(x_target - x) <= r        
 
     def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok = True)
