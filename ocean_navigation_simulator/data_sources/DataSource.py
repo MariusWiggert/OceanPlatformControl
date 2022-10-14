@@ -137,39 +137,6 @@ class DataSource(abc.ABC):
         return t_interval, lat_bnds, lon_bnds
 
     @staticmethod
-    def get_lon_lat_time_interval_of_trajectory(
-        end_region: Optional[SpatialPoint] = None,
-        margin: Optional[float] = 0,
-    ) -> Tuple[List[float], List[float], List[float]]:
-        """
-        Helper function to find the interval around start/trajectory/goal.
-        Args:
-            end_region: Optional[SpatialPoint]
-            margin: Optional[float]
-
-        Returns:
-            lon_interval:  [x_lower, x_upper] in degrees
-            lat_interval:  [y_lower, y_upper] in degrees
-            time_interval: [t_lower, t_upper] in posix time
-        """
-        if end_region is None:
-            lon_min = np.min(self.state_trajectory[:, 0])
-            lon_max = np.max(self.state_trajectory[:, 0])
-            lat_min = np.min(self.state_trajectory[:, 1])
-            lat_max = np.max(self.state_trajectory[:, 1])
-        else:
-            lon_min = min([np.min(self.state_trajectory[:, 0]), end_region.lon.deg])
-            lon_max = max([np.max(self.state_trajectory[:, 0]), end_region.lon.deg])
-            lat_min = min([np.min(self.state_trajectory[:, 1]), end_region.lat.deg])
-            lat_max = max([np.max(self.state_trajectory[:, 1]), end_region.lat.deg])
-
-        return (
-            [lon_min - margin, lon_max + margin],
-            [lat_min - margin, lat_max + margin],
-            [self.state_trajectory[0, 2], self.state_trajectory[-1, 2]],
-        )
-
-    @staticmethod
     def get_grid_dict_from_xr(xrDF: xr, source: Optional[AnyStr] = None) -> dict:
         """Helper function to extract the grid dict from an xrarray"""
 

@@ -1,4 +1,4 @@
-"""Provides the solar_rad function, which calcluates incoming radiation at a 
+"""Provides the solar_rad function, which calcluates incoming radiation at a
 time, latitude, and longitude in the units W/m^2"""
 import casadi as ca
 import numpy as np
