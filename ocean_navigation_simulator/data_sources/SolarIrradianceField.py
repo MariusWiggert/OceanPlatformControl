@@ -1,12 +1,16 @@
 import logging
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 
 from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.DataSource import (
     AnalyticalSource,
     XarraySource,
 )
-from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import *
+from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import (
+    SolarIrradianceSource,
+    AnalyticalSolarIrradiance,
+    AnalyticalSolarIrradiance_w_caching,
+)
 
 
 class SolarIrradianceField(DataField):

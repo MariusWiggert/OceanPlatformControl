@@ -1,5 +1,3 @@
-import pytest
-
 from ocean_navigation_simulator.utils import units
 
 

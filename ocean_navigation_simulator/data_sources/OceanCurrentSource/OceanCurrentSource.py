@@ -468,7 +468,7 @@ def copernicusmarine_datastore(dataset, username, password):
         data_store = xr.backends.PydapDataStore(
             open_url(url, session=session)
         )  # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
-    except:
+    except Exception:
         url = f"https://{database[1]}.cmems-du.eu/thredds/dodsC/{dataset}"
         data_store = xr.backends.PydapDataStore(
             open_url(url, session=session)

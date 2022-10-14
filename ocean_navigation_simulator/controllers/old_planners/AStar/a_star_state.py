@@ -232,8 +232,9 @@ class AStarState:
             time = distance * 111120.0 / (u_parallel + curr_parallel)
 
             # Step 8: Go back to original basis, i.e. in terms of u and v
-            u_vector = np.array([u_parallel, u_perp])
-            u_dir = np.matmul(u_vector, matrix)
+            # Note: this is commented out for flake8 because not used.
+            # u_vector = np.array([u_parallel, u_perp])
+            # u_dir = np.matmul(u_vector, matrix)
 
             # Step 9: Find the thrust and heading
             raise ValueError("Not implemented due to circular import when installing with Pip..")

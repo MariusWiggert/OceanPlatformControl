@@ -516,10 +516,10 @@ def heliocentric_longitude(jme):
     l_rad = (
         l0 + l1 * jme + l2 * jme**2 + l3 * jme**3 + l4 * jme**4 + l5 * jme**5
     ) / 10**8
-    l = rad2deg(l_rad)
+    l_intermediate = rad2deg(l_rad)
 
     # TODO: verify this works correctly on negative values
-    return np.mod(l, 360)
+    return np.mod(l_intermediate, 360)
 
 
 def heliocentric_latitude(jme):
