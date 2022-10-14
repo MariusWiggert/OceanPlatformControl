@@ -175,6 +175,13 @@ make test
 # Execute style formatting
 make style
 ```
+### Configs
+The development tools are configured in the following files. While trying to adhere to standards, we made some exceptions and ignored some directories.
+```sh
+.flake8 # flake8
+pyproject.toml # black, isort, pytest
+Makefile # make
+```
 </details>
 
 ### IDE settings (VScode, Pycharm)
