@@ -1,6 +1,9 @@
 from Dataset import BuoyForecastError
+from ForecastHindcastDataset import ForecastHindcastDataset
 from UNet import UNet
-from custom_losses import sparse_mse, total_variation, mass_conservation
+from Generator import Generator
+from Discriminator import Discriminator
+from utils import sparse_mse, total_variation, mass_conservation
 
 import wandb
 import os
@@ -30,9 +33,23 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
                      out_channels=model_configs["out_channels"],
                      features=model_configs["features"],
                      dropout=model_configs["dropout"])
-    elif model_type == "gan":
-        pass
+    elif model_type == "generator":
+        model = Generator(in_channels=model_configs["in_channels"],
+                          features=model_configs["features"],
+                          dropout=model_configs["dropout"])
     return model.to(device)
+
+
+def get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
+    if dataset_type == "forecastbuoy":
+        dataset = BuoyForecastError(dataset_configs["forecasts"],
+                                    dataset_configs["ground_truth"],
+                                    dataset_configs["sparse_type"],
+                                    dataset_configs["len"])
+    elif dataset_type == "forecasthindcast":
+        dataset = ForecastHindcastDataset(dataset_configs["forecasts"],
+                                          dataset_configs["hindcasts"])
+    return dataset
 
 
 def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
@@ -117,10 +134,15 @@ def clean_up_training(model, dataloader, base_path: str):
 
     # hack to save overfitted sample
     model.eval()
-    input = next(iter(dataloader))[0]
-    output = model(input).cpu().detach().numpy()
-    plt.imsave(os.path.join(base_path, "training_sample.png"), input[0, 0])
-    plt.imsave(os.path.join(base_path, "overfitted_sample.png"), output[0, 0])
+    training_example = next(iter(dataloader))[0]
+    output_train = model(training_example).cpu().detach().numpy()
+    plt.imsave(os.path.join(base_path, "training_sample.png"), training_example[0, 0])
+    plt.imsave(os.path.join(base_path, "training_reconstruction.png"), output_train[0, 0])
+
+    validation_example = next(iter(dataloader))[1]
+    output_val = model(validation_example).cpu().detach().numpy()
+    plt.imsave(os.path.join(base_path, "validation_sample.png"), validation_example[0, 0])
+    plt.imsave(os.path.join(base_path, "validation_reconstruction.png"), output_val[0, 0])
 
 
 def main():
@@ -150,8 +172,8 @@ def main():
     cfgs_optimizer = all_cfgs["optimizer"]
 
     # load training data
-    dataset = BuoyForecastError(cfgs_dataset["forecasts"], cfgs_dataset["ground_truth"], cfgs_dataset["sparse_type"], cfgs_dataset["len"])
-    print(f"Loading forecasts from {cfgs_dataset['forecasts']} and {cfgs_dataset['sparse_type']} ground truth from {cfgs_dataset['ground_truth']}.")
+    dataset = get_dataset(all_cfgs["dataset_type"], cfgs_dataset)
+    print(f"Using {all_cfgs['dataset_type']} dataset with {cfgs_dataset}.")
     dataset_len = len(dataset)
     print(f"Dataset length: {dataset_len}.")
     train_set, val_set = torch.utils.data.random_split(dataset,
@@ -164,7 +186,7 @@ def main():
     print(f"Using: {model_type}.")
     print(f"Using: {cfgs_train['loss_type']}.")
     model = get_model(model_type, cfgs_model, device)
-    torch.onnx.export(model, torch.randn(1, 2, 120, 240), "my_model.onnx", )
+    torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
 
