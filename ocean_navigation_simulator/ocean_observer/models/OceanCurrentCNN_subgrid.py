@@ -34,14 +34,14 @@ class OceanCurrentCNNSubgrid(nn.Module):
 
     def forward(self, x):
         # Dims input: [Batch_size, 2 (= dimensions currents), time, lat, lon]
-        for l in self.first_layers:
-            x = l(x)
-            print(x.shape, l)
-        for l in self.linear_layers:
-            x = l(x)
-            print(x.shape, l)
-        for l in self.linear_up_sampling:
-            x = l(x)
-            print(x.shape, l)
+        for layer in self.first_layers:
+            x = layer(x)
+            print(x.shape, layer)
+        for layer in self.linear_layers:
+            x = layer(x)
+            print(x.shape, layer)
+        for layer in self.linear_up_sampling:
+            x = layer(x)
+            print(x.shape, layer)
 
         return x

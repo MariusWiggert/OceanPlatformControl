@@ -2,11 +2,11 @@ import datetime
 import logging
 from typing import Dict, List
 
-import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
+import casadi as ca
 from ocean_navigation_simulator.data_sources.DataSource import (
     AnalyticalSource,
     DataSource,

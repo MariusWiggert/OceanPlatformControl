@@ -3,7 +3,6 @@ import logging
 import os
 from typing import AnyStr, List, Optional, Union
 
-import casadi as ca
 import dask.array.core
 import matplotlib.pyplot
 import matplotlib.pyplot as plt
@@ -13,6 +12,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
 
+import casadi as ca
 from ocean_navigation_simulator.data_sources.DataSource import (
     DataSource,
     XarraySource,

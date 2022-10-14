@@ -10,6 +10,7 @@ from matplotlib.widgets import Button, Slider
 
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import (
+    check_nans,
     get_metrics,
 )
 from ocean_navigation_simulator.utils import units
@@ -300,7 +301,7 @@ class PredictionsAndGroundTruthOverArea:
         update_maps(0, 0, ax1, ax2, ax3, ax4)
         plt.show()
         keyboardClick = False
-        while keyboardClick != False:
+        while keyboardClick:
             keyboardClick = plt.waitforbuttonpress()
 
     def visualize_improvement_forecasts(
@@ -372,6 +373,7 @@ class PredictionsAndGroundTruthOverArea:
             0, error_reformated, vmin=magnitude.min(), vmax=magnitude.max(), ax=ax[1, 0]
         )
         x_lim, y_lim = ax4.get_xlim(), ax4.get_ylim()
+
         if state_trajectory is not None:
             ax4.plot(trajectory_x, trajectory_y, color="y", marker="+")
         ax4.set_xlim(x_lim), ax4.set_ylim(y_lim)

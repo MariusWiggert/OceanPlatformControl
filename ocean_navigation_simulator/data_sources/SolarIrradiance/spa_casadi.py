@@ -14,8 +14,9 @@ and has been adapted to only use NumPy and also be casadi compatible.
 
 import warnings
 
-import casadi as ca
 import numpy as np
+
+import casadi as ca
 
 
 # These functions are necessary to "casadize" the algorithm.

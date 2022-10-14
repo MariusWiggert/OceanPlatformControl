@@ -1,10 +1,10 @@
 import logging
 from typing import List, Union
 
-import casadi as ca
 import numpy as np
 import xarray as xr
 
+import casadi as ca
 from ocean_navigation_simulator.data_sources.DataSource import (
     AnalyticalSource,
     DataSource,

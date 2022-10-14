@@ -1,6 +1,6 @@
-from ocean_navigation_simulator.utils import units
-
 import pytest
+
+from ocean_navigation_simulator.utils import units
 
 
 def test__seconds_to_hours():
