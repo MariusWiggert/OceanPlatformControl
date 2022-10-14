@@ -186,7 +186,7 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
 
 class ForecastFileSource(OceanCurrentSourceXarray):
     # TODO: Make it work with multiple files for one forecast (a bit of extra logic, but possible)
-    """Data Source Object that accesses and manages multiple daily HYCOM files as source."""
+    """Data Source Object that accesses and manages multiple daily files as source."""
 
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
@@ -210,6 +210,18 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                            spatial_resolution: Optional[float] = None,
                            temporal_resolution: Optional[float] = None,
                            most_recent_fmrc_at_time: Optional[datetime.datetime] = None) -> xr:
+        """Function to get the the raw current data over an x, y, and t interval.
+            Args:
+              x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+              y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+              t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+              spatial_resolution: spatial resolution in the same units as x and y interval
+              temporal_resolution: temporal resolution in seconds
+              most_recent_fmrc_at_time: if specified this is the idx of a specific forecast file to get data from it
+                                        otherwise the most recent fmrc available at t_interval[0] is used.
+            Returns:
+              data_array     in xarray format that contains the grid and the values (land is NaN)
+            """
         # format to datetime object
         if not isinstance(t_interval[0], datetime.datetime):
             t_interval = [datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc) for time in t_interval]
@@ -267,7 +279,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
 
 
 class HindcastFileSource(OceanCurrentSourceXarray):
-    """Data Source Object that accesses and manages one or many HYCOM files as source."""
+    """Data Source Object that accesses and manages one or many daily files as source."""
 
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
@@ -290,6 +302,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
+    """Data Source Object that accesses the data via the opendap framework directly from the server."""
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: establish the opendap connection with the settings in config_dict
@@ -310,7 +323,9 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
         return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
                                   v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
 
-class LongTermAverageSource(OceanCurrentSource): # figure out inheritance 
+
+class LongTermAverageSource(OceanCurrentSource):
+    """"""
     def __init__(self, source_config_dict: dict):
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.forecast_data_source = ForecastFileSource(source_config_dict['source_settings']['forecast']) 
