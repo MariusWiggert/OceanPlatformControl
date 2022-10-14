@@ -484,7 +484,9 @@ class HJPlannerBase(Controller):
             # set the postprocessor to be fed into solver_settings
             hamiltonian_postprocessor = p_multi_reach_step
         else:  # make the postprocessor the identity
-            hamiltonian_postprocessor = lambda *x: x[-1]
+
+            def hamiltonian_postprocessor(value):
+                return value
 
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(
@@ -742,7 +744,7 @@ class HJPlannerBase(Controller):
                 .reshape((width, width))
                 .squeeze()
             )
-        except:
+        except BaseException:
             print(
                 f"out_t: {out_t - self.current_data_t_0:.0f}",
                 f"out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]",

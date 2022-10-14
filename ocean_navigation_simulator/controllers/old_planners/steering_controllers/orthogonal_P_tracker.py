@@ -64,7 +64,7 @@ class orthogonal_P_tracker(WaypointTrackingController):
 
         # calculate the previous contributions from current by subtracting off the
         # projection of the movement vector onto the u direction
-        curr_vec = move_vec  # (move_vec - np.dot(move_vec, u_last_dir) * u_last_dir)
+        curr_vec = move_vec - np.dot(move_vec, u_last_dir) * u_last_dir
         curr_norm = np.linalg.norm(curr_vec)
         if curr_norm > 0:
             curr_vec = curr_vec / np.linalg.norm(curr_vec)

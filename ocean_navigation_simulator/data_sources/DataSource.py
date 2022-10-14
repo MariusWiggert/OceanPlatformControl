@@ -234,7 +234,7 @@ class DataSource(abc.ABC):
             )
         if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
             logger.warning(
-                "The final time is not part of the subset.".format(t_interval[1]), RuntimeWarning
+                "The final time {} is not part of the subset.".format(t_interval[1]), RuntimeWarning
             )
 
     def plot_data_at_time_over_area(
@@ -399,7 +399,7 @@ class DataSource(abc.ABC):
         if reset_plot:
             plt.clf()
         else:  # create a new figure object where this is plotted
-            fig = plt.figure(figsize=figsize)
+            plt.figure(figsize=figsize)
 
         # Step 2: Create ax object
         if ax is None:
