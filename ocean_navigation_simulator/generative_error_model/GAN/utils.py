@@ -6,6 +6,14 @@ from torch.nn import init
 # _____________________________ LOSSES ___________________________________ #
 
 
+def mse(predictions, target, reduction="sum"):
+    return F.mse_loss(predictions, target, reduction="sum")
+
+
+def l1(predictions, target, reduction="sum"):
+    return F.l1_loss(predictions, target, reduction="sum")
+
+
 def sparse_mse(predictions, target):
     return torch.where(target != 0, (target - predictions)**2/2, 0).sum()
 
@@ -89,18 +97,18 @@ def init_weights(net, init_type='normal', init_gain=0.02):
 # _____________________________ SAVING __________________________________ #
 
 
-def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
+def save_checkpoint(model, optimizer, file_path="my_checkpoint.pth"):
     print("=> Saving checkpoint")
     checkpoint = {
         "state_dict": model.state_dict(),
         "optimizer": optimizer.state_dict(),
     }
-    torch.save(checkpoint, filename)
+    torch.save(checkpoint, file_path)
 
 
-def load_checkpoint(checkpoint_file, model, optimizer, lr):
+def load_checkpoint(checkpoint_path, model, optimizer, lr, device):
     print("=> Loading checkpoint")
-    checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
+    checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer"])
 

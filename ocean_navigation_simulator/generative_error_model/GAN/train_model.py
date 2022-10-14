@@ -1,9 +1,10 @@
-from Dataset import BuoyForecastError
+from BuoyForecastError import BuoyForecastError
 from ForecastHindcastDataset import ForecastHindcastDataset
 from UNet import UNet
 from Generator import Generator
 from Discriminator import Discriminator
-from utils import sparse_mse, total_variation, mass_conservation
+from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
+    init_weights, save_checkpoint, load_checkpoint
 
 import wandb
 import os
@@ -15,13 +16,12 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torch import optim
 from torch.nn import functional as F
-from typing import Dict, Callable, Any, Tuple
+from typing import Dict, Callable, Any, Tuple, List
 from warnings import warn
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 
-# TODO: overfit on single batch
 # TODO: vis fixed batch during course of training
 # TODO: weight init -> pix2pix: mean=0 and std=0.02
 # TODO: verify loss @ init
@@ -99,21 +99,36 @@ def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
     return None
 
 
+def get_scheduler(optimizer, opt_dict: Dict):
+    pass
+
+
 def predict_fixed_batch():
-    # use Dataset directly to always access the correct data.
+    """Performs prediction on a fixed batch to be able to assess performance qualitatively."""
     return
 
 
-def loss_function(predictions, target, type: str = "mse"):
+def loss_function(predictions, target, losses: List[str], loss_weightings: List[float]):
     """Handles which loss is to be used.
     """
     loss = 0
-    if type == "mse":
-        loss = F.mse_loss(predictions, target, reduction="sum")
-    elif type == "sparse_mse":
-        loss = sparse_mse(predictions, target)
-    elif type == "sparse_mse_and_tv":
-        loss = sparse_mse(predictions, target) + 0.001*total_variation(predictions)
+    loss_map = {
+        "mse": mse,
+        "l1": l1,
+        "sparse_mse": sparse_mse,
+        "total_variation": total_variation,
+        "mass_conservation": mass_conservation
+    }
+
+    if len(losses) != len(loss_weightings):
+        raise ValueError("'losses' and 'loss_weightings' are not the same length!")
+
+    for loss_type, weight in zip(losses, loss_weightings):
+        if loss_type in ["mse", "l1", "sparse_mse"]:
+            loss += weight * loss_map[loss_type](predictions, target)
+        else:
+            loss += weight * loss_map[loss_type](predictions)
+
     if loss == 0:
         raise warn("Loss is zero!")
     return loss
@@ -124,13 +139,14 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
     model.train()
     with torch.enable_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
+            tepoch.set_description(f"Training epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
             for data, target in tepoch:
                 data, target = data.to(device), target.to(device)
 
                 output = model(data)
 
                 # compute loss
-                loss = loss_function(output, target, cfgs_train["loss_type"])
+                loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
                 total_loss += loss.item()
 
                 # perform optim step
@@ -152,11 +168,12 @@ def validation(model, dataloader, device, cfgs_train):
     model.eval()
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
+            tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
             for data, target in tepoch:
                 data, target = data.to(device), target.to(device)
 
                 output = model(data)
-                loss = loss_function(output, target, cfgs_train["loss_type"])
+                loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
                 total_loss += loss.item()
 
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
@@ -167,23 +184,26 @@ def validation(model, dataloader, device, cfgs_train):
     return avg_loss
 
 
-def clean_up_training(model, dataloader, base_path: str):
+def clean_up_training(model, optimizer, dataloader, base_path: str):
     """Reports best losses. Saves final model. Saves some plots."""
 
     wandb.finish()
-    torch.save(model, os.path.join(base_path, now_str))
+    save_checkpoint(model, optimizer, f"{os.path.join(base_path, now_str)}.pth")
 
     # hack to save overfitted sample
     model.eval()
-    training_example = next(iter(dataloader))[0]
-    output_train = model(training_example).cpu().detach().numpy()
-    plt.imsave(os.path.join(base_path, "training_sample.png"), training_example[0, 0])
-    plt.imsave(os.path.join(base_path, "training_reconstruction.png"), output_train[0, 0])
+    try:
+        training_example = next(iter(dataloader))[0]
+        output_train = model(training_example).cpu().detach().numpy()
+        plt.imsave(os.path.join(base_path, "training_sample.png"), training_example[0, 0])
+        plt.imsave(os.path.join(base_path, "training_reconstruction.png"), output_train[0, 0])
 
-    validation_example = next(iter(dataloader))[1]
-    output_val = model(validation_example).cpu().detach().numpy()
-    plt.imsave(os.path.join(base_path, "validation_sample.png"), validation_example[0, 0])
-    plt.imsave(os.path.join(base_path, "validation_reconstruction.png"), output_val[0, 0])
+        validation_example = next(iter(dataloader))[1]
+        output_val = model(validation_example).cpu().detach().numpy()
+        plt.imsave(os.path.join(base_path, "validation_sample.png"), validation_example[0, 0])
+        plt.imsave(os.path.join(base_path, "validation_reconstruction.png"), output_val[0, 0])
+    except:
+        raise ValueError("Validation set too small!")
 
 
 def main():
@@ -201,6 +221,7 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Running on: {device}.")
+    all_cfgs["device"] = device
 
     # seed for reproducibility
     torch.manual_seed(0)
@@ -215,18 +236,22 @@ def main():
     # load training data
     train_loader, val_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
-    # define model
+    # define model and optimizer and load from checkpoint if specified
     print(f"Using: {model_type}.")
-    print(f"Using: {cfgs_train['loss_type']}.")
+    print(f"Using: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
     model = get_model(model_type, cfgs_model, device)
-    # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
-
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
-
+    if all_cfgs["load_from_chkpt"]["value"]:
+        checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
+        load_checkpoint(checkpoint_path, model, optimizer, cfgs_train["learning_rate"], device)
+    else:
+        init_weights(model, init_type=cfgs_model["init_type"], init_gain=cfgs_model["init_gain"])
+    # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
     train_losses, val_losses = list(), list()
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
             metrics = {}
+            cfgs_train["epoch"] = epoch
 
             loss = train(model, train_loader, device, optimizer, cfgs_train)
             train_losses.append(loss)
@@ -241,7 +266,7 @@ def main():
             print(f"Epoch metrics: {metrics}.")
 
     finally:
-        clean_up_training(model, train_loader, all_cfgs["save_base_path"])
+        clean_up_training(model, optimizer, val_loader, all_cfgs["save_base_path"])
 
 
 if __name__ == "__main__":
