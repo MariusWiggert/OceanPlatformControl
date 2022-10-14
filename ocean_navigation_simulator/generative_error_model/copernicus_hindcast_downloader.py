@@ -20,7 +20,9 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
     root_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/hindcasts/area1/")
 
     for day in range(days):
-        print(f"Downloading for [{start}, {start+datetime.timedelta(days=9)}].")
+        file_start = start + datetime.timedelta(days=day)
+        file_end = file_start + datetime.timedelta(days=9)
+        print(f"Downloading for time period of [{file_start}, {file_end}].")
         file_name = f"copernicus_hindcast_lon_{lon_range}_lat_{lat_range}_time_[{start + datetime.timedelta(days=day)},{start + datetime.timedelta(days=9 + day)}].nc"
         if os.path.exists(os.path.join(root_dir, file_name)):
             print(f"File already exists!")
@@ -61,8 +63,8 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
 
 
 if __name__ == "__main__":
-    lon_range = [-145, -115]
-    lat_range = [15, 35]
-    start = datetime.datetime(2022, 4, 21, 12, 30, 0)
+    lon_range = [-150, -115]
+    lat_range = [0, 40]
+    start = datetime.datetime(2022, 5, 2, 12, 30, 0)
     days = 1
     get_copernicus_hindcast(lon_range, lat_range, start, days)

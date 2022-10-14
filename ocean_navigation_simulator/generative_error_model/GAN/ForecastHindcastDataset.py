@@ -10,7 +10,7 @@ class ForecastHindcastDataset(Dataset):
         self.fc_dir = fc_dir
         self.hc_dir = hc_dir
         self.transform = transform
-        self.hours_in_file = 24
+        self.hours_in_file = 24 * 8
 
         self.fc_file_names = sorted(os.listdir(self.fc_dir))
         self.hc_file_names = sorted(os.listdir(self.hc_dir))

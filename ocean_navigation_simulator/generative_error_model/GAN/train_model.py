@@ -11,10 +11,11 @@ import argparse
 import datetime
 import yaml
 import torch
-from torch.utils.data import DataLoader
+import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset
 from torch import optim
 from torch.nn import functional as F
-from typing import Dict, Callable, Any
+from typing import Dict, Callable, Any, Tuple
 from warnings import warn
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -22,12 +23,15 @@ import matplotlib.pyplot as plt
 
 # TODO: overfit on single batch
 # TODO: vis fixed batch during course of training
+# TODO: weight init -> pix2pix: mean=0 and std=0.02
 # TODO: verify loss @ init
 
 now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
 
 def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
+    """Handles which model to use which is specified in config file."""
+
     if model_type == "unet":
         model = UNet(in_channels=model_configs["in_channels"],
                      out_channels=model_configs["out_channels"],
@@ -40,7 +44,17 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     return model.to(device)
 
 
-def get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
+def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict):
+    """Convenience function. Selects dataset. Create dataloaders."""
+
+    dataset = _get_dataset(dataset_type, dataset_configs)
+    return _get_dataloaders(dataset, dataset_configs, train_configs)
+
+
+def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
+    """To train the complete model different datasets are used. This function
+    handles which dataset to use."""
+
     if dataset_type == "forecastbuoy":
         dataset = BuoyForecastError(dataset_configs["forecasts"],
                                     dataset_configs["ground_truth"],
@@ -49,7 +63,31 @@ def get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDataset(dataset_configs["forecasts"],
                                           dataset_configs["hindcasts"])
+    print(f"Using {dataset_type} dataset with {dataset_configs}.")
     return dataset
+
+
+def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    """Creates Dataloaders according to yaml config."""
+
+    if dataset_configs["len"] < len(dataset):
+        dataset_len = int(dataset_configs["len"])
+    else:
+        dataset_len = len(dataset)
+    print(f"Using {dataset_len} of {len(dataset)} available samples.")
+    train_size = round(0.6 * dataset_len)
+    val_size = int(0.5*(dataset_len - train_size))
+    test_size = dataset_len - train_size - val_size
+
+    # if using subset of dataset get idx
+    dataset_idx = list(range(0, dataset_len))
+    dataset = torch.utils.data.Subset(dataset, dataset_idx)
+    train_set, val_set, test_set = torch.utils.data.random_split(dataset, [train_size, val_size, test_size],
+                                                                 generator=torch.Generator().manual_seed(0))
+    train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
+    val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
+    test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=dataset_configs["shuffle"])
+    return train_loader, val_loader, test_loader
 
 
 def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
@@ -69,16 +107,19 @@ def predict_fixed_batch():
 def loss_function(predictions, target, type: str = "mse"):
     """Handles which loss is to be used.
     """
+    loss = 0
     if type == "mse":
         loss = F.mse_loss(predictions, target, reduction="sum")
     elif type == "sparse_mse":
         loss = sparse_mse(predictions, target)
     elif type == "sparse_mse_and_tv":
         loss = sparse_mse(predictions, target) + 0.001*total_variation(predictions)
+    if loss == 0:
+        raise warn("Loss is zero!")
     return loss
 
 
-def train(model, dataloader, device, optimizer, cfgs_train):
+def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
     total_loss = 0
     model.train()
     with torch.enable_grad():
@@ -100,7 +141,7 @@ def train(model, dataloader, device, optimizer, cfgs_train):
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
                 wandb.log({"train_loss": loss.item()})
 
-    avg_loss = total_loss / len(dataloader)
+    avg_loss = total_loss / len(dataloader)*cfgs_train["batch_size"]
     print(f"Training avg loss: {avg_loss:.2f}.")
 
     return avg_loss
@@ -121,14 +162,14 @@ def validation(model, dataloader, device, cfgs_train):
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
                 wandb.log({"val_loss": loss.item()})
 
-    avg_loss = total_loss / len(dataloader)
+    avg_loss = total_loss / len(dataloader)*cfgs_train["batch_size"]
     print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
 
 
 def clean_up_training(model, dataloader, base_path: str):
-    # report best losses
-    # potential plots
+    """Reports best losses. Saves final model. Saves some plots."""
+
     wandb.finish()
     torch.save(model, os.path.join(base_path, now_str))
 
@@ -161,7 +202,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Running on: {device}.")
 
-    # seed for reproducability
+    # seed for reproducibility
     torch.manual_seed(0)
 
     # simply config access
@@ -172,21 +213,13 @@ def main():
     cfgs_optimizer = all_cfgs["optimizer"]
 
     # load training data
-    dataset = get_dataset(all_cfgs["dataset_type"], cfgs_dataset)
-    print(f"Using {all_cfgs['dataset_type']} dataset with {cfgs_dataset}.")
-    dataset_len = len(dataset)
-    print(f"Dataset length: {dataset_len}.")
-    train_set, val_set = torch.utils.data.random_split(dataset,
-                                                       [dataset_len-int(0.2*dataset_len), int(0.2*dataset_len)],
-                                                       generator=torch.Generator().manual_seed(0))
-    train_loader = DataLoader(dataset=train_set, batch_size=cfgs_train["batch_size"], shuffle=cfgs_dataset["shuffle"])
-    val_loader = DataLoader(dataset=val_set, batch_size=cfgs_train["test_batch_size"], shuffle=cfgs_dataset["shuffle"])
+    train_loader, val_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model
     print(f"Using: {model_type}.")
     print(f"Using: {cfgs_train['loss_type']}.")
     model = get_model(model_type, cfgs_model, device)
-    torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
+    # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
 
