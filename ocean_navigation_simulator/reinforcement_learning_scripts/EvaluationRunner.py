@@ -69,8 +69,9 @@ class EvaluationRunner:
         wandb.init(
             project="RL for underactuated navigation",
             entity="ocean-platform-control",
+            dir="/seaweed-storage/",
             id=wandb_run_id,
-            resume="must"
+            resume="must",
         )
         wandb.run.summary["validation_1000"] = {
             'date': time_string,

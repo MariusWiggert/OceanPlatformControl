@@ -63,7 +63,17 @@ class  OceanFeatureConstructor(FeatureConstructor):
                 dtype=np.float32,
             )]
 
-        return gym.spaces.Tuple([f for f in features]) if len(features) > 1 else features[0]
+        if config['flatten']:
+            return gym.spaces.Box(
+                low=-float("inf"),
+                high=float("inf"),
+                shape=(sum([int(np.prod(f.shape)) for f in features]),),
+                dtype=np.float32,
+            )
+        elif len(features) > 1:
+            return gym.spaces.Tuple([f for f in features])
+        else:
+            return features[0]
 
     @staticmethod
     def get_map_space_from_config(config):
@@ -108,7 +118,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
 
         # Step 4: Meta Information
         if self.config['meta']:
-            features += (self.get_meta_from_state(fc_obs, hc_obs, problem, self.config['meta']))
+            features += (self.get_meta_from_state(fc_obs, hc_obs, problem, self.config['meta']),)
 
         if self.config['flatten']:
             return np.concatenate(tuple(f.flatten() for f in features))
@@ -225,14 +235,18 @@ class  OceanFeatureConstructor(FeatureConstructor):
         features = []
 
         if 'lon' in config:
-            features += fc_obs.platform_state.lon.deg
+            features += [fc_obs.platform_state.lon.deg]
         if 'lat' in config:
-            features += fc_obs.platform_state.lon.deg
+            features += [fc_obs.platform_state.lon.deg]
         if 'time' in config:
-            features += fc_obs.platform_state.date_time.timestamp()
+            features += [fc_obs.platform_state.date_time.timestamp()]
         if 'target_distance' in config:
-            features += problem.distance(fc_obs.platform_state)
+            features += [problem.distance(fc_obs.platform_state)]
         if 'target_direction' in config:
-            features += problem.angle(fc_obs.platform_state)
+            features += [problem.angle(fc_obs.platform_state)]
+        if 'episode_time_in_h' in config:
+            features += [problem.passed_seconds(fc_obs.platform_state) / 3600]
+        if 'ttr_center' in config:
+            features += [self.forecast_planner.interpolate_value_function_in_hours(fc_obs).squeeze()]
 
         return np.array(features)

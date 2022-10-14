@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
@@ -46,7 +47,7 @@ class OceanRewardFunction(RewardFunction):
 		"""
 		reward = 0
 
-		if problem_status > 0:
+		if problem_status > 0 and self.config['target_bonus'] > 0:
 			reward += self.config['target_bonus']
 
 		if problem_status == 0:
@@ -60,9 +61,9 @@ class OceanRewardFunction(RewardFunction):
 				reward += self.config['delta_ttr_hindcast'] * (prev_ttr_hc - curr_ttr_hc)
 
 		if self.config['step_punishment'] > 0:
-			reward += self.config['step_punishment']
+			reward -= self.config['step_punishment']
 
-		if problem_status < 0:
-			reward += self.config['fail_punishment']
+		if problem_status > 0 and self.config['fail_punishment'] > 0:
+			reward -= self.config['fail_punishment']
 
 		return reward

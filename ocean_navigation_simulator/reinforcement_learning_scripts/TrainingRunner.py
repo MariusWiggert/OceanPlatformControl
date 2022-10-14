@@ -144,6 +144,10 @@ class TrainingRunner:
         self.trainable_variables = []
 
         try:
+            self.torch_models['policy.model'] = (policy.model, [o.shape for o in policy.model.obs_space])
+        except AttributeError:
+            pass
+        try:
             self.torch_models['policy.model._hidden_layers'] = (policy.model._hidden_layers, policy.model.obs_space.shape)
         except AttributeError:
             pass
@@ -247,7 +251,7 @@ class TrainingRunner:
 
                 for i, (name, (model, shape)) in enumerate(self.torch_models.items()):
                     dummy_input = torch.randn(shape, device="cuda")
-                    torch.save(model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.pt")
+                    # torch.save(model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.pt")
                     torch.onnx.export(model, dummy_input, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.onxx", export_params=True, opset_version=15)
                     # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/", onnx=15)
 

@@ -67,23 +67,23 @@ class OceanEnv(gym.Env):
             self.reward_range = OceanRewardFunction.get_reward_range(self.reward_function_config)
 
             # Step 4: Initialize Problem Factory & Arena
-            if not self.dummy_env:
-                self.problem_factory = FileProblemFactory(
-                    seed=self.worker_index,
-                    csv_file=f"{self.config['problem_folder']}problems.csv",
-                    indices=indices,
-                )
-                with open(f"{self.config['problem_folder']}config/config.pickle", 'rb') as file:
-                    self.problem_config = pickle.load(file)
+            Utils.ensure_storage_connection()
+            self.problem_factory = FileProblemFactory(
+                seed=self.worker_index,
+                csv_file=f"{self.config['problem_folder']}problems.csv",
+                indices=indices,
+            )
+            with open(f"{self.config['problem_folder']}config/config.pickle", 'rb') as file:
+                self.problem_config = pickle.load(file)
 
-                self.arena = ArenaFactory.create(
-                    scenario_name=self.config['scenario_name'],
-                    scenario_config=self.config['scenario_config'],
-                    x_interval=self.problem_config['x_range'],
-                    y_interval=self.problem_config['y_range'],
-                    t_interval=self.problem_config['t_range'],
-                    verbose=self.verbose-1
-                )
+            self.arena = ArenaFactory.create(
+                scenario_name=self.config['scenario_name'],
+                scenario_config=self.config['scenario_config'],
+                x_interval=self.problem_config['x_range'],
+                y_interval=self.problem_config['y_range'],
+                t_interval=self.problem_config['t_range'],
+                verbose=self.verbose-1
+            )
 
     def reset(self) -> np.array:
         self.reset_start_time = time.time()
@@ -252,7 +252,7 @@ class OceanEnv(gym.Env):
         }
 
     def render(self, mode="human"):
-        if not self.dummy_env:
+        if self.result_folder is not None:
             # Step 1: Plot Arena & Frames
             ax = self.arena.plot_all_on_map(
                 problem=self.problem,
@@ -268,3 +268,5 @@ class OceanEnv(gym.Env):
             os.makedirs(self.result_folder, exist_ok=True)
             ax.get_figure().savefig(f'{self.result_folder}Reset {self.resets} Group {self.problem.extra_info["group"]} Batch {self.problem.extra_info["batch"]} Index {self.problem.extra_info["factory_index"]}.png')
             plt.clf()
+        else:
+            raise ValueError("result_folder not defined in OceanEnv")

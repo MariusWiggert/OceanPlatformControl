@@ -21,10 +21,10 @@ class  DoubleGyreFeatureConstructor(FeatureConstructor):
         )
 
     def get_features_from_state(self, observation: ArenaObservation, problem: NavigationProblem) -> np.ndarray:
-        lon_diff = problem.end_region.lon.deg - obs.platform_state.lon.deg
-        lat_diff = problem.end_region.lat.deg - obs.platform_state.lat.deg
-        distance = obs.platform_state.distance(problem.end_region)
-        time_elapsed = (obs.platform_state.date_time - problem.start_state.date_time).total_seconds()
+        lon_diff = problem.end_region.lon.deg - observation.platform_state.lon.deg
+        lat_diff = problem.end_region.lat.deg - observation.platform_state.lat.deg
+        distance = observation.platform_state.distance(problem.end_region)
+        time_elapsed = (observation.platform_state.date_time - problem.start_state.date_time).total_seconds()
 
         return np.array([math.atan2(lat_diff, lon_diff)], dtype=np.float32)
         # return np.array([time_elapsed, math.atan2(lat_diff, lon_diff), distance], dtype=np.float32)

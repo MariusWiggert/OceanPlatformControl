@@ -18,35 +18,6 @@ algorithm:
     noisy: False
     dueling: True
     double_q: True
-    ##### Model #####
-    model:
-        # _use_default_native_models: True
-        # Filter config: List of [out_channels, kernel, stride] for each filter.
-#        dim: 21
-#        conv_filters: [
-#            [4, [5, 5], 1],
-#            [16, [5, 5], 1],
-#            [441, [21, 21], 1]
-#        ]
-#        # Supported values are: "tanh", "relu", "swish" (or "silu"), "linear" (or None).
-#        conv_activation: 'relu'
-        fcnet_hiddens: [512, 512, 256]
-        fcnet_activation: 'tanh'
-#        post_fcnet_hiddens: [256, 256]
-#        post_fcnet_activation: 'relu'
-#        custom_model: 'OceanDenseTorchModel'
-#        custom_model_config:
-####            conv_filters: [
-####                [16, [5, 5], 1],
-####                [32, [5, 5], 1],
-####            ]
-#            common_units: [ 512, 512, 256 ]
-#            common_activation: [ 'tanh', 'tanh', 'tanh' ]
-#            common_initializer_std: [ 1, 1, 0.01 ]
-#            dueling_units: [ 128, 128 ]
-#            dueling_activation: [ 'relu', 'relu', 'linear' ]
-#            dueling_initializer_std: [ 1, 1, 1 ]
-    hiddens: [ 128, 128 ]
     ##### Episodes #####
 #    batch_mode: 'truncate_episodes'
 #    soft_horizon: False
@@ -92,12 +63,39 @@ algorithm:
 #            evaluation: True
     ##### Workers #####
     num_gpus: 1
-    num_workers: 100
+    num_workers: 102
     num_cpus_per_worker: 1
     num_gpus_per_worker: 0
     placement_strategy: 'SPREAD'
     ignore_worker_failures: True
     recreate_failed_workers: True
+    ##### Model #####
+    model:
+        # _use_default_native_models: True
+        # Filter config: List of [out_channels, kernel, stride] for each filter.
+#        dim: 21
+#        conv_filters: [
+#            [4, [5, 5], 1],
+#            [16, [5, 5], 1],
+#            [441, [21, 21], 1]
+#        ]
+#        # Supported values are: "tanh", "relu", "swish" (or "silu"), "linear" (or None).
+#        conv_activation: 'relu'
+#        fcnet_hiddens: [512, 512, 256]
+#        fcnet_activation: 'tanh'
+        custom_model: 'OceanTorchModel'
+        custom_model_config:
+            map:
+                units: [ 512, 512, 256 ]
+                activation: [ 'tanh', 'tanh', 'tanh' ]
+                initializer_std: [ 1, 1, 0.01 ]
+
+            dueling_heads:
+                units: [ 128, 128 ]
+                activation: [ 'relu', 'relu', 'linear' ]
+                initializer_std: [ False, False, False ]
+    _disable_preprocessor_api: True
+#    hiddens: [ 128, 128 ]
 
 experiments_folder: '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/'
 
@@ -114,12 +112,12 @@ environment:
     fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
 
 feature_constructor:
-    flatten: True
+    flatten: False
     measurements: False
     local_map:
         xy_width_degree: 0.2
         xy_width_points: 5
-        flatten: True
+        flatten: False
         features:
             ttr_forecast: True
             ttr_hindcast: False
@@ -130,11 +128,11 @@ feature_constructor:
             currents_forecast: [] # offsets in h
             true_error: [] # offsets in h
     global_map: False
-    meta: False #['lon', 'lat', 'time', 'target_distance', 'target_direction', 'episode_time']
+    meta: ['lon', 'lat', 'time', 'target_distance', 'target_direction', 'episode_time_in_h']
 
 reward_function:
     delta_ttr_forecast: 0
     delta_ttr_hindcast: 1
-    step_punishment: 0
+    step_punishment: 0.16
     target_bonus: 0
     fail_punishment: 0

@@ -16,10 +16,10 @@ from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Util
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.ray_init(logging_level="warning")
+Utils.ray_init()
 
 runner = TrainingRunner(
-    name='test_preprocessor',
+    name='custom_model_with_normalization',
     tags=[],
     config=yaml.load(open(f'config/reinforcement_learning/training/experiment_basic.yaml'), Loader=yaml.FullLoader),
     verbose=2

@@ -31,18 +31,17 @@ sns.set_theme()
 class Utils:
     @staticmethod
     def ray_init(**kwargs):
-        start = time.time()
-        # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
-        # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
-        ray.init(
-            runtime_env={
-                'working_dir': '.',
-                'excludes': ['.git', './generated_media', './ocean_navigation_simulator', './results', './scripts'],
-                'py_modules': ['ocean_navigation_simulator'],
-            },
-            **kwargs
-        )
-        print(f"Code sent to ray nodes in {time.time() - start:.1f}s")
+        with Utils.timing("Code sent to ray nodes in {:.1f}s", verbose=1):
+            # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
+            # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
+            ray.init(
+                runtime_env={
+                    'working_dir': '.',
+                    'excludes': ['.git', './generated_media', './ocean_navigation_simulator', './results', './scripts'],
+                    'py_modules': ['ocean_navigation_simulator'],
+                },
+                **kwargs
+            )
 
         Utils.active_nodes = list(filter(lambda node: node['Alive'] == True, ray.nodes()))
         Utils.cpus_total = ray.cluster_resources()['CPU'] if 'CPU' in ray.cluster_resources() else 0
