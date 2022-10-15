@@ -15,11 +15,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torch import optim
-from torch.nn import functional as F
+from torchvision.utils import make_grid
 from typing import Dict, Callable, Any, Tuple, List
 from warnings import warn
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 
 # TODO: vis fixed batch during course of training
@@ -44,7 +43,7 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     return model.to(device)
 
 
-def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict):
+def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict) -> Tuple:
     """Convenience function. Selects dataset. Create dataloaders."""
 
     dataset = _get_dataset(dataset_type, dataset_configs)
@@ -67,7 +66,7 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     return dataset
 
 
-def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple[DataLoader, DataLoader, DataLoader]:
+def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple:
     """Creates Dataloaders according to yaml config."""
 
     if dataset_configs["len"] < len(dataset):
@@ -77,17 +76,20 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     print(f"Using {dataset_len} of {len(dataset)} available samples.")
     train_size = round(0.6 * dataset_len)
     val_size = int(0.5*(dataset_len - train_size))
-    test_size = dataset_len - train_size - val_size
+    fixed_batch_size = 4 if dataset_len - train_size - val_size > 4 else 1
+    test_size = dataset_len - train_size - val_size - fixed_batch_size
 
     # if using subset of dataset get idx
     dataset_idx = list(range(0, dataset_len))
     dataset = torch.utils.data.Subset(dataset, dataset_idx)
-    train_set, val_set, test_set = torch.utils.data.random_split(dataset, [train_size, val_size, test_size],
-                                                                 generator=torch.Generator().manual_seed(0))
+    train_set, val_set, test_set, fixed_batch = torch.utils.data.random_split(dataset,
+                                                                              [train_size, val_size, test_size, fixed_batch_size],
+                                                                              generator=torch.Generator().manual_seed(0))
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=dataset_configs["shuffle"])
-    return train_loader, val_loader, test_loader
+    fixed_batch = DataLoader(dataset=fixed_batch, batch_size=fixed_batch_size, shuffle=False)
+    return train_loader, val_loader, test_loader, fixed_batch
 
 
 def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
@@ -103,9 +105,26 @@ def get_scheduler(optimizer, opt_dict: Dict):
     pass
 
 
-def predict_fixed_batch():
-    """Performs prediction on a fixed batch to be able to assess performance qualitatively."""
-    return
+def predict_fixed_batch(model, dataloader, device):
+    """Performs prediction on a fixed batch to be able to assess performance qualitatively.
+    This batch is visualized and saved on weights and biases."""
+
+    model.eval()
+    samples = []
+    outputs = []
+    for idx, (sample, _) in enumerate(dataloader):
+        sample = sample.to(device)
+        model_output = model(sample).cpu().detach()
+        samples.append(sample[0])
+        outputs.append(model_output[0])
+
+    # logging final images to weights and biases
+    samples = make_grid(samples, 2)
+    outputs = make_grid(outputs, 2)
+    images = wandb.Image(samples, caption="Fixed batch samples")
+    predictions = wandb.Image(outputs, caption="Fixed batch predictions")
+    wandb.log({"fixed_batch_samples": images, "fixed_batch_predictions": predictions})
+    model.train()
 
 
 def loss_function(predictions, target, losses: List[str], loss_weightings: List[float]):
@@ -184,26 +203,12 @@ def validation(model, dataloader, device, cfgs_train):
     return avg_loss
 
 
-def clean_up_training(model, optimizer, dataloader, base_path: str):
-    """Reports best losses. Saves final model. Saves some plots."""
+def clean_up_training(model, optimizer, dataloader, base_path: str, device: str):
+    """Saves final model. Saves plot for fixed batch."""
 
-    wandb.finish()
     save_checkpoint(model, optimizer, f"{os.path.join(base_path, now_str)}.pth")
-
-    # hack to save overfitted sample
-    model.eval()
-    try:
-        training_example = next(iter(dataloader))[0]
-        output_train = model(training_example).cpu().detach().numpy()
-        plt.imsave(os.path.join(base_path, "training_sample.png"), training_example[0, 0])
-        plt.imsave(os.path.join(base_path, "training_reconstruction.png"), output_train[0, 0])
-
-        validation_example = next(iter(dataloader))[1]
-        output_val = model(validation_example).cpu().detach().numpy()
-        plt.imsave(os.path.join(base_path, "validation_sample.png"), validation_example[0, 0])
-        plt.imsave(os.path.join(base_path, "validation_reconstruction.png"), output_val[0, 0])
-    except:
-        raise ValueError("Validation set too small!")
+    predict_fixed_batch(model, dataloader, device)
+    wandb.finish()
 
 
 def main():
@@ -234,7 +239,7 @@ def main():
     cfgs_optimizer = all_cfgs["optimizer"]
 
     # load training data
-    train_loader, val_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+    train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
     print(f"Using: {model_type}.")
@@ -265,8 +270,11 @@ def main():
             wandb.log(metrics)
             print(f"Epoch metrics: {metrics}.")
 
+            if epoch % 1 == 0:
+                predict_fixed_batch(model, fixed_batch_loader, device)
+
     finally:
-        clean_up_training(model, optimizer, val_loader, all_cfgs["save_base_path"])
+        clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs["save_base_path"], device)
 
 
 if __name__ == "__main__":

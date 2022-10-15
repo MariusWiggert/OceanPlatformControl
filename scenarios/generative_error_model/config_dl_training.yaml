@@ -1,6 +1,11 @@
-model: "unet"
-wandb_mode: "offline"
+model: "generator"
+dataset_type: "forecasthindcast"
+wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
+
+load_from_chkpt:
+  value: False
+  file_name: "2022-10-14_14:41:33.pth"
 
 unet:
   in_channels: 2
@@ -8,28 +13,38 @@ unet:
   features: [64, 128, 256, 512]
   dropout: False
 
+generator:
+  in_channels: 2
+  features: 64
+  dropout: False
+  init_type: "xavier"
+  init_gain: 1.0
+#  init_type: "normal"
+#  init_gain: 0.02
+
 train:
-  learning_rate: 1e-4
-  batch_size: 1
-  test_batch_size: 2
-  epochs: 100
-#  loss_type: "sparse_mse"
-#  loss_type: "sparse_mse_and_tv"
-  loss_type: "mse"
-  dataset_fraction: 1
+#  learning_rate: 1e-4
+  learning_rate: 0.0002
+  batch_size: 32
+  test_batch_size: 1
+  epochs: 30
+  loss:
+    # choice: mse, sparse_mse, total_variation, mass_conservation, l1
+    types: [ "mse"]
+    weighting: [ 1 ]
 
 optimizer:
   name: "Adam"
   parameters:
-    betas: [0.95, 0.9995]
+#    betas: [0.95, 0.9995]
+    betas: [0.5, 0.999]
     eps: 0.00001
     weight_decay: 0.0003
 
 dataset:
-  type: "ForecastDataset"
   forecasts: "data/drifter_data/forecasts/area1"
+  hindcasts: "data/drifter_data/hindcasts/area1"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
   sparse_type: "forecast"
   shuffle: False
-  len: 1
-
+  len: 1000
