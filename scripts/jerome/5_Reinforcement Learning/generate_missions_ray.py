@@ -10,7 +10,7 @@ import datetime
 import time
 import pytz
 
-from ocean_navigation_simulator.reinforcement_learning_scripts.GenerationRunner import GenerationRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts.GenerationRunner import GenerationRunner
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 from ocean_navigation_simulator.utils import units
 
