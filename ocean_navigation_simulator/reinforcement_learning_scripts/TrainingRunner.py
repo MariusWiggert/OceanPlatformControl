@@ -4,6 +4,8 @@ import random
 import time
 import os
 from typing import Optional, Dict, List
+
+import gym
 import numpy as np
 import pytz
 import ray
@@ -13,11 +15,10 @@ from ray.rllib.evaluation import Episode
 import wandb
 import pprint
 import torch
-import torchsummary
+from torchinfo import torchinfo
 
 from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import TrainerFactory
 from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
-from ocean_navigation_simulator.utils.bcolors import bcolors
 
 """
     RLRunner takes a configuration to run a RL training with Rllib and hides away all the ugly stuff
@@ -129,106 +130,57 @@ class TrainingRunner:
             pprint.pprint(self.trainer.config, stream=f)
         wandb.save(f"{self.config['folders']['config']}agent_config_final.json")
 
-        if self.config['algorithm']['framework'] == 'torch':
-            self.analyze_models_torch()
-        else:
-            self.analyze_models_tf()
+        self.analyze_custom_torch_model()
 
-    def analyze_models_torch(self):
+    def analyze_custom_torch_model(self):
         policy = self.trainer.get_policy()
+
         print('Policy Class', policy)
         print('Preprocessor', self.trainer.workers.local_worker().preprocessors)
         print('Filter', self.trainer.workers.local_worker().filters)
 
-        self.torch_models = {}
-        self.trainable_variables = []
+        # Model Informations
+        self.model = policy.model
+        if isinstance(self.model.obs_space, gym.spaces.Tuple):
+            shape = [o.shape for o in self.model.obs_space]
+            self.dummy_input = [torch.randn((32,)+s) for s in shape]
+        else:
+            shape = self.model.obs_space.shape
+            self.dummy_input = torch.randn((32,)+shape)
+        trainable_variables = [p.numel() for p in self.model.parameters() if p.requires_grad]
+        trainable_variables_modules = [sum([p.numel() for p in m.parameters() if p.requires_grad]) for m in self.model.children() ]
+        trainable_variables_modules_named = {n: sum([p.numel() for p in m.parameters() if p.requires_grad]) for n, m in self.model.named_children()}
+        total_trainable_variables = sum(trainable_variables)
+        print(f'trainable parameters: {trainable_variables}')
+        print(f'trainable parameters per module: {trainable_variables_modules}')
+        print(f'trainable parameters per module: {trainable_variables_modules_named}')
+        print(f'total trainable parameters: {total_trainable_variables}')
 
-        try:
-            self.torch_models['policy.model'] = (policy.model, [o.shape for o in policy.model.obs_space])
-        except AttributeError:
-            pass
-        try:
-            self.torch_models['policy.model._hidden_layers'] = (policy.model._hidden_layers, policy.model.obs_space.shape)
-        except AttributeError:
-            pass
-        try:
-            self.torch_models['policy.model._value_branch'] = (policy.model._value_branch, (policy.model.num_outputs,))
-        except AttributeError:
-            pass
-        try:
-            self.torch_models['policy.model.advantage_module'] = (policy.model.advantage_module, (policy.model.num_outputs,))
-        except AttributeError:
-            pass
-        try:
-            self.torch_models['policy.model.value_module'] = (policy.model.value_module, (policy.model.num_outputs,))
-        except AttributeError:
-            pass
-
+        # Export Model
         epoch = 0
         Utils.ensure_storage_connection()
         os.makedirs(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
+        torch.save(self.model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.pt")
+        if isinstance(self.dummy_input, list):
+            torch.onnx.export(self.model, args=tuple(i.cuda() for i in self.dummy_input), f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx", export_params=True, opset_version=15)
+        else:
+            torch.onnx.export(self.model, self.dummy_input.cuda(), f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx", export_params=True, opset_version=15)
 
-        for i, (name, (model, shape)) in enumerate(self.torch_models.items()):
-            print(bcolors.OKGREEN, name, bcolors.ENDC)
-            torchsummary.summary(model, input_size=shape)
-            self.trainable_variables.append([p.numel() for p in model.parameters() if p.requires_grad])
-            wandb.watch(
-                models=model,
-                log='all',
-                idx=i,
-                log_freq=1,
-            )
-            dummy_input = torch.randn(shape, device="cuda")
-            # torch.save(model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.pt")
-            torch.onnx.export(model, dummy_input, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.onxx", export_params=True, opset_version=15)
+        # Model Summary
+        model_summary = torchinfo.summary(self.model, input_data=self.dummy_input, depth=10, verbose=1)
+        with open(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log", "wt") as f:
+            f.write(model_summary.__repr__())
+        wandb.save(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log")
 
-        self.total_trainable_variables = sum([sum(t) for t in self.trainable_variables])
-        print(f'trainable parameters: {self.trainable_variables}')
-        print(f'total trainable parameters: {self.total_trainable_variables}')
-        wandb.config.update({'trainable_variables_detail': self.trainable_variables})
-        wandb.config.update({'trainable_variables': self.total_trainable_variables})
-
-    def analyze_models_tf(self):
-        policy = self.trainer.get_policy()
-        print('Policy Class', policy)
-
-        keras_models = {}
-        trainable_variables = []
-
-        try:
-            keras_models['policy.model.flatten[0].base_model'] = policy.model.flatten[0].base_model
-        except AttributeError:
-            pass
-        try:
-            keras_models['policy.model.post_fc_stack.base_model'] = policy.model.post_fc_stack.base_model
-        except AttributeError:
-            pass
-        try:
-            keras_models['policy.model.logits_and_value_model'] = policy.model.logits_and_value_model
-        except AttributeError:
-            pass
-        try:
-            keras_models['policy.model.base_model'] = policy.model.base_model
-        except AttributeError:
-            pass
-        try:
-            keras_models['policy.model.q_value_head'] = policy.model.q_value_head
-        except AttributeError:
-            pass
-        try:
-            keras_models['policy.model.state_value_head'] = policy.model.state_value_head
-        except AttributeError:
-            pass
-
-        for name, model in keras_models.items():
-            print(bcolors.OKGREEN, name, bcolors.ENDC)
-            model.summary()
-            trainable_variables.append([np.prod(v.get_shape().as_list()).item() for v in model.trainable_variables])
-
-        total_trainable_variables = sum([sum(t) for t in trainable_variables])
-        print(f'trainable parameters: {trainable_variables}')
-        print(f'total trainable parameters: {total_trainable_variables}')
+        # Weights & Biases
+        wandb.watch(
+            models=self.model,
+            log='all',
+            log_freq=1,
+        )
         wandb.config.update({'trainable_variables_detail': trainable_variables})
+        wandb.config.update({'trainable_variables_module': trainable_variables_modules})
+        wandb.config.update({'trainable_variables_module_named': trainable_variables_modules_named})
         wandb.config.update({'trainable_variables': total_trainable_variables})
 
     def run(self, epochs=100, silent=False):
@@ -248,12 +200,7 @@ class TrainingRunner:
                 # Step 2: Save checkpoint
                 Utils.ensure_storage_connection()
                 self.trainer.save(checkpoint_dir=self.config['folders']['checkpoints'])
-
-                for i, (name, (model, shape)) in enumerate(self.torch_models.items()):
-                    dummy_input = torch.randn(shape, device="cuda")
-                    # torch.save(model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.pt")
-                    torch.onnx.export(model, dummy_input, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/{name}.onxx", export_params=True, opset_version=15)
-                    # self.trainer.get_policy().export_model(export_dir=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/", onnx=15)
+                # torch.onnx.export(self.model, args=(self.dummy_input[0].cuda(), self.dummy_input[1].cuda()), f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx", export_params=True, opset_version=15)
 
                 # Step 3: Print results
                 if self.verbose and not silent:

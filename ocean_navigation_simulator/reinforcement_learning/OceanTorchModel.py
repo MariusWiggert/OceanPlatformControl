@@ -1,15 +1,13 @@
-from typing import List, Dict, Any
 import gym
 import numpy as np
-import tensorflow as tf
 import torch
-from ray.rllib.algorithms.dqn.dqn_torch_model import DQNTorchModel
-from ray.rllib.models.torch.misc import SlimFC
+from ray.rllib.models.utils import get_activation_fn
+from torch import nn
+from ray.rllib.models.torch.misc import SlimFC, SlimConv2d
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.utils.torch_utils import reduce_mean_ignore_inf
 from ray.rllib.utils.typing import ModelConfigDict, TensorType
 from ray.rllib.models.torch.misc import normc_initializer
-from torch import nn
 
 
 # Documentation:
@@ -22,16 +20,44 @@ from torch import nn
 #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/modelv2.py
 #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/dqn_tf_policy.py
 
-class OceanDenseNet(nn.Module):
-    def __init__(self, input_size, units, activation, initializer_std):
-        # print('-- OceanDenseNet.__init__ --')
-        # print('input_size', input_size, 'units', units, 'activation', activation, 'initializer_std', initializer_std)
-        # print('')
-        # print('')
-
+class OceanCNN(nn.Module):
+    def __init__(self, name, input_size, channels, kernel, stride, padding):
         super().__init__()
+        self.name = name
+
+        layers = []
+
+        for i in range(len(channels)):
+            layers.append(
+                SlimConv2d(
+                    in_channels=input_size[2] if i==0 else channels[i-1],
+                    out_channels=channels[i],
+                    kernel=kernel[i],
+                    stride=stride[i],
+                    padding=padding[i],
+                    # Defaulting these to nn.[..] will break soft torch import.
+                    # initializer: Any = "default",
+                    # activation_fn: Any = "default",
+                    # bias_init: float = 0,
+                )
+            )
+
+            layers.append(nn.Flatten())
+
+        self._model = nn.Sequential(*layers)
+
+    def forward(self, x: TensorType) -> TensorType:
+        return self._model(x)
+
+class OceanDenseNet(nn.Module):
+    def __init__(self, name, input_size, units, activation, initializer_std, input_activation=None):
+        super().__init__()
+        self.name = name
 
         layers = [nn.Flatten()]
+
+        if input_activation is not None:
+            layers.append(get_activation_fn(input_activation, "torch")())
 
         for i in range(len(units)):
             layers.append(
@@ -50,85 +76,138 @@ class OceanDenseNet(nn.Module):
 
 class OceanTorchModel(TorchModelV2, nn.Module):
     def __init__(
-        self,
-        obs_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
-        num_outputs: int,
-        model_config: ModelConfigDict,
-        name: str,
+            self,
+            obs_space: gym.spaces.Space,
+            action_space: gym.spaces.Space,
+            num_outputs: int,
+            model_config: ModelConfigDict,
+            name: str,
 
-        map: dict,
-        dueling_heads: dict,
+            map: dict,
+            meta: dict,
+            joined: dict,
+            dueling_heads: dict,
 
-        **kwargs
+            **kwargs
     ):
         nn.Module.__init__(self)
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
 
-        # print(' -- OceanTorchModel.__init__ --')
-        # print('obs_space', obs_space, 'action_space', action_space, 'num_outputs', num_outputs, 'model_config', model_config, 'name', name)
-        # print('')
-        # print('map', map, 'dueling_heads', dueling_heads)
-        # print('')
-        # print(kwargs)
-        # print('')
-        # print('')
-
+        self.map_config = map
+        self.meta_config = meta
+        self.joined_config = joined
+        self.dueling_heads_config = dueling_heads
 
         # Map Network
-        self.map_model = OceanDenseNet(
-            input_size=obs_space[0].shape,
-            units=map['units'],
-            activation=map['activation'],
-            initializer_std=map['initializer_std'],
-        )
+        self.map_in_shape = obs_space[0].shape if isinstance(obs_space, gym.spaces.Tuple) else obs_space.shape
+        if self.map_config.get('channels'):
+            self.map_model = OceanCNN(
+                name='Map Preprocessing',
+                input_size=self.map_in_shape,
+                channels=self.map_config['channels'],
+                kernel=self.map_config['kernel'],
+                stride=self.map_config['stride'],
+                padding=self.map_config['padding'],
+            )
+            self.map_out_shape = 1
+        else:
+            self.map_model = OceanDenseNet(
+                name='Map Preprocessing',
+                input_size=self.map_in_shape,
+                units=self.map_config['units'],
+                activation=self.map_config['activation'],
+                initializer_std=self.map_config['initializer_std']
+            )
+            self.map_out_shape = self.map_config['units'][-1]
+
+        # Meta Network
+        self.meta_in_shape = (1 if map['normalize'] else 0) + (obs_space[1].shape[0] if isinstance(obs_space, gym.spaces.Tuple) else 0)
+        if self.meta_in_shape > 0 and (len(self.meta_config['units']) > 0 or self.meta_config['input_activation']):
+            self.meta_model = OceanDenseNet(
+                name='Meta Preprocessing',
+                input_size=self.meta_in_shape,
+                units=self.meta_config['units'],
+                activation=self.meta_config['activation'],
+                initializer_std=self.meta_config['initializer_std'],
+
+                input_activation=self.meta_config['input_activation']
+            )
+            self.meta_out_shape = self.meta_config['units'][-1] if not self.meta_config['input_activation'] else self.meta_in_shape
+        else:
+            self.meta_out_shape = self.meta_in_shape
+
+        # Joined Network
+        self.joined_in_shape = self.map_out_shape + self.meta_out_shape
+        if len(self.joined_config['units']) > 0:
+            self.joined_model = OceanDenseNet(
+                name='Meta Preprocessing',
+                input_size=self.joined_in_shape,
+                units=self.joined_config['units'],
+                activation=self.joined_config['activation'],
+                initializer_std=self.joined_config['initializer_std'],
+            )
+            self.joined_out_shape = self.joined_config['units'][-1]
+        else:
+            self.joined_out_shape = self.joined_in_shape
 
         # Dueling Heads
-        joined_shape = map['units'][-1] + 1 + obs_space[1].shape[0]
+        self.dueling_in_shape = self.joined_out_shape
         self.advantage_head = OceanDenseNet(
-            input_size=joined_shape,
-            units=dueling_heads['units'] + [action_space.n],
-            activation=dueling_heads['activation'],
-            initializer_std=dueling_heads['initializer_std'],
+            name='Advantage Head',
+            input_size=self.dueling_in_shape,
+            units=self.dueling_heads_config['units'] + [action_space.n],
+            activation=self.dueling_heads_config['activation'],
+            initializer_std=self.dueling_heads_config['initializer_std'],
         )
         self.state_head = OceanDenseNet(
-            input_size=joined_shape,
-            units=dueling_heads['units'] + [1],
-            activation=dueling_heads['activation'],
-            initializer_std=dueling_heads['initializer_std'],
+            name='State Head',
+            input_size=self.dueling_in_shape,
+            units=self.dueling_heads_config['units'] + [1],
+            activation=self.dueling_heads_config['activation'],
+            initializer_std=self.dueling_heads_config['initializer_std'],
         )
 
-    def forward(self, map: TensorType, meta: TensorType):
-        # print(' -- OceanTorchModel.forward --')
-        # print('map.shape', map.shape, 'meta.shape', meta.shape)
-        # print('')
+    def forward(self, map: TensorType, meta: TensorType = None):
+        # Map Network
+        if self.map_config['normalize']:
+            ttr_center = map[:, torch.div(map.shape[1]-1, 2, rounding_mode='floor'), torch.div(map.shape[2]-1, 2, rounding_mode='floor'), 0]
+            map = map - ttr_center[:, None, None, None]
+        map_out = self.map_model(map)
 
-        ttr_center = map[:, (map.shape[1]-1) // 2, (map.shape[2]-1) // 2, 0]
-        normalized_map = map - ttr_center[:, None, None, None]
+        # Meta Network
+        if self.meta_in_shape > 0:
+            if self.map_config['normalize'] and meta:
+                meta_in = torch.concat((meta, ttr_center[:, None]), 1)
+            elif self.map_config['normalize']:
+                meta_in = ttr_center[:, None]
+            else:
+                meta_in = meta
 
-        # print(normalized_map)
+            if len(self.meta_config['units']) > 0 or self.meta_config['input_activation']:
+                meta_out = self.meta_model(meta_in)
+            else:
+                meta_out = meta_in
 
-        map_out = self.map_model(normalized_map)
+            joined_in = torch.concat((map_out, meta_out), 1)
+        else:
+            joined_in = map_out
 
-        # Join: Map + Normalization + Meta
-        # print(map_out.shape, ttr_center.shape, meta.shape)
-
-        joined = torch.concat((map_out, ttr_center[:, None], meta), 1)
+        # Joined Network
+        if len(self.joined_config['units']) > 0 or self.joined_config['input_activation']:
+            joined_out = self.joined_model(joined_in)
+        else:
+            joined_out = joined_in
 
         # Calculate Dueling Heads
-        advantage_out = self.advantage_head(joined)
-        state_out = self.state_head(joined)
-
+        advantage_out = self.advantage_head(joined_out)
+        state_out = self.state_head(joined_out)
 
         # Reduce According to (9) in "Dueling Network Architectures for Deep Reinforcement Learning"
         advantages_mean = reduce_mean_ignore_inf(advantage_out, 1)
-        # print(advantage_out.shape, state_out.shape, advantages_mean.shape)
         values = state_out + advantage_out - advantages_mean[:, None]
-
-        # print(values)
 
         return values
 
-    def __call__(self, **kwargs):
+    def __call__(self, *args):
         with self.context():
-            return self.forward(**kwargs)
+            return self.forward(*args)

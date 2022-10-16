@@ -22,13 +22,10 @@ class OceanApexDQN(ApexDQN):
                 input_dict,
                 **kwargs
             ):
-                # print('-- custom_compute_q_values --')
-                # print(model)
-                # print(input_dict)
-                # print([obs.shape for obs in input_dict["obs"]])
-                # print('')
-                # print('')
-                values = model(map=input_dict["obs"][0], meta=input_dict["obs"][1])
+                if isinstance(input_dict["obs"], tuple):
+                    values = model(*input_dict["obs"])
+                else:
+                    values = model(input_dict['obs'])
                 logits = torch.unsqueeze(torch.ones_like(values), -1)
 
                 return values, logits, logits, []
@@ -43,14 +40,7 @@ class OceanApexDQN(ApexDQN):
                 import ray.rllib.algorithms.dqn.dqn_torch_policy as dqn_torch_policy
                 dqn_torch_policy.compute_q_values = custom_compute_q_values
 
-                # print('-- build_q_model_and_distribution --')
-                # print(config)
-                # print(obs_space)
-                # print('')
-                # print('')
-                model_cls = _global_registry.get(
-                    RLLIB_MODEL, config['model']["custom_model"]
-                )
+                model_cls = _global_registry.get(RLLIB_MODEL, config['model']["custom_model"])
                 model = model_cls(obs_space, action_space, action_space.n, config["model"], 'model', **config["model"]["custom_model_config"])
                 policy.target_model = model_cls(obs_space, action_space, action_space.n, config["model"], 'model', **config["model"]["custom_model_config"])
                 return model, get_torch_categorical_class_with_temperature(config["categorical_distribution_temperature"])

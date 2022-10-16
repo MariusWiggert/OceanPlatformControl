@@ -19,7 +19,7 @@ script_start_time = time.time()
 Utils.ray_init()
 
 runner = TrainingRunner(
-    name='custom_model_with_normalization',
+    name='custom_model_with_norm_tanh_and_bigger_joined_net',
     tags=[],
     config=yaml.load(open(f'config/reinforcement_learning/training/experiment_basic.yaml'), Loader=yaml.FullLoader),
     verbose=2
