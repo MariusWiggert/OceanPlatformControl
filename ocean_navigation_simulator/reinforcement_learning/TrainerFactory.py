@@ -1,10 +1,9 @@
 import ray
-from ray.rllib.algorithms.apex_dqn import ApexDQN
 from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.OceanApexDQN import OceanApexDQN
-from ocean_navigation_simulator.reinforcement_learning.OceanDenseTFModel import OceanDenseTFModel
+from archive.OceanDenseTFModel import OceanDenseTFModel
 from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import OceanTorchModel
 from ocean_navigation_simulator.reinforcement_learning.OceanEnvFactory import OceanEnvFactory
 

@@ -7,7 +7,7 @@ import datetime
 import time
 import pytz
 
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
@@ -49,8 +49,9 @@ script_start_time = time.time()
 
 # COMMAND = 'pip install - U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/75e9722a4d9c0d8d5cb0c37eb6316553f9e0789e/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
 
+COMMAND = 'ls -la'
 
-Utils.run_command_on_all_nodes(COMMAND)
+cluster_utils.run_command_on_all_nodes(COMMAND)
 
 # import ray
 # from tqdm import tqdm
