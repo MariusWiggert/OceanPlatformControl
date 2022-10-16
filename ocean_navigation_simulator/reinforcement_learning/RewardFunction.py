@@ -6,7 +6,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import NavigationP
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
 
-class  RewardFunction(abc.ABC):
+class RewardFunction(abc.ABC):
     @staticmethod
     @abc.abstractmethod
     def get_reward_range() -> Tuple:

@@ -1,6 +1,7 @@
 from typing import Tuple, Union
 import numpy as np
 import xarray as xr
+import logging
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
@@ -15,6 +16,9 @@ import abc
 class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.ocean_field.ocean_source")
+        self.logger.setLevel(logging.INFO)
         # Casadi functions are created and maintained here but used in the platform object
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.current_run_t_0 = 0

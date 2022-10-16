@@ -8,7 +8,7 @@ from ocean_navigation_simulator.problem_factories.FileProblemFactory import File
 problem_factory = FileProblemFactory(csv_file=f'/seaweed-storage/generation/3_increased_timeout/problems.csv')
 problem = problem_factory.next_problem()
 
-hindcast_planner = HJReach2DPlanner.from_plan(
+hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
     folder=f'/seaweed-storage/generation/2_improved_planner/seed_{problem.extra_info["seed"]}/batch_{problem.extra_info["batch"]}/',
     problem=problem,
     verbose=10,

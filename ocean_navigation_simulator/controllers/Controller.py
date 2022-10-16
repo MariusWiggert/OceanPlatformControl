@@ -1,10 +1,10 @@
 import abc
-from typing import Optional
+import logging
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.environment.Problem import Problem
+
 
 class Controller(abc.ABC):
     """
@@ -12,14 +12,16 @@ class Controller(abc.ABC):
     """
     gpus: float = 0.0
 
-    def __init__(self, problem: NavigationProblem, verbose: Optional[int] = 0, **kwargs):
+    def __init__(self, problem: NavigationProblem):
         """
         Basic constructor logging the problem given at construction.
         Args:
             problem: the Problem the controller will run on
         """
         self.problem = problem
-        self.verbose = verbose
+        # initialize logger
+        self.logger = logging.getLogger("arena.controller")
+        self.logger.setLevel(logging.INFO)
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:

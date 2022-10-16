@@ -9,7 +9,6 @@ import ocean_navigation_simulator.utils.units as units
 #   u: Current magnitude along the x axis in meters per second.
 #   v: Current magnitude along the y axis in meters per second.
 # Note: x axis is parallel to latitude, and y axis is parallel to longitude.
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 
 
 class OceanCurrentVector(NamedTuple):

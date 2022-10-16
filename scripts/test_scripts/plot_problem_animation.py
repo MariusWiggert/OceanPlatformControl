@@ -1,6 +1,6 @@
 # % Solar animation Test
 import datetime
-import ocean_navigation_simulator.env.data_sources.SolarIrradianceField as SolarIrradianceField
+import ocean_navigation_simulator.data_sources.SolarIrradianceField as SolarIrradianceField
 
 casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 # %Solar irradiance Test
@@ -31,11 +31,11 @@ temporal_res = 3600 * 3
 #                                                              spatial_resolution=spatial_res, temporal_resolution=temporal_res)
 
 solar_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              temporal_res=temporal_res, spatial_res=spatial_res,
+                                              temporal_resolution=temporal_res, spatial_resolution=spatial_res,
                                               output="solar_animation.mp4")
 
 # %% Ocean Animation Test
-from ocean_navigation_simulator.env.data_sources.OceanCurrentField import OceanCurrentField
+from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
 
 casadi_cache_dict = {'deg_around_x_t': 1, 'time_around_x_t': 3600 * 24 * 1}
 # % Analytical Ocean Current Example
@@ -60,7 +60,7 @@ ocean_field = OceanCurrentField(hindcast_source_dict=ocean_source_dict,
                                 use_geographic_coordinate_system=False)
 # %% visualize currents
 ocean_field.forecast_data_source.plot_data_at_time_over_area(
-    time=10, x_interval=[-2, 10], y_interval=[-2, 10], return_ax=False, spatial_res=None)
+    time=10, x_interval=[-2, 10], y_interval=[-2, 10], return_ax=False, spatial_resolution=None)
 # %% Input to animate the currents
 x_interval = [-2, 10]
 y_interval = [-2, 10]
@@ -76,14 +76,14 @@ def add_dot(ax, posix_time):
 
 # %
 ocean_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
-                                              temporal_res=temporal_res, spatial_res=spatial_res, add_ax_func=add_dot,
+                                              temporal_resolution=temporal_res, spatial_resolution=spatial_res, add_ax_func=add_dot,
                                               output="currents_animation.mp4", figsize=(24, 12))
 
 # %% Test Seaweed Growth Visualization
 import datetime
-from ocean_navigation_simulator.env.Arena import Arena
-from ocean_navigation_simulator.env.PlatformState import PlatformState, SpatialPoint
-from ocean_navigation_simulator.env.utils import units
+from ocean_navigation_simulator.environment.Arena import Arena
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.utils import units
 
 platform_dict = {
     'battery_cap_in_wh': 400.0,
@@ -114,7 +114,7 @@ seaweed_source_dict = {
     'field': 'SeaweedGrowth',
     'source': 'GEOMAR',
     'source_settings': {
-        'filepath': './data/Nutrients/2021_monthly_nutrients_and_temp.nc',
+        'filepath': './data/nutrients/2021_monthly_nutrients_and_temp.nc',
     }
 }
 ocean_source_dict = {'field': 'OceanCurrents',
@@ -132,7 +132,8 @@ arena = Arena(
     platform_dict=platform_dict,
     ocean_dict={'hindcast': ocean_source_dict, 'forecast': None},
     solar_dict={'hindcast': solar_source_dict, 'forecast': None},
-    seaweed_dict={'hindcast': seaweed_source_dict, 'forecast': None}
+    seaweed_dict={'hindcast': seaweed_source_dict, 'forecast': None},
+    use_geographic_coordinate_system=platform_dict['use_geographic_coordinate_system']
 )
 # %% Plot plot_R_growth_wo_Irradiance (what it calculates at the start)
 platform_state = PlatformState(lon=units.Distance(deg=-50),
@@ -153,9 +154,9 @@ spatial_res = 5
 # %% Plot data at time over area
 arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
     time=platform_state.date_time, x_interval=x_interval, y_interval=y_interval, return_ax=False,
-    spatial_res=spatial_res, figsize=(12, 6))
+    spatial_resolution=spatial_res, figsize=(12, 6))
 # %% animate data over time and area
 arena.seaweed_field.hindcast_data_source.animate_data(x_interval=x_interval, y_interval=y_interval,
                                                       t_interval=t_interval,
-                                                      temporal_res=temporal_res, spatial_res=spatial_res,
+                                                      temporal_resolution=temporal_res, spatial_resolution=spatial_res,
                                                       output="growth_animation.mp4", figsize=(12, 6))

@@ -2,6 +2,7 @@ import casadi as ca
 from ocean_navigation_simulator.data_sources.SolarIrradiance.solar_rad import solar_rad, solar_rad_ca
 from typing import List, Union
 import numpy as np
+import logging
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
 import xarray as xr
 from ocean_navigation_simulator.data_sources.DataSource import DataSource, AnalyticalSource
@@ -38,6 +39,9 @@ class AnalyticalSolarIrradiance_w_caching(AnalyticalSource, SolarIrradianceSourc
             }
         """
         super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.solar_field.analytical_source")
+        self.logger.setLevel(logging.INFO)
         self.solar_rad_casadi = None
 
     @staticmethod
@@ -115,6 +119,9 @@ class AnalyticalSolarIrradiance(AnalyticalSolarIrradiance_w_caching):
             }
         """
         super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.solar_field.analytical_source")
+        self.logger.setLevel(logging.INFO)
         self.solar_rad_casadi = solar_rad_ca
         # set the self.casadi_grid_dict to full domain
         self.casadi_grid_dict = self.grid_dict
@@ -129,6 +136,9 @@ class FixedYRangeSolar(AnalyticalSolarIrradiance):
 
     def __init__(self, source_config_dict):
         super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.solar_field.analytical_source")
+        self.logger.setLevel(logging.INFO)
 
         self.y_range_solar = source_config_dict['source_settings']['y_range_solar']
         self.irradiance = source_config_dict['source_settings']['irradiance']

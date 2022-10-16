@@ -1,4 +1,5 @@
 from typing import Optional, Dict
+import logging
 from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR, SeaweedGrowthSource
 
@@ -23,6 +24,9 @@ class SeaweedGrowthField(DataField):
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
              'source_settings' dict that contains the specific settings required for the selected 'source'. See classes.
         """
+        # initialize logger
+        self.logger = logging.getLogger("arena.seaweed_growth_field")
+        self.logger.setLevel(logging.INFO)
         super().__init__(casadi_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system)
 
     @staticmethod

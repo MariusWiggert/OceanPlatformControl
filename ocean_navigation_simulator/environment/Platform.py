@@ -15,9 +15,10 @@ import numpy as np
 import time
 import math
 from typing import Dict, Optional
+import logging
 
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
-from ocean_navigation_simulator.data_sources.SolarIrradiance import SolarIrradianceSource
+from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import SolarIrradianceSource
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthSource
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
@@ -76,10 +77,13 @@ class Platform:
             platform_dict: Dict,
             ocean_source: OceanCurrentSource,
             use_geographic_coordinate_system: bool,
-            solar_source: SolarIrradianceSource = None,
-            seaweed_source: SeaweedGrowthSource = None,
-            verbose: Optional[int] = 0,
+            solar_source: Optional[SolarIrradianceSource] = None,
+            seaweed_source: Optional[SeaweedGrowthSource] = None
         ):
+
+        # initialize platform logger
+        self.logger = logging.getLogger("arena.platform")
+        self.logger.setLevel(logging.INFO)
 
         # Set the major member variables
         self.platform_dict = platform_dict
@@ -88,7 +92,6 @@ class Platform:
         self.solar_source = solar_source
         self.seaweed_source = seaweed_source
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
-        self.verbose = verbose
 
         self.model_battery = self.solar_source is not None
         self.model_seaweed = self.solar_source is not None and self.seaweed_source is not None
@@ -106,29 +109,31 @@ class Platform:
         self.state, self.F_x_next = [None]*2
 
     def set_state(self, state: PlatformState):
-        """Helper function to set the state."""
+        """Helper function to set the state directly."""
         self.state = state
 
     def simulate_step(self, action: PlatformAction) -> PlatformState:
         """Steps forward the simulation.
-
         This moves the platforms's state forward according to the dynamics of motion
-
         Args:
-          action:
-          time_delta: How much time is elapsing during this step.
-          intermediate_steps:
+            action: PlatformAction object
+        Return:
+            state:  the next state as PlatformState object.
         """
+
         # check if the cached dynamics need to be updated
         self.update_dynamics(self.state)
-
+        # step forward with F_x_next and convert from casadi to numpy array
         state_numpy = np.array(self.F_x_next(np.array(self.state), np.array(action), self.dt_in_s)).astype('float64').flatten()
         self.state = PlatformState.from_numpy(state_numpy)
 
         return self.state
 
     def initialize_dynamics(self, state: PlatformState):
-        """Run at arena.reset()"""
+        """ Run at arena.reset() to load data and cache in casadi functions to run fast during simultion.
+        Args:
+            state: PlatformState for which to load the data for caching in space and time
+        """
         start = time.time()
         if self.ocean_source is not None:
             self.ocean_source.update_casadi_dynamics(state)
@@ -137,26 +142,30 @@ class Platform:
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
         self.F_x_next = self.get_casadi_dynamics()
-        if self.verbose > 0:
-            print(f'Platform: Initialize Casadi + Dynamics ({time.time() - start:.1f}s)')
+
+        self.logger.info(f'Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)')
 
     def update_dynamics(self, state: PlatformState):
-        """Run in the step loop of arena."""
+        """ Run in the step loop of arena to check if dynamics need to be updated.
+        Args:
+            state: PlatformState for which to check if cached dynamics need to be updated.
+        """
         start = time.time()
+        # Check and directly reload if data for the casadi function for ocean or solar simulation needs to be updated.
         ocean_change = (self.ocean_source is not None and self.ocean_source.check_for_casadi_dynamics_update(state))
         solar_change = (self.solar_source is not None and self.solar_source.check_for_casadi_dynamics_update(state))
+        # propagate the newly cached functions in the source objects to F_x_next and seaweed source.
         if ocean_change or solar_change:
             if solar_change:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
-            if self.verbose > 0:
-                print(f'Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)')
+            self.logger.info(f'Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)')
 
     def get_casadi_dynamics(self):
+        """Function to construct the F_x_next symbolic casadi function to be used in simulation."""
         # TODO: split up in three functions with varying level of complexities: 1) lat, lon, 2) adding battery, 3) adding seaweed mass
         # Note: lat, lon depend on battery if used
-        # Could also be done with subclassing of Platform.
-        ##### Equations #####
+        ##### Symbolic Variables #####
         start = time.time()
         sym_lon_degree      = ca.MX.sym('lon')          # in deg or m
         sym_lat_degree      = ca.MX.sym('lat')          # in deg or m
@@ -214,8 +223,7 @@ class Platform:
             [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],
             [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)],
         )
-        if self.verbose > 0:
-            print(f'Platform: Set Equations ({time.time() - start:.1f}s)')
+        self.logger.info(f'Platform: Set Dynamics F_x_next Function ({time.time() - start:.1f}s)')
         return F_next
 
     def __del__(self):

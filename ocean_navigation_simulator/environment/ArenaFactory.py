@@ -7,11 +7,11 @@ import mergedeep
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
-from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils.misc import timiing, get_c3
 
 
 class ArenaFactory:
+    """Factory to create an arena with specific settings and download the needed files from C3 storage."""
     @staticmethod
     def create(
         scenario_name: str,
@@ -23,7 +23,8 @@ class ArenaFactory:
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 0
     ) -> Arena:
-        with Utils.timing(f'ArenaFactory: Creating Arena for {scenario_name} ({{:.1f}}s)', verbose):
+        """If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files."""
+        with timing(f'ArenaFactory: Creating Arena for {scenario_name} ({{:.1f}}s)', verbose):
             # Step 1: Load Configuration
             with open(f'config/arena/{scenario_name}.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
@@ -46,7 +47,7 @@ class ArenaFactory:
 
             # Step 3: Download Hindcast
             if t_interval is not None and config['ocean_dict']['hindcast'] is not None and config['ocean_dict']['hindcast']['source']=='hindcast_files':
-                with Utils.timing('ArenaFactory: Download Hindcast Files ({:.1f}s)', verbose):
+                with timing('ArenaFactory: Download Hindcast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
                         archive_source=config['ocean_dict']['hindcast']['source_settings']['source'],
                         archive_type=config['ocean_dict']['hindcast']['source_settings']['type'],
@@ -58,7 +59,7 @@ class ArenaFactory:
 
             # Step 4: Download Forecast
             if t_interval is not None and config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
-                with Utils.timing('ArenaFactory: Download Forecast Files ({:.1f}s)', verbose):
+                with timing('ArenaFactory: Download Forecast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
                         archive_source=config['ocean_dict']['forecast']['source_settings']['source'],
                         archive_type=config['ocean_dict']['forecast']['source_settings']['type'],
@@ -76,13 +77,12 @@ class ArenaFactory:
                 use_geographic_coordinate_system=config['use_geographic_coordinate_system'],
                 solar_dict=config['solar_dict'],
                 seaweed_dict=config['seaweed_dict'],
-                spatial_boundary=config['spatial_boundary'],
-                verbose=verbose-1
+                spatial_boundary=config['spatial_boundary']
             )
 
     @staticmethod
     def get_filelist(archive_source, archive_type, t_interval: List[datetime.datetime] = None, verbose: Optional[int] = 10):
-        c3 = Utils.get_c3(verbose-1)
+        c3 = get_c3(verbose-1)
 
         if t_interval is not None:
             start_min = f'{t_interval[0] - datetime.timedelta(days=1)}'
@@ -126,7 +126,7 @@ class ArenaFactory:
 
     @staticmethod
     def download_filelist(files, download_folder, verbose: Optional[int] = 0):
-        c3 = Utils.get_c3(verbose-1)
+        c3 = get_c3(verbose-1)
 
         # Step 1: Download Files thread-safe with atomic os.rename
         temp_folder = f'{download_folder}{os.getpid()}/'

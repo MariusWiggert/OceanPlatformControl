@@ -1,29 +1,29 @@
 # coding=utf-8
-# Copyright 2022 The Balloon Learning Environment Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright 2022 The Balloon Learning Environment Authors. Adapted by Marius Wiggert and Jerome Jeannine.
 
 """Common unit conversion functions and classes."""
 
 import datetime as datetime
-import json
 import typing
+import time
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import contextlib
 
 _METERS_PER_FOOT = 0.3048
 _METERS_PER_DEG_LAT_LON = 111120
+
+
+@contextlib.contextmanager
+def timing(string, verbose: Optional[int] = 0):
+    """ Simple tool to check how long a specific code-part takes."""
+    if verbose > 0:
+        start = time.time()
+    yield
+    if verbose > 0:
+        print(string.format(time.time()-start))
 
 
 class Distance:

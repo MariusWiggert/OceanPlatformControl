@@ -11,7 +11,7 @@ from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import 
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint, SpatialPoint
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
+from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
 class HJReach2DPlanner(HJPlannerBase):
@@ -19,7 +19,7 @@ class HJReach2DPlanner(HJPlannerBase):
     gpus: float = 1.0
 
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
-        return jnp.array(x)[:2]
+        return jnp.array(x.__array__())[:2]
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
@@ -31,7 +31,7 @@ class HJReach2DPlanner(HJPlannerBase):
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
         # initialize grid using the grids_dict x-y shape as shape
-        self.grid = hj.Grid.from_grid_definition_and_initial_values(
+        self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
                 lo=np.array([xarray['lon'][0].item(), xarray['lat'][0].item()]),
                 hi=np.array([xarray['lon'][-1].item(), xarray['lat'][-1].item()])
@@ -40,6 +40,7 @@ class HJReach2DPlanner(HJPlannerBase):
         )
 
     def get_initial_values(self, direction) -> jnp.ndarray:
+        """ Setting the initial values for the HJ PDE solver."""
         if direction == "forward":
             center = self.x_t
             return hj.shapes.shape_ellipse(
@@ -66,9 +67,7 @@ class HJReach2DPlanner(HJPlannerBase):
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")
 
     @staticmethod
-    def from_plan(folder, problem: NavigationProblem, specific_settings: Optional[dict] = {}, verbose: Optional[int] = 0):
-        Utils.ensure_storage_connection()
-
+    def from_saved_planner_state(folder, problem: NavigationProblem, specific_settings: Optional[dict] = {}, verbose: Optional[int] = 0):
         # Settings
         with open(folder + 'specific_settings.pickle', 'rb') as file:
             loaded_specific_settings = pickle.load(file)
@@ -85,7 +84,9 @@ class HJReach2DPlanner(HJPlannerBase):
 
         return planner
 
+
 class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
+    #TODO: this does not work after redesign with the state and action classes, needs to be adjusted if used.
     """Version of the HJReach2DPlanner that contains a heuristic to adjust the control, when the locally sensed
     current error (forecasted_vec - sensed_vec) is above a certain threshold.
     """
@@ -151,7 +152,7 @@ class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
         """Go in the direction of the target with full power. See superclass for args and return value."""
 
         lon, lat = x_t[0][0], x_t[1][0]
-        lon_target, lat_target = self.x_T[0], self.x_T[1]
+        lon_target, lat_target = self.problem.end_region.lon.deg, self.problem.end_region.lat.deg
 
         dlon = lon_target - lon
         dlat = lat_target - lat
