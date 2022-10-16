@@ -16,7 +16,6 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 class HJReach2DPlanner(HJPlannerBase):
     """ Reachability planner for 2D (lat, lon) reachability computation."""
-    gpus: float = 1.0
 
     def get_x_from_full_state(self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]) -> jnp.ndarray:
         return jnp.array(x.__array__())[:2]
@@ -67,20 +66,15 @@ class HJReach2DPlanner(HJPlannerBase):
             raise ValueError("Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back.")
 
     @staticmethod
-    def from_saved_planner_state(folder, problem: NavigationProblem, specific_settings: Optional[dict] = {}, verbose: Optional[int] = 0):
-        # Settings
+    def from_saved_planner_state(folder, problem: NavigationProblem, specific_settings: Optional[dict] = {}):
         with open(folder + 'specific_settings.pickle', 'rb') as file:
             loaded_specific_settings = pickle.load(file)
 
         planner = HJReach2DPlanner(
             problem=problem,
-            specific_settings=loaded_specific_settings | {'save_after_planning': False} | specific_settings,
-            verbose=verbose
+            specific_settings=loaded_specific_settings | {'save_after_planning': False} | specific_settings
         )
         planner.restore_variables(folder=folder)
-
-        if planner.verbose > 0:
-            print(f'HJPlannerBase: Plan loaded from {folder} with fmrc_time={planner.last_fmrc_time_planned_with}')
 
         return planner
 

@@ -10,22 +10,22 @@ sys.path.extend(['/home/ubuntu/OceanPlatformControl'])
 print('Python %s on %s' % (sys.version, sys.platform))
 print(sys.path)
 
-from ocean_navigation_simulator.reinforcement_learning_scripts.TrainingRunner import TrainingRunner
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
+from ocean_navigation_simulator.reinforcement_learning.scripts.TrainingRunner import TrainingRunner
+from ocean_navigation_simulator.utils import cluster_utils
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.ray_init()
+cluster_utils.init_ray()
 
 runner = TrainingRunner(
-    name='custom_model_with_norm_tanh_and_bigger_joined_net',
+    name='test_merge',
     tags=[],
-    config=yaml.load(open(f'config/reinforcement_learning/training/experiment_basic.yaml'), Loader=yaml.FullLoader),
+    config=yaml.load(open(f'config/reinforcement_learning/experiment_basic.yaml'), Loader=yaml.FullLoader),
     verbose=2
 ).run(epochs=300)
 
-# Utils.destroy_cluster()
+# cluster_utils.destroy_cluster()
 
 script_time = time.time()-script_start_time
 print(f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s.")

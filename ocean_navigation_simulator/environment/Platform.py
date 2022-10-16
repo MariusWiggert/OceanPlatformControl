@@ -9,6 +9,7 @@ Typical usage:
     platform.simulate_step(current_field, command, stride)
     print(platform.x, platform.y)
 """
+import os
 from dataclasses import dataclass
 import casadi as ca
 import numpy as np
@@ -83,7 +84,7 @@ class Platform:
 
         # initialize platform logger
         self.logger = logging.getLogger("arena.platform")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
 
         # Set the major member variables
         self.platform_dict = platform_dict

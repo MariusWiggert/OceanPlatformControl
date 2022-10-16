@@ -1,3 +1,4 @@
+import os
 from typing import Optional, Dict, Type
 import logging
 from ocean_navigation_simulator.data_sources.DataField import DataField
@@ -26,7 +27,7 @@ class SolarIrradianceField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.solar_field")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
         super().__init__(casadi_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system)
 
     @staticmethod

@@ -1,31 +1,38 @@
 from tqdm import tqdm
-import time
+import seaborn as sns
+import os
+
+os.environ['LOGLEVEL'] = 'ERROR'
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
+from ocean_navigation_simulator.controllers.RLController import RLController
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.problem_factories.DoubleGyreProblemFactory import DoubleGyreProblemFactory
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
+from ocean_navigation_simulator.utils.misc import timing
 
-start = time.time()
+sns.set_theme()
 
-arena = ArenaFactory.create(scenario_name='double_gyre')
-# arena = ArenaFactory.create(scenario_name='current_highway')
-# arena = ArenaFactory.create(scenario_name='gulf_of_mexico')
 
-#arena = ArenaFactory.create(scenario_name='double_gyre')
+with timing("Total Script Time: {:.2f}s", verbose=1):
+    factory = FileProblemFactory(
+        csv_file='/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/verification_1000_problems/problems.csv',
+        # indices=[],
+    )
+    problem = factory.next_problem()
 
-factory = DoubleGyreProblemFactory()
-problem = factory.next_problem()
-controller = NaiveController(problem=problem)
-observation = arena.reset(problem.start_state)
+    arena = ArenaFactory.create(scenario_name='gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast', problem=problem, verbose=1)
 
-for i in tqdm(range(5000)):#6 * 40)):
-    action = controller.get_action(observation)
-    observation = arena.step(action)
+    controller = RLController(config={
+        'experiment': '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/unique_training_data_2022_10_11_20_24_42/',
+        'checkpoint': 255,
+        'missions': {
+            'folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/verification_1000_problems/',
+        },
+    }, problem=problem, arena=arena)
 
-arena.plot_all_on_map(
-    problem=problem,
-    x_interval=[0,1.99],
-    y_interval=[0,0.99]
-).get_figure().show()
+    observation = arena.reset(problem.start_state)
+    for i in tqdm(range(100)):
+        action = controller.get_action(observation)
+        observation = arena.step(action)
 
-print(f"Total Script Time: {time.time() - start:.2f}s")
+    arena.plot_all_on_map(problem=problem)

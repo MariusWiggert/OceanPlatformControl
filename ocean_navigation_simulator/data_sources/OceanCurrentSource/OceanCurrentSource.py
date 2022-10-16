@@ -146,7 +146,7 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field.ocean_source")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.dask_array = None
 

@@ -10,10 +10,42 @@ import pynvml
 import requests
 from c3python import C3Python
 
+## How to get c3 Keyfile set up
+# Step 1:   generate the public and private keys locally on your computer
+#           in terminal run 'openssl genrsa -out c3-rsa.pem 2048' -> this generates the private key in the c3-rsa.pem file
+#           for public key from it run 'openssl rsa -in c3-rsa.pem -outform PEM -pubout -out public.pem'
+# Step 2:   move the c3-rsa.pem file to a specific folder
+# Step 3:   Log into C3, start jupyter service and in a cell update your users public key by
+#               usr = c3.User.get("mariuswiggert@berkeley.edu")
+#               usr.publicKey = "<public key from file>"
+#               usr.merge()
+
+### Getting C3 Object for data downloading ###
+def get_c3(verbose: Optional[int] = 0):
+    KEYFILE = 'setup/keys/c3-rsa-marius.pem'
+    USERNAME = 'mariuswiggert@berkeley.edu'
+
+    """Helper function to get C3 object for access to the C3 Database"""
+    if not hasattr(get_c3, "c3"):
+        with timing('Utils: Connect to c3 ({:.1f}s)', verbose):
+            get_c3.c3 = C3Python(
+                #Old Tag: url='https://dev01-seaweed-control.c3dti.ai', tag='dev01',
+                url='https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud',
+                tag='devseaweedrc1',
+                tenant='seaweed-control',
+                keyfile=KEYFILE,
+                username=USERNAME,
+            ).get_c3()
+    return get_c3.c3
 
 @contextlib.contextmanager
-def timing(string, verbose: Optional[int] = 0):
-    """ Simple tool to check how long a specific code-part takes."""
+def timing(string, verbose: Optional[int] = 1):
+    """
+        Simple tool to check how long a specific code-part takes.
+        :arg
+            string:
+            verbose:
+    """
     if verbose > 0:
         start = time.time()
         yield
@@ -21,23 +53,19 @@ def timing(string, verbose: Optional[int] = 0):
     else:
         yield
 
-def get_c3(verbose: Optional[int] = 0):
-    if not hasattr(get_c3, "c3"):
-        with timing('Utils: Connect to c3 ({:.1f}s)', verbose):
-            get_c3.c3 = C3Python(
-                # Old Tag:
-                # url='https://dev01-seaweed-control.c3dti.ai',
-                # tag='dev01',
-                # New tag:
-                url='https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud',
-                tenant='seaweed-control',
-                tag='devseaweedrc1',
-                keyfile='setup/keys/c3-rsa-jerome',
-                username='jeanninj@berkeley.edu',
-            ).get_c3()
-    return get_c3.c3
-
 def get_process_information_dict() -> dict:
+    """
+        Helper function to get important process information as a dictionary.
+        Runs without error when no GPU is installed.
+        Returns:
+            pid
+            public ip
+            private ip
+            ram
+            gpu total
+            gpu used
+            gpu free
+    """
     try:
         pynvml.nvmlInit()
         gpu_info = pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(0))
@@ -55,6 +83,11 @@ def get_process_information_dict() -> dict:
     }
 
 class bcolors:
+    """
+        Helper class to use colors in the console.
+        Example:
+            print(f'{bcolors.FAIL} test {bcolors.ENDC}')
+    """
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'

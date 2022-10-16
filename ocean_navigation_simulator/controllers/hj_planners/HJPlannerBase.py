@@ -35,6 +35,7 @@ import hj_reachability as hj
 # TODO: handle where it is using hours_to_hj_solve_timescale to make sure the plot is in hours
 # TODO: This is very much work in progress, does not work yet!
 # TODO: discuss with Jerome: why run_without_x_T? sample_from_reachable_coordinates, set_interpolator, etc.
+#       -> JJ: this is used for problem generation where we want HJ to stop afterr the specified time
 # TODO: discuss the new variables in reachability snapshot plotting add_drawing, target_min_distance...
 # => why don't we put them outside where they are used? It's for mission generation then in code there?
 
@@ -170,8 +171,6 @@ class HJPlannerBase(Controller):
             if 'load_plan' in self.specific_settings and self.specific_settings['load_plan']:
                 folder = f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index+1}/'
                 self.restore_variables(folder=folder)
-                if self.verbose > 0:
-                    print(f'HJPlannerBase: Plan reloaded from {folder}')
             else:
                 start = time.time()
 
@@ -939,9 +938,6 @@ class HJPlannerBase(Controller):
             ))
         return sampled_points
 
-    def rejection_sample_reachable_coordinates(self, random, t_interval, min_distance):
-        pass
-
     def save_plan(self, folder):
         os.makedirs(folder, exist_ok = True)
 
@@ -970,8 +966,7 @@ class HJPlannerBase(Controller):
         with open(folder + 'initial_values.pickle', 'wb') as file:
             pickle.dump(self.initial_values, file)
 
-        if self.verbose > 0:
-            print(f'HJPlannerBase: Saving plan to {folder}')
+        self.logger.info(f'HJPlannerBase: Saving plan to {folder}')
 
     def restore_variables(self, folder):
         # Used in Replanning
@@ -995,4 +990,7 @@ class HJPlannerBase(Controller):
             self.characteristic_vec = pickle.load(file)
         with open(folder + 'initial_values.pickle', 'rb') as file:
             self.initial_values = pickle.load(file)
+
         self.set_interpolator()
+
+        self.logger.info(f'HJPlannerBase: Plan loaded from {folder} with fmrc_time={self.last_fmrc_time_planned_with}')

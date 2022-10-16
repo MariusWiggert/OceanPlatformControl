@@ -16,11 +16,10 @@ from ocean_navigation_simulator.ocean_observer.Observer import Observer
     and then convert to a numpy array that the RL model can use.
 """
 class  OceanFeatureConstructor(FeatureConstructor):
-    def __init__(self, config: dict, forecast_planner: HJReach2DPlanner, hindcast_planner: HJReach2DPlanner, verbose: Optional[int] = 0):
+    def __init__(self, config: dict, forecast_planner: HJReach2DPlanner, hindcast_planner: HJReach2DPlanner):
         self.forecast_planner = forecast_planner
         self.hindcast_planner = hindcast_planner
         self.config = config
-        self.verbose =verbose
 
         # Step 1: Initialize Measurements
         if self.config['measurements'] > 0:

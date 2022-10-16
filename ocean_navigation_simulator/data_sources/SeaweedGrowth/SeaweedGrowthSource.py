@@ -1,3 +1,4 @@
+import os
 from typing import Dict
 import matplotlib.pyplot as plt
 from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import *
@@ -53,7 +54,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field.seaweed_growth_source")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
 
         # Initialize variables used to hold casadi functions.
         self.F_NGR_per_second, self.r_growth_wo_irradiance, self.r_resp = [None] * 3

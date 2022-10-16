@@ -4,6 +4,7 @@
 """
 import dataclasses
 import datetime as dt
+import os
 from typing import Dict, Optional, Union, Tuple, List, AnyStr, Literal, Callable
 import matplotlib
 import numpy as np
@@ -27,10 +28,13 @@ from ocean_navigation_simulator.utils.plotting_utils import get_lon_lat_time_int
 from ocean_navigation_simulator.utils.plotting_utils import animate_trajectory
 
 
-# TODO: discuss why spatial_boundary dictionary? Why collect_trajectory shouldn't this be default?
-# TODO: check if logging works
+# TODO: discuss why spatial_boundary dictionary?
+#       -> JJ: spatial boundary is used for analytical currents and cached hj planner
+# TODO: Why collect_trajectory shouldn't this be default?
+#       -> JJ: for RL it is not used and will unnecessary fill memory, default behaviour is on
 # TODO: discuss use of the new functions is_in_area and checking problem status
-
+#       -> JJ: is_on_land is only a wrapper to simplify, generally we want to terminate when on land
+# TODO: check if logging works
 
 @dataclasses.dataclass
 class ArenaObservation:
@@ -109,7 +113,7 @@ class Arena:
     """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()

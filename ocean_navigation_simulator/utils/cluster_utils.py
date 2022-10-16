@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 import ray
 from ocean_navigation_simulator.utils.misc import timing
-from c3python import C3Python
+
 
 # 1.    ray up setup/ray-config.yaml
 #       ray up --restart-only setup/ray-config.yaml
@@ -19,54 +19,38 @@ from c3python import C3Python
 # tensorboard --logdir ~/ray_results
 # ssh -L 16006:127.0.0.1:6006 olivier@my_server_ip
 
-## How to get c3 Keyfile set up
-# Step 1: generate the public and private keys locally on your computer
-# in terminal run 'openssl genrsa -out c3-rsa.pem 2048' -> this generates the private key in the c3-rsa.pem file
-# for public key from it run 'openssl rsa -in c3-rsa.pem -outform PEM -pubout -out public.pem'
-# Step 2: move the c3-rsa.pem file to a specific folder
-# Step 3: Log into C3, start jupyter service and in a cell update your users public key by
-#   user = c3.User.get("mariuswiggert@berkeley.edu")
-#   user = user.get("publicKey")
-#   user.publicKey = "<public key from file>"
-#   user.merge()
-
-KEYFILE = 'setup/c3_keys/c3-rsa.pem'
-USERNAME = 'mariuswiggert@berkeley.edu'
-
-
-### Getting C3 Object for data downloading ###
-def get_c3(verbose: Optional[int] = 0):
-    """Helper function to get C3 object for access to the C3 Databases.
-    For now Jerome's access is hardcoded -> Need to change that!
-    """
-    with timing('Utils: Connect to c3 ({:.1f}s)', verbose):
-        c3 = C3Python(
-            url='https://dev01-seaweed-control.c3dti.ai',
-            tenant='seaweed-control',
-            tag='dev01',
-            keyfile=KEYFILE,
-            username=USERNAME,
-        ).get_c3()
-    return c3
 
 
 ### Various Utils for Using Ray and the Azure Cluster ###
 def init_ray(**kwargs):
+    """
+        Initialises ray with a runtime environment.
+        Ray then sends the specified code directories to all cluster nodes.
+        Args:
+            **kwargs: to be passed to ray.init()
+    """
     with timing("Code sent to ray nodes in {:.1f}s", verbose=1):
-        # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
+        # Documentation:
+        # https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
         # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
         ray.init(
             runtime_env={
                 'working_dir': '.',
                 'excludes': ['.git', './generated_media', './ocean_navigation_simulator', './results', './scripts'],
                 'py_modules': ['ocean_navigation_simulator'],
+                'env_vars': {'LOGLEVEL': 'WARN'},
             },
+            **kwargs
         )
 
     print_ray_resources()
 
 
 def print_ray_resources():
+    """
+        Prints available nodes/cpus/gpus in the ray instance.
+        ray.init() has to be called first.
+    """
     active_nodes = list(filter(lambda node: node['Alive'] == True, ray.nodes()))
     cpu_total = ray.cluster_resources()['CPU'] if 'CPU' in ray.cluster_resources() else 0
     gpu_total = ray.cluster_resources()['GPU'] if 'GPU' in ray.cluster_resources() else 0
@@ -80,10 +64,24 @@ def print_ray_resources():
 
 
 def destroy_cluster():
+    """
+        Shuts down the ray cluster. NOT WORKING YET.
+    """
     os.system('ray down -y setup/ray-config.yaml')
 
 
 def run_command_on_all_nodes(command, resource_group='jerome-ray-cpu'):
+    """
+        Runs a command on all machines in the specified resourcegroup of our Azure Directory.
+        This allows to quickly install new dependencies without running
+        the whole installation script.
+        Example:
+            ray.init()
+            run_command_on_all_nodes('ls -la', 'your-resource-group')
+        :arg
+            command: the console command to run
+            resource-group: the resource group where the machines should be found
+    """
     vm_list = get_vm_list(resource_group)
     print(f'VM List fetched')
 
@@ -101,8 +99,12 @@ def run_command_on_all_nodes(command, resource_group='jerome-ray-cpu'):
 
 
 def ensure_storage_connection():
+    """
+        Checks if the Azure storage is connected.
+        Tries to reconnect and throws an error if not possible.
+    """
     if not os.path.exists('/seaweed-storage/connected'):
-        os.system('bash -i setup/set_up_seaweed_storage.sh')
+        os.system('bash -i setup/cluster/set_up_seaweed_storage.sh')
 
     if not os.path.exists('/seaweed-storage/connected'):
         raise FileNotFoundError(

@@ -7,7 +7,8 @@ import mergedeep
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.utils.misc import timiing, get_c3
+from ocean_navigation_simulator.utils.misc import timing, get_c3
+from ocean_navigation_simulator.utils import units
 
 
 class ArenaFactory:
@@ -81,6 +82,30 @@ class ArenaFactory:
             )
 
     @staticmethod
+    def download_required_files(
+        archive_source: str,
+        archive_type: str,
+        download_folder: str,
+        t_interval: Optional[List[datetime.datetime]] = [],
+        points: Optional[List[SpatialPoint]] = None,
+        verbose: Optional[int] = 0
+    ) -> int:
+        # Step 1: Find relevant files
+        files = ArenaFactory.get_filelist(archive_source=archive_source, archive_type=archive_type, t_interval=t_interval, verbose=verbose)
+
+        # Step 2: Check File Count
+        if files.count < (t_interval[1]-t_interval[0]).days + 1:
+            raise Exception(f"Only {files.count} files in the database for t_0={t_interval[0]} and t_T={t_interval[1]}.")
+
+        # Step 3: Check Basic Spatial Coverage
+        ArenaFactory.check_spacial_coverage(files, points)
+
+        # Step 4: Download files thread-safe
+        ArenaFactory.download_filelist(files=files, download_folder=download_folder, verbose=verbose)
+
+        return files.count
+
+    @staticmethod
     def get_filelist(archive_source, archive_type, t_interval: List[datetime.datetime] = None, verbose: Optional[int] = 10):
         c3 = get_c3(verbose-1)
 
@@ -107,24 +132,6 @@ class ArenaFactory:
             raise ValueError(f"Combination of archive_source={archive_source} and archive_type={archive_type} is not available.")
 
     @staticmethod
-    def check_spacial_coverage(files, points: List[SpatialPoint]):
-        """
-            Helper function checking if points are in the spatial coverage of a file.
-            Returns True if yes and False if not.
-        """
-        if points is not None:
-            for file in files.objs:
-                spacial_coverage = file.subsetOptions.geospatialCoverage
-                for point in points:
-                    lon_covered = spacial_coverage.start.longitude < point.lon.deg < spacial_coverage.end.longitude
-                    lat_covered = spacial_coverage.start.latitude < point.lat.deg < spacial_coverage.end.latitude
-
-                    if lon_covered is False:
-                        raise ValueError("The point {} is not covered by the longitude of the downloaded files.".format(point))
-                    if lat_covered is False:
-                        raise ValueError("The point {} is not covered by the latitude of the downloaded files.".format(point))
-
-    @staticmethod
     def download_filelist(files, download_folder, verbose: Optional[int] = 0):
         c3 = get_c3(verbose-1)
 
@@ -146,34 +153,30 @@ class ArenaFactory:
         os.system(f'rm -rf {temp_folder}')
 
         # Step 2: Only keep 100 most recent files to prevent full storage
+        KEEP = 100
         cached_files = [f'{download_folder}{file}' for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
-        for file in cached_files[100:]:
+        for file in cached_files[KEEP:]:
             if verbose > 0:
                 print('Deleting old forecast files:', file)
             os.remove(file)
 
     @staticmethod
-    def download_required_files(
-        archive_source: str,
-        archive_type: str,
-        download_folder: str,
-        t_interval: Optional[List[datetime.datetime]] = [],
-        points: Optional[List[SpatialPoint]] = None,
-        verbose: Optional[int] = 0
-    ) -> int:
-        # Step 1: Find relevant files
-        files = ArenaFactory.get_filelist(archive_source=archive_source, archive_type=archive_type, t_interval=t_interval, verbose=verbose)
+    def check_spacial_coverage(files, points: List[SpatialPoint]):
+        """
+            Helper function checking if points are in the spatial coverage of a file.
+            Returns True if yes and False if not.
+        """
+        if points is not None:
+            for file in files.objs:
+                spacial_coverage = file.subsetOptions.geospatialCoverage
+                for point in points:
+                    lon_covered = spacial_coverage.start.longitude < point.lon.deg < spacial_coverage.end.longitude
+                    lat_covered = spacial_coverage.start.latitude < point.lat.deg < spacial_coverage.end.latitude
 
-        # Step 2: Check File Count
-        if files.count < (t_interval[1]-t_interval[0]).days + 1:
-            raise Exception(f"Only {files.count} files in the database for t_0={t_interval[0]} and t_T={t_interval[1]}.")
+                    if lon_covered is False:
+                        raise ValueError("The point {} is not covered by the longitude of the downloaded files.".format(point))
+                    if lat_covered is False:
+                        raise ValueError("The point {} is not covered by the latitude of the downloaded files.".format(point))
 
-        # Step 3: Check Basic Spatial Coverage
-        ArenaFactory.check_spacial_coverage(files, points)
-
-        # Step 4: Download files thread-safe
-        ArenaFactory.download_filelist(files=files, download_folder=download_folder, verbose=verbose)
-
-        return files.count

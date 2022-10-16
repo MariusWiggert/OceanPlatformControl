@@ -13,12 +13,10 @@ class OceanRewardFunction(RewardFunction):
 		forecast_planner: HJReach2DPlanner,
 		hindcast_planner: HJReach2DPlanner,
 		config={},
-		verbose: Optional[int] = 0
 	):
 		self.forecast_planner = forecast_planner
 		self.hindcast_planner = hindcast_planner
 		self.config = config
-		self.verbose = verbose
 
 	@staticmethod
 	def get_reward_range(config={}):

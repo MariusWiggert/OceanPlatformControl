@@ -7,7 +7,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation, Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
 
 
 class RLController(Controller):
@@ -21,47 +21,37 @@ class RLController(Controller):
         arena: Arena,
         verbose: int = 0,
     ):
-        super().__init__(problem, verbose)
+        super().__init__(problem)
         self.config = config
         self.arena = arena
 
         # Step 1: Recover Configuration
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         with open(f'{config["experiment"]}config/config.json') as f:
-            self.e_config = json.load(f)
+            self.experiment_config = json.load(f)
 
-        # Step 2: Modify Configuration
-        self.e_config['algorithm']['num_workers'] = 0
-        self.e_config['algorithm']['num_gpus'] = 0
-        self.e_config['algorithm']['disable_env_checking'] = True
-        self.e_config['algorithm']['optimizer']['num_replay_buffer_shards'] = 1
-        self.e_config['algorithm']['log_level'] = 'ERROR'
-
-        # Step 3: Create Trainer
+        # Step 2: Create Policy
         self.policy = Policy.from_checkpoint(
             f'{config["experiment"]}checkpoints/checkpoint_{config["checkpoint"]:06d}/policies/default_policy'
         )
 
-        # Step 4: Create Feature Constructor
-        self.hindcast_planner = HJReach2DPlanner.from_plan(
+        # Step 3: Create Feature Constructor
+        self.hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
             folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
-            problem=self.problem,
-            verbose=self.verbose - 1,
+            problem=self.problem
         )
-        self.forecast_planner = HJReach2DPlanner.from_plan(
+        self.forecast_planner = HJReach2DPlanner.from_saved_planner_state(
             folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
             problem=self.problem,
             specific_settings={
                 'load_plan': True,
                 'planner_path': f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
-            },
-            verbose=self.verbose - 1,
+            }
         )
         self.feature_constructor = OceanFeatureConstructor(
             forecast_planner=self.forecast_planner,
             hindcast_planner=self.hindcast_planner,
-            config=self.e_config['feature_constructor'],
-            verbose=self.verbose - 1
+            config=self.experiment_config['feature_constructor']
         )
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:

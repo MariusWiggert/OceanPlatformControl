@@ -1,5 +1,5 @@
 from ocean_navigation_simulator.utils.units import timing
-from ocean_navigation_simulator.utils.cluster_utils import get_c3
+from ocean_navigation_simulator.utils.misc import get_c3
 
 from c3python import C3Python
 import datetime
@@ -17,7 +17,7 @@ import os
 # user.publicKey = "<public key from file>"
 # user.merge()
 
-KEYFILE = 'setup/c3_keys/c3-rsa.pem'
+KEYFILE = 'setup/keys/c3-rsa-marius.pem'
 USERNAME = 'mariuswiggert@berkeley.edu'
 
 

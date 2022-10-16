@@ -18,8 +18,8 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
 from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import OceanRewardFunction
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
-from ocean_navigation_simulator.utils.bcolors import bcolors
+from ocean_navigation_simulator.utils import cluster_utils
+from ocean_navigation_simulator.utils.misc import bcolors, timing
 
 
 class OceanEnv(gym.Env):
@@ -42,7 +42,7 @@ class OceanEnv(gym.Env):
         result_folder: Optional[str] = None,
         verbose: Optional[int] = 0,
     ):
-        with Utils.timing(f'OceanEnv[Worker {worker_index}]: Created with {"no" if indices is None else len(indices)} indices ({{:.1f}}s)', verbose):
+        with timing(f'OceanEnv[Worker {worker_index}]: Created with {"no" if indices is None else len(indices)} indices ({{:.1f}}s)', verbose):
             self.config = config
             self.feature_constructor_config = feature_constructor_config
             self.reward_function_config = reward_function_config
@@ -67,7 +67,7 @@ class OceanEnv(gym.Env):
             self.reward_range = OceanRewardFunction.get_reward_range(self.reward_function_config)
 
             # Step 4: Initialize Problem Factory & Arena
-            Utils.ensure_storage_connection()
+            cluster_utils.ensure_storage_connection()
             self.problem_factory = FileProblemFactory(
                 seed=self.worker_index,
                 csv_file=f"{self.config['problem_folder']}problems.csv",
@@ -97,39 +97,33 @@ class OceanEnv(gym.Env):
             self.prev_obs = self.arena.reset(self.problem.start_state)
 
             # Step 2: Initialize Planners, Feature Constructor, Reward Function & Controllers
-            self.hindcast_planner = HJReach2DPlanner.from_plan(
+            self.hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
                 folder=f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
                 problem=self.problem,
                 specific_settings={
                     'load_plan': False,
-                    'save_after_planning': False,
-                },
-                verbose=self.verbose-1,
+                }
             )
-            self.forecast_planner = HJReach2DPlanner.from_plan(
+            self.forecast_planner = HJReach2DPlanner.from_saved_planner_state(
                 folder=f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
                 problem=self.problem,
                 specific_settings={
                     'load_plan': True,
-                    'planner_path': f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
-                    'save_after_planning': False,
-                },
-                verbose=self.verbose-1,
+                    'planner_path': f'{self.config["problem_folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/'
+                }
             )
             self.feature_constructor = OceanFeatureConstructor(
                 forecast_planner=self.forecast_planner,
                 hindcast_planner=self.hindcast_planner,
-                config=self.feature_constructor_config,
-                verbose=self.verbose-1
+                config=self.feature_constructor_config
             )
             self.reward_function = OceanRewardFunction(
                 forecast_planner=self.forecast_planner,
                 hindcast_planner=self.hindcast_planner,
-                config=self.reward_function_config,
-                verbose=self.verbose-1
+                config=self.reward_function_config
             )
             if self.config['fake'] == 'naive':
-                self.naive_controller = NaiveController(problem=self.problem, verbose=self.verbose-1)
+                self.naive_controller = NaiveController(problem=self.problem)
 
             # Step 3:
             if self.verbose > 0:
@@ -264,7 +258,7 @@ class OceanEnv(gym.Env):
             ax.autoscale()
 
             # Step 2: Save Figure
-            Utils.ensure_storage_connection()
+            cluster_utils.ensure_storage_connection()
             os.makedirs(self.result_folder, exist_ok=True)
             ax.get_figure().savefig(f'{self.result_folder}Reset {self.resets} Group {self.problem.extra_info["group"]} Batch {self.problem.extra_info["batch"]} Index {self.problem.extra_info["factory_index"]}.png')
             plt.clf()

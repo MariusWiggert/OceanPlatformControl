@@ -23,6 +23,7 @@ ocean_dict:
             folder: "/tmp/hycom_hindcast/"
             source: "HYCOM"
             type: "hindcast"
+            currents: 'total'
     forecast:
         field: 'OceanCurrents'
         source: 'forecast_files'
@@ -30,6 +31,7 @@ ocean_dict:
             folder: "/tmp/copernicus_forecast/"
             source: "Copernicus"
             type: "forecast"
+            currents: 'total'
 
 solar_dict:
     hindcast: null
