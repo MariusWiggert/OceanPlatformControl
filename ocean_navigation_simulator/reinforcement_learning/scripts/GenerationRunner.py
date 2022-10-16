@@ -1,27 +1,24 @@
-import os
 import datetime
 import pickle
 import pprint
 import shutil
-import socket
 import sys
 import time
-from types import SimpleNamespace
 from typing import Optional
 import numpy as np
 import pandas as pd
-import psutil
 import pytz
 import ray
-import pynvml
 import os
 import logging
+
 from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.problem_factories.ShortMissionProblemFactory import ShortMissionProblemFactory
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
+from ocean_navigation_simulator.utils import cluster_utils
+from ocean_navigation_simulator.utils.misc import get_process_information_dict
 
 class GenerationRunner:
     """
@@ -42,7 +39,7 @@ class GenerationRunner:
         self.verbose = verbose
 
         # Step 1: Prepare Paths & Save configuration
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
         self.results_folder = f'/seaweed-storage/generation/{config["scenario_name"]}/{self.name}_{self.timestring}/'
         self.config['results_folder'] = self.results_folder
@@ -73,7 +70,7 @@ class GenerationRunner:
         self.problems = [problem for problems in self.ray_results for problem in problems]
 
         # Step 3: Save Results
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         self.problems_df = pd.DataFrame(self.problems)
         self.problems_df.to_csv(f'{self.results_folder}problems.csv')
 
@@ -124,7 +121,7 @@ class GenerationRunner:
             # Step 2: Plot Batch
             if problem_factory_config['plot_batch']:
                 plot_start = time.time()
-                Utils.ensure_storage_connection()
+                cluster_utils.ensure_storage_connection()
                 os.makedirs(batch_folder, exist_ok = True)
                 problem_factory.plot_batch(batch_size, filename=f'{batch_folder}animation.gif')
                 plot_time = time.time()-plot_start
@@ -132,8 +129,8 @@ class GenerationRunner:
                 plot_time = 0
 
             # step 3: Save Hindcast Planner
-            Utils.ensure_storage_connection()
-            problem_factory.hindcast_planner.save_plan(f'{batch_folder}hindcast_planner/')
+            cluster_utils.ensure_storage_connection()
+            problem_factory.hindcast_planner.save_planner_state(f'{batch_folder}hindcast_planner/')
 
             # Step 4: Run & Save Forecast Planner
             forecast_start = time.time()
@@ -141,7 +138,7 @@ class GenerationRunner:
             forecast_time = time.time()-forecast_start
 
             # Step 5: Format & Save Batch Results
-            Utils.ensure_storage_connection()
+            cluster_utils.ensure_storage_connection()
             os.makedirs(batch_folder, exist_ok = True)
             batch_info = {
                 'group': group,
@@ -150,7 +147,7 @@ class GenerationRunner:
                 'generate_time': generate_time,
                 'plot_time': plot_time,
                 'forecast_time': forecast_time,
-            } | Utils.get_process_information_dict()
+            } | get_process_information_dict()
             batch_results = [problem.to_dict() | batch_info for index, problem in enumerate(problems)]
             pd.DataFrame(batch_results).to_csv(f'{batch_folder}problems.csv')
 
@@ -170,7 +167,7 @@ class GenerationRunner:
     def analyse_generation(
         results_folder: str,
     ):
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f'{results_folder}problems.csv')
 
         ram_numerical = np.array([float(row['batch_ram'].removesuffix('MB').replace(',', '')) for index, row in problems_df.iterrows()])
@@ -188,7 +185,7 @@ class GenerationRunner:
         results_folder: str,
     ):
         # Step 1:
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f'{results_folder}problems.csv')
         target_df = problems_df[problems_df['factory_index'] == 0]
         analysis_folder = f'{results_folder}analysis/'
