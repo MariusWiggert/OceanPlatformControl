@@ -1,5 +1,5 @@
 from BuoyForecastError import BuoyForecastError
-from ForecastHindcastDataset import ForecastHindcastDataset
+from ForecastHindcastDataset import ForecastHindcastDataset, ForecastHindcastDatasetNpy
 from UNet import UNet
 from Generator import Generator
 from Discriminator import Discriminator
@@ -60,8 +60,8 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
                                     dataset_configs["sparse_type"],
                                     dataset_configs["len"])
     elif dataset_type == "forecasthindcast":
-        dataset = ForecastHindcastDataset(dataset_configs["forecasts"],
-                                          dataset_configs["hindcasts"])
+        dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
+                                             dataset_configs["hindcasts"])
     print(f"Using {dataset_type} dataset with {dataset_configs}.")
     return dataset
 
@@ -174,9 +174,9 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 optimizer.step()
 
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
-                wandb.log({"train_loss": loss.item()})
+                wandb.log({"train_loss": loss.item() / cfgs_train["batch_size"]})
 
-    avg_loss = total_loss / len(dataloader)*cfgs_train["batch_size"]
+    avg_loss = total_loss / (len(dataloader)*cfgs_train["batch_size"])
     print(f"Training avg loss: {avg_loss:.2f}.")
 
     return avg_loss
@@ -196,9 +196,9 @@ def validation(model, dataloader, device, cfgs_train):
                 total_loss += loss.item()
 
                 tepoch.set_postfix(loss=str(round(loss.item(), 3)))
-                wandb.log({"val_loss": loss.item()})
+                wandb.log({"val_loss": loss.item() / cfgs_train["batch_size"]})
 
-    avg_loss = total_loss / len(dataloader)*cfgs_train["batch_size"]
+    avg_loss = total_loss / (len(dataloader)*cfgs_train["batch_size"])
     print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
 

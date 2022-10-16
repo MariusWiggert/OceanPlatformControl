@@ -6,23 +6,19 @@
 # response = requests.get(api_endpoint, params=query)
 # print(response.json())
 
+from utils import convert_degree_to_km
 
 import os
 import glob
 import pandas as pd
 import numpy as np
-from typing import List
-
-def _convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> List[np.ndarray]:
-    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
-    Note: e.g. pts1 -> np.array([lon, lat])."""
-    # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
-    x = lon * 40075.2 * np.cos(lat * np.pi/360)/360
-    y = lat * (39806.64/360)
-    return x, y
 
 
 def main(sofar_dir: str, output_dir: str):
+    """Takes raw files from sofar and """
+
+    print(sofar_dir, output_dir)
+
     sofar_files = sorted(glob.glob(os.path.join(sofar_dir, "*.json")))
 
     index_file = pd.DataFrame(columns=["file_name",
@@ -40,7 +36,7 @@ def main(sofar_dir: str, output_dir: str):
         data = data.rename(columns={"longitude": "lon", "latitude": "lat", "timestamp": "time", "spotterId": "buoy"})
 
         # convert from degrees to km
-        data["lon_km"], data["lat_km"] = _convert_degree_to_km(data["lon"], data["lat"])
+        data["lon_km"], data["lat_km"] = convert_degree_to_km(data["lon"], data["lat"])
 
         # get difference in space and time between consecutive measurements
         data["lat_km_diff"] = data["lat_km"].diff()
@@ -64,7 +60,7 @@ def main(sofar_dir: str, output_dir: str):
 
         file_path = os.path.join(output_dir, "".join(file.split("/")[-1])).split(".")[0] + ".csv"
         print(f"Saved: {file_path}.")
-        data.to_csv(file_path, index=True)
+        data.to_csv(file_path, index=False)
 
         # add file meta data to index file
         index_file.loc[len(index_file.index)] = [file_path.split("/")[-1],
@@ -79,9 +75,8 @@ def main(sofar_dir: str, output_dir: str):
 
 
 if __name__ == "__main__":
-    sofar_data = "/home/jonas/Downloads/sofar_data"
-    output_dir = "/home/jonas/Downloads/sofar_data_pre_processed"
+    sofar_data = "../../data/drifter_data/sofar/sofar_data"
+    output_dir = "../../../data/drifter_data/sofar/sofar_data_pre_processed"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     main(sofar_data, output_dir)
-

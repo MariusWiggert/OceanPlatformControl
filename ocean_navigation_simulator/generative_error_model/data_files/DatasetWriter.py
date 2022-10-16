@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.generative_error_model.BuoyData import BuoyDataCopernicus
+from ocean_navigation_simulator.generative_error_model.data_files.BuoyData import BuoyDataCopernicus
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
 from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project, load_config
 
@@ -68,8 +68,6 @@ class DatasetWriter:
 
     def _build_time_string(self, forecast_idx: int) -> str:
         t_range = self.files_dicts[forecast_idx]["t_range"]
-        # time_string_start = (t_range[0] + timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        # time_string_end = (t_range[1] + timedelta(hours=-6)).strftime("%Y-%m-%dT%H:%M:%SZ")
         time_string_start = (t_range[0]).strftime("%Y-%m-%dT%H:%M:%SZ")
         time_string_end = (t_range[1]).strftime("%Y-%m-%dT%H:%M:%SZ")
         time_string = time_string_start + "/" + time_string_end
@@ -84,13 +82,13 @@ class DatasetWriter:
         for file_idx in range(len(self.files_dicts)):
             # write correct time string to dict
             time_string = self._build_time_string(file_idx)
-            self.config["dataset_writer"]["time_range"] = time_string
+            self.config["buoy_config"]["copernicus"]["time_range"] = time_string
 
             # construct file name
             file_name = f"{self.config['dataset_writer']['source']}_{self.dataset_type}_error"\
                         f"_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
                         f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"\
-                        f"_time_{self.config['dataset_writer']['time_range']}.csv"
+                        f"_time_{self.config['buoy_config']['copernicus']['time_range']}.csv"
             file_name = file_name.replace("/", "__")
 
             # get error and write file if it does not exists

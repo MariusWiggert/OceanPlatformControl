@@ -30,7 +30,7 @@ train:
   epochs: 30
   loss:
     # choice: mse, sparse_mse, total_variation, mass_conservation, l1
-    types: [ "mse"]
+    types: ["mse"]
     weighting: [ 1 ]
 
 optimizer:
@@ -42,8 +42,8 @@ optimizer:
     weight_decay: 0.0003
 
 dataset:
-  forecasts: "data/drifter_data/forecasts/area1"
-  hindcasts: "data/drifter_data/hindcasts/area1"
+  forecasts: "data/drifter_data/forecasts_preprocessed"
+  hindcasts: "data/drifter_data/hindcasts_preprocessed"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
   sparse_type: "forecast"
   shuffle: False

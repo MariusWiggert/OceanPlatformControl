@@ -50,12 +50,39 @@ class ForecastHindcastDataset(Dataset):
         return fc, hc
 
 
-def test():
+class ForecastHindcastDatasetNpy(Dataset):
+    def __init__(self, fc_dir, hc_dir, transform=None):
+        self.fc_dir = fc_dir
+        self.hc_dir = hc_dir
+        self.transform = transform
+        self.hours_in_file = 24 * 8
+
+        self.fc_file_names = sorted(os.listdir(self.fc_dir))
+        self.hc_file_names = sorted(os.listdir(self.hc_dir))
+
+    def __len__(self):
+        return min(len(self.fc_file_names), len(self.hc_file_names)) * self.hours_in_file
+
+    def __getitem__(self, idx):
+        file_idx = idx // self.hours_in_file
+        time_step_idx = idx % self.hours_in_file
+
+        fc_file_name = self.fc_file_names[file_idx]
+        fc_data = np.load(os.path.join(self.fc_dir, fc_file_name), allow_pickle=True)
+        fc_data = fc_data[time_step_idx].squeeze()
+
+        hc_file_name = self.hc_file_names[file_idx]
+        hc_data = np.load(os.path.join(self.hc_dir, hc_file_name), allow_pickle=True)
+        hc_data = hc_data[time_step_idx].squeeze()
+
+        return fc_data, hc_data
+
+
+def test_xr():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
     fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area1")
     hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts/area1")
     dataset = ForecastHindcastDataset(fc_dir, hc_dir)
-    idx = np.random.randint(1000)
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
@@ -70,5 +97,14 @@ def test():
     plt.show()
 
 
+def test_npy():
+    data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
+    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts_preprocessed")
+    hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts_preprocessed")
+    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir)
+    dataset_item = dataset.__getitem__(0)
+    print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
+
+
 if __name__ == "__main__":
-    test()
+    test_npy()
