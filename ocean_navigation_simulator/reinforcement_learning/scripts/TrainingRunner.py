@@ -1,6 +1,7 @@
 import datetime
 import json
 import random
+import shutil
 import time
 import os
 from typing import Optional, Dict, List
@@ -18,7 +19,8 @@ import torch
 from torchinfo import torchinfo
 
 from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import TrainerFactory
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
+from ocean_navigation_simulator.utils.misc import bcolors
+from ocean_navigation_simulator.utils import cluster_utils
 
 """
     RLRunner takes a configuration to run a RL training with Rllib and hides away all the ugly stuff
@@ -42,8 +44,8 @@ class TrainingRunner:
         self.train_times = []
 
         # Step 1: Prepare Paths & Folders
-        Utils.ensure_storage_connection()
-        Utils.clean_results(self.config['experiments_folder'], verbose=1, iteration_limit=10, delete=True)
+        cluster_utils.ensure_storage_connection()
+        TrainingRunner.clean_results(self.config['experiments_folder'], verbose=1, iteration_limit=10, delete=False)
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
         experiment_path = f"{self.config['experiments_folder']}{self.name}_{self.timestring}/"
         self.config['folders'] = {
@@ -57,7 +59,7 @@ class TrainingRunner:
             os.makedirs(f)
 
         # Step 2: Start Weights & Biases
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         wandb.tensorboard.patch(
             root_logdir=self.config['folders']['experiment'],
             tensorboard_x=True
@@ -158,7 +160,7 @@ class TrainingRunner:
 
         # Export Model
         epoch = 0
-        Utils.ensure_storage_connection()
+        cluster_utils.ensure_storage_connection()
         os.makedirs(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
         torch.save(self.model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.pt")
         if isinstance(self.dummy_input, list):
@@ -198,7 +200,7 @@ class TrainingRunner:
                     pprint.pprint(result, stream=f)
 
                 # Step 2: Save checkpoint
-                Utils.ensure_storage_connection()
+                cluster_utils.ensure_storage_connection()
                 self.trainer.save(checkpoint_dir=self.config['folders']['checkpoints'])
                 # torch.onnx.export(self.model, args=(self.dummy_input[0].cuda(), self.dummy_input[1].cuda()), f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx", export_params=True, opset_version=15)
 
@@ -245,3 +247,40 @@ class TrainingRunner:
 
         print('-- Timing --')
         print(f'Iteration Time: {self.train_times[-1]/60:.2f}min ({(epochs * (self.train_times[-1])) // 3600}h {((epochs * (self.train_times[-1])) % 3600) / 60:.1f}min for {epochs} epochs, {(epochs - epoch) * (self.train_times[-1]) / 60:.1f}min to go)')
+
+    @staticmethod
+    def clean_results(
+            folder: str = '~/ray_results',
+            filter: str = '',
+            iteration_limit: Optional[int] = 10,
+            delete: Optional[bool] = False,
+            ignore_most_recent: Optional[int] = 1,
+            verbose: Optional[int] = 0,
+    ):
+        """
+            Ray clogs up the ~/ray_results directory by creating folders for every training start, even when
+            canceling after a few iterations. This script removes all short trainings in order to simplify
+            finding the important trainings in tensorboard. It however ignores the very last experiment,
+            since it could be still ongoing.
+        """
+        experiments = [os.path.join(folder, file) for file in os.listdir(folder) if not file.startswith('.') and file.startswith(filter)]
+        experiments.sort(key=lambda x: os.path.getmtime(x))
+
+        for experiment in experiments[:-ignore_most_recent] if ignore_most_recent > 0 else experiments:
+            csv_file = experiment + '/progress.csv'
+            if os.path.isfile(csv_file):
+                with open(csv_file) as file:
+                    row_count = sum(1 for line in file)
+                    if row_count < iteration_limit:
+                        if delete:
+                            shutil.rmtree(experiment, ignore_errors=True)
+                        if verbose > 0:
+                            print(f'RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} with {row_count} rows {bcolors.ENDC}')
+                    else:
+                        if verbose > 0:
+                            print(f'RayUtils.clean_ray_results: Keep   {bcolors.OKGREEN}{experiment} with {row_count} rows {bcolors.ENDC}')
+            else:
+                if delete:
+                    shutil.rmtree(experiment, ignore_errors=True)
+                if verbose > 0:
+                    print(f'RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} without progress.csv file {bcolors.ENDC}')

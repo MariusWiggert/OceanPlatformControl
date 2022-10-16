@@ -16,8 +16,7 @@ import wandb
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
-from ocean_navigation_simulator.utils.bcolors import bcolors
+from ocean_navigation_simulator.utils.misc import bcolors, timing, get_process_information_dict
 
 
 class EvaluationRunner:
@@ -97,13 +96,13 @@ class EvaluationRunner:
                 print(f'EvaluationRunner: Started Mission {problem.extra_info["index"]:03d}')
 
             # Step 1: Create Arena
-            with Utils.timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
+            with timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
                 arena = ArenaFactory.create(scenario_name=config['scenario_name'], problem=problem, verbose=verbose-2)
                 observation = arena.reset(platform_state=problem.start_state)
                 problem_status = arena.problem_status(problem=problem)
 
             # Step 2: Create Controller
-            with Utils.timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
+            with timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
                 problem.platform_dict = arena.platform.platform_dict
                 if config['controller'].__name__ == 'RLController':
                     controller = config['controller'](
@@ -116,7 +115,7 @@ class EvaluationRunner:
                     controller = config['controller'](problem=problem, verbose=verbose-2)
 
             # Step 3: Run Arena
-            with Utils.timing(f'EvaluationRunner: Run Arena ({{:.1f}}s)', verbose-1):
+            with timing(f'EvaluationRunner: Run Arena ({{:.1f}}s)', verbose-1):
                 steps = 0
                 while problem_status==0:
                     action = controller.get_action(observation)
@@ -135,7 +134,7 @@ class EvaluationRunner:
                 'final_distance': problem.distance(observation.platform_state),
             } | {
                 'process_time': f'{time.time() - mission_start_time:.2f}s',
-            } | Utils.get_process_information_dict()
+            } | get_process_information_dict()
 
             if verbose > 0:
                 status = f"{bcolors.OKGREEN}Success{bcolors.ENDC}" if problem_status > 0 else f"{bcolors.FAIL}Timeout{bcolors.ENDC}" if problem_status == -1 else (f"{bcolors.FAIL}Stranded{bcolors.ENDC}" if problem_status == -2 else f"{bcolors.FAIL}Outside Arena{bcolors.ENDC}")
