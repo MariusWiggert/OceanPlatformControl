@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import os
 import logging
-from typing import List, Dict
+from typing import Dict, Tuple
 
 
 def get_path_to_project(static_path: str) -> str:
@@ -80,14 +80,14 @@ def refresh_logger(args, logger):
 
 #------------------------ CONVERSIONS -------------------------#
 
-def convert_km_to_degree(dx: np.ndarray, dy: np.ndarray) -> List[np.ndarray]:
+def convert_km_to_degree(dx: np.ndarray, dy: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Takes difference in lon km and lat km and convert them into differences in degrees."""
     dlat = dy * (360 / 39806.64)
     dlon = (dx * (360/40075.2)) / np.cos(dlat * np.pi/360)
     return dlon, dlat
 
 
-def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> List[np.ndarray]:
+def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
     Note: e.g. pts1 -> np.array([lon, lat])."""
     # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python

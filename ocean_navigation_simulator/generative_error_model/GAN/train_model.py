@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torch import optim
+from torch.optim import lr_scheduler
 from torchvision.utils import make_grid
 from typing import Dict, Callable, Any, Tuple, List
 from warnings import warn
@@ -86,8 +87,8 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
                                                                               [train_size, val_size, test_size, fixed_batch_size],
                                                                               generator=torch.Generator().manual_seed(0))
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
-    val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
-    test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=dataset_configs["shuffle"])
+    val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
+    test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=False)
     fixed_batch = DataLoader(dataset=fixed_batch, batch_size=fixed_batch_size, shuffle=False)
     return train_loader, val_loader, test_loader, fixed_batch
 
@@ -101,8 +102,17 @@ def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
     return None
 
 
-def get_scheduler(optimizer, opt_dict: Dict):
-    pass
+def get_scheduler(optimizer, scheduler_configs: Dict):
+    """Return a learning rate scheduler
+    Parameters:
+        optimizer          -- the optimizer of the network
+        lr_configs         -- dictionary defining parameters
+    """
+    if scheduler_configs["scheduler_type"] == 'plateau':
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+    else:
+        return NotImplementedError('learning rate policy [%s] is not implemented', scheduler_configs["scheduler_type"])
+    return scheduler
 
 
 def predict_fixed_batch(model, dataloader, device):
@@ -110,17 +120,14 @@ def predict_fixed_batch(model, dataloader, device):
     This batch is visualized and saved on weights and biases."""
 
     model.eval()
-    samples = []
-    outputs = []
-    for idx, (sample, _) in enumerate(dataloader):
-        sample = sample.to(device)
-        model_output = model(sample).cpu().detach()
-        samples.append(sample[0])
-        outputs.append(model_output[0])
+    with torch.no_grad():
+        samples = next(iter(dataloader))[0]
+        samples = samples.to(device)
+        model_output = model(samples).cpu().detach()
 
     # logging final images to weights and biases
     samples = make_grid(samples, 2)
-    outputs = make_grid(outputs, 2)
+    outputs = make_grid(model_output, 2)
     images = wandb.Image(samples, caption="Fixed batch samples")
     predictions = wandb.Image(outputs, caption="Fixed batch predictions")
     wandb.log({"fixed_batch_samples": images, "fixed_batch_predictions": predictions})
@@ -173,10 +180,10 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 loss.backward()
                 optimizer.step()
 
-                tepoch.set_postfix(loss=str(round(loss.item(), 3)))
-                wandb.log({"train_loss": loss.item() / cfgs_train["batch_size"]})
+                tepoch.set_postfix(loss=str(round(loss.item() / data.shape[0], 3)))
+                wandb.log({"train_loss": round(loss.item() / data.shape[0], 3)})
 
-    avg_loss = total_loss / (len(dataloader)*cfgs_train["batch_size"])
+    avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     print(f"Training avg loss: {avg_loss:.2f}.")
 
     return avg_loss
@@ -195,10 +202,10 @@ def validation(model, dataloader, device, cfgs_train):
                 loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
                 total_loss += loss.item()
 
-                tepoch.set_postfix(loss=str(round(loss.item(), 3)))
-                wandb.log({"val_loss": loss.item() / cfgs_train["batch_size"]})
+                tepoch.set_postfix(loss=str(round(loss.item() / data.shape[0], 3)))
+                wandb.log({"val_loss": round(loss.item() / data.shape[0], 3)})
 
-    avg_loss = total_loss / (len(dataloader)*cfgs_train["batch_size"])
+    avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
 
@@ -237,6 +244,7 @@ def main():
     cfgs_dataset = all_cfgs["dataset"]
     cfgs_train = all_cfgs["train"]
     cfgs_optimizer = all_cfgs["optimizer"]
+    cfgs_lr_scheduler = all_cfgs["train"]["lr_scheduler_configs"]
 
     # load training data
     train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
@@ -246,31 +254,37 @@ def main():
     print(f"Using: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
     model = get_model(model_type, cfgs_model, device)
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
+    if cfgs_lr_scheduler["value"]:
+        lr_scheduler = get_scheduler(optimizer, cfgs_lr_scheduler)
     if all_cfgs["load_from_chkpt"]["value"]:
         checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
         load_checkpoint(checkpoint_path, model, optimizer, cfgs_train["learning_rate"], device)
     else:
         init_weights(model, init_type=cfgs_model["init_type"], init_gain=cfgs_model["init_gain"])
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
-    train_losses, val_losses = list(), list()
+
+    train_losses, val_losses, lrs = list(), list(), list
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
+            wandb.log({"lr": optimizer.param_groups[0]["lr"]})
             metrics = {}
             cfgs_train["epoch"] = epoch
 
-            loss = train(model, train_loader, device, optimizer, cfgs_train)
-            train_losses.append(loss)
-            metrics |= {"train_loss": loss}
+            train_loss = train(model, train_loader, device, optimizer, cfgs_train)
+            train_losses.append(train_loss)
+            metrics |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                loss = validation(model, val_loader, device, cfgs_train)
-                val_losses.append(loss)
-                metrics |= {"val_loss": loss}
+                val_loss = validation(model, val_loader, device, cfgs_train)
+                val_losses.append(val_loss)
+                metrics |= {"val_loss": val_loss}
+            if cfgs_lr_scheduler["value"]:
+                lr_scheduler.step(val_loss)
 
             wandb.log(metrics)
             print(f"Epoch metrics: {metrics}.")
 
-            if epoch % 1 == 0:
+            if epoch % 5 == 0 or epoch == 1:
                 predict_fixed_batch(model, fixed_batch_loader, device)
 
     finally:
