@@ -68,7 +68,7 @@ planner = HJReach3DPlanner(problem=problem, specific_settings=specific_settings)
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 # %% Various plotting of the reachability computations
-#planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5, alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
+planner.plot_reachability_snapshot(rel_time_in_seconds=0, granularity_in_h=5, alpha_color=1, time_to_reach=True, fig_size_inches=(12, 12), plot_in_h=True)
 # planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=0, granularity_in_h=5, time_to_reach=False)
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, filename="test_reach_animation.mp4")
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with_opt_ctrl=True,
@@ -82,12 +82,24 @@ action = planner.get_action(observation=observation)
 # observation = arena.reset(platform_state=x_0)
 # loaded_planner._update_current_data(observation=observation)
 # planner = loaded_planner
-# %% Let the controller run closed-loop within the arena (the simulation loop)
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
-    action = planner.get_action(observation=observation)
-    observation = arena.step(action)
 
-#%% Plot the arena trajectory on the map
-arena.plot_all_on_map(problem=problem)
-#%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200)
+# %% Run volume saving
+planner.animate_value_fct_volume()
+
+
+
+
+
+
+# # %% Let the controller run closed-loop within the arena (the simulation loop)
+# for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
+#     action = planner.get_action(observation=observation)
+#     observation = arena.step(action)
+
+# #%% Plot the arena trajectory on the map
+# arena.plot_all_on_map(problem=problem)
+# #%% Animate the trajectory
+# arena.animate_trajectory(problem=problem, temporal_resolution=7200)
+
+
+# # %%

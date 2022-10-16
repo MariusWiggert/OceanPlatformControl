@@ -16,6 +16,8 @@ from datetime import datetime, timezone, timedelta
 import matplotlib.pyplot as plt
 import warnings
 import math
+import plotly.graph_objects as go
+
 
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
@@ -721,7 +723,7 @@ class HJPlannerBase(Controller):
                 plt.show()
 
         else:
-            ax = hj.viz._visSet3D(self.grid, val_at_t, level=0)
+            hj.viz._visSet3D(self.grid, val_at_t, level=0)
 
 
     def plot_reachability_snapshot_over_currents(self, rel_time_in_seconds: float = 0, ax: plt.Axes = None, **kwargs):
@@ -837,6 +839,90 @@ class HJPlannerBase(Controller):
             return ax
         else:
             plt.show()
+
+
+    def animate_value_fct_volume(self):
+        """ Animate the reachable set the planner was computing.
+        """
+        # TODO: move plotting to hj library?
+        if self.grid.ndim != 3:
+            raise ValueError("plot_reachability is only working for 3D sets")
+
+        val_frames = np.zeros(shape=(self.reach_times.shape[0], self.grid.shape[0],  self.grid.shape[1],  self.grid.shape[2]))
+
+        for t in range(self.reach_times.shape[0]):
+            val_frames[t] = interp1d(self.reach_times, self.all_values, axis=0, kind='linear')(
+                max(self.reach_times[0], min(self.reach_times[-1], t + self.reach_times[0]))).squeeze()
+
+        np.save("volume_frames", val_frames)
+
+        #a, b, c = val_frames.shape[1:]
+        #X, Y, Z = np.mgrid[0:a:a*1j, 0:b:b*1j, 0:c:c*1j]
+
+        fig = go.Figure(data=go.Isosurface(x=self.grid.states[..., 0].ravel(),
+                                    y=self.grid.states[..., 1].ravel(),
+                                    z=self.grid.states[..., 2].ravel(),
+                                    value=val_frames[0].flatten(),
+                                    colorscale='jet',
+                                    isomin=0,
+                                    surface_count=1,
+                                    isomax=0
+        ))
+
+        frames=[go.Frame(data=go.Volume(
+                                value=val_frames[k].flatten()), 
+                    name=str(k)) for k in range(len(val_frames))]
+        updatemenus = [dict(
+            buttons = [
+                dict(
+                    args = [None, {"frame": {"duration": 201, "redraw": True},
+                                    "fromcurrent": True, "transition": {"duration": 0}}],
+                    label = "Play",
+                    method = "animate"
+                    ),
+                dict(
+                    args = [[None], {"frame": {"duration": 0, "redraw": False},
+                                    "mode": "immediate",
+                                    "transition": {"duration": 0}}],
+                    label = "Pause",
+                    method = "animate"
+                    )
+            ],
+            direction = "left",
+            pad = {"r": 10, "t": 87},
+            showactive = False,
+            type = "buttons",
+            x = 0.21,
+            xanchor = "right",
+            y = -0.075,
+            yanchor = "top"
+        )] 
+
+        sliders = [dict(steps = [dict(method= 'animate',
+                                args= [[f'{k}'],                           
+                                dict(mode= 'immediate',
+                                    frame= dict(duration=201, redraw=True),
+                                    transition=dict(duration= 0))
+                                    ],
+                                label=f'{k+1}'
+                                ) for k in range(len(val_frames))], 
+                    active=0,
+                    transition= dict(duration= 0 ),
+                    x=0, # slider starting position  
+                    y=0, 
+                    currentvalue=dict(font=dict(size=12), 
+                                    prefix='frame: ', 
+                                    visible=True, 
+                                    xanchor= 'center'
+                                    ),  
+                    len=1.0) #slider length
+            ]
+
+        fig.update_layout(width=700, height=700, updatemenus=updatemenus, sliders=sliders)
+        fig.update(frames=frames)
+        fig.update_traces(showscale=False)
+        fig.show()
+
 
     @staticmethod
     def _get_multi_reach_levels(granularity_in_h, vmin, abs_time_in_h, time_to_reach):
