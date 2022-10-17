@@ -36,10 +36,11 @@ class Distance:
                  km: float = 0.0,
                  kilometers: float = 0.0,
                  feet: float = 0.0,
-                 deg: float = 0.0
+                 deg: float = 0.0,
+                 rad: float = 0.0
                  ):
         # Note: distance is stored as degree (because that's how it is used almost always)
-        self._distance = (m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) / _METERS_PER_DEG_LAT_LON + deg
+        self._distance = (m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) / _METERS_PER_DEG_LAT_LON + deg + (180 * rad / np.pi)
 
     @property
     def m(self) -> float:
@@ -55,6 +56,11 @@ class Distance:
     def deg(self) -> float:
         """Gets distance in degree."""
         return self._distance
+
+    @property
+    def rad(self) -> float:
+        """Gets distance in radians."""
+        return np.pi * self._distance / 180
 
     @property
     def km(self) -> float:
@@ -459,3 +465,20 @@ def format_datetime_x_axis(ax: plt.axis):
     formatter = matplotlib.dates.ConciseDateFormatter(locator)
     ax.xaxis.set_major_locator(locator)
     ax.xaxis.set_major_formatter(formatter)
+
+
+# Taken from: https://stackoverflow.com/a/4913653
+# https://www.movable-type.co.uk/scripts/latlong.html)
+def haversine_rad_from_deg(lon1, lat1, lon2, lat2) -> float:
+    """
+    Calculate the great circle distance in kilometers between two points
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula
+    dlon, dlat = lon2 - lon1, lat2 - lat1
+    a = np.square(np.sin(dlat / 2)) + np.cos(lat1) * np.cos(lat2) * np.square(np.sin(dlon / 2))
+    rad = 2 * np.arcsin(np.sqrt(a))
+    return rad

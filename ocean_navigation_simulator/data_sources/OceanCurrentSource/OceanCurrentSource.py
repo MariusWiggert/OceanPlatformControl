@@ -16,6 +16,7 @@ from pydap.client import open_url
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
 from ocean_navigation_simulator.data_sources.DataSource import DataSource, XarraySource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.units import get_posix_time_from_np64, get_datetime_from_np64
 
 
@@ -117,17 +118,47 @@ class OceanCurrentSource(DataSource):
             return ax, cbar
         return ax
 
+    # TODO: probably we could do this with geopy for better accuracy
     def is_on_land(self, point: SpatialPoint):
         """Helper function to check if a SpatialPoint is on the land indicated in the
-        nc files as NaN (only approximate land boundaries).
+            nc files as NaN (only approximate land boundaries).
+            Accuracy is limited by the resolution of self.grid_dict.
         Args:
             point:    SpatialPoint object where to check if it is on land
         Returns:
             bool:     True if on land and false otherwise
         """
+        if not self.grid_dict['x_grid'].min() < point.lon.deg < self.grid_dict['x_grid'].max():
+            raise ValueError(f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}')
+        if not self.grid_dict['y_grid'].min() < point.lat.deg < self.grid_dict['y_grid'].max():
+            raise ValueError(f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}')
+
         x_idx = (np.abs(self.grid_dict['x_grid'] - point.lon.deg)).argmin()
         y_idx = (np.abs(self.grid_dict['y_grid'] - point.lat.deg)).argmin()
         return self.grid_dict['spatial_land_mask'][y_idx, x_idx]
+
+    # TODO: probably we could do this with geopy for better accuracy
+    def distance_to_land(self, point: SpatialPoint) -> units.Distance:
+        """
+            Helper function to get the distance of a SpatialPoint to land.
+            Accuracy is limited by the resolution of self.grid_dict.
+        Args:
+            point:    SpatialPoint object where to calculate distance to land
+        Returns:
+            bool:     True if on land and false otherwise
+        """
+        if not self.grid_dict['x_grid'].min() < point.lon.deg < self.grid_dict['x_grid'].max():
+            raise ValueError(f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}')
+        if not self.grid_dict['y_grid'].min() < point.lat.deg < self.grid_dict['y_grid'].max():
+            raise ValueError(f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}')
+
+        lon1, lat1 = np.meshgrid(
+            point.lon.deg * np.ones_like(self.grid_dict['x_grid']),
+            point.lat.deg * np.ones_like(self.grid_dict['y_grid'])
+        )
+        lon2, lat2 = np.meshgrid(self.grid_dict['x_grid'], self.grid_dict['y_grid'])
+
+        return units.Distance(rad=np.vectorize(units.haversine_rad_from_deg)(lon1, lat1, lon2, lat2).min())
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""

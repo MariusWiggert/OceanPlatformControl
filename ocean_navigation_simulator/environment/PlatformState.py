@@ -19,12 +19,16 @@ class SpatialPoint:
     lon: units.Distance
     lat: units.Distance
 
-    # TODO: implement https://www.movable-type.co.uk/scripts/latlong.html
-    def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
+    def distance(self, other) -> units.Distance:
+        return units.Distance(deg=math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2))
 
-    def angle(self, other) -> float:
-        return math.atan2(self.lon.deg-other.lon.deg, self.lat.deg - other.lat.deg)
+    def haversine(self, other) -> units.Distance:
+        """
+        Calculate the great circle distance in degrees between two points
+        on the earth (specified in decimal degrees)
+        Taken from: https://stackoverflow.com/a/4913653
+        """
+        return units.Distance(rad=units.haversine_rad_from_deg(self.lon.deg, self.lat.deg, other.lon.deg, other.lat.deg))
 
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])
@@ -62,11 +66,11 @@ class SpatioTemporalPoint:
     def __getitem__(self, item):
         return self.__array__()[item]
 
-    def distance(self, other) -> float:
+    def distance(self, other) -> units.Distance:
         return self.to_spatial_point().distance(other)
 
-    def angle(self, other) -> float:
-        return self.to_spatial_point().distance(other)
+    def haversine(self, other) -> units.Distance:
+        return self.to_spatial_point().haversine(other)
 
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
