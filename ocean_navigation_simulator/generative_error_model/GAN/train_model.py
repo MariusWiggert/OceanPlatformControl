@@ -41,6 +41,7 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     elif model_type == "generator":
         model = Generator(in_channels=model_configs["in_channels"],
                           features=model_configs["features"],
+                          norm=model_configs["norm_type"],
                           dropout=model_configs["dropout"])
     return model.to(device)
 
@@ -64,7 +65,7 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
                                              dataset_configs["hindcasts"])
-    print(f"Using {dataset_type} dataset with {dataset_configs}.")
+    # print(f"Using {dataset_type} dataset with {dataset_configs}.")
     return dataset
 
 
@@ -75,7 +76,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
         dataset_len = int(dataset_configs["len"])
     else:
         dataset_len = len(dataset)
-    print(f"Using {dataset_len} of {len(dataset)} available samples.")
+    print(f"-> Using {dataset_len} of {len(dataset)} available samples.")
     train_size = round(0.6 * dataset_len)
     val_size = int(0.5*(dataset_len - train_size))
     fixed_batch_size = 4 if dataset_len - train_size - val_size > 4 else 1
@@ -96,7 +97,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
 
 def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
     args_optimizer['lr'] = float(lr)
-    print(f"Optimizer params: {args_optimizer}")
+    # print(f"Optimizer params: {args_optimizer}")
     if name.lower() == "adam":
         return optim.Adam(model.parameters(), **args_optimizer)
     raise warn("No optimizer!")
@@ -214,8 +215,7 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 wandb.log({"train_loss": round(loss.item() / data.shape[0], 3)})
 
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
-    print(f"Training avg loss: {avg_loss:.2f}.")
-
+    # print(f"Training avg loss: {avg_loss:.2f}.")
     return avg_loss
 
 
@@ -243,7 +243,7 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
     wandb.log(metrics)
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
-    print(f"Validation avg loss: {avg_loss:.2f}")
+    # print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
 
 
@@ -267,9 +267,10 @@ def main():
                tags="cool stuff",
                **wandb_cfgs)
     wandb.save(config_file)
+    print("###### Start Training #######")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Running on: {device}.")
+    print(f"-> Running on: {device}.")
     all_cfgs["device"] = device
 
     # seed for reproducibility
@@ -287,8 +288,8 @@ def main():
     train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
-    print(f"Using: {model_type}.")
-    print(f"Using: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
+    print(f"-> Model: {model_type}.")
+    print(f"-> Losses: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
     model = get_model(model_type, cfgs_model, device)
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
     if cfgs_lr_scheduler["value"]:
@@ -303,6 +304,7 @@ def main():
     train_losses, val_losses, lrs = list(), list(), list
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
+            print()
             wandb.log({"lr": optimizer.param_groups[0]["lr"]})
             metrics = {}
             cfgs_train["epoch"] = epoch
@@ -319,7 +321,7 @@ def main():
                 lr_scheduler.step(val_loss)
 
             wandb.log(metrics)
-            print(f"Epoch metrics: {metrics}.")
+            # print(f"Epoch metrics: {metrics}.")
 
             if epoch % 5 == 0 or epoch == 1:
                 predict_fixed_batch(model, fixed_batch_loader, device)

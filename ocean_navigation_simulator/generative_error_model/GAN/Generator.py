@@ -1,15 +1,16 @@
 import torch
 import torch.nn as nn
+import functools
 
 
 class Block(nn.Module):
-    def __init__(self, in_channels, out_channels, down=True, act="relu", use_dropout=False):
+    def __init__(self, in_channels, out_channels, down=True, act="relu", norm_layer=nn.BatchNorm2d, use_dropout=False):
         super(Block, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 4, 2, 1, bias=False, padding_mode="reflect")
             if down
             else nn.ConvTranspose2d(in_channels, out_channels, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
+            norm_layer(out_channels),
             nn.ReLU() if act == "relu" else nn.LeakyReLU(0.2),
         )
 
@@ -23,33 +24,35 @@ class Block(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels=3, features=64, dropout=True):
+    def __init__(self, in_channels=3, features=64, norm="batch", dropout=True):
         super().__init__()
+        norm_layer = get_norm_layer(norm_type=norm)
+
         self.initial_down = nn.Sequential(
             nn.Conv2d(in_channels, features, 4, 2, 1, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
         )
-        self.down1 = Block(features, features * 2, down=True, act="leaky", use_dropout=False)
-        self.down2 = Block(features * 2, features * 4, down=True, act="leaky", use_dropout=False)
-        self.down3 = Block(features * 4, features * 8, down=True, act="leaky", use_dropout=False)
-        self.down4 = Block(features * 8, features * 8, down=True, act="leaky", use_dropout=False)
-        self.down5 = Block(features * 8, features * 8, down=True, act="leaky", use_dropout=False)
-        self.down6 = Block(features * 8, features * 8, down=True, act="leaky", use_dropout=False)
+        self.down1 = Block(features, features * 2, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
+        self.down2 = Block(features * 2, features * 4, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
+        self.down3 = Block(features * 4, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
+        self.down4 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
+        self.down5 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
+        self.down6 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
 
         self.bottleneck = nn.Sequential(nn.Conv2d(features * 8, features * 8, 4, 2, 1), nn.ReLU())
 
         if dropout:
-            self.up1 = Block(features * 8, features * 8, down=False, act="relu", use_dropout=True)
-            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=True)
-            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=True)
+            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
+            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
+            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
         else:
-            self.up1 = Block(features * 8, features * 8, down=False, act="relu", use_dropout=False)
-            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=False)
-            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=False)
-        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", use_dropout=False)
-        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", use_dropout=False)
-        self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", use_dropout=False)
-        self.up7 = Block(features * 2 * 2, features, down=False, act="relu", use_dropout=False)
+            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+        self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+        self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
         self.final_up = nn.Sequential(
             nn.ConvTranspose2d(features * 2, in_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh(),
@@ -72,6 +75,22 @@ class Generator(nn.Module):
         up6 = self.up6(torch.cat([up5, d3], 1))
         up7 = self.up7(torch.cat([up6, d2], 1))
         return self.final_up(torch.cat([up7, d1], 1))
+
+
+def get_norm_layer(norm_type='instance'):
+    """Return a normalization layer
+    Parameters:
+        norm_type (str) -- the name of the normalization layer: batch | instance
+    BatchNorm, uses learnable affine parameters and track running statistics (mean/stddev).
+    InstanceNorm, does not use learnable affine parameters. It does not track running statistics.
+    """
+    if norm_type == 'batch':
+        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+    elif norm_type == 'instance':
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    else:
+        raise NotImplementedError(f"Normalization layer {norm_type} is not found")
+    return norm_layer
 
 
 def test():
