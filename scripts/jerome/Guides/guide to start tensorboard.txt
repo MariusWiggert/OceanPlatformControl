@@ -1,9 +1,0 @@
-# Revers SHH Port Forwarding
-ssh -i ~/.ssh/azure -L 6006:127.0.0.1:6006 ubuntu@20.55.80.215
-
-# Start Tensorbaord
-tensorboard --logdir='/seaweed-storage/experiments/gulf_of_mexico_HYCOM_hindcast/'
-tensorboard --logdir='/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/'
-
-
-

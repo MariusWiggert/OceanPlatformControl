@@ -25,9 +25,11 @@ from ocean_navigation_simulator.utils import cluster_utils
 
 class TrainingRunner:
     """
-        RLRunner takes a configuration to run a RL training with Rllib and hides away all the ugly stuff
-        needed to run Rllib. It creates folder for results, saves configurations, registers Environment and
-        Model with Rllib and finally prints results after each training iteration.
+        RLRunner takes a configuration to run a RL training with Rllib:
+        - hides away all the ugly stuff needed to run Rllib (registers Environment and Model)
+        - creates folder for results
+        - saves configurations
+        - prints results after each training iteration.
     """
     def __init__(
             self,

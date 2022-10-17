@@ -23,10 +23,10 @@ from ocean_navigation_simulator.utils.misc import get_process_information_dict
 class GenerationRunner:
     """
         The GenerationRunner generates missions with cached hindcast & forecast planners
-         - this greatly speeds up the training by using the cached hj  planners
+         - this greatly speeds up the training by using the cached hj planners
          - each batch generates 1 target and samples various starts (usually 4 or 8)
          - batches are arbitrary grouped to decrease the amount of folders (to open up in sftp)
-         - each batch is run in a separate process and retried several times to handle memory overflow or unexpected errors
+         - each batch is run in a separate process and retried several times to handle memory overflow of hj planner
     """
     def __init__(
         self,

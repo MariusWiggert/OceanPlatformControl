@@ -11,13 +11,12 @@ import time
 import pytz
 
 from ocean_navigation_simulator.reinforcement_learning.scripts.GenerationRunner import GenerationRunner
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
-from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils import units,cluster_utils
 
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-Utils.ray_init()
+cluster_utils.ray_init()
 
 runner = GenerationRunner(
     name='verification_10000_problems',
