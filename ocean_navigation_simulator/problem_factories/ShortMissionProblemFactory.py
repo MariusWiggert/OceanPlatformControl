@@ -19,16 +19,16 @@ from ocean_navigation_simulator.utils import units
 class ShortMissionProblemFactory:
     def __init__(
         self,
-        scenario_name: str,
+        scenario_file: str,
         config: Optional[dict] = {},
         verbose: Optional[int] = 0,
     ):
-        self.scenario_name = scenario_name
+        self.scenario_file = scenario_file
         self.config = config
         self.verbose = verbose
 
         self.arena = ArenaFactory.create(
-            scenario_name=self.scenario_name,
+            scenario_file=self.scenario_file,
             x_interval=self.config['x_range'],
             y_interval=self.config['y_range'],
             t_interval=self.config['t_range'],

@@ -28,7 +28,7 @@ class  OceanFeatureConstructor(FeatureConstructor):
 
         # Step 2: Initialize Observer
         if len(self.config['local_map']['features']['observer']['variables']) > 0:
-            with open(f'config/reinforcement_learning/config_GP_for_reinforcement_learning.yaml') as f:
+            with open(f'config/reinforcement_learning/gaussian_process.yaml') as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
             self.observer = Observer(config['observer'])
 

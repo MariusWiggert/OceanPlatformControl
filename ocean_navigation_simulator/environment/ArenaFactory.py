@@ -16,7 +16,8 @@ class ArenaFactory:
     """Factory to create an arena with specific settings and download the needed files from C3 storage."""
     @staticmethod
     def create(
-        scenario_name: str,
+        scenario_name: str = None,
+        scenario_file: str = None,
         scenario_config: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,
         points: Optional[List[SpatialPoint]] = None,
@@ -25,22 +26,30 @@ class ArenaFactory:
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 0
     ) -> Arena:
-        """If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files."""
+        """ If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files. """
         with timing(f'ArenaFactory: Creating Arena for {scenario_name} ({{:.1f}}s)', verbose):
-            # Step 1: Load Configuration
-            with open(f'config/arena/{scenario_name}.yaml') as f:
-                config = yaml.load(f, Loader=yaml.FullLoader)
-                # https://mergedeep.readthedocs.io/en/latest/
-                mergedeep.merge(config, scenario_config)
+            # Step 1: Load Configuration from file
+            if scenario_file is not None:
+                with open(scenario_file) as f:
+                    config = yaml.load(f, Loader=yaml.FullLoader)
+            elif scenario_name is not None:
+                with open(f'config/arena/{scenario_name}.yaml') as f:
+                    config = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                config = {}
 
-            # Step 2: Add Spatial Boundary
+            # Sep 2: Merge scenario_config so we can overwrite the file settings
+            # https://mergedeep.readthedocs.io/en/latest/
+            mergedeep.merge(config, scenario_config)
+
+            # Step 3: Add Spatial Boundary
             if x_interval is not None and y_interval is not None:
                 config['spatial_boundary'] = {
                     'x': [x_interval[0], x_interval[1]],
                     'y': [y_interval[0], y_interval[1]],
                 }
 
-            # Step 3: Add point to check for coverage
+            # Step 4: Add point to check for coverage
             if problem is not None:
                 points = [problem.start_state.to_spatial_point(), problem.end_region]
                 if t_interval is None:
@@ -48,7 +57,7 @@ class ArenaFactory:
             elif x_interval is not None and y_interval is not None:
                 points = [SpatialPoint(lon=x_interval[0], lat=y_interval[0]), SpatialPoint(lon=x_interval[1], lat=y_interval[1])]
 
-            # Step 3: Download Hindcast
+            # Step 5: Download Hindcast
             if t_interval is not None and config['ocean_dict']['hindcast'] is not None and config['ocean_dict']['hindcast']['source']=='hindcast_files':
                 with timing('ArenaFactory: Download Hindcast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
@@ -60,7 +69,7 @@ class ArenaFactory:
                         verbose=verbose,
                     )
 
-            # Step 4: Download Forecast
+            # Step 6: Download Forecast
             if t_interval is not None and config['ocean_dict']['forecast'] is not None and config['ocean_dict']['forecast']['source'] == 'forecast_files':
                 with timing('ArenaFactory: Download Forecast Files ({:.1f}s)', verbose):
                     ArenaFactory.download_required_files(
@@ -72,7 +81,7 @@ class ArenaFactory:
                         verbose=verbose,
                     )
 
-            # Step 5: Create Arena
+            # Step 7: Create Arena
             return Arena(
                 casadi_cache_dict=config['casadi_cache_dict'],
                 platform_dict=config['platform_dict'],

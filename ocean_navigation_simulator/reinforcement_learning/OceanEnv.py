@@ -78,7 +78,7 @@ class OceanEnv(gym.Env):
                 self.problem_config = pickle.load(file)
 
             self.arena = ArenaFactory.create(
-                scenario_name=self.config['scenario_name'],
+                scenario_file=self.config['scenario_file'],
                 scenario_config=self.config['scenario_config'],
                 x_interval=self.problem_config['x_range'],
                 y_interval=self.problem_config['y_range'],

@@ -98,7 +98,7 @@ class EvaluationRunner:
 
             # Step 1: Create Arena
             with timing(f'EvaluationRunner: Created Controller ({{:.1f}}s)', verbose-1):
-                arena = ArenaFactory.create(scenario_name=config['scenario_name'], problem=problem, verbose=verbose-2)
+                arena = ArenaFactory.create(scenario_file=config['scenario_file'], problem=problem, verbose=verbose-2)
                 observation = arena.reset(platform_state=problem.start_state)
                 problem_status = arena.problem_status(problem=problem)
 

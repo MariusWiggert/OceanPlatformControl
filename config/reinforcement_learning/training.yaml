@@ -106,7 +106,7 @@ algorithm:
 experiments_folder: '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/'
 
 environment:
-    scenario_name: 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast'
+    scenario_file: 'config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml'
     scenario_config: {}
 
     problem_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/training_40000_problems/'

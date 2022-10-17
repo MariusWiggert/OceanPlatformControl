@@ -104,7 +104,7 @@ def ensure_storage_connection():
         Tries to reconnect and throws an error if not possible.
     """
     if not os.path.exists('/seaweed-storage/connected'):
-        os.system('bash -i setup/cluster/set_up_seaweed_storage.sh')
+        os.system('bash -i setup/cluster-jerome/set_up_seaweed_storage.sh')
 
     if not os.path.exists('/seaweed-storage/connected'):
         raise FileNotFoundError(
