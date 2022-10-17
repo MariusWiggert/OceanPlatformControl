@@ -41,7 +41,7 @@ class GenerationRunner:
         # Step 1: Prepare Paths & Save configuration
         cluster_utils.ensure_storage_connection()
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
-        self.results_folder = f'/seaweed-storage/generation/{config["scenario_name"]}/{self.name}_{self.timestring}/'
+        self.results_folder = f'{config["generation_folder"]}/{self.name}_{self.timestring}/'
         self.config['results_folder'] = self.results_folder
         os.makedirs(self.results_folder)
         os.makedirs(f'{self.results_folder}config/')
@@ -60,7 +60,7 @@ class GenerationRunner:
             resources={i:config["ray_options"]['resources'][i] for i in config["ray_options"]['resources'] if i!='CPU' and i!= "GPU"}
         ).remote(
             results_folder=self.results_folder,
-            scenario_name=config["scenario_name"],
+            scenario_file=config["scenario_file"],
             problem_factory_config=config["problem_factory_config"],
             group=int(batch // config["size"]["batches_per_group"]),
             batch=batch,
@@ -85,7 +85,7 @@ class GenerationRunner:
     @ray.remote(max_calls=1)
     def generate_batch_ray(
         results_folder: str,
-        scenario_name: str,
+        scenario_file: str,
         problem_factory_config: dict,
         group: int,
         batch: int,
@@ -111,7 +111,7 @@ class GenerationRunner:
             # Step 1: Generate Batch
             generate_start = time.time()
             problem_factory = ShortMissionProblemFactory(
-                scenario_name=scenario_name,
+                scenario_file=scenario_file,
                 config={'seed': batch} | problem_factory_config,
                 verbose=verbose-1,
             )

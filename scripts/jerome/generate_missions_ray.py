@@ -16,12 +16,13 @@ from ocean_navigation_simulator.utils import units,cluster_utils
 print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
 script_start_time = time.time()
 
-cluster_utils.ray_init()
+cluster_utils.init_ray()
 
 runner = GenerationRunner(
     name='verification_10000_problems',
     config={
-        'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
+        'scenario_file': 'config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
+        'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         # Only Hindcast:
         # -- GPU: 1 batch: 80s  = ~1.5min
         # Calculated: 1200 batches @ 8 gpus ~ 3.75h

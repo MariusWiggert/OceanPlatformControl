@@ -24,7 +24,7 @@ cluster_utils.ray_init()
 
 eval_runner = EvaluationRunner(
     config={
-        'scenario_name': 'gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
+        'scenario_file': 'config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         'controller': RLController,
         'experiment': '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/unique_training_data_2022_10_11_20_24_42/',
         'checkpoint': 255,

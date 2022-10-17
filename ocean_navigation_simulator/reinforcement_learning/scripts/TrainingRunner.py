@@ -68,8 +68,8 @@ class TrainingRunner:
             tensorboard_x=True
         )
         wandb.init(
-            project="RL for underactuated navigation",
-            entity="ocean-platform-control",
+            project="seaweed-rl",
+            entity="jeromejeannin",
             dir="/seaweed-storage/",
             name=f'{self.name}_{self.timestring}',
             tags=["baseline" if self.config['environment']['fake'] else 'experiment'] + tags,

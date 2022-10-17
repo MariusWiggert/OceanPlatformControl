@@ -19,9 +19,9 @@ script_start_time = time.time()
 cluster_utils.init_ray()
 
 runner = TrainingRunner(
-    name='test_merge',
+    name='test_new_project',
     tags=[],
-    config=yaml.load(open(f'config/reinforcement_learning/experiment_basic.yaml'), Loader=yaml.FullLoader),
+    config=yaml.load(open(f'config/reinforcement_learning/training.yaml'), Loader=yaml.FullLoader),
     verbose=2
 ).run(epochs=300)
 
