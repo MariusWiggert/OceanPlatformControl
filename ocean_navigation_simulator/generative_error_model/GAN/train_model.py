@@ -137,29 +137,31 @@ def predict_fixed_batch(model, dataloader, device):
     model.train()
 
 
-def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor) -> Optional[Tuple[float, float]]:
-    """Computes all specified metrics over the validation set predictions."""
+def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor) -> Optional[Dict[str, float]]:
+    """Computes all specified metrics over the validation set predictions.
+    Returns metrics normalized by batch size."""
 
     # convert to numpy
     ground_truth = ground_truth.cpu().detach().numpy()
     predictions = predictions.cpu().detach().numpy()
 
     # compute metrics
-    metric_values = []
+    metrics = {metric_name: 0 for metric_name in metric_names}
     for idx in range(ground_truth.shape[0]):
         if "rmse" in metric_names:
             rmse_val = rmse(ground_truth[idx, :, :, :].squeeze(),
                             predictions[idx, :, :, :].squeeze())
-            metric_values.append(rmse_val)
+            metrics["rmse"] += rmse_val
         if "vector_correlation" in metric_names:
             vec_corr_val = vector_correlation(ground_truth[idx, 0, :, :].squeeze(),
                                               ground_truth[idx, 1, :, :].squeeze(),
                                               predictions[idx, 0, :, :].squeeze(),
                                               predictions[idx, 1, :, :].squeeze())
-            metric_values.append(vec_corr_val)
+            metrics["vector_correlation"] += vec_corr_val
         else:
             raise NotImplementedError("This specified metric does not exist!")
-    return rmse_val/ground_truth.shape[0], vec_corr_val/ground_truth.shape[0]
+    metrics = {metric_name: metric_value / ground_truth.shape[0] for metric_name, metric_value in metrics.items()}
+    return metrics
 
 
 def loss_function(predictions, target, losses: List[str], loss_weightings: List[float]):
@@ -232,14 +234,13 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
                 total_loss += loss.item()
 
                 metric_values = get_metrics(metrics_names, target, output)
-                for idx, metric_name in enumerate(metrics_names):
-                    metrics[metric_name] += metric_values[idx]
+                for metric_name in metrics_names:
+                    metrics[metric_name] += metric_values[metric_name]
 
                 tepoch.set_postfix(loss=str(round(loss.item() / data.shape[0], 3)))
                 wandb.log({"val_loss": round(loss.item() / data.shape[0], 3)})
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
-    print(metrics)
     wandb.log(metrics)
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     print(f"Validation avg loss: {avg_loss:.2f}")
