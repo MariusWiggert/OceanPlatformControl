@@ -230,15 +230,54 @@ class Arena:
             point = self.platform.state
         return self.ocean_field.hindcast_data_source.is_on_land(point)
 
-    def problem_status(self, problem: Problem, check_inside: Optional[bool] = True,
-                       margin: Optional[float] = 0.0) -> int:
-        """Return the problem status"""
+    def problem_status(
+            self,
+            problem: Problem,
+            check_inside: Optional[bool] = True,
+            margin: Optional[float] = 0.0
+    ) -> int:
+        """
+            Get the problem status
+            Returns:
+                1   if problem was solved
+                0   if problem is still open
+                -1  if problem timed out
+                -2  if platform stranded
+                -3  if platform left specified araena region (spatial boundaries)
+        """
         if self.is_on_land():
             return -2
         elif check_inside and not self.is_inside_arena(margin):
             return -3
         else:
             return problem.is_done(self.platform.state)
+
+    def problem_status_text(
+            self,
+            problem_status
+    ):
+        """
+            Get a text to the problem status.Can be used for debugging.
+            Returns:
+                'Success'       if problem was solved
+                'Running'       if problem is still open
+                'Timeout'       if problem timed out
+                'Stranded'      if platform stranded
+                'Outside Arena' if platform left specified araena region (spatial boundaries)
+                'Invalid'       otherwise
+        """
+        if problem_status == 1:
+            return 'Success'
+        elif problem_status == 0:
+            return 'Running'
+        elif problem_status == -1:
+            return 'Timeout'
+        elif problem_status == -2:
+            return 'Stranded'
+        elif problem_status == -3:
+            return 'Outside Arena'
+        else:
+            return 'Invalid'
 
     ### Various Plotting Functions for the Arena Object ###
 
