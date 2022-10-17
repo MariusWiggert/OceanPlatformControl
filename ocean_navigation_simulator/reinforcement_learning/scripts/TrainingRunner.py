@@ -22,12 +22,13 @@ from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import Tra
 from ocean_navigation_simulator.utils.misc import bcolors
 from ocean_navigation_simulator.utils import cluster_utils
 
-"""
-    RLRunner takes a configuration to run a RL training with Rllib and hides away all the ugly stuff
-    needed to run Rllib. It creates folder for results, saves configurations, registers Environment and
-    Model with Rllib and finally prints results after each training iteration.
-"""
+
 class TrainingRunner:
+    """
+        RLRunner takes a configuration to run a RL training with Rllib and hides away all the ugly stuff
+        needed to run Rllib. It creates folder for results, saves configurations, registers Environment and
+        Model with Rllib and finally prints results after each training iteration.
+    """
     def __init__(
             self,
             name: str,

@@ -12,14 +12,14 @@ from ocean_navigation_simulator.utils import cluster_utils
 
 class RLController(Controller):
     """
-    RL-based Controller using a pre-traine rllib policy.
+    RL-based Controller using a pre-trained rllib policy. It needs access to arena to modify
+    the observation with the data source needed by HJ Planner.
     """
     def __init__(
         self,
         config: dict,
         problem: NavigationProblem,
         arena: Arena,
-        verbose: int = 0,
     ):
         super().__init__(problem)
         self.config = config

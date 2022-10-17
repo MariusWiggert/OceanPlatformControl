@@ -3,14 +3,13 @@ from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
 
 from ocean_navigation_simulator.reinforcement_learning.OceanApexDQN import OceanApexDQN
-from archive.OceanDenseTFModel import OceanDenseTFModel
 from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import OceanTorchModel
 from ocean_navigation_simulator.reinforcement_learning.OceanEnvFactory import OceanEnvFactory
 
-
 class TrainerFactory:
-	served = 0
-
+	"""
+		Factory to register Environment and Model with rllib and customize logger path.
+	"""
 	@staticmethod
 	def create(config, checkpoint=None, logger_path=None, verbose=0):
 		# Step 1: Register Env
@@ -24,9 +23,7 @@ class TrainerFactory:
 		))
 
 		# Step 2: Register Model
-		if config['algorithm']['model'].get('custom_model', '') == 'OceanDenseTFModel':
-			ModelCatalog.register_custom_model("OceanDenseTFModel", OceanDenseTFModel)
-		elif config['algorithm']['model'].get('custom_model', '') == 'OceanTorchModel':
+		if config['algorithm']['model'].get('custom_model', '') == 'OceanTorchModel':
 			ModelCatalog.register_custom_model("OceanTorchModel", OceanTorchModel)
 
 		# Step 3: Select Class

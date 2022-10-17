@@ -8,6 +8,10 @@ from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
 
 
 class OceanEnvFactory:
+    """
+        Delivers Env for rllib. It can split up indices s.t. each worker has unique
+        training data.
+    """
     def __init__(
             self,
             config: dict,

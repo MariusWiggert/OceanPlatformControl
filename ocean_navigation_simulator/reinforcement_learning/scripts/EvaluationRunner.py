@@ -20,6 +20,7 @@ from ocean_navigation_simulator.utils.misc import bcolors, timing, get_process_i
 
 
 class EvaluationRunner:
+    """ The EvaluationRunner runs distributed evaluation runs of various controllers """
     def __init__(
             self,
             config: dict,

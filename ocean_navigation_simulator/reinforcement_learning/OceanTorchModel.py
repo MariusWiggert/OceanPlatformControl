@@ -21,6 +21,7 @@ from ray.rllib.models.torch.misc import normc_initializer
 #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/dqn_tf_policy.py
 
 class OceanCNN(nn.Module):
+    """ helper model to build convolution networks """
     def __init__(self, name, input_size, channels, kernel, stride, padding):
         super().__init__()
         self.name = name
@@ -50,6 +51,7 @@ class OceanCNN(nn.Module):
         return self._model(x)
 
 class OceanDenseNet(nn.Module):
+    """ helper model to build dense networks """
     def __init__(self, name, input_size, units, activation, initializer_std, input_activation=None):
         super().__init__()
         self.name = name
@@ -75,6 +77,7 @@ class OceanDenseNet(nn.Module):
         return self._model(x)
 
 class OceanTorchModel(TorchModelV2, nn.Module):
+    """ flexible Torch model used by RL. It is customizable with the configuration """
     def __init__(
             self,
             obs_space: gym.spaces.Space,

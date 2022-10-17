@@ -33,7 +33,7 @@ class OceanRewardFunction(RewardFunction):
 		problem_status: int
 	) -> float:
 		"""
-		Reward function based on double gyre paper
+		Flexible Reward function which can be customized by config.
 		Args:
 			:param prev_obs: state the platform was at in the previous timestep
 			:param curr_obs: state the platform is at after taking the current action

@@ -13,6 +13,10 @@ from ray.rllib.utils.typing import AlgorithmConfigDict
 from ray.tune.registry import RLLIB_MODEL, _global_registry
 
 class OceanApexDQN(ApexDQN):
+    """
+        This class modifies the rllib ApexDQN slightly s.t. that we can freely use custom models.
+        The interaction of the policy with the model is overwritten.
+    """
     def get_default_policy_class(self, config):
         if config["framework"] == "torch" and config.get("model").get("custom_model"):
             # Define custom model interaction for policy

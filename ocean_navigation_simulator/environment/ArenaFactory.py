@@ -42,7 +42,8 @@ class ArenaFactory:
             # Step 3: Add point to check for coverage
             if problem is not None:
                 points = [problem.start_state.to_spatial_point(), problem.end_region]
-                t_interval = [problem.start_state.date_time, problem.start_state.date_time + problem.timeout]
+                if t_interval is None:
+                    t_interval = [problem.start_state.date_time, problem.start_state.date_time + problem.timeout + datetime.timedelta(seconds=config['casadi_cache_dict']['time_around_x_t'])]
             elif x_interval is not None and y_interval is not None:
                 points = [SpatialPoint(lon=x_interval[0], lat=y_interval[0]), SpatialPoint(lon=x_interval[1], lat=y_interval[1])]
 

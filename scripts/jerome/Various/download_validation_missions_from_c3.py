@@ -3,7 +3,6 @@ import pandas as pd
 
 import ocean_navigation_simulator.utils.misc
 import ocean_navigation_simulator.utils.paths as paths
-from ocean_navigation_simulator.reinforcement_learning_scripts.Utils import Utils
 
 c3 = ocean_navigation_simulator.utils.misc.get_c3()
 

@@ -1,3 +1,4 @@
+import datetime
 import os
 import pickle
 import time
@@ -81,7 +82,7 @@ class OceanEnv(gym.Env):
                 scenario_config=self.config['scenario_config'],
                 x_interval=self.problem_config['x_range'],
                 y_interval=self.problem_config['y_range'],
-                t_interval=self.problem_config['t_range'],
+                t_interval=[self.problem_config['t_range'][0], self.problem_config['t_range'][1]+datetime.timedelta(days=2)],
                 verbose=self.verbose-1
             )
 
@@ -127,12 +128,13 @@ class OceanEnv(gym.Env):
 
             # Step 3:
             if self.verbose > 0:
-                print('OceanEnv[Worker {w}, Reset {r}]: Reset to Group {g} Batch {b} Index {i} ({t:.1f}s)'.format(
+                print('OceanEnv[Worker {w}, Reset {r}]: Reset to Index {i} (G{gr} B{b} FI{fi})({t:.1f}s)'.format(
                     w=self.worker_index,
                     r=self.resets,
-                    g=self.problem.extra_info["group"],
+                    i=self.problem.extra_info["index"],
+                    gr=self.problem.extra_info["group"],
                     b=self.problem.extra_info["batch"],
-                    i=self.problem.extra_info["factory_index"],
+                    fi=self.problem.extra_info["factory_index"],
                     t=time.time()-self.reset_start_time,
                 ))
 
@@ -170,7 +172,18 @@ class OceanEnv(gym.Env):
                 # Hindcast Planner needs to receive hindcast datasource
                 platform_action += self.hindcast_planner.get_action(observation=self.prev_obs.replace_datasource(self.arena.ocean_field.hindcast_data_source))
 
-            observation = self.arena.step(platform_action)
+            try:
+                observation = self.arena.step(platform_action)
+            except:
+                print('OceanEnv[Worker {w}, Reset {r}]: Error at Index {i} (G{gr} B{b} FI{fi})'.format(
+                    w=self.worker_index,
+                    r=self.resets,
+                    i=self.problem.extra_info["index"],
+                    gr=self.problem.extra_info["group"],
+                    b=self.problem.extra_info["batch"],
+                    fi=self.problem.extra_info["factory_index"],
+                ))
+                raise
 
         # Step 2:
         problem_status = self.arena.problem_status(self.problem, check_inside=True, margin=self.feature_constructor_config['local_map']['xy_width_degree']/2)
@@ -197,12 +210,13 @@ class OceanEnv(gym.Env):
                 render_start = time.time()
                 if self.config['render']:
                     self.render()
-                print("OceanEnv[Worker {w}, Reset {r}]: Finished Group {g} Batch {b} Index {i} ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}, TTR Start: {ttrs:.1f}h) (step Ø: {stt:.1f}ms, total: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
+                print("OceanEnv[Worker {w}, Reset {r}]: Finished Index {i} (G{gr}, B{b}, I{fi}) ({su}, {st} steps, {t:.1f}h, ∑ΔTTR {rew:.1f}h, %TTR {ttr:.1f}, TTR Start: {ttrs:.1f}h) (step Ø: {stt:.1f}ms, total: {ep:.1f}s, reset: {res:.1f}s, render: {ren:.1f}s, Mem: {mem:,.0f}MB)".format(
                     w=self.worker_index,
                     r=self.resets,
-                    g=self.problem.extra_info["group"],
+                    i=self.problem.extra_info["index"],
+                    gr=self.problem.extra_info["group"],
                     b=self.problem.extra_info["batch"],
-                    i=self.problem.extra_info["factory_index"],
+                    fi=self.problem.extra_info["factory_index"],
                     su=f"{bcolors.OKGREEN}Success{bcolors.ENDC}" if problem_status > 0 else (f"{bcolors.FAIL}Timeout{bcolors.ENDC}" if problem_status == -1 else (f"{bcolors.FAIL}Stranded{bcolors.ENDC}" if problem_status == -2 else f"{bcolors.FAIL}Outside Arena{bcolors.ENDC}")),
                     st=self.steps,
                     t=self.problem.passed_seconds(observation.platform_state) / 3600,

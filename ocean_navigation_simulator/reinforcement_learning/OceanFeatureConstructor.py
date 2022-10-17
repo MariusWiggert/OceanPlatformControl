@@ -11,11 +11,12 @@ from ocean_navigation_simulator.environment.FeatureConstructor import FeatureCon
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
-"""
-    Feature Constructors should take in the ArenaObservation and other relavant information, make any featurization changes,
-    and then convert to a numpy array that the RL model can use.
-"""
+
 class  OceanFeatureConstructor(FeatureConstructor):
+    """
+        Feature Constructors should take in the ArenaObservation and other relavant information, make any featurization changes,
+        and then convert to a numpy array that the RL model can use.
+    """
     def __init__(self, config: dict, forecast_planner: HJReach2DPlanner, hindcast_planner: HJReach2DPlanner):
         self.forecast_planner = forecast_planner
         self.hindcast_planner = hindcast_planner
