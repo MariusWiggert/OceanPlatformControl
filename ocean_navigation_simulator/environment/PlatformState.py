@@ -19,7 +19,7 @@ class SpatialPoint:
     lon: units.Distance
     lat: units.Distance
 
-    # https://www.movable-type.co.uk/scripts/latlong.html
+    # TODO: implement https://www.movable-type.co.uk/scripts/latlong.html
     def distance(self, other) -> float:
         return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
 

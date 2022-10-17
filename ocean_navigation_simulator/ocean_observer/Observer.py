@@ -11,6 +11,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentGP import OceanCurrentGP
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
 
+# TODO: change to use loggers
 
 class Observer:
     """Class that represent the observer. It will receive observations and is then responsible to return predictions for

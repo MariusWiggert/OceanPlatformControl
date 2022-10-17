@@ -3,9 +3,10 @@ import numpy as np
 import jax.numpy as jnp
 import warnings
 import math
-import hj_reachability as hj
 import xarray as xr
 from typing import Union, Optional
+
+import hj_reachability as hj
 
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase

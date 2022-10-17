@@ -31,7 +31,7 @@ from ocean_navigation_simulator.utils.plotting_utils import animate_trajectory
 # TODO: discuss why spatial_boundary dictionary?
 #       -> JJ: spatial boundary is used for analytical currents and cached hj planner
 # TODO: Why collect_trajectory shouldn't this be default?
-#       -> JJ: for RL it is not used and will unnecessary fill memory, default behaviour is on
+#       -> JJ: for RL it is not used and will unnecessary fill memory
 # TODO: discuss use of the new functions is_in_area and checking problem status
 #       -> JJ: is_on_land is only a wrapper to simplify, generally we want to terminate when on land
 # TODO: check if logging works
@@ -49,8 +49,11 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]  # Data Source of the forecast
 
-
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
+        """
+            this function is required to use the hindcast planner
+            TODO: change HJ planner to directly accept datasources
+        """
         return ArenaObservation(
             platform_state=PlatformState(
                 lon=point.lon,
@@ -64,6 +67,10 @@ class ArenaObservation:
         )
 
     def replace_datasource(self, datasource: Union[OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical]):
+        """
+            this function is required to use the hindcast planner
+            TODO: change HJ planner to directly accept datasources
+        """
         return ArenaObservation(
             platform_state=self.platform_state,
             true_current_at_state=self.true_current_at_state,

@@ -10,6 +10,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils.misc import timing, get_c3
 from ocean_navigation_simulator.utils import units
 
+# TODO: change to use loggers
 
 class ArenaFactory:
     """Factory to create an arena with specific settings and download the needed files from C3 storage."""
@@ -111,10 +112,12 @@ class ArenaFactory:
         c3 = get_c3(verbose-1)
 
         if t_interval is not None:
+            # substracting 1 day is more safe in case the file doesnt start at midnightt (e.g. Copernicus)
             start_min = f'{t_interval[0] - datetime.timedelta(days=1)}'
             start_max = f'{t_interval[1]}'
             time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
         else:
+            # accepting t_interval = None allows to download the whole file list for analysis
             time_filter = ''
 
         if archive_source=='HYCOM' and archive_type=='forecast':

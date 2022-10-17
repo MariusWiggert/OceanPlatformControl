@@ -35,9 +35,11 @@ import hj_reachability as hj
 # TODO: handle where it is using hours_to_hj_solve_timescale to make sure the plot is in hours
 # TODO: This is very much work in progress, does not work yet!
 # TODO: discuss with Jerome: why run_without_x_T? sample_from_reachable_coordinates, set_interpolator, etc.
-#       -> JJ: this is used for problem generation where we want HJ to stop afterr the specified time
+#       -> JJ: run_without_x_T is used for problem generation where we only want HJ to stop after the specified time
+#       -> JJ: set_interpolator speeds up interpolation by using the intended scipy function RegularGridInterpolator
 # TODO: discuss the new variables in reachability snapshot plotting add_drawing, target_min_distance...
 # => why don't we put them outside where they are used? It's for mission generation then in code there?
+# => JJ: we could also split up the planner, controller and RL stuff.
 
 
 class HJPlannerBase(Controller):
@@ -51,7 +53,8 @@ class HJPlannerBase(Controller):
 
         See Planner class for the rest of the attributes.
     """
-    def __init__(self, problem: NavigationProblem, specific_settings: Optional[dict] = {}, verbose: Optional[int] = 0):
+
+    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = {}):
         """
         Constructor for the HJ Planner Baseclass.
         Args:
@@ -186,10 +189,10 @@ class HJPlannerBase(Controller):
                 self.set_interpolator()
 
                 if 'save_after_planning' in self.specific_settings and self.specific_settings['save_after_planning']:
-                    self.save_plan(f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index}/')
+                    self.save_planner_state(f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index}/')
                     self.planner_cache_index += 1
 
-                self.logger.info(f'HJPlannerBase: Replanning ({time.time() - start:.1f}s)')
+                self.logger.info(f'HJPlannerBase: Re-planning finished ({time.time() - start:.1f}s)')
 
     def _check_for_replanning(self, observation: ArenaObservation) -> bool:
         """Helper Function to check if we want to replan with HJ Reachability.
@@ -938,7 +941,7 @@ class HJPlannerBase(Controller):
             ))
         return sampled_points
 
-    def save_plan(self, folder):
+    def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok = True)
 
         # Settings

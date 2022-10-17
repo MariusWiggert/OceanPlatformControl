@@ -10,6 +10,7 @@ from sklearn.gaussian_process.kernels import Kernel
 
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
 
+# TODO: change to use loggers
 
 class OceanCurrentGP(OceanCurrentModel):
     """Wrapper around a Gaussian Process that handles ocean currents.

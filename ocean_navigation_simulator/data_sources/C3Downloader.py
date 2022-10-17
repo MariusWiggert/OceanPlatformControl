@@ -1,4 +1,3 @@
-from ocean_navigation_simulator.utils.units import timing
 from ocean_navigation_simulator.utils.misc import get_c3
 
 from c3python import C3Python
