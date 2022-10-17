@@ -11,9 +11,13 @@ def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, 
     return {"rmse": rmse, "vector_correlation": vector_correlation}
 
 
-def rmse(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, float]:
-    rmse_val = np.sqrt(((ground_truth["u_error"]-synthetic_data["u_error"])**2 +
-                        (ground_truth["v_error"]-synthetic_data["v_error"])**2)).mean()
+def rmse(ground_truth, predictions):
+    return np.sqrt(((ground_truth[0] - predictions[0])**2 + (ground_truth[1] - predictions[1])**2).mean())
+
+
+def rmse_pd(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, float]:
+    rmse_val = np.sqrt((((ground_truth["u_error"]-synthetic_data["u_error"])**2 +
+                        (ground_truth["v_error"]-synthetic_data["v_error"])**2)).mean())
     return {"rmse": rmse_val}
 
 
@@ -23,7 +27,7 @@ def rmse_over_time(df: pd.DataFrame, variables: Tuple[str, str]) -> Dict[str, Li
     rmse_data = []
     for hour in hours:
         rmse_data.append(np.sqrt(((df[df["hour"] == hour][variables[0]])**2 +
-                                  (df[df["hour"] == hour][variables[1]])**2)).mean())
+                                  (df[df["hour"] == hour][variables[1]])**2).mean()))
     return {"rmse": rmse_data}
 
 

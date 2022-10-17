@@ -5,6 +5,7 @@ from Generator import Generator
 from Discriminator import Discriminator
 from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
     init_weights, save_checkpoint, load_checkpoint
+from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 
 import wandb
 import os
@@ -17,7 +18,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch import optim
 from torch.optim import lr_scheduler
 from torchvision.utils import make_grid
-from typing import Dict, Callable, Any, Tuple, List
+from typing import Dict, Callable, Any, Tuple, List, Optional
 from warnings import warn
 from tqdm import tqdm
 
@@ -121,17 +122,44 @@ def predict_fixed_batch(model, dataloader, device):
 
     model.eval()
     with torch.no_grad():
-        samples = next(iter(dataloader))[0]
+        data = next(iter(dataloader))
+        samples = data[0]
+        ground_truth = data[1]
         samples = samples.to(device)
         model_output = model(samples).cpu().detach()
 
     # logging final images to weights and biases
-    samples = make_grid(samples, 2)
-    outputs = make_grid(model_output, 2)
-    images = wandb.Image(samples, caption="Fixed batch samples")
-    predictions = wandb.Image(outputs, caption="Fixed batch predictions")
-    wandb.log({"fixed_batch_samples": images, "fixed_batch_predictions": predictions})
+    ground_truth = make_grid(ground_truth, 2)
+    predictions = make_grid(model_output, 2)
+    ground_truth = wandb.Image(ground_truth, caption="Fixed batch samples")
+    predictions = wandb.Image(predictions, caption="Fixed batch predictions")
+    wandb.log({"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions})
     model.train()
+
+
+def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor) -> Optional[Tuple[float, float]]:
+    """Computes all specified metrics over the validation set predictions."""
+
+    # convert to numpy
+    ground_truth = ground_truth.cpu().detach().numpy()
+    predictions = predictions.cpu().detach().numpy()
+
+    # compute metrics
+    metric_values = []
+    for idx in range(ground_truth.shape[0]):
+        if "rmse" in metric_names:
+            rmse_val = rmse(ground_truth[idx, :, :, :].squeeze(),
+                            predictions[idx, :, :, :].squeeze())
+            metric_values.append(rmse_val)
+        if "vector_correlation" in metric_names:
+            vec_corr_val = vector_correlation(ground_truth[idx, 0, :, :].squeeze(),
+                                              ground_truth[idx, 1, :, :].squeeze(),
+                                              predictions[idx, 0, :, :].squeeze(),
+                                              predictions[idx, 1, :, :].squeeze())
+            metric_values.append(vec_corr_val)
+        else:
+            raise NotImplementedError("This specified metric does not exist!")
+    return rmse_val/ground_truth.shape[0], vec_corr_val/ground_truth.shape[0]
 
 
 def loss_function(predictions, target, losses: List[str], loss_weightings: List[float]):
@@ -189,12 +217,13 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
     return avg_loss
 
 
-def validation(model, dataloader, device, cfgs_train):
+def validation(model, dataloader, device, cfgs_train, metrics_names):
     total_loss = 0
     model.eval()
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
+            metrics = {metric: 0 for metric in metrics_names}
             for data, target in tepoch:
                 data, target = data.to(device), target.to(device)
 
@@ -202,9 +231,16 @@ def validation(model, dataloader, device, cfgs_train):
                 loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
                 total_loss += loss.item()
 
+                metric_values = get_metrics(metrics_names, target, output)
+                for idx, metric_name in enumerate(metrics_names):
+                    metrics[metric_name] += metric_values[idx]
+
                 tepoch.set_postfix(loss=str(round(loss.item() / data.shape[0], 3)))
                 wandb.log({"val_loss": round(loss.item() / data.shape[0], 3)})
 
+    metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
+    print(metrics)
+    wandb.log(metrics)
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
@@ -275,7 +311,7 @@ def main():
             metrics |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                val_loss = validation(model, val_loader, device, cfgs_train)
+                val_loss = validation(model, val_loader, device, cfgs_train, all_cfgs["metrics"])
                 val_losses.append(val_loss)
                 metrics |= {"val_loss": val_loss}
             if cfgs_lr_scheduler["value"]:

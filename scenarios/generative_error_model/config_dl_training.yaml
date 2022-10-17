@@ -2,16 +2,17 @@ model: "generator"
 dataset_type: "forecasthindcast"
 wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
+metrics: ["rmse", "vector_correlation"]
 
 load_from_chkpt:
   value: False
   file_name: "2022-10-14_14:41:33.pth"
 
-unet:
-  in_channels: 2
-  out_channels: 2
-  features: [64, 128, 256, 512]
-  dropout: False
+#unet:
+#  in_channels: 2
+#  out_channels: 2
+#  features: [64, 128, 256, 512]
+#  dropout: False
 
 generator:
   in_channels: 2
@@ -28,12 +29,12 @@ train:
   epochs: 30
   loss:
     # choice: mse, sparse_mse, total_variation, mass_conservation, l1
-    types: [ "mse" ]
-    weighting: [ 1 ]
+    types: [ "l1", "mass_conservation" ]
+    weighting: [ 1, 0.01 ]
 #  learning_rate: 1e-4
   learning_rate: 0.0002
   lr_scheduler_configs:
-    value: False
+    value: True
     scheduler_type: "plateau"
     mode: "min"
     factor: 0.2
