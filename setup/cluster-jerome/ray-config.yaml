@@ -107,7 +107,7 @@ head_node_type: ray.head.default
 # Files or directories to copy to the head and worker nodes. The format is a
 # dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
 file_mounts: {
-    "~/.ssh": "setup/keys",
+    "~/.ssh": "setup/cluster-jerome/keys",
     "~/OceanPlatformControl/setup": "setup",
 }
 
@@ -154,14 +154,14 @@ worker_setup_commands: []
 
 # Command to start ray on the head node. You don't need to change this.
 head_start_ray_commands:
-    - bash -i ~/OceanPlatformControl/setup/cluster/set_up_ocean_platform_env.sh
-    - bash -i ~/OceanPlatformControl/setup/cluster/set_up_seaweed_storage.sh
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_ocean_platform_env.sh
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh
     - ray stop --force
     - ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
 
 # Command to start ray on worker nodes. You don't need to change this.
 worker_start_ray_commands:
-    - bash -i ~/OceanPlatformControl/setup/set_up_ocean_platform_env.sh
-    - bash -i ~/OceanPlatformControl/setup/set_up_seaweed_storage.sh
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_ocean_platform_env.sh
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh
     - ray stop --force
     - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
