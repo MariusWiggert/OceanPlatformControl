@@ -19,6 +19,9 @@ from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor i
 )
 from ocean_navigation_simulator.utils import cluster_utils
 
+# Note: Needs access to arena right now because HJPlanner needs it to check for changing cached TTR map.
+# When we iterate on it, might be easier to have a HJPlanner light that just indexes into the correct cached TTR map.
+
 
 class RLController(Controller):
     """

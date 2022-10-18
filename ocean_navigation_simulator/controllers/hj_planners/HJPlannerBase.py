@@ -33,15 +33,6 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.utils import units
 
-# TODO: handle where it is using hours_to_hj_solve_timescale to make sure the plot is in hours
-# TODO: This is very much work in progress, does not work yet!
-# TODO: discuss with Jerome: why run_without_x_T? sample_from_reachable_coordinates, set_interpolator, etc.
-#       -> JJ: run_without_x_T is used for problem generation where we only want HJ to stop after the specified time
-#       -> JJ: set_interpolator speeds up interpolation by using the intended scipy function RegularGridInterpolator
-# TODO: discuss the new variables in reachability snapshot plotting add_drawing, target_min_distance...
-# => why don't we put them outside where they are used? It's for mission generation then in code there?
-# => JJ: we can remove target_min_distance, only add_drawing is required to modify animation
-
 
 class HJPlannerBase(Controller):
     """
@@ -55,7 +46,7 @@ class HJPlannerBase(Controller):
         See Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = {}):
+    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = None):
         """
         Constructor for the HJ Planner Baseclass.
         Args:
@@ -94,7 +85,6 @@ class HJPlannerBase(Controller):
             "artificial_dissipation_scheme": "local_local",
             "T_goal_in_seconds": problem.timeout.total_seconds(),
             # the maximum allowed time for the navigation problem
-            "run_without_x_T": False,
             "use_geographic_coordinate_system": True,
             "progress_bar": True,
             "initial_set_radii": [problem.target_radius, problem.target_radius],
@@ -521,9 +511,7 @@ class HJPlannerBase(Controller):
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(
             accuracy=self.specific_settings["accuracy"],
-            x_init=self._get_non_dim_state(x_reach_end)
-            if not self.specific_settings["run_without_x_T"] and x_reach_end is not None
-            else None,
+            x_init=self._get_non_dim_state(x_reach_end) if x_reach_end is not None else None,
             artificial_dissipation_scheme=self.diss_scheme,
             hamiltonian_postprocessor=hamiltonian_postprocessor,
         )
@@ -974,9 +962,14 @@ class HJPlannerBase(Controller):
         )
 
     def vis_value_func_along_traj(
-        self, figsize=(12, 12), return_ax=False, extra_traj=None, time_to_reach=False
+        self, time_to_reach=False, return_ax=False, plot_in_h=True, figsize=(12, 12)
     ):
-        """Plot the Value function along the most recently planned trajectory."""
+        """Plot the Value function along the most recently planned trajectory.
+        Args:
+           time_to_reach:       if True we plot the value function otherwise just the zero level set
+           return_ax:           return ax object to plot more on top
+           plot_in_h:           if the value function units should be converted to hours
+        """
         fig, ax = plt.subplots(figsize=figsize)
 
         if time_to_reach:
@@ -989,12 +982,15 @@ class HJPlannerBase(Controller):
             ylabel = r"$\phi(x_t)$"
             all_values = self.all_values
 
-        reach_times = (self.reach_times - self.reach_times[0]) / self.specific_settings[
-            "hours_to_hj_solve_timescale"
-        ]
+        reach_times = self.reach_times - self.reach_times[0]
+
         traj_times = (
             self.planned_trajs[-1]["traj"][3, :] - self.current_data_t_0 - self.reach_times[0]
-        ) / self.specific_settings["hours_to_hj_solve_timescale"]
+        )
+
+        if plot_in_h:
+            reach_times = reach_times / 3600
+            traj_times = traj_times / 3600
 
         hj.viz.visValFuncTraj(
             ax,
@@ -1006,20 +1002,7 @@ class HJPlannerBase(Controller):
             flip_times=False,
             ylabel=ylabel,
         )
-        if extra_traj is not None:
-            extra_traj_times = (
-                extra_traj[3, :] - self.current_data_t_0 - self.reach_times[0]
-            ) / self.specific_settings["hours_to_hj_solve_timescale"]
-            hj.viz.visValFuncTraj(
-                ax,
-                traj_times=extra_traj_times,
-                x_traj=extra_traj[:2, :],
-                all_times=self.reach_times / self.specific_settings["hours_to_hj_solve_timescale"],
-                all_values=all_values,
-                grid=self.grid,
-                flip_times=False,
-                ylabel=ylabel,
-            )
+
         if return_ax:
             return ax
         else:
@@ -1049,7 +1032,11 @@ class HJPlannerBase(Controller):
     def set_interpolator(self):
         """set interpolator after replaning for quicker interpolation"""
         # Scale TTR Values
+        # Step 1: Transform to TTR map in non-dimensional time (T = 1).
+        # Formula in paper is: TTR(t) = J + T - t, for us self.all_values.min(axis=(1, 2)) is -(T-t)
         ttr_values = self.all_values - self.all_values.min(axis=(1, 2))[:, None, None]
+        # Step 2: After normalization with min, the min should be 0 in all time slices
+        # Then multiply with the amount of hours to make it dimensional in time!
         ttr_values = (
             ttr_values
             / np.abs(self.all_values.min())
@@ -1061,8 +1048,8 @@ class HJPlannerBase(Controller):
         self.interpolator = scipy.interpolate.RegularGridInterpolator(
             points=(
                 self.current_data_t_0 + self.reach_times,
-                self.grid.states[:, 0, 0],
-                self.grid.states[0, :, 1],
+                self.grid.coordinate_vectors[0],
+                self.grid.coordinate_vectors[1],
             ),
             values=ttr_values,
             method="linear",

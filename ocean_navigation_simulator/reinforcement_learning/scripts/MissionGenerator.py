@@ -1,5 +1,4 @@
 import datetime
-import os
 import time
 from typing import List, Optional, Union
 
@@ -10,7 +9,11 @@ from matplotlib import patches
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
 )
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory, MissingOceanFileException, CorruptedOceanFileException
+from ocean_navigation_simulator.environment.ArenaFactory import (
+    ArenaFactory,
+    CorruptedOceanFileException,
+    MissingOceanFileException,
+)
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -122,17 +125,21 @@ class MissionGenerator:
                 x_interval=self.config["x_range"],
                 y_interval=self.config["y_range"],
                 t_interval=[start_state.date_time, target.date_time],
-                verbose=self.verbose-2,
+                verbose=self.verbose - 2,
             )
         except MissingOceanFileException as e:
             if self.verbose > 0:
-                print(f"MissionGenerator: {bcolors.FAIL}Target aborted because of missing files ({time.time()-start:.1f}s).{bcolors.ENDC}")
+                print(
+                    f"MissionGenerator: {bcolors.FAIL}Target aborted because of missing files ({time.time()-start:.1f}s).{bcolors.ENDC}"
+                )
             if self.verbose > 1:
                 print(e)
             return False
         except CorruptedOceanFileException as e:
             if self.verbose > 0:
-                print(f"MissionGenerator: {bcolors.FAIL}Target aborted because of corrupted file: ({time.time()-start:.1f}s).{bcolors.ENDC}")
+                print(
+                    f"MissionGenerator: {bcolors.FAIL}Target aborted because of corrupted file: ({time.time()-start:.1f}s).{bcolors.ENDC}"
+                )
             if self.verbose > 1:
                 print(e)
             return False
