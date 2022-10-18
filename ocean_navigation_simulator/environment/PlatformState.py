@@ -88,7 +88,7 @@ class SpatioTemporalPoint:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time}]"
+        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
 
 
 @dataclasses.dataclass
@@ -164,7 +164,7 @@ class PlatformState:
             y=self.lat.deg,
             b=self.battery_charge.joule,
             m=self.seaweed_mass.kg,
-            t=self.date_time,
+            t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
 
     def distance(self, other) -> float:
