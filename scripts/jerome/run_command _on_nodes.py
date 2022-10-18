@@ -54,14 +54,20 @@ script_start_time = time.time()
 
 # The public key (. pub file) should be 644 (-rw-r--r--). The private key (id_rsa) on the client host, and the authorized_keys file on the server, should be 600 (-rw-------)
 # COMMAND = 'chmod 600 ~/.ssh/azure; chmod 644 ~/.ssh/azure.pub'
+# cluster_utils.run_command_on_all_nodes(COMMAND)
 
 
 # COMMAND = 'ls -la'
-cluster_utils.run_command_on_all_nodes(
-    "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"
-)
+# cluster_utils.run_command_on_all_nodes(
+#     "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"
+# )
 
-# cluster_utils.copy_files_to_nodes(local_dir='./setup/', remote_dir='~/OceanPlatformControl/setup/')
+cluster_utils.run_command_on_all_nodes('./OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh')
+
+
+# cluster_utils.run_command_on_all_nodes('chmod ')
+
+# cluster_utils.copy_files_to_nodes(local_dir='./setup', remote_dir='~/OceanPlatformControl/')
 
 # import ray
 # from tqdm import tqdm
