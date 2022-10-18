@@ -1,5 +1,6 @@
 import abc
 import dataclasses
+
 import matplotlib.axes
 
 from ocean_navigation_simulator.environment.Platform import PlatformState
@@ -22,15 +23,16 @@ class Problem(abc.ABC):
             A dict specifying the platform/problem parameters
             TODO: make this config into class?
     """
+
     start_state: PlatformState
     end_region: SpatialPoint  # TODO
     target_radius: float
-    #obstacle_regions: None = None  # TODO
-    #config: Dict = {}  # TODO
+    # obstacle_regions: None = None  # TODO
+    # config: Dict = {}  # TODO
 
     # @abc.abstractmethod
     def is_done(self, state: PlatformState) -> bool:
-        """ Checks whether the problem is solved or became unsolvable. Needs to get the current
+        """Checks whether the problem is solved or became unsolvable. Needs to get the current
         platform state.
         Args:
             state: PlatformState

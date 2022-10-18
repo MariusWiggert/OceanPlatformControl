@@ -1,10 +1,11 @@
 """Provides the solar_rad function, which calcluates incoming radiation at a 
 time, latitude, and longitude in the units W/m^2"""
 
+import casadi as ca
 import numpy as np
+
 import ocean_navigation_simulator.data_sources.SolarIrradiance.spa as spa
 import ocean_navigation_simulator.data_sources.SolarIrradiance.spa_casadi as spa_casadi
-import casadi as ca
 
 
 def solar_rad_ca(t_lat_lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
@@ -18,8 +19,21 @@ def solar_rad_ca(t_lat_lon, pressure=1013.25, atmos_refract=0.5667, temp=12):
 
     # this is always sea level since the system is always at sea :P
     # We use the atmosphere corrected solar elevation angle.
-    h = spa_casadi.radians(spa_casadi.solar_position_numpy(t_lat_lon[0], t_lat_lon[1], t_lat_lon[2], elev=0, pressure=pressure, temp=temp, delta_t=67.0,
-                                                           atmos_refract=atmos_refract, numthreads=0, sst=False, esd=False)[2])
+    h = spa_casadi.radians(
+        spa_casadi.solar_position_numpy(
+            t_lat_lon[0],
+            t_lat_lon[1],
+            t_lat_lon[2],
+            elev=0,
+            pressure=pressure,
+            temp=temp,
+            delta_t=67.0,
+            atmos_refract=atmos_refract,
+            numthreads=0,
+            sst=False,
+            esd=False,
+        )[2]
+    )
 
     # We then take the solar angle and derive solar radiation from a basic sinusoidal model.
     # TODO: address admissibility concerns (see test.py)
@@ -48,8 +62,21 @@ def solar_rad(unixtime, lat, lon, pressure=1013.25, atmos_refract=0.5667, temp=1
 
     # this is always sea level since the system is always at sea :P
     # We use the atmosphere corrected solar elevation angle.
-    h = spa.radians(spa.solar_position_numpy(unixtime, lat, lon, elev=0, pressure=pressure, temp=temp, delta_t=67.0,
-                                             atmos_refract=atmos_refract, numthreads=0, sst=False, esd=False)[2])
+    h = spa.radians(
+        spa.solar_position_numpy(
+            unixtime,
+            lat,
+            lon,
+            elev=0,
+            pressure=pressure,
+            temp=temp,
+            delta_t=67.0,
+            atmos_refract=atmos_refract,
+            numthreads=0,
+            sst=False,
+            esd=False,
+        )[2]
+    )
 
     # We then take the solar angle and derive solar radiation from a basic sinusoidal model.
     # TODO: address admissibility concerns (see test.py)

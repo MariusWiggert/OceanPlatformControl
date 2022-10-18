@@ -10,9 +10,12 @@ import yaml
 from torch import optim
 from torch.optim.lr_scheduler import StepLR
 
-from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import \
-    CustomOceanCurrentsDatasetSubgrid
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid import OceanCurrentCNNSubgrid
+from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import (
+    CustomOceanCurrentsDatasetSubgrid,
+)
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid import (
+    OceanCurrentCNNSubgrid,
+)
 
 
 class OceanCurrentCNN(nn.Module):
@@ -45,40 +48,47 @@ class OceanCurrentCNN(nn.Module):
             nn.MaxPool3d(kernel_size=(3, 3, 3)),
             nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(5, 5, 24)),
             nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(3, 3, 3)))
+            nn.MaxPool3d(kernel_size=(3, 3, 3)),
+        )
 
-        self.linear_layers = nn.Sequential(nn.Flatten(),
-                                           nn.Linear(88704, 2000),
-                                           nn.ReLU(),
-                                           nn.Linear(2000, 1000),
-                                           nn.ReLU(),
-                                           nn.Linear(1000, 500),
-                                           nn.ReLU(),
-                                           nn.Linear(500, 250),
-                                           nn.ReLU())
+        self.linear_layers = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(88704, 2000),
+            nn.ReLU(),
+            nn.Linear(2000, 1000),
+            nn.ReLU(),
+            nn.Linear(1000, 500),
+            nn.ReLU(),
+            nn.Linear(500, 250),
+            nn.ReLU(),
+        )
 
         # Upsampling
         self.linear_up_sampling = nn.Linear(250, 88704 // 32)
 
-        self.up_sampling_1 = nn.Sequential(nn.Upsample((35, 42, 55)),  # , scale_factor=(3, 3, 3)),
-                                           nn.Conv3d(1, 32, 3, 1, padding='same'),
-                                           nn.ReLU())
+        self.up_sampling_1 = nn.Sequential(
+            nn.Upsample((35, 42, 55)),  # , scale_factor=(3, 3, 3)),
+            nn.Conv3d(1, 32, 3, 1, padding="same"),
+            nn.ReLU(),
+        )
         # concatenate
-        self.up_sampling_2 = nn.Sequential(nn.Conv3d(64, 32, 5, 1),
-                                           nn.ReLU(),
-                                           nn.Conv3d(32, 32, 5, 1),
-                                           nn.ReLU(),
-
-                                           nn.Upsample((118, 140, 236)),  # , scale_factor=(3, 3, 3)),
-                                           nn.Conv3d(32, 32, 3, 1, padding='same'),
-                                           nn.ReLU())
+        self.up_sampling_2 = nn.Sequential(
+            nn.Conv3d(64, 32, 5, 1),
+            nn.ReLU(),
+            nn.Conv3d(32, 32, 5, 1),
+            nn.ReLU(),
+            nn.Upsample((118, 140, 236)),  # , scale_factor=(3, 3, 3)),
+            nn.Conv3d(32, 32, 3, 1, padding="same"),
+            nn.ReLU(),
+        )
         # Concatenate
-        self.up_sampling_3 = nn.Sequential(nn.Conv3d(32, 32, 5, 1),
-                                           nn.ReLU(),
-                                           nn.Conv3d(32, 32, 5, 1),
-                                           nn.ReLU(),
-                                           nn.Conv3d(32, 2, 5, 1)
-                                           )
+        self.up_sampling_3 = nn.Sequential(
+            nn.Conv3d(32, 32, 5, 1),
+            nn.ReLU(),
+            nn.Conv3d(32, 32, 5, 1),
+            nn.ReLU(),
+            nn.Conv3d(32, 2, 5, 1),
+        )
 
     def forward(self, x):
 
@@ -124,7 +134,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print(
-                f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6}")
+                f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6}"
+            )
             if args.dry_run:
                 break
 
@@ -138,41 +149,75 @@ def test(model, device, test_loader):
             data, target = data.to(device), target.to(device)
             output = model(data)
             print("output shape:", output.shape)
-            test_loss += F.mse_loss(output, target, reduction='mean').item()  # sum the batch losses
+            test_loss += F.mse_loss(output, target, reduction="mean").item()  # sum the batch losses
 
     test_loss /= len(test_loader.dataset)
 
     print(
-        f"\nTest set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({100. * correct / len(test_loader.dataset):.0f})\n")
+        f"\nTest set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({100. * correct / len(test_loader.dataset):.0f})\n"
+    )
 
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=14, metavar='N',
-                        help='number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
-                        help='learning rate (default: 1.0)')
-    parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-                        help='Learning rate step gamma (default: 0.7)')
-    parser.add_argument('--yaml-file-datasets', type=str, default='',
-                        help='filname of the yaml file to use to download the data in the folder scenarios/neural_networks')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA training')
-    parser.add_argument('--dry-run', action='store_true', default=False,
-                        help='quickly check a single pass')
-    parser.add_argument('--silicon', action='store_true', default=False,
-                        help='enable Mac silicon optimization')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                        help='how many batches to wait before logging training status')
-    parser.add_argument('--save-model', action='store_true', default=False,
-                        help='For Saving the current Model')
+    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        metavar="N",
+        help="input batch size for training (default: 64)",
+    )
+    parser.add_argument(
+        "--test-batch-size",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="input batch size for testing (default: 1000)",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=14,
+        metavar="N",
+        help="number of epochs to train (default: 14)",
+    )
+    parser.add_argument(
+        "--lr", type=float, default=1.0, metavar="LR", help="learning rate (default: 1.0)"
+    )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=0.7,
+        metavar="M",
+        help="Learning rate step gamma (default: 0.7)",
+    )
+    parser.add_argument(
+        "--yaml-file-datasets",
+        type=str,
+        default="",
+        help="filname of the yaml file to use to download the data in the folder scenarios/neural_networks",
+    )
+    parser.add_argument(
+        "--no-cuda", action="store_true", default=False, help="disables CUDA training"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", default=False, help="quickly check a single pass"
+    )
+    parser.add_argument(
+        "--silicon", action="store_true", default=False, help="enable Mac silicon optimization"
+    )
+    parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
+    parser.add_argument(
+        "--log-interval",
+        type=int,
+        default=10,
+        metavar="N",
+        help="how many batches to wait before logging training status",
+    )
+    parser.add_argument(
+        "--save-model", action="store_true", default=False, help="For Saving the current Model"
+    )
 
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -184,12 +229,10 @@ def main():
         device = torch.device("mps")
     print("device:", device)
 
-    train_kwargs = {'batch_size': args.batch_size}
-    test_kwargs = {'batch_size': args.test_batch_size}
+    train_kwargs = {"batch_size": args.batch_size}
+    test_kwargs = {"batch_size": args.test_batch_size}
     if use_cuda:
-        cuda_kwargs = {'num_workers': 1,
-                       'pin_memory': True,
-                       'shuffle': True}
+        cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
@@ -199,7 +242,7 @@ def main():
     # transforms.Normalize((0.1307,), (0.3081,))
     # ])
 
-    with open(f'scenarios/neural_networks/{args.yaml_file_datasets}.yaml') as f:
+    with open(f"scenarios/neural_networks/{args.yaml_file_datasets}.yaml") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     # dataset_training = CustomOceanCurrentsDataset(config["training"],
@@ -213,19 +256,25 @@ def main():
     #                                                 (36, 36, datetime.timedelta(days=5)),
     #                                                 (48, 48, datetime.timedelta(hours=12)), transform, transform)
 
-    dataset_training = CustomOceanCurrentsDatasetSubgrid(config["training"],
-                                                         datetime.datetime(2022, 4, 1, 12, 30, 1,
-                                                                           tzinfo=datetime.timezone.utc),
-                                                         datetime.datetime(2022, 4, 1, 12, 30, 1,
-                                                                           tzinfo=datetime.timezone.utc) + datetime.timedelta(
-                                                             days=28),
-                                                         (36, 36, datetime.timedelta(days=5)),
-                                                         (48, 48, datetime.timedelta(hours=12)), transform, transform)
-    dataset_validation = CustomOceanCurrentsDatasetSubgrid(config["validation"],
-                                                           datetime.datetime(2022, 4, 1, tzinfo=datetime.timezone.utc),
-                                                           datetime.datetime(2022, 5, 1, tzinfo=datetime.timezone.utc),
-                                                           (36, 36, datetime.timedelta(days=5)),
-                                                           (48, 48, datetime.timedelta(hours=12)), transform, transform)
+    dataset_training = CustomOceanCurrentsDatasetSubgrid(
+        config["training"],
+        datetime.datetime(2022, 4, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2022, 4, 1, 12, 30, 1, tzinfo=datetime.timezone.utc)
+        + datetime.timedelta(days=28),
+        (36, 36, datetime.timedelta(days=5)),
+        (48, 48, datetime.timedelta(hours=12)),
+        transform,
+        transform,
+    )
+    dataset_validation = CustomOceanCurrentsDatasetSubgrid(
+        config["validation"],
+        datetime.datetime(2022, 4, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2022, 5, 1, tzinfo=datetime.timezone.utc),
+        (36, 36, datetime.timedelta(days=5)),
+        (48, 48, datetime.timedelta(hours=12)),
+        transform,
+        transform,
+    )
 
     train_loader = torch.utils.data.DataLoader(dataset_training, **train_kwargs)
     validation_loader = torch.utils.data.DataLoader(dataset_validation, **test_kwargs)
@@ -243,5 +292,5 @@ def main():
         torch.save(model.state_dict(), "cnn.pt")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

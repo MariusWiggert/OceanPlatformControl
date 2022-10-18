@@ -1,0 +1,16 @@
+[flake8]
+exclude = venv, scripts/archive, casadi, netcdf4-python, archive, data, models, results
+per-file-ignores = scripts/*, ocean_navigation_simulator/data_sources/SolarIrradiance/test.py: E265, E402
+ignore = E501, W503, E226, E203, E266
+max-line-length = 79
+
+# Exclusions due to black format settings
+# E501: Line too long
+# W503: Line break occurred before binary operator
+# E226: Missing white space around arithmetic operator
+# E203: Whitespace before ':'
+# Problems with python interactive cells
+# E265: Block comment should start with '# '
+# E266: Too many leading '#' for block comment
+# E402: Module level import not at top of file
+# casadi, netcdf4-python are ignored for Mac m1

@@ -1,18 +1,19 @@
 import bisect
-
-from ocean_navigation_simulator.utils.a_star_state import AStarState
-from ocean_navigation_simulator.planners.planner import Planner
-from ocean_navigation_simulator.utils.in_bounds_utils import InBounds
 import heapq
 import math
-import casadi as ca
-import numpy as np
-import matplotlib.pyplot as plt
 import time as t
+
+import casadi as ca
+import matplotlib.pyplot as plt
+import numpy as np
+
+from ocean_navigation_simulator.planners.planner import Planner
+from ocean_navigation_simulator.utils.a_star_state import AStarState
+from ocean_navigation_simulator.utils.in_bounds_utils import InBounds
 
 
 class AStarPlanner(Planner):
-    """ Discretize the graph and run A Star
+    """Discretize the graph and run A Star
 
     Attributes:
         last_waypoint_index:
@@ -40,23 +41,22 @@ class AStarPlanner(Planner):
         print("TIME ELAPSED: ", end_time - start_time)
 
     def get_waypoints(self):
-        """ See superclass """
+        """See superclass"""
         return self.waypoints
 
     def run(self, problem):
-        """ See superclass """
+        """See superclass"""
         self.problem = problem
         self.a_star()
         return self.get_waypoints()
 
     def heuristic(self, state, target_lon, target_lat, max_velocity=0.6):
-        """ Return the minimum time between the given state and the end target """
+        """Return the minimum time between the given state and the end target"""
         distance = math.sqrt((state.lon - target_lon) ** 2 + (state.lat - target_lat) ** 2)
-        return distance * 111120. / max_velocity
+        return distance * 111120.0 / max_velocity
 
     def a_star(self):
-        """ Discretize the graph and find the time optimal path using A Star
-        """
+        """Discretize the graph and find the time optimal path using A Star"""
         # data structures
         time_to = {}
         edge_to = {}
@@ -96,15 +96,22 @@ class AStarPlanner(Planner):
                 seen[(state.lon, state.lat)] = (time_to[state], state.bat_level)
             else:
                 best_time, best_bat_level = seen[(state.lon, state.lat)]
-                seen[(state.lon, state.lat)] = min(best_time, time_to[state]), max(best_bat_level, state.bat_level)
+                seen[(state.lon, state.lat)] = min(best_time, time_to[state]), max(
+                    best_bat_level, state.bat_level
+                )
 
             for time, neighbor_state in state.neighbors():
                 if (neighbor_state.lon, neighbor_state.lat) in seen:
-                    recorded_time, recorded_bat_level = seen[(neighbor_state.lon, neighbor_state.lat)]
+                    recorded_time, recorded_bat_level = seen[
+                        (neighbor_state.lon, neighbor_state.lat)
+                    ]
 
                     # if we are considering a neighbor that is worse than seen before
-                    if neighbor_state in time_to and time_to[neighbor_state] >= recorded_time \
-                            and neighbor_state.bat_level <= recorded_bat_level:
+                    if (
+                        neighbor_state in time_to
+                        and time_to[neighbor_state] >= recorded_time
+                        and neighbor_state.bat_level <= recorded_bat_level
+                    ):
                         continue
                 if neighbor_state not in pq:
                     pq.append(neighbor_state)
