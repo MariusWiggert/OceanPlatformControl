@@ -2,6 +2,7 @@ from torch.utils.data import Dataset
 import os
 import xarray as xr
 import numpy as np
+import glob
 
 
 class ForecastHindcastDataset(Dataset):
@@ -55,29 +56,41 @@ class ForecastHindcastDataset(Dataset):
 
 
 class ForecastHindcastDatasetNpy(Dataset):
-    def __init__(self, fc_dir, hc_dir, transform=None):
+    def __init__(self, fc_dir, hc_dir, areas=("all"), transform=None):
         self.fc_dir = fc_dir
         self.hc_dir = hc_dir
         self.transform = transform
         self.hours_in_file = 24 * 8
 
-        # to catch all files we can use glob.glob here on the dir of fc and hc to get all regions
-        self.fc_file_names = sorted(os.listdir(self.fc_dir))
-        self.hc_file_names = sorted(os.listdir(self.hc_dir))
+        self.area_lens = {}
+        self.fc_file_paths = []
+        self.hc_file_paths = []
+        for area in areas:
+            try:
+                fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
+                hc_file_paths = sorted(glob.glob(f"{hc_dir}/{area}/*.npy"))
+                if len(fc_file_paths) != len(hc_file_paths):
+                    raise ValueError("Number of forecast and hindcast files is different!")
+                self.area_lens[area] = len(fc_file_paths) * self.hours_in_file
+                self.fc_file_paths.extend(fc_file_paths)
+                self.hc_file_paths.extend(hc_file_paths)
+            except:
+                raise ValueError("Specified area does not exist!")
 
     def __len__(self):
-        return min(len(self.fc_file_names), len(self.hc_file_names)) * self.hours_in_file
+        return min(len(self.fc_file_paths), len(self.hc_file_paths)) * self.hours_in_file
 
     def __getitem__(self, idx):
+        # print(idx)
         file_idx = idx // self.hours_in_file
         time_step_idx = idx % self.hours_in_file
 
-        fc_file_name = self.fc_file_names[file_idx]
-        fc_data = np.load(os.path.join(self.fc_dir, fc_file_name), allow_pickle=True)
+        fc_file_path = self.fc_file_paths[file_idx]
+        fc_data = np.load(fc_file_path, allow_pickle=True)
         fc_data = fc_data[time_step_idx].squeeze()
 
-        hc_file_name = self.hc_file_names[file_idx]
-        hc_data = np.load(os.path.join(self.hc_dir, hc_file_name), allow_pickle=True)
+        hc_file_path = self.hc_file_paths[file_idx]
+        hc_data = np.load(hc_file_path, allow_pickle=True)
         hc_data = hc_data[time_step_idx].squeeze()
 
         return fc_data, hc_data
@@ -94,10 +107,8 @@ def test_xr():
     import matplotlib.pyplot as plt
     plt.imshow(dataset_item[0][0], origin="lower")
     plt.show()
-
     plt.imshow(dataset_item[1][0], origin="lower")
     plt.show()
-
     plt.imshow(dataset_item[1][0] - dataset_item[0][0], origin="lower")
     plt.show()
 
@@ -105,11 +116,13 @@ def test_xr():
 def test_npy():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
     fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts_preprocessed")
-    hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts_preprocessed")
-    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir)
+    hc_dir = os.path.join("data/drifter_data/hindcasts_preprocessed")
+    area = "area3"
+    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, area=area)
+    print(dataset.fc_file_paths[0])
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
 
 if __name__ == "__main__":
-    test_xr()
+    test_npy()

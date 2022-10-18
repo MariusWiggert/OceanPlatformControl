@@ -21,6 +21,7 @@ from torchvision.utils import make_grid
 from typing import Dict, Callable, Any, Tuple, List, Optional
 from warnings import warn
 from tqdm import tqdm
+import numpy as np
 
 
 # TODO: weight init -> pix2pix: mean=0 and std=0.02
@@ -63,7 +64,8 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
                                     dataset_configs["len"])
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
-                                             dataset_configs["hindcasts"])
+                                             dataset_configs["hindcasts"],
+                                             dataset_configs["area"])
     # print(f"Using {dataset_type} dataset with {dataset_configs}.")
     return dataset
 
@@ -71,26 +73,50 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
 def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple:
     """Creates Dataloaders according to yaml config."""
 
-    if dataset_configs["len"] < len(dataset):
-        dataset_len = int(dataset_configs["len"])
+    if len(dataset_configs["area"]) is None:
+        train_size = round(0.6 * len(dataset))
+        val_size = int(0.5*(len(dataset) - train_size))
+        fixed_batch_size = 4 if len(dataset) - train_size - val_size > 4 else 1
+        test_size = len(dataset) - train_size - val_size - fixed_batch_size
+        train_set, val_set, test_set, fixed_batch_set = torch.utils.data.random_split(dataset,
+                                                                                  [train_size, val_size, test_size, fixed_batch_size],
+                                                                                  generator=torch.Generator().manual_seed(0))
     else:
-        dataset_len = len(dataset)
-    print(f"-> Using {dataset_len} of {len(dataset)} available samples.")
-    train_size = round(0.6 * dataset_len)
-    val_size = int(0.5*(dataset_len - train_size))
-    fixed_batch_size = 4 if dataset_len - train_size - val_size > 4 else 1
-    test_size = dataset_len - train_size - val_size - fixed_batch_size
+        rng = np.random.default_rng(12345)
+        area_lens = dataset.area_lens
+        prev_dataset_len = 0
+        train_idx, val_idx, fixed_batch_idx, test_idx = [], [], [], []
+        target_len = round(dataset_configs["len"]/len(area_lens.keys()))
+        for area, length in area_lens.items():
+            train_size, train_target_size = int(0.6 * length), int(0.6 * target_len)
+            train_idx.extend(rng.choice(np.array(range(0 + prev_dataset_len, prev_dataset_len + train_size)),
+                             size=train_target_size,
+                             replace=False))
+            val_size, val_target_size = int(0.5*(length - train_size)), int(0.5*(target_len - train_target_size))
+            val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
+                           size=val_target_size,
+                           replace=False))
+            fixed_batch_size = 4 if target_len - prev_dataset_len - train_size - val_size > 4 else 1
+            fixed_batch_idx.extend(np.array(range(train_size + val_size, train_size + val_size + fixed_batch_size)))
+            test_size = length - train_size - val_size - fixed_batch_size
+            test_target_size = target_len - train_target_size - val_target_size - fixed_batch_size
+            test_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size + val_size + fixed_batch_size,
+                                                prev_dataset_len + train_size + val_size + fixed_batch_size + test_size)),
+                            size=test_target_size, replace=False))
+            prev_dataset_len += length
 
-    # if using subset of dataset get idx
-    dataset_idx = list(range(0, dataset_len))
-    dataset = torch.utils.data.Subset(dataset, dataset_idx)
-    train_set, val_set, test_set, fixed_batch = torch.utils.data.random_split(dataset,
-                                                                              [train_size, val_size, test_size, fixed_batch_size],
-                                                                              generator=torch.Generator().manual_seed(0))
+        train_set = torch.utils.data.Subset(dataset, train_idx)
+        val_set = torch.utils.data.Subset(dataset, val_idx)
+        fixed_batch_set = torch.utils.data.Subset(dataset, fixed_batch_idx)
+        test_set = torch.utils.data.Subset(dataset, test_idx)
+
+    print(f"-> Using {len(train_set) + len(val_set) + len(fixed_batch_set) + len(test_set)} of {len(dataset)} available samples.")
+    print(f"-> Data from {dataset_configs['area']}.")
+
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
     test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=False)
-    fixed_batch = DataLoader(dataset=fixed_batch, batch_size=fixed_batch_size, shuffle=False)
+    fixed_batch = DataLoader(dataset=fixed_batch_set, batch_size=fixed_batch_size, shuffle=False)
     return train_loader, val_loader, test_loader, fixed_batch
 
 
@@ -211,7 +237,7 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 optimizer.step()
 
                 tepoch.set_postfix(loss=str(round(train_loss.item() / data.shape[0], 3)))
-                wandb.log({"train_loss": round(train_loss.item() / data.shape[0], 3)})
+                # wandb.log({"train_loss": round(train_loss.item() / data.shape[0], 3)})
 
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Training avg loss: {avg_loss:.2f}.")
@@ -244,7 +270,7 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
                     metrics_baseline[metric_name] += metric_values_baseline[metric_name]
 
                 tepoch.set_postfix(loss=str(round(val_loss.item() / data.shape[0], 3)))
-                wandb.log({"val_loss": round(val_loss.item() / data.shape[0], 3)})
+                # wandb.log({"val_loss": round(val_loss.item() / data.shape[0], 3)})
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
     metrics_baseline = {metric_name + "_baseline": metric_value/len(dataloader) for metric_name, metric_value in metrics_baseline.items()}
@@ -272,7 +298,8 @@ def main():
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
                name=f"{all_cfgs['model']}_{all_cfgs['train']['loss']['types']}" +
-                    f"_{all_cfgs[all_cfgs['model']]['norm_type']}",
+                    f"_{all_cfgs[all_cfgs['model']]['norm_type']}" +
+                    f"_{all_cfgs['dataset']['area']}",
                config=all_cfgs,
                tags="cool stuff",
                **wandb_cfgs)
@@ -322,11 +349,13 @@ def main():
             train_loss = train(model, train_loader, device, optimizer, cfgs_train)
             train_losses.append(train_loss)
             metrics |= {"train_loss": train_loss}
+            wandb.log({"train_loss": train_loss})
 
             if len(val_loader) != 0:
                 val_loss = validation(model, val_loader, device, cfgs_train, all_cfgs["metrics"])
                 val_losses.append(val_loss)
                 metrics |= {"val_loss": val_loss}
+                wandb.log({"val_loss": val_loss})
             if cfgs_lr_scheduler["value"]:
                 lr_scheduler.step(val_loss)
 

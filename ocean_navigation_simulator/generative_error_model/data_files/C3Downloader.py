@@ -102,6 +102,6 @@ class C3Downloader:
 
 if __name__ == "__main__":
     c3_downloader = C3Downloader()
-    time_interval = [datetime.datetime(2022, 4, 21, 12, 0, 0), datetime.datetime(2022, 6, 15, 12, 0, 0)]
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "Region 1", time_interval)
-    c3_downloader.download_files(files, "area1")
+    time_interval = [datetime.datetime(2022, 5, 2, 12, 0, 0), datetime.datetime(2022, 10, 8, 12, 0, 0)]
+    files = c3_downloader.get_files_list("Copernicus", "forecast", "Region 3", time_interval)
+    c3_downloader.download_files(files, "area3")

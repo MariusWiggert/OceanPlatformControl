@@ -8,7 +8,8 @@ import numpy as np
 from typing import List
 
 
-def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], start: datetime.datetime, days:int):
+def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], start: datetime.datetime,
+                            days:int, save_dir: str):
 
     relative_path = "scenarios/generative_error_model/config_buoy_data.yaml"
     config_path = os.path.join(get_path_to_project(os.getcwd()), relative_path)
@@ -17,7 +18,9 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
     hindcast_dict = config["copernicus_opendap"]["hindcast"]
     sim_cache_dict = config["sim_cache_dict"]
 
-    root_dir = os.path.join(get_path_to_project(os.getcwd()), "data/drifter_data/hindcasts/area1/")
+    root_dir = os.path.join(get_path_to_project(os.getcwd()), save_dir)
+    if not os.path.exists(root_dir):
+        os.makedirs(root_dir)
 
     for day in range(days):
         file_start = start + datetime.timedelta(days=day)
@@ -63,8 +66,11 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
 
 
 if __name__ == "__main__":
-    lon_range = [-150, -115]
-    lat_range = [0, 40]
+    save_dir = "data/drifter_data/hindcasts/area3/"
+    # lon_range = [-150, -115]
+    # lat_range = [0, 40]
+    lon_range = [-120, -90]
+    lat_range = [-15, 15]
     start = datetime.datetime(2022, 5, 2, 12, 30, 0)
-    days = 1
-    get_copernicus_hindcast(lon_range, lat_range, start, days)
+    days = 166
+    get_copernicus_hindcast(lon_range, lat_range, start, days, save_dir=save_dir)

@@ -10,6 +10,10 @@ def save_nc_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_range: 
 
     files = sorted(os.listdir(file_dir))
     for file in files:
+        output_file_path = os.path.join(output_dir, "".join(file.split(".")[:-1])) + ".npy"
+        if os.path.exists(output_file_path):
+            print(f"File {''.join(output_file_path.split('/')[-1])} already exists!")
+            continue
         data = xr.open_dataset(os.path.join(file_dir, file))
         if "longitude" in list(data.dims):
             data = data.sel(longitude=slice(*lon_range), latitude=slice(*lat_range))
@@ -21,7 +25,7 @@ def save_nc_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_range: 
 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        np.save(os.path.join(output_dir, "".join(file.split(".")[:-1])) + ".npy", data)
+        np.save(output_file_path, data)
 
 
 def save_sparse_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_range: Tuple):
@@ -51,19 +55,28 @@ def round_to_multiple(numbers: np.ndarray, multiple: float = 1 / 12):
     return multiple * np.round_(numbers / multiple)
 
 
+def run(area: str, buoy=False):
+    if area == "area1":
+        lon_range, lat_range = (-146.25, -125), (15, 36.25)
+    elif area == "area3":
+        lon_range, lat_range = (-116.25, -95), (-11.25, 10)
+    else:
+        raise NotImplementedError("Not implemented for specified area!")
+
+    fc_dir = f"../../../data/drifter_data/forecasts/{area}"
+    hc_dir = f"../../../data/drifter_data/hindcasts/{area}"
+    sparse_dir = f"../../../data/drifter_data/dataset_forecast_error/{area}"
+
+    fc_np_dir = f"../../../data/drifter_data/forecasts_preprocessed/{area}"
+    hc_np_dir = f"../../../data/drifter_data/hindcasts_preprocessed/{area}"
+    sparse_np_dir = f"../../../data/drifter_data/buoy_preprocessed/{area}"
+
+    save_nc_as_npy(fc_dir, fc_np_dir, lon_range, lat_range)
+    save_nc_as_npy(hc_dir, hc_np_dir, lon_range, lat_range)
+    if buoy:
+        save_sparse_as_npy(sparse_dir, sparse_np_dir, lon_range, lat_range)
+    print("Finished.")
+
+
 if __name__ == "__main__":
-    fc_dir = "../../../data/drifter_data/forecasts/area1"
-    hc_dir = "../../../data/drifter_data/hindcasts/area1"
-    sparse_dir = "../../../data/drifter_data/dataset_forecast_error/area1"
-
-    fc_np_dir = "../../../data/drifter_data/forecasts_preprocessed"
-    hc_np_dir = "../../../data/drifter_data/hindcasts_preprocessed"
-    sparse_np_dir = "../../../data/drifter_data/buoy_preprocessed"
-
-    lon_range, lat_range = (-146.25, -125), (15, 36.25)
-    # save_nc_as_npy(fc_dir, fc_np_dir, lon_range, lat_range)
-    # save_nc_as_npy(hc_dir, hc_np_dir, lon_range, lat_range)
-    save_sparse_as_npy(sparse_dir, sparse_np_dir, lon_range, lat_range)
-
-    # print(np.load(os.path.join(sparse_np_dir, os.listdir(sparse_np_dir)[0]), allow_pickle=True).shape)
-    # print(np.load(os.path.join(fc_np_dir, os.listdir(fc_np_dir)[0]), allow_pickle=True).shape)
+    run("area1")
