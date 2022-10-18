@@ -12,10 +12,11 @@ from ocean_navigation_simulator.utils import units
 class SpatialPoint:
     """A dataclass containing variables that define the spatial position.
 
-      Attributes:
-        lon: The latitude position in degree
-        lat: The longitude position in degree
-      """
+    Attributes:
+      lon: The latitude position in degree
+      lat: The longitude position in degree
+    """
+
     lon: units.Distance
     lat: units.Distance
 
@@ -48,11 +49,11 @@ class SpatioTemporalPoint:
     # TODO: implement nice way to transform a list of those to numpy and back: https://kplauritzen.dk/2021/08/11/convert-dataclasss-np-array.html
     """A dataclass containing SpatioTemporalPoint variables..
 
-      Attributes:
-        lon: The latitude position in degree
-        lat: The longitude position in degree
-        date_time: The current time.
-      """
+    Attributes:
+      lon: The latitude position in degree
+      lat: The longitude position in degree
+      date_time: The current time.
+    """
     lon: units.Distance
     lat: units.Distance
     date_time: datetime.datetime
@@ -88,13 +89,14 @@ class SpatioTemporalPoint:
 class PlatformState:
     """A dataclass containing variables relevant to the platform state.
 
-      Attributes:
-        lon: The latitude position in degree
-        lat: The longitude position in degree
-        battery_charge: The amount of energy stored on the batteries.
-        seaweed_mass: The amount of seaweed biomass on the system.
-        date_time: The current time.
-      """
+    Attributes:
+      lon: The latitude position in degree
+      lat: The longitude position in degree
+      battery_charge: The amount of energy stored on the batteries.
+      seaweed_mass: The amount of seaweed biomass on the system.
+      date_time: The current time.
+    """
+
     lon: units.Distance
     lat: units.Distance
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -103,7 +105,14 @@ class PlatformState:
 
     def __array__(self):
         return np.array(
-            [self.lon.deg, self.lat.deg, self.date_time.timestamp(), self.battery_charge.joule, self.seaweed_mass.kg])
+            [
+                self.lon.deg,
+                self.lat.deg,
+                self.date_time.timestamp(),
+                self.battery_charge.joule,
+                self.seaweed_mass.kg,
+            ]
+        )
 
     def __len__(self):
         return self.__array__().shape[0]
@@ -124,16 +133,12 @@ class PlatformState:
             lat=units.Distance(deg=numpy_array[1]),
             date_time=datetime.datetime.fromtimestamp(numpy_array[2], tz=datetime.timezone.utc),
             battery_charge=units.Energy(joule=numpy_array[3]),
-            seaweed_mass=units.Mass(kg=numpy_array[4])
+            seaweed_mass=units.Mass(kg=numpy_array[4]),
         )
 
     @staticmethod
     def from_spatio_temporal_point(point: SpatioTemporalPoint):
-        return PlatformState(
-            lon=point.lon,
-            lat=point.lat,
-            date_time=point.date_time
-        )
+        return PlatformState(lon=point.lon, lat=point.lat, date_time=point.date_time)
 
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
@@ -148,8 +153,12 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return 'Platform State[lon: {x} deg, lat: {y} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]'.format(
-            x=self.lon.deg, y=self.lat.deg, b=self.battery_charge.joule, m=self.seaweed_mass.kg, t=self.date_time
+        return "Platform State[lon: {x} deg, lat: {y} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]".format(
+            x=self.lon.deg,
+            y=self.lat.deg,
+            b=self.battery_charge.joule,
+            m=self.seaweed_mass.kg,
+            t=self.date_time,
         )
 
     def distance(self, other) -> float:

@@ -1,7 +1,6 @@
-import datetime
+from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.controllers.Controller import Controller
 
 
 class PassiveFloatController(Controller):

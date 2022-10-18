@@ -1,10 +1,11 @@
 # OceanPlatformControl Project
 
 ## Setup of environment
+<details>
+<summary> If you only develop on OceanPlatformControl </summary>
+
 In any case install conda:
 Install Anaconda OR miniconda (only one of them) [Link](https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html)
-
-### If you only develop on OceanPlatformControl
 ```sh
 # 1. Clone project repo: 
 git clone https://github.com/MariusWiggert/OceanPlatformControl.git
@@ -12,8 +13,10 @@ git clone https://github.com/MariusWiggert/OceanPlatformControl.git
 cd setup/
 source  set_up_ocean_platform_env.sh
 ```
+</details>
 
-### Minimal setup
+<details>
+<summary> Minimal setup </summary>
 Recreate the minimal setup of Marius with hj_reachability (v0.4).
 
 **LINUX** (might also work on x86 macs but not tested yet)
@@ -69,11 +72,11 @@ For Windows 10, no direct GUI support which means that plt.show() for example wo
 Other solutions exist, such as saving the figure or workarounds provided by the community.
 
 Once you have WSL installed and running, install conda or miniconda and follow the same instructions as for the *minimal setup for Linux*.
+</details>
+<details>
+<summary> If you develop on OceanPlatformControl and hj_reachability simulatenously </summary>
 
-
-### If you develop on OceanPlatformControl and hj_reachability simulatenously
-
-3. Now you need to download our two repos and put them in the same top_folder
+1. Now you need to download our two repos and put them in the same top_folder
 * top_folder
     * OceanPlatformControl
     * hj_reachability_c3
@@ -88,8 +91,9 @@ Now run the script `source set_up_ocean_platform_env.sh`
 
 
 This will create a new conda environment called `ocean_platform` which contains all that is needed.
+</details>
 
-### Data
+## Data
 
 Download the data (manually) from the google drive (Ocean_Platform_Control/3_data/data) and unzip the data in a directory called `data` in this project. The data that you need is `forecast_test`, `hindcast_test`, `nutrients`. Your directory structure should look similar to the following: 
 <details>
@@ -113,6 +117,7 @@ OceanPlatformControl/
 ├── README.md
 ├── scripts
 ├── setup
+├── tests
 ├── setup.py
 └── tmp
 ```
@@ -125,10 +130,59 @@ OceanPlatformControl/
 
 
 ### Testing your installation 
+For testing your installation you can run the tutorial scripts (make sure you run them from the root repo folder and the folder generated_media exists in the root repo folder), i.e:
+```sh
+python3 scripts/tutorial/controller/hj_planner.py
+```
+## Development
+<details>
+<summary>How to use our development tools (testing, styling, make)</summary>
+To install the development packages (tests, linting, etc.), run
 
-For testing your installation you can run the tutorial scripts (make sure you run them from the root repo folder and the folder generated_media exists in the root repo folder):
+```sh
+python3 -m pip install -e ".[dev]"
+```
+### Styling and formatting
+```sh
+black . # In place formatter, adheres mostly to PEP8
+flake8  # Code linter with stylistic conventions adhering to PEP8
+isort . # Sorts and formats imports in python files
+```
 
-i.e.:
+### Tests
+Testing with pytest, this is how you can run different levels of granularity of tests.
+```sh
+python3 -m pytest # all tests
+python3 -m pytest tests/food # tests under a directory
+python3 -m pytest tests/food/test_fruits.py  # tests for a single file
+python3 -m pytest tests/food/test_fruits.py::test_is_crisp  # tests for a single function
+# Get test coverage for report
+# Runs all tests, results will be in htmlcov/index.html
+python3 -m pytest --cov ocean_navigation_simulator --cov-report html
+# To exclude code from the coverage report, add these lines
+# pragma: no cover, <MESSAGE>
+```
 
-`python3 scripts/tutorial/controller/hj_planner.py`
+### Make commands
+You can use `make` to execute targets defined in the `Makefile`. If make is not installed, run `sudo apt install make`.
+```sh
+# See available make commands
+make help
+# Execute several clean commands
+make clean
+# Execute all non-training tests
+make test
+# Execute style formatting
+make style
+```
+### Configs
+The development tools are configured in the following files. While trying to adhere to standards, we made some exceptions and ignored some directories.
+```sh
+.flake8 # flake8
+pyproject.toml # black, isort, pytest
+Makefile # make
+```
+</details>
 
+### IDE settings (VScode, Pycharm)
+You can also change settings in your IDE to do auto formatting (black) on save and run flake8 on save if you do not want to run them via terminal. Here are articles to setup [black on Pycharm](https://akshay-jain.medium.com/pycharm-black-with-formatting-on-auto-save-4797972cf5de), [black on VScode](https://dev.to/adamlombard/how-to-use-the-black-python-code-formatter-in-vscode-3lo0), [flake8 on VScode](https://code.visualstudio.com/docs/python/linting).

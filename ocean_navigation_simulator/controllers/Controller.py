@@ -3,7 +3,9 @@ import logging
 import os
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
@@ -11,6 +13,7 @@ class Controller(abc.ABC):
     """
     Interface for controllers.
     """
+
     gpus: float = 0.0
 
     def __init__(self, problem: NavigationProblem):
@@ -26,7 +29,7 @@ class Controller(abc.ABC):
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
-        """ Given an observation, outputs the controller's next action
+        """Given an observation, outputs the controller's next action
         Args:
           observation: observed state from simulator or other source (i.e. observer, other controller)
         Returns:
