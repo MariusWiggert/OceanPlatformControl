@@ -1,18 +1,31 @@
-from typing import Optional, Dict, Type
 import logging
+from typing import Dict, Optional, Type, Union
+
 from ocean_navigation_simulator.data_sources.DataField import DataField
-from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import *
-from ocean_navigation_simulator.data_sources.DataSource import AnalyticalSource, XarraySource
+from ocean_navigation_simulator.data_sources.DataSource import (
+    AnalyticalSource,
+    XarraySource,
+)
+from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import (
+    SolarIrradianceSource,
+    AnalyticalSolarIrradiance,
+    AnalyticalSolarIrradiance_w_caching,
+)
 
 
 class SolarIrradianceField(DataField):
-    """Class instantiating and holding the Solar Irradiance data sources, the forecast and hindcast sources.
-  """
+    """Class instantiating and holding the Solar Irradiance data sources, the forecast and hindcast sources."""
+
     hindcast_data_source: Type[Union[SolarIrradianceSource, AnalyticalSource, XarraySource]] = None
     forecast_data_source: Type[Union[SolarIrradianceSource, AnalyticalSource, XarraySource]] = None
 
-    def __init__(self, casadi_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
-                 use_geographic_coordinate_system: Optional[bool] = True):
+    def __init__(
+        self,
+        casadi_cache_dict: Dict,
+        hindcast_source_dict: Dict,
+        forecast_source_dict: Optional[Dict] = None,
+        use_geographic_coordinate_system: Optional[bool] = True,
+    ):
         """Initialize the source objects from the respective settings dicts.
         Args:
           casadi_cache_dict: containing the cache settings to use in the sources for caching of 3D data
@@ -27,21 +40,23 @@ class SolarIrradianceField(DataField):
         # initialize logger
         self.logger = logging.getLogger("arena.solar_field")
         self.logger.setLevel(logging.INFO)
-        super().__init__(casadi_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system)
+        super().__init__(
+            casadi_cache_dict,
+            hindcast_source_dict,
+            forecast_source_dict,
+            use_geographic_coordinate_system,
+        )
 
     @staticmethod
     def instantiate_source_from_dict(source_dict: dict):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
-        if source_dict['source'] == 'analytical_wo_caching':
+        if source_dict["source"] == "analytical_wo_caching":
             return AnalyticalSolarIrradiance(source_dict)
-        elif source_dict['source'] == 'analytical_w_caching':
+        elif source_dict["source"] == "analytical_w_caching":
             return AnalyticalSolarIrradiance_w_caching(source_dict)
         else:
-            raise NotImplementedError("Selected source {} in the SolarIrradianceSource dict is not implemented.".format(
-                source_dict['source']))
-
-
-
-
-
-
+            raise NotImplementedError(
+                "Selected source {} in the SolarIrradianceSource dict is not implemented.".format(
+                    source_dict["source"]
+                )
+            )

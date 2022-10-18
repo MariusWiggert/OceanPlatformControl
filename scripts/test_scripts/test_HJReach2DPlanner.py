@@ -1,11 +1,15 @@
 import numpy as np
-import scipy
-import casadi as ca
 
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
-from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import FileMissionProblemFactory
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
+from ocean_navigation_simulator.problem_factories.FileMissionProblemFactory import (
+    FileMissionProblemFactory,
+)
 
-problem_factory = FileMissionProblemFactory(csv_file=f'/seaweed-storage/generation/3_increased_timeout/problems.csv')
+problem_factory = FileMissionProblemFactory(
+    csv_file="/seaweed-storage/generation/3_increased_timeout/problems.csv"
+)
 problem = problem_factory.next_problem()
 
 hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
@@ -19,8 +23,12 @@ width_deg = 0.2
 width = 5
 
 out_t = problem.start_state.date_time.timestamp()
-out_y = np.linspace(problem.start_state.lat.deg - width_deg / 2, problem.start_state.lat.deg + width_deg / 2, width)
-out_x = np.linspace(problem.start_state.lon.deg - width_deg / 2, problem.start_state.lon.deg + width_deg / 2, width)
+out_y = np.linspace(
+    problem.start_state.lat.deg - width_deg / 2, problem.start_state.lat.deg + width_deg / 2, width
+)
+out_x = np.linspace(
+    problem.start_state.lon.deg - width_deg / 2, problem.start_state.lon.deg + width_deg / 2, width
+)
 
 # self.interpolator = scipy.interpolate.RegularGridInterpolator(
 #     points=(self.reach_times, self.grid.states[:, 0, 0], self.grid.states[0, :, 1]),
@@ -30,7 +38,9 @@ out_x = np.linspace(problem.start_state.lon.deg - width_deg / 2, problem.start_s
 #
 mx, my = np.meshgrid(out_x, out_y)
 
-hindcast_planner.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel())).reshape((width, width))
+hindcast_planner.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel())).reshape(
+    (width, width)
+)
 
 # hindcast_planner.interpolate_value_function_in_hours_on_grid()
 

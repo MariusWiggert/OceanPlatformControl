@@ -5,11 +5,16 @@
 """
 import datetime
 import time
+
 import pytz
 
-from ocean_navigation_simulator.reinforcement_learning.scripts import cluster_utils
+from ocean_navigation_simulator.reinforcement_learning.scripts import (
+    cluster_utils,
+)
 
-print(f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}')
+print(
+    f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}'
+)
 script_start_time = time.time()
 
 
@@ -34,13 +39,13 @@ script_start_time = time.time()
 # COMMAND = "ls -la /seaweed-storage"
 
 # COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
-#COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/68b5d4302c51a3ead2ffbbb972ed65fb3eb18dc7/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
+# COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/68b5d4302c51a3ead2ffbbb972ed65fb3eb18dc7/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
 # COMMAND = 'pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/68b5d4302c51a3ead2ffbbb972ed65fb3eb18dc7/ray-3.0.0.dev0-cp39-cp39-macosx_10_15_x86_64.whl"'
 
 # COMMAND = 'pip install -U ray[default,rllib]==1.13.0'
 # COMMAND = 'pip install -U ray[default,rllib]==1.13.0'
 
-COMMAND = 'rm -rf /tmp/hycom_forecast; rm -rf /tmp/hycom_hindcast/'
+COMMAND = "rm -rf /tmp/hycom_forecast; rm -rf /tmp/hycom_hindcast/"
 
 cluster_utils.run_command_on_all_nodes(COMMAND)
 
@@ -85,5 +90,7 @@ cluster_utils.run_command_on_all_nodes(COMMAND)
 #     ray.get([run_command_on_node.remote(index, node, COMMAND) for index, node in nodes_df.iterrows()])
 
 
-script_time = time.time()-script_start_time
-print(f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s.")
+script_time = time.time() - script_start_time
+print(
+    f"Script finished in {script_time/3600:.0f}h {(script_time%3600)/60:.0f}min {script_time%60:.0f}s."
+)

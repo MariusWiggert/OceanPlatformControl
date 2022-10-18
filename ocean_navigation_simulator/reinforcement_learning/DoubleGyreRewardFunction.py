@@ -1,9 +1,13 @@
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
-from ocean_navigation_simulator.reinforcement_learning.RewardFunction import RewardFunction
+from ocean_navigation_simulator.reinforcement_learning.RewardFunction import (
+    RewardFunction,
+)
 
 
-class  DoubleGyreRewardFunction(RewardFunction):
+class DoubleGyreRewardFunction(RewardFunction):
     def get_reward_range(self):
         return (-float("inf"), float("inf"))
 
@@ -12,7 +16,7 @@ class  DoubleGyreRewardFunction(RewardFunction):
         prev_state: PlatformState,
         curr_state: PlatformState,
         problem: NavigationProblem,
-        problem_status: int
+        problem_status: int,
     ) -> float:
         """
         Reward function based on double gyre paper
@@ -35,5 +39,10 @@ class  DoubleGyreRewardFunction(RewardFunction):
         time_diff = (curr_state.date_time - prev_state.date_time).total_seconds()
 
         # return - 10 * time_diff + (bonus if solved else 0) + (penalty if crashed else 0)
-        return - 10 * time_diff + 50 * distance_improvement + (BONUS if problem_status==1 else 0) + (PENALTY if problem_status==-1 else 0)
+        return (
+            -10 * time_diff
+            + 50 * distance_improvement
+            + (BONUS if problem_status == 1 else 0)
+            + (PENALTY if problem_status == -1 else 0)
+        )
         # return distance_improvement

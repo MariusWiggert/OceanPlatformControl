@@ -1,16 +1,21 @@
-from typing import Optional, List
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
-from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.ProblemFactory import (
+    ProblemFactory,
+)
 
 
 class FileMissionProblemFactory(ProblemFactory):
     def __init__(
         self,
         seed: Optional[int] = None,
-        csv_file: Optional[str] = '/seaweed-storage/generation/increased_planner_area/problems.csv',
+        csv_file: Optional[str] = "/seaweed-storage/generation/increased_planner_area/problems.csv",
         limit: Optional[int] = None,
     ):
         self.seed = seed
@@ -31,7 +36,7 @@ class FileMissionProblemFactory(ProblemFactory):
     def has_problems_remaining(self) -> bool:
         return len(self.indexes_available) > 0
 
-    def get_problem_list(self, n = None) -> [NavigationProblem]:
+    def get_problem_list(self, n=None) -> [NavigationProblem]:
         return [self.next_problem() for _ in range(min(n, len(self.indexes_available)))]
 
     def next_problem(self) -> NavigationProblem:

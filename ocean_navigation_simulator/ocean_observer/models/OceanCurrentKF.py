@@ -1,14 +1,15 @@
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
 
 import numpy as np
 from filterpy.common import Q_discrete_white_noise
 from filterpy.kalman import KalmanFilter
 
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import OceanCurrentModel
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
+    OceanCurrentModel,
+)
 
 
 class OceanCurrentKF(OceanCurrentModel):
-
     def __init__(self, config_dict: Dict[str, Any]):
         """Constructor for the OceanCurrentKF.
 
@@ -17,7 +18,9 @@ class OceanCurrentKF(OceanCurrentModel):
         """
         super().__init__()
         self.config_dict = config_dict
-        self.life_span_observations_in_sec = config_dict.get("life_span_observations_in_sec", 24 * 3600)  # 24 hours.
+        self.life_span_observations_in_sec = config_dict.get(
+            "life_span_observations_in_sec", 24 * 3600
+        )  # 24 hours.
 
         self.model = KalmanFilter(dim_x=3, dim_z=2)
         self.model.x = np.eye(3)
@@ -31,8 +34,8 @@ class OceanCurrentKF(OceanCurrentModel):
 
     def fit(self) -> None:
         """Fit the Gaussian process using the observations(self.measurement_locations and self.measured_current_errors).
-         Remove definitely the observations that are more than life_span_observations_in_sec older
-         than the most recent one.
+        Remove definitely the observations that are more than life_span_observations_in_sec older
+        than the most recent one.
         """
         if not len(self.measurement_locations):
             print("no measurement_locations. Nothing to fit")
@@ -44,8 +47,9 @@ class OceanCurrentKF(OceanCurrentModel):
         if not np.all(measurement_locations[:, -1] == measurement_locations[0, -1]):
             most_recent_time = measurement_locations[:, -1].max()
             fresh_observations = (
-                    np.abs(
-                        measurement_locations[:, -1] - most_recent_time) < self.life_span_observations_in_sec)
+                np.abs(measurement_locations[:, -1] - most_recent_time)
+                < self.life_span_observations_in_sec
+            )
 
             measurement_locations = measurement_locations[fresh_observations]
             errors = errors[fresh_observations]
@@ -55,11 +59,11 @@ class OceanCurrentKF(OceanCurrentModel):
         self.model.fit(measurement_locations, errors)
 
     def reset(self) -> None:
-        """ Resetting the GP consist in removing all the observations."""
+        """Resetting the GP consist in removing all the observations."""
         super().reset()
 
     def get_predictions(self, locations: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """ Compute the predictions for the given locations
+        """Compute the predictions for the given locations
 
         Args:
             locations: (N,3) ndarray that contains all the points we want to predict. Each point should be described by:
@@ -79,6 +83,6 @@ class OceanCurrentKF(OceanCurrentModel):
         # TODO: Check what the actual lower bound is supposed to
         # be. We can't have a 0 std.dev. due to noise. Currently it's something
         # like 0.07 from the GP, but that doesn't seem to match the Loon code.
-        deviations = deviations ** 2 / self.config_dict.get("sigma_exp_squared", 1)
+        deviations = deviations**2 / self.config_dict.get("sigma_exp_squared", 1)
 
         return means, deviations

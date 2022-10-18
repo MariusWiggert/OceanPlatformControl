@@ -8,7 +8,6 @@ ppo_agent_config = {
     # a PyBullet env, a ViZDoomGym env, or a fully qualified classpath to an
     # Env class, e.g. "ray.rllib.examples.env.random_env.RandomEnv".
     "env": "DoubleGyreEnv",
-
     # Number of steps after which the episode is forced to terminate. Defaults
     # to `env.spec.max_episode_steps` (if present) for Gym envs.
     "horizon": 100,
@@ -28,7 +27,6 @@ ppo_agent_config = {
     # - no_done_at_end=True soft_horizon=True:
     #   Do NOT reset env at horizon and do NOT add `done=True` at the horizon.
     "no_done_at_end": False,
-
     # Arguments dict passed to the env creator as an EnvContext object (which
     # is a dict plus the properties: num_workers, worker_index, vector_index,
     # and remote).
@@ -36,12 +34,10 @@ ppo_agent_config = {
     #     'seed': 2022,
     #     'arena_steps_per_env_step': 1,
     # },
-
     # Whether to use "rllib" or "deepmind" preprocessors by default
     # Set to None for using no preprocessor. In this case, the model will have
     # to handle possibly complex observations from the environment.
-    "preprocessor_pref": 'rllib',
-
+    "preprocessor_pref": "rllib",
     # ========= Settings for Rollout Worker processes =========
     # Use 1 environment workers (aka "rollout workers") that parallelly
     # collect samples from their own environment clone(s).
@@ -50,7 +46,6 @@ ppo_agent_config = {
     # "remote_worker_envs": True,
     # "remote_env_batch_wait_ms": 0,
     "num_gpus": 1,
-
     # Divide episodes into fragments of this many steps each during rollouts.
     # Sample batches of this size are collected from rollout workers and
     # combined into a larger batch of `train_batch_size` for learning.
@@ -80,7 +75,6 @@ ppo_agent_config = {
     #   beginning to end. Data collection will not stop unless the episode
     #   terminates or a configured horizon (hard or soft) is hit.
     "batch_mode": "truncate_episodes",
-
     # ========= Debug Settings =========
     # # Set the ray.rllib.* log level for the agent process and its workers.
     # # Should be one of DEBUG, INFO, WARN, or ERROR. The DEBUG level will also
@@ -102,8 +96,6 @@ ppo_agent_config = {
     # "log_sys_usage": True,
     # # Use fake (infinite speed) sampler. For testing only.
     # "fake_sampler": False,
-
-
     # ========= Debug Settings =========
     # Set the ray.rllib.* log level for the agent process and its workers.
     # Should be one of DEBUG, INFO, WARN, or ERROR. The DEBUG level will also
@@ -112,8 +104,6 @@ ppo_agent_config = {
     # `rllib train` command, you can also use the `-v` and `-vv` flags as
     # shorthand for INFO and DEBUG.
     "log_level": "WARN",
-
-
     # ========= Deep Learning Framework Settings =========
     # tf: TensorFlow (static-graph)
     # tf2: TensorFlow 2.x (eager or traced, if eager_tracing=True)
@@ -133,13 +123,11 @@ ppo_agent_config = {
     # # Only necessary for framework=[tf2|tfe].
     # # Set to None to ignore the re-trace count and never throw an error.
     # "eager_max_retraces": 20,
-
     # ========= PPO-specific Settings =========
     # Training batch size, if applicable. Should be >= rollout_fragment_length.
     # Samples batches will be concatenated together to a batch of this size,
     # which is then passed to SGD.
     "train_batch_size": 4000,
-
     # Total SGD batch size across all devices for SGD. This defines the
     # minibatch size within each epoch.
     "sgd_minibatch_size": 128,
@@ -148,7 +136,6 @@ ppo_agent_config = {
     # Number of SGD iterations in each outer loop (i.e., number of epochs to
     # execute per train batch).
     "num_sgd_iter": 30,
-
     # Tweak the default model provided automatically by RLlib,
     # given the environment's observation- and action spaces.
     "model": {
@@ -157,20 +144,16 @@ ppo_agent_config = {
         "fcnet_activation": "relu",
         "vf_share_layers": False,
     },
-
     # Clip param for the value function. Note that this is sensitive to the
     # scale of the rewards. If your expected V is large, increase this.
     # "vf_clip_param": 10.0,
-
     # ========= Advanced Rollout Settings =========
     # This argument, in conjunction with worker_index, sets the random seed of
     # each worker, so that identically configured trials will have identical
     # results. This makes experiments reproducible.
     # "seed": SEED,
-
     # ========= API deprecations/simplifications/changes =========
-    'disable_env_checking': True,
-
+    "disable_env_checking": True,
     # # ========= Evaluation Settings =========
     # # Evaluate with every `evaluation_interval` training iterations.
     # # The evaluation stats will be reported under the "evaluation" metric key.
@@ -230,7 +213,6 @@ ppo_agent_config = {
     # "always_attach_evaluation_results": False,
     # # Store raw custom metrics without calculating max, min, mean
     # "keep_per_episode_custom_metrics": False,
-
     # ========= Exploration Settings =========
     # Default exploration behavior, iff `explore`=None is passed into
     # compute_action(s).
@@ -252,5 +234,4 @@ ppo_agent_config = {
     # "final_scale": 0.02,
     # "scale_timesteps": 1e5,
     # },
-
 }

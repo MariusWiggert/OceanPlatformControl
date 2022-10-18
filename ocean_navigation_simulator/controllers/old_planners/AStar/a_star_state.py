@@ -1,8 +1,10 @@
 # from ocean_navigation_simulator.planners import Planner
-from ocean_navigation_simulator.utils import simulation_utils
 import math
-import casadi as ca
+
 import numpy as np
+
+import casadi as ca
+from ocean_navigation_simulator.utils import simulation_utils
 
 
 class AStarState:
@@ -18,6 +20,7 @@ class AStarState:
         adjacent: a list of all points (lon, lat), that are adjacent to this point
 
     """
+
     u_curr_func, v_curr_func = None, None
     dlon, dlat = None, None
     time_to = None
@@ -37,7 +40,7 @@ class AStarState:
         self.adjacent = self.adjacent_points()
 
     def adjacent_points(self):
-        """ Returns a list of all valid points that are adjacent in the 8 directions """
+        """Returns a list of all valid points that are adjacent in the 8 directions"""
         dlon, dlat = self.dlon, self.dlat
         assert dlon is not None and dlat is not None, "need to set dlon and dlat first"
         for lon_offset, lat_offset in AStarState.offsets:
@@ -54,7 +57,7 @@ class AStarState:
             cls.matrices[round(dlon, 4), round(dlat, 4)] = matrix
 
     def neighbors(self):
-        """ Returns all reachable neighboring states in A, along with the time to get there
+        """Returns all reachable neighboring states in A, along with the time to get there
 
         Returns:
             time, next state
@@ -65,16 +68,22 @@ class AStarState:
                 # check if it exceeds the available energy from the battery
                 bat_level = self.change_bat_level(thrust, time)
                 if bat_level >= 0.1:
-                    yield time, AStarState(lon=lon, lat=lat, bat_level=bat_level, heading=heading, thrust=thrust)
+                    yield time, AStarState(
+                        lon=lon, lat=lat, bat_level=bat_level, heading=heading, thrust=thrust
+                    )
 
     def __lt__(self, other):
-        return self.time_to[self] + AStarState.heuristic(self) < self.time_to[other] + AStarState.heuristic(other)
+        return self.time_to[self] + AStarState.heuristic(self) < self.time_to[
+            other
+        ] + AStarState.heuristic(other)
 
     def __hash__(self):
         return hash((self.lon, self.lat, self.bat_level))
 
     def __repr__(self):
-        return "State(lon: {0}, lat: {1}, battery_level: {2})".format(self.lon, self.lat, self.bat_level)
+        return "State(lon: {0}, lat: {1}, battery_level: {2})".format(
+            self.lon, self.lat, self.bat_level
+        )
 
     def __eq__(self, other):
         if abs(self.lon - other.lon) > 0.01 or abs(self.lat - other.lat) > 0.01:
@@ -90,11 +99,11 @@ class AStarState:
 
     @staticmethod
     def normalize(v):
-        return v / math.sqrt(np.sum(v ** 2))
+        return v / math.sqrt(np.sum(v**2))
 
     @classmethod
     def set_dlon_dlat(cls, discretization, lon, lat, target_lon, target_lat):
-        """ Sets the dlon and dlat variables of the class appropriately (thereby creating a grid).
+        """Sets the dlon and dlat variables of the class appropriately (thereby creating a grid).
 
         Args:
             lon: longitude, a float
@@ -121,12 +130,29 @@ class AStarState:
             cls.dlat = lat_dist
 
         dlat, dlon = cls.dlat, cls.dlon
-        AStarState.offsets = [(0, dlat), (dlon, 0), (dlon, dlat), (0, -dlat), (-dlon, 0),
-                              (-dlon, -dlat), (dlon, -dlat), (-dlon, dlat)]
+        AStarState.offsets = [
+            (0, dlat),
+            (dlon, 0),
+            (dlon, dlat),
+            (0, -dlat),
+            (-dlon, 0),
+            (-dlon, -dlat),
+            (dlon, -dlat),
+            (-dlon, dlat),
+        ]
 
-    def actuate_towards(self, lon, lat, v_min=0.1, distance=None, print_output=False, use_middle=False, full_send=False,
-                        cushion=0):
-        """ Yields thrusts
+    def actuate_towards(
+        self,
+        lon,
+        lat,
+        v_min=0.1,
+        distance=None,
+        print_output=False,
+        use_middle=False,
+        full_send=False,
+        cushion=0,
+    ):
+        """Yields thrusts
 
         Args:
             lon: longitude, a float
@@ -139,7 +165,7 @@ class AStarState:
             min_thrust, heading, time
         """
 
-        max_thrust = self.problem.dyn_dict['u_max'] + cushion
+        max_thrust = self.problem.dyn_dict["u_max"] + cushion
 
         # Step 1:  Find the distance between the two points
         dlon = lon - self.lon
@@ -181,14 +207,18 @@ class AStarState:
         u_parallel_min = max(v_min - curr_parallel, 0)
 
         # Step 6: If u_perp is more than possible thrust, failure
-        if math.sqrt(u_perp ** 2 + u_parallel_min ** 2) > max_thrust:
+        if math.sqrt(u_perp**2 + u_parallel_min**2) > max_thrust:
             if print_output:
-                print("U PERP MORE THAN POSSIBLE THRUST\n Needed thrust: ",
-                      math.sqrt(u_perp ** 2 + u_parallel_min ** 2), " max thrust ", max_thrust)
+                print(
+                    "U PERP MORE THAN POSSIBLE THRUST\n Needed thrust: ",
+                    math.sqrt(u_perp**2 + u_parallel_min**2),
+                    " max thrust ",
+                    max_thrust,
+                )
                 print("going from {0} to {1}".format((self.lon, self.lat), (lon, lat)))
             return
 
-        u_parallel_max = math.sqrt(max_thrust ** 2 - u_perp ** 2)
+        u_parallel_max = math.sqrt(max_thrust**2 - u_perp**2)
 
         """ If we wanted to consider many possible thrusts, too slow in practice. """
         # u_parallels = list(np.arange(u_parallel_min, u_parallel_max - 0.1, 0.1)) + [u_parallel_max]
@@ -199,26 +229,30 @@ class AStarState:
         for u_parallel in thrusts:
             # Step 7: Find the TIME = distance / (u_parallel + current_parallel)
             # TODO: replace hard coded constant with settings data reference
-            time = distance * 111120. / (u_parallel + curr_parallel)
+            time = distance * 111120.0 / (u_parallel + curr_parallel)
 
             # Step 8: Go back to original basis, i.e. in terms of u and v
-            u_vector = np.array([u_parallel, u_perp])
-            u_dir = np.matmul(u_vector, matrix)
+            # Note: this is commented out for flake8 because not used.
+            # u_vector = np.array([u_parallel, u_perp])
+            # u_dir = np.matmul(u_vector, matrix)
 
             # Step 9: Find the thrust and heading
             raise ValueError("Not implemented due to circular import when installing with Pip..")
             # thrust_array = Planner.transform_u_dir_to_u(u_dir=u_dir)
-            thrust_array = np.array([0,0])
+            thrust_array = np.array([0, 0])
             thrust, heading = thrust_array[0], thrust_array[1]
             yield thrust, heading, time
 
     def change_bat_level(self, thrust, time):
         # calculate the change in battery level when actuating a specific trust for a certain time
-        bat_level_delta = self.problem.dyn_dict['charge'] - self.problem.dyn_dict['energy'] * (thrust ** 3)
+        bat_level_delta = self.problem.dyn_dict["charge"] - self.problem.dyn_dict["energy"] * (
+            thrust**3
+        )
         return min(self.bat_level + time * bat_level_delta, 1)
 
     @classmethod
-    def set_fieldset(cls, problem, type='linear'):
+    def set_fieldset(cls, problem, type="linear"):
         # setting the fieldset
         cls.u_curr_func, cls.v_curr_func = simulation_utils.get_interpolation_func(
-            fieldset=problem.fieldset, type=type, fixed_time_index=problem.fixed_time_index)
+            fieldset=problem.fieldset, type=type, fixed_time_index=problem.fixed_time_index
+        )

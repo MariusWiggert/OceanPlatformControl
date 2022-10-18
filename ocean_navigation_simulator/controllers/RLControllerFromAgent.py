@@ -1,7 +1,11 @@
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.FeatureConstructor import (
+    FeatureConstructor,
+)
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
@@ -34,7 +38,9 @@ class RLControllerFromAgent(Controller):
         Returns:
             SimulatorAction dataclass
         """
-        obs = self.feature_constructor.get_features_from_state(observation=observation, problem=self.problem)
+        obs = self.feature_constructor.get_features_from_state(
+            observation=observation, problem=self.problem
+        )
         action = self.agent.compute_action(observation=obs, explore=False)
 
         # go towards the center of the target with full power
