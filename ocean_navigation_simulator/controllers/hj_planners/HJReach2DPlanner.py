@@ -75,7 +75,7 @@ class HJReach2DPlanner(HJPlannerBase):
             problem=problem,
             specific_settings=loaded_specific_settings | {'save_after_planning': False} | specific_settings
         )
-        planner.restore_variables(folder=folder)
+        planner.restore_state(folder=folder)
 
         return planner
 
