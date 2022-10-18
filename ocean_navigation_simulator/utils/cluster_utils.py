@@ -89,12 +89,41 @@ def run_command_on_all_nodes(command, resource_group='jerome-ray-cpu'):
 
     @ray.remote(num_cpus=0.1)
     def run_command_on_node(ip, command):
-        with timing("## Node {ip} finished in {:.0f}s."):
-            print(f"##### Starting Command on Node {ip}")
+        with timing(f"## Node {ip} finished in {{:.0f}}s."):
+            print(f"##### Starting Command ({command}) on Node {ip}")
             os.system(
-                f"ssh -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'")
+                f"ssh -o StrictHostKeyChecking=no -i ~/.ssh/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'"
+            )
 
     ray.get([run_command_on_node.remote(vm['publicIps'], command) for vm in vm_list])
+    print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
+
+def copy_files_to_nodes(local_dir, remote_dir, resource_group='jerome-ray-cpu'):
+    """
+        Runs a command on all machines in the specified resourcegroup of our Azure Directory.
+        This allows to quickly install new dependencies without running
+        the whole installation script.
+        Example:
+            ray.init()
+            run_command_on_all_nodes('ls -la', 'your-resource-group')
+        :arg
+            command: the console command to run
+            resource-group: the resource group where the machines should be found
+    """
+    vm_list = get_vm_list(resource_group)
+    print(f'VM List fetched')
+
+    ray.init()
+
+    @ray.remote(num_cpus=0.1)
+    def run_command_on_node(ip, local_dir, remote_dir):
+        with timing(f"## Node {ip} finished in {{:.0f}}s."):
+            print(f"##### Copying directory ({local_dir}) to Node {ip}")
+            os.system(
+                f"scp -r -o StrictHostKeyChecking=no -i ~/.ssh/azure {local_dir} ubuntu@{ip}:{remote_dir}"
+            )
+
+    ray.get([run_command_on_node.remote(vm['publicIps'], local_dir, remote_dir) for vm in vm_list])
     print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
 
 

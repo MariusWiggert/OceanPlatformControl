@@ -49,9 +49,14 @@ script_start_time = time.time()
 
 # COMMAND = 'pip install - U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/75e9722a4d9c0d8d5cb0c37eb6316553f9e0789e/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"'
 
-COMMAND = 'ls -la'
+# The public key (. pub file) should be 644 (-rw-r--r--). The private key (id_rsa) on the client host, and the authorized_keys file on the server, should be 600 (-rw-------)
+# COMMAND = 'chmod 600 ~/.ssh/azure; chmod 644 ~/.ssh/azure.pub'
 
-cluster_utils.run_command_on_all_nodes(COMMAND)
+
+# COMMAND = 'ls -la'
+cluster_utils.run_command_on_all_nodes('rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/')
+
+# cluster_utils.copy_files_to_nodes(local_dir='./setup/', remote_dir='~/OceanPlatformControl/setup/')
 
 # import ray
 # from tqdm import tqdm
