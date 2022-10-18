@@ -5,7 +5,6 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
 
 class RewardFunction(abc.ABC):

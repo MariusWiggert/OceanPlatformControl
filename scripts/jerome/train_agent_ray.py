@@ -1,16 +1,19 @@
-import sys
-import yaml
 import datetime
-import time
-import pytz
 import os
+import sys
+import time
+
+import pytz
+import yaml
 
 os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 sys.path.extend(["/home/ubuntu/OceanPlatformControl"])
 print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
 
-from ocean_navigation_simulator.reinforcement_learning.scripts.TrainingRunner import TrainingRunner
+from ocean_navigation_simulator.reinforcement_learning.scripts.TrainingRunner import (
+    TrainingRunner,
+)
 from ocean_navigation_simulator.utils import cluster_utils
 
 print(
@@ -23,7 +26,7 @@ cluster_utils.init_ray()
 runner = TrainingRunner(
     name="test_new_project",
     tags=[],
-    config=yaml.load(open(f"config/reinforcement_learning/training.yaml"), Loader=yaml.FullLoader),
+    config=yaml.load(open("config/reinforcement_learning/training.yaml"), Loader=yaml.FullLoader),
     verbose=2,
 ).run(epochs=300)
 

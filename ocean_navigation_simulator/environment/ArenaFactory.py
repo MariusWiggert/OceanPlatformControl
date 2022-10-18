@@ -1,14 +1,17 @@
-import yaml
-import os
 import datetime
-from typing import Optional, List
+import os
+from typing import List, Optional
+
 import mergedeep
+import yaml
 
 from ocean_navigation_simulator.environment.Arena import Arena
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.utils.misc import timing, get_c3
 from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils.misc import get_c3, timing
 
 # TODO: change to use loggers
 
@@ -145,7 +148,7 @@ class ArenaFactory:
         for f in files.objs:
             print(os.path.basename(f.file.contentLocation))
             if os.path.basename(f.file.contentLocation) in CORRUPTED_FILES:
-                raise ResourceWarning(f"Corrupted File found.")
+                raise ResourceWarning("Corrupted File found.")
 
         # Step 2: Check File Count
         if files.count != (t_interval[1] - t_interval[0]).days + 1:

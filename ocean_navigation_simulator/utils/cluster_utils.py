@@ -4,8 +4,9 @@ import socket
 from typing import Optional
 
 import pandas as pd
-import requests
 import ray
+import requests
+
 from ocean_navigation_simulator.utils.misc import timing
 
 
@@ -56,7 +57,7 @@ def print_ray_resources():
     Prints available nodes/cpus/gpus in the ray instance.
     ray.init() has to be called first.
     """
-    active_nodes = list(filter(lambda node: node["Alive"] == True, ray.nodes()))
+    active_nodes = list(filter(lambda node: node["Alive"] is True, ray.nodes()))
     cpu_total = ray.cluster_resources()["CPU"] if "CPU" in ray.cluster_resources() else 0
     gpu_total = ray.cluster_resources()["GPU"] if "GPU" in ray.cluster_resources() else 0
     cpu_available = ray.available_resources()["CPU"] if "CPU" in ray.available_resources() else 0
@@ -90,7 +91,7 @@ def run_command_on_all_nodes(command, resource_group="jerome-ray-cpu"):
         resource-group: the resource group where the machines should be found
     """
     vm_list = get_vm_list(resource_group)
-    print(f"VM List fetched")
+    print("VM List fetched")
 
     ray.init()
 
@@ -119,7 +120,7 @@ def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-ray-cpu"):
         resource-group: the resource group where the machines should be found
     """
     vm_list = get_vm_list(resource_group)
-    print(f"VM List fetched")
+    print("VM List fetched")
 
     ray.init()
 

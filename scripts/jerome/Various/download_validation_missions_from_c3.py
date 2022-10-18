@@ -1,5 +1,5 @@
-from tqdm import tqdm
 import pandas as pd
+from tqdm import tqdm
 
 import ocean_navigation_simulator.utils.misc
 import ocean_navigation_simulator.utils.paths as paths
@@ -51,7 +51,7 @@ all_missions = pd.DataFrame(missions_export)
 all_missions.to_csv(paths.DATA + "missions/all.csv")
 feasible_missions = all_missions[all_missions["feasible"]]
 feasible_missions.to_csv(paths.DATA + "missions/feasible.csv")
-failed_missions = all_missions[all_missions["HJ_success"] == False]
+failed_missions = all_missions[all_missions["HJ_success"] is False]
 failed_missions.to_csv(paths.DATA + "missions/HJ_failed.csv")
 
 # Checking Correctness: Mean Success Rate should be the same as in "Navigating Underactuated Agents by Hitchhiking Forecast Flows"

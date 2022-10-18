@@ -1,10 +1,13 @@
-import math
-from typing import Optional
-
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.reinforcement_learning.RewardFunction import RewardFunction
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.reinforcement_learning.RewardFunction import (
+    RewardFunction,
+)
 
 
 class OceanRewardFunction(RewardFunction):

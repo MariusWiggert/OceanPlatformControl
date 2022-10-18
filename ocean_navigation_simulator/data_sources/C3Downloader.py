@@ -1,9 +1,10 @@
-from ocean_navigation_simulator.utils.misc import get_c3
+import datetime
+import os
+from typing import List
 
 from c3python import C3Python
-import datetime
-from typing import List, Optional
-import os
+
+from ocean_navigation_simulator.utils.misc import get_c3
 
 ## How to get c3 Keyfile set up
 # Step 1: generate the public and private keys locally on your computer

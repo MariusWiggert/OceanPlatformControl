@@ -15,6 +15,7 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
     OceanCurrentModel,
 )
 
+
 # TODO: change to use loggers
 
 

@@ -1,16 +1,23 @@
+import logging
 import os
+from typing import List, Union
 
 import casadi as ca
+import numpy as np
+import xarray as xr
+
+from ocean_navigation_simulator.data_sources.DataSource import (
+    AnalyticalSource,
+    DataSource,
+)
 from ocean_navigation_simulator.data_sources.SolarIrradiance.solar_rad import (
     solar_rad,
     solar_rad_ca,
 )
-from typing import List, Union
-import numpy as np
-import logging
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
-import xarray as xr
-from ocean_navigation_simulator.data_sources.DataSource import DataSource, AnalyticalSource
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatioTemporalPoint,
+)
 
 
 class SolarIrradianceSource(DataSource):

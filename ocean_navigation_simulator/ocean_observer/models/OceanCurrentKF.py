@@ -5,7 +5,7 @@ from filterpy.common import Q_discrete_white_noise
 from filterpy.kalman import KalmanFilter
 
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
-    OceanCurrentModel,
+	OceanCurrentModel,
 )
 
 

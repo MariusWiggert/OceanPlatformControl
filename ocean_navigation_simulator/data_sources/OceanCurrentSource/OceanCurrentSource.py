@@ -1,7 +1,7 @@
 import datetime
-import os
-from typing import List, AnyStr, Optional, Union
 import logging
+import os
+from typing import AnyStr, List, Optional, Union
 
 import casadi as ca
 import dask.array.core
@@ -13,13 +13,22 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
 
-from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint, SpatialPoint
-from ocean_navigation_simulator.data_sources.DataSource import DataSource, XarraySource
+from ocean_navigation_simulator.data_sources.DataSource import (
+    DataSource,
+    XarraySource,
+)
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import (
     OceanCurrentVector,
 )
+from ocean_navigation_simulator.environment.PlatformState import (
+    SpatialPoint,
+    SpatioTemporalPoint,
+)
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.utils.units import get_posix_time_from_np64, get_datetime_from_np64
+from ocean_navigation_simulator.utils.units import (
+    get_datetime_from_np64,
+    get_posix_time_from_np64,
+)
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -93,7 +102,7 @@ class OceanCurrentSource(DataSource):
         if xarray["time"].size != 1:
             xarray = xarray.isel(time=time_idx)
         # calculate magnitude if not in there yet
-        if not "magnitude" in xarray.keys():
+        if "magnitude" not in xarray.keys():
             xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
         time = get_datetime_from_np64(xarray["time"].data)
 
@@ -119,7 +128,7 @@ class OceanCurrentSource(DataSource):
             if int(vmin * 10) == int(vmax * 10):
                 precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
             cbar.set_ticklabels(
-                ["{:.{prec}f}".format(l, prec=precision) for l in cbar.get_ticks().tolist()]
+                ["{:.{prec}f}".format(t, prec=precision) for t in cbar.get_ticks().tolist()]
             )
         # Plot on ax object
         if plot_type == "streamline":

@@ -3,11 +3,11 @@ import os
 import sys
 import time
 
-import hj_reachability as hj
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import interpolate
 
+import hj_reachability as hj
 from ocean_navigation_simulator import OceanNavSimulator
 from ocean_navigation_simulator.planners import HJReach2DPlanner
 from ocean_navigation_simulator.problem import Problem

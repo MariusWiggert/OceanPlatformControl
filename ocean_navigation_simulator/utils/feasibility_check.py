@@ -2,12 +2,12 @@
 import math
 from functools import partial
 
-import hj_reachability as hj
 import jax.numpy as jnp
 import numpy as np
-
-import ocean_navigation_simulator
 from ocean_navigation_simulator.planners import HJReach2DPlanner
+
+import hj_reachability as hj
+import ocean_navigation_simulator
 
 
 def check_feasibility_2D_w_sim(

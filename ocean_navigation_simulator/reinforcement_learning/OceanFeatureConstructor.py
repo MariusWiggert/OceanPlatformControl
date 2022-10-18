@@ -1,14 +1,20 @@
 import datetime
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import gym
 import numpy as np
 import yaml
 
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.FeatureConstructor import FeatureConstructor
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.FeatureConstructor import (
+    FeatureConstructor,
+)
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 
@@ -31,7 +37,7 @@ class OceanFeatureConstructor(FeatureConstructor):
 
         # Step 2: Initialize Observer
         if len(self.config["local_map"]["features"]["observer"]["variables"]) > 0:
-            with open(f"config/reinforcement_learning/gaussian_process.yaml") as f:
+            with open("config/reinforcement_learning/gaussian_process.yaml") as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
             self.observer = Observer(config["observer"])
 

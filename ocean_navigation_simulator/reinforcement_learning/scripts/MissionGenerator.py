@@ -1,21 +1,28 @@
 import datetime
 import os
 import time
-from typing import Optional, Union, List
-import numpy as np
-import warnings
-from matplotlib import patches
+from typing import List, Optional, Union
+
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import patches
 
-
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
-from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
-from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatioTemporalPoint,
+)
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
+    FileProblemFactory,
+)
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.utils.misc import timing, bcolors
+from ocean_navigation_simulator.utils.misc import bcolors, timing
 
 
 class MissionGenerator:

@@ -1,27 +1,33 @@
 import datetime
 import os
 import pickle
+import random
 import time
-import socket
 from types import SimpleNamespace
-from typing import Tuple, Optional, List
+from typing import List, Optional, Tuple
+
+import gym
 import matplotlib.pyplot as plt
 import numpy as np
-import gym
 import psutil
-import random
 import torch
 
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
-from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import (
-    OceanRewardFunction,
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
+    FileProblemFactory,
 )
 from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import (
     OceanFeatureConstructor,
+)
+from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import (
+    OceanRewardFunction,
 )
 from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils.misc import bcolors, timing
@@ -209,7 +215,7 @@ class OceanEnv(gym.Env):
 
             try:
                 observation = self.arena.step(platform_action)
-            except:
+            except Exception:
                 print(
                     "OceanEnv[Worker {w}, Reset {r}]: Error at Index {i} (G{gr} B{b} FI{fi})".format(
                         w=self.worker_index,
@@ -291,7 +297,7 @@ class OceanEnv(gym.Env):
                                 self.problem.start_state.to_spatio_temporal_point()
                             )
                         ),
-                        opt=self.problem.extra_info["optimal_time_in_h"],
+                        # opt=self.problem.extra_info["optimal_time_in_h"],
                         stt=1000 * (time.time() - self.reset_start_time) / self.steps,
                         ep=time.time() - self.reset_start_time,
                         res=self.reset_end_time - self.reset_start_time,

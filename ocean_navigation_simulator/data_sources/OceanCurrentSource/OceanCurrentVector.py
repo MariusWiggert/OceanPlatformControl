@@ -4,6 +4,7 @@ import numpy as np
 
 import ocean_navigation_simulator.utils.units as units
 
+
 # OceanCurrentVector contains the following elements:
 #   u: Current magnitude along the x axis in meters per second.
 #   v: Current magnitude along the y axis in meters per second.

@@ -10,6 +10,7 @@ import pynvml
 import requests
 from c3python import C3Python
 
+
 ## How to get c3 Keyfile set up
 # Step 1:   generate the public and private keys locally on your computer
 #           in terminal run 'openssl genrsa -out c3-rsa.pem 2048' -> this generates the private key in the c3-rsa.pem file
@@ -71,7 +72,7 @@ def get_process_information_dict() -> dict:
     try:
         pynvml.nvmlInit()
         gpu_info = pynvml.nvmlDeviceGetMemoryInfo(pynvml.nvmlDeviceGetHandleByIndex(0))
-    except Exception as e:
+    except Exception:
         gpu_info = SimpleNamespace(total=0, free=0, used=0)
 
     return {

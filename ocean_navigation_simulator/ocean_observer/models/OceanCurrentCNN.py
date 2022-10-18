@@ -11,10 +11,10 @@ from torch import optim
 from torch.optim.lr_scheduler import StepLR
 
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import (
-    CustomOceanCurrentsDatasetSubgrid,
+	CustomOceanCurrentsDatasetSubgrid,
 )
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN_subgrid import (
-    OceanCurrentCNNSubgrid,
+	OceanCurrentCNNSubgrid,
 )
 
 

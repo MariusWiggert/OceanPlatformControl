@@ -1,21 +1,19 @@
 import datetime
+import logging
+import os
 import pickle
 import pprint
 import shutil
 import sys
 import time
 from typing import Optional
+
 import numpy as np
 import pandas as pd
 import pytz
 import ray
-import os
-import logging
-
 from matplotlib import pyplot as plt
 
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.reinforcement_learning.scripts.MissionGenerator import (
     MissionGenerator,
 )

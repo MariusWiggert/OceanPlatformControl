@@ -10,12 +10,13 @@ os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 
 import datetime
 import time
+
 import pytz
 
 from ocean_navigation_simulator.reinforcement_learning.scripts.GenerationRunner import (
     GenerationRunner,
 )
-from ocean_navigation_simulator.utils import units, cluster_utils
+from ocean_navigation_simulator.utils import cluster_utils, units
 
 print(
     f'Script started @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}'

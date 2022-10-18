@@ -1,26 +1,28 @@
 import datetime
 import json
+import os
+import pprint
 import random
 import shutil
 import time
-import os
-from typing import Optional, Dict, List
+from typing import Dict, List, Optional
 
 import gym
 import numpy as np
 import pytz
 import ray
-from ray.rllib import RolloutWorker, BaseEnv, Policy
-from ray.rllib.algorithms.apex_dqn import ApexDQN
-from ray.rllib.evaluation import Episode
-import wandb
-import pprint
 import torch
+import wandb
+from ray.rllib import BaseEnv, Policy, RolloutWorker
+from ray.rllib.algorithms import Algorithm
+from ray.rllib.evaluation import Episode
 from torchinfo import torchinfo
 
-from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import TrainerFactory
-from ocean_navigation_simulator.utils.misc import bcolors
+from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import (
+    TrainerFactory,
+)
 from ocean_navigation_simulator.utils import cluster_utils
+from ocean_navigation_simulator.utils.misc import bcolors
 
 
 class TrainingRunner:
@@ -132,7 +134,7 @@ class TrainingRunner:
                 self,
                 *,
                 result: dict,
-                algorithm: Optional["Algorithm"] = None,
+                algorithm: Optional[Algorithm] = None,
                 trainer=None,
                 **kwargs,
             ):
@@ -262,7 +264,7 @@ class TrainingRunner:
                     self.print_result(result, epoch, epochs)
 
                 # wandb.synch()
-        except:
+        except KeyboardInterrupt:
             wandb.finish()
             raise
 
@@ -272,7 +274,7 @@ class TrainingRunner:
     def print_result(self, result, epoch, epochs):
         print(f"--------- Epoch {epoch} ---------")
 
-        print(f"-- Custom Metrics --")
+        print("-- Custom Metrics --")
         for k, v in result["custom_metrics"].items():
             if "mean" in k:
                 print(f"{k}: {v:.2f}")
@@ -301,7 +303,7 @@ class TrainingRunner:
         )
         print(" ")
 
-        print(f"-- Enivironment Steps --")
+        print("-- Enivironment Steps --")
         print(
             f'Env Steps Sampled:  {result["num_env_steps_sampled_this_iter"]:,} (Total: {result["num_env_steps_sampled"]:,})'
         )

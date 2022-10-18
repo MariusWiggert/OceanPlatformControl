@@ -1,22 +1,27 @@
-import pickle
-import numpy as np
-import jax.numpy as jnp
-import warnings
 import math
+import pickle
+import warnings
+from typing import Optional, Union
+
+import jax.numpy as jnp
+import numpy as np
 import xarray as xr
-from typing import Union, Optional
 
 import hj_reachability as hj
-
-from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
-from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import HJPlannerBase
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
+    HJPlannerBase,
+)
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
+    Platform2dForSim,
+)
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
-    SpatioTemporalPoint,
     SpatialPoint,
+    SpatioTemporalPoint,
 )
-from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
 class HJReach2DPlanner(HJPlannerBase):

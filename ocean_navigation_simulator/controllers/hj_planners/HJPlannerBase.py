@@ -1,39 +1,37 @@
+import abc
+import math
 import os
+import pickle
 import time
 from bisect import bisect
-import matplotlib
+from datetime import datetime, timezone
+from functools import partial
+from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
+
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
-import abc
-import pickle
 import scipy
 import xarray as xr
-from typing import Tuple, Dict, List, AnyStr, Union, Callable, Optional
-from jax.interpreters import xla
-import jax.numpy as jnp
-from functools import partial
-from matplotlib import patches
-from scipy.interpolate import interp1d, interp2d
-from datetime import datetime, timezone, timedelta
-import matplotlib.pyplot as plt
-import warnings
-import math
-
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.environment.PlatformState import (
-    PlatformState,
-    SpatioTemporalPoint,
-    SpatialPoint,
-)
-from ocean_navigation_simulator.data_sources.DataSource import DataSource
-from ocean_navigation_simulator.controllers.Controller import Controller
-from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.ocean_observer.Observer import Observer
+from scipy.interpolate import interp1d
 
 # Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
+from ocean_navigation_simulator.controllers.Controller import Controller
+from ocean_navigation_simulator.data_sources.DataSource import DataSource
+from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+    SpatioTemporalPoint,
+)
+from ocean_navigation_simulator.ocean_observer.Observer import Observer
+from ocean_navigation_simulator.utils import units
 
 
 # TODO: handle where it is using hours_to_hj_solve_timescale to make sure the plot is in hours

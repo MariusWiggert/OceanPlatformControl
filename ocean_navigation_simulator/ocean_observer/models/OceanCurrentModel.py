@@ -7,10 +7,10 @@ from typing import Tuple, Union
 import numpy as np
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource import (
-    OceanCurrentVector,
+	OceanCurrentVector,
 )
 from ocean_navigation_simulator.environment.PlatformState import (
-    SpatioTemporalPoint,
+	SpatioTemporalPoint,
 )
 
 

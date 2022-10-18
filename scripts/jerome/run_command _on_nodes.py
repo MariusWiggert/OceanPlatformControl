@@ -5,6 +5,7 @@
 """
 import datetime
 import time
+
 import pytz
 
 from ocean_navigation_simulator.utils import cluster_utils

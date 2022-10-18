@@ -1,10 +1,10 @@
 """The abstract base class for all Data Sources. Implements a lot of shared functionality"""
 import abc
 import datetime
+import logging
 import os
 from functools import partial
-import logging
-from typing import List, AnyStr, Optional, Tuple, Union, Any, Callable
+from typing import Any, AnyStr, Callable, List, Optional, Tuple, Union
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -17,8 +17,8 @@ from IPython.display import HTML
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
-    SpatioTemporalPoint,
     SpatialPoint,
+    SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.utils import units
 

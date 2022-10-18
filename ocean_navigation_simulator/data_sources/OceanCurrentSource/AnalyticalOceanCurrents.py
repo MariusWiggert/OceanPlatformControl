@@ -1,17 +1,21 @@
+import abc
+import logging
 import os
 from typing import Tuple, Union
+
 import numpy as np
 import xarray as xr
-import logging
-from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
+
+from ocean_navigation_simulator.data_sources.DataSource import AnalyticalSource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     OceanCurrentSource,
 )
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import (
     OceanCurrentVector,
 )
-from ocean_navigation_simulator.data_sources.DataSource import AnalyticalSource
-import abc
+from ocean_navigation_simulator.environment.PlatformState import (
+    SpatioTemporalPoint,
+)
 
 
 # TODO: How does the direction connection of the analytical function into HJ Planner work? Is it even desirable?

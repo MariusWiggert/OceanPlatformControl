@@ -1,6 +1,6 @@
 from typing import Tuple
-import gym
 
+import gym
 import ray
 import torch
 from ray.rllib import Policy
@@ -11,7 +11,10 @@ from ray.rllib.models.torch.torch_action_dist import (
     get_torch_categorical_class_with_temperature,
 )
 from ray.rllib.policy import build_policy_class
-from ray.rllib.policy.torch_mixins import TargetNetworkMixin, LearningRateSchedule
+from ray.rllib.policy.torch_mixins import (
+    LearningRateSchedule,
+    TargetNetworkMixin,
+)
 from ray.rllib.utils.typing import AlgorithmConfigDict
 from ray.tune.registry import RLLIB_MODEL, _global_registry
 

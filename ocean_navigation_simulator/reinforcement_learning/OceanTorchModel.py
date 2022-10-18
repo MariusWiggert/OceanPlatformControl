@@ -1,14 +1,12 @@
 import gym
 import numpy as np
 import torch
-from ray.rllib.models.utils import get_activation_fn
-from torch import nn
-from ray.rllib.models.torch.misc import SlimFC, SlimConv2d
+from ray.rllib.models.torch.misc import SlimConv2d, SlimFC, normc_initializer
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
+from ray.rllib.models.utils import get_activation_fn
 from ray.rllib.utils.torch_utils import reduce_mean_ignore_inf
 from ray.rllib.utils.typing import ModelConfigDict, TensorType
-from ray.rllib.models.torch.misc import normc_initializer
-
+from torch import nn
 
 # Documentation:
 #   https://docs.ray.io/en/latest/rllib/package_ref/models.html

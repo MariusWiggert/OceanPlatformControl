@@ -3,20 +3,25 @@ import logging
 import os
 import sys
 import time
-from typing import Optional, Callable
+from typing import Optional
+
 import pandas as pd
-import psutil
 import pytz
 import ray
-import requests
-import shutil
-import torch
 import wandb
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.problem_factories.FileProblemFactory import FileProblemFactory
-from ocean_navigation_simulator.utils.misc import bcolors, timing, get_process_information_dict
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
+from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
+    FileProblemFactory,
+)
+from ocean_navigation_simulator.utils.misc import (
+    bcolors,
+    get_process_information_dict,
+    timing,
+)
 
 
 class EvaluationRunner:
@@ -109,7 +114,7 @@ class EvaluationRunner:
                 print(f'EvaluationRunner: Started Mission {problem.extra_info["index"]:03d}')
 
             # Step 1: Create Arena
-            with timing(f"EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
+            with timing("EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
                 arena = ArenaFactory.create(
                     scenario_file=config["scenario_file"], problem=problem, verbose=verbose - 2
                 )
@@ -117,7 +122,7 @@ class EvaluationRunner:
                 problem_status = arena.problem_status(problem=problem)
 
             # Step 2: Create Controller
-            with timing(f"EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
+            with timing("EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
                 problem.platform_dict = arena.platform.platform_dict
                 if config["controller"].__name__ == "RLController":
                     controller = config["controller"](
@@ -130,7 +135,7 @@ class EvaluationRunner:
                     controller = config["controller"](problem=problem, verbose=verbose - 2)
 
             # Step 3: Run Arena
-            with timing(f"EvaluationRunner: Run Arena ({{:.1f}}s)", verbose - 1):
+            with timing("EvaluationRunner: Run Arena ({{:.1f}}s)", verbose - 1):
                 steps = 0
                 while problem_status == 0:
                     action = controller.get_action(observation)
