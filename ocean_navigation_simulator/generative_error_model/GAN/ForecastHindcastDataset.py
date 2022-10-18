@@ -23,8 +23,10 @@ class ForecastHindcastDataset(Dataset):
         time_step_idx = idx % self.hours_in_file
 
         fc_file_name = self.fc_file_names[file_idx]
-        fc_file = xr.load_dataset(os.path.join(self.fc_dir, fc_file_name)).sel(longitude=slice(-146.25, -125),
-                                                                               latitude=slice(15, 36.25))
+        # fc_file = xr.load_dataset(os.path.join(self.fc_dir, fc_file_name)).sel(longitude=slice(-146.25, -125),
+        #                                                                        latitude=slice(15, 36.25))
+        fc_file = xr.load_dataset(os.path.join(self.fc_dir, fc_file_name)).sel(longitude=slice(-116.25, -95),
+                                                                               latitude=slice(-11.25, 10))
         fc_file_u = fc_file["utotal"]
         fc_file_v = fc_file["vtotal"]
         fc_u = fc_file_u.isel(time=time_step_idx).values.squeeze()
@@ -34,8 +36,10 @@ class ForecastHindcastDataset(Dataset):
         fc = np.concatenate([fc_u, fc_v], axis=0)
 
         hc_file_name = self.hc_file_names[file_idx]
-        hc_file = xr.load_dataset(os.path.join(self.hc_dir, hc_file_name)).sel(lon=slice(-146.25, -125),
-                                                                               lat=slice(15, 36.25))
+        # hc_file = xr.load_dataset(os.path.join(self.hc_dir, hc_file_name)).sel(lon=slice(-146.25, -125),
+        #                                                                        lat=slice(15, 36.25))
+        hc_file = xr.load_dataset(os.path.join(self.hc_dir, hc_file_name)).sel(lon=slice(-116.25, -95),
+                                                                               lat=slice(-11.25, 10))
         hc_file_u = hc_file["water_u"]
         hc_file_v = hc_file["water_v"]
         hc_u = hc_file_u.isel(time=time_step_idx).values.squeeze()
@@ -57,6 +61,7 @@ class ForecastHindcastDatasetNpy(Dataset):
         self.transform = transform
         self.hours_in_file = 24 * 8
 
+        # to catch all files we can use glob.glob here on the dir of fc and hc to get all regions
         self.fc_file_names = sorted(os.listdir(self.fc_dir))
         self.hc_file_names = sorted(os.listdir(self.hc_dir))
 
@@ -80,8 +85,8 @@ class ForecastHindcastDatasetNpy(Dataset):
 
 def test_xr():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
-    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area1")
-    hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts/area1")
+    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area3")
+    hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts/area3")
     dataset = ForecastHindcastDataset(fc_dir, hc_dir)
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
@@ -107,4 +112,4 @@ def test_npy():
 
 
 if __name__ == "__main__":
-    test_npy()
+    test_xr()

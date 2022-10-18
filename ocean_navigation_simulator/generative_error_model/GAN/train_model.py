@@ -23,7 +23,6 @@ from warnings import warn
 from tqdm import tqdm
 
 
-# TODO: vis fixed batch during course of training
 # TODO: weight init -> pix2pix: mean=0 and std=0.02
 # TODO: verify loss @ init
 
@@ -203,16 +202,16 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 output = model(data)
 
                 # compute loss
-                loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
-                total_loss += loss.item()
+                train_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
+                total_loss += train_loss.item()
 
                 # perform optim step
                 optimizer.zero_grad()
-                loss.backward()
+                train_loss.backward()
                 optimizer.step()
 
-                tepoch.set_postfix(loss=str(round(loss.item() / data.shape[0], 3)))
-                wandb.log({"train_loss": round(loss.item() / data.shape[0], 3)})
+                tepoch.set_postfix(loss=str(round(train_loss.item() / data.shape[0], 3)))
+                wandb.log({"train_loss": round(train_loss.item() / data.shape[0], 3)})
 
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Training avg loss: {avg_loss:.2f}.")
@@ -226,22 +225,31 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
             metrics = {metric: 0 for metric in metrics_names}
+            metrics_baseline = {metric: 0 for metric in metrics_names}
             for data, target in tepoch:
                 data, target = data.to(device), target.to(device)
 
                 output = model(data)
-                loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
-                total_loss += loss.item()
+                val_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
+                total_loss += val_loss.item()
 
+                # get metrics for generated outputs
                 metric_values = get_metrics(metrics_names, target, output)
                 for metric_name in metrics_names:
                     metrics[metric_name] += metric_values[metric_name]
 
-                tepoch.set_postfix(loss=str(round(loss.item() / data.shape[0], 3)))
-                wandb.log({"val_loss": round(loss.item() / data.shape[0], 3)})
+                # get metrics between input and ground truth as baseline
+                metric_values_baseline = get_metrics(metrics_names, target, data)
+                for metric_name in metrics_names:
+                    metrics_baseline[metric_name] += metric_values_baseline[metric_name]
+
+                tepoch.set_postfix(loss=str(round(val_loss.item() / data.shape[0], 3)))
+                wandb.log({"val_loss": round(val_loss.item() / data.shape[0], 3)})
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
+    metrics_baseline = {metric_name + "_baseline": metric_value/len(dataloader) for metric_name, metric_value in metrics_baseline.items()}
     wandb.log(metrics)
+    wandb.log(metrics_baseline)
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss
@@ -263,6 +271,8 @@ def main():
     wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
+               name=f"{all_cfgs['model']}_{all_cfgs['train']['loss']['types']}" +
+                    f"_{all_cfgs[all_cfgs['model']]['norm_type']}",
                config=all_cfgs,
                tags="cool stuff",
                **wandb_cfgs)

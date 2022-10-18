@@ -20,9 +20,9 @@ generator:
   dropout: False
   init_type: "xavier"
   init_gain: 1.0
+  norm_type: "instance"
 #  init_type: "normal"
 #  init_gain: 0.02
-  norm_type: "instance"
 
 train:
   batch_size: 32
@@ -30,7 +30,7 @@ train:
   epochs: 30
   loss:
     # choice: mse, sparse_mse, total_variation, mass_conservation, l1
-    types: [ "mse" ]
+    types: [ "l1" ]
     weighting: [ 1 ]
 #  learning_rate: 1e-4
   learning_rate: 0.0002
@@ -40,7 +40,7 @@ train:
     mode: "min"
     factor: 0.2
     threshold: 0.0001
-    patience: 5
+    patience: 3
 
 optimizer:
   name: "Adam"
@@ -55,5 +55,5 @@ dataset:
   hindcasts: "data/drifter_data/hindcasts_preprocessed"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
   sparse_type: "forecast"
-  shuffle: False
+  shuffle: True
   len: 1000
