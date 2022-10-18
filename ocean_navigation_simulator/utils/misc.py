@@ -20,6 +20,7 @@ from c3python import C3Python
 #               usr.publicKey = "<public key from file>"
 #               usr.merge()
 
+
 ### Getting C3 Object for data downloading ###
 def get_c3(verbose: Optional[int] = 0):
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
