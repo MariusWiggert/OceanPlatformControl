@@ -12,6 +12,11 @@ from ocean_navigation_simulator.utils import units
 
 # TODO: change to use loggers
 
+CORRUPTED_FILES = [
+    'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-05-14T12:30:00Z-2022-05-14T12:30:00Z-2022-05-23T23:30:00Z.nc'
+    'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-08-05T12:30:00Z-2022-08-05T12:30:00Z-2022-08-14T23:30:00Z.nc',
+]
+
 class ArenaFactory:
     """Factory to create an arena with specific settings and download the needed files from C3 storage."""
     @staticmethod
@@ -104,9 +109,14 @@ class ArenaFactory:
         # Step 1: Find relevant files
         files = ArenaFactory.get_filelist(archive_source=archive_source, archive_type=archive_type, t_interval=t_interval, verbose=verbose)
 
+        for f in files.objs:
+            print(os.path.basename(f.file.contentLocation))
+            if os.path.basename(f.file.contentLocation) in CORRUPTED_FILES:
+                raise ResourceWarning(f"Corrupted File found.")
+
         # Step 2: Check File Count
-        if files.count < (t_interval[1]-t_interval[0]).days + 1:
-            raise Exception(f"Only {files.count} files in the database for t_0={t_interval[0]} and t_T={t_interval[1]}.")
+        if files.count != (t_interval[1]-t_interval[0]).days + 1:
+            raise ResourceWarning(f"{files.count} files in the database for t_0={t_interval[0]} and t_T={t_interval[1]}.")
 
         # Step 3: Check Basic Spatial Coverage
         ArenaFactory.check_spacial_coverage(files, points)
@@ -148,7 +158,7 @@ class ArenaFactory:
     def download_filelist(files, download_folder, verbose: Optional[int] = 0):
         c3 = get_c3(verbose-1)
 
-        # Step 1: Download Files thread-safe with atomic os.rename
+        # Step 1: Download Files thread-safe with atomic os.replace
         temp_folder = f'{download_folder}{os.getpid()}/'
         for file in files.objs:
             filename = os.path.basename(file.file.contentLocation)
@@ -185,11 +195,15 @@ class ArenaFactory:
             for file in files.objs:
                 spacial_coverage = file.subsetOptions.geospatialCoverage
                 for point in points:
-                    lon_covered = spacial_coverage.start.longitude < point.lon.deg < spacial_coverage.end.longitude
-                    lat_covered = spacial_coverage.start.latitude < point.lat.deg < spacial_coverage.end.latitude
+                    lon_covered = spacial_coverage.start.longitude <= point.lon.deg <= spacial_coverage.end.longitude
+                    lat_covered = spacial_coverage.start.latitude <= point.lat.deg <= spacial_coverage.end.latitude
 
-                    if lon_covered is False:
-                        raise ValueError("The point {} is not covered by the longitude of the downloaded files.".format(point))
-                    if lat_covered is False:
-                        raise ValueError("The point {} is not covered by the latitude of the downloaded files.".format(point))
+                    if not lon_covered or not lat_covered:
+                        raise ValueError("The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
+                            point,
+                            spacial_coverage.start.longitude,
+                            spacial_coverage.end.longitude,
+                            spacial_coverage.start.latitude,
+                            spacial_coverage.end.latitude,
+                        ))
 
