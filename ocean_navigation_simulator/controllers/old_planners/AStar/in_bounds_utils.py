@@ -2,8 +2,7 @@ import math
 
 
 class InBounds:
-    """Utils for checking validity of points"""
-
+    """ Utils for checking validity of points """
     def __init__(self, fieldset):
         self.fieldset = fieldset
 
@@ -44,7 +43,7 @@ class InBounds:
         return mag > sep
 
     def in_ocean(self, point, offset=0.1):
-        """Returns whether the point is in the ocean.
+        """ Returns whether the point is in the ocean.
 
         Determines this by checking if the velocity is nonzero for this and ALL points that are "offset" distance
         about the point in the 8 directions.
@@ -81,10 +80,8 @@ class InBounds:
         Returns:
             A boolean.
         """
-        if self.out_of_bounds(lat, self.fieldset.U.grid.lat) or self.out_of_bounds(
-            lon, self.fieldset.U.grid.lon
-        ):
+        if self.out_of_bounds(lat, self.fieldset.U.grid.lat) or self.out_of_bounds(lon, self.fieldset.U.grid.lon):
             return True
-        x = self.fieldset.U.eval(0.0, 0.0, lat, lon)
-        y = self.fieldset.V.eval(0.0, 0.0, lat, lon)
-        return x == 0.0 and y == 0.0
+        x = self.fieldset.U.eval(0., 0., lat, lon)
+        y = self.fieldset.V.eval(0., 0., lat, lon)
+        return x == 0. and y == 0.

@@ -1,15 +1,14 @@
 import math
 
-from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.controllers.Controller import Controller
 
 
 class NaiveController(Controller):
     """
     Naive to Target, Full-power Actuation towards the goal (meant as a baseline)
     """
-
     gpus: float = 0.0
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:

@@ -1,27 +1,13 @@
-from typing import (
-    AnyStr,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Union,
-)
-
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from typing import Dict, Optional, Union, Tuple, List, AnyStr, Literal, Callable
 import numpy as np
-from matplotlib import patches
-from matplotlib import pyplot as plt
-
+from matplotlib import pyplot as plt, patches
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
-)
 
 
 def get_lon_lat_time_interval_from_trajectory(
-    state_trajectory: np.ndarray,
-    margin: Optional[float] = 1,
+        state_trajectory: np.ndarray,
+        margin: Optional[float] = 1,
 ) -> Tuple[List[float], List[float], List[float]]:
     """
     Helper function to find the interval around start/trajectory/goal.
@@ -39,15 +25,12 @@ def get_lon_lat_time_interval_from_trajectory(
     lat_min = np.min(state_trajectory[1, :])
     lat_max = np.max(state_trajectory[1, :])
 
-    return (
-        [lon_min - margin, lon_max + margin],
-        [lat_min - margin, lat_max + margin],
-        [state_trajectory[2, 0], state_trajectory[2, -1]],
-    )
+    return [lon_min - margin, lon_max + margin], [lat_min - margin, lat_max + margin], [state_trajectory[2, 0],
+                                                                                        state_trajectory[2, -1]]
 
 
 def get_index_from_posix_time(state_trajectory: np.ndarray, posix_time: float) -> int:
-    """Helper function to find the closest trajectory index corresponding to a given posix time.
+    """ Helper function to find the closest trajectory index corresponding to a given posix time.
     Args:
         state_trajectory:   State Trajectory with rows x, y, t
         posix_time: float
@@ -58,17 +41,15 @@ def get_index_from_posix_time(state_trajectory: np.ndarray, posix_time: float) -
     return np.searchsorted(a=state_trajectory[2, :], v=posix_time)
 
 
-def animate_trajectory(
-    state_trajectory: np.ndarray,
-    ctrl_trajectory: np.ndarray,
-    data_source: DataSource,
-    margin: Optional[float] = 1,
-    problem: Optional[NavigationProblem] = None,
-    temporal_resolution: Optional[float] = None,
-    add_ax_func_ext: Optional[Callable] = None,
-    output: Optional[AnyStr] = "traj_animation.mp4",
-    **kwargs
-):
+def animate_trajectory(state_trajectory: np.ndarray,
+                       ctrl_trajectory: np.ndarray,
+                       data_source: DataSource,
+                       margin: Optional[float] = 1,
+                       problem: Optional[NavigationProblem] = None,
+                       temporal_resolution: Optional[float] = None,
+                       add_ax_func_ext: Optional[Callable] = None,
+                       output: Optional[AnyStr] = "traj_animation.mp4",
+                       **kwargs):
     """Plotting functions to animate a trajectory including the controls over a data_source.
     Args:
           state_trajectory:  State trajectory as numpy array, first three rows need to be x, y, t
@@ -95,64 +76,32 @@ def animate_trajectory(
         if add_ax_func_ext is not None:
             add_ax_func_ext(ax, time)
         # plot start position
-        ax.scatter(
-            state_trajectory[0, 0], state_trajectory[1, 0], c="r", marker="o", s=200, label="Start"
-        )
-        ax.scatter(
-            state_trajectory[0, -1],
-            state_trajectory[1, -1],
-            c="orange",
-            marker="*",
-            s=200,
-            label="Traj_end",
-        )
+        ax.scatter(state_trajectory[0, 0], state_trajectory[1, 0], c='r', marker='o', s=200, label='Start')
+        ax.scatter(state_trajectory[0, -1], state_trajectory[1, -1], c='orange', marker='*', s=200, label='Traj_end')
         # add the trajectory to it
-        ax.plot(
-            state_trajectory[0, :],
-            state_trajectory[1, :],
-            color="black",
-            linewidth=2,
-            linestyle="--",
-            label="State Trajectory",
-        )
+        ax.plot(state_trajectory[0, :], state_trajectory[1, :],
+                color='black', linewidth=2, linestyle='--', label='State Trajectory')
         # plot the goal
         if problem is not None:
-            goal_circle = plt.Circle(
-                (problem.end_region.lon.deg, problem.end_region.lat.deg),
-                problem.target_radius,
-                color="g",
-                fill=True,
-                alpha=0.5,
-                label="goal",
-            )
+            goal_circle = plt.Circle((problem.end_region.lon.deg, problem.end_region.lat.deg),
+                                     problem.target_radius, color='g', fill=True, alpha=0.5, label='goal')
             ax.add_patch(goal_circle)
         # get the planned idx of current time
         idx = np.searchsorted(a=state_trajectory[2, :], v=time)
         # plot the control arrow for the specific time
-        ax.scatter(state_trajectory[0, idx], state_trajectory[1, idx], c="m", marker="o", s=20)
-        ax.quiver(
-            state_trajectory[0, idx],
-            state_trajectory[1, idx],
-            ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
-            ctrl_trajectory[0, idx] * np.sin(ctrl_trajectory[1, idx]),  # v_vector
-            color="magenta",
-            scale=10,
-            label="Control",
-        )
-        ax.legend(loc="upper right")
+        ax.scatter(state_trajectory[0, idx], state_trajectory[1, idx], c='m', marker='o', s=20)
+        ax.quiver(state_trajectory[0, idx], state_trajectory[1, idx],
+                  ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
+                  ctrl_trajectory[0, idx] * np.sin(ctrl_trajectory[1, idx]),  # v_vector
+                  color='magenta', scale=10, label="Control")
+        ax.legend(loc='upper right')
 
     # Step 2: Get the bounds for the data_source
     x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
-        state_trajectory=state_trajectory, margin=margin
-    )
+        state_trajectory=state_trajectory, margin=margin)
 
     # Step 3: run the animation with the data_source and the extra function
     data_source.animate_data(
-        x_interval=x_interval,
-        y_interval=y_interval,
-        t_interval=t_interval,
-        temporal_resolution=temporal_resolution,
-        add_ax_func=add_traj_and_ctrl_at_time,
-        output=output,
-        **kwargs
-    )
+        x_interval=x_interval, y_interval=y_interval, t_interval=t_interval,
+        temporal_resolution=temporal_resolution, add_ax_func=add_traj_and_ctrl_at_time,
+        output = output, **kwargs)

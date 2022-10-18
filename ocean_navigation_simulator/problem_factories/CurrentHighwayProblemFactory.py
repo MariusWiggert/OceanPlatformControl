@@ -3,16 +3,9 @@ from typing import Optional
 
 import numpy as np
 
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
-)
-from ocean_navigation_simulator.environment.PlatformState import (
-    PlatformState,
-    SpatialPoint,
-)
-from ocean_navigation_simulator.environment.ProblemFactory import (
-    ProblemFactory,
-)
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatialPoint
+from ocean_navigation_simulator.environment.ProblemFactory import ProblemFactory
 from ocean_navigation_simulator.utils import units
 
 
@@ -22,7 +15,7 @@ class CurrentHighwayProblemFactory(ProblemFactory):
 
     def next_problem(self) -> NavigationProblem:
         x = self.rng.uniform(0, 10)
-        y = 2  # self.rng.uniform(0, 5)
+        y = 2 #self.rng.uniform(0, 5)
 
         start_state = PlatformState(
             lon=units.Distance(deg=x),
@@ -31,13 +24,13 @@ class CurrentHighwayProblemFactory(ProblemFactory):
         )
 
         x = self.rng.uniform(0, 10)
-        y = 8  # self.rng.uniform(5, 10)
+        y = 8 #self.rng.uniform(5, 10)
 
         end_region = SpatialPoint(
             lon=units.Distance(deg=x),
             lat=units.Distance(deg=y),
         )
-        target_radius = 10 / 50
+        target_radius = 10/50
 
         return NavigationProblem(
             start_state=start_state,

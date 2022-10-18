@@ -1,10 +1,9 @@
-import datetime
-import os
-from typing import List, Optional
+from ocean_navigation_simulator.utils.misc import get_c3
 
 from c3python import C3Python
-
-from ocean_navigation_simulator.utils.misc import get_c3
+import datetime
+from typing import List, Optional
+import os
 
 ## How to get c3 Keyfile set up
 # Step 1: generate the public and private keys locally on your computer
@@ -17,8 +16,8 @@ from ocean_navigation_simulator.utils.misc import get_c3
 # user.publicKey = "<public key from file>"
 # user.merge()
 
-KEYFILE = "setup/keys/c3-rsa-marius.pem"
-USERNAME = "mariuswiggert@berkeley.edu"
+KEYFILE = 'setup/keys/c3-rsa-marius.pem'
+USERNAME = 'mariuswiggert@berkeley.edu'
 
 
 class C3Downloader:
@@ -30,9 +29,7 @@ class C3Downloader:
         c3 = get_c3()
         self.c3 = c3
 
-    def get_files_list(
-        self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]
-    ):
+    def get_files_list(self, source: str, type_of_data: str, region: str, time_interval: List[datetime.datetime]):
         """
         Args:
             source: str {Copernicus, Hycom}
@@ -59,9 +56,7 @@ class C3Downloader:
             region_name = [name for name in names if region in conversion(name)]
             idx = names.index(region_name[0])
         except:
-            raise ValueError(
-                f"Specified region name '{region}' is not a {source} {type_of_data.capitalize()} Data Archive!"
-            )
+            raise ValueError(f"Specified region name '{region}' is not a {source} {type_of_data.capitalize()} Data Archive!")
         type_map = {"forecast": "fmrcArchive", "hindcast": "hindcastArchive"}
         if type_of_data not in list(type_map.keys()):
             raise ValueError("Type of data invalid choose from [forecast, hindcast].")
@@ -72,11 +67,8 @@ class C3Downloader:
         type_map = {"forecast": "FMRC", "hindcast": "Hindcast"}
         file_object_name = f"{source}{type_map[type_of_data]}File"
         files_list = getattr(self.c3, file_object_name).fetch(
-            spec={
-                "filter": f"archive=='{specific_archive_id}' && status=='downloaded' && {time_filter}",
-                "order": "ascending(subsetOptions.timeRange.start)",
-            }
-        )
+            spec={"filter": f"archive=='{specific_archive_id}' && status=='downloaded' && {time_filter}",
+                  "order": "ascending(subsetOptions.timeRange.start)"})
         return files_list.objs
 
     def download_files(self, files_list: List[C3Python], download_folder: str):
@@ -89,28 +81,22 @@ class C3Downloader:
             filename = os.path.basename(file.file.contentLocation)
             url = file.file.url
             filesize = file.file.contentLength
-            if (
-                not os.path.exists(os.path.join(download_folder, filename))
-                or os.path.getsize(os.path.join(download_folder, filename)) != filesize
-            ):
+            if not os.path.exists(os.path.join(download_folder, filename)) or os.path.getsize(os.path.join(download_folder, filename)) != filesize:
                 self.c3.Client.copyFilesToLocalClient(url, download_folder)
                 print(f"Downloaded {filename}")
                 # TODO: check file size!
             if os.path.getsize(os.path.join(download_folder, filename)) != filesize:
                 raise Exception(
-                    f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + filename)}B."
-                )
+                    f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + filename)}B.")
             else:
                 os.system(f"touch {os.path.join(download_folder, filename)}")
 
 
 def test():
-    """Adjust this function for manual downloading or testing."""
+    """Adjust this function for manual downloading or testing.
+    """
     c3_downloader = C3Downloader()
-    time_interval = [
-        datetime.datetime(2022, 4, 21, 12, 0, 0),
-        datetime.datetime(2022, 4, 22, 12, 0, 0),
-    ]
+    time_interval = [datetime.datetime(2022, 4, 21, 12, 0, 0), datetime.datetime(2022, 4, 22, 12, 0, 0)]
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
     c3_downloader.download_files(files, "/dir/where/to/save/files")
 

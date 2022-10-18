@@ -15,10 +15,7 @@ from ocean_navigation_simulator.ocean_observer.ExperimentRunner import Experimen
 
 def conditional_parameters(str_accepted: list[str], to_return, is_kernel_1: bool = True):
     return tune.sample_from(
-        lambda s: to_return
-        if (s.config.kernel if is_kernel_1 else s.config.kernel_2) in str_accepted
-        else None
-    )
+        lambda s: to_return if (s.config.kernel if is_kernel_1 else s.config.kernel_2) in str_accepted else None)
 
 
 # General search space
@@ -30,52 +27,44 @@ search_space = {
     # "kernel": "expSineSquared",  # "matern"
     "sigma_exp": tune.qrandn(2, 2, 0.0001),
     # if matern or rbf
-    "scaling": conditional_parameters(
-        ["rbf", "matern"],
-        {
-            "latitude": tune.loguniform(1e-2, 5),
-            "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
-            "time": tune.loguniform(7200, 43200),
-        },
-    ),
+    "scaling": conditional_parameters(["rbf", "matern"], {
+        "latitude": tune.loguniform(1e-2, 5),
+        "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
+        "time": tune.loguniform(7200, 43200)
+    }),
+
     # if matern
     "nu": conditional_parameters(["matern"], tune.choice([0.1, 0.5, 1.5, 2.5])),
     # values not in [.5, 1.5, 2.5, inf] are 10x longer to compute
+
     # if rational quadratic or expsinesquared(=periodic)
-    "length_scale": conditional_parameters(
-        ["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)
-    ),
+    "length_scale": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000)),
     # "length_scale": tune.uniform(1, 100000),
     "length_scale_bounds": "fixed",
     # if rational quadratic
     "alpha": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
     "alpha_bounds": conditional_parameters(["RationalQuadratic"], "fixed"),
+
     # if expSineSquared
     "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10)),
     "periodicity_bounds": conditional_parameters(["ExpSineSquared"], "fixed"),
+
     # Second kernel
     "kernel_2": tune.choice(["RationalQuadratic", "ExpSineSquared", "rbf"]),
     "sigma_exp_2": tune.qrandn(1, 1, 0.0001),
-    "scaling_2": conditional_parameters(
-        ["rbf", "matern"],
-        {
-            "latitude": tune.loguniform(1e-2, 5),
-            "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
-            "time": tune.loguniform(7200, 43200),
-        },
-        is_kernel_1=False,
-    ),
-    "length_scale_2": conditional_parameters(
-        ["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000), is_kernel_1=False
-    ),
+    "scaling_2": conditional_parameters(["rbf", "matern"], {
+        "latitude": tune.loguniform(1e-2, 5),
+        "longitude": tune.loguniform(1e-2, 5),  # tune.loguniform(1, 1e6),
+        "time": tune.loguniform(7200, 43200)
+    }, is_kernel_1=False),
+    "length_scale_2": conditional_parameters(["RationalQuadratic", "ExpSineSquared"], tune.uniform(1, 100000),
+                                             is_kernel_1=False),
     "length_scale_bounds_2": "fixed",
     # if rational quadratic
     "alpha_2": conditional_parameters(["RationalQuadratic"], tune.loguniform(1e-5, 2.5)),
     "alpha_bounds_2": conditional_parameters(["RationalQuadratic"], "fixed"),
     # if expSineSquared
-    "periodicity_2": conditional_parameters(
-        ["ExpSineSquared"], tune.loguniform(0.01, 10), is_kernel_1=False
-    ),
+    "periodicity_2": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10), is_kernel_1=False),
     "periodicity_bounds_2": conditional_parameters(["ExpSineSquared"], "fixed", is_kernel_1=False),
 }
 
@@ -162,7 +151,7 @@ search_space = {
 
 def write_row_csv(path, row):
     # open the file in the write mode
-    f = open(path, "a")
+    f = open(path, 'a')
 
     # create the csv writer
     writer = csv.writer(f)
@@ -202,32 +191,32 @@ def train(config_init):
         #     }
         scaling = config.pop("scaling", None)
         scaling_2 = config_2.pop("scaling", None)
-        config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
-            "type": type_kernel,
-            "scaling": scaling,
-            "sigma_exp_squared": sigma_exp_squared,
-            # if matern
-            # "scaling": {"longitude": config["lon_scale"], "latitude": config["lat_scale"],
-            #            "time": config["time_scale"], "nu": config["nu"]},
-            # if rational quadratic
-            # "parameters": {"alpha": config["alpha"], "length_scale_bounds": config["length_scale_bounds"],
-            #               "alpha_bounds": "fixed", "length_scale": config["length_scale"]}
-            # if expsinesquared:
-            "parameters": config,
-        }  # | search_space
-        config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"] = {
-            "type": type_kernel_2,
-            "scaling": scaling_2,
-            "sigma_exp_squared": sigma_exp_squared_2,
-            # if matern
-            # "scaling": {"longitude": config["lon_scale"], "latitude": config["lat_scale"],
-            #            "time": config["time_scale"], "nu": config["nu"]},
-            # if rational quadratic
-            # "parameters": {"alpha": config["alpha"], "length_scale_bounds": config["length_scale_bounds"],
-            #               "alpha_bounds": "fixed", "length_scale": config["length_scale"]}
-            # if expsinesquared:
-            "parameters_2": config_2,
-        }
+        config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = \
+            {"type": type_kernel,
+             "scaling": scaling,
+             "sigma_exp_squared": sigma_exp_squared,
+             # if matern
+             # "scaling": {"longitude": config["lon_scale"], "latitude": config["lat_scale"],
+             #            "time": config["time_scale"], "nu": config["nu"]},
+             # if rational quadratic
+             # "parameters": {"alpha": config["alpha"], "length_scale_bounds": config["length_scale_bounds"],
+             #               "alpha_bounds": "fixed", "length_scale": config["length_scale"]}
+             # if expsinesquared:
+             "parameters": config
+             }  # | search_space
+        config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"] = \
+            {"type": type_kernel_2,
+             "scaling": scaling_2,
+             "sigma_exp_squared": sigma_exp_squared_2,
+             # if matern
+             # "scaling": {"longitude": config["lon_scale"], "latitude": config["lat_scale"],
+             #            "time": config["time_scale"], "nu": config["nu"]},
+             # if rational quadratic
+             # "parameters": {"alpha": config["alpha"], "length_scale_bounds": config["length_scale_bounds"],
+             #               "alpha_bounds": "fixed", "length_scale": config["length_scale"]}
+             # if expsinesquared:
+             "parameters_2": config_2
+             }
 
         print("kernel:", config_yaml["observer"]["model"]["gaussian_process"]["kernel"])
         print("kernel_2:", config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"])
@@ -241,10 +230,8 @@ def train(config_init):
             if k != "time":
                 merged_mean["mean_" + str(k)] = np.array(merged[k]).mean()
         merged_mean |= merged
-        merged_mean = {
-            "kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
-            "kernel_2": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"]),
-        } | merged_mean
+        merged_mean = {"kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
+                       "kernel_2": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"])} | merged_mean
         if not os.path.exists(file_csv):
             write_row_csv(file_csv, merged_mean.keys())
         write_row_csv(file_csv, merged_mean.values())
@@ -289,12 +276,11 @@ def main_visualize_noise(number_forecasts=30):
     rx, ry = 5, 4
     x = [center_x - rx, center_x + rx]
     y = [center_y - ry, center_y + ry]
-    exp = ExperimentRunner(
-        "config_test_GP",
-        filename_problems="all_problems_3",
-        position=[(center_x, center_y, day), (center_x, center_y + 3)],
-        to_modify={"radius_area_around_platform": 5},
-    )
+    exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3",
+                           position=[
+                               (center_x, center_y, day),
+                               (center_x, center_y + 3)],
+                           to_modify={"radius_area_around_platform": 5})
     # results, results_per_h, merged, list_dates_when_new_files = exp.visualize_all_noise(x, y)
     exp.visualize_all_noise(x, y, number_forecasts=number_forecasts)
     print("noise")
@@ -307,24 +293,22 @@ def main(max_number_problems_to_run=None):
     # np.random.seed(0)
     exp = ExperimentRunner("config_test_GP", filename_problems="all_problems_3")
     results, results_per_h, merged, list_dates_when_new_files = exp.run_all_problems(
-        max_number_problems_to_run=max_number_problems_to_run
-    )
+        max_number_problems_to_run=max_number_problems_to_run)
     print("final results:", results)
 
-    """
+    '''
     -------------------------------------------------------------------------------
     -------------------------------------------------------------------------------
     PLOTTING
     -------------------------------------------------------------------------------
     -------------------------------------------------------------------------------
-    """
+    '''
 
     # plot to see error
     metric_to_plot = "vme"
     initial, improved = metric_to_plot + "_initial", metric_to_plot + "_improved"
     from datetime import datetime
     from datetime import timezone
-
     problem_1 = results[-1]
     X = [datetime.fromtimestamp(t, tz=timezone.utc) for t in problem_1["time"]]
     y1 = problem_1[initial]
@@ -332,8 +316,8 @@ def main(max_number_problems_to_run=None):
     y1_mean = np.array([r[initial] for r in results]).mean(axis=0)
     y2_mean = np.array([r[initial] for r in results]).mean(axis=0)
 
-    plt.plot(X, y1, color="r", label=initial)
-    plt.plot(X, y2, color="g", label=improved)
+    plt.plot(X, y1, color='r', label=initial)
+    plt.plot(X, y2, color='g', label=improved)
 
     plt.plot(X, y1_mean, color="b", label=initial + "_mean")
     plt.plot(X, y2_mean, "y--", label=improved + "_mean")
@@ -344,25 +328,11 @@ def main(max_number_problems_to_run=None):
     plt.ylabel("Average " + metric_to_plot)
     plt.legend()
 
-    mean_improved_per_hour = np.array(
-        [r[improved + "_per_h"].mean(axis=0) for r in results_per_h]
-    ).mean(axis=0)
-    mean_initial_per_hour = np.array(
-        [r[initial + "_per_h"].mean(axis=0) for r in results_per_h]
-    ).mean(axis=0)
+    mean_improved_per_hour = np.array([r[improved + "_per_h"].mean(axis=0) for r in results_per_h]).mean(axis=0)
+    mean_initial_per_hour = np.array([r[initial + "_per_h"].mean(axis=0) for r in results_per_h]).mean(axis=0)
     plt.figure()
-    plt.plot(
-        range(len(mean_improved_per_hour)),
-        mean_improved_per_hour,
-        color="g",
-        label=(improved + "_per_h"),
-    )
-    plt.plot(
-        range(len(mean_initial_per_hour)),
-        mean_initial_per_hour,
-        color="r",
-        label=(initial + "_per_h"),
-    )
+    plt.plot(range(len(mean_improved_per_hour)), mean_improved_per_hour, color='g', label=(improved + "_per_h"))
+    plt.plot(range(len(mean_initial_per_hour)), mean_initial_per_hour, color='r', label=(initial + "_per_h"))
     plt.xlabel("hour forecast")
     plt.ylabel("Average " + metric_to_plot)
     plt.legend()
