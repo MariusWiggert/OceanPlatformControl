@@ -146,7 +146,6 @@ class ArenaFactory:
         )
 
         for f in files.objs:
-            print(os.path.basename(f.file.contentLocation))
             if os.path.basename(f.file.contentLocation) in CORRUPTED_FILES:
                 raise ResourceWarning("Corrupted File found.")
 

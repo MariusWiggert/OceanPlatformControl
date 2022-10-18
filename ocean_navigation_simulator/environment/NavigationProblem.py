@@ -38,7 +38,7 @@ class NavigationProblem(Problem):
     def is_done(self, state: PlatformState) -> int:
         if self.passed_seconds(state) >= self.timeout.total_seconds():
             return -1
-        elif state.distance(self.end_region) <= self.target_radius:
+        elif state.distance(self.end_region).deg <= self.target_radius:
             return 1
         return 0
 

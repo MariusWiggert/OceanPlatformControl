@@ -24,7 +24,7 @@ script_start_time = time.time()
 cluster_utils.init_ray()
 
 runner = TrainingRunner(
-    name="test_new_project",
+    name="test_linting",
     tags=[],
     config=yaml.load(open("config/reinforcement_learning/training.yaml"), Loader=yaml.FullLoader),
     verbose=2,
