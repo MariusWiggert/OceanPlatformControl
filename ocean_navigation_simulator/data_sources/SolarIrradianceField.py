@@ -1,15 +1,14 @@
 import logging
+import os
 from typing import Dict, Optional, Type, Union
 
 from ocean_navigation_simulator.data_sources.DataField import DataField
-from ocean_navigation_simulator.data_sources.DataSource import (
-    AnalyticalSource,
-    XarraySource,
-)
+from ocean_navigation_simulator.data_sources.DataSource import XarraySource
 from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import (
-    SolarIrradianceSource,
     AnalyticalSolarIrradiance,
     AnalyticalSolarIrradiance_w_caching,
+    AnalyticalSource,
+    SolarIrradianceSource,
 )
 
 
@@ -39,7 +38,7 @@ class SolarIrradianceField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.solar_field")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         super().__init__(
             casadi_cache_dict,
             hindcast_source_dict,

@@ -187,21 +187,19 @@ class DataSource(abc.ABC):
             array.coords["lat"].data[0] > y_interval[0]
             or array.coords["lat"].data[-1] < y_interval[1]
         ):
-            logger.warning(
-                f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}]).",
-                RuntimeWarning,
+            raise Exception(
+                f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}])."
             )
         if (
             array.coords["lon"].data[0] > x_interval[0]
             or array.coords["lon"].data[-1] < x_interval[1]
         ):
-            logger.warning(
-                f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}]).",
-                RuntimeWarning,
+            raise Exception(
+                f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}])."
             )
         if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
-            logger.warning(
-                "The final time {} is not part of the subset.".format(t_interval[1]), RuntimeWarning
+            raise Exception(
+                f"The requested final time is not part of the subset (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."
             )
 
     def plot_data_at_time_over_area(

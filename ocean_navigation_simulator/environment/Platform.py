@@ -11,13 +11,14 @@ Typical usage:
 """
 import logging
 import math
+import os
 import time
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+import casadi as ca
 import numpy as np
 
-import casadi as ca
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthSource,
@@ -87,7 +88,7 @@ class Platform:
 
         # initialize platform logger
         self.logger = logging.getLogger("arena.platform")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
         # Set the major member variables
         self.platform_dict = platform_dict

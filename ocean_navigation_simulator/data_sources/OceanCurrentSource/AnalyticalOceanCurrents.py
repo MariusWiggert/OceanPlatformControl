@@ -1,5 +1,6 @@
 import abc
 import logging
+import os
 from typing import Tuple, Union
 
 import numpy as np
@@ -25,7 +26,7 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field.ocean_source")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         # Casadi functions are created and maintained here but used in the platform object
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.current_run_t_0 = 0

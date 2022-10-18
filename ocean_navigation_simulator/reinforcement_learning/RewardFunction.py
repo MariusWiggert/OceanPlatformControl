@@ -5,7 +5,6 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.PlatformState import PlatformState
 
 
 class RewardFunction(abc.ABC):
@@ -17,8 +16,10 @@ class RewardFunction(abc.ABC):
     @abc.abstractmethod
     def get_reward(
         self,
-        prev_state: ArenaObservation,
-        curr_state: ArenaObservation,
+        prev_fc_obs: ArenaObservation,
+        curr_fc_obs: ArenaObservation,
+        prev_hc_obs: ArenaObservation,
+        curr_hc_obs: ArenaObservation,
         problem: NavigationProblem,
         problem_status: int,
     ) -> float:

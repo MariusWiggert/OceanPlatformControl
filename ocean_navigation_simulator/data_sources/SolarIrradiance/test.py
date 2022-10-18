@@ -1,9 +1,9 @@
 import datetime
 
+import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
 
-import casadi as ca
 from ocean_navigation_simulator.data_sources.SolarIrradiance.solar_rad import (
     solar_rad,
 )

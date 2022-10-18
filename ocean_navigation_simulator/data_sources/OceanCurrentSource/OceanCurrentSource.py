@@ -3,6 +3,7 @@ import logging
 import os
 from typing import AnyStr, List, Optional, Union
 
+import casadi as ca
 import dask.array.core
 import matplotlib.pyplot
 import matplotlib.pyplot as plt
@@ -12,7 +13,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
 
-import casadi as ca
 from ocean_navigation_simulator.data_sources.DataSource import (
     DataSource,
     XarraySource,
@@ -24,6 +24,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
     SpatioTemporalPoint,
 )
+from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.units import (
     get_datetime_from_np64,
     get_posix_time_from_np64,
@@ -144,17 +145,58 @@ class OceanCurrentSource(DataSource):
             return ax, cbar
         return ax
 
+    # TODO: probably we could do this with geopy for better accuracy
     def is_on_land(self, point: SpatialPoint):
         """Helper function to check if a SpatialPoint is on the land indicated in the
-        nc files as NaN (only approximate land boundaries).
+            nc files as NaN (only approximate land boundaries).
+            Accuracy is limited by the resolution of self.grid_dict.
         Args:
             point:    SpatialPoint object where to check if it is on land
         Returns:
             bool:     True if on land and false otherwise
         """
+        if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
+            raise ValueError(
+                f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}'
+            )
+        if not self.grid_dict["y_grid"].min() < point.lat.deg < self.grid_dict["y_grid"].max():
+            raise ValueError(
+                f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}'
+            )
+
         x_idx = (np.abs(self.grid_dict["x_grid"] - point.lon.deg)).argmin()
         y_idx = (np.abs(self.grid_dict["y_grid"] - point.lat.deg)).argmin()
         return self.grid_dict["spatial_land_mask"][y_idx, x_idx]
+
+    # TODO: probably we could do this with geopy for better accuracy
+    def distance_to_land(self, point: SpatialPoint) -> units.Distance:
+        """
+            Helper function to get the distance of a SpatialPoint to land.
+            Accuracy is limited by the resolution of self.grid_dict.
+        Args:
+            point:    SpatialPoint object where to calculate distance to land
+        Returns:
+            bool:     True if on land and false otherwise
+        """
+        if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
+            raise ValueError(
+                f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}'
+            )
+        if not self.grid_dict["y_grid"].min() < point.lat.deg < self.grid_dict["y_grid"].max():
+            raise ValueError(
+                f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}'
+            )
+
+        lon1, lat1 = np.meshgrid(
+            point.lon.deg * np.ones_like(self.grid_dict["x_grid"]),
+            point.lat.deg * np.ones_like(self.grid_dict["y_grid"]),
+        )
+        lon2, lat2 = np.meshgrid(self.grid_dict["x_grid"], self.grid_dict["y_grid"])
+
+        distances = np.vectorize(units.haversine_rad_from_deg)(lon1, lat1, lon2, lat2)
+        land_distances = np.where(self.grid_dict["spatial_land_mask"], distances, np.inf)
+
+        return units.Distance(rad=land_distances.min())
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
@@ -173,7 +215,7 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field.ocean_source")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.dask_array = None
 
@@ -260,6 +302,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             most_recent_fmrc_at_time if most_recent_fmrc_at_time is not None else t_interval[0]
         )
 
+        # Step 2: Return Subset
         return super().get_data_over_area(
             x_interval,
             y_interval,
@@ -289,8 +332,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             if time > self.files_dicts[self.rec_file_idx]["t_range"][1]:
                 raise ValueError("No current data in the last file for requested time.")
             else:
-                return self.rec_file_idx
-
+                return self.files_dicts[self.rec_file_idx]["t_range"][0]
         # otherwise check if a more recent one is available or we need to use an older one
         elif not (
             self.files_dicts[self.rec_file_idx]["t_range"][0]
@@ -303,7 +345,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             )
             # Basic Sanity Check if this list is empty no file contains t_0
             if len(dics_containing_t_0) == 0:
-                raise ValueError("None of the forecast files contains time.")
+                raise ValueError(f"None of the forecast files contains t_0={time}.")
             # As the dict is time-ordered we simple need to find the idx of the last one in the dics_containing_t_0
             for idx, dic in enumerate(self.files_dicts):
                 if dic["t_range"][0] == dics_containing_t_0[-1]["t_range"][0]:
@@ -312,7 +354,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             self.load_ocean_current_from_idx()
 
         # always return the most current idx
-        return self.rec_file_idx
+        return self.files_dicts[self.rec_file_idx]["t_range"][0]
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         """We overwrite it because we don't want that Forecast needs caching..."""
@@ -341,12 +383,6 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
 
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-        return OceanCurrentVector(
-            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-        )
-
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
@@ -370,12 +406,6 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
         # Step 2: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(
             self.DataArray, self.source_config_dict["source"]
-        )
-
-    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-        return OceanCurrentVector(
-            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
         )
 
 
@@ -468,7 +498,7 @@ def copernicusmarine_datastore(dataset, username, password):
         data_store = xr.backends.PydapDataStore(
             open_url(url, session=session)
         )  # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
-    except Exception:
+    except BaseException:
         url = f"https://{database[1]}.cmems-du.eu/thredds/dodsC/{dataset}"
         data_store = xr.backends.PydapDataStore(
             open_url(url, session=session)

@@ -32,10 +32,13 @@ class NavigationProblem(Problem):
     def distance(self, state: PlatformState) -> float:
         return self.end_region.distance(state.to_spatial_point())
 
+    def angle(self, state: PlatformState) -> float:
+        return self.end_region.angle(state.to_spatial_point())
+
     def is_done(self, state: PlatformState) -> int:
         if self.passed_seconds(state) >= self.timeout.total_seconds():
             return -1
-        elif state.distance(self.end_region) <= self.target_radius:
+        elif state.distance(self.end_region).deg <= self.target_radius:
             return 1
         return 0
 
@@ -65,7 +68,7 @@ class NavigationProblem(Problem):
         return ax
 
     @staticmethod
-    def from_dict(mission):
+    def from_pandas_row(mission):
         return NavigationProblem(
             start_state=PlatformState(
                 lon=units.Distance(deg=mission["x_0_lon"]),
@@ -90,7 +93,7 @@ class NavigationProblem(Problem):
             ]
             if "x_range_h" in mission
             else None,
-            extra_info=mission.to_dict(),
+            extra_info=mission.to_dict() | {"index": mission.name},
         )
 
     def to_dict(self) -> dict:
@@ -124,4 +127,11 @@ class NavigationProblem(Problem):
         )
 
     def __repr__(self):
-        return f'Problem [start: {self.start_state.to_spatio_temporal_point()}, end: {self.end_region}, optimal time: {self.extra_info["optimal_time_in_h"]:.1f}, timeout: {self.timeout.total_seconds()/3600:.1f}h'
+        return "Problem [start: {s}, end: {e}, optimal time: {ot:.1f}, timeout: {t:.1f}h".format(
+            s=self.start_state.to_spatio_temporal_point(),
+            e=self.end_region,
+            ot=self.extra_info["optimal_time_in_h"]
+            if "optimal_time_in_h" in self.extra_info
+            else float("inf"),
+            t=self.timeout.total_seconds() / 3600,
+        )

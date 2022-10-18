@@ -17,6 +17,7 @@ generated_media/
 # Setup file from Jerome
 setup/env*
 # New dir structure
+archive/
 tmp/
 data/
 models/

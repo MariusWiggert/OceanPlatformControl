@@ -5,6 +5,7 @@
 import dataclasses
 import datetime as dt
 import logging
+import os
 import time
 from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
@@ -40,6 +41,7 @@ from ocean_navigation_simulator.environment.Platform import (
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
+    SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils.plotting_utils import (
@@ -47,10 +49,6 @@ from ocean_navigation_simulator.utils.plotting_utils import (
     get_lon_lat_time_interval_from_trajectory,
 )
 from ocean_navigation_simulator.utils.units import format_datetime_x_axis
-
-# TODO: discuss why spatial_boundary dictionary? Why collect_trajectory shouldn't this be default?
-# TODO: check if logging works
-# TODO: discuss use of the new functions is_in_area and checking problem status
 
 
 @dataclasses.dataclass
@@ -67,6 +65,39 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
+
+    def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
+        """
+        this function is required to use the hindcast planner
+        TODO: change HJ planner to directly accept datasources
+        """
+        return ArenaObservation(
+            platform_state=PlatformState(
+                lon=point.lon,
+                lat=point.lat,
+                date_time=point.date_time,
+                battery_charge=self.platform_state.battery_charge,
+                seaweed_mass=self.platform_state.seaweed_mass,
+            ),
+            true_current_at_state=self.true_current_at_state,
+            forecast_data_source=self.forecast_data_source,
+        )
+
+    def replace_datasource(
+        self,
+        datasource: Union[
+            OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
+        ],
+    ):
+        """
+        this function is required to use the hindcast planner
+        TODO: change HJ planner to directly accept datasources
+        """
+        return ArenaObservation(
+            platform_state=self.platform_state,
+            true_current_at_state=self.true_current_at_state,
+            forecast_data_source=datasource,
+        )
 
 
 class Arena:
@@ -113,7 +144,7 @@ class Arena:
         """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
@@ -250,13 +281,45 @@ class Arena:
     def problem_status(
         self, problem: Problem, check_inside: Optional[bool] = True, margin: Optional[float] = 0.0
     ) -> int:
-        """Return the problem status"""
+        """
+        Get the problem status
+        Returns:
+            1   if problem was solved
+            0   if problem is still open
+            -1  if problem timed out
+            -2  if platform stranded
+            -3  if platform left specified arena region (spatial boundaries)
+        """
         if self.is_on_land():
             return -2
         elif check_inside and not self.is_inside_arena(margin):
             return -3
         else:
             return problem.is_done(self.platform.state)
+
+    def problem_status_text(self, problem_status):
+        """
+        Get a text to the problem status.Can be used for debugging.
+        Returns:
+            'Success'       if problem was solved
+            'Running'       if problem is still open
+            'Timeout'       if problem timed out
+            'Stranded'      if platform stranded
+            'Outside Arena' if platform left specified araena region (spatial boundaries)
+            'Invalid'       otherwise
+        """
+        if problem_status == 1:
+            return "Success"
+        elif problem_status == 0:
+            return "Running"
+        elif problem_status == -1:
+            return "Timeout"
+        elif problem_status == -2:
+            return "Stranded"
+        elif problem_status == -3:
+            return "Outside Arena"
+        else:
+            return "Invalid"
 
     ### Various Plotting Functions for the Arena Object ###
 

@@ -20,6 +20,23 @@ class SpatialPoint:
     lon: units.Distance
     lat: units.Distance
 
+    def distance(self, other) -> units.Distance:
+        return units.Distance(
+            deg=math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
+        )
+
+    def haversine(self, other) -> units.Distance:
+        """
+        Calculate the great circle distance in degrees between two points
+        on the earth (specified in decimal degrees)
+        Taken from: https://stackoverflow.com/a/4913653
+        """
+        return units.Distance(
+            rad=units.haversine_rad_from_deg(
+                self.lon.deg, self.lat.deg, other.lon.deg, other.lat.deg
+            )
+        )
+
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])
 
@@ -28,9 +45,6 @@ class SpatialPoint:
 
     def __getitem__(self, item):
         return self.__array__()[item]
-
-    def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
 
     def __repr__(self):
         return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°]"
@@ -59,8 +73,11 @@ class SpatioTemporalPoint:
     def __getitem__(self, item):
         return self.__array__()[item]
 
-    def distance(self, other) -> float:
+    def distance(self, other) -> units.Distance:
         return self.to_spatial_point().distance(other)
+
+    def haversine(self, other) -> units.Distance:
+        return self.to_spatial_point().haversine(other)
 
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
@@ -71,7 +88,7 @@ class SpatioTemporalPoint:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time}]"
+        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
 
 
 @dataclasses.dataclass
@@ -147,7 +164,7 @@ class PlatformState:
             y=self.lat.deg,
             b=self.battery_charge.joule,
             m=self.seaweed_mass.kg,
-            t=self.date_time,
+            t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
 
     def distance(self, other) -> float:

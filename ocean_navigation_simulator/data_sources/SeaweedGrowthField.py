@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Optional
 
 from ocean_navigation_simulator.data_sources.DataField import DataField
@@ -35,7 +36,7 @@ class SeaweedGrowthField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.seaweed_growth_field")
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         super().__init__(
             casadi_cache_dict,
             hindcast_source_dict,

@@ -1,23 +1,13 @@
 import json
 import os
-import shutil
 import socket
-import time
 from typing import Optional
 
 import pandas as pd
 import ray
 import requests
-import seaborn as sns
-from c3python import C3Python
 
-from ocean_navigation_simulator.utils.units import timing
-
-# TODO: great work! Though the architecture is a bit messy.
-# I think it's better to split it up into the different functions plus move it to the utils folder.
-
-sns.set_theme()
-
+from ocean_navigation_simulator.utils.misc import timing
 
 # 1.    ray up setup/ray-config.yaml
 #       ray up --restart-only setup/ray-config.yaml
@@ -29,64 +19,49 @@ sns.set_theme()
 # tensorboard --logdir ~/ray_results
 # ssh -L 16006:127.0.0.1:6006 olivier@my_server_ip
 
-# How to get c3 Keyfile set up
-# Step 1: generate the public and private keys locally on your computer
-# in terminal run 'openssl genrsa -out c3-rsa.pem 2048' -> this generates the private key in the c3-rsa.pem file
-# for public key from it run 'openssl rsa -in c3-rsa.pem -outform PEM -pubout -out public.pem'
-# Step 2: move the c3-rsa.pem file to a specific folder
-# Step 3: Log into C3, start jupyter service and in a cell update your users public key by
-# user = c3.User.get("mariuswiggert@berkeley.edu")
-# user = user.get("publicKey")
-# user.publicKey = "<public key from file>"
-# user.merge()
 
-KEYFILE = "setup/c3_keys/c3-rsa.pem"
-USERNAME = "mariuswiggert@berkeley.edu"
-
-
-# Getting C3 Object for data downloading #
-def get_c3(verbose: Optional[int] = 0):
-    """Helper function to get C3 object for access to the C3 Databases.
-    For now Jerome's access is hardcoded -> Need to change that!
+### Various Utils for Using Ray and the Azure Cluster ###
+def init_ray(**kwargs):
     """
-    with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
-        c3 = C3Python(
-            url="https://dev01-seaweed-control.c3dti.ai",
-            tenant="seaweed-control",
-            tag="dev01",
-            keyfile=KEYFILE,
-            username=USERNAME,
-        ).get_c3()
-    return c3
+    Initialises ray with a runtime environment.
+    Ray then sends the specified code directories to all cluster nodes.
+    Args:
+        **kwargs: to be passed to ray.init()
+    """
+    with timing("Code sent to ray nodes in {:.1f}s", verbose=1):
+        # Documentation:
+        # https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
+        # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
+        ray.init(
+            runtime_env={
+                "working_dir": ".",
+                "excludes": [
+                    ".git",
+                    "./generated_media",
+                    "./ocean_navigation_simulator",
+                    "./results",
+                    "./scripts",
+                ],
+                "py_modules": ["ocean_navigation_simulator"],
+                "env_vars": {"LOGLEVEL": "WARN"},
+            },
+            **kwargs,
+        )
+
+    print_ray_resources()
 
 
-# Various Utils for Using Ray and the Azure Cluster #
-def init_ray(mode="cluster"):
-    start = time.time()
-    # Documentation: https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
-    # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
-    ray.init(
-        address="ray://localhost:10001" if mode == "cluster" else "auto",
-        runtime_env={
-            "working_dir": ".",
-            "excludes": [
-                ".git",
-                "./generated_media",
-                "./ocean_navigation_simulator",
-                "./results",
-                "./scripts",
-            ],
-            "py_modules": ["ocean_navigation_simulator"],
-        },
-    )
-    print(f"Code sent to ray nodes in {time.time() - start:.1f}s")
-
-    # Note: if it breaks here it's because before it was == True and Flake8 didn't like it.
-    active_nodes = list(filter(lambda node: node["Alive"] == 1, ray.nodes()))
+def print_ray_resources():
+    """
+    Prints available nodes/cpus/gpus in the ray instance.
+    ray.init() has to be called first.
+    """
+    active_nodes = list(filter(lambda node: node["Alive"] is True, ray.nodes()))
     cpu_total = ray.cluster_resources()["CPU"] if "CPU" in ray.cluster_resources() else 0
     gpu_total = ray.cluster_resources()["GPU"] if "GPU" in ray.cluster_resources() else 0
     cpu_available = ray.available_resources()["CPU"] if "CPU" in ray.available_resources() else 0
     gpu_available = ray.available_resources()["GPU"] if "GPU" in ray.available_resources() else 0
+
     print(
         f"""This cluster consists of
     {len(active_nodes)} nodes in total
@@ -95,52 +70,25 @@ def init_ray(mode="cluster"):
     )
 
 
-def clean_results(
-    folder: str = "~/ray_results",
-    filter: str = "",
-    iteration_limit: Optional[int] = 2,
-    delete: Optional[bool] = True,
-    ignore_most_recent: Optional[int] = 1,
-    verbose: Optional[int] = 0,
-):
+def destroy_cluster():
     """
-    Ray clogs up the ~/ray_results directory by creating folders for every training start, even when
-    canceling after a few iterations. This script removes all short trainings in order to simplify
-    finding the important trainings in tensorboard. It however ignores the very last experiment,
-    since it could be still ongoing.
+    Shuts down the ray cluster. NOT WORKING YET.
     """
-    experiments = [
-        os.path.join(folder, file)
-        for file in os.listdir(folder)
-        if not file.startswith(".") and file.startswith(filter)
-    ]
-    experiments.sort(key=lambda x: os.path.getmtime(x))
-
-    for experiment in experiments[:-ignore_most_recent] if ignore_most_recent > 0 else experiments:
-        csv_file = experiment + "/progress.csv"
-        if os.path.isfile(csv_file):
-            with open(csv_file) as file:
-                row_count = sum(1 for line in file)
-                if row_count < iteration_limit:
-                    if delete:
-                        shutil.rmtree(experiment, ignore_errors=True)
-                    if verbose > 0:
-                        print(
-                            f"RayUtils.clean_ray_results: Delete {experiment} with {row_count} rows"
-                        )
-                else:
-                    if verbose > 0:
-                        print(
-                            f"RayUtils.clean_ray_results: Keep {experiment} with {row_count} rows"
-                        )
-        else:
-            if delete:
-                shutil.rmtree(experiment, ignore_errors=True)
-            if verbose > 0:
-                print(f"RayUtils.clean_ray_results: Delete {experiment} without progress.csv file")
+    os.system("ray down -y setup/ray-config.yaml")
 
 
 def run_command_on_all_nodes(command, resource_group="jerome-ray-cpu"):
+    """
+    Runs a command on all machines in the specified resourcegroup of our Azure Directory.
+    This allows to quickly install new dependencies without running
+    the whole installation script.
+    Example:
+        ray.init()
+        run_command_on_all_nodes('ls -la', 'your-resource-group')
+    :arg
+        command: the console command to run
+        resource-group: the resource group where the machines should be found
+    """
     vm_list = get_vm_list(resource_group)
     print("VM List fetched")
 
@@ -148,22 +96,52 @@ def run_command_on_all_nodes(command, resource_group="jerome-ray-cpu"):
 
     @ray.remote(num_cpus=0.1)
     def run_command_on_node(ip, command):
-        print(f"##### Starting Command on Node {ip}")
-        # node_start_time = time.time()
-        os.system(
-            f"ssh -o StrictHostKeyChecking=no -i ./setup/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'"
-        )
-        # node_time = time.time() - node_start_time
-        # print(f"## Node {ip} finished in {node_time / 60:.0f}min {node_time % 60:.0f}s.")
+        with timing(f"## Node {ip} finished in {{:.0f}}s."):
+            print(f"##### Starting Command ({command}) on Node {ip}")
+            os.system(
+                f"ssh -o StrictHostKeyChecking=no -i ~/.ssh/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'"
+            )
 
     ray.get([run_command_on_node.remote(vm["publicIps"], command) for vm in vm_list])
-    time.sleep(2)
+    print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
+
+
+def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-ray-cpu"):
+    """
+    Runs a command on all machines in the specified resourcegroup of our Azure Directory.
+    This allows to quickly install new dependencies without running
+    the whole installation script.
+    Example:
+        ray.init()
+        run_command_on_all_nodes('ls -la', 'your-resource-group')
+    :arg
+        command: the console command to run
+        resource-group: the resource group where the machines should be found
+    """
+    vm_list = get_vm_list(resource_group)
+    print("VM List fetched")
+
+    ray.init()
+
+    @ray.remote(num_cpus=0.1)
+    def run_command_on_node(ip, local_dir, remote_dir):
+        with timing(f"## Node {ip} finished in {{:.0f}}s."):
+            print(f"##### Copying directory ({local_dir}) to Node {ip}")
+            os.system(
+                f"scp -r -o StrictHostKeyChecking=no -i ~/.ssh/azure {local_dir} ubuntu@{ip}:{remote_dir}"
+            )
+
+    ray.get([run_command_on_node.remote(vm["publicIps"], local_dir, remote_dir) for vm in vm_list])
     print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
 
 
 def ensure_storage_connection():
+    """
+    Checks if the Azure storage is connected.
+    Tries to reconnect and throws an error if not possible.
+    """
     if not os.path.exists("/seaweed-storage/connected"):
-        os.system("bash -i setup/set_up_seaweed_storage.sh")
+        os.system("bash -i setup/cluster-jerome/set_up_seaweed_storage.sh")
 
     if not os.path.exists("/seaweed-storage/connected"):
         raise FileNotFoundError(
