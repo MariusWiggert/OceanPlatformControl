@@ -15,6 +15,11 @@ exclude = '''
     | build
     | dist
     | casadi        # Folder used by Mac m1 computers
+    | archive
+    | data
+    | models
+    | results
+
   )/
 '''
 
@@ -26,6 +31,26 @@ multi_line_output = 3
 include_trailing_comma = true
 conda_env = "ocean_platform"
 #virtual_env = "venv"
+exclude = '''
+/(
+      .eggs         # exclude a few common directories in the
+    | .git          # root of the project
+    | .hg
+    | .mypy_cache
+    | .tox
+    | venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | casadi        # Folder used by Mac m1 computers
+    | archive
+    | data
+    | models
+    | results
+
+  )/
+'''
 
 # Pytest
 [tool.pytest.ini_options]
