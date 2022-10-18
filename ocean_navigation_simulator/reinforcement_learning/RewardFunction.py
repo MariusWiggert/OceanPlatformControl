@@ -2,8 +2,9 @@ import abc
 from typing import Tuple
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 
 
 class RewardFunction(abc.ABC):
@@ -20,6 +21,6 @@ class RewardFunction(abc.ABC):
         prev_hc_obs: ArenaObservation,
         curr_hc_obs: ArenaObservation,
         problem: NavigationProblem,
-        problem_status: int
+        problem_status: int,
     ) -> float:
         pass

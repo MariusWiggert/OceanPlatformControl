@@ -1,11 +1,16 @@
-from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import WaypointTrackingController
+import bisect
+import math
+
 import numpy as np
-import math, bisect
+
+from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import (
+    WaypointTrackingController,
+)
 
 
 class simple_P_tracker(WaypointTrackingController):
-    """ Simple proportional controller:
-        Actuate full power toward the next waypoint.
+    """Simple proportional controller:
+    Actuate full power toward the next waypoint.
     """
 
     def __init__(self, traj_data=None):
@@ -20,15 +25,15 @@ class simple_P_tracker(WaypointTrackingController):
             self.waypoint_timings = None
 
     def get_next_waypoint(self, state):
-        """ Get the next waypoint to actuate towards.
+        """Get the next waypoint to actuate towards.
         Returns:
             lon, lat of waypoint that is ahead of the current time
         """
-        idx = bisect.bisect_right(self.waypoint_timings, state[3], hi=len(self.waypoints)-1)
+        idx = bisect.bisect_right(self.waypoint_timings, state[3], hi=len(self.waypoints) - 1)
         return self.waypoints[idx][0], self.waypoints[idx][1]
 
     def get_next_action(self, state, trajectory):
-        """ Returns (thrust, header) for the next timestep
+        """Returns (thrust, header) for the next timestep
         Args:
             state:
                 A four element list describing the current state, i.e. [[lon],[lat], [battery_level], [time]]. Note each
