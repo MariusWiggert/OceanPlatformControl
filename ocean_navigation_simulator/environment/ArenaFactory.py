@@ -1,9 +1,12 @@
 import datetime
 import os
+import shutil
 from typing import List, Optional
+from pathlib import Path
 
 import mergedeep
 import yaml
+import xarray as xr
 
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -15,15 +18,20 @@ from ocean_navigation_simulator.utils.misc import get_c3, timing
 
 # TODO: change to use loggers
 
-CORRUPTED_FILES = [
-    "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-05-14T12:30:00Z-2022-05-14T12:30:00Z-2022-05-23T23:30:00Z.nc"
-    "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-08-05T12:30:00Z-2022-08-05T12:30:00Z-2022-08-14T23:30:00Z.nc",
-]
+class OceanFileException(Exception):
+    def __repr__(self): return str(self)
 
+class MissingOceanFileException(OceanFileException):
+    pass
+
+class CoverageOceanFileException(OceanFileException):
+    pass
+
+class CorruptedOceanFileException(OceanFileException):
+    pass
 
 class ArenaFactory:
     """Factory to create an arena with specific settings and download the needed files from C3 storage."""
-
     @staticmethod
     def create(
         scenario_name: str = None,
@@ -34,10 +42,15 @@ class ArenaFactory:
         x_interval: Optional[List[units.Distance]] = None,
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
-        verbose: Optional[int] = 0,
+        verbose: Optional[int] = 10,
     ) -> Arena:
-        """If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files."""
-        with timing(f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{:.1f}}s)", verbose):
+        """
+            If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files.
+        """
+        with timing(
+            f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{:.1f}}s)",
+            verbose,
+        ):
             # Step 1: Load Configuration from file
             if scenario_file is not None:
                 with open(scenario_file) as f:
@@ -93,6 +106,7 @@ class ArenaFactory:
                             "folder"
                         ],
                         t_interval=t_interval,
+                        throw_exceptions=True,
                         points=points,
                         verbose=verbose,
                     )
@@ -113,6 +127,7 @@ class ArenaFactory:
                             "folder"
                         ],
                         t_interval=t_interval,
+                        throw_exceptions=True,
                         points=points,
                         verbose=verbose,
                     )
@@ -128,54 +143,110 @@ class ArenaFactory:
                 spatial_boundary=config["spatial_boundary"],
             )
 
+     # TODO: automatically select best region depending on given points
     @staticmethod
     def download_required_files(
         archive_source: str,
         archive_type: str,
         download_folder: str,
-        t_interval: Optional[List[datetime.datetime]] = [],
+        t_interval: List[datetime.datetime],
+        region: str = 'GOM',
         points: Optional[List[SpatialPoint]] = None,
-        verbose: Optional[int] = 0,
+        throw_exceptions: bool = False,
+        verbose: Optional[int] = 10,
     ) -> int:
+        """
+            helper function for thread-safe download of available current files from c3
+            Args:
+                archive_source: one of [HYCOM, Copernicus]
+                archive_type: one of [forecast, hindcast]
+                download_folder: path on disk to download the files e.g. /tmp/hycom_hindcast/
+                t_interval: List of datetime with length 2.
+                region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
+                points: List of SpatialPoints to check for file coverage
+                throw_exceptions: throw exceptions for missing or corrupted files
+                verbose: silence print statements with 0
+            Returns:
+                amount of files found
+            Examples:
+                ArenaFactory.download_required_files(
+                    archive_source='hycom',
+                    archive_type='forecast',
+                    download_folder='/tmp/copernicus_forecast/',
+                    t_interval=[datetime(year=2022, month=4, day=1), datetime(year=2022, month=4, day=10)]
+                )
+        """
         # Step 1: Find relevant files
         files = ArenaFactory.get_filelist(
             archive_source=archive_source,
             archive_type=archive_type,
+            region=region,
             t_interval=t_interval,
-            verbose=verbose,
         )
 
-        for f in files.objs:
-            if os.path.basename(f.file.contentLocation) in CORRUPTED_FILES:
-                raise ResourceWarning("Corrupted File found.")
-
         # Step 2: Check File Count
-        if files.count < (t_interval[1] - t_interval[0]).days + 1:
-            raise ResourceWarning(
-                f"{files.count} files in the database for t_0={t_interval[0]} and t_T={t_interval[1]}."
+        if throw_exceptions and files.count < (t_interval[1] - t_interval[0]).days + 1:
+            raise MissingOceanFileException(
+                "Only {count}/{expected} files in the database for t_0={t_0} and t_T={t_T}: {filenames}".format(
+                    count=files.count,
+                    expected=(t_interval[1] - t_interval[0]).days + 1,
+                    t_0=t_interval[0],
+                    t_T=t_interval[1],
+                    filenames=''.join([f'\n- {os.path.basename(f.file.contentLocation)}' for f in files.objs])
+                )
             )
 
         # Step 3: Check Basic Spatial Coverage
-        ArenaFactory.check_spacial_coverage(files, points)
+        ArenaFactory._check_spacial_coverage(files, points)
 
         # Step 4: Download files thread-safe
-        ArenaFactory.download_filelist(
-            files=files, download_folder=download_folder, verbose=verbose
+        ArenaFactory._download_filelist(
+            files=files, download_folder=download_folder, throw_exceptions=throw_exceptions, verbose=verbose
         )
 
         return files.count
 
     @staticmethod
     def get_filelist(
-        archive_source,
-        archive_type,
+        archive_source: str,
+        archive_type: str,
+        region: Optional[str] = 'GOM',
         t_interval: List[datetime.datetime] = None,
-        verbose: Optional[int] = 10,
+        verbose: Optional[int] = 10
     ):
-        c3 = get_c3(verbose - 1)
+        """
+            helper function to get a list of available files from c3
+            Args:
+                archive_source: one of [HYCOM, Copernicus]
+                archive_type: one of [forecast, hindcast]
+                region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
+                t_interval: List of datetime with length 2. None allows to search in all available times.
+                verbose: silence print statements with 0
+            Return:
+                c3.FetchResult where objs contains the actual files
+            Examples:
+                files = ArenaFactory.get_filelist('copernicus', 'forecast', 'Region 1')
+                files = ArenaFactory.get_filelist('copernicus', 'forecast', 'Region 2')
+                files = ArenaFactory.get_filelist('copernicus', 'forecast', 'GOM')
+                files = ArenaFactory.get_filelist('hycom', 'forecast', 'Region 2')
+                files = ArenaFactory.get_filelist('hycom', 'hindcast', 'Region 3')
+        """
+        # Step 1: Sanitize Inputs
+        if archive_source.lower() not in ['hycom', 'copernicus']:
+            raise ValueError(f"archive_source {archive_source} invalid choose from: hycom, copernicus.")
+        if archive_type.lower() not in ['forecast', 'hindcast']:
+            raise ValueError(f"archive_type {archive_type} invalid choose from: forecast, hindcast.")
+        if region not in ['GOM', 'Region 1', 'Region 2', 'Region 3', 'Region 4', 'Region 5', 'Region 6', 'Region 7']:
+            raise ValueError(f"Region {region} invalid.")
 
+        # Step 2: Find c3 type
+        c3 = get_c3(verbose-1)
+        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
+        c3_file_type = getattr(c3, f'{archive_source.capitalize()}{archive_types[archive_type.lower()]}File')
+
+        # Step 3: Execute Query
         if t_interval is not None:
-            # substracting 1 day is more safe in case the file doesnt start at midnightt (e.g. Copernicus)
+            # substracting 1 day is more safe in case the file doesn't start at midnight (e.g. Copernicus)
             start_min = f"{t_interval[0] - datetime.timedelta(days=1)}"
             start_max = f"{t_interval[1]}"
             time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
@@ -183,69 +254,16 @@ class ArenaFactory:
             # accepting t_interval = None allows to download the whole file list for analysis
             time_filter = ""
 
-        if archive_source == "HYCOM" and archive_type == "forecast":
-            archive_id = (
-                c3.HycomDataArchive.fetch(
-                    spec={"filter": 'description=="Full geo-spatial Hycom GOM: u,v at depth=4.0"'}
-                )
-                .objs[0]
-                .fmrcArchive.id
-            )
-            return c3.HycomFMRCFile.fetch(
-                spec={
-                    "filter": f'archive=="{archive_id}" && status == "downloaded"{time_filter}',
-                    "order": "ascending(subsetOptions.timeRange.start)",
-                }
-            )
-        elif archive_source == "HYCOM" and archive_type == "hindcast":
-            archive_id = (
-                c3.HycomDataArchive.fetch(
-                    spec={"filter": 'description=="Full geo-spatial Hycom GOM: u,v at depth=4.0"'}
-                )
-                .objs[0]
-                .hindcastArchive.id
-            )
-            return c3.HycomHindcastFile.fetch(
-                spec={
-                    "filter": f'archive=="{archive_id}" && status == "downloaded"{time_filter}',
-                    "order": "ascending(subsetOptions.timeRange.start)",
-                }
-            )
-        elif archive_source == "Copernicus" and archive_type == "forecast":
-            archive_id = (
-                c3.CopernicusDataArchive.fetch(
-                    spec={"filter": 'description=="Full GOM: utotal,vtotal at depth=0.49"'}
-                )
-                .objs[0]
-                .fmrcArchive.id
-            )
-            return c3.CopernicusFMRCFile.fetch(
-                spec={
-                    "filter": f'archive=="{archive_id}" && status == "downloaded"{time_filter}',
-                    "order": "ascending(subsetOptions.timeRange.start)",
-                }
-            )
-        elif archive_source == "Copernicus" and archive_type == "hindcast":
-            archive_id = (
-                c3.CopernicusDataArchive.fetch(
-                    spec={"filter": 'description=="Full GOM: utotal,vtotal at depth=0.49"'}
-                )
-                .objs[0]
-                .hindcastArchive.id
-            )
-            return c3.CopernicusHindcastFile.fetch(
-                spec={
-                    "filter": f'archive=="{archive_id}" && status == "downloaded"{time_filter}',
-                    "order": "ascending(subsetOptions.timeRange.start)",
-                }
-            )
-        else:
-            raise ValueError(
-                f"Combination of archive_source={archive_source} and archive_type={archive_type} is not available."
-            )
+        return c3_file_type.fetch(
+            spec={
+                "filter": f'contains(archive.description, "{region}") && status == "downloaded"{time_filter}',
+                "order": "ascending(subsetOptions.timeRange.start)",
+            }
+        )
 
     @staticmethod
-    def download_filelist(files, download_folder, verbose: Optional[int] = 0):
+    def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10):
+        """ thread-safe download with corruption and file size check """
         c3 = get_c3(verbose - 1)
 
         # Step 1: Download Files thread-safe with atomic os.replace
@@ -259,19 +277,31 @@ class ArenaFactory:
                 or os.path.getsize(download_folder + filename) != filesize
             ):
                 c3.Client.copyFilesToLocalClient(url, temp_folder)
+
+                if throw_exceptions:
+                    # check file size match
+                    if os.path.getsize(temp_folder + filename) != filesize:
+                        shutil.rmtree(temp_folder, ignore_errors=True)
+                        raise CorruptedOceanFileException(
+                            f"Incorrect file size ({filename}). Should be {filesize}B but is {os.path.getsize(download_folder + filename)}B."
+                        )
+                    # check valid xarray file
+                    try:
+                        xr.open_mfdataset(temp_folder + filename)
+                    except Exception:
+                        shutil.rmtree(temp_folder, ignore_errors=True)
+                        raise CorruptedOceanFileException(f"Corrupted file: {filename}).")
+
+                # Move thread-safe
                 os.replace(temp_folder + filename, download_folder + filename)
                 if verbose > 0:
                     print(f"File downloaded: {filename}, {filesize}")
             else:
-                os.system(f"sudo touch {download_folder}{filename}")
-            if os.path.getsize(download_folder + filename) != filesize:
-                raise Exception(
-                    f"Downloaded forecast file with incorrect file size. Should be {filesize}B but is {os.path.getsize(download_folder + filename)}B."
-                )
-        os.system(f"rm -rf {temp_folder}")
+                Path(download_folder + filename).touch()
+        shutil.rmtree(temp_folder, ignore_errors=True)
 
-        # Step 2: Only keep 100 most recent files to prevent full storage
-        KEEP = 100
+        # Step 2: Only keep most recent files to prevent full storage
+        KEEP = 100 # ~ 100 * 100MB = 10GB
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
@@ -281,9 +311,9 @@ class ArenaFactory:
             os.remove(file)
 
     @staticmethod
-    def check_spacial_coverage(files, points: List[SpatialPoint]):
+    def _check_spacial_coverage(files, points: List[SpatialPoint]):
         """
-        Helper function checking if points are in the spatial coverage of a file.
+        Helper function checking if all points are in the spatial coverage of a file.
         Returns True if yes and False if not.
         """
         if points is not None:
@@ -302,7 +332,7 @@ class ArenaFactory:
                     )
 
                     if not lon_covered or not lat_covered:
-                        raise ValueError(
+                        raise CoverageOceanFileException(
                             "The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
                                 point,
                                 spacial_coverage.start.longitude,

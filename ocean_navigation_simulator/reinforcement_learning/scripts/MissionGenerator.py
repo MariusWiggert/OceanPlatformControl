@@ -10,7 +10,7 @@ from matplotlib import patches
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
 )
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory, MissingOceanFileException, CorruptedOceanFileException
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -26,6 +26,8 @@ from ocean_navigation_simulator.utils.misc import bcolors, timing
 
 
 class MissionGenerator:
+    """A flexible class to generate missions"""
+
     def __init__(
         self,
         scenario_file: str,
@@ -83,7 +85,9 @@ class MissionGenerator:
 
     def generate_target(self) -> Union[PlatformState, bool]:
         """
-        Generates a goal in x_range/y_range/t_range and runs a backward hj planner.
+        Samples a target in x_range/y_range/t_range:
+        - ensures that there are enough healthy files available ein t_interval
+        - ensures that x_interval/y_interval
         """
         start = time.time()
 
@@ -118,26 +122,20 @@ class MissionGenerator:
                 x_interval=self.config["x_range"],
                 y_interval=self.config["y_range"],
                 t_interval=[start_state.date_time, target.date_time],
-                verbose=self.verbose - 1,
+                verbose=self.verbose-2,
             )
-        except ResourceWarning as e:
+        except MissingOceanFileException as e:
             if self.verbose > 0:
-                print(
-                    f"MissionGenerator: {bcolors.FAIL}Target aborted because of missing files.{bcolors.ENDC}"
-                )
-                print(
-                    f"x:{self.config['x_range']}, y:{self.config['y_range']}, t:{[start_state.date_time, target.date_time]}"
-                )
+                print(f"MissionGenerator: {bcolors.FAIL}Target aborted because of missing files ({time.time()-start:.1f}s).{bcolors.ENDC}")
+            if self.verbose > 1:
                 print(e)
             return False
-        except ValueError as e:
-            print(
-                f"MissionGenerator: {bcolors.FAIL}Target aborted because of corrupted files.{bcolors.ENDC}"
-            )
-            os.system("rm -rf /tmp/hycom_hindcast/")
-            os.system("rm -rf /tmp/copernicus_forecast/")
-            print(e)
-            return
+        except CorruptedOceanFileException as e:
+            if self.verbose > 0:
+                print(f"MissionGenerator: {bcolors.FAIL}Target aborted because of corrupted file: ({time.time()-start:.1f}s).{bcolors.ENDC}")
+            if self.verbose > 1:
+                print(e)
+            return False
 
         # Step 2: Reject if to close to land
         distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
@@ -146,11 +144,11 @@ class MissionGenerator:
         if distance_to_shore.deg < self.config["target_distance_from_land"]:
             if self.verbose > 0:
                 print(
-                    f"MissionGenerator: {bcolors.FAIL}Target aborted because too close to land ({distance_to_shore}).{bcolors.ENDC}"
+                    f"MissionGenerator: {bcolors.FAIL}Target {target.to_spatial_point()} aborted because too close to land: {distance_to_shore}  ({time.time()-start:.1f}s).{bcolors.ENDC}"
                 )
-                print(
-                    f"x:{self.config['x_range']}, y:{self.config['y_range']}, t:{[start_state.date_time, target.date_time]}"
-                )
+                # print(
+                #     f"x:{self.config['x_range']}, y:{self.config['y_range']}, t:{[start_state.date_time, target.date_time]}"
+                # )
             return False
 
         # # Step 3: Generate backward HJ Planner for this target
@@ -186,9 +184,9 @@ class MissionGenerator:
         # target.date_time = datetime.datetime.fromtimestamp(int(self.hindcast_planner.current_data_t_0+self.hindcast_planner.reach_times[-1]), tz=datetime.timezone.utc)
         # print(target.date_time)
 
-        if self.verbose > 1:
+        if self.verbose > 0:
             print(
-                f"MissionGenerator: {bcolors.OKGREEN}Target created ({time.time()-start:.1f}s) {target.to_spatio_temporal_point()}.{bcolors.ENDC}"
+                f"MissionGenerator: {bcolors.OKGREEN}Target created: {target.to_spatio_temporal_point()} ({time.time()-start:.1f}s).{bcolors.ENDC}"
             )
 
         return target
