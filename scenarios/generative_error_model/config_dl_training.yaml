@@ -55,5 +55,6 @@ dataset:
   hindcasts: "data/drifter_data/hindcasts_preprocessed"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
   sparse_type: "forecast"
+  area: ["area1", "area3"]
   shuffle: True
   len: 1000

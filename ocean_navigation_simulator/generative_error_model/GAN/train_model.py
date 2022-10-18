@@ -96,7 +96,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
             val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
                            size=val_target_size,
                            replace=False))
-            fixed_batch_size = 4 if target_len - prev_dataset_len - train_size - val_size > 4 else 1
+            fixed_batch_size = 4 if target_len - train_target_size - val_target_size > 4 else 1
             fixed_batch_idx.extend(np.array(range(train_size + val_size, train_size + val_size + fixed_batch_size)))
             test_size = length - train_size - val_size - fixed_batch_size
             test_target_size = target_len - train_target_size - val_target_size - fixed_batch_size

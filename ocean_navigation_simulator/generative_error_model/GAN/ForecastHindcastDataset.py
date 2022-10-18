@@ -56,7 +56,7 @@ class ForecastHindcastDataset(Dataset):
 
 
 class ForecastHindcastDatasetNpy(Dataset):
-    def __init__(self, fc_dir, hc_dir, areas=("all"), transform=None):
+    def __init__(self, fc_dir, hc_dir, areas=("area1"), transform=None):
         self.fc_dir = fc_dir
         self.hc_dir = hc_dir
         self.transform = transform
@@ -77,21 +77,18 @@ class ForecastHindcastDatasetNpy(Dataset):
             except:
                 raise ValueError("Specified area does not exist!")
 
+        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
+        self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.hc_file_paths]
+
     def __len__(self):
         return min(len(self.fc_file_paths), len(self.hc_file_paths)) * self.hours_in_file
 
     def __getitem__(self, idx):
-        # print(idx)
         file_idx = idx // self.hours_in_file
         time_step_idx = idx % self.hours_in_file
 
-        fc_file_path = self.fc_file_paths[file_idx]
-        fc_data = np.load(fc_file_path, allow_pickle=True)
-        fc_data = fc_data[time_step_idx].squeeze()
-
-        hc_file_path = self.hc_file_paths[file_idx]
-        hc_data = np.load(hc_file_path, allow_pickle=True)
-        hc_data = hc_data[time_step_idx].squeeze()
+        fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
+        hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
 
         return fc_data, hc_data
 
@@ -115,11 +112,9 @@ def test_xr():
 
 def test_npy():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
-    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts_preprocessed")
+    fc_dir = os.path.join("data/drifter_data/forecasts_preprocessed")
     hc_dir = os.path.join("data/drifter_data/hindcasts_preprocessed")
-    area = "area3"
-    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, area=area)
-    print(dataset.fc_file_paths[0])
+    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"])
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
