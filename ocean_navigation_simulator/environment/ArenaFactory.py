@@ -37,7 +37,7 @@ class ArenaFactory:
         verbose: Optional[int] = 0,
     ) -> Arena:
         """If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files."""
-        with timing(f"ArenaFactory: Creating Arena for {scenario_name} ({{:.1f}}s)", verbose):
+        with timing(f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{:.1f}}s)", verbose):
             # Step 1: Load Configuration from file
             if scenario_file is not None:
                 with open(scenario_file) as f:
@@ -151,7 +151,7 @@ class ArenaFactory:
                 raise ResourceWarning("Corrupted File found.")
 
         # Step 2: Check File Count
-        if files.count != (t_interval[1] - t_interval[0]).days + 1:
+        if files.count < (t_interval[1] - t_interval[0]).days + 1:
             raise ResourceWarning(
                 f"{files.count} files in the database for t_0={t_interval[0]} and t_T={t_interval[1]}."
             )

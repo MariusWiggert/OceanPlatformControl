@@ -23,6 +23,7 @@ ocean_dict:
             folder: "/tmp/hycom_hindcast/"
             source: "HYCOM"
             type: "hindcast"
+            currents: 'total'
     forecast:
         null
 
