@@ -7,6 +7,13 @@ from ocean_navigation_simulator.environment.NavigationProblem import NavigationP
 
 
 class FileProblemFactory(ProblemFactory):
+    """
+     FileProblemFactory loads Problems from a csv file:
+        - where only certain indiices can be selected
+        - indices can be excluded
+        - a seed can be passed for reproducability
+        - a limit can be se on how many problems to return
+    """
     def __init__(
             self,
             csv_file,

@@ -19,7 +19,7 @@ script_start_time = time.time()
 cluster_utils.init_ray()
 
 runner = GenerationRunner(
-    name='verification_10000_problems',
+    name='divers_training',
     config={
         'scenario_file': 'config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
         'generation_folder': '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast',
@@ -36,7 +36,7 @@ runner = GenerationRunner(
         # 1 batch @ 1 machine: 9min 47s -> 100 batches / 10min -> 600 batches / 1h -> 10'000 batches / 16.6h
         # 96 Batches = 8.5GB -> 5'000 batches = 442GB
         'size': {
-            'groups': 100,
+            'groups': 1,
             'batches_per_group': 100,
             'batch_size': 1,
         },
@@ -50,8 +50,8 @@ runner = GenerationRunner(
                 "Worker CPU": 1.0,
             }
         },
-        'problem_factory_config': {
-            'x_range': [units.Distance(deg=-92.5), units.Distance(deg=-89.5)],
+        'mission_generation': {
+            'x_range': [units.Distance(deg=-98), units.Distance(deg=-89.5)],
             'y_range': [units.Distance(deg=23.5), units.Distance(deg=26.5)],
             't_range': [
                 datetime.datetime(year=2022, month=6, day=1, tzinfo=datetime.timezone.utc),

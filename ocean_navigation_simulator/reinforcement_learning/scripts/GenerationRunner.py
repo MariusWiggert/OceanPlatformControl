@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.problem_factories.ShortMissionProblemFactory import ShortMissionProblemFactory
+from ocean_navigation_simulator.reinforcement_learning.scripts.MissionGenerator import MissionGenerator
 from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils.misc import get_process_information_dict
 
@@ -38,11 +38,13 @@ class GenerationRunner:
         self.config = config
         self.verbose = verbose
 
+        print(f'GenerationRunner: Generating {config["size"]["groups"] * config["size"]["batches_per_group"]} batches in {config["size"]["groups"]} groups')
+
         # Step 1: Prepare Paths & Save configuration
-        cluster_utils.ensure_storage_connection()
         self.timestring = datetime.datetime.now(tz=pytz.timezone('US/Pacific')).strftime("%Y_%m_%d_%H_%M_%S")
         self.results_folder = f'{config["generation_folder"]}/{self.name}_{self.timestring}/'
         self.config['results_folder'] = self.results_folder
+        cluster_utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(f'{self.results_folder}config/')
         with open(f'{self.results_folder}config/config.pickle', 'wb') as f:
@@ -51,8 +53,6 @@ class GenerationRunner:
             pprint.pprint(self.config, stream=f)
 
         # Step 2: Run Generation with Ray
-        if verbose > 0:
-            print(f'GenerationRunner: Generating {config["size"]["groups"] * config["size"]["batches_per_group"]} batches in {config["size"]["groups"]} groups')
         self.ray_results = ray.get([self.generate_batch_ray.options(
             num_cpus=config["ray_options"]['resources']['CPU'],
             num_gpus=config["ray_options"]['resources']['GPU'],
@@ -61,7 +61,7 @@ class GenerationRunner:
         ).remote(
             results_folder=self.results_folder,
             scenario_file=config["scenario_file"],
-            problem_factory_config=config["problem_factory_config"],
+            mission_generation_config=config["mission_generation"],
             group=int(batch // config["size"]["batches_per_group"]),
             batch=batch,
             batch_size=config["size"]["batch_size"],
@@ -86,7 +86,7 @@ class GenerationRunner:
     def generate_batch_ray(
         results_folder: str,
         scenario_file: str,
-        problem_factory_config: dict,
+        mission_generation_config: dict,
         group: int,
         batch: int,
         batch_size: int,
@@ -96,10 +96,6 @@ class GenerationRunner:
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # FATAL
         logging.getLogger('tensorflow').setLevel(logging.FATAL)
         logging.getLogger('absl').setLevel(logging.FATAL)
-        # Suppress GRPC warnings (not yet working):
-        # https://github.com/grpc/grpc/blob/master/doc/environment_variables.md
-        os.environ['GRPC_VERBOSITY'] = 'None' # One of: DEBUG, INFO, ERROR, NONE
-        logging.getLogger('chttp2_transport.cc').setLevel(logging.FATAL)
 
         try:
             batch_start_time = time.time()
@@ -110,16 +106,16 @@ class GenerationRunner:
 
             # Step 1: Generate Batch
             generate_start = time.time()
-            problem_factory = ShortMissionProblemFactory(
+            problem_factory = MissionGenerator(
                 scenario_file=scenario_file,
-                config={'seed': batch} | problem_factory_config,
+                config={'seed': batch} | mission_generation_config,
                 verbose=verbose-1,
             )
             problems = problem_factory.generate_batch(batch_size)
             generate_time = time.time()-generate_start
 
             # Step 2: Plot Batch
-            if problem_factory_config['plot_batch']:
+            if mission_generation_config['plot_batch']:
                 plot_start = time.time()
                 cluster_utils.ensure_storage_connection()
                 os.makedirs(batch_folder, exist_ok = True)
@@ -195,7 +191,5 @@ class GenerationRunner:
         plt.figure(figsize=(12, 12))
         plt.scatter(target_df['x_T_lon'], target_df['x_T_lat'], c='green', marker='x', label='target')
         plt.scatter(problems_df['x_0_lon'], problems_df['x_0_lat'], c='red', marker='o', label='start')
-        planner = HJReach2DPlanner.from_plan(folder=f'{results_folder}/groups/group_0/batch_0/hindcast_planner/', problem=NavigationProblem.from_pandas_row(problems_df.iloc[0]))
-        planner.plot_hj_frame(plt.gca())
         plt.savefig(f'{analysis_folder}starts_and_targets.png')
         plt.show()
