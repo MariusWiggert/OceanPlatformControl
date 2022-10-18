@@ -2,6 +2,7 @@ import bisect
 import math
 
 import numpy as np
+
 from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import (
     WaypointTrackingController,
 )

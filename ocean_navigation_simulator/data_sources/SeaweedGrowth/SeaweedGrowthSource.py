@@ -23,7 +23,6 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 from ocean_navigation_simulator.utils import units
 
-
 # TODO: Automatically handle re-initialization of the F_NGR_per_second casadi function when the solar_rad_casadi
 # in the solar_source is updated (e.g. because of caching). Needs to happen either in Arena or Platform.
 # => this works now without issues when we use a non-caching SolarIrradianceSource e.g. AnalyticalSolarIrradiance

@@ -30,7 +30,6 @@ from ocean_navigation_simulator.utils.units import (
     get_posix_time_from_np64,
 )
 
-
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
 # The fill with 0 could also be done in the HJ Planner, then we don't need to save the land grid anywhere.
 # => Land checking speed test with the mask in the data vs. with polygon checking

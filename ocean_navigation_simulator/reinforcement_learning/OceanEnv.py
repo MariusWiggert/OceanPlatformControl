@@ -12,11 +12,11 @@ import numpy as np
 import psutil
 import torch
 
-from ocean_navigation_simulator.controllers.NaiveController import (
-    NaiveController,
-)
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
+)
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformAction

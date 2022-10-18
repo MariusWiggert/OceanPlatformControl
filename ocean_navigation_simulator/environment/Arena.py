@@ -7,15 +7,7 @@ import datetime as dt
 import logging
 import os
 import time
-from typing import (
-    AnyStr,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Union,
-)
+from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
 import matplotlib
 import numpy as np
@@ -57,7 +49,6 @@ from ocean_navigation_simulator.utils.plotting_utils import (
     get_lon_lat_time_interval_from_trajectory,
 )
 from ocean_navigation_simulator.utils.units import format_datetime_x_axis
-
 
 # TODO: discuss why spatial_boundary dictionary?
 #       -> JJ: spatial boundary is used for analytical currents and cached hj planner

@@ -4,10 +4,10 @@ from functools import partial
 
 import jax.numpy as jnp
 import numpy as np
-from ocean_navigation_simulator.planners import HJReach2DPlanner
 
 import hj_reachability as hj
 import ocean_navigation_simulator
+from ocean_navigation_simulator.planners import HJReach2DPlanner
 
 
 def check_feasibility_2D_w_sim(

@@ -9,9 +9,8 @@ from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import Kernel
 
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
-	OceanCurrentModel,
+    OceanCurrentModel,
 )
-
 
 # TODO: change to use loggers
 

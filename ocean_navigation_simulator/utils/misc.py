@@ -10,7 +10,6 @@ import pynvml
 import requests
 from c3python import C3Python
 
-
 ## How to get c3 Keyfile set up
 # Step 1:   generate the public and private keys locally on your computer
 #           in terminal run 'openssl genrsa -out c3-rsa.pem 2048' -> this generates the private key in the c3-rsa.pem file

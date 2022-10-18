@@ -7,8 +7,8 @@ import contextlib
 import datetime as datetime
 import time
 import typing
-from typing import Optional
 from math import floor, log10
+from typing import Optional
 
 import matplotlib
 import matplotlib.pyplot as plt

@@ -9,7 +9,6 @@ import requests
 
 from ocean_navigation_simulator.utils.misc import timing
 
-
 # 1.    ray up setup/ray-config.yaml
 #       ray up --restart-only setup/ray-config.yaml
 #       ray dashboard setup/ray-config.yaml

@@ -17,7 +17,6 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 
-
 # TODO: How does the direction connection of the analytical function into HJ Planner work? Is it even desirable?
 # -> it's possible but I would have to give up passing OceanCurrentVectors around but rather the numbers directly.
 
