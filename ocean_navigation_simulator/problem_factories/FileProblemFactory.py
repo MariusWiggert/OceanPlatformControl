@@ -8,19 +8,20 @@ from ocean_navigation_simulator.environment.NavigationProblem import NavigationP
 
 class FileProblemFactory(ProblemFactory):
     """
-     FileProblemFactory loads Problems from a csv file:
-        - where only certain indiices can be selected
-        - indices can be excluded
-        - a seed can be passed for reproducability
-        - a limit can be se on how many problems to return
+    FileProblemFactory loads Problems from a csv file:
+       - where only certain indiices can be selected
+       - indices can be excluded
+       - a seed can be passed for reproducability
+       - a limit can be se on how many problems to return
     """
+
     def __init__(
-            self,
-            csv_file,
-            indices: Optional[List] = None,
-            limit: Optional[int] = None,
-            exclude: Optional[List] = None,
-            seed: Optional[int] = None,
+        self,
+        csv_file,
+        indices: Optional[List] = None,
+        limit: Optional[int] = None,
+        exclude: Optional[List] = None,
+        seed: Optional[int] = None,
     ):
         self.csv_file = csv_file
         self.indices = indices
@@ -35,7 +36,7 @@ class FileProblemFactory(ProblemFactory):
     def has_problems_remaining(self) -> bool:
         return len(self.indexes_available) > 0
 
-    def get_problem_list(self, n = None) -> [NavigationProblem]:
+    def get_problem_list(self, n=None) -> [NavigationProblem]:
         if n is None:
             return [self.next_problem() for _ in range(len(self.indexes_available))]
         else:
@@ -61,7 +62,7 @@ class FileProblemFactory(ProblemFactory):
                 available = [i for i in available if i not in self.exclude]
 
             if self.limit is not None:
-                available = available[:self.limit]
+                available = available[: self.limit]
 
             if self.seed is not None:
                 random = np.random.default_rng(self.seed)
@@ -78,5 +79,3 @@ class FileProblemFactory(ProblemFactory):
         problems_df = pd.read_csv(csv_file, index_col=0)
         all_indices = random.permutation(problems_df.shape[0] - leave)
         return [i.tolist() for i in np.array_split(all_indices, split)]
-
-

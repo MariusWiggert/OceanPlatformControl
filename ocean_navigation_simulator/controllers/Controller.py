@@ -25,7 +25,7 @@ class Controller(abc.ABC):
         self.problem = problem
         # initialize logger
         self.logger = logging.getLogger("arena.controller")
-        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:

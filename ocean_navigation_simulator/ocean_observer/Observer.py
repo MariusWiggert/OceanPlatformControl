@@ -17,6 +17,7 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
 
 # TODO: change to use loggers
 
+
 class Observer:
     """Class that represent the observer. It will receive observations and is then responsible to return predictions for
     the given areas.
@@ -34,7 +35,9 @@ class Observer:
         self.forecast_data_source = None
 
     @staticmethod
-    def instantiate_model_from_dict(source_dict: Dict[str, Any], verbose: Optional[int] = 10) -> OceanCurrentModel:
+    def instantiate_model_from_dict(
+        source_dict: Dict[str, Any], verbose: Optional[int] = 10
+    ) -> OceanCurrentModel:
         """Helper function to instantiate an OceanCurrentSource object from the dict
         Args:
             source_dict: dictionary that contains the model type and its parameters.
@@ -45,7 +48,7 @@ class Observer:
              Value error if the model selected with source_dict is not supported (yet).
         """
         if "gaussian_process" in source_dict:
-            return OceanCurrentGP(source_dict["gaussian_process"], verbose=verbose-1)
+            return OceanCurrentGP(source_dict["gaussian_process"], verbose=verbose - 1)
 
         raise ValueError(
             f"Selected model: {source_dict} in the OceanCurrentModel is not implemented."

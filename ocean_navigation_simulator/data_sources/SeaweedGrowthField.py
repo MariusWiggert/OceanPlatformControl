@@ -2,17 +2,25 @@ import os
 from typing import Optional, Dict
 import logging
 from ocean_navigation_simulator.data_sources.DataField import DataField
-from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthGEOMAR, SeaweedGrowthSource
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
+    SeaweedGrowthGEOMAR,
+    SeaweedGrowthSource,
+)
 
 
 class SeaweedGrowthField(DataField):
-    """Class instantiating and holding the Seaweed Growth data sources, the forecast and hindcast sources.
-  """
+    """Class instantiating and holding the Seaweed Growth data sources, the forecast and hindcast sources."""
+
     hindcast_data_source: SeaweedGrowthSource = None
     forecast_data_source: SeaweedGrowthSource = None
 
-    def __init__(self, casadi_cache_dict: Dict, hindcast_source_dict: Dict, forecast_source_dict: Optional[Dict] = None,
-                 use_geographic_coordinate_system: Optional[bool] = True):
+    def __init__(
+        self,
+        casadi_cache_dict: Dict,
+        hindcast_source_dict: Dict,
+        forecast_source_dict: Optional[Dict] = None,
+        use_geographic_coordinate_system: Optional[bool] = True,
+    ):
         """Initialize the source objects from the respective settings dicts.
         Args:
           casadi_cache_dict: containing the cache settings to use in the sources for caching of 3D data
@@ -27,20 +35,22 @@ class SeaweedGrowthField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.seaweed_growth_field")
-        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
-        super().__init__(casadi_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        super().__init__(
+            casadi_cache_dict,
+            hindcast_source_dict,
+            forecast_source_dict,
+            use_geographic_coordinate_system,
+        )
 
     @staticmethod
     def instantiate_source_from_dict(source_dict: dict):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
-        if source_dict['source'] == 'GEOMAR':
+        if source_dict["source"] == "GEOMAR":
             return SeaweedGrowthGEOMAR(source_dict)
         else:
-            raise NotImplementedError("Selected source {} in the SeaweedGrowthSource dict is not implemented.".format(
-                source_dict['source']))
-
-
-
-
-
-
+            raise NotImplementedError(
+                "Selected source {} in the SeaweedGrowthSource dict is not implemented.".format(
+                    source_dict["source"]
+                )
+            )

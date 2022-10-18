@@ -21,7 +21,9 @@ class SpatialPoint:
     lat: units.Distance
 
     def distance(self, other) -> units.Distance:
-        return units.Distance(deg=math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2))
+        return units.Distance(
+            deg=math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
+        )
 
     def haversine(self, other) -> units.Distance:
         """
@@ -29,7 +31,11 @@ class SpatialPoint:
         on the earth (specified in decimal degrees)
         Taken from: https://stackoverflow.com/a/4913653
         """
-        return units.Distance(rad=units.haversine_rad_from_deg(self.lon.deg, self.lat.deg, other.lon.deg, other.lat.deg))
+        return units.Distance(
+            rad=units.haversine_rad_from_deg(
+                self.lon.deg, self.lat.deg, other.lon.deg, other.lat.deg
+            )
+        )
 
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])

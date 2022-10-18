@@ -2,15 +2,20 @@ import os
 from typing import Optional, Dict
 import logging
 from ocean_navigation_simulator.data_sources.DataField import DataField
-from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import \
-    HindcastFileSource, HindcastOpendapSource, ForecastFileSource
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
+    OceanCurrentSource,
+)
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
+    HindcastFileSource,
+    HindcastOpendapSource,
+    ForecastFileSource,
+)
 import ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
 
 
 class OceanCurrentField(DataField):
-    """Class instantiating and holding the data sources, the forecast and hindcast current sources.
-  """
+    """Class instantiating and holding the data sources, the forecast and hindcast current sources."""
+
     hindcast_data_source: OceanCurrentSource = None
     forecast_data_source: OceanCurrentSource = None
 
@@ -36,23 +41,34 @@ class OceanCurrentField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field")
-        self.logger.setLevel(os.environ.get('LOGLEVEL', 'INFO').upper())
-        super().__init__(casadi_cache_dict, hindcast_source_dict, forecast_source_dict, use_geographic_coordinate_system)
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        super().__init__(
+            casadi_cache_dict,
+            hindcast_source_dict,
+            forecast_source_dict,
+            use_geographic_coordinate_system,
+        )
 
     @staticmethod
     def instantiate_source_from_dict(source_dict: Dict) -> OceanCurrentSource:
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
-        if source_dict['source'] == 'opendap':
+        if source_dict["source"] == "opendap":
             return HindcastOpendapSource(source_dict)
-        elif source_dict['source'] == 'hindcast_files':
+        elif source_dict["source"] == "hindcast_files":
             return HindcastFileSource(source_dict)
-        elif source_dict['source'] == 'forecast_files':
+        elif source_dict["source"] == "forecast_files":
             return ForecastFileSource(source_dict)
-        elif source_dict['source'] == 'analytical':
-            specific_analytical_current = getattr(AnalyticalSources, source_dict['source_settings']['name'])
+        elif source_dict["source"] == "analytical":
+            specific_analytical_current = getattr(
+                AnalyticalSources, source_dict["source_settings"]["name"]
+            )
             return specific_analytical_current(source_dict)
         else:
-            raise ValueError("Selected source {} in the OceanCurrentSource dict is not implemented.". format(source_dict['source']))
+            raise ValueError(
+                "Selected source {} in the OceanCurrentSource dict is not implemented.".format(
+                    source_dict["source"]
+                )
+            )
 
     def __del__(self):
         # print('__del__ called in OceanCurrentField')

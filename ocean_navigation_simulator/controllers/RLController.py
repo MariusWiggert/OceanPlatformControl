@@ -6,7 +6,9 @@ from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation, Arena
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import OceanFeatureConstructor
+from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import (
+    OceanFeatureConstructor,
+)
 from ocean_navigation_simulator.utils import cluster_utils
 
 
@@ -15,6 +17,7 @@ class RLController(Controller):
     RL-based Controller using a pre-trained rllib policy. It needs access to arena to modify
     the observation with the data source needed by HJ Planner.
     """
+
     def __init__(
         self,
         config: dict,
@@ -38,20 +41,20 @@ class RLController(Controller):
         # Step 3: Create Feature Constructor
         self.hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
             folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
-            problem=self.problem
+            problem=self.problem,
         )
         self.forecast_planner = HJReach2DPlanner.from_saved_planner_state(
             folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
             problem=self.problem,
             specific_settings={
-                'load_plan': True,
-                'planner_path': f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
-            }
+                "load_plan": True,
+                "planner_path": f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
+            },
         )
         self.feature_constructor = OceanFeatureConstructor(
             forecast_planner=self.forecast_planner,
             hindcast_planner=self.hindcast_planner,
-            config=self.experiment_config['feature_constructor']
+            config=self.experiment_config["feature_constructor"],
         )
 
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
