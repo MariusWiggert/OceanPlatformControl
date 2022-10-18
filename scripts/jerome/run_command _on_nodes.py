@@ -62,7 +62,9 @@ script_start_time = time.time()
 #     "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"
 # )
 
-cluster_utils.run_command_on_all_nodes('./OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh')
+cluster_utils.run_command_on_all_nodes(
+    "./OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh"
+)
 
 
 # cluster_utils.run_command_on_all_nodes('chmod ')

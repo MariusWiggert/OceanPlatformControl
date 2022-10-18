@@ -3,11 +3,11 @@ import pickle
 import warnings
 from typing import Optional, Union
 
+import hj_reachability as hj
 import jax.numpy as jnp
 import numpy as np
 import xarray as xr
 
-import hj_reachability as hj
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
     HJPlannerBase,
 )
@@ -114,7 +114,7 @@ class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
         # initialize Planner superclass
         super().__init__(problem, specific_settings, conv_m_to_deg)
         # check if EVM_threshold is set
-        if not "EVM_threshold" in self.specific_settings:
+        if "EVM_threshold" not in self.specific_settings:
             raise ValueError("EVM_threshold is not set, needs to be in specific_settings.")
 
     def get_next_action(self, state, trajectory):

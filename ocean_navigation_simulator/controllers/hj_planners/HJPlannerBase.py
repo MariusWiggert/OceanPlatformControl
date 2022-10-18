@@ -8,6 +8,9 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
 
+# Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
+# sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
+import hj_reachability as hj
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,9 +18,6 @@ import scipy
 import xarray as xr
 from scipy.interpolate import interp1d
 
-# Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
-# sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
-import hj_reachability as hj
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
@@ -291,7 +291,7 @@ class HJPlannerBase(Controller):
                     times=self.reach_times,
                     all_values=self.all_values,
                 )
-            except:
+            except BaseException:
                 print(f"self.last_fmrc_time_planned_with: {self.last_fmrc_time_planned_with}")
                 print(f"rel_time: {rel_time:.0f}")
                 print(f"self.reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]")
@@ -514,7 +514,9 @@ class HJPlannerBase(Controller):
             # set the postprocessor to be fed into solver_settings
             hamiltonian_postprocessor = p_multi_reach_step
         else:  # make the postprocessor the identity
-            hamiltonian_postprocessor = lambda *x: x[-1]
+
+            def hamiltonian_postprocessor(value):
+                return value
 
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(
@@ -1100,9 +1102,9 @@ class HJPlannerBase(Controller):
                 .reshape((width, width))
                 .squeeze()
             )
-        except:
+        except BaseException:
             print(
-                f"Requested:",
+                "Requested:",
                 f"  out_t: {out_t:.0f}",
                 f"  out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]",
                 f"  out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]",

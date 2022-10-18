@@ -54,11 +54,14 @@ class C3Downloader:
             if data_archive.objs[i].name is None:
                 name = "GoM"
             names.append(name)
-        conversion = lambda x: x or ""
+
+        def conversion(x):
+            return x or ""
+
         try:
             region_name = [name for name in names if region in conversion(name)]
             idx = names.index(region_name[0])
-        except:
+        except BaseException:
             raise ValueError(
                 f"Specified region name '{region}' is not a {source} {type_of_data.capitalize()} Data Archive!"
             )
