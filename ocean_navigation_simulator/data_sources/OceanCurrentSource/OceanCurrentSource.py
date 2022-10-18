@@ -158,7 +158,10 @@ class OceanCurrentSource(DataSource):
         )
         lon2, lat2 = np.meshgrid(self.grid_dict['x_grid'], self.grid_dict['y_grid'])
 
-        return units.Distance(rad=np.vectorize(units.haversine_rad_from_deg)(lon1, lat1, lon2, lat2).min())
+        distances = np.vectorize(units.haversine_rad_from_deg)(lon1, lat1, lon2, lat2)
+        land_distances = np.where(self.grid_dict['spatial_land_mask'], distances, np.inf)
+
+        return units.Distance(rad=land_distances.min())
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
