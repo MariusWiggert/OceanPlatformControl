@@ -1,100 +1,76 @@
 ---
 arguments_model_runner:
   yaml_file_datasets: "config_neural_net"
-  batch_size: 4 #128 #64 #16 #32
-  model_type: "mlp"
-  folder_figure: "./figures/"
-  #  max_batches_training_set: 2000
-  #  max_batches_validation_set: 1000
-  max_batches_training_set: -1
+  batch_size: 128
   validation_batch_size: 1000
-  max_batches_validation_set: -1
+  model_type: "cnn"
   log_interval: 1
-  lr: 0.002
-  epochs: 80  #50
-  lambda_physical_loss: 0 #0.25 #0.3
+  lr: 0.0001 #0.0003
+  epochs: 200
+  folder_figure: "./figures/"
+  max_batches_training_set: 2000
+  max_batches_validation_set: 500
   optimizer:
     name: "Adam"
     parameters:
       betas: [ 0.95, 0.9995 ]
-      eps: 0.01
-      weight_decay: 0.0001
+      eps: 0.000001
+      weight_decay: 0.0003 #0.0010 #0.005 # instead of 0.02 #0.15
   scheduler:
     name: "ReduceLROnPlateau"
     parameters:
       mode: 'min'
       factor: 0.2
-      patience: 3
+      patience: 7
       threshold: 0.005
-
 arguments_script_convert_data:
-  model_type: "mlp"
+  yaml_file_datasets: "config_neural_net"
 model:
-  model_error: true
   cfg_neural_network:
-    input_dim: 6250 # big tile: 1 deg: 25x25x 2 currents x5 tiles
-    #output_layers_dims: [ 12500, 25000, 12500, 2500, 2500, 1250 ]
-    output_layers_dims: [ 1250, 1250, 250, 1250 ]
-    #      - 11520
-    #      - 23160
-    #      - 11520
-    #      - 2916
-    #      - 2916
-    #      - 1152
-
-    batch_norm_layers:
-      - -1
-      - -1
-      - -1
-      - -1
-    output_shape:
-      - 2
-      - 1
-      - 25
-      - 25
-    dropout_layers:
-      - 0.8
-      - 0.8
-      - 0.8
-      - 0
+    ch_sz: [ 2, 32, 64, 128, 192 ]
+    activation: "relu"
+    downsizing_method: "conv"
+    dropout_encoder: 0.1
+    dropout_bottom: 0.4
+    dropout_decoder: 0.3
+    output_paddings: [ [ 1,0,0 ],[ 3,0,0 ],[ 1,0,0 ] ]
   cfg_dataset:
     radius_lon: 1
     radius_lat: 1
     margin_forecast: 0.1
-    stride_tiles_dataset: 0.2 #in degree
-    time_horizon_input_h: 5
-    time_horizon_output_h: 1
-    stride_time_dataset_h: 1
+    stride_tiles_dataset: 1
+    time_horizon_input_h: 12
+    time_horizon_output_h: 12
+    stride_time_dataset_h: 6
     input_shape:
       - 2
-      - 5
+      - 12
       - 25
       - 25
     output_shape:
       - 2
-      - 1
+      - 12
       - 25
       - 25
     index_axis_time: 2
+  model_error: false
 data_generation:
   parameters_input:
     start_training: '2022-05-03T12:30:01Z'
     duration_training_in_h: 720 #24 * 30
     start_validation: '2022-08-25T12:30:01Z'
     duration_validation_in_h: 504 # 21 * 24
-    input_tile_dims: [ 25, 25, 5 ]
+    input_tile_dims: [ 25, 25, 12 ]
     window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
     # if window shift = 0: input= [x{t}...x{t+4}]
-    output_tile_dims: [ 25, 25, 1 ]
+    output_tile_dims: [ 25, 25, 12 ]
     size_per_file_in_mb: 2000
-    #folder_training: "./data_ablation_study/training_small_ds_big_tile/"
-    folder_training: "./data_ablation_study/training_big_ds_CNN_big_tile/"
+    folder_training: "./data_ablation_study/training_small_ds_CNN_big_tile/"
     shuffle_training: True
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
-    folder_validation: "./data_ablation_study/validation_big_ds_CNN_big_tile/"
+    folder_validation: "./data_ablation_study/validation_small_ds_CNN_big_tile/"
     shuffle_validation: False
-    #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
-    #folder_validation: "./data_NN/data_validation_exported/"
+
 config_neural_net:
   training:
     hindcast:
@@ -104,7 +80,6 @@ config_neural_net:
         #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
         #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
         #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
-        #'folder': 'data/april_may_data/hindcast_hycom_april/'
         'folder':
           - 'data_ablation_study/hc/april/'
           - 'data_ablation_study/hc/may/'
@@ -117,6 +92,8 @@ config_neural_net:
       field: 'OceanCurrents'
       source: 'forecast_files'
       source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
         'folder':
           - 'data_ablation_study/fc/april/'
           - 'data_ablation_study/fc/may/'
@@ -124,6 +101,7 @@ config_neural_net:
           - 'data_ablation_study/fc/july/'
           - 'data_ablation_study/fc/august/'
           - 'data_ablation_study/fc/september/'
+        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
         'currents': 'total'
   validation:
     hindcast:
@@ -133,23 +111,25 @@ config_neural_net:
         #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
         #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
         #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
-        #'folder': 'data/april_may_data/hindcast_hycom_april/'
         'folder':
           #          - 'data_ablation_study/hc/april/'
-          #- 'data_ablation_study/hc/may/'
-          #          - 'data_ablation_study/hc/june/'
-          #          - 'data_ablation_study/hc/july/'
+          - 'data_ablation_study/hc/may/'
+          - 'data_ablation_study/hc/june/'
+          - 'data_ablation_study/hc/july/'
           - 'data_ablation_study/hc/august/'
           - 'data_ablation_study/hc/september/'
+      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
     forecast:
       field: 'OceanCurrents'
       source: 'forecast_files'
       source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
         'folder':
           #          - 'data_ablation_study/fc/april/'
-          # - 'data_ablation_study/fc/may/'
-          #          - 'data_ablation_study/fc/june/'
-          #          - 'data_ablation_study/fc/july/'
+          - 'data_ablation_study/fc/may/'
+          - 'data_ablation_study/fc/june/'
+          - 'data_ablation_study/fc/july/'
           - 'data_ablation_study/fc/august/'
           - 'data_ablation_study/fc/september/'
         'currents': 'total'

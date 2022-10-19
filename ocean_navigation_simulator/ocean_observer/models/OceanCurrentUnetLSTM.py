@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+from typing import List
+
 import torch
 import torch.nn as nn
 
@@ -9,7 +11,7 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsRNN import Oc
 class OceanCurrentUnetLSTM(nn.Module):
     dim_currents, dim_time = 1, 2
 
-    def __init__(self, ch_sz: list[int], device: str = 'cpu', init_weights_value: float = 0.01, activation="relu",
+    def __init__(self, ch_sz: List[int], device: str = 'cpu', init_weights_value: float = 0.01, activation="relu",
                  downsizing_method="conv", lstm_hidden=24):
         super(OceanCurrentUnetLSTM, self).__init__()
         self.init_weights_value = init_weights_value

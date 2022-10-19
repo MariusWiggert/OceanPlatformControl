@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 
 plot_fixed = True
 metric_to_plot = 'r2'
-path = "ablation_study/export_all_results_testing_set/"
+path = "ablation_study/export_all_results_validation_set/"
 if plot_fixed:
     file_025, file_05, file_1 = path + "config_GP_025_12_fixed_export_4.pickle", path + "config_GP_05_12_fixed_export_4.pickle", path + "config_GP_1_12_fixed_export_4.pickle"
 else:
@@ -50,7 +50,7 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
             if key.endswith("_all_lags_and_radius"):
                 plot_2d = True
                 legend = "All lags and radius merged"
-                legend_2d = "overall tile for 12 lags"
+                title_2d = "average r2 for the tilesets"
                 name = key[:-len("_all_lags_and_radius")]
             else:
                 plot_2d = False
@@ -64,9 +64,10 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
             ha.set_ylabel("radius [degree]")
             if plot_2d:
                 ax_2d = plt.figure().gca()
-                plt.title(name + " - " + legend_2d)
+                # plt.title(name + " - " + legend_2d)
+                plt.title(title_2d)
                 ax_2d.set_xlabel("radius [degree]")
-                ax_2d.set_ylabel("error")
+                ax_2d.set_ylabel("R2")
 
             ha.set_zlabel(name)
             fake2Dlines = []

@@ -3,6 +3,7 @@ import csv
 import datetime
 import gc
 import logging
+import math
 import os
 import pickle
 import sys
@@ -386,8 +387,8 @@ def run_experiments_and_visualize_noise(number_forecasts=30):
     print("noise")
 
 
-def __add_line_to_csv(to_add, folder_destination, type: str):
-    with open(folder_destination + f'{type}.csv', 'a+', newline='') as f_object:
+def __add_line_to_csv(to_add, folder_destination, file_name: str):
+    with open(folder_destination + f'{file_name}.csv', 'a+', newline='') as f_object:
         # Pass the CSV  file object to the writer() function
         writer_object = writer(f_object)
         # Result - a writer object
@@ -397,23 +398,31 @@ def __add_line_to_csv(to_add, folder_destination, type: str):
         f_object.close()
 
 
-def run_experiments_and_collect_tiles(output_folder: str, filename_problems):
+def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
+                                      yaml_config_GP="config_GP_for_NN_validation",
+                                      folder_problems="data_NN_DA/", folder_config_file="data_NN_DA/",
+                                      filename_output_X_y: str = 'problems_GP_output', number_max_problems=-1):
     # todo: set 24 as field in config + add parameter for config
     print(f"generating output into folder: {output_folder}")
-    exp = ExperimentRunner("config_GP_for_NN_validation", filename_problems=filename_problems,
-                           folder_problems="data_NN_DA/", folder_config_file="data_NN_DA/")
-
+    exp = ExperimentRunner(yaml_config_GP, filename_problems=filename_problems,
+                           folder_problems=folder_problems, folder_config_file=folder_config_file)
+    if number_max_problems < 0:
+        number_max_problems = math.inf
     results = []
     k = 0
-    while exp.has_next_problem():
+    t = datetime.datetime.now()
+    while exp.has_next_problem() and number_max_problems - k > 0:
         try:
             k += 1
-            print(f"starting problem {k}")
+            delt = datetime.datetime.now() - t
+            print(f"starting problem {k}, last problem time: {delt.seconds // 60}m{delt.seconds % 60}s")
+            t = datetime.datetime.now()
             # results.append(np.array(exp.run_next_problem(get_inputs_and_outputs=True)))
             array_fc_hc, measurement_locations, errors = exp.run_next_problem(get_inputs_and_outputs=True)
-            __export_results_to_file(array_fc_hc, output_folder)
-            __add_line_to_csv(measurement_locations, output_folder, "measurement")
-            __add_line_to_csv(errors, output_folder, "error")
+            array_fc_hc = [np.float32(arr.swapaxes(0, 1)) for arr in array_fc_hc]
+            __export_results_to_file(array_fc_hc, output_folder, filename_output_X_y)
+            __add_line_to_csv(measurement_locations, output_folder, f"measurement_{filename_output_X_y}")
+            __add_line_to_csv(errors, output_folder, f"error_{filename_output_X_y}")
             # size = sys.getsizeof(results[0]) / 1000000
             # print(f"Number results:{len(results)}, size: {len(results) * size} MB")
             # if size > max_mega_per_file:
@@ -426,14 +435,14 @@ def run_experiments_and_collect_tiles(output_folder: str, filename_problems):
     print("over")
 
 
-def __export_results_to_file(res: list, path_dir):
+def __export_results_to_file(res: list, path_dir, filename: str):
     for j, s in enumerate(['x', 'y']):
         isExist = os.path.exists(path_dir)
         if not isExist:
             # Create a new directory because it does not exist
             os.makedirs(path_dir)
             print(f"The new directory is created: {path_dir}!")
-        with NpyAppendArray(path_dir + f"data_{s}.npy") as npaa:
+        with NpyAppendArray(path_dir + f"{filename}_{s}.npy") as npaa:
             npaa.append(np.ascontiguousarray(res[j].astype('float64')))
 
 
@@ -614,8 +623,16 @@ if __name__ == "__main__":
         parser.add_argument('-T', "--collect-tiles", action='store_true', help='collect tiles')
         parser.add_argument('-f', type=str, help='file name')
         parser.add_argument('-folder-destination', type=str)
+        parser.add_argument('--config-file', type=str, help='file name')
+        parser.add_argument('--config-folder', type=str, help='folder where the yaml file is located')
+        parser.add_argument('--problem-folder', type=str, help='folder where the problem file is located')
+        parser.add_argument('--filename-destination', type=str, help='filename destination')
+        parser.add_argument('--max-problems', type=int, default=-1)
         args = parser.parse_args()
-        run_experiments_and_collect_tiles(output_folder=args.folder_destination, filename_problems=args.f)
+        run_experiments_and_collect_tiles(output_folder=args.folder_destination, filename_problems=args.f,
+                                          yaml_config_GP=args.config_file, folder_config_file=args.config_folder,
+                                          folder_problems=args.problem_folder, number_max_problems=args.max_problems,
+                                          filename_output_X_y=args.filename_destination)
     elif not {"--visualize-results-NN"}.isdisjoint(sys.argv):
         parser.add_argument('--visualize-results-NN', action='store_true', help='visualize results of the NN.')
         parser.add_argument('--config-file', type=str, help='file name')

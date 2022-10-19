@@ -522,7 +522,6 @@ class ExperimentRunner:
             for i in range(self.variables["number_steps_prediction"]):
                 # if i % 20 == 0:
                 #    print(f"step:{i}/{self.variables['number_steps_prediction']}")
-                print(f"step:{i}/{self.variables['number_steps_prediction']}")
 
                 model_prediction = self.__step_simulation(controller, fit_model=True, dim_lon_lat=dim_lon_lat)
 

@@ -121,7 +121,6 @@ def main():
                 total_nans += 1
                 # empty_batches.append(batch_idx)
                 continue
-
             if data.nelement() * BYTES_IN_FLOAT * len(X) > size_file_in_byte:
                 print(f"export X and y (file {index}, batch {batch_idx}).")
                 save_list_to_file(index, X, "X", folder)

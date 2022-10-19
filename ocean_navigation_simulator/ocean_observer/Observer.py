@@ -202,8 +202,10 @@ class Observer:
 
         # Todo: probably remove this. Added to stop if the forecast is missing
         if len(self.prediction_model.measurement_locations) > 24:
-            UserWarning("Error: forecast file missing. Problem stopped")
-            raise Exception("Error: forecast file missing. Problem stopped")
+            UserWarning(
+                f"Error: forecast file missing. Problem stopped: {arena_observation.platform_state.to_spatio_temporal_point().date_time}")
+            raise Exception(
+                f"Error: forecast file missing. Problem stopped: {arena_observation.platform_state.to_spatio_temporal_point().date_time}")
 
     # Forwarding functions as it replaces the forecast_data_source
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:

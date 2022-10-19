@@ -55,14 +55,14 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
 
         self.radius_lon = cfg_dataset.get('radius_lon', 2)  # in deg
         self.radius_lat = cfg_dataset.get('radius_lat', 2)  # in deg
-        self.margin_forecast = cfg_dataset.get('margin_forecast', 0.2)
+        self.margin_fc_hc = cfg_dataset.get('margin_forecast', 0.2)
         self.margin_time = datetime.timedelta(hours=cfg_dataset.get("margin_time_in_h", 1))
         self.stride_tiles_dataset = cfg_dataset.get('stride_tiles_dataset', 0.5)
         self.stride_time_dataset = datetime.timedelta(hours=cfg_dataset.get("stride_time_dataset_h", 1))
         self.inputs, self.outputs = [], []
         self.duration_per_forecast_file = datetime.timedelta(hours=24)
         self.time_restart = datetime.time(hour=12, minute=30, second=1, tzinfo=datetime.timezone.utc)
-        dims_sizes = [0, 0, 0]
+        sizes_of_lon_lat_time = [0, 0, 0]
         datetime_fc_start = self.start_date
         start_forecast = datetime.datetime.combine(datetime_fc_start,
                                                    self.time_restart) - self.duration_per_forecast_file
@@ -71,20 +71,21 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                                 [start_forecast,
                                  start_forecast + self.duration_per_forecast_file],
                                 spatial_resolution=self.spatial_resolution_forecast,
-                                temporal_resolution=self.temporal_resolution_forecast)
+                                temporal_resolution=self.temporal_resolution_forecast).isel(
+            time=slice(0, 24 * self.duration_per_forecast_file.days))
 
         while datetime_fc_start < self.end_date:
-            lon = self.GULF_MEXICO[0][0] + self.radius_lon
-            dims_sizes[0] = 0
-            while lon + self.radius_lon + self.margin_forecast < self.GULF_MEXICO[0][1]:
-                lat = self.GULF_MEXICO[1][0] + self.radius_lat + self.margin_forecast
-                dims_sizes[1] = 0
-                while lat + self.radius_lat + self.margin_forecast < self.GULF_MEXICO[1][1]:
-                    self.__add_input_and_output_to_list(lon, lat, datetime_fc_start)
-                    lat += self.stride_tiles_dataset
-                    dims_sizes[1] += 1
-                lon += self.stride_tiles_dataset
-                dims_sizes[0] += 1
+            pos_lon = self.GULF_MEXICO[0][0] + self.radius_lon
+            sizes_of_lon_lat_time[0] = 0
+            while pos_lon + self.radius_lon + self.margin_fc_hc < self.GULF_MEXICO[0][1]:
+                pos_lat = self.GULF_MEXICO[1][0] + self.radius_lat + self.margin_fc_hc
+                sizes_of_lon_lat_time[1] = 0
+                while pos_lat + self.radius_lat + self.margin_fc_hc < self.GULF_MEXICO[1][1]:
+                    self.__add_input_and_output_to_list(pos_lon, pos_lat, datetime_fc_start)
+                    pos_lat += self.stride_tiles_dataset
+                    sizes_of_lon_lat_time[1] += 1
+                pos_lon += self.stride_tiles_dataset
+                sizes_of_lon_lat_time[0] += 1
             while True:
                 try:
                     self.__add_forecasts_to_xarray_if_necessary(datetime_fc_start)
@@ -93,7 +94,7 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                 except ValueError:
                     datetime_fc_start += self.stride_time_dataset
 
-            dims_sizes[2] += 1
+            sizes_of_lon_lat_time[2] += 1
         print("putting all inputs in memory")
 
         '''
@@ -115,16 +116,16 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         self.merged = xr.merge([self.whole_grid_fc, self.whole_grid_hc.rename(water_u='hc_u', water_v='hc_v')])
 
         # Preload the data into memory
-        self.whole_grid_fc.load()
-        self.whole_grid_hc.load()
+        # self.whole_grid_fc.load()
+        # self.whole_grid_hc.load()
         self.merged.load()
-        print("whole forecast grid dimensions:", dims_sizes)
+        print("whole forecast grid dimensions:", sizes_of_lon_lat_time)
 
     def __add_input_and_output_to_list(self, lon: float, lat: float, datetime_fc_start: DateTime):
-        left_input, right_input = lon - self.radius_lon - self.margin_forecast, lon + self.radius_lon + self.margin_forecast
-        bottom_input, top_input = lat - self.radius_lat - self.margin_forecast, lat + self.radius_lat + self.margin_forecast
-        left_output, right_output = lon - self.radius_lon, lon + self.radius_lon
-        bottom_output, top_output = lat - self.radius_lat, lat + self.radius_lat
+        left_input, right_input = lon - self.radius_lon - self.margin_fc_hc, lon + self.radius_lon + self.margin_fc_hc
+        bottom_input, top_input = lat - self.radius_lat - self.margin_fc_hc, lat + self.radius_lat + self.margin_fc_hc
+        left_output, right_output = lon - self.radius_lon - self.margin_fc_hc, lon + self.radius_lon + self.margin_fc_hc
+        bottom_output, top_output = lat - self.radius_lat - self.margin_fc_hc, lat + self.radius_lat + self.margin_fc_hc
         t1, t2_input, t2_output = datetime_fc_start, datetime_fc_start + self.time_horizon_input, datetime_fc_start + self.time_horizon_output
         # Check that both the input and output are in the data
 
@@ -139,7 +140,7 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        # try:
+        # shape: time lat lon
         xy = self.__get_xarray_slice(self.inputs[idx], self.merged)
         # except ValueError as e:
         #     print(f"self.inputs[idx]: {self.inputs[idx]} not available. {e}")
@@ -152,17 +153,22 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         # # Sanity check that X and y matches
         # assert (X_xr["time"][0:len(y_xr["time"])] == y_xr["time"]).all() and (X_xr["lon"] == y_xr["lon"]).all() and (
         #         X_xr["lat"] == y_xr["lat"]).all()
-        lon, lat = self.input_shape[2], self.input_shape[3]
+        lat, lon = self.input_shape[2], self.input_shape[3]
+        t_input, t_ouput = self.input_shape[1], self.output_shape[1]
         # X = xy[["water_u", "water_v"]].to_array().to_numpy().astype('float32')[:, :, :lon, :lat]
         # y = xy[["hc_u", "hc_v"]].isel(time=[0]).to_array().to_numpy().astype('float32')[:, :, :lon, :lat]
-        X = xy[[0, 1], :, :lon, :lat]
-        y = xy[[2, 3], 0:1, :lon, :lat]
+        i = 1 if xy.shape[-2] == lat + 2 else 0
+        j = 1 if xy.shape[-1] == lon + 2 else 0
+        assert xy.shape[-2] <= lat + i + 1 and xy.shape[-1] <= lon + j + 1
+        X = xy[0:2, 0:t_input, i:lat + i, j:lon + j]
+        y = xy[2:4, 0:t_ouput, i:lat + i, j:lon + j]
+
+        # Shape as Current x time x lon x lat
+        X = np.swapaxes(np.array(X), -1, -2)
+        y = np.swapaxes(np.array(y), -1, -2)
 
         if list(X.shape) != self.input_shape or list(y.shape) != self.output_shape or np.isnan(X).any() or np.isnan(
                 y).any():
-            # print([np.isnan(X_xr.isel(time=i).to_array().to_numpy()).sum() for i in range(5)],
-            #       [np.isnan(y_xr.isel(time=i).to_array().to_numpy()).sum() for i in range(1)], X_xr.isel(
-            #         time=0).to_array().to_numpy().size)
             return None
         # X, y = torch.tensor(X, dtype=self.dtype), torch.tensor(y, dtype=self.dtype)
         return X, y
@@ -175,6 +181,7 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                                     grid['time'] < np.datetime64(time[1]))
         lo2, la2, ti2 = list(lo.to_numpy()), list(la.to_numpy()), list(ti.to_numpy())
         npg = grid.to_array().to_numpy()
+        # dims array returned: time, lat, lon
         return npg[:, ti2][:, :, la2][..., lo2]
         # return grid.isel(lon=lo, lat=la, time=ti)
 
@@ -191,10 +198,14 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
                 print(e)
 
     def __update_forecast_grid(self, start_interval_dt):
+        # old_file = self.ocean_field.forecast_data_source.DataArray.encoding['source']
         self.whole_grid_fc = self.ocean_field.forecast_data_source \
             .get_data_over_area(*self.GULF_MEXICO,
                                 [start_interval_dt,
                                  start_interval_dt + self.duration_per_forecast_file],
                                 spatial_resolution=self.spatial_resolution_forecast,
-                                temporal_resolution=self.temporal_resolution_forecast).combine_first(
+                                temporal_resolution=self.temporal_resolution_forecast).isel(
+            time=slice(0, self.duration_per_forecast_file.days * 24)).combine_first(
             self.whole_grid_fc)
+        # new_file = self.ocean_field.forecast_data_source.DataArray.encoding['source']
+        # print(old_file, "\n", new_file, "\n", start_interval_dt)

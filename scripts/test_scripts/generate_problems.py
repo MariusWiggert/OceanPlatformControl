@@ -3,7 +3,8 @@ import datetime
 import math
 import os
 import random
-from typing import Union
+from datetime import datetime as dt
+from typing import Union, List
 
 import numpy as np
 import xarray as xr
@@ -44,15 +45,134 @@ def get_area_coordinates():
 # all_intervals = [may_to_mid_august]
 # all_intervals = [june_september]
 # all_intervals = [may, july_september]
-mid_august = (datetime.datetime(2022, 8, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
-              datetime.datetime(2022, 8, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))
-september = (datetime.datetime(2022, 8, 30, 12, 30, 1, tzinfo=datetime.timezone.utc),
-             datetime.datetime(2022, 9, 15, 12, 30, 1, tzinfo=datetime.timezone.utc))
-all_intervals = [mid_august, september]
+# mid_august = (datetime.datetime(2022, 8, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#               datetime.datetime(2022, 8, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# september = (datetime.datetime(2022, 8, 30, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#              datetime.datetime(2022, 9, 15, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# all_intervals = [mid_august, september]
+
+# small = (datetime.datetime(2022, 5, 3, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# small = (small, small + datetime.timedelta(hours=720))
+# small_to_medium = (datetime.datetime(2022, 6, 2, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# small_to_medium = (small_to_medium, small_to_medium + datetime.timedelta(hours=1080))
+# medium_to_big = (datetime.datetime(2022, 7, 17, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# medium_to_big = (medium_to_big, medium_to_big + datetime.timedelta(hours=900))
+
+# New way to generate problems to avoid missing files
+list_all_pairs_train_test = list()
+
+# OLD SPLIT
+# set_1
+# training = [
+#     (dt(2022, 5, 1, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 5, 13, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+#     (
+#         dt(2022, 5, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 5, 22, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# validation = [
+#     (
+#         dt(2022, 5, 23, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 5, 30, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation))
+# # set_2
+# training = [
+#     (
+#         dt(2022, 5, 31, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 6, 20, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# validation = [
+#     (
+#         dt(2022, 6, 21, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 6, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation))
+#
+# # set_3
+# training = [
+#     (
+#         dt(2022, 6, 29, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 7, 11, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+#     (
+#         dt(2022, 7, 13, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 7, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# ]
+# validation = [
+#     (
+#         dt(2022, 7, 20, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 7, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation))
+# # set_4
+# training = [
+#     (dt(2022, 7, 27, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 4, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+#     (dt(2022, 8, 6, 15, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 18, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# validation = [
+#     (
+#         dt(2022, 8, 21, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 8, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation))
+
+
+# New Split
+training = [
+    (dt(2022, 3, 31, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 4, 21, 12, 30, 1, tzinfo=datetime.timezone.utc))
+]
+validation = [
+    (
+        dt(2022, 4, 22, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 4, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+testing = [
+    (
+        dt(2022, 5, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 5, 8, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+list_all_pairs_train_test.append((training, validation, testing))
+# set_2
+training = [
+    (
+        dt(2022, 5, 9, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 5, 13, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+    (dt(2022, 5, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+     dt(2022, 5, 29, 12, 30, 1, tzinfo=datetime.timezone.utc))
+]
+validation = [
+    (
+        dt(2022, 5, 30, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 6, 5, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+testing = [
+    (
+        dt(2022, 6, 6, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 6, 12, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+list_all_pairs_train_test.append((training, validation, testing))
+
+# set_3
+training = [
+    (
+        dt(2022, 6, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 7, 11, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+validation = [(
+    dt(2022, 7, 13, 12, 30, 1, tzinfo=datetime.timezone.utc),
+    dt(2022, 7, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+
+testing = [
+    (
+        dt(2022, 7, 20, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 7, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+list_all_pairs_train_test.append((training, validation, testing))
+# set_4
+training = [
+    (dt(2022, 7, 29, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 4, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+    (dt(2022, 8, 6, 15, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+validation = [
+    (
+        dt(2022, 8, 21, 15, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 8, 27, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+testing = [
+    (
+        dt(2022, 8, 28, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 9, 3, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+list_all_pairs_train_test.append((training, validation, testing))
+
 # Validation
 # start_date = datetime.datetime(2022, 3, 30, 12, 00, 00)
 # end_date = datetime.datetime(2022, 4, 29, 12, 00, 00)
 # all_intervals = [(start_date, end_date)]
+# all_intervals = [medium_to_big]
 
 # all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
 duration_simulation_default = datetime.timedelta(days=4)
@@ -97,7 +217,13 @@ def generate_random_date(start, end, duration_simulation):
     return start + datetime.timedelta(seconds=random_second)
 
 
-def generate_temporal_points_within_boundaries(numbers) -> SpatioTemporalPoint:
+def generate_temporal_points_within_boundaries(numbers: int, all_intervals: List,
+                                               end_included=False) -> SpatioTemporalPoint:
+    # if the end date is included we add 24 hours to compensate
+    if not end_included:
+        shift_end = datetime.timedelta(days=1)
+        all_intervals = [(start, end + shift_end) for start, end in all_intervals]
+
     points = [generate_point_in_area() for _ in range(numbers)]
     # date = generate_random_date(start_date, end_date - duration_simulation)
     dates = get_random_dates_among_list(all_intervals, numbers, duration_simulation_default)
@@ -147,8 +273,10 @@ def problems_to_yaml(problems: list[str], dir_name: str, filename: str, seed: in
         dir_name = "."
     if filename is None:
         filename = f"{len(problems)}_problems"
-    suffix = f"_{seed}.yaml"
-
+    # suffix = f"_{seed}.yaml"
+    suffix = f".yaml"
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
     path = os.path.join(dir_name, filename + suffix)
     with open(path, 'w') as f:
         yaml.dump({"problems": [problem_format(problem) for problem in problems]}, f, sort_keys=False,
@@ -180,17 +308,15 @@ def check_area_to_have_no_nan():
                                                            lon_right + tile_radius)).to_array().to_numpy()).sum()
 
 
-def main(dir_name=None, filename=None, number_problems=40, seed=10):
-    print(f"seed: {seed}")
-
+def main(intervals: List, dir_name=None, filename=None, number_problems=40, seed=10):
     check_area_to_have_no_nan()
 
     # for _ in range(number_problems):
-    starts = generate_temporal_points_within_boundaries(number_problems)
+    starts = generate_temporal_points_within_boundaries(number_problems, intervals)
     problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
 
     path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
-    print(f"problems exported to {path} = {os.path.abspath(path)}")
+    print(f"problems exported to {path}")
 
 
 if __name__ == "__main__":
@@ -201,5 +327,17 @@ if __name__ == "__main__":
     parser.add_argument('--num-problems', dest='problems', type=int, help='number of problems wanted')
     parser.add_argument('--seed', dest='seed', type=int)
     args = parser.parse_args()
-    main(args.dir, args.file, args.problems, args.seed)
+    print(f"seed: {args.seed}")
+    np.random.seed(args.seed)
+    # names = ['small', 'medium', 'big']
+    # for i, inter in enumerate([small, small_to_medium, medium_to_big]):
+    for i, (train, valid, testing) in enumerate(list_all_pairs_train_test):
+        print(f"start set {i}")
+        if i == 2:
+            for j, train_valid_testing in enumerate([train, valid, testing]):
+                legend = 'training' if j == 0 else ('validation' if j == 1 else 'testing')
+                print("intervals: ", train_valid_testing)
+                main(train_valid_testing, os.path.join(args.dir, f"set_{i}"),
+                     args.file + f"_{i}_{legend}",
+                     args.problems // (1 if train_valid_testing else 3), args.seed)
     print("Over.")
