@@ -71,44 +71,64 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
 
 
 def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple:
-    """Creates Dataloaders according to yaml config."""
+    """Creates Dataloaders according to yaml config.
+    Dataset splits are determined on a per-area basis in order to guarantee an equal number of examples
+    in each set from each specified area.
+    If dataset len is specified to be smaller than the entire dataset (all areas added), then subsets
+    can be either random or non-random."""
 
     rng = np.random.default_rng(12345)
     area_lens = dataset.area_lens
     splits = np.array(dataset_configs["split"])
     prev_dataset_len = 0
+    acc_target_len = 0
     train_idx, val_idx, fixed_batch_idx, test_idx = [], [], [], []
     target_len = round(dataset_configs["len"]/len(area_lens.keys()))
+    fixed_batch_size = int(4/len(area_lens.keys()))
     for area, length in area_lens.items():
-        # get split sizes
-        train_size = round(splits[0] * length)
-        val_size = round((splits[1]/splits[1:].sum())*(length - train_size))
+        # get split sizes for the whole dataset.
+        train_size = int(splits[0] * length)
+        val_size = int((splits[1]/splits[1:].sum())*(length - train_size))
         test_size = length - train_size - val_size
-        fixed_batch_size = 2
 
+        # target split sizes equal if using whole dataset, otherwise target split sizes are calculated.
         if dataset_configs["len"] is None:
             train_target_size = train_size
             val_target_size = val_size
             test_target_size = test_size
         else:
-            # get split subsets sizes
             train_target_size = int(splits[0] * target_len)
             val_target_size = int((splits[1]/splits[1:].sum())*(target_len - train_target_size))
             test_target_size = target_len - train_target_size - val_target_size
 
-        train_idx.extend(rng.choice(np.array(range(0 + prev_dataset_len, prev_dataset_len + train_size)),
-                         size=train_target_size,
-                         replace=False))
-        val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
-                       size=val_target_size,
-                       replace=False))
-        remaining_idx = rng.choice(np.array(range(prev_dataset_len + train_size + val_size,
-                                            prev_dataset_len + train_size + val_size + test_size)),
-                                   size=test_target_size, replace=False)
-        test_idx.extend(remaining_idx[:-fixed_batch_size])
-        fixed_batch_idx.extend(remaining_idx[-fixed_batch_size:])
-        prev_dataset_len += length
+        # get indices for samples for each sub-dataset.
+        if dataset_configs["random_subsets"]:
+            # if random_subsets -> sample from all possible sub-dataset options.
+            train_idx.extend(rng.choice(np.array(range(prev_dataset_len, prev_dataset_len + train_size)),
+                             size=train_target_size,
+                             replace=False))
+            val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
+                           size=val_target_size,
+                           replace=False))
+            remaining_idx = rng.choice(np.array(range(prev_dataset_len + train_size + val_size,
+                                                prev_dataset_len + train_size + val_size + test_size)),
+                                       size=test_target_size, replace=False)
+        else:
+            # if non-random choose adjacent blocks of data for sub-datasets.
+            train_idx.extend(np.array(range(acc_target_len, acc_target_len + train_target_size)))
+            val_idx.extend(np.array(range(acc_target_len + train_target_size,
+                                          acc_target_len + train_target_size + val_target_size)))
+            remaining_idx = np.array(range(acc_target_len + train_target_size + val_target_size,
+                                           acc_target_len + train_target_size + val_target_size + test_target_size))
 
+        # pick randomly which samples go in the fixed batch
+        temp_idx = rng.choice(np.arange(0, len(remaining_idx)), fixed_batch_size, replace=False)
+        test_idx.extend(np.delete(remaining_idx, temp_idx))
+        fixed_batch_idx.extend(remaining_idx[temp_idx])
+        prev_dataset_len += length
+        acc_target_len += target_len
+
+    # create subsets based on calculated idx for each dataset
     train_set = torch.utils.data.Subset(dataset, train_idx)
     val_set = torch.utils.data.Subset(dataset, val_idx)
     fixed_batch_set = torch.utils.data.Subset(dataset, fixed_batch_idx)
@@ -157,13 +177,16 @@ def predict_fixed_batch(model, dataloader, device):
         ground_truth = data[1]
         samples = samples.to(device)
         model_output = model(samples).cpu().detach()
+        samples = samples.cpu().detach()
 
     # logging final images to weights and biases
     ground_truth = make_grid(ground_truth, 2)
     predictions = make_grid(model_output, 2)
+    samples = make_grid(samples, 2)
     ground_truth = wandb.Image(ground_truth, caption="Fixed batch samples")
     predictions = wandb.Image(predictions, caption="Fixed batch predictions")
-    wandb.log({"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions})
+    samples = wandb.Image(samples, caption="Fixed batch samples")
+    wandb.log({"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions, "fixed_batch_inputs": samples})
     model.train()
 
 
@@ -298,10 +321,11 @@ def main():
     wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
-               name=f"{all_cfgs['model']}_{all_cfgs['train']['loss']['types']}" +
+               name=f"{all_cfgs['train']['loss']['types']}" +
                     f"_{all_cfgs[all_cfgs['model']]['norm_type']}" +
                     f"_{all_cfgs['dataset']['area']}" +
-                    f"_{all_cfgs['dataset']['len']}",
+                    f"_{all_cfgs['dataset']['len']}" +
+                    f"_{all_cfgs['dataset']['random_subsets']}",
                config=all_cfgs,
                tags="cool stuff",
                **wandb_cfgs)
