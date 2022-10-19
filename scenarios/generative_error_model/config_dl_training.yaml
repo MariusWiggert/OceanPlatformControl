@@ -6,7 +6,7 @@ metrics: ["rmse", "vector_correlation"]
 
 load_from_chkpt:
   value: False
-  file_name: "2022-10-14_14:41:33.pth"
+  file_name: "2022-10-19_16:40:48.pth"
 
 #unet:
 #  in_channels: 2
@@ -15,23 +15,24 @@ load_from_chkpt:
 #  dropout: False
 
 generator:
-  in_channels: 2
+  in_channels: 4
+  out_channels: 2
   features: 64
   dropout: False
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "instance"
+  norm_type: "batch"
 #  init_type: "normal"
 #  init_gain: 0.02
 
 train:
   batch_size: 32
-  test_batch_size: 1
+  test_batch_size: 32
   epochs: 30
   loss:
     # choice: mse, sparse_mse, total_variation, mass_conservation, l1
-    types: [ "l1" ]
-    weighting: [ 1 ]
+    types: [ "l1", "mass_conservation" ]
+    weighting: [ 1, 0.05 ]
 #  learning_rate: 1e-4
   learning_rate: 0.0002
   lr_scheduler_configs:
@@ -55,6 +56,9 @@ dataset:
   hindcasts: "data/drifter_data/hindcasts_preprocessed"
   ground_truth: "data/drifter_data/dataset_forecast_error/area1"
   sparse_type: "forecast"
-  area: ["area1", "area3"]
+  area: ["area1"]
   shuffle: True
-  len: 1000
+  len: 5000
+  split: [0.8, 0.1, 0.1]
+  random_subsets: False  # if len < len(dataset) how to choose subsets?
+  concat_len: 2

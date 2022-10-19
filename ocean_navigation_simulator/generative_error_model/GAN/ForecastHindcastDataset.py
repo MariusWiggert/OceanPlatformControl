@@ -94,9 +94,8 @@ class ForecastHindcastDatasetNpy(Dataset):
             file_idx = (idx * self.concat_len) // self.hours_in_file
             time_step_idx = (idx * self.concat_len) % self.hours_in_file
             fc_data = self.fc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
-            hc_data = self.hc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
+            hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
             fc_data = fc_data.reshape(-1, fc_data.shape[-2], fc_data.shape[-1])
-            hc_data = hc_data.reshape(-1, hc_data.shape[-2], hc_data.shape[-1])
 
         assert fc_data.shape[0] == 2*self.concat_len, "Error with concatting time steps!"
         return fc_data, hc_data

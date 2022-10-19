@@ -40,6 +40,7 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
                      dropout=model_configs["dropout"])
     elif model_type == "generator":
         model = Generator(in_channels=model_configs["in_channels"],
+                          out_channels=model_configs["out_channels"],
                           features=model_configs["features"],
                           norm=model_configs["norm_type"],
                           dropout=model_configs["dropout"])
@@ -187,7 +188,7 @@ def predict_fixed_batch(model, dataloader, device):
         ground_truth = data[1]
         samples = samples.to(device)
         model_output = model(samples).cpu().detach()
-        samples = samples.cpu().detach()
+        samples = samples.cpu().detach()[:, :2]
 
     # logging final images to weights and biases
     ground_truth = make_grid(ground_truth, 2)
@@ -337,7 +338,8 @@ def initialize(test: bool = False):
                     f"_{all_cfgs[all_cfgs['model']]['norm_type']}" +
                     f"_{all_cfgs['dataset']['area']}" +
                     f"_{all_cfgs['dataset']['len']}" +
-                    f"_{all_cfgs['dataset']['random_subsets']}",
+                    f"_{all_cfgs['dataset']['random_subsets']}" +
+                    f"_{all_cfgs['dataset']['concat_len']}",
                config=all_cfgs,
                tags=f"test={test}",
                **wandb_cfgs)
