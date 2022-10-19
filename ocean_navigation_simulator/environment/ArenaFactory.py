@@ -1,12 +1,12 @@
 import datetime
 import os
 import shutil
-from typing import List, Optional
 from pathlib import Path
+from typing import List, Optional
 
 import mergedeep
-import yaml
 import xarray as xr
+import yaml
 
 from ocean_navigation_simulator.environment.Arena import Arena
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -195,12 +195,12 @@ class ArenaFactory:
         # Step 2: Check File Count
         if files.count == 0:
             message = "No files in the database for {archive_source}, {archive_type}, {region} and t_0={t_0} and t_T={t_T} ".format(
-                    archive_source=archive_source,
-                    archive_type=archive_type,
-                    region=region,
-                    t_0=t_interval[0],
-                    t_T=t_interval[1],
-                )
+                archive_source=archive_source,
+                archive_type=archive_type,
+                region=region,
+                t_0=t_interval[0],
+                t_T=t_interval[1],
+            )
             if throw_exceptions:
                 raise MissingOceanFileException(message)
             else:
@@ -313,8 +313,8 @@ class ArenaFactory:
         c3 = get_c3(verbose - 1)
 
         # Step 1: Sanitize Inputs
-        if not download_folder.endswith('/'):
-            download_folder += '/'
+        if not download_folder.endswith("/"):
+            download_folder += "/"
         os.makedirs(download_folder, exist_ok=True)
 
         # Step 2: Download Files thread-safe with atomic os.replace
@@ -361,7 +361,7 @@ class ArenaFactory:
                     Path(download_folder + filename).touch()
                     if verbose > 0:
                         print(f"File already downloaded: {filename}, {filesize}.")
-        except:
+        except BaseException:
             shutil.rmtree(temp_folder, ignore_errors=True)
             raise
         else:
