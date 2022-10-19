@@ -223,7 +223,6 @@ class ArenaFactory:
                 raise MissingOceanFileException(message)
             else:
                 print(message)
-                return 0
 
         # Step 3: Check Basic Spatial Coverage
         ArenaFactory._check_spacial_coverage(files, points)
@@ -313,52 +312,62 @@ class ArenaFactory:
         """thread-safe download with corruption and file size check"""
         c3 = get_c3(verbose - 1)
 
-        # Step 1: Download Files thread-safe with atomic os.replace
-        temp_folder = f"{download_folder}{os.getpid()}/"
-        for file in files.objs:
-            filename = os.path.basename(file.file.contentLocation)
-            url = file.file.url
-            filesize = file.file.contentLength
-            if (
-                not os.path.exists(download_folder + filename)
-                or os.path.getsize(download_folder + filename) != filesize
-            ):
-                c3.Client.copyFilesToLocalClient(url, temp_folder)
+        # Step 1: Sanitize Inputs
+        if not download_folder.endswith('/'):
+            download_folder += '/'
+        os.makedirs(download_folder, exist_ok=True)
 
-                # check file size match
-                if os.path.getsize(temp_folder + filename) != filesize:
-                    shutil.rmtree(temp_folder, ignore_errors=True)
-                    message= "Incorrect file size ({filename}). Should be {filesize}B but is {actual_filesize}B.".format(
-                        filename=filename,
-                        filesize=filesize,
-                        actual_filesize=os.path.getsize(download_folder + filename),
-                    )
-                    if throw_exceptions:
-                        raise MissingOceanFileException(message)
+        # Step 2: Download Files thread-safe with atomic os.replace
+        try:
+            temp_folder = f"{download_folder}{os.getpid()}/"
+            for file in files.objs:
+                filename = os.path.basename(file.file.contentLocation)
+                url = file.file.url
+                filesize = file.file.contentLength
+                if (
+                    not os.path.exists(download_folder + filename)
+                    or os.path.getsize(download_folder + filename) != filesize
+                ):
+                    c3.Client.copyFilesToLocalClient(url, temp_folder)
+
+                    error = False
+                    # check file size match
+                    if os.path.getsize(temp_folder + filename) != filesize:
+                        error = "Incorrect file size ({filename}). Should be {filesize}B but is {actual_filesize}B.".format(
+                            filename=filename,
+                            filesize=filesize,
+                            actual_filesize=os.path.getsize(download_folder + filename),
+                        )
                     else:
-                        print(message)
-                # check valid xarray file
-                try:
-                    xr.open_mfdataset(temp_folder + filename)
-                except Exception:
-                    shutil.rmtree(temp_folder, ignore_errors=True)
-                    message = f"Corrupted file: {filename})."
-                    if throw_exceptions:
-                        raise CorruptedOceanFileException(message)
-                    else:
-                        print(message)
+                        # check valid xarray file
+                        try:
+                            xr.open_mfdataset(temp_folder + filename)
+                        except Exception:
+                            error = f"Corrupted file: {filename})."
 
-                # Move thread-safe
-                os.replace(temp_folder + filename, download_folder + filename)
-                if verbose > 0:
-                    print(f"File downloaded: {filename}, {filesize}.")
-            else:
-                Path(download_folder + filename).touch()
-                if verbose > 0:
-                    print(f"File already downloaded: {filename}, {filesize}.")
-        shutil.rmtree(temp_folder, ignore_errors=True)
+                    if error and throw_exceptions:
+                        shutil.rmtree(temp_folder, ignore_errors=True)
+                        raise CorruptedOceanFileException(error)
+                    elif error:
+                        os.remove(temp_folder + filename)
+                        print(error)
+                        continue
 
-        # Step 2: Only keep most recent files to prevent full storage
+                    # Move thread-safe
+                    os.replace(temp_folder + filename, download_folder + filename)
+                    if verbose > 0:
+                        print(f"File downloaded: {filename}, {filesize}.")
+                else:
+                    Path(download_folder + filename).touch()
+                    if verbose > 0:
+                        print(f"File already downloaded: {filename}, {filesize}.")
+        except:
+            shutil.rmtree(temp_folder, ignore_errors=True)
+            raise
+        else:
+            shutil.rmtree(temp_folder, ignore_errors=True)
+
+        # Step 3: Only keep most recent files to prevent full storage
         KEEP = 100  # ~ 100 * 100MB = 10GB
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
