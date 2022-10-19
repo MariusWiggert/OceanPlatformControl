@@ -56,11 +56,12 @@ class ForecastHindcastDataset(Dataset):
 
 
 class ForecastHindcastDatasetNpy(Dataset):
-    def __init__(self, fc_dir, hc_dir, areas=("area1"), transform=None):
+    def __init__(self, fc_dir, hc_dir, areas=("area1"), concat_len=1, transform=None):
         self.fc_dir = fc_dir
         self.hc_dir = hc_dir
         self.transform = transform
         self.hours_in_file = 24 * 8
+        self.concat_len = concat_len
 
         self.area_lens = {}
         self.fc_file_paths = []
@@ -81,15 +82,23 @@ class ForecastHindcastDatasetNpy(Dataset):
         self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.hc_file_paths]
 
     def __len__(self):
-        return min(len(self.fc_file_paths), len(self.hc_file_paths)) * self.hours_in_file
+        return (min(len(self.fc_file_paths), len(self.hc_file_paths)) * self.hours_in_file)//self.concat_len
 
     def __getitem__(self, idx):
-        file_idx = idx // self.hours_in_file
-        time_step_idx = idx % self.hours_in_file
+        if self.concat_len == 1:
+            file_idx = idx // self.hours_in_file
+            time_step_idx = idx % self.hours_in_file
+            fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
+            hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
+        else:
+            file_idx = (idx * self.concat_len) // self.hours_in_file
+            time_step_idx = (idx * self.concat_len) % self.hours_in_file
+            fc_data = self.fc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
+            hc_data = self.hc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
+            fc_data = fc_data.reshape(-1, fc_data.shape[-2], fc_data.shape[-1])
+            hc_data = hc_data.reshape(-1, hc_data.shape[-2], hc_data.shape[-1])
 
-        fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
-        hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
-
+        assert fc_data.shape[0] == 2*self.concat_len, "Error with concatting time steps!"
         return fc_data, hc_data
 
 
@@ -114,7 +123,8 @@ def test_npy():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
     fc_dir = os.path.join("data/drifter_data/forecasts_preprocessed")
     hc_dir = os.path.join("data/drifter_data/hindcasts_preprocessed")
-    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"])
+    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"], concat_len=2)
+    print(f"Dataset length: {len(dataset)}")
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 

@@ -65,7 +65,8 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
                                              dataset_configs["hindcasts"],
-                                             dataset_configs["area"])
+                                             dataset_configs["area"],
+                                             dataset_configs["concat_len"])
     # print(f"Using {dataset_type} dataset with {dataset_configs}.")
     return dataset
 
