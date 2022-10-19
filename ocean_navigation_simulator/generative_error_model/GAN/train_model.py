@@ -46,11 +46,11 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     return model.to(device)
 
 
-def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict) -> Tuple:
+def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict, test=False) -> Tuple:
     """Convenience function. Selects dataset. Create dataloaders."""
 
     dataset = _get_dataset(dataset_type, dataset_configs)
-    return _get_dataloaders(dataset, dataset_configs, train_configs)
+    return _get_dataloaders(dataset, dataset_configs, train_configs, test)
 
 
 def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
@@ -70,12 +70,15 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     return dataset
 
 
-def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple:
+def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict, test=False) -> Tuple:
     """Creates Dataloaders according to yaml config.
     Dataset splits are determined on a per-area basis in order to guarantee an equal number of examples
     in each set from each specified area.
     If dataset len is specified to be smaller than the entire dataset (all areas added), then subsets
     can be either random or non-random."""
+
+    if test:
+        dataset_configs["len"] = None
 
     rng = np.random.default_rng(12345)
     area_lens = dataset.area_lens
@@ -83,7 +86,6 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     prev_dataset_len = 0
     acc_target_len = 0
     train_idx, val_idx, fixed_batch_idx, test_idx = [], [], [], []
-    target_len = round(dataset_configs["len"]/len(area_lens.keys()))
     fixed_batch_size = int(4/len(area_lens.keys()))
     for area, length in area_lens.items():
         # get split sizes for the whole dataset.
@@ -93,10 +95,12 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
 
         # target split sizes equal if using whole dataset, otherwise target split sizes are calculated.
         if dataset_configs["len"] is None:
+            target_len = length
             train_target_size = train_size
             val_target_size = val_size
             test_target_size = test_size
         else:
+            target_len = int(dataset_configs["len"] / len(area_lens.keys()))
             train_target_size = int(splits[0] * target_len)
             val_target_size = int((splits[1]/splits[1:].sum())*(target_len - train_target_size))
             test_target_size = target_len - train_target_size - val_target_size
@@ -134,8 +138,13 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     fixed_batch_set = torch.utils.data.Subset(dataset, fixed_batch_idx)
     test_set = torch.utils.data.Subset(dataset, test_idx)
 
-    print(f"-> Using {len(train_set) + len(val_set) + len(fixed_batch_set) + len(test_set)} of {len(dataset)} available samples.")
-    print(f"-> Data from {dataset_configs['area']}.")
+    if test:
+        print(f"-> Using {len(fixed_batch_set) + len(test_set)} of {len(dataset)} available samples.")
+        print(f"-> Data from {dataset_configs['area']}.")
+    else:
+        print(f"-> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set) + len(test_set)} " +
+              f"of {len(dataset)} available samples.")
+        print(f"-> Data from {dataset_configs['area']}.")
 
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
@@ -313,12 +322,14 @@ def clean_up_training(model, optimizer, dataloader, base_path: str, device: str)
     wandb.finish()
 
 
-def main():
+def initialize(test: bool = False):
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="specify the file config for model and training")
     config_file = parser.parse_args().config_file
     all_cfgs = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
     wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
+    # add model saving name to cfgs
+    all_cfgs["model_save_name"] = f"{now_str}.pth"
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
                name=f"{all_cfgs['train']['loss']['types']}" +
@@ -327,11 +338,15 @@ def main():
                     f"_{all_cfgs['dataset']['len']}" +
                     f"_{all_cfgs['dataset']['random_subsets']}",
                config=all_cfgs,
-               tags="cool stuff",
+               tags=f"test={test}",
                **wandb_cfgs)
     wandb.save(config_file)
-    print("####### Start Training #######")
+    return all_cfgs
 
+
+def main():
+    all_cfgs = initialize()
+    print("####### Start Training #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"-> Running on: {device}.")
     all_cfgs["device"] = device
@@ -339,7 +354,7 @@ def main():
     # seed for reproducibility
     torch.manual_seed(0)
 
-    # simply config access
+    # simplify config access
     model_type = all_cfgs["model"]
     cfgs_model = all_cfgs[model_type]
     cfgs_dataset = all_cfgs["dataset"]
@@ -395,5 +410,30 @@ def main():
         clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs["save_base_path"], device)
 
 
+def test():
+    all_cfgs = initialize()
+    print("####### Start Testing #######")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # simplify config access
+    cfgs_model = all_cfgs[all_cfgs["model"]]
+    cfgs_dataset = all_cfgs["dataset"]
+    cfgs_train = all_cfgs["train"]
+
+    # load training data
+    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
+
+    # load model
+    model = get_model(all_cfgs["model"], cfgs_model, device)
+    checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(checkpoint["state_dict"])
+
+    print()
+    cfgs_train["epoch"] = 1
+    _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
+
+
 if __name__ == "__main__":
     main()
+    # test()
