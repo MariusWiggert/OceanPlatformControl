@@ -73,37 +73,40 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
 def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple:
     """Creates Dataloaders according to yaml config."""
 
-    if len(dataset_configs["area"]) is None:
-        train_size = round(0.6 * len(dataset))
-        val_size = int(0.5*(len(dataset) - train_size))
-        fixed_batch_size = 4 if len(dataset) - train_size - val_size > 4 else 1
-        test_size = len(dataset) - train_size - val_size - fixed_batch_size
-        train_set, val_set, test_set, fixed_batch_set = torch.utils.data.random_split(dataset,
-                                                                                  [train_size, val_size, test_size, fixed_batch_size],
-                                                                                  generator=torch.Generator().manual_seed(0))
-    else:
-        rng = np.random.default_rng(12345)
-        area_lens = dataset.area_lens
-        prev_dataset_len = 0
-        train_idx, val_idx, fixed_batch_idx, test_idx = [], [], [], []
-        target_len = round(dataset_configs["len"]/len(area_lens.keys()))
-        for area, length in area_lens.items():
-            train_size, train_target_size = int(0.6 * length), int(0.6 * target_len)
-            train_idx.extend(rng.choice(np.array(range(0 + prev_dataset_len, prev_dataset_len + train_size)),
-                             size=train_target_size,
-                             replace=False))
-            val_size, val_target_size = int(0.5*(length - train_size)), int(0.5*(target_len - train_target_size))
-            val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
-                           size=val_target_size,
-                           replace=False))
-            fixed_batch_size = 4 if target_len - train_target_size - val_target_size > 4 else 1
-            fixed_batch_idx.extend(np.array(range(train_size + val_size, train_size + val_size + fixed_batch_size)))
-            test_size = length - train_size - val_size - fixed_batch_size
+    rng = np.random.default_rng(12345)
+    area_lens = dataset.area_lens
+    prev_dataset_len = 0
+    train_idx, val_idx, fixed_batch_idx, test_idx = [], [], [], []
+    target_len = round(dataset_configs["len"]/len(area_lens.keys()))
+    for area, length in area_lens.items():
+        # get split sizes
+        train_size = int(dataset_configs["split"][0] * length)
+        val_size = int((dataset_configs["split"][1]/dataset_configs["split"][0])*(length - train_size))
+        fixed_batch_size = 1
+        test_size = length - train_size - val_size - fixed_batch_size
+
+        if not dataset_configs["len"] is None:
+            # get split subsets sizes
+            train_target_size = int(dataset_configs["split"][0] * target_len)
+            val_target_size = int((dataset_configs["split"][1]/dataset_configs["split"][0])*(target_len - train_target_size))
             test_target_size = target_len - train_target_size - val_target_size - fixed_batch_size
-            test_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size + val_size + fixed_batch_size,
-                                                prev_dataset_len + train_size + val_size + fixed_batch_size + test_size)),
-                            size=test_target_size, replace=False))
-            prev_dataset_len += length
+        else:
+            train_target_size = train_size
+            val_target_size = val_size
+            test_target_size = test_size
+
+        train_idx.extend(rng.choice(np.array(range(0 + prev_dataset_len, prev_dataset_len + train_size)),
+                         size=train_target_size,
+                         replace=False))
+        val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
+                       size=val_target_size,
+                       replace=False))
+        fixed_batch_idx.extend(np.array(range(prev_dataset_len + train_size + val_size,
+                                              prev_dataset_len + train_size + val_size + fixed_batch_size)))
+        test_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size + val_size + fixed_batch_size,
+                                            prev_dataset_len + train_size + val_size + fixed_batch_size + test_size)),
+                        size=test_target_size, replace=False))
+        prev_dataset_len += length
 
         train_set = torch.utils.data.Subset(dataset, train_idx)
         val_set = torch.utils.data.Subset(dataset, val_idx)
@@ -116,7 +119,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
     test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=False)
-    fixed_batch = DataLoader(dataset=fixed_batch_set, batch_size=fixed_batch_size, shuffle=False)
+    fixed_batch = DataLoader(dataset=fixed_batch_set, batch_size=train_configs["batch_size"], shuffle=False)
     return train_loader, val_loader, test_loader, fixed_batch
 
 
@@ -155,8 +158,8 @@ def predict_fixed_batch(model, dataloader, device):
         model_output = model(samples).cpu().detach()
 
     # logging final images to weights and biases
-    ground_truth = make_grid(ground_truth, 2)
-    predictions = make_grid(model_output, 2)
+    ground_truth = make_grid(ground_truth, 4)
+    predictions = make_grid(model_output, 4)
     ground_truth = wandb.Image(ground_truth, caption="Fixed batch samples")
     predictions = wandb.Image(predictions, caption="Fixed batch predictions")
     wandb.log({"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions})
@@ -299,12 +302,13 @@ def main():
                entity="ocean-platform-control",
                name=f"{all_cfgs['model']}_{all_cfgs['train']['loss']['types']}" +
                     f"_{all_cfgs[all_cfgs['model']]['norm_type']}" +
-                    f"_{all_cfgs['dataset']['area']}",
+                    f"_{all_cfgs['dataset']['area']}" +
+                    f"_{all_cfgs['dataset']['len']}",
                config=all_cfgs,
                tags="cool stuff",
                **wandb_cfgs)
     wandb.save(config_file)
-    print("###### Start Training #######")
+    print("####### Start Training #######")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"-> Running on: {device}.")
