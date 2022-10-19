@@ -28,7 +28,8 @@ class FeatureConstructor(abc.ABC):
         """
         Converts the observation to use relative positions
         Args:
-            observation: current platform observation
+            forecast_observation: current platform observation from forecast
+            hindcast_observation: current platform observation from hindcast
             problem: class containing information about RL problem (end region, start state, etc.)
         Returns:
             numpy array containing relative lat pos, relative lon pos, elapsed time, u_curr, v_curr

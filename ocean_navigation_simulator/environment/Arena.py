@@ -50,14 +50,6 @@ from ocean_navigation_simulator.utils.plotting_utils import (
 )
 from ocean_navigation_simulator.utils.units import format_datetime_x_axis
 
-# TODO: discuss why spatial_boundary dictionary?
-#       -> JJ: spatial boundary is used for analytical currents and cached hj planner
-# TODO: Why collect_trajectory shouldn't this be default?
-#       -> JJ: for RL it is not used and will unnecessary fill memory
-# TODO: discuss use of the new functions is_in_area and checking problem status
-#       -> JJ: is_on_land is only a wrapper to simplify, generally we want to terminate when on land
-# TODO: check if logging works
-
 
 @dataclasses.dataclass
 class ArenaObservation:
@@ -296,7 +288,7 @@ class Arena:
             0   if problem is still open
             -1  if problem timed out
             -2  if platform stranded
-            -3  if platform left specified araena region (spatial boundaries)
+            -3  if platform left specified arena region (spatial boundaries)
         """
         if self.is_on_land():
             return -2

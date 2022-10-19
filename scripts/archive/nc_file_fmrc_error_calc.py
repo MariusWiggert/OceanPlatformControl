@@ -1,10 +1,10 @@
 import datetime
 import time
 
+import hj_reachability as hj
 import matplotlib.pyplot as plt
 import numpy as np
 
-import hj_reachability as hj
 from ocean_navigation_simulator import OceanNavSimulator, utils
 from ocean_navigation_simulator.problem import Problem
 

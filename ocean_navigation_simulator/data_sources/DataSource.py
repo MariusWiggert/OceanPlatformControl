@@ -364,7 +364,7 @@ class DataSource(abc.ABC):
         if reset_plot:
             plt.clf()
         else:  # create a new figure object where this is plotted
-            fig = plt.figure(figsize=figsize)
+            plt.figure(figsize=figsize)
 
         # Step 2: Create ax object
         if ax is None:
