@@ -14699,7 +14699,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>We can create a new class containing the platform states in a list form. By rewriting the <code>__array__()</code> method we can extract the states of all platform in a numpy array fashion with [lon,lat,date_time, battery_charge, seaweed_mass] as rows and each platform as column (corresponding to it's id)</p>
+<p>We can create a new class containing the platform states in a list form. By rewriting the <code>__array__()</code> method we can extract the states of all platform in a numpy array fashion with [lon,lat,date_time, battery_charge, seaweed_mass] as columns (using the <code>__array__</code> of <code>PlatformState</code> and each platform as row (-&gt; later reference the rows to the platforms id)</p>
 
 </div>
 </div>
@@ -14720,8 +14720,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
     <span class="n">states</span><span class="p">:</span><span class="n">List</span><span class="p">[</span><span class="n">PlatformState</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">states_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">states_list</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="c1">#columns: number of platforms</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">)</span> <span class="c1">#rows are the number of platforms</span>
 
     <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">)</span>
@@ -14729,8 +14728,8 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
     <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">platform_id</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">states</span><span class="p">[</span><span class="n">platform_id</span><span class="p">])</span>
 
-<span class="n">x_set</span> <span class="o">=</span> <span class="n">PlatformStateSet</span><span class="p">(</span><span class="n">states</span><span class="o">=</span><span class="p">[</span><span class="n">x_0_1</span><span class="p">,</span> <span class="n">x_0_2</span><span class="p">,</span> <span class="n">x_0_3</span><span class="p">])</span>
-<span class="n">np_x_set</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">)</span>
+<span class="n">x_set</span> <span class="o">=</span> <span class="n">PlatformStateSet</span><span class="p">(</span><span class="n">states</span><span class="o">=</span><span class="p">[</span><span class="n">x_0_1</span><span class="p">,</span> <span class="n">x_0_2</span><span class="p">,</span> <span class="n">x_0_3</span><span class="p">])</span> <span class="c1"># create class instance with list of platforms</span>
+<span class="n">np_x_set</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">)</span> <span class="c1"># test the array conversion</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;States numpy array= &quot;</span><span class="p">,</span> <span class="n">np_x_set</span><span class="p">,</span> <span class="s2">&quot;of shape&quot;</span><span class="p">,</span> <span class="n">np_x_set</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;number of platforms = &quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_set</span><span class="p">))</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;get platform 1 state&quot;</span><span class="p">,</span> <span class="n">x_set</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
@@ -14753,11 +14752,12 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>States numpy array=  [[-8.2500000e+01 -8.2600000e+01 -8.2400000e+01]
- [ 2.3700000e+01  2.3800000e+01  2.3600000e+01]
- [ 1.6377552e+09  1.6377552e+09  1.6377552e+09]
- [ 1.0000000e+02  1.0000000e+02  1.0000000e+02]
- [ 1.0000000e+02  1.0000000e+02  1.0000000e+02]] of shape (5, 3)
+<pre>States numpy array=  [[-8.2500000e+01  2.3700000e+01  1.6377552e+09  1.0000000e+02
+   1.0000000e+02]
+ [-8.2600000e+01  2.3800000e+01  1.6377552e+09  1.0000000e+02
+   1.0000000e+02]
+ [-8.2400000e+01  2.3600000e+01  1.6377552e+09  1.0000000e+02
+   1.0000000e+02]] of shape (3, 5)
 number of platforms =  3
 get platform 1 state [-8.2600000e+01  2.3800000e+01  1.6377552e+09  1.0000000e+02
   1.0000000e+02]
@@ -14926,7 +14926,7 @@ get platform 1 state [-8.2600000e+01  2.3800000e+01  1.6377552e+09  1.0000000e+0
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>INFO:arena.ocean_field:DataField: Create Hindcast Source (20.8s)
+<pre>INFO:arena.ocean_field:DataField: Create Hindcast Source (6.6s)
 INFO:arena.ocean_field:DataField: Forecast is the same as Hindcast for OceanCurrents.
 </pre>
 </div>
@@ -15015,14 +15015,13 @@ INFO:arena.ocean_field:DataField: Forecast is the same as Hindcast for OceanCurr
     <span class="n">action_set</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PlatformAction</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">action_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action</span><span class="p">)</span> <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_set</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action_list</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="c1">#columns: number of platforms</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action_set</span><span class="p">))</span>
 
 <span class="n">action_x_0_1</span> <span class="o">=</span> <span class="n">PlatformAction</span><span class="p">(</span><span class="n">magnitude</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 <span class="n">action_x_0_2</span> <span class="o">=</span> <span class="n">PlatformAction</span><span class="p">(</span><span class="n">magnitude</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 <span class="n">action_x_0_3</span> <span class="o">=</span> <span class="n">PlatformAction</span><span class="p">(</span><span class="n">magnitude</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
 <span class="n">action_x_set</span> <span class="o">=</span> <span class="n">PlatformActionSet</span><span class="p">(</span><span class="n">action_set</span> <span class="o">=</span> <span class="p">[</span><span class="n">action_x_0_1</span><span class="p">,</span> <span class="n">action_x_0_2</span><span class="p">,</span> <span class="n">action_x_0_3</span><span class="p">])</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;actions to numpy array ready for casadi first row = mag, second row = dir </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action_x_set</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;actions to numpy array ready for casadi: first colum = mag, second column = dir </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action_x_set</span><span class="p">))</span>
 </pre></div>
 
      </div>
@@ -15042,9 +15041,10 @@ INFO:arena.ocean_field:DataField: Forecast is the same as Hindcast for OceanCurr
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>actions to numpy array ready for casadi first row = mag, second row = dir 
- [[50.  25.  75. ]
- [ 1.   0.5  0. ]]
+<pre>actions to numpy array ready for casadi: first colum = mag, second column = dir 
+ [[50.   1. ]
+ [25.   0.5]
+ [75.   0. ]]
 </pre>
 </div>
 </div>
@@ -15077,21 +15077,21 @@ INFO:arena.ocean_field:DataField: Forecast is the same as Hindcast for OceanCurr
 
 <span class="n">nb_platforms</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_set</span><span class="p">)</span> <span class="c1"># number of platforms</span>
 <span class="n">dt_in_s</span> <span class="o">=</span> <span class="n">platform_dict</span><span class="p">[</span><span class="s1">&#39;dt_in_s&#39;</span><span class="p">]</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Get platform states as a numpy multi dim array, where each column is a platform: </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">))</span>
-<span class="n">lon_deg</span><span class="p">,</span> <span class="n">lat_deg</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">)</span> <span class="c1">#extract only relevant states for our simplified problem</span>
-<span class="n">mat_state</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">vertcat</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">),</span> <span class="n">lat_deg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">),</span> <span class="n">lon_deg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">))</span> <span class="c1"># platforms as columns</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Get platform states as a numpy multi dim array, where each row is a platform: </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">))</span>
+<span class="n">lon_deg</span><span class="p">,</span> <span class="n">lat_deg</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="c1">#extract only relevant states for our simplified problem</span>
+<span class="n">mat_state</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">vertcat</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">),</span> <span class="n">lat_deg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">),</span> <span class="n">lon_deg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">))</span> <span class="c1">#needs to be 3 (time, lat,lon) x nb_platforms for interpolation function</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;platform state matrices shape&quot;</span><span class="p">,</span> <span class="n">mat_state</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> 
 
 <span class="c1"># Interpolation supports vectorization</span>
-<span class="n">u_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">u_curr_func</span><span class="p">(</span><span class="n">mat_state</span><span class="p">)</span> <span class="c1">#needs to be 3 (time, lat,lon) x nb_platforms</span>
-<span class="n">v_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">v_curr_func</span><span class="p">(</span><span class="n">mat_state</span><span class="p">)</span>
+<span class="n">u_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">u_curr_func</span><span class="p">(</span><span class="n">mat_state</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="c1"># transpose it to a vector (#platforms x 1)</span>
+<span class="n">v_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">v_curr_func</span><span class="p">(</span><span class="n">mat_state</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;current interpolation u = &quot;</span><span class="p">,</span> <span class="n">u_curr</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">current interpolation v = &quot;</span><span class="p">,</span> <span class="n">v_curr</span><span class="p">)</span>
 
-<span class="n">u_mag</span><span class="p">,</span> <span class="n">u_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action_x_set</span><span class="p">)</span>
+<span class="n">u_mag</span><span class="p">,</span> <span class="n">u_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action_x_set</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
 <span class="n">u_max</span> <span class="o">=</span> <span class="n">units</span><span class="o">.</span><span class="n">Velocity</span><span class="p">(</span><span class="n">mps</span><span class="o">=</span><span class="n">platform_dict</span><span class="p">[</span><span class="s1">&#39;u_max_in_mps&#39;</span><span class="p">])</span>
-<span class="n">lon_delta_meters_per_s</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">u_angle</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">))</span><span class="o">*</span><span class="n">u_mag</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">)</span><span class="o">*</span><span class="n">u_max</span><span class="o">.</span><span class="n">mps</span><span class="o">+</span><span class="n">u_curr</span>
-<span class="n">lat_delta_meters_per_s</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">u_angle</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">))</span><span class="o">*</span><span class="n">u_mag</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">)</span><span class="o">*</span><span class="n">u_max</span><span class="o">.</span><span class="n">mps</span><span class="o">+</span><span class="n">v_curr</span>
-<span class="n">lon_delta_deg_per_s</span> <span class="o">=</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">lon_delta_meters_per_s</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">6371000</span> <span class="o">/</span> <span class="n">ca</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">lat_deg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">)</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span>
+<span class="n">lon_delta_meters_per_s</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">u_angle</span><span class="p">)</span><span class="o">*</span><span class="n">u_mag</span><span class="o">*</span><span class="n">u_max</span><span class="o">.</span><span class="n">mps</span><span class="o">+</span><span class="n">u_curr</span>
+<span class="n">lat_delta_meters_per_s</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">u_angle</span><span class="p">)</span><span class="o">*</span><span class="n">u_mag</span><span class="o">*</span><span class="n">u_max</span><span class="o">.</span><span class="n">mps</span><span class="o">+</span><span class="n">v_curr</span>
+<span class="n">lon_delta_deg_per_s</span> <span class="o">=</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">lon_delta_meters_per_s</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">6371000</span> <span class="o">/</span> <span class="n">ca</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">lat_deg</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span>
 <span class="n">lat_delta_deg_per_s</span> <span class="o">=</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">lat_delta_meters_per_s</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">6371000</span>
 
 <span class="c1"># Equations for next states using the intermediate variables from above</span>
@@ -15117,17 +15117,18 @@ INFO:arena.ocean_field:DataField: Forecast is the same as Hindcast for OceanCurr
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Get platform states as a numpy multi dim array, where each column is a platform: 
- [[-8.2500000e+01 -8.2600000e+01 -8.2400000e+01]
- [ 2.3700000e+01  2.3800000e+01  2.3600000e+01]
- [ 1.6377552e+09  1.6377552e+09  1.6377552e+09]
- [ 1.0000000e+02  1.0000000e+02  1.0000000e+02]
- [ 1.0000000e+02  1.0000000e+02  1.0000000e+02]]
+<pre>Get platform states as a numpy multi dim array, where each row is a platform: 
+ [[-8.2500000e+01  2.3700000e+01  1.6377552e+09  1.0000000e+02
+   1.0000000e+02]
+ [-8.2600000e+01  2.3800000e+01  1.6377552e+09  1.0000000e+02
+   1.0000000e+02]
+ [-8.2400000e+01  2.3600000e+01  1.6377552e+09  1.0000000e+02
+   1.0000000e+02]]
 platform state matrices shape (3, 3)
-current interpolation u =  [[0.87875, 0.598949, 0.669905]] 
-current interpolation v =  [[1.0565, 0.883948, 0.861923]]
-next lon position for the platforms = [[-82.47890179 -82.58352898 -82.35189216]] 
-next lat position for the platforms =  [[23.72840339 23.81123709 23.60465088]]
+current interpolation u =  [0.87875, 0.598949, 0.669905] 
+current interpolation v =  [1.0565, 0.883948, 0.861923]
+next lon position for the platforms = [-82.4789, -82.5835, -82.3519] 
+next lat position for the platforms =  [23.7284, 23.8112, 23.6047]
 </pre>
 </div>
 </div>
@@ -15160,31 +15161,19 @@ next lat position for the platforms =  [[23.72840339 23.81123709 23.60465088]]
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">get_casadi_dynamics</span><span class="p">(</span><span class="n">nb_platforms</span><span class="p">,</span> <span class="n">ocean_source</span><span class="p">,</span> <span class="n">u_max</span><span class="p">):</span>
-    <span class="n">state_row_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lon&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;battery&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;seaweed&quot;</span><span class="p">:</span><span class="mi">4</span> <span class="p">}</span>
-    <span class="n">action_row_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;thrust&quot;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;angle&quot;</span><span class="p">:</span><span class="mi">1</span><span class="p">}</span>
-    <span class="c1"># sym_lon_degree      = ca.MX.sym(&#39;lon&#39;)          # in deg or m</span>
-    <span class="c1"># sym_lat_degree      = ca.MX.sym(&#39;lat&#39;)          # in deg or m</span>
-    <span class="c1"># sym_time            = ca.MX.sym(&#39;time&#39;)         # in posix</span>
-    <span class="c1"># sym_battery         = ca.MX.sym(&#39;battery&#39;)      # in Joule</span>
-    <span class="c1"># sym_seaweed_mass    = ca.MX.sym(&#39;battery&#39;)      # in Kg</span>
     <span class="n">sym_dt</span>              <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;dt&#39;</span><span class="p">)</span>           <span class="c1"># in s</span>
-    <span class="n">sym_seaweed_mass</span>    <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;seaweed_mass&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="n">nb_platforms</span><span class="p">)</span>      <span class="c1"># in Kg</span>
-    <span class="n">sym_u_thrust</span>        <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;u_thrust&#39;</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">)</span>     <span class="c1"># in % of u_max</span>
-    <span class="n">sym_u_angle</span>         <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;u_angle&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">)</span>      <span class="c1"># in radians</span>
-    <span class="n">sym_inputs_states</span>   <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;inputs_states&#39;</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">)</span>
-    <span class="n">sym_inputs_ctrl</span>     <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;inputs_ctrl&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">)</span>
-
-    <span class="n">sym_lon_degree</span> <span class="o">=</span> <span class="n">sym_inputs_states</span><span class="p">[</span><span class="n">state_row_dict</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],:]</span>
-    <span class="n">sym_lat_degree</span> <span class="o">=</span> <span class="n">sym_inputs_states</span><span class="p">[</span><span class="n">state_row_dict</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">],:]</span>
-    <span class="n">sym_time</span> <span class="o">=</span> <span class="n">sym_inputs_states</span><span class="p">[</span><span class="n">state_row_dict</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">],:]</span>
-    <span class="n">sym_battery</span> <span class="o">=</span> <span class="n">sym_inputs_states</span><span class="p">[</span><span class="n">state_row_dict</span><span class="p">[</span><span class="s2">&quot;battery&quot;</span><span class="p">],:]</span>
-    <span class="n">sym_seaweed_mass</span> <span class="o">=</span> <span class="n">sym_inputs_states</span><span class="p">[</span><span class="n">state_row_dict</span><span class="p">[</span><span class="s2">&quot;seaweed&quot;</span><span class="p">],:]</span>
-    <span class="n">sym_u_thrust</span> <span class="o">=</span> <span class="n">sym_inputs_ctrl</span><span class="p">[</span><span class="n">action_row_dict</span><span class="p">[</span><span class="s2">&quot;thrust&quot;</span><span class="p">],:]</span>
-    <span class="n">sym_u_angle</span> <span class="o">=</span> <span class="n">sym_inputs_ctrl</span><span class="p">[</span><span class="n">action_row_dict</span><span class="p">[</span><span class="s2">&quot;angle&quot;</span><span class="p">],:]</span>
+    <span class="n">sym_lon_degree</span>      <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;lon&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>          <span class="c1"># in deg or m</span>
+    <span class="n">sym_lat_degree</span>      <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;lat&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>          <span class="c1"># in deg or m</span>
+    <span class="n">sym_time</span>            <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>         <span class="c1"># in posix</span>
+    <span class="n">sym_battery</span>         <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;battery&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>      <span class="c1"># in Joule</span>
+    <span class="n">sym_seaweed_mass</span>    <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;battery&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>      <span class="c1"># in Kg</span>
+    <span class="n">sym_u_thrust</span>        <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;u_thrust&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>     <span class="c1"># in % of u_max</span>
+    <span class="n">sym_u_angle</span>         <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">MX</span><span class="o">.</span><span class="n">sym</span><span class="p">(</span><span class="s1">&#39;u_angle&#39;</span><span class="p">,</span> <span class="n">nb_platforms</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>      <span class="c1"># in radians</span>
 
     <span class="c1"># Get currents</span>
-    <span class="n">u_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">u_curr_func</span><span class="p">(</span><span class="n">ca</span><span class="o">.</span><span class="n">vertcat</span><span class="p">(</span><span class="n">sym_time</span><span class="p">,</span><span class="n">sym_lat_degree</span><span class="p">,</span> <span class="n">sym_lon_degree</span><span class="p">))</span>
-    <span class="n">v_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">v_curr_func</span><span class="p">(</span><span class="n">ca</span><span class="o">.</span><span class="n">vertcat</span><span class="p">(</span><span class="n">sym_time</span><span class="p">,</span> <span class="n">sym_lat_degree</span><span class="p">,</span> <span class="n">sym_lon_degree</span><span class="p">))</span>
+    <span class="c1"># For interpolation: need to pass a matrix (time, lat,lon) x nb_platforms (i.e. platforms as columns and not as rows)</span>
+    <span class="n">u_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">u_curr_func</span><span class="p">(</span><span class="n">ca</span><span class="o">.</span><span class="n">horzcat</span><span class="p">(</span><span class="n">sym_time</span><span class="p">,</span><span class="n">sym_lat_degree</span><span class="p">,</span> <span class="n">sym_lon_degree</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="c1"># retranspose it back to a vector where platforms are rows</span>
+    <span class="n">v_curr</span> <span class="o">=</span> <span class="n">ocean_source</span><span class="o">.</span><span class="n">v_curr_func</span><span class="p">(</span><span class="n">ca</span><span class="o">.</span><span class="n">horzcat</span><span class="p">(</span><span class="n">sym_time</span><span class="p">,</span> <span class="n">sym_lat_degree</span><span class="p">,</span> <span class="n">sym_lon_degree</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
     <span class="n">sym_lon_delta_meters_per_s</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">sym_u_angle</span><span class="p">)</span><span class="o">*</span><span class="n">sym_u_thrust</span><span class="o">*</span><span class="n">u_max</span><span class="o">.</span><span class="n">mps</span> <span class="o">+</span> <span class="n">u_curr</span>
     <span class="n">sym_lat_delta_meters_per_s</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">sym_u_angle</span><span class="p">)</span><span class="o">*</span><span class="n">sym_u_thrust</span><span class="o">*</span><span class="n">u_max</span><span class="o">.</span><span class="n">mps</span> <span class="o">+</span> <span class="n">v_curr</span>
     <span class="n">sym_lon_delta_deg_per_s</span> <span class="o">=</span> <span class="mi">180</span> <span class="o">*</span> <span class="n">sym_lon_delta_meters_per_s</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">6371000</span> <span class="o">/</span> <span class="n">ca</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">sym_lat_degree</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span>
@@ -15194,14 +15183,12 @@ next lat position for the platforms =  [[23.72840339 23.81123709 23.60465088]]
     <span class="n">sym_lon_next</span> <span class="o">=</span> <span class="n">sym_lon_degree</span> <span class="o">+</span> <span class="n">sym_dt</span> <span class="o">*</span> <span class="n">sym_lon_delta_deg_per_s</span>
     <span class="n">sym_lat_next</span> <span class="o">=</span> <span class="n">sym_lat_degree</span> <span class="o">+</span> <span class="n">sym_dt</span> <span class="o">*</span> <span class="n">sym_lat_delta_deg_per_s</span>
     <span class="n">sym_time_next</span> <span class="o">=</span> <span class="n">sym_time</span> <span class="o">+</span> <span class="n">sym_dt</span>
-    <span class="c1"># F_next = ca.Function(&#39;F_x_next&#39;, [ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.vertcat(sym_u_thrust, sym_u_angle), sym_dt],</span>
-    <span class="c1">#                     [ca.vertcat(sym_lon_next, sym_lat_next, sym_time_next)])</span>
-
-    <span class="n">F_next</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">&#39;F_x_next&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">sym_inputs_states</span><span class="p">,</span> <span class="n">sym_inputs_ctrl</span><span class="p">,</span> <span class="n">sym_dt</span> <span class="p">],</span> <span class="p">[</span><span class="n">ca</span><span class="o">.</span><span class="n">vertcat</span><span class="p">(</span><span class="n">sym_lon_next</span><span class="p">,</span> <span class="n">sym_lat_next</span><span class="p">,</span> <span class="n">sym_time_next</span><span class="p">)]</span> <span class="p">)</span>
+    <span class="n">F_next</span> <span class="o">=</span> <span class="n">ca</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="s1">&#39;F_x_next&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">ca</span><span class="o">.</span><span class="n">horzcat</span><span class="p">(</span><span class="n">sym_lon_degree</span><span class="p">,</span> <span class="n">sym_lat_degree</span><span class="p">,</span> <span class="n">sym_time</span><span class="p">,</span> <span class="n">sym_battery</span><span class="p">,</span> <span class="n">sym_seaweed_mass</span><span class="p">),</span> <span class="n">ca</span><span class="o">.</span><span class="n">horzcat</span><span class="p">(</span><span class="n">sym_u_thrust</span><span class="p">,</span> <span class="n">sym_u_angle</span><span class="p">),</span> <span class="n">sym_dt</span><span class="p">],</span>
+                        <span class="p">[</span><span class="n">ca</span><span class="o">.</span><span class="n">horzcat</span><span class="p">(</span><span class="n">sym_lon_next</span><span class="p">,</span> <span class="n">sym_lat_next</span><span class="p">,</span> <span class="n">sym_time_next</span><span class="p">)])</span>
     <span class="k">return</span> <span class="n">F_next</span>
 <span class="n">F_x_next</span> <span class="o">=</span> <span class="n">get_casadi_dynamics</span><span class="p">(</span><span class="n">nb_platforms</span><span class="p">,</span> <span class="n">ocean_source</span><span class="p">,</span> <span class="n">u_max</span><span class="p">)</span>
 <span class="n">next_state_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">F_x_next</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_set</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">action_x_set</span><span class="p">),</span> <span class="n">dt_in_s</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Next state: rows [lon, lat, time] and columns [platforms] </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">next_state_np</span><span class="p">)</span> <span class="c1"># row lon, lat, time</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Next state: rows = [platforms], columns = [lon, lat, time]  </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">next_state_np</span><span class="p">)</span> <span class="c1"># row lon, lat, time</span>
 </pre></div>
 
      </div>
@@ -15221,10 +15208,10 @@ next lat position for the platforms =  [[23.72840339 23.81123709 23.60465088]]
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Next state: rows [lon, lat, time] and columns [platforms] 
- [[-8.24789018e+01 -8.25835290e+01 -8.23518922e+01]
- [ 2.37284034e+01  2.38112371e+01  2.36046509e+01]
- [ 1.63775580e+09  1.63775580e+09  1.63775580e+09]]
+<pre>Next state: rows = [platforms], columns = [lon, lat, time]  
+ [[-8.24789018e+01  2.37284034e+01  1.63775580e+09]
+ [-8.25835290e+01  2.38112371e+01  1.63775580e+09]
+ [-8.23518922e+01  2.36046509e+01  1.63775580e+09]]
 </pre>
 </div>
 </div>
@@ -15233,18 +15220,6 @@ next lat position for the platforms =  [[23.72840339 23.81123709 23.60465088]]
 
 </div>
 
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
-<div class="jp-Cell-inputWrapper">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>Here <code>ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass)</code> does not work when <code>sym_lon_degree</code> etc. are symbolic matrices, casadi throws an error that the input argument is not purely symbolic. A work around is to define a symbolic matrix <code>sym_inputs_states</code> and plit it then into lon, lat, time etc (same for the control) so that we can still pass the state as numpy array through <code>np.array(x_set)</code>, where <code>x_set</code> is of type <code>PlatformStateSet</code>.</p>
-
-</div>
-</div>
-</div>
 </div>
 </body>
 
