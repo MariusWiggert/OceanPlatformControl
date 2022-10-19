@@ -126,6 +126,12 @@ class PlatformState:
     def __getitem__(self, item):
         return self.__array__()[item]
 
+    def distance(self, other) -> units.Distance:
+        return self.to_spatial_point().distance(other)
+
+    def haversine(self, other) -> units.Distance:
+        return self.to_spatial_point().haversine(other)
+
     @staticmethod
     def from_numpy(numpy_array):
         """Helper function to initialize a PlatformState based on numpy arraay.

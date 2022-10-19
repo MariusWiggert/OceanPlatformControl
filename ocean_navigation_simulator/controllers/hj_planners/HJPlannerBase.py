@@ -35,7 +35,7 @@ from ocean_navigation_simulator.utils import units
 
 # TODO: handle where it is using hours_to_hj_solve_timescale to make sure the plot is in hours
 # TODO: This is very much work in progress, does not work yet!
-# TODO: discuss with Jerome: why run_without_x_T? sample_from_reachable_coordinates, set_interpolator, etc.
+# TODO: discuss with Jerome: why run_without_x_T? sample_feasible_points, set_interpolator, etc.
 #       -> JJ: run_without_x_T is used for problem generation where we only want HJ to stop after the specified time
 #       -> JJ: set_interpolator speeds up interpolation by using the intended scipy function RegularGridInterpolator
 # TODO: discuss the new variables in reachability snapshot plotting add_drawing, target_min_distance...

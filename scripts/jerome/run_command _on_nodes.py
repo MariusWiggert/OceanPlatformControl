@@ -57,10 +57,13 @@ script_start_time = time.time()
 # cluster_utils.run_command_on_all_nodes(COMMAND)
 
 
-# COMMAND = 'ls -la'
-cluster_utils.run_command_on_all_nodes(
-    "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"
-)
+COMMAND = 'ls -la'
+
+cluster_utils.run_command_on_all_nodes(COMMAND)
+
+# cluster_utils.run_command_on_all_nodes(
+#     "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"
+# )
 
 # cluster_utils.run_command_on_all_nodes('./OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh')
 

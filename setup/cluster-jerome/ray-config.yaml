@@ -12,6 +12,8 @@ cluster_name: default
 #min_workers: 12
 max_workers: 12
 
+upscaling_speed: 24
+
 # Cloud-provider specific configuration.
 provider:
     type: azure
@@ -87,7 +89,7 @@ available_node_types:
     ray.worker.default:
         # The minimum number of worker nodes of this type to launch.
         # This number should be >= 0.
-        min_workers: 12
+        min_workers: 2
         max_workers: 12
         # The resources provided by this node type.
         resources: {"CPU": 8, "Worker CPU": 8, "RAM": 32000}
