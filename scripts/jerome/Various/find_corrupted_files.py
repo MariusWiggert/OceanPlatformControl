@@ -14,6 +14,6 @@ ArenaFactory.download_required_files(
     archive_source="hycom",
     archive_type="hindcast",
     region="GOM",
-    download_folder='/tmp/corrupted_files',
+    download_folder="/tmp/corrupted_files",
     t_interval=[datetime.datetime(2021, 10, 1), datetime.datetime(2021, 10, 10)],
 )

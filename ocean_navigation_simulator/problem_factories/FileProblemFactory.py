@@ -9,6 +9,9 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.ProblemFactory import (
     ProblemFactory,
 )
+from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
+    CachedNavigationProblem,
+)
 
 
 class FileProblemFactory(ProblemFactory):
@@ -57,7 +60,7 @@ class FileProblemFactory(ProblemFactory):
         index = self.indexes_available.pop(0)
         row = self.problems_df.iloc[index]
 
-        return NavigationProblem.from_pandas_row(row)
+        return CachedNavigationProblem.from_pandas_row(row)
 
     def get_indices(self):
         if self.indices is None:

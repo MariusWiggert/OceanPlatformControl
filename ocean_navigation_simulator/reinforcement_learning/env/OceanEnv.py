@@ -23,10 +23,10 @@ from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
     FileProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import (
+from ocean_navigation_simulator.reinforcement_learning.env.OceanFeatureConstructor import (
     OceanFeatureConstructor,
 )
-from ocean_navigation_simulator.reinforcement_learning.OceanRewardFunction import (
+from ocean_navigation_simulator.reinforcement_learning.env.OceanRewardFunction import (
     OceanRewardFunction,
 )
 from ocean_navigation_simulator.utils import cluster_utils
@@ -351,6 +351,7 @@ class OceanEnv(gym.Env):
                     self.hindcast_planner.grid.domain.lo[1],
                     self.hindcast_planner.grid.domain.hi[1],
                 ],
+                return_ax=True,
             )
             self.arena.plot_arena_frame_on_map(ax)
             self.hindcast_planner.plot_hj_frame(ax)

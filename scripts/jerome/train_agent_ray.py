@@ -11,7 +11,7 @@ sys.path.extend(["/home/ubuntu/OceanPlatformControl"])
 print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
 
-from ocean_navigation_simulator.reinforcement_learning.scripts.TrainingRunner import (
+from ocean_navigation_simulator.reinforcement_learning.runners.TrainingRunner import (
     TrainingRunner,
 )
 from ocean_navigation_simulator.utils import cluster_utils

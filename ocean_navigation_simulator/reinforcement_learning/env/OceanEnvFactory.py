@@ -3,7 +3,7 @@ from typing import Optional
 from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
     FileProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.OceanEnv import OceanEnv
+from ocean_navigation_simulator.reinforcement_learning.env.OceanEnv import OceanEnv
 
 
 class OceanEnvFactory:

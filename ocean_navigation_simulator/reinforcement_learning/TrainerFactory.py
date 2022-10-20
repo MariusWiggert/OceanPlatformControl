@@ -5,7 +5,7 @@ from ray.tune.logger import UnifiedLogger
 from ocean_navigation_simulator.reinforcement_learning.OceanApexDQN import (
     OceanApexDQN,
 )
-from ocean_navigation_simulator.reinforcement_learning.OceanEnvFactory import (
+from ocean_navigation_simulator.reinforcement_learning.env.OceanEnvFactory import (
     OceanEnvFactory,
 )
 from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (

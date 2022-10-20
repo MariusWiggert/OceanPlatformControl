@@ -9,16 +9,13 @@ from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import 
     HJReach2DPlanner,
 )
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.FeatureConstructor import (
-    FeatureConstructor,
-)
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 
-class OceanFeatureConstructor(FeatureConstructor):
+class OceanFeatureConstructor:
     """
     Feature Constructors should take in the ArenaObservation and other relavant information, make any featurization changes,
     and then convert to a numpy array that the RL model can use.

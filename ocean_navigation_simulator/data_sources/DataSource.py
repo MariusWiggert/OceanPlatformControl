@@ -188,7 +188,7 @@ class DataSource(abc.ABC):
             or array.coords["lat"].data[-1] < y_interval[1]
         ):
             raise Exception(
-                f"Part of the y requested area is outside of file(file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}])."
+                f"Part of the y requested area is outside of file (file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}])."
             )
         if (
             array.coords["lon"].data[0] > x_interval[0]

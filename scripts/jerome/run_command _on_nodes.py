@@ -57,9 +57,16 @@ script_start_time = time.time()
 # cluster_utils.run_command_on_all_nodes(COMMAND)
 
 
-COMMAND = 'ls -la'
+# COMMAND = "pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git"
+# COMMAND = 'pip install "jax[cuda]==0.3.23" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html'
 
-cluster_utils.run_command_on_all_nodes(COMMAND)
+# COMMAND = 'pip list | grep chex; pip list | grep jax; pip list | grep hj_reachability'
+
+# COMMAND = 'pip install chex==0.1.5'
+
+cluster_utils.run_command_on_all_nodes(
+    "rm -rf /tmp/copernicus_forecast*; rm -rf /tmp/hycom_hindcast*"
+)
 
 # cluster_utils.run_command_on_all_nodes(
 #     "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"

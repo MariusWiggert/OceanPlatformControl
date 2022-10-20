@@ -5,12 +5,9 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.reinforcement_learning.RewardFunction import (
-    RewardFunction,
-)
 
 
-class OceanRewardFunction(RewardFunction):
+class OceanRewardFunction:
     def __init__(
         self,
         forecast_planner: HJReach2DPlanner,

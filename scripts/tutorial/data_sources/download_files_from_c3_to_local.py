@@ -1,5 +1,4 @@
 import datetime
-import os
 
 from ocean_navigation_simulator.data_sources.C3Downloader import C3Downloader
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory

@@ -30,7 +30,8 @@ else
     # install outdated jax==0.24 for hj_reachability
     # cuda version can also run on cpu (errors can be ignored)
     #pip install --upgrade "jax[cpu]==0.2.24" -f https://storage.googleapis.com/jax-releases/jax_releases.html
-    pip install "jax[cuda]==0.2.24" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+    pip install "jax[cuda]==0.3.23" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+    ipi install chex==0.1.5
 
     # install newest tensorflow after jax since it has to replace dependencies (old flatbuffers)
     pip install tensorflow==2.9.1

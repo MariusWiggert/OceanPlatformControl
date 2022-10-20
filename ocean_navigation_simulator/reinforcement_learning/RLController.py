@@ -14,7 +14,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.reinforcement_learning.OceanFeatureConstructor import (
+from ocean_navigation_simulator.reinforcement_learning.env.OceanFeatureConstructor import (
     OceanFeatureConstructor,
 )
 from ocean_navigation_simulator.utils import cluster_utils

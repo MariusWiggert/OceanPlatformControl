@@ -13,7 +13,7 @@ import time
 
 import pytz
 
-from ocean_navigation_simulator.reinforcement_learning.scripts.GenerationRunner import (
+from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner import (
     GenerationRunner,
 )
 from ocean_navigation_simulator.utils import cluster_utils, units
@@ -28,7 +28,7 @@ cluster_utils.init_ray()
 runner = GenerationRunner(
     name="divers_training",
     config={
-        "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast",
+        "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
         "generation_folder": "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast",
         # Only Hindcast:
         # -- GPU: 1 batch: 80s  = ~1.5min
@@ -45,7 +45,6 @@ runner = GenerationRunner(
         "size": {
             "groups": 1,
             "batches_per_group": 100,
-            "batch_size": 1,
         },
         "ray_options": {
             "max_retries": 10,
@@ -58,34 +57,51 @@ runner = GenerationRunner(
             },
         },
         "mission_generation": {
-            "x_range": [units.Distance(deg=-98), units.Distance(deg=-89.5)],
-            "y_range": [units.Distance(deg=23.5), units.Distance(deg=26.5)],
+            ##### Target Sampling #####
+            # Available: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
+            "x_range": [units.Distance(deg=-95.9), units.Distance(deg=-79.1)],
+            "y_range": [units.Distance(deg=20.1), units.Distance(deg=29.9)],
             "t_range": [
-                datetime.datetime(year=2022, month=6, day=1, tzinfo=datetime.timezone.utc),
-                datetime.datetime(year=2022, month=6, day=11, tzinfo=datetime.timezone.utc),
+                # Copernicus FC: 2022-04 until today
+                # HYCOM Hindcast: 2021-09 until today
+                datetime.datetime(year=2022, month=4, day=4, tzinfo=datetime.timezone.utc),
+                datetime.datetime(year=2022, month=10, day=16, tzinfo=datetime.timezone.utc),
             ],
-            "mission_time_range": [datetime.timedelta(hours=24), datetime.timedelta(hours=36)],
-            "problem_timeout": datetime.timedelta(hours=48),
-            # 'problem_target_radius', 'goal_min_distance' have to be tuned with 'mission_time_range' for meaningful missions:
-            #   - if 'goal_min_distance' is small in relation to 'target_radius' then the missions are extremely short
-            #   - if
-            #   0.1 deg ~= 11km = 3h @ 1m/s
-            #   0.1 deg ~= 11km = 30h @ 0.1m/s
-            #   1 deg ~= 111km = 30h @ 1m/s
-            # if 'target_radius' is big the target is reached sooner than expected
-            "start_distance_from_frame": 0.5,
-            "target_distance_from_frame": 1.0,
-            "problem_target_radius": 0.02,
-            "target_min_distance": 0.15,
-            # 'grid_res' has to be smaller than target_radius to prevent hj_solver errors
-            "hj_planner": {
-                "grid_res": 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-                # 'deg_around_xt_xT_box': 2.0,  # area over which to run HJ_reachability
+            "problem_timeout": datetime.timedelta(hours=150),
+            "target_distance_from_land": 0.5,
+            "problem_target_radius": 0.1,
+            ##### HJ Planner #####
+            "hj_specific_settings": {
+                # 'grid_res' has to be smaller than target_radius to prevent hj_solver errors
+                "grid_res": 0.04,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+                "direction": "multi-time-reach-back",
+                "n_time_vector": 199,  # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+                "accuracy": "high",
+                "artificial_dissipation_scheme": "local_local",
+                "run_without_x_T": True,
+                "progress_bar": False,
             },
-            "plot_batch": True,
+            "hj_planner_box": 2.0,
+            ##### Start Sampling #####
+            "feasible_missions_per_target": 8,
+            "random_missions_per_target": 8,
+            "min_distance_from_hj_frame": 0.5,
+            "min_distance_from_land": 0.5,
+            "feasible_mission_time": [datetime.timedelta(hours=20), datetime.timedelta(hours=120)],
+            "random_min_distance_from_target": 0.5,
+            # 'target_radius', 'goal_min_distance' have to be tuned with 'mission_time_range' for meaningful missions:
+            #   - if 'target_radius' is big the target is reached sooner than expected
+            #   0.1 deg ~= 11km = 3h @ 1m/s, 30h @ 0.1m/s
+            #   1 deg ~= 111km = 30h @ 1m/s, 300h @ 0.1m/s
+            #   2 deg ~= 111km = 60h @ 1m/s
+
+            "plot_batch": False,
+            "animate_batch": True,
+            "cache_forecast": False,
+            "cache_hindcast": False,
         },
     },
-    verbose=1,
+    verbose=3,
 )
 
 script_time = time.time() - script_start_time

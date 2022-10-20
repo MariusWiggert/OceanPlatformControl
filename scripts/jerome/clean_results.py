@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.reinforcement_learning.scripts import (
+from ocean_navigation_simulator.reinforcement_learning.runners import (
     TrainingRunner,
 )
 

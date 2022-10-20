@@ -14,9 +14,6 @@ import pytz
 import ray
 from matplotlib import pyplot as plt
 
-from ocean_navigation_simulator.reinforcement_learning.scripts.MissionGenerator import (
-    MissionGenerator,
-)
 from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils.misc import get_process_information_dict
 
@@ -71,7 +68,6 @@ class GenerationRunner:
                     mission_generation_config=config["mission_generation"],
                     group=int(batch // config["size"]["batches_per_group"]),
                     batch=batch,
-                    batch_size=config["size"]["batch_size"],
                     verbose=verbose,
                 )
                 for batch in range(config["size"]["groups"] * config["size"]["batches_per_group"])
@@ -98,13 +94,23 @@ class GenerationRunner:
         mission_generation_config: dict,
         group: int,
         batch: int,
-        batch_size: int,
         verbose,
     ):
+        import os
+
+        os.environ["LOGLEVEL"] = "WARN"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         # Supress TF CPU warnings:
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # FATAL
         logging.getLogger("tensorflow").setLevel(logging.FATAL)
         logging.getLogger("absl").setLevel(logging.FATAL)
+        import warnings
+
+        warnings.simplefilter("ignore", UserWarning)
+
+        from ocean_navigation_simulator.reinforcement_learning.missions.MissionGenerator import (
+            MissionGenerator,
+        )
 
         try:
             batch_start_time = time.time()
@@ -120,27 +126,31 @@ class GenerationRunner:
                 config={"seed": batch} | mission_generation_config,
                 verbose=verbose - 1,
             )
-            problems = problem_factory.generate_batch(batch_size)
+            problems = problem_factory.generate_batch()
             generate_time = time.time() - generate_start
 
             # Step 2: Plot Batch
-            if mission_generation_config["plot_batch"]:
+            if mission_generation_config["animate_batch"]:
                 plot_start = time.time()
                 cluster_utils.ensure_storage_connection()
                 os.makedirs(batch_folder, exist_ok=True)
-                problem_factory.plot_batch(batch_size, filename=f"{batch_folder}animation.gif")
+                problem_factory.plot_last_batch_animation(filename=f"{batch_folder}animation.gif")
                 plot_time = time.time() - plot_start
             else:
-                plot_time = 0
+                plot_time = 0.0
 
             # step 3: Save Hindcast Planner
-            cluster_utils.ensure_storage_connection()
-            problem_factory.hindcast_planner.save_planner_state(f"{batch_folder}hindcast_planner/")
+            if mission_generation_config["cache_forecast"]:
+                cluster_utils.ensure_storage_connection()
+                problem_factory.hindcast_planner.save_planner_state(f"{batch_folder}hindcast_planner/")
 
-            # Step 4: Run & Save Forecast Planner
-            forecast_start = time.time()
-            problem_factory.run_forecast(batch_folder=batch_folder)
-            forecast_time = time.time() - forecast_start
+            # # Step 4: Run & Save Forecast Planner
+            if mission_generation_config["cache_hindcast"]:
+                forecast_start = time.time()
+                problem_factory.run_forecast(batch_folder=batch_folder, problem=problems[0])
+                forecast_time = time.time() - forecast_start
+            else:
+                forecast_time = 0.0
 
             # Step 5: Format & Save Batch Results
             cluster_utils.ensure_storage_connection()
@@ -160,7 +170,7 @@ class GenerationRunner:
 
             if verbose > 0:
                 print(
-                    f'GenerationRunner: Finished Batch {batch} Group {group} (total: {batch_info["total_time"]:.1f}s, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s), RAM: {batch_info["process_ram"]}'
+                    f'GenerationRunner: Finished Batch {batch} Group {group} (total: {batch_info["total_time"]}, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s), RAM: {batch_info["process_ram"]}'
                 )
 
         except Exception as e:

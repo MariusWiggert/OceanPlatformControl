@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import os
 import socket
 import time
@@ -23,11 +24,13 @@ from c3python import C3Python
 
 ### Getting C3 Object for data downloading ###
 def get_c3(verbose: Optional[int] = 0):
+    """Helper function to get C3 object for access to the C3 Database"""
+
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
     USERNAME = "mariuswiggert@berkeley.edu"
 
-    """Helper function to get C3 object for access to the C3 Database"""
     if not hasattr(get_c3, "c3"):
+        logging.getLogger("c3python.c3python").setLevel(logging.WARN)
         with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
             get_c3.c3 = C3Python(
                 # Old Tag: url='https://dev01-seaweed-control.c3dti.ai', tag='dev01',
@@ -102,3 +105,15 @@ class bcolors:
     ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
+
+    @staticmethod
+    def green(string: str) -> str:
+        return f"{bcolors.OKGREEN}{string}{bcolors.ENDC}"
+
+    @staticmethod
+    def orange(string: str) -> str:
+        return f"{bcolors.WARNING}{string}{bcolors.ENDC}"
+
+    @staticmethod
+    def red(string: str) -> str:
+        return f"{bcolors.FAIL}{string}{bcolors.ENDC}"
