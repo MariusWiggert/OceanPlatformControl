@@ -179,8 +179,6 @@ class DataSource(abc.ABC):
                 raise ValueError("None of the requested t_interval is in the file.")
             else:
                 raise ValueError("None of the requested spatial area is in the file.")
-        if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
-            raise ValueError("The starting time {} is not in the array.".format(t_interval[0]))
 
         # Step 2: Data partially not in the array check
         if (
@@ -197,6 +195,8 @@ class DataSource(abc.ABC):
             raise Exception(
                 f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}])."
             )
+        if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
+            raise Exception(f"The starting time is not in the array (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}])).")
         if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
             raise Exception(
                 f"The requested final time is not part of the subset (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."

@@ -103,7 +103,7 @@ class ArenaFactory:
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
                 with timing("ArenaFactory: Download Hindcast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_required_files(
+                    downloaded_files = ArenaFactory.download_required_files(
                         archive_source=config["ocean_dict"]["hindcast"]["source_settings"][
                             "source"
                         ],
@@ -117,6 +117,11 @@ class ArenaFactory:
                         verbose=verbose,
                     )
 
+                    # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
+                    config["ocean_dict"]["hindcast"]["source_settings"]["folder"] = [
+                        config["ocean_dict"]["hindcast"]["source_settings"]["folder"] + f for f in downloaded_files
+                    ]
+
             # Step 6: Download Forecast
             if (
                 t_interval is not None
@@ -124,7 +129,7 @@ class ArenaFactory:
                 and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
                 with timing("ArenaFactory: Download Forecast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_required_files(
+                    downloaded_files = ArenaFactory.download_required_files(
                         archive_source=config["ocean_dict"]["forecast"]["source_settings"][
                             "source"
                         ],
@@ -137,6 +142,11 @@ class ArenaFactory:
                         points=points,
                         verbose=verbose,
                     )
+
+                    # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
+                    config["ocean_dict"]["forecast"]["source_settings"]["folder"] = [
+                        config["ocean_dict"]["forecast"]["source_settings"]["folder"] + f for f in downloaded_files
+                    ]
 
             # Step 7: Create Arena
             return Arena(
@@ -160,7 +170,7 @@ class ArenaFactory:
         points: Optional[List[SpatialPoint]] = None,
         throw_exceptions: bool = False,
         verbose: Optional[int] = 10,
-    ) -> int:
+    ) -> List[str]:
         """
         helper function for thread-safe download of available current files from c3
         Args:
@@ -173,7 +183,7 @@ class ArenaFactory:
             throw_exceptions: throw exceptions for missing or corrupted files
             verbose: silence print statements with 0
         Returns:
-            amount of files found
+            list of downloaded files
         Examples:
             ArenaFactory.download_required_files(
                 archive_source='hycom',
@@ -227,14 +237,14 @@ class ArenaFactory:
         ArenaFactory._check_spacial_coverage(files, points)
 
         # Step 4: Download files thread-safe
-        ArenaFactory._download_filelist(
+        downloaded_files = ArenaFactory._download_filelist(
             files=files,
             download_folder=download_folder,
             throw_exceptions=throw_exceptions,
             verbose=verbose,
         )
 
-        return files.count
+        return downloaded_files
 
     @staticmethod
     def get_filelist(
@@ -308,7 +318,15 @@ class ArenaFactory:
 
     @staticmethod
     def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10):
-        """thread-safe download with corruption and file size check"""
+        """
+            thread-safe download with corruption and file size check
+            Arguments:
+                files: c3.FecthResult object
+                download_folder: folder to download files to
+                throw_exceptions: if True throws exceptions for missing/corrupted files
+            Returns:
+                list of downloaded files
+        """
         c3 = get_c3(verbose - 1)
 
         # Step 1: Sanitize Inputs
@@ -317,6 +335,7 @@ class ArenaFactory:
         os.makedirs(download_folder, exist_ok=True)
 
         # Step 2: Download Files thread-safe with atomic os.replace
+        downloaded_files = []
         temp_folder = f"{download_folder}{os.getpid()}/"
         try:
             for file in files.objs:
@@ -360,6 +379,8 @@ class ArenaFactory:
                     os.system(f"touch {download_folder + filename}")
                     if verbose > 0:
                         print(f"File already downloaded: {filename}, {filesize}.")
+
+                downloaded_files.append(filename)
         except BaseException:
             shutil.rmtree(temp_folder, ignore_errors=True)
             raise
@@ -367,7 +388,7 @@ class ArenaFactory:
             shutil.rmtree(temp_folder, ignore_errors=True)
 
         # Step 3: Only keep most recent files to prevent full storage
-        KEEP = 100  # ~ 100 * 100MB = 10GB
+        KEEP = 1000  # ~ 100 * 100MB = 10GB
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
@@ -375,6 +396,8 @@ class ArenaFactory:
             if verbose > 0:
                 print("Deleting old forecast file:", file)
             os.remove(file)
+
+        return downloaded_files
 
     @staticmethod
     def _check_spacial_coverage(files, points: List[SpatialPoint]):

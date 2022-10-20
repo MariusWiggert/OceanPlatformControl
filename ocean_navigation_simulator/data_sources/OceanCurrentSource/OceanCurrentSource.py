@@ -273,8 +273,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         # Step 2: derive the time coverage and grid_dict for from the first file
         self.t_forecast_coverage = [
             self.files_dicts[0]["t_range"][0],  # t_0 of fist forecast file
-            self.files_dicts[-1]["t_range"][1],
-        ]  # t_final of last forecast file
+            self.files_dicts[-1]["t_range"][1], # t_final of last forecast file
+        ]
 
         self.grid_dict = self.files_dicts[0]
 
@@ -369,7 +369,10 @@ class HindcastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(source_config_dict["source_settings"]["folder"])
+        self.files_dicts = get_file_dicts(
+            source_config_dict["source_settings"]["folder"],
+            currents=source_config_dict["source_settings"].get("currents", "normal")
+        )
 
         # Step 2: open the respective file as multi dataset
         self.DataArray = format_xarray(
@@ -411,26 +414,41 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 # Helper functions across the OceanCurrentSource objects
 def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
-    """Creates an list of dicts ordered according to time available, one for each nc file available in folder.
-    The dicts for each file contains:
-    {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
     """
-    # get a list of files from the folder
-    files_list = [
-        folder + f
-        for f in os.listdir(folder)
-        if (os.path.isfile(os.path.join(folder, f)) and f != ".DS_Store")
-    ]
+        Creates an list of dicts ordered according to time available, one for each nc file available in folder.
+        The dicts for each file contains:
+        {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
+    """
+    # Step 1: get a list of files from the folder
+    files_list = []
 
-    # iterate over all files to extract the grids and put them in an ordered list of dicts
+    # Allow for list of files/folders or mixture
+    # This is useful to prevent loading hundreds of files!
+    # Fully backwards compatible
+    if type(folder) is not list:
+        folder = [folder]
+
+    for place in folder:
+        if os.path.isdir(place):
+            files_list.append([
+                folder + f
+                for f in os.listdir(folder)
+                if (os.path.isfile(os.path.join(folder, f)) and f != ".DS_Store")
+            ])
+        elif os.path.isfile(place):
+            files_list.append(place)
+
+    # Step 2: iterate over all files to extract the grids and put them in an ordered list of dicts
     list_of_dicts = []
     for file in files_list:
         grid_dict = get_grid_dict_from_file(file, currents=currents)
         # append the file to it:
         grid_dict["file"] = file
         list_of_dicts.append(grid_dict)
-    # sort the list
+
+    # Step 3: sort the list
     list_of_dicts.sort(key=lambda dict: dict["t_range"][0])
+
     return list_of_dicts
 
 
