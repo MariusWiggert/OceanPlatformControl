@@ -23,6 +23,13 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.utils import units
 
 
+class DataSourceException(Exception):
+    pass
+
+class SubsettingDataSourceException(DataSourceException):
+    pass
+
+
 class DataSource(abc.ABC):
     """Base class for various data sources."""
 
@@ -176,29 +183,29 @@ class DataSource(abc.ABC):
         if 0 in (len(array.coords["lat"]), len(array.coords["lon"]), len(array.coords["time"])):
             # check which dimension for more informative errors
             if len(array.coords["time"]) == 0:
-                raise ValueError("None of the requested t_interval is in the file.")
+                raise SubsettingDataSourceException("None of the requested t_interval is in the file.")
             else:
-                raise ValueError("None of the requested spatial area is in the file.")
+                raise SubsettingDataSourceException("None of the requested spatial area is in the file.")
 
         # Step 2: Data partially not in the array check
         if (
             array.coords["lat"].data[0] > y_interval[0]
             or array.coords["lat"].data[-1] < y_interval[1]
         ):
-            raise Exception(
+            raise SubsettingDataSourceException(
                 f"Part of the y requested area is outside of file (file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}])."
             )
         if (
             array.coords["lon"].data[0] > x_interval[0]
             or array.coords["lon"].data[-1] < x_interval[1]
         ):
-            raise Exception(
+            raise SubsettingDataSourceException(
                 f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}])."
             )
         if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
-            raise Exception(f"The starting time is not in the array (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}])).")
+            raise SubsettingDataSourceException(f"The starting time is not in the array (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}])).")
         if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
-            raise Exception(
+            raise SubsettingDataSourceException(
                 f"The requested final time is not part of the subset (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."
             )
 
