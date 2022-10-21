@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -13,6 +14,12 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
+
+# Set Info Logging
+from ocean_navigation_simulator.utils.misc import set_arena_loggers
+
+# Get Info Message from all arena components
+set_arena_loggers(logging.INFO)
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local")

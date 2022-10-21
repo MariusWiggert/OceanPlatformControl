@@ -1,12 +1,17 @@
 import datetime
+import logging
 
 from ocean_navigation_simulator.data_sources.C3Downloader import C3Downloader
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 time_interval = [
     datetime.datetime(2022, 4, 21, 12, 0, 0),
     datetime.datetime(2022, 4, 22, 12, 0, 0),
 ]
+
+# Get Info Message from all arena components
+set_arena_loggers(logging.INFO)
 
 # There are two ways of downloading files from c3.
 # They use the same functions under the hood but slightly different interfaces and checks.
