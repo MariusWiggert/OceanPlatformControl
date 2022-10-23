@@ -66,11 +66,11 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
 
 
 if __name__ == "__main__":
-    save_dir = "data/drifter_data/hindcasts/area3/"
-    # lon_range = [-150, -115]
-    # lat_range = [0, 40]
-    lon_range = [-120, -90]
-    lat_range = [-15, 15]
-    start = datetime.datetime(2022, 5, 2, 12, 30, 0)
-    days = 166
+    save_dir = "data/drifter_data/hindcasts/area1/"
+    lon_range = [-150, -115]
+    lat_range = [0, 40]
+    # lon_range = [-120, -90]
+    # lat_range = [-15, 15]
+    start = datetime.datetime(2022, 10, 1, 12, 30, 0)
+    days = 7
     get_copernicus_hindcast(lon_range, lat_range, start, days, save_dir=save_dir)

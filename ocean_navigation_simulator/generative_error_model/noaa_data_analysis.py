@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_monthly_means(data, lon_range, lat_range):
+def plot_monthly_means(data, lon_range, lat_range, save_path: str = ""):
     res = [*data["U"].T.shape]
     lon_res = np.linspace(-180, 180, res[1])
     lat_res = np.linspace(-90, 90, res[0])
@@ -21,7 +21,7 @@ def plot_monthly_means(data, lon_range, lat_range):
                                            time=time).T)
 
     # plotting
-    fig, axs = plt.subplots(6, 2, figsize=(8, 20))
+    fig, axs = plt.subplots(4, 3, figsize=(18, 20))
     x_tick_labels = np.linspace(lon_range[0], lon_range[1], round((lon_range[1]-lon_range[0])/(res[1]/360)))
     x_ticks = np.linspace(0, abs(pix_idx_lon[1] - pix_idx_lon[0]), len(x_tick_labels))
     y_tick_labels = np.linspace(lat_range[0], lat_range[1], round((lat_range[1]-lat_range[0])/(res[0]/180)))
@@ -29,7 +29,7 @@ def plot_monthly_means(data, lon_range, lat_range):
 
     month_list = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     for idx in range(0, 12):
-        axis = axs[idx // 2, idx % 2]
+        axis = axs[idx // 3, idx % 3]
         frame = axis.pcolormesh(region_data[idx])
         axis.set_xlabel(f"{month_list[idx]}")
         axis.set_xticks(x_ticks)
@@ -37,21 +37,25 @@ def plot_monthly_means(data, lon_range, lat_range):
         axis.set_xticklabels(x_tick_labels)
         axis.set_yticklabels(y_tick_labels)
         plt.colorbar(frame, ax=axis)
-    plt.tight_layout()
+    plt.suptitle("Monthly average current magnitude for GoM", size=30, va="top")
+    plt.tight_layout(pad=1.8)
     plt.show()
+
+    if not save_path == "":
+        fig.savefig(save_path)
 
 
 if __name__ == "__main__":
     data = xr.open_dataset("/home/jonas/Downloads/drifter_monthlymeans.nc", decode_times=False)
 
-    # Region 1
-    lon_range = np.array([-140, -120])
-    lat_range = np.array([15, 35])
+    # # Region 1
+    # lon_range = np.array([-146.25, -125])
+    # lat_range = np.array([15, 36.25])
 
-    # # GoM
-    # lon_range = np.array([-100, -80])
-    # lat_range = np.array([14, 30])
+    # GoM
+    lon_range = np.array([-100, -80])
+    lat_range = np.array([14, 30])
 
-    plot_monthly_means(data, lon_range, lat_range)
+    plot_monthly_means(data, lon_range, lat_range, "/home/jonas/Downloads/GoM_trends.png")
 
 

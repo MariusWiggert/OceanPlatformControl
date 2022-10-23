@@ -24,7 +24,7 @@ class Block(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels=3, features=64, norm="batch", dropout=True):
+    def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout=True):
         super().__init__()
         norm_layer = get_norm_layer(norm_type=norm)
 
@@ -54,7 +54,7 @@ class Generator(nn.Module):
         self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
         self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
         self.final_up = nn.Sequential(
-            nn.ConvTranspose2d(features * 2, in_channels, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(features * 2, out_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh(),
         )
 

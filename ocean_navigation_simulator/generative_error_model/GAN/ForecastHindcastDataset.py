@@ -72,7 +72,7 @@ class ForecastHindcastDatasetNpy(Dataset):
                 hc_file_paths = sorted(glob.glob(f"{hc_dir}/{area}/*.npy"))
                 if len(fc_file_paths) != len(hc_file_paths):
                     raise ValueError("Number of forecast and hindcast files is different!")
-                self.area_lens[area] = len(fc_file_paths) * self.hours_in_file
+                self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
                 self.fc_file_paths.extend(fc_file_paths)
                 self.hc_file_paths.extend(hc_file_paths)
             except:
@@ -82,7 +82,7 @@ class ForecastHindcastDatasetNpy(Dataset):
         self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.hc_file_paths]
 
     def __len__(self):
-        return (min(len(self.fc_file_paths), len(self.hc_file_paths)) * self.hours_in_file)//self.concat_len
+        return min(len(self.fc_file_paths), len(self.hc_file_paths)) * (self.hours_in_file//self.concat_len)
 
     def __getitem__(self, idx):
         if self.concat_len == 1:
@@ -91,7 +91,7 @@ class ForecastHindcastDatasetNpy(Dataset):
             fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
             hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
         else:
-            file_idx = (idx * self.concat_len) // self.hours_in_file
+            file_idx = (idx * self.concat_len + self.concat_len - 1) // self.hours_in_file
             time_step_idx = (idx * self.concat_len) % self.hours_in_file
             fc_data = self.fc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
             hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
@@ -124,7 +124,7 @@ def test_npy():
     hc_dir = os.path.join("data/drifter_data/hindcasts_preprocessed")
     dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"], concat_len=2)
     print(f"Dataset length: {len(dataset)}")
-    dataset_item = dataset.__getitem__(0)
+    dataset_item = dataset.__getitem__(int(30144/2)-1)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
 

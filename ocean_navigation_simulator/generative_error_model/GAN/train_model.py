@@ -96,8 +96,8 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
         test_size = length - train_size - val_size
 
         # target split sizes equal if using whole dataset, otherwise target split sizes are calculated.
-        if dataset_configs["len"] is None:
-            target_len = length
+        if dataset_configs["len"] == "None":
+            target_len = int(length / len(area_lens.keys()))
             train_target_size = train_size
             val_target_size = val_size
             test_target_size = test_size
@@ -203,7 +203,8 @@ def predict_fixed_batch(model, dataloader, device):
 
 def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor) -> Optional[Dict[str, float]]:
     """Computes all specified metrics over the validation set predictions.
-    Returns metrics normalized by batch size."""
+    Computes metrics for each pair, sums the result of all pairs in batch and returns metrics
+    normalized by batch size."""
 
     # convert to numpy
     ground_truth = ground_truth.cpu().detach().numpy()
@@ -213,8 +214,8 @@ def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Ten
     metrics = {metric_name: 0 for metric_name in metric_names}
     for idx in range(ground_truth.shape[0]):
         if "rmse" in metric_names:
-            rmse_val = rmse(ground_truth[idx, :, :, :].squeeze(),
-                            predictions[idx, :, :, :].squeeze())
+            rmse_val = rmse(ground_truth[idx, :2, :, :].squeeze(),
+                            predictions[idx, :2, :, :].squeeze())
             metrics["rmse"] += rmse_val
         if "vector_correlation" in metric_names:
             vec_corr_val = vector_correlation(ground_truth[idx, 0, :, :].squeeze(),
@@ -300,9 +301,13 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
                 # get metrics and ratio of metrics for generated outputs
                 metric_values = get_metrics(metrics_names, target, output)
                 metric_values_baseline = get_metrics(metrics_names, target, data)
+                if metric_values_baseline["rmse"] == 0:
+                    print("RMSE of baseline is 0!")
+                if metric_values_baseline["vector_correlation"] == 2:
+                    print("Vector correlation of baseline is 2!")
                 for metric_name in metrics_names:
                     metrics[metric_name] += metric_values[metric_name]
-                    metrics_ratio[metric_name] += metric_values[metric_name] / metric_values_baseline[metric_name]
+                    metrics_ratio[metric_name] += metric_values[metric_name] / (metric_values_baseline[metric_name]+1e-8)
 
                 tepoch.set_postfix(loss=str(round(val_loss.item() / data.shape[0], 3)))
                 # wandb.log({"val_loss": round(val_loss.item() / data.shape[0], 3)})
