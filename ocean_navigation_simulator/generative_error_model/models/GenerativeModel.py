@@ -1,7 +1,7 @@
-from ocean_navigation_simulator.generative_error_model.Problem import Problem
+from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Optional
 import xarray as xr
 import numpy as np
 

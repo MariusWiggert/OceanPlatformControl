@@ -3,7 +3,7 @@ import copy
 from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
 from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.data_files.BuoyData import TargetedTimeRange
-from ocean_navigation_simulator.generative_error_model.Problem import Problem
+from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
 from utils import load_config, timer, get_path_to_project
 
