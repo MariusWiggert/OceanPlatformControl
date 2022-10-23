@@ -131,7 +131,7 @@ class NoisyCurrentComponent:
     def get_noise_vec(self, x: np.ndarray, y: np.ndarray, elapsed_time: np.ndarray) -> np.ndarray:
         """Returns simplex noise at defined location (in space and time), for specified components."""
 
-        weighted_noise = np.zeros((x.squeeze().shape, y.squeeze().shape, elapsed_time.squeeze().shape))
+        weighted_noise = 0.0
         total_weight = 0.0
         total_weight_squared = 0.0
 

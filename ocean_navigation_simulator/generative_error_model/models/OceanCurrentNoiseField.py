@@ -1,11 +1,10 @@
 from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel,\
     HarmonicParameters
 from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
-from ocean_navigation_simulator.generative_error_model.utils import convert_degree_to_km
-from ocean_navigation_simulator.generative_error_model.Problem import Problem
+from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
 from ocean_navigation_simulator.utils import units
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import xarray as xr
 import datetime
 import numpy as np
@@ -145,6 +144,15 @@ def timedelta_to_hours(timedelta: datetime.timedelta):
     return timedelta.days*24 + timedelta.seconds//3600
 
 
+def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
+    Note: e.g. pts1 -> np.array([lon, lat])."""
+    # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
+    x = lon * 40075.2 * np.cos(lat * np.pi/360)/360
+    y = lat * (39806.64/360)
+    return x, y
+
+
 def test(save_path):
     params_path = "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
     parameters = np.load(params_path, allow_pickle=True)
@@ -161,16 +169,15 @@ def test(save_path):
     # define the problem
     lon_range = [-140, -120]
     lat_range = [20, 30]
-    t_range = [datetime.datetime(2022, 4, 21, 12, 30, 0),
-               datetime.datetime(2022, 5, 21, 12, 30, 0)]
+    t_range = [datetime.datetime(2022, 5, 2, 12, 30, 0),
+               datetime.datetime(2022, 6, 2, 12, 30, 0)]
     problem = Problem(lon_range, lat_range, t_range)
 
     # get the noise
     noise_field = noise_field.get_noise_vec(problem)
     print(noise_field)
-    noise_field.to_netcdf(save_path)
+    # noise_field.to_netcdf(save_path)
 
 
 if __name__ == "__main__":
-    save_path = "sample_noise.nc"
-    test(save_path)
+    test("sample_noise.nc")
