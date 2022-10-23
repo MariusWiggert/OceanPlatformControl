@@ -147,7 +147,7 @@ def timedelta_to_hours(timedelta: datetime.timedelta):
 
 
 @timer
-def test():
+def test(save_path):
     config = load_config("config_buoy_data.yaml")
     project_dir = get_path_to_project(os.getcwd())
 
@@ -172,8 +172,9 @@ def test():
     # get the noise
     noise_field = noise_field.get_noise_vec(problem)
     print(noise_field)
-    noise_field.to_netcdf("~/Downloads/plots/forecast_validation/vec_sample_noise.nc")
+    noise_field.to_netcdf(save_path)
 
 
 if __name__ == "__main__":
-    test()
+    save_path = "sample_noise.nc"
+    test(save_path)

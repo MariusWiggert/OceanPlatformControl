@@ -208,12 +208,10 @@ def test():
     # define the components instead of receiving them from OceanCurrentNoiseField
     u_comp = [
         HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
-        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
-    ]
+        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)]
     v_comp = [
         HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
-        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)
-    ]
+        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)]
 
     rng = np.random.default_rng(2022)
     new_seeds = rng.choice(10000, 2)
