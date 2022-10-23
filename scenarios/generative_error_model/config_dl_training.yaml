@@ -15,7 +15,7 @@ load_from_chkpt:
 #  dropout: False
 
 generator:
-  in_channels: 4
+  in_channels: 2
   out_channels: 2
   features: 64
   dropout: False
@@ -30,9 +30,9 @@ train:
   test_batch_size: 32
   epochs: 30
   loss:
-    # choice: mse, sparse_mse, total_variation, mass_conservation, l1
-    types: [ "l1", "mass_conservation" ]
-    weighting: [ 1, 0.05 ]
+    # choice: l1, mse, sparse_mse, total_variation, mass_conservation
+    types: [ "mse" ]
+    weighting: [ 1 ]
 #  learning_rate: 1e-4
   learning_rate: 0.0002
   lr_scheduler_configs:
@@ -58,7 +58,7 @@ dataset:
   sparse_type: "forecast"
   area: ["area1"]
   shuffle: True
-  len: 5000
-  split: [0.8, 0.1, 0.1]
+  len: None
+  split: [0.9, 0.05, 0.05]
   random_subsets: False  # if len < len(dataset) how to choose subsets?
-  concat_len: 2
+  concat_len: 1
