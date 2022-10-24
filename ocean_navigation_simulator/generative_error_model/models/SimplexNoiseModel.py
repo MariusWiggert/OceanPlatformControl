@@ -64,26 +64,16 @@ class SimplexNoiseModel:
         self.noise_u.reset(noise_u_rng)
         self.noise_v.reset(noise_v_rng)
 
-    def get_noise(self, x: units.Distance, y: units.Distance,
-                  elapsed_time: datetime.timedelta) -> CurrentVector:
+    def get_noise(self, x: np.ndarray, y: np.ndarray, elapsed_time: np.ndarray) -> np.ndarray:
         noise_u_value = self.noise_u.get_noise(x, y, elapsed_time)
         noise_v_value = self.noise_v.get_noise(x, y, elapsed_time)
-
-        return CurrentVector(
-            units.Velocity(meters_per_second=noise_u_value),
-            units.Velocity(meters_per_second=noise_v_value)
-        )
-
-    def get_noise_vec(self, x: np.ndarray, y: np.ndarray, elapsed_time: np.ndarray) -> np.ndarray:
-        noise_u_value = self.noise_u.get_noise_vec(x, y, elapsed_time)
-        noise_v_value = self.noise_v.get_noise_vec(x, y, elapsed_time)
 
         # reshape noise into x,y,z
         # noise_u_value = np.moveaxis(noise_u_value, [2, 1, 0], [0, 1, 2])
         # noise_v_value = np.moveaxis(noise_v_value, [2, 1, 0], [0, 1, 2])
 
         noise = np.array([noise_u_value, noise_v_value])
-        noise = np.moveaxis(noise, list(range(0, len(noise.shape))), list(range(len(noise.shape)-1, -1, -1)))
+        noise = np.moveaxis(noise, [*range(1, len(noise.shape)), 0], list(range(0, len(noise.shape))))
         return noise
 
 
@@ -108,7 +98,7 @@ class NoisyCurrentComponent:
         for rng, harmonic in zip(harmonics_rngs, self._harmonics):
             harmonic.reset(rng)
 
-    def get_noise(self, x: units.Distance, y: units.Distance, elapsed_time: datetime.timedelta) -> float:
+    def get_noise(self, x: np.ndarray, y: np.ndarray, elapsed_time: np.ndarray) -> np.ndarray:
         """Returns simplex noise at defined location (in space and time), for specified components."""
 
         weighted_noise = 0.0
@@ -118,26 +108,6 @@ class NoisyCurrentComponent:
         # Sum noise from all harmonics and weight
         for harmonic in self._harmonics:
             noise = harmonic.get_noise(x, y, elapsed_time)
-            weighted_noise += noise * harmonic.weight
-            total_weight += harmonic.weight
-            total_weight_squared += harmonic.weight**2
-
-        # Scale to recover the desired empirical variance
-        weighted_noise /= total_weight
-        weighted_noise *= np.sqrt(total_weight / total_weight_squared)
-
-        return weighted_noise
-
-    def get_noise_vec(self, x: np.ndarray, y: np.ndarray, elapsed_time: np.ndarray) -> np.ndarray:
-        """Returns simplex noise at defined location (in space and time), for specified components."""
-
-        weighted_noise = 0.0
-        total_weight = 0.0
-        total_weight_squared = 0.0
-
-        # Sum noise from all harmonics and weight
-        for harmonic in self._harmonics:
-            noise = harmonic.get_noise_vec(x, y, elapsed_time)
             weighted_noise += noise * harmonic.weight
             total_weight += harmonic.weight
             total_weight_squared += harmonic.weight**2
@@ -176,20 +146,7 @@ class NoisyCurrentHarmonic:
         random_translation = rng.uniform(size=(3,)) * 2.0 - 1.0
         self._offsets = SimplexOffset(*random_translation)
 
-    def get_noise(self, x: units.Distance, y: units.Distance, elapsed_time: datetime.timedelta) -> float:
-        """Returns simplex noise for this harmonic at specific point in time and space."""
-
-        if self._simplex_generator is None:
-            raise ValueError("Must call reset before get_noise.")
-
-        time_in_hours = units.timedelta_to_hours(elapsed_time)
-
-        return NOISE_MAGNITUDE * self._simplex_generator.noise3(
-            x.km / self.x_range + self._offsets.x,
-            y.km / self.y_range + self._offsets.y,
-            time_in_hours / self.time_range + self._offsets.time)
-
-    def get_noise_vec(self, x: np.ndarray, y: np.ndarray, elapsed_times: np.ndarray) -> np.ndarray:
+    def get_noise(self, x: np.ndarray, y: np.ndarray, elapsed_times: np.ndarray) -> np.ndarray:
         """Returns simplex noise for this harmonic at specific point in time and space."""
 
         if self._simplex_generator is None:
@@ -199,6 +156,7 @@ class NoisyCurrentHarmonic:
                                   for elapsed_time in elapsed_times])
 
         # magnitude is needed to scale the noise to a variance of 1.
+        # The opensimplex method returns an array with the axis reversed wrt input order.
         return NOISE_MAGNITUDE * self._simplex_generator.noise3array(
             x / self.x_range + self._offsets.x,
             y / self.y_range + self._offsets.y,
@@ -206,44 +164,6 @@ class NoisyCurrentHarmonic:
 
 
 def test():
-
-    # define the components instead of receiving them from OceanCurrentNoiseField
-    u_comp = [
-        HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
-        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)]
-    v_comp = [
-        HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
-        HarmonicParameters(0.5, 302.5, 1207.3, 187.0)]
-
-    rng = np.random.default_rng(2022)
-    new_seeds = rng.choice(10000, 2)
-    rng1 = np.random.default_rng(new_seeds[0])
-    rng2 = np.random.default_rng(new_seeds[1])
-
-    noise_model = SimplexNoiseModel(u_comp, v_comp)
-    noise_model.reset(rng1)
-    velocity1 = noise_model.get_noise(
-        units.Distance(km=200),
-        units.Distance(km=300),
-        datetime.timedelta(days=5))
-
-    velocity2 = noise_model.get_noise(
-        units.Distance(km=200),
-        units.Distance(km=300),
-        datetime.timedelta(days=5))
-
-    noise_model.reset(rng2)
-    velocity3 = noise_model.get_noise(
-        units.Distance(km=200),
-        units.Distance(km=300),
-        datetime.timedelta(days=5)
-    )
-
-    assert(velocity1 == velocity2), "SimplexNoiseModel not the same for same seed!"
-    assert(velocity1 != velocity3), "SimplexNoiseModel the same for different seed!"
-
-
-def test_equal_methods_simplexnoisemodel():
     # define the components instead of receiving them from OceanCurrentNoiseField
     u_comp = [
         HarmonicParameters(0.5, 702.5, 1407.3, 245.0),
@@ -257,27 +177,10 @@ def test_equal_methods_simplexnoisemodel():
     noise = SimplexNoiseModel(u_comp, v_comp)
     noise.reset(np.random.default_rng(123))
     elapsed_times = np.array([np.timedelta64(5, 'h'), np.timedelta64(6, 'h'), np.timedelta64(20, 'h')])
-    output = noise.get_noise_vec(np.array([200, 300, 500, 550]), np.array([300, 200, 100]), elapsed_times)
-    # select u only
-    vec_output = output[:, :, :, 0]
-
-    # non-vectorized method
-    x_pos = [200, 300, 500, 550]
-    y_pos = [300, 200, 100]
-    time = [5, 6, 20]
-    for i, x in enumerate(x_pos):
-        for j, y in enumerate(y_pos):
-            for k, t in enumerate(time):
-                output = noise.get_noise(units.Distance(km=x),
-                                         units.Distance(km=y),
-                                         datetime.timedelta(hours=t))
-                # print(output.u.meters_per_second)
-                assert round(output.u.meters_per_second, 4) == round(vec_output[i, j, k], 4), "Methods are not equal!"
-
-    print("methods are equal!")
+    output = noise.get_noise(np.array([200, 300, 500, 550]), np.array([300, 200, 100, 200, 300]), elapsed_times)
+    assert output.shape == (3, 5, 4, 2)
 
 
 if __name__ == "__main__":
     test()
-    test_equal_methods_simplexnoisemodel()
     print("All tests passed.")

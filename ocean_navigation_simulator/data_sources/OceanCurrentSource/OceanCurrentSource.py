@@ -1,7 +1,7 @@
 import datetime
 import logging
 import os
-from typing import AnyStr, List, Optional, Union
+from typing import AnyStr, List, Optional, Union, Dict
 
 import casadi as ca
 import dask.array.core
@@ -12,6 +12,7 @@ import xarray as xr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
+import pytz
 
 from ocean_navigation_simulator.data_sources.DataSource import (
     DataSource,
@@ -29,6 +30,8 @@ from ocean_navigation_simulator.utils.units import (
     get_datetime_from_np64,
     get_posix_time_from_np64,
 )
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
+
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
 # The fill with 0 could also be done in the HJ Planner, then we don't need to save the land grid anywhere.
@@ -382,6 +385,41 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+
+
+class ForecastFromHindcastSource(HindcastFileSource):
+    """Takes a hindcast file source and limits its length to 5 days."""
+
+
+class GroundTruthFromNoise:
+    def __init__(self, seed: int, params_path: str, hindcast_data_source):
+        self.hindcast_data_source = hindcast_data_source
+
+        # load pre-tuned parameters
+        parameters = np.load(params_path, allow_pickle=True)
+        harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
+                           "V_COMP": parameters.item().get("V_COMP")}
+        detrend_stats = parameters.item().get("detrend_metrics")
+
+        # initialize NoiseField
+        self.noise = OceanCurrentNoiseField(harmonic_params, np.array(detrend_stats))
+        rng = np.random.default_rng(seed)
+        self.noise.reset(rng)
+
+    def get_data_over_area(self,
+                           x_interval: List[float],
+                           y_interval: List[float],
+                           t_interval: List[Union[datetime.datetime, int]],
+                           ) -> xr.Dataset:
+
+        # make offset-aware datetimes
+        t_interval[0] = pytz.utc.localize(t_interval[0])
+        t_interval[1] = pytz.utc.localize(t_interval[1])
+
+        ds = self.hindcast_data_source.get_data_over_area(x_interval, y_interval, t_interval)
+
+        additive_noise = self.noise.get_noise(ds["lon"].values, ds["lat"].values, ds["time"].values)
+        return ds + additive_noise
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):

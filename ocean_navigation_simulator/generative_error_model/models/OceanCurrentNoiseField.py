@@ -1,10 +1,9 @@
 from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel,\
     HarmonicParameters
 from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
-from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
 from ocean_navigation_simulator.utils import units
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Union, Optional
 import xarray as xr
 import datetime
 import numpy as np
@@ -23,107 +22,50 @@ class OceanCurrentNoiseField(GenerativeModel):
         """Initializes the simplex noise with a new random number generator."""
         self.model.reset(rng)
 
-    def get_noise(self, problem: Problem) -> xr.Dataset:
+    def get_noise(self,
+                  lon_axis: np.ndarray,
+                  lat_axis: np.ndarray,
+                  t_axis: np.ndarray) -> xr.Dataset:
         """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
         Assumes the origin is positioned in top left corner at timedelta=0 hrs."""
 
-        # TODO: user-defined resolutions, since they vary between HYCOM and Copernicus.
-        lon_res, lat_res, t_res = 1 / 12, 1 / 12, 1
-        lon_range, lat_range, t_range = problem.lon_range, problem.lat_range, problem.t_range
-
-        # drop timezome from datetime
-        t_range[0] = t_range[0].replace(tzinfo=None)
-        t_range[1] = t_range[1].replace(tzinfo=None)
-
         # create axis steps
-        lon_locs = np.arange(lon_range[0], lon_range[1], lon_res)
-        lat_locs = np.arange(lat_range[0], lat_range[1], lat_res)
-        t_locs = timedelta_range_hours(datetime.timedelta(hours=0), t_range[1] - t_range[0])
-
-        noise = np.zeros((len(lon_locs), len(lat_locs), len(t_locs), 2))
-
-        # TODO: improve on prototype with nested for loops.
-        for i, lon in enumerate(lon_locs):
-            for j, lat in enumerate(lat_locs):
-                for k, elapsed_time in enumerate(t_locs):
-                    # need degrees relative to start of locs, convert to km and feed into noise model
-                    x, y = convert_degree_to_km(lon - lon_range[0], lat - lat_range[0])
-                    x_km = units.Distance(km=x)
-                    y_km = units.Distance(km=y)
-                    point_noise = self.model.get_noise(x_km, y_km, elapsed_time)
-                    noise[i, j, k, :] = np.array([float(point_noise.u.meters_per_second),
-                                                  float(point_noise.v.meters_per_second)])
-
-        # reintroduce trends into error
-        noise[:, :, :, 0] = noise[:, :, :, 0] * self.detrend_statistics[0, 1] + self.detrend_statistics[0, 0]
-        noise[:, :, :, 1] = noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
-
-        return self._create_xarray(noise, lon_locs, lat_locs, t_locs, t_range)
-
-    def get_noise_vec(self, problem: Problem) -> xr.Dataset:
-        """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
-        Assumes the origin is positioned in top left corner at timedelta=0 hrs."""
-
-        # TODO: user-defined resolutions, since they vary between HYCOM and Copernicus.
-        lon_res, lat_res, t_res = 1/12, 1/12, 1
-        lon_range, lat_range, t_range = problem.lon_range, problem.lat_range, problem.t_range
-
-        # drop timezome from datetime
-        t_range[0] = t_range[0].replace(tzinfo=None)
-        t_range[1] = t_range[1].replace(tzinfo=None)
-
-        # create axis steps
-        lon_locs = np.arange(lon_range[0], lon_range[1], lon_res)
-        lat_locs = np.arange(lat_range[0], lat_range[1], lat_res)
-        t_locs = np.array(timedelta_range_hours(datetime.timedelta(hours=0), t_range[1] - t_range[0]))
-        # convert to numpy otherwise numba throws a fit! # possible to do timedelta.to_timedelta64()
-        t_locs = np.array([np.timedelta64(timedelta) for timedelta in t_locs])
+        lon_locs = np.array([lon_val - lon_axis[0] for lon_val in lon_axis])
+        lat_locs = np.array([lat_val - lat_axis[0] for lat_val in lat_axis])
+        t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis])
 
         # get a row of const lat and varying lon and time.
-        # Need to convert from degrees to km first. Cant sample all position at once because degree space
+        # Need to convert from degrees to km first. Can't sample all position at once because degree space
         # is not Euclidean and opensimplex only allows for axis sampling. Therefore, sample one plane of lon
         # and time pairs at a time for which lat is const.
-        noise = np.zeros((len(lon_locs), len(lat_locs), len(t_locs), 2))
+        noise = np.zeros((len(t_locs), len(lat_locs), len(lon_locs), 2), dtype=np.single)
         for i, lat_loc in enumerate(lat_locs):
             # constant latitude for conversion of lon values
             lat_pos = np.full(len(lon_locs), lat_loc)
-            x_km, y_km = convert_degree_to_km(lon_locs - lon_range[0], lat_pos - lat_range[0])
+            x_km, y_km = convert_degree_to_km(lon_locs - lon_axis[0], lat_pos - lat_axis[0])
             y_km = np.array([y_km[0]])
 
-            noise[:, i, :, :] = np.squeeze(self.model.get_noise_vec(x_km, y_km, t_locs), axis=1)
+            noise[:, i, :, :] = np.squeeze(self.model.get_noise(x_km, y_km, t_locs), axis=1)
 
         # reintroduce trends into error
-        noise = noise.reshape(len(lon_locs), len(lat_locs), len(t_locs), 2)
-
-        # print(f"u metrics: {noise[:, :, :, 0].mean()}, {np.sqrt(noise[:, :, :, 0].var())}")
-        # print(f"v metrics: {noise[:, :, :, 1].mean()}, {np.sqrt(noise[:, :, :, 1].var())}")
-        # # what we want:
-        # print(self.detrend_statistics[0, 0], self.detrend_statistics[0, 1])
-        # print(self.detrend_statistics[1, 0], self.detrend_statistics[1, 1])
-
         noise[:, :, :, 0] = noise[:, :, :, 0] * self.detrend_statistics[0, 1] + self.detrend_statistics[0, 0]
         noise[:, :, :, 1] = noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
 
-        # print(f"u metrics: {noise[:, :, :, 0].mean()}, {np.sqrt(noise[:, :, :, 0].var())}")
-        # print(f"v metrics: {noise[:, :, :, 1].mean()}, {np.sqrt(noise[:, :, :, 1].var())}")
+        return self._create_xarray(noise, lon_axis, lat_axis, t_axis)
 
-        # need to convert time to list
-        t_locs = t_locs.tolist()
-
-        return self._create_xarray(noise, lon_locs, lat_locs, t_locs, t_range)
-
-    def _create_xarray(self, data: np.ndarray, lon_locs: np.ndarray, lat_locs: np.ndarray,
-                       t_locs: List[datetime.timedelta], t_range: List[datetime.datetime]):
+    @staticmethod
+    def _create_xarray(data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray,
+                       t_axis: np.ndarray):
 
         ds = xr.Dataset(
             data_vars=dict(
-                u_error=(["lon", "lat", "time"], data[:, :, :, 0]),
-                v_error=(["lon", "lat", "time"], data[:, :, :, 1]),
+                water_u=(["time", "lat", "lon"], data[:, :, :, 0]),
+                water_v=(["time", "lat", "lon"], data[:, :, :, 1]),
             ),
             coords=dict(
-                lon=lon_locs,
-                lat=lat_locs,
-                time=datetime_range_from_timedeltas(t_range[0], t_locs)
+                time=t_axis,
+                lat=lat_axis,
+                lon=lon_axis
             ),
             attrs=dict(description="An ocean current error sample over time and space.")
         )
@@ -131,13 +73,13 @@ class OceanCurrentNoiseField(GenerativeModel):
 
 
 def datetime_range_from_timedeltas(start: datetime.datetime, timedeltas: List[datetime.timedelta]):
-    return [start + timedelta for timedelta in timedeltas]
+    return [np.datetime64(start + timedelta) for timedelta in timedeltas]
 
 
-def timedelta_range_hours(start: datetime.timedelta, end: datetime.timedelta):
+def timedelta_range_hours(start: datetime.timedelta, end: datetime.timedelta, t_res: float):
     start_hours = timedelta_to_hours(start)
     end_hours = timedelta_to_hours(end)
-    return [start + datetime.timedelta(hours=n) for n in range(int(end_hours-start_hours))]
+    return [start + datetime.timedelta(hours=n) for n in range(0, int(end_hours-start_hours), t_res)]
 
 
 def timedelta_to_hours(timedelta: datetime.timedelta):
@@ -153,7 +95,7 @@ def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> Tuple[np.ndarray, 
     return x, y
 
 
-def test(save_path):
+def test():
     params_path = "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
     parameters = np.load(params_path, allow_pickle=True)
 
@@ -167,17 +109,13 @@ def test(save_path):
     noise_field.reset(rng)
 
     # define the problem
-    lon_range = [-140, -120]
-    lat_range = [20, 30]
-    t_range = [datetime.datetime(2022, 5, 2, 12, 30, 0),
-               datetime.datetime(2022, 6, 2, 12, 30, 0)]
-    problem = Problem(lon_range, lat_range, t_range)
-
+    lon_interval = [-140, -120]
+    lat_interval = [20, 30]
+    t_interval = [datetime.datetime(2022, 5, 2, 12, 30, 0),
+                  datetime.datetime(2022, 6, 2, 12, 30, 0)]
     # get the noise
-    noise_field = noise_field.get_noise_vec(problem)
-    print(noise_field)
-    # noise_field.to_netcdf(save_path)
+    print(noise_field.get_noise(lon_interval, lat_interval, t_interval))
 
 
 if __name__ == "__main__":
-    test("sample_noise.nc")
+    test()
