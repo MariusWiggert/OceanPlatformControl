@@ -41,13 +41,13 @@ def main():
     parser.add_argument('--training', action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
     validation = not args.training
-    i = args.index
-    print(f"step: {i}")
     if args.training:
         folder = args.folder
         output_folder = args.folder_output
     else:
         # todo: to fix
+        i = args.index
+        print(f"step: {i}")
         folder = f"/home/killian2k/seaweed/OceanPlatformControl/data_NN_DA/validation/copy_{i}/"
         output_folder = f"/home/killian2k/seaweed/OceanPlatformControl/data_NN_DA/GP_all_files_validation/copy_{i}/"
     x = np.load(f"{folder}{args.filename}_x.npy", mmap_mode='r')
@@ -57,15 +57,21 @@ def main():
 
     # error = np.load("/datadrive/files_copy_1/error.csv", mmap_mode='r')
     # measurement = np.load("/datadrive/files_copy_1/measurement.csv", mmap_mode='r')
+    print(x[0, :, 0, 0])
     print(x.shape, y.shape)
+    print(x.reshape((-1, 12, 8, 25, 25))[0, 0, :, 0, 0])
     # We have 8 and 2 channels for x and y respectively and 1323 problems saved. Dim2 = 12 hours * 96 days, 24,24 for lon and lat
     # x_reshaped, y_reshaped = x.reshape((-1, 8, 96, 12, 24, 24)), y.reshape((-1, 2, 96, 12, 24, 24))
-    x_reshaped, y_reshaped = x.reshape((-1, 8, 12, 25, 25)), y.reshape((-1, 2, 12, 25, 25))
-    x_reshaped = x_reshaped[:len(y_reshaped)]
+    # x_reshaped, y_reshaped = x.reshape((-1, 8, 12, 25, 25)), y.reshape((-1, 2, 12, 25, 25))
+    x_reshaped_2, y_reshaped_2 = x.reshape((-1, 12, 8, 25, 25)), y.reshape((-1, 12, 2, 25, 25))
+    # print(x_reshaped == x_reshaped_2, y_reshaped == y_reshaped_2)
+    # x_reshaped = x_reshaped[:len(y_reshaped)]
     # x_reshaped = np.swapaxes(x_reshaped, 1, 2)
     # y_reshaped = np.swapaxes(y_reshaped, 1, 2)
-    x_reshaped.shape, y_reshaped.shape
-    print("shapes: ", x_reshaped.shape, y_reshaped.shape)
+    print("shapes: ", x_reshaped_2.shape, y_reshaped_2.shape)
+    print("zero:", x_reshaped_2[0, 0, :, 0, 0], x_reshaped_2[0, 0, 0, 0, 0] - x_reshaped_2[0, 0, 4, 0, 0],
+          -x_reshaped_2[0, 0, 6, 0, 0])
+    # print("shapes: ", x_reshaped.shape, y_reshaped.shape)
     # In[8]:
 
     x, y = [], []
@@ -82,10 +88,10 @@ def main():
     i = 0
     with NpyAppendArray(out_x) as npaa_x:
         with NpyAppendArray(out_y) as npaa_y:
-            while i < len(x_reshaped):
+            while i < len(x_reshaped_2):
                 # for i, (problem, y_problem) in enumerate(zip(x_reshaped, y_reshaped)):
                 if i % 10 == 0:
-                    print(f"{i}/{len(x_reshaped)}")
+                    print(f"{i}/{len(x_reshaped_2)}")
                 samples = []
                 for k in range(0, num_hours_total, num_hours_between_period):
                     samples += list(
@@ -95,25 +101,25 @@ def main():
                 # print(y_reshaped[i,:,j,c])
                 # x.append(problem[:,samples])
                 # y.append(y_reshaped[i,:,samples])
-                x = x_reshaped[i + samples].reshape(-1, 8, *x_reshaped.shape[-3:])
-                y = y_reshaped[i + samples].reshape(-1, 2, *y_reshaped.shape[-3:])
+                x = x_reshaped_2[i + samples]
+                y = y_reshaped_2[i + samples]
                 # x = remove_borders_GP_predictions_lon_lat(x)
                 assert x.shape[0] == y.shape[0]
-                npaa_x.append(np.ascontiguousarray(x))
-                npaa_y.append(np.ascontiguousarray(y))
+                npaa_x.append(np.ascontiguousarray(np.ascontiguousarray(x).swapaxes(1, 2)))
+                npaa_y.append(np.ascontiguousarray(np.ascontiguousarray(y).swapaxes(1, 2)))
                 i += num_hours_total
 
     # In[9]:
 
-    x = np.concatenate(x).reshape(-1, 8, num_samples_in_total, *x_reshaped.shape[-3:])
+    # x = np.concatenate(x).reshape(-1, 8, num_samples_in_total, *x_reshaped_2.shape[-3:])
 
     # In[10]:
 
-    y = np.concatenate(y).reshape(-1, 2, num_samples_in_total, *x_reshaped.shape[-3:])
+    # y = np.concatenate(y).reshape(-1, 2, num_samples_in_total, *x_reshaped_.shape[-3:])
 
     # In[12]:
 
-    x.shape, y.shape
+    # x.shape, y.shape
 
 
 if __name__ == "__main__":

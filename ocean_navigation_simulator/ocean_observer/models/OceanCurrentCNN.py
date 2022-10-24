@@ -10,13 +10,13 @@ class OceanCurrentCNNSubgrid(nn.Module):
 
     def __init__(self, ch_sz: List[int], device: str = 'cpu', init_weights_value: float = 0.01, activation="relu",
                  downsizing_method="conv", dropout_encoder=0, dropout_decoder=0, dropout_bottom=0,
-                 final_number_channels=2, initial_channels=None, output_paddings=[(0, 1, 1), (0, 1, 1), 1],
+                 final_number_channels=2, initial_channels: List = None, output_paddings=[(0, 1, 1), (0, 1, 1), 1],
                  instance_norm=False, print_dims=False):
         super(OceanCurrentCNNSubgrid, self).__init__()
         self.init_weights_value = init_weights_value
         self.activation = activation
         self.downsizing_method = downsizing_method
-        self.initial_channels = None
+        self.initial_channels = initial_channels
         self.print_dims = print_dims
         # Encoder
         # ch_sz = [2, 16, 32, 64, 92]
@@ -67,14 +67,14 @@ class OceanCurrentCNNSubgrid(nn.Module):
         print("model: ", all_blocs)
 
     def forward(self, x):
-        # Dims input: [Batch_size, 2 (= dimensions currents), time, lat, lon]
+        # Dims input: [Batch_size, #channels, time, lat, lon]
         if self.initial_channels is not None:
             x = x[:, self.initial_channels]
         if self.print_dims:
             print("x", x.shape)
         x1l = self.bloc_left_1(x)
         if self.print_dims:
-            print("x1l", x1l.shape)
+            print("x1l", x1l.shape, type(x1l), self.bloc_left_2)
         x2l = self.bloc_left_2(x1l)
         if self.print_dims:
             print("x2l", x2l.shape)

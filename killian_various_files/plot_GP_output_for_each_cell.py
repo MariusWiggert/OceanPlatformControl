@@ -8,7 +8,8 @@ from matplotlib import pyplot as plt
 
 plot_fixed = True
 metric_to_plot = 'r2'
-path = "ablation_study/export_all_results_validation_set/"
+type_set = "testing"
+path = f"ablation_study/export_all_results_{type_set}_set/"
 if plot_fixed:
     file_025, file_05, file_1 = path + "config_GP_025_12_fixed_export_4.pickle", path + "config_GP_05_12_fixed_export_4.pickle", path + "config_GP_1_12_fixed_export_4.pickle"
 else:
@@ -50,7 +51,7 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
             if key.endswith("_all_lags_and_radius"):
                 plot_2d = True
                 legend = "All lags and radius merged"
-                title_2d = "average r2 for the tilesets"
+                title_2d = f"average r2 for the tilesets - {type_set} set"
                 name = key[:-len("_all_lags_and_radius")]
             else:
                 plot_2d = False

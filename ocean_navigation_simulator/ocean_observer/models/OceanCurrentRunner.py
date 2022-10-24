@@ -61,6 +61,28 @@ def collate_fn(batch):
 #
 #     return u_t + self.lambda1 * u * u_x - self.lambda2 * u_xx
 
+sweep_configuration = {
+    'method': 'bayes',
+    'name': 'sweep',
+    'metric': {
+        'goal': 'maximize',
+        'name': 'validation_r2_validation_merged'
+    },
+    'parameters': {
+        'batch_size': {'values': [16, 32, 64, 128]},
+        'epochs': {'values': [35]},
+        'lr': {'max': 0.01, 'min': 0.00001},
+        'model_error': {'values': [True, False]},
+        'ch_sz': {'values': [[6, 18, 36, 60, 112], [6, 24, 48, 96, 192], [6, 32, 64, 64, 128], [6, 32, 64, 128, 256]]},
+        'downsizing_method': {'values': ['maxpool', 'conv', 'avgpool']},
+        'dropout_encoder': {'distribution': 'uniform', 'max': 0.3, 'min': 0.01},
+        'dropout_bottom': {'distribution': 'uniform', 'max': 0.8, 'min': 0.01},
+        'dropout_decoder': {'distribution': 'uniform', 'max': 0.8, 'min': 0.01},
+        'weight_decay': {'distribution': 'uniform', 'min': 0.00001, 'max': 0.01},
+    }
+}
+
+
 def compute_conservation_mass_loss(pred, get_all_cells=False):
     # prediction shape: batch_size x channels[u,v] x time x lat [v] = rows x lon [u] = cols
 
@@ -86,14 +108,16 @@ def compute_conservation_mass_loss(pred, get_all_cells=False):
     # set nans to 0
     total_size = all_losses.nelement()
     num_nans = torch.isnan(all_losses).sum().item()
-    all_losses[torch.isnan(all_losses)] = 0
-    res = torch.sqrt(F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction='sum') / (total_size - num_nans))
+    nans = torch.isnan(all_losses)
+    all_losses[nans] = 0
+    res = 0.5 * (F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction='sum') / (total_size - num_nans))
     if get_all_cells:
+        all_losses[nans] = math.nan
         return res, all_losses
     return res
 
 
-def compute_burgers_loss(prediction, Re=math.pi / 0.01):
+def compute_burgers_loss(prediction, Re=math.pi / 0.01, get_all_cells=True):
     # Add the boundaries
     X, Y = prediction.shape[-2:]
     batches = len(prediction)
@@ -120,7 +144,20 @@ def compute_burgers_loss(prediction, Re=math.pi / 0.01):
     dy = dy[:, :, :, :, :-1]
     l1 = dt + u * dx + v * dy - 1 / Re * (dxx + dyy)
     l2 = dt + u * dx + v * dy - 1 / Re * (dxx + dyy)
-    return torch.sqrt(F.mse_loss(l1 + l2, torch.zeros_like(l1)))
+
+    # set nan to 0
+    all_losses = (l1 ** 2 + l2 ** 2).sum(axis=1)
+    total_size = all_losses.nelement()
+    num_nans = torch.isnan(all_losses).sum().item()
+    nans = torch.isnan(all_losses)
+    all_losses[nans] = 0
+
+    mse_loss = 0.5 * F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction='sum')
+    res = mse_loss / (total_size - num_nans)
+    if get_all_cells:
+        all_losses[nans] = math.nan
+        return res, all_losses
+    return res
 
 
 def get_metrics(improved_fc, hc, initial_fc, print_r2=False):
@@ -128,23 +165,23 @@ def get_metrics(improved_fc, hc, initial_fc, print_r2=False):
     magn_sq_init = ((initial_fc - hc) ** 2).sum(axis=1)
     magn_sq_impr = ((improved_fc - hc) ** 2).sum(axis=1)
 
-    metrics["magnitudes_per_location"] = (
-            magn_sq_impr.sum(axis=(0, 1)) / magn_sq_init.sum(axis=(0, 1))).cpu().detach().numpy()
+    # metrics["magnitudes_per_location"] = (
+    #         magn_sq_impr.sum(axis=(0, 1)) / magn_sq_init.sum(axis=(0, 1))).cpu().detach().numpy()
 
-    metrics["rmse_initial"] = torch.sqrt(magn_sq_init.mean(axis=(-1, -2))).mean().item()
-    metrics["rmse_improved"] = torch.sqrt(magn_sq_impr.mean(axis=(-1, -2))).mean().item()
-    metrics["rmse_ratio"] = (torch.sqrt(magn_sq_impr.mean(axis=(-1, -2))) / (
-            torch.sqrt(magn_sq_init.mean(axis=(-1, -2))) + 1e-6)).mean().item()
+    metrics["rmse_initial"] = torch.sqrt(magn_sq_init.mean(axis=(-1, -2, -3))).mean().item()
+    metrics["rmse_improved"] = torch.sqrt(magn_sq_impr.mean(axis=(-1, -2, -3))).mean().item()
+    metrics["rmse_ratio"] = (torch.sqrt(magn_sq_impr.mean(axis=(-1, -2, -3))) / (
+            torch.sqrt(magn_sq_init.mean(axis=(-1, -2, -3))) + 1e-6)).mean().item()
 
     metrics["evm_initial"] = torch.sqrt(
         magn_sq_init).mean().item()  # np.sqrt(((initial_fc - hc) ** 2).sum(axis=-1)).mean()
     metrics["evm_improved"] = torch.sqrt(magn_sq_impr).mean().item()
-    metrics["evm_ratio"] = (torch.sqrt(magn_sq_impr).mean(axis=(-1, -2)) / (
-            torch.sqrt(magn_sq_init).mean(axis=(-1, -2)) + 1e-6)).mean().item()
+    metrics["evm_ratio"] = (torch.sqrt(magn_sq_impr).mean(axis=(-1, -2, -3)) / (
+            torch.sqrt(magn_sq_init).mean(axis=(-1, -2, -3)) + 1e-6)).mean().item()
 
-    metrics["r2"] = (1 - ((magn_sq_impr.sum(axis=(-1, -2))) / (magn_sq_init.sum(axis=(-1, -2))))).mean().item()
+    metrics["r2"] = (1 - ((magn_sq_impr.sum(axis=(-1, -2, -3))) / (magn_sq_init.sum(axis=(-1, -2, -3))))).mean().item()
     if print_r2:
-        print("r2s:", (1 - ((magn_sq_impr.sum(axis=(-1, -2))) / (magn_sq_init.sum(axis=(-1, -2))))))
+        print("r2s:", (1 - ((magn_sq_impr.sum(axis=(-1, -2, -3))) / (magn_sq_init.sum(axis=(-1, -2, -3))))))
 
     metrics["ratio_per_tile"] = (magn_sq_impr.sum(axis=(-1, -2)) / magn_sq_init.sum(axis=(-1, -2))).mean(
         axis=(0, 1)).item()
@@ -319,10 +356,9 @@ def __create_histogram(list_ratios: List[float], epoch, args, is_training, n_bin
 
 def loop_train_validation(training_mode: bool, args, model, device, data_loader: torch.utils.data.DataLoader,
                           epoch: int, model_error: bool, cfg_dataset: dict[str, any],
-                          optimizer: Optional[torch.optim.Optimizer] = None):
-    slice = -2
-    legend = ("_training" if training_mode else "_validation")
-    legend_2 = f"_slice_{slice}_only"
+                          optimizer: Optional[torch.optim.Optimizer] = None, print_r2s=False, suffix="",
+                          log_metrics=True):
+    legend = ("_training" if training_mode else "_validation") + suffix
     if training_mode:
         model.train()
     else:
@@ -339,16 +375,22 @@ def loop_train_validation(training_mode: bool, args, model, device, data_loader:
     with (torch.autograd.set_detect_anomaly(True) if training_mode else torch.no_grad()):
         with tqdm(data_loader, unit="batch") as tepoch:
             official_metrics = defaultdict(int)
-            for data, target in tepoch:
+            print("tepoch:", tepoch)
+            for tuple_from_dataloader in tepoch:
+                if args.return_GP_FC_IMP_FC:
+                    data, target, fc, imp_fc = tuple_from_dataloader
+                    fc, imp_fc = fc.to(device, dtype=torch.float), imp_fc.to(device, dtype=torch.float)
+                else:
+                    data, target = tuple_from_dataloader
                 if (data, target) == (None, None):
                     continue
                 data, target = data.to(device, dtype=torch.float), target.to(device, dtype=torch.float)
+
+                # We take the matching input timesteps with the output timesteps
                 axis_time = cfg_dataset["index_axis_time"]
                 shift_input = cfg_dataset.get("shift_window_input", 0)
-                # We take the matching input timesteps with the output timesteps
                 data_same_time = torch.moveaxis(
                     torch.moveaxis(data, axis_time, 0)[shift_input:shift_input + target.shape[axis_time]], 0, axis_time)
-
                 axis_channel = cfg_dataset.get("index_axis_channel", 1)
                 indices_chanels_initial_fc = cfg_dataset.get("indices_chanels_initial_fc", None)
                 if indices_chanels_initial_fc is not None:
@@ -363,20 +405,16 @@ def loop_train_validation(training_mode: bool, args, model, device, data_loader:
 
                 # Compute the loss
                 total_loss_batch, loss_hindcast, loss_pinn = loss_function(output, target, args.lambda_physical_loss)
+                # gp_loss_batch, gp_loss_hindcast, gp_loss_pinn = loss_function(imp_fc, target, args.lambda_physical_loss)
                 # we computed the mean over timesteps and batches
                 mean_loss_batch = total_loss_batch / len(output) / output.shape[2]
-                for k, v in get_metrics(output, target, data_same_time, not training_mode).items():
-                    if not len(official_metrics):
-                        official_metrics["magnitudes_per_location" + legend] = np.zeros(output.shape[-2:])
+                for k, v in get_metrics(output, target, data_same_time, not training_mode and print_r2s).items():
+                    # if not len(official_metrics):
+                    #     official_metrics["magnitudes_per_location" + legend] = np.zeros(output.shape[-2:])
                     official_metrics[k + legend] += v
-
-                for k, v in get_metrics(output[..., :slice, :slice, :slice], target[..., :slice, :slice, :slice],
-                                        data_same_time[..., :slice, :slice, :slice],
-                                        not training_mode).items():
-                    if not len(official_metrics):
-                        official_metrics["magnitudes_per_location" + legend + legend_2] = np.zeros(
-                            output.shape[-2:])
-                    official_metrics[k + legend + legend_2] += v
+                if args.return_GP_FC_IMP_FC:
+                    for k, v in get_metrics(imp_fc, target, fc).items():
+                        official_metrics[k + "_GP" + legend] += v
 
                 official_metrics["count"] += 1
 
@@ -415,15 +453,14 @@ def loop_train_validation(training_mode: bool, args, model, device, data_loader:
         for k in official_metrics.keys():
             official_metrics[k] /= total
 
-        magnitudes_per_location = official_metrics.pop('magnitudes_per_location' + legend)
-        magnitudes_per_location_first_5 = official_metrics.pop('magnitudes_per_location' + legend + legend_2)
+        # magnitudes_per_location = official_metrics.pop('magnitudes_per_location' + legend)
         # print('\n'.join(['  '.join([str(cell) for cell in row]) for row in magnitudes_per_location]))
-        print("Only first 5 timesteps:")
         # print('\n'.join(['  '.join([str(cell) for cell in row]) for row in magnitudes_per_location_first_5]))
-        print(official_metrics)
-        wandb.log(official_metrics)
+        print(dict(official_metrics))
+        if log_metrics:
+            wandb.log(official_metrics)
 
-        return total_loss_overall, total_loss_pinn, total_loss_hindcast, np.array(list_ratios).mean()
+        return total_loss_overall, total_loss_pinn, total_loss_hindcast, np.array(list_ratios).mean(), official_metrics
 
 
 def end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
@@ -504,6 +541,9 @@ def get_args(all_cfgs):
     args.setdefault("max_batches_training_set", -1)
     args.setdefault("max_batches_validation_set", -1)
     args.setdefault("lambda_physical_loss", 0)
+    args.setdefault("tags_wandb", [])
+    args.setdefault("validate_each_file_separately", True)
+    args.setdefault("return_GP_FC_IMP_FC", False)
     return DotDict(args)
     # END ALTERNATIVE
 
@@ -554,20 +594,40 @@ def main():
         test_kwargs.update(cuda_kwargs)
 
     dataset_training = CustomOceanCurrentsFromFiles(folder_training,
-                                                    max_items=args.batch_size * args.max_batches_training_set)
-    dataset_validation = CustomOceanCurrentsFromFiles(folder_validation,
-                                                      max_items=args.validation_batch_size * args.max_batches_validation_set)
+                                                    max_items=args.batch_size * args.max_batches_training_set,
+                                                    tile_size=args.tile_size,
+                                                    return_GP_FC_IMP_FC=args.return_GP_FC_IMP_FC)
+    print("validate_each_file_separately", args.validate_each_file_separately)
+    if not args.validate_each_file_separately:
+        datasets_validation = CustomOceanCurrentsFromFiles(folder_validation,
+                                                           max_items=args.validation_batch_size * args.max_batches_validation_set,
+                                                           tile_size=args.tile_size,
+                                                           return_GP_FC_IMP_FC=args.return_GP_FC_IMP_FC)
+    else:
+        datasets_validation = []
+        for folder in folder_validation:
+            for path in sorted(os.listdir(folder)):
+                if path.endswith("_x.npy"):
+                    path = os.path.join(folder, path[:-len("_x.npy")])
+                    datasets_validation.append(CustomOceanCurrentsFromFiles(
+                        max_items=args.validation_batch_size * args.max_batches_validation_set,
+                        tile_size=args.tile_size, filename_with_path=path,
+                        return_GP_FC_IMP_FC=args.return_GP_FC_IMP_FC))
 
-    print(f"lengths ds: training:{len(dataset_training)}, validation:{len(dataset_validation)}")
+    print(
+        f"lengths ds: training:{len(dataset_training)}, validation:{[len(dataset_validation) for dataset_validation in datasets_validation]}")
 
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
-    validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
+    validation_loaders = [torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs) for
+                          dataset_validation in datasets_validation]
     for lambda_physical_loss in [0]:  # [0, 0.1, 0.2, 0.25, 0.2, 0.4]:
 
-        wandb.init(project="Seaweed_forecast_improvement", entity="killian2k")  # , name=f"experiment_{}")
+        wandb.init(project="Seaweed_forecast_improvement", entity="killian2k",
+                   tags=args.tags_wandb)  # , name=f"experiment_{}")
         print(f"starting run: {wandb.run.name}")
         os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
         wandb.config.update(args, allow_val_change=True)
+        wandb.config.update(cfg_neural_network, allow_val_change=True)
         wandb.save(config_file)
 
         args.lambda_physical_loss = lambda_physical_loss
@@ -591,10 +651,11 @@ def main():
             # Training
             print(f"starting Training epoch {epoch}/{args.epochs}.")
             time.sleep(0.2)
-            overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(True, args, model, device,
-                                                                                 train_loader,
-                                                                                 epoch, model_error, cfg_dataset,
-                                                                                 optimizer)
+            overall_loss, loss_pinn, loss_no_pinn, ratio, metrics = loop_train_validation(True, args, model, device,
+                                                                                          train_loader,
+                                                                                          epoch, model_error,
+                                                                                          cfg_dataset,
+                                                                                          optimizer)
             train_losses_overall.append(overall_loss)
             train_losses_no_pinn.append(loss_no_pinn)
             train_losses_pinn.append(loss_pinn)
@@ -605,26 +666,46 @@ def main():
             # Testing
             print(f"starting Testing epoch {epoch}/{args.epochs}.")
             time.sleep(0.2)
-            overall_loss, loss_pinn, loss_no_pinn, ratio = loop_train_validation(False, args, model, device,
-                                                                                 validation_loader, epoch,
-                                                                                 model_error, cfg_dataset)
+            overall_loss, loss_pinn, loss_no_pinn, ratio = [], [], [], []
+            merged_metrics = defaultdict(int)
+            for i, validation_loader in enumerate(validation_loaders):
+                suffix = f"_{i}"
+                overall, pinn, no_pinn, ra, metrics = loop_train_validation(False, args, model, device,
+                                                                            validation_loader, epoch,
+                                                                            model_error, cfg_dataset, suffix=suffix)
+                for k, v in metrics.items():
+                    merged_metrics[k[:-len(suffix)]] += v
+                overall_loss.append(overall), loss_pinn.append(pinn), loss_no_pinn.append(no_pinn), ratio.append(ra)
+            overall_loss, loss_pinn, loss_no_pinn, ratio = np.array(overall_loss), np.array(loss_pinn), np.array(
+                loss_no_pinn), np.array(ratio)
             validation_losses_overall.append(overall_loss)
             validation_losses_pinn.append(loss_pinn)
             validation_losses_no_pinn.append(loss_no_pinn)
             validation_ratios.append(ratio)
-            metrics |= {"validation_loss": overall_loss, "validation_loss_pinn": loss_pinn,
-                        "validation_loss_no_pinn": loss_no_pinn,
-                        "validation_ratio": ratio,
-                        "learning rate": optimizer.param_groups[0]['lr']}
+            metrics |= {"learning rate": optimizer.param_groups[0]['lr']}
+            if len(overall_loss) > 1:
+                for i in range(len(overall_loss)):
+                    metrics |= {f"validation_loss_{i}": overall_loss[i], f"validation_loss_pinn_{i}": loss_pinn[i],
+                                f"validation_loss_no_pinn_{i}": loss_no_pinn[i],
+                                f"validation_ratio": ratio[i]}
+
+            metrics |= {f"validation_loss": overall_loss.mean(), f"validation_loss_pinn": loss_pinn.mean(),
+                        f"validation_loss_no_pinn": loss_no_pinn.mean(),
+                        f"validation_ratio": ratio.mean()}
             if scheduler is not None:
                 if scheduler_step_takes_argument:
-                    scheduler.step(loss_pinn)
+                    scheduler.step(overall_loss.mean())
                     print(f"current lr: {optimizer.param_groups[0]['lr']}")
                 else:
                     scheduler.step()
             wandb.log(metrics)
-            if max_loss > overall_loss:
-                max_loss = overall_loss
+            if len(validation_loaders) > 1:
+                merged_metrics = {"validation_" + k + "_merged": v / len(validation_loaders) for k, v in
+                                  merged_metrics.items()}
+                print(merged_metrics)
+                wandb.log(merged_metrics)
+            if max_loss > overall_loss.mean():
+                max_loss = overall_loss.mean()
 
                 name_file = f'model_{epoch}.h5'
                 print(f"saved model at epoch {epoch}: {name_file}")

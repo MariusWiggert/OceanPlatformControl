@@ -429,8 +429,8 @@ def run_experiments_and_collect_tiles(output_folder: str, filename_problems,
             #     __export_list_to_file(results, folder_destination, i)
             #     i += 1
             #     results = []
-        except ValueError:
-            print(f"error with problem: {len(results)}")
+        except ValueError as e:
+            print(f"error with problem: {k}\n{e}")
 
     print("over")
 

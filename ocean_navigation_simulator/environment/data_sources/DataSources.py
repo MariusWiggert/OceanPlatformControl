@@ -128,9 +128,15 @@ class DataSource(abc.ABC):
                                       t_interval: List[datetime.datetime]):
         """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         # Step 1: collateral check is any dimension 0?
+        if 0 in (len(array.coords['lat']), len(array.coords['lon']), len(array.coords['time'])) and len(
+                array.coords['time']) == 0:
+            print("t_interval is ")
+            print(t_interval)
+
         if 0 in (len(array.coords['lat']), len(array.coords['lon']), len(array.coords['time'])):
             # check which dimension for more informative errors
             if len(array.coords['time']) == 0:
+                print("t_interval", t_interval)
                 raise ValueError("None of the requested t_interval is in the file.")
             else:
                 raise ValueError("None of the requested spatial area is in the file.")

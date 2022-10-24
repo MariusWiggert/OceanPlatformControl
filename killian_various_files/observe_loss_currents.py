@@ -8,19 +8,24 @@ from matplotlib.widgets import Slider, Button
 
 from ocean_navigation_simulator.environment.data_sources.DataSources import DataSource
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import compute_conservation_mass_loss
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import compute_conservation_mass_loss, \
+    compute_burgers_loss
 from ocean_navigation_simulator.utils import units
 
 print(os.getcwd())
 # %%
-display_forecast = True
-folder_hc = "forecast_c3_script/hc_may/"
-folder_fc = "forecast_c3_script/fc_may/"
+is_conservation_loss = True
+display_forecast = False
+folder_hc = "data_ablation_study/hc/july/"
+folder_fc = "data_ablation_study/fc/july/"
 folder = folder_fc if display_forecast else folder_hc
 legend_name = ("Forecast" if display_forecast else "Hindcast")
+metric_name = "mass conservation" if is_conservation_loss else "burgers' loss"
 files = os.listdir(folder)
 xr_hindcast = xr.Dataset()
 for file in sorted(files)[:4]:
+    if file == ".DS_Store":
+        continue
     print(file)
     data = xr.open_dataset(folder + file)
     if display_forecast:
@@ -43,15 +48,20 @@ print(xr_hindcast)
 # Add a dimension corresponding to the batch dimension
 tensor_merged = torch.tensor(xr_hindcast.to_array().to_numpy())[None, :]
 # %%
-loss, res = compute_conservation_mass_loss(tensor_merged, get_all_cells=True)
-res = res[0]
-print("total_loss", loss)
-print(res.shape)
+f = compute_conservation_mass_loss if is_conservation_loss else compute_burgers_loss
+loss, res = f(tensor_merged, get_all_cells=True)
+if is_conservation_loss:
+    res = res[0]
+    res = np.pad(res.numpy(), ((0, 0), (1, 0), (1, 0)))
+else:
+    res = res.numpy()[0, :, 1:, 1:]
+    res = np.pad(res, ((0, 0), (1, 0), (1, 0)))
+print("avg_loss: ", loss)
 # %%
-padded_res = np.pad(res.numpy(), ((0, 0), (1, 0), (1, 0)))
-print(padded_res.shape, xr_hindcast.to_array().shape[-3:])
-assert padded_res.shape == xr_hindcast.to_array().shape[-3:]
-xr_loss = xr.DataArray(padded_res, coords=xr_hindcast.coords).to_dataset(name="conservation_loss")
+
+print(res.shape, xr_hindcast.to_array().shape[-3:])
+assert res.shape == xr_hindcast.to_array().shape[-3:]
+xr_loss = xr.DataArray(res, coords=xr_hindcast.coords).to_dataset(name="conservation_loss")
 
 
 # %%
@@ -63,6 +73,7 @@ def visualize_initial_error(xr_1, xr_2, radius_area: float = None, ):
     # fig, ax = plt.subplots(2, 2)
     # ax1, ax2, ax3, ax4 = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
     fig, axes = plt.subplots(2)
+    fig.tight_layout(pad=3)
     ax1, ax2 = axes[0], axes[1]
 
     global cbar, cbar_2
@@ -77,8 +88,9 @@ def visualize_initial_error(xr_1, xr_2, radius_area: float = None, ):
         ax2.clear()
         cbar.remove()
         cbar_2.remove()
-        fig.suptitle('At time {}, with a lag of {} hours.'.format(
-            units.get_datetime_from_np64(xr_1.isel(time=slice(index_prediction, index_prediction + 24))['time'][0]),
+        fig.suptitle('Day {}, with a lag of {} hours.'.format(
+            units.get_datetime_from_np64(
+                xr_1.isel(time=slice(index_prediction, index_prediction + 24))['time'][0]).date(),
             lag), fontsize=14)
         _, cbar = OceanCurrentSource.plot_data_from_xarray(lag, xr_1.isel(
             time=slice(index_prediction, index_prediction + 24)), ax=ax1,
@@ -86,8 +98,8 @@ def visualize_initial_error(xr_1, xr_2, radius_area: float = None, ):
         _, cbar_2 = DataSource.plot_data_from_xarray(lag,
                                                      xr_2.isel(time=slice(index_prediction, index_prediction + 24)),
                                                      ax=ax2, return_cbar=True)
-        ax1.set_title(legend_name + " [m/s]")
-        ax2.set_title("loss [m/s]")
+        ax1.set_title(legend_name)
+        ax2.set_title(f"{metric_name} loss, avg: {loss} [m/s]")
 
     time_dim = list(range(len(xr_1["time"])))
 

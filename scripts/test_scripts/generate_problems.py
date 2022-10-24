@@ -58,8 +58,14 @@ def get_area_coordinates():
 # medium_to_big = (datetime.datetime(2022, 7, 17, 12, 30, 1, tzinfo=datetime.timezone.utc))
 # medium_to_big = (medium_to_big, medium_to_big + datetime.timedelta(hours=900))
 
-# New way to generate problems to avoid missing files
-list_all_pairs_train_test = list()
+# OLD Validation chunk
+# validation = [
+#     (
+#         dt(2022, 9, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 9, 15, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+#
+# # New way to generate problems to avoid missing files
+# list_all_pairs_train_test = list()
 
 # OLD SPLIT
 # set_1
@@ -109,9 +115,10 @@ list_all_pairs_train_test = list()
 # list_all_pairs_train_test.append((training, validation))
 
 
-# New Split
+# # New Split
+list_all_pairs_train_test = []
 training = [
-    (dt(2022, 3, 31, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 4, 21, 12, 30, 1, tzinfo=datetime.timezone.utc))
+    (dt(2022, 3, 31, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 4, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))
 ]
 validation = [
     (
@@ -144,7 +151,11 @@ list_all_pairs_train_test.append((training, validation, testing))
 training = [
     (
         dt(2022, 6, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 7, 11, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+        dt(2022, 6, 27, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+    (
+        dt(2022, 7, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 7, 11, 12, 30, 1, tzinfo=datetime.timezone.utc))
+]
 validation = [(
     dt(2022, 7, 13, 12, 30, 1, tzinfo=datetime.timezone.utc),
     dt(2022, 7, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))]
@@ -157,15 +168,15 @@ list_all_pairs_train_test.append((training, validation, testing))
 # set_4
 training = [
     (dt(2022, 7, 29, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 4, 12, 30, 1, tzinfo=datetime.timezone.utc)),
-    (dt(2022, 8, 6, 15, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+    (dt(2022, 8, 6, 15, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 18, 12, 30, 1, tzinfo=datetime.timezone.utc))]
 validation = [
     (
         dt(2022, 8, 21, 15, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 8, 27, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+        dt(2022, 8, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
 testing = [
     (
-        dt(2022, 8, 28, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 9, 3, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+        dt(2022, 9, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
+        dt(2022, 9, 8, 12, 30, 1, tzinfo=datetime.timezone.utc))]
 list_all_pairs_train_test.append((training, validation, testing))
 
 # Validation
@@ -315,7 +326,7 @@ def main(intervals: List, dir_name=None, filename=None, number_problems=40, seed
     starts = generate_temporal_points_within_boundaries(number_problems, intervals)
     problems = [(start, generate_end_point(start.to_spatial_point())) for start in starts]
 
-    path = problems_to_yaml(problems, dir_name, f"{number_problems}_{filename}", seed)
+    path = problems_to_yaml(problems, dir_name, f"{filename}", seed)
     print(f"problems exported to {path}")
 
 
@@ -329,15 +340,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(f"seed: {args.seed}")
     np.random.seed(args.seed)
-    # names = ['small', 'medium', 'big']
+    names = ['small', 'medium', 'big']
     # for i, inter in enumerate([small, small_to_medium, medium_to_big]):
     for i, (train, valid, testing) in enumerate(list_all_pairs_train_test):
         print(f"start set {i}")
-        if i == 2:
-            for j, train_valid_testing in enumerate([train, valid, testing]):
-                legend = 'training' if j == 0 else ('validation' if j == 1 else 'testing')
-                print("intervals: ", train_valid_testing)
-                main(train_valid_testing, os.path.join(args.dir, f"set_{i}"),
-                     args.file + f"_{i}_{legend}",
-                     args.problems // (1 if train_valid_testing else 3), args.seed)
+        for j, train_valid_testing in enumerate([train, valid, testing]):
+            legend = 'training' if j == 0 else ('validation' if j == 1 else 'testing')
+            print("intervals: ", train_valid_testing)
+            main(train_valid_testing, os.path.join(args.dir, f"set_{i}"),
+                 args.file + f"_{i}_{legend}",
+                 args.problems // (1 if train_valid_testing else 3), args.seed)
+
+    # If only one big chunk
+    # legend = 'validation_off_season'
+    # print("intervals: ", validation)
+    # main(validation, os.path.join(args.dir, f"validation_off_season"),
+    #      args.file + f"_validation_off_season",
+    #      args.problems, args.seed)
+
     print("Over.")
