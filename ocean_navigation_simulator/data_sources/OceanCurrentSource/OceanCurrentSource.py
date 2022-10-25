@@ -1,7 +1,7 @@
 import datetime
 import logging
 import os
-from typing import AnyStr, List, Optional, Union, Dict
+from typing import AnyStr, List, Optional, Union
 
 import casadi as ca
 import dask.array.core
@@ -30,7 +30,9 @@ from ocean_navigation_simulator.utils.units import (
     get_datetime_from_np64,
     get_posix_time_from_np64,
 )
-from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
+    OceanCurrentNoiseField,
+)
 
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
@@ -372,8 +374,10 @@ class HindcastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(source_config_dict["source_settings"]["folder"],
-                                          source_config_dict["source_settings"]["currents"])
+        self.files_dicts = get_file_dicts(
+            source_config_dict["source_settings"]["folder"],
+            source_config_dict["source_settings"]["currents"],
+        )
 
         # Step 2: open the respective file as multi dataset
         self.DataArray = format_xarray(
@@ -390,6 +394,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
 class ForecastFromHindcastSource(HindcastFileSource):
     """Takes a hindcast file source and ensures that it is 5 days long and always starts at noon."""
+
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
 
@@ -429,24 +434,22 @@ class GroundTruthFromNoise(OceanCurrentSource):
         rng = np.random.default_rng(seed)
         self.noise.reset(rng)
 
-    def get_data_over_area(self,
-                           x_interval: List[float],
-                           y_interval: List[float],
-                           t_interval: List[Union[datetime.datetime, int]],
-                           spatial_resolution: Optional[float] = None,
-                           temporal_resolution: Optional[float] = None
-                           ) -> xr.Dataset:
+    def get_data_over_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, int]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+    ) -> xr.Dataset:
 
         # TODO: find out how other methods handle time ranges and timestamps, posix
         t_interval[0] = pytz.utc.localize(t_interval[0])
         t_interval[1] = pytz.utc.localize(t_interval[1])
 
-        ds = self.hindcast_data_source.get_data_over_area(x_interval,
-                                                          y_interval,
-                                                          t_interval,
-                                                          spatial_resolution,
-                                                          temporal_resolution
-                                                          )
+        ds = self.hindcast_data_source.get_data_over_area(
+            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
+        )
 
         additive_noise = self.noise.get_noise(ds["lon"].values, ds["lat"].values, ds["time"].values)
         return ds + additive_noise

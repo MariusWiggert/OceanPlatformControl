@@ -1,5 +1,7 @@
-from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel,\
-    HarmonicParameters
+from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import (
+    SimplexNoiseModel,
+    HarmonicParameters,
+)
 from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
 from ocean_navigation_simulator.utils import units
 
@@ -21,8 +23,10 @@ class OceanCurrentNoiseField(GenerativeModel):
     @staticmethod
     def load_config_from_file(parameter_path):
         parameters = np.load(parameter_path, allow_pickle=True)
-        harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
-                           "V_COMP": parameters.item().get("V_COMP")}
+        harmonic_params = {
+            "U_COMP": parameters.item().get("U_COMP"),
+            "V_COMP": parameters.item().get("V_COMP"),
+        }
         detrend_stats = np.array(parameters.item().get("detrend_metrics"))
         return OceanCurrentNoiseField(harmonic_params, detrend_stats)
 
@@ -30,10 +34,9 @@ class OceanCurrentNoiseField(GenerativeModel):
         """Initializes the simplex noise with a new random number generator."""
         self.model.reset(rng)
 
-    def get_noise(self,
-                  lon_axis: np.ndarray,
-                  lat_axis: np.ndarray,
-                  t_axis: np.ndarray) -> xr.Dataset:
+    def get_noise(
+        self, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: np.ndarray
+    ) -> xr.Dataset:
         """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
         Assumes the origin is positioned in top left corner at timedelta=0 hrs."""
 
@@ -56,26 +59,27 @@ class OceanCurrentNoiseField(GenerativeModel):
             noise[:, i, :, :] = np.squeeze(self.model.get_noise(x_km, y_km, t_locs), axis=1)
 
         # reintroduce trends into error
-        noise[:, :, :, 0] = noise[:, :, :, 0] * self.detrend_statistics[0, 1] + self.detrend_statistics[0, 0]
-        noise[:, :, :, 1] = noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
+        noise[:, :, :, 0] = (
+            noise[:, :, :, 0] * self.detrend_statistics[0, 1] + self.detrend_statistics[0, 0]
+        )
+        noise[:, :, :, 1] = (
+            noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
+        )
 
         return self._create_xarray(noise, lon_axis, lat_axis, t_axis)
 
     @staticmethod
-    def _create_xarray(data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray,
-                       t_axis: np.ndarray):
+    def _create_xarray(
+        data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: np.ndarray
+    ):
 
         ds = xr.Dataset(
             data_vars=dict(
                 water_u=(["time", "lat", "lon"], data[:, :, :, 0]),
                 water_v=(["time", "lat", "lon"], data[:, :, :, 1]),
             ),
-            coords=dict(
-                time=t_axis,
-                lat=lat_axis,
-                lon=lon_axis
-            ),
-            attrs=dict(description="An ocean current error sample over time and space.")
+            coords=dict(time=t_axis, lat=lat_axis, lon=lon_axis),
+            attrs=dict(description="An ocean current error sample over time and space."),
         )
         return ds
 
@@ -87,19 +91,21 @@ def datetime_range_from_timedeltas(start: datetime.datetime, timedeltas: List[da
 def timedelta_range_hours(start: datetime.timedelta, end: datetime.timedelta, t_res: float):
     start_hours = timedelta_to_hours(start)
     end_hours = timedelta_to_hours(end)
-    return [start + datetime.timedelta(hours=n) for n in range(0, int(end_hours-start_hours), t_res)]
+    return [
+        start + datetime.timedelta(hours=n) for n in range(0, int(end_hours - start_hours), t_res)
+    ]
 
 
 def timedelta_to_hours(timedelta: datetime.timedelta):
-    return timedelta.days*24 + timedelta.seconds//3600
+    return timedelta.days * 24 + timedelta.seconds // 3600
 
 
 def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
     Note: e.g. pts1 -> np.array([lon, lat])."""
     # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
-    x = lon * 40075.2 * np.cos(lat * np.pi/360)/360
-    y = lat * (39806.64/360)
+    x = lon * 40075.2 * np.cos(lat * np.pi / 360) / 360
+    y = lat * (39806.64 / 360)
     return x, y
 
 
@@ -108,8 +114,10 @@ def test():
     parameters = np.load(params_path, allow_pickle=True)
 
     # define the components instead of receiving them from OceanCurrentNoiseField
-    harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
-                       "V_COMP": parameters.item().get("V_COMP")}
+    harmonic_params = {
+        "U_COMP": parameters.item().get("U_COMP"),
+        "V_COMP": parameters.item().get("V_COMP"),
+    }
     detrend_stats = parameters.item().get("detrend_metrics")
 
     noise_field = OceanCurrentNoiseField(harmonic_params, np.array(detrend_stats))
@@ -119,8 +127,10 @@ def test():
     # define the problem
     lon_interval = [-140, -120]
     lat_interval = [20, 30]
-    t_interval = [datetime.datetime(2022, 5, 2, 12, 30, 0),
-                  datetime.datetime(2022, 6, 2, 12, 30, 0)]
+    t_interval = [
+        datetime.datetime(2022, 5, 2, 12, 30, 0),
+        datetime.datetime(2022, 6, 2, 12, 30, 0),
+    ]
     # get the noise
     print(noise_field.get_noise(lon_interval, lat_interval, t_interval))
 

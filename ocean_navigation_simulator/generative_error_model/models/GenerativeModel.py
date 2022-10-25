@@ -16,8 +16,7 @@ class GenerativeModel(ABC):
         """Initializes the model with a new random number generator."""
 
     @abstractmethod
-    def get_noise(self,
-                  lon_locs: List[float],
-                  lat_locs: List[float],
-                  t_locs: List[datetime.datetime]) -> xr.Dataset:
+    def get_noise(
+        self, lon_locs: List[float], lat_locs: List[float], t_locs: List[datetime.datetime]
+    ) -> xr.Dataset:
         """Returns the noise field given a specific rng."""
