@@ -31,8 +31,8 @@ train:
   epochs: 30
   loss:
     # choice: l1, mse, sparse_mse, total_variation, mass_conservation
-    types: [ "mse" ]
-    weighting: [ 1 ]
+    types: [ "mse", "l1" ]
+    weighting: [ 1, 0.5 ]
 #  learning_rate: 1e-4
   learning_rate: 0.0002
   lr_scheduler_configs:

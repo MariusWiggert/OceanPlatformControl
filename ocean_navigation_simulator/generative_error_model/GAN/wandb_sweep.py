@@ -27,7 +27,6 @@ def sweep():
     # Initialize sweep by passing in config. (Optional) Provide a name of the project.
     sweep_id = wandb.sweep(sweep=sweep_configuration, project='cool-sweepedy-sweeeeep')
     # Start sweep job.
-    config_file = "scenarios/generative_error_model/config_dl_training.yaml"
     wandb.agent(sweep_id, lambda: main(sweep=True), count=4)
 
 
