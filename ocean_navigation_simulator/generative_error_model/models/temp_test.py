@@ -9,18 +9,16 @@ source_dict = {
     "field": "OceanCurrents",
     "source": "hindcast_files",
     "source_settings": {
-        "folder": "data/drifter_data/hindcasts/GoM_h/",
+        "folder": "data/drifter_data/hindcasts/area1/",
         "currents": "total"
     }
 }
 
 # define intervals
-# lon_interval = [-140, -120]
-# lat_interval = [20, 30]
-lon_interval = [-90, -80]
-lat_interval = [18.5, 23]
-t_interval = [datetime.datetime(2022, 5, 3, 12, 30, 0),
-              datetime.datetime(2022, 5, 4, 12, 30, 0)]
+lon_interval = [-140, -120]
+lat_interval = [20, 30]
+t_interval = [datetime.datetime(2022, 10, 1, 12, 30, 0),
+              datetime.datetime(2022, 10, 8, 12, 30, 0)]
 
 hindcast_data = HindcastFileSource(source_dict)
 
