@@ -352,7 +352,18 @@ def initialize(test: bool = False):
     return all_cfgs
 
 
-def main():
+def sweep_set_parameter(args):
+    args["train"]["batch_size"] = wandb.config.batch_size
+    args["train"]["epochs"] = wandb.config.epochs
+    args["train"]["learning_rate"] = wandb.config.lr
+    args[args["model"]]["init_type"] = wandb.config.weight_init
+    args[args["model"]]["norm_type"] = wandb.config.norm_type
+    args["train"]["loss"]["types"] = wandb.config.loss_type
+    args["train"]["loss"]["weighting"] = wandb.config.loss_weighting
+    return args
+
+
+def main(sweep: Optional[bool] = False):
     all_cfgs = initialize()
     print("####### Start Training #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -361,6 +372,10 @@ def main():
 
     # seed for reproducibility
     torch.manual_seed(0)
+
+    # if sweep set parameters
+    if sweep:
+        all_cfgs = sweep_set_parameter(all_cfgs)
 
     # simplify config access
     model_type = all_cfgs["model"]
