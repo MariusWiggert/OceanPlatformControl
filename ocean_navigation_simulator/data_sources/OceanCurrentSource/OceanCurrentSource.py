@@ -409,11 +409,15 @@ class ForecastFromHindcastSource(HindcastFileSource):
         # Step 1: Ensure output is 5 days long and starts at noon.
         hours = int(t_interval[0].strftime("%H"))
         if hours >= 12:
-            t_interval[0] = t_interval[0].replace(hours=12)
+            t_interval[0] = t_interval[0].replace(hour=12)
             t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
         else:
-            t_interval[0] = t_interval[0].replace(hours=12) + datetime.timedelta(days=-1)
+            t_interval[0] = t_interval[0].replace(hour=12) + datetime.timedelta(days=-1)
             t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
+
+        # TODO: find out how other methods handle time ranges and timestamps, posix
+        t_interval[0] = pytz.utc.localize(t_interval[0])
+        t_interval[1] = pytz.utc.localize(t_interval[1])
 
         # Step 2: Return Subset
         return super().get_data_over_area(
