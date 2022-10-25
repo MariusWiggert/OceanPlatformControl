@@ -637,13 +637,9 @@ def main(setup_wandb_parameters_sweep: bool = False):
                    tags=args.tags_wandb)  # , name=f"experiment_{}")
         print(f"starting run: {wandb.run.name}")
         os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
-        print(f"toto")
         wandb.config.update(args, allow_val_change=False)
-        print(f"toto_2")
         wandb.config.update(cfg_neural_network, allow_val_change=False)
-        print("before save")
         wandb.save(config_file)
-        print("after save")
         if setup_wandb_parameters_sweep:
             # print("old ch_sz", cfg_neural_network.ch_sz)
             args.epochs = wandb.config.epochs
