@@ -26,7 +26,8 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
         file_start = start + datetime.timedelta(days=day)
         file_end = file_start + datetime.timedelta(days=9)
         print(f"Downloading for time period of [{file_start}, {file_end}].")
-        file_name = f"copernicus_hindcast_lon_{lon_range}_lat_{lat_range}_time_[{start + datetime.timedelta(days=day)},{start + datetime.timedelta(days=9 + day)}].nc"
+        file_name = f"copernicus_hindcast_lon_{lon_range}_lat_{lat_range}_time_" + \
+                    f"[{start + datetime.timedelta(days=day)},{start + datetime.timedelta(days=9 + day)}].nc"
         if os.path.exists(os.path.join(root_dir, file_name)):
             print(f"File already exists!")
             continue
@@ -43,19 +44,17 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
         water_u = hindcast["water_u"].values[:, np.newaxis, :, :]
         water_v = hindcast["water_v"].values[:, np.newaxis, :, :]
         attrs = hindcast.attrs
-        # set to HYCOM since variables already have HYCOM naming otherwise OceanCurrentSource will fail.
-        attrs["source"] = "HYCOM"
 
         hindcast = xr.Dataset(
             data_vars=dict(
-                water_u=(["time", "depth", "lat", "lon"], water_u),
-                water_v=(["time", "depth", "lat", "lon"], water_v)
+                utotal=(["time", "depth", "latitude", "longitude"], water_u),
+                vtotal=(["time", "depth", "latitude", "longitude"], water_v)
             ),
             coords=dict(
                 time=("time", hindcast.coords["time"].values),
                 depth=("depth", [hindcast.coords["depth"].values]),
-                lat=("lat", hindcast.coords["lat"].values),
-                lon=("lon", hindcast.coords["lon"].values)
+                latitude=("latitude", hindcast.coords["lat"].values),
+                longitude=("longitude", hindcast.coords["lon"].values)
             ),
             attrs=attrs
         )
@@ -66,11 +65,11 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
 
 
 if __name__ == "__main__":
-    save_dir = "data/drifter_data/hindcasts/area1/"
+    save_dir = "data/drifter_data/hindcasts/"
     lon_range = [-150, -115]
     lat_range = [0, 40]
     # lon_range = [-120, -90]
     # lat_range = [-15, 15]
-    start = datetime.datetime(2022, 10, 1, 12, 30, 0)
+    start = datetime.datetime(2022, 10, 1, 12, 0, 0)
     days = 7
     get_copernicus_hindcast(lon_range, lat_range, start, days, save_dir=save_dir)
