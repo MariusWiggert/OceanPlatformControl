@@ -1,8 +1,9 @@
 ---
 arguments_model_runner:
-  tags_wandb: [ 'medium_tile', 'medium_dataset','GP_output' ]
+  tags_wandb: [ 'big_tile', 'big_dataset','GP_output' ]
   yaml_file_datasets: "config_neural_net"
   batch_size: 128 #32
+  validation_batch_size: 256
   model_type: "cnn"
   log_interval: 1
   lr: 0.0001 #0.0003
@@ -12,7 +13,7 @@ arguments_model_runner:
   max_batches_validation_set: -1
   instance_norm: False
   return_GP_FC_IMP_FC: True
-  tile_size: [ 12, 13, 13 ]
+  tile_size: [ 12, 25, 25 ]
   #validation_batch_size: 1000
   optimizer:
     name: "Adam"
@@ -40,7 +41,7 @@ model:
     dropout_encoder: 0.12
     dropout_bottom: 0.6
     dropout_decoder: 0.5
-    output_paddings: [ [ 0,1,1 ],[ 1,0,0 ],[ 1,0,0 ] ] # [ [ 0,0,0 ],[ 1,0,0 ],[ 1,0,0 ] ]
+    output_paddings: [ [ 0,0,0 ],[ 1,0,0 ],[ 1,0,0 ] ] # [ [ 0,0,0 ],[ 1,0,0 ],[ 1,0,0 ] ]
   cfg_dataset:
     radius_lon: 1
     radius_lat: 1
@@ -74,7 +75,7 @@ data_generation:
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 25, 25, 12 ]
     size_per_file_in_mb: 2000
-    folder_training: "data_ablation_study/GP_sampled/training_medium/"
+    folder_training: "data_ablation_study/GP_sampled/training/"
     shuffle_training: True
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
     #folder_validation: "data_ablation_study/GP_output_corrected/validation_off_season/"

@@ -83,6 +83,9 @@ sweep_configuration = {
 }
 
 
+# sweep_id = wandb.sweep(sweep=sweep_configuration, project='Seaweed_forecast_improvement')
+
+
 def compute_conservation_mass_loss(pred, get_all_cells=False):
     # prediction shape: batch_size x channels[u,v] x time x lat [v] = rows x lon [u] = cols
 
@@ -490,6 +493,12 @@ def end_training(model, args, train_losses_no_pinn, train_losses_pinn, validatio
     wandb.finish()
 
 
+def recursive_doc_dict(dict_input):
+    if type(dict_input) is not dict:
+        return dict_input
+    return DotDict({k: recursive_doc_dict(v) for k, v in dict_input.items()})
+
+
 def get_args(all_cfgs):
     # Training settings
     # parser = argparse.ArgumentParser(description='PyTorch model')
@@ -544,11 +553,12 @@ def get_args(all_cfgs):
     args.setdefault("tags_wandb", [])
     args.setdefault("validate_each_file_separately", True)
     args.setdefault("return_GP_FC_IMP_FC", False)
-    return DotDict(args)
+
+    return recursive_doc_dict(args)
     # END ALTERNATIVE
 
 
-def main():
+def main(setup_wandb_parameters_sweep: bool = False):
     np.set_printoptions(precision=2)
     parser = argparse.ArgumentParser(description='yaml config file path')
     parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
@@ -567,11 +577,11 @@ def main():
         device = torch.device("mps")
 
     cfg_model = all_cfgs.get("model", {})
-    cfg_neural_network = cfg_model.get("cfg_neural_network", {}) | {"device": device}
-    cfg_dataset = cfg_model.get("cfg_dataset", {})
-    cfg_optimizer = args.get("optimizer", {})
-    cfg_scheduler = args.get("scheduler", {})
-    cfg_data_generation = all_cfgs.get("data_generation", {})
+    cfg_neural_network = recursive_doc_dict(cfg_model.get("cfg_neural_network", {}) | {"device": device})
+    cfg_dataset = recursive_doc_dict(cfg_model.get("cfg_dataset", {}))
+    cfg_optimizer = recursive_doc_dict(args.get("optimizer", {}))
+    cfg_scheduler = recursive_doc_dict(args.get("scheduler", {}))
+    cfg_data_generation = recursive_doc_dict(all_cfgs.get("data_generation", {}))
     model_error = cfg_model.get("model_error", True)
     print("The Model will predict the " + ("error" if model_error else "hindcast") + ".")
     folder_training = cfg_data_generation["parameters_input"]["folder_training"]
@@ -620,15 +630,33 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loaders = [torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs) for
                           dataset_validation in datasets_validation]
+
     for lambda_physical_loss in [0]:  # [0, 0.1, 0.2, 0.25, 0.2, 0.4]:
 
         wandb.init(project="Seaweed_forecast_improvement", entity="killian2k",
                    tags=args.tags_wandb)  # , name=f"experiment_{}")
         print(f"starting run: {wandb.run.name}")
         os.environ['WANDB_NOTEBOOK_NAME'] = "Seaweed_forecast_improvement"
-        wandb.config.update(args, allow_val_change=True)
-        wandb.config.update(cfg_neural_network, allow_val_change=True)
+        print(f"toto")
+        wandb.config.update(args, allow_val_change=False)
+        print(f"toto_2")
+        wandb.config.update(cfg_neural_network, allow_val_change=False)
+        print("before save")
         wandb.save(config_file)
+        print("after save")
+        if setup_wandb_parameters_sweep:
+            # print("old ch_sz", cfg_neural_network.ch_sz)
+            args.epochs = wandb.config.epochs
+            args.batch_size = wandb.config.batch_size
+            args.lr = wandb.config.lr
+            cfg_neural_network.ch_sz = wandb.config.ch_sz
+            cfg_neural_network.downsizing_method = wandb.config.downsizing_method
+            cfg_neural_network.dropout_encoder = wandb.config.dropout_encoder
+            cfg_neural_network.dropout_bottom = wandb.config.dropout_bottom
+            cfg_neural_network.dropout_decoder = wandb.config.dropout_decoder
+            args.optimizer.parameters.weight_decay = wandb.config.weight_decay
+            cfg_neural_network.activation = wandb.config.activation
+            # print("new ch_sz", cfg_neural_network.ch_sz)
 
         args.lambda_physical_loss = lambda_physical_loss
         print(f"Weight physical loss: {args.lambda_physical_loss}")
@@ -644,9 +672,8 @@ def main():
         train_losses_overall, validation_losses_overall = list(), list()
         train_losses_no_pinn, validation_losses_no_pinn = list(), list()
         train_losses_pinn, validation_losses_pinn = list(), list()
-        # try:
+
         for epoch in range(1, args.epochs + 1):
-            metrics = {}
 
             # Training
             print(f"starting Training epoch {epoch}/{args.epochs}.")

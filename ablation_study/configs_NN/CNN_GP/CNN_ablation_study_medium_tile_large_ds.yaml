@@ -1,6 +1,6 @@
 ---
 arguments_model_runner:
-  tags_wandb: [ 'medium_tile', 'medium_dataset','GP_output' ]
+  tags_wandb: [ 'medium_tile', 'big_dataset','without_GP' ]
   yaml_file_datasets: "config_neural_net"
   batch_size: 128 #32
   model_type: "cnn"

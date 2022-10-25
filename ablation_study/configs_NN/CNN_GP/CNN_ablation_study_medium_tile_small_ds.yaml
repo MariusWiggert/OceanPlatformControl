@@ -1,8 +1,9 @@
 ---
 arguments_model_runner:
-  tags_wandb: [ 'medium_tile', 'medium_dataset','GP_output' ]
+  tags_wandb: [ 'medium_tile', 'big_dataset','GP_output' ]
   yaml_file_datasets: "config_neural_net"
   batch_size: 128 #32
+  validation_batch_size: 256
   model_type: "cnn"
   log_interval: 1
   lr: 0.0001 #0.0003
@@ -74,7 +75,7 @@ data_generation:
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 25, 25, 12 ]
     size_per_file_in_mb: 2000
-    folder_training: "data_ablation_study/GP_sampled/training_medium/"
+    folder_training: "data_ablation_study/GP_sampled/training_small/"
     shuffle_training: True
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
     #folder_validation: "data_ablation_study/GP_output_corrected/validation_off_season/"

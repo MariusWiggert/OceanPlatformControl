@@ -11,10 +11,12 @@ class OceanCurrentCNNSubgrid(nn.Module):
     def __init__(self, ch_sz: List[int], device: str = 'cpu', init_weights_value: float = 0.01, activation="relu",
                  downsizing_method="conv", dropout_encoder=0, dropout_decoder=0, dropout_bottom=0,
                  final_number_channels=2, initial_channels: List = None, output_paddings=[(0, 1, 1), (0, 1, 1), 1],
-                 instance_norm=False, print_dims=False):
+                 instance_norm=False, print_dims=False, slope_leaky_relu=None, alpha_elu=None):
         super(OceanCurrentCNNSubgrid, self).__init__()
         self.init_weights_value = init_weights_value
         self.activation = activation
+        self.alpha_elu = alpha_elu
+        self.slope_leaky_relu = slope_leaky_relu
         self.downsizing_method = downsizing_method
         self.initial_channels = initial_channels
         self.print_dims = print_dims
@@ -118,7 +120,9 @@ class OceanCurrentCNNSubgrid(nn.Module):
         if self.activation.lower() == "relu":
             return nn.ReLU()
         elif self.activation.lower() == "leakyrelu":
-            return nn.LeakyReLU()
+            return nn.LeakyReLU(negative_slope=self.slope_leaky_relu if self.slope_leaky_relu is not None else 1e-2)
+        elif self.activation.lower() == "elu":
+            return nn.ELU(alpha=self.alpha_elu if self.alpha_elu is not None else 1)
 
     def __get_same_dims_bloc(self, in_channels: int, out_channels: int, include_instance_norm: bool = False):
         return self.__get_bloc_unet(in_channels, out_channels, 3, 1, 'same',

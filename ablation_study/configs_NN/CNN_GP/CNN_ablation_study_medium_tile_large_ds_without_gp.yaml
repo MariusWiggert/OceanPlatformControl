@@ -1,6 +1,6 @@
 ---
 arguments_model_runner:
-  tags_wandb: [ 'medium_tile', 'medium_dataset','GP_output' ]
+  tags_wandb: [ 'medium_tile', 'big_dataset','GP_output' ]
   yaml_file_datasets: "config_neural_net"
   batch_size: 128 #32
   model_type: "cnn"
@@ -32,8 +32,8 @@ arguments_script_convert_data:
 model:
   cfg_neural_network:
     print_dims: False
-    ch_sz: [ 6,24,48,96,192 ] #[ 6, 18, 36, 60, 112 ] #[ 6, 12, 24, 48, 96 ] #[ 6, 32, 64, 64, 128 ] #[ 2, 32, 64, 128, 192 ]
-    initial_channels: [ 0,1,2,3,6,7 ] #[ 0,1,2,3,4,5,6,7 ]
+    ch_sz: [ 2,24,48,96,192 ] #[ 6, 18, 36, 60, 112 ] #[ 6, 12, 24, 48, 96 ] #[ 6, 32, 64, 64, 128 ] #[ 2, 32, 64, 128, 192 ]
+    initial_channels: [ 4,5 ] #[ 0,1,2,3,4,5,6,7 ]
     final_number_channels: 2
     activation: "relu"
     downsizing_method: "maxpool" #"conv" #"avgpool"
@@ -74,7 +74,7 @@ data_generation:
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 25, 25, 12 ]
     size_per_file_in_mb: 2000
-    folder_training: "data_ablation_study/GP_sampled/training_medium/"
+    folder_training: "data_ablation_study/GP_sampled/training/"
     shuffle_training: True
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
     #folder_validation: "data_ablation_study/GP_output_corrected/validation_off_season/"
