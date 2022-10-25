@@ -25,7 +25,8 @@ sweep_configuration = {
 
 def sweep():
     # Initialize sweep by passing in config. (Optional) Provide a name of the project.
-    sweep_id = wandb.sweep(sweep=sweep_configuration, project='cool-sweepedy-sweeeeep')
+    sweep_id = wandb.sweep(sweep=sweep_configuration,
+                           project='Generative Models for Realistic Simulation of Ocean Currents')
     # Start sweep job.
     wandb.agent(sweep_id, lambda: main(sweep=True), count=4)
 
