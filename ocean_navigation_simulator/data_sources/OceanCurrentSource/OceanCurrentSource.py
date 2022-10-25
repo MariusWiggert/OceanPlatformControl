@@ -388,21 +388,43 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
 
 class ForecastFromHindcastSource(HindcastFileSource):
-    """Takes a hindcast file source and limits its length to 5 days."""
+    """Takes a hindcast file source and ensures that it is 5 days long and always starts at noon."""
+    def __init__(self, source_config_dict: dict):
+        super().__init__(source_config_dict)
+
+    def get_data_over_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[datetime.datetime],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+    ) -> xr:
+        # Step 1: Ensure output is 5 days long and starts at noon.
+        hours = int(t_interval[0].strftime("%H"))
+        if hours >= 12:
+            t_interval[0] = t_interval[0].replace(hours=12)
+            t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
+        else:
+            t_interval[0] = t_interval[0].replace(hours=12) + datetime.timedelta(days=-1)
+            t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
+
+        # Step 2: Return Subset
+        return super().get_data_over_area(
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution=spatial_resolution,
+            temporal_resolution=temporal_resolution,
+        )
 
 
-class GroundTruthFromNoise:
+class GroundTruthFromNoise(OceanCurrentSource):
     def __init__(self, seed: int, params_path: str, hindcast_data_source):
         self.hindcast_data_source = hindcast_data_source
 
-        # load pre-tuned parameters
-        parameters = np.load(params_path, allow_pickle=True)
-        harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
-                           "V_COMP": parameters.item().get("V_COMP")}
-        detrend_stats = parameters.item().get("detrend_metrics")
-
         # initialize NoiseField
-        self.noise = OceanCurrentNoiseField(harmonic_params, np.array(detrend_stats))
+        self.noise = OceanCurrentNoiseField.load_config_from_file(params_path)
         rng = np.random.default_rng(seed)
         self.noise.reset(rng)
 
@@ -410,13 +432,20 @@ class GroundTruthFromNoise:
                            x_interval: List[float],
                            y_interval: List[float],
                            t_interval: List[Union[datetime.datetime, int]],
+                           spatial_resolution: Optional[float] = None,
+                           temporal_resolution: Optional[float] = None
                            ) -> xr.Dataset:
 
-        # make offset-aware datetimes
+        # TODO: find out how other methods handle time ranges and timestamps, posix
         t_interval[0] = pytz.utc.localize(t_interval[0])
         t_interval[1] = pytz.utc.localize(t_interval[1])
 
-        ds = self.hindcast_data_source.get_data_over_area(x_interval, y_interval, t_interval)
+        ds = self.hindcast_data_source.get_data_over_area(x_interval,
+                                                          y_interval,
+                                                          t_interval,
+                                                          spatial_resolution,
+                                                          temporal_resolution
+                                                          )
 
         additive_noise = self.noise.get_noise(ds["lon"].values, ds["lat"].values, ds["time"].values)
         return ds + additive_noise

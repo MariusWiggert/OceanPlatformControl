@@ -3,7 +3,7 @@ from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel 
 from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
 from ocean_navigation_simulator.utils import units
 
-from typing import List, Dict, Any, Tuple, Union, Optional
+from typing import List, Dict, Any, Tuple
 import xarray as xr
 import datetime
 import numpy as np
@@ -17,6 +17,14 @@ class OceanCurrentNoiseField(GenerativeModel):
         v_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["V_COMP"]]
         self.model = SimplexNoiseModel(u_comp_harmonics, v_comp_harmonics)
         self.detrend_statistics = detrend_statistics
+
+    @staticmethod
+    def load_config_from_file(parameter_path):
+        parameters = np.load(parameter_path, allow_pickle=True)
+        harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
+                           "V_COMP": parameters.item().get("V_COMP")}
+        detrend_stats = np.array(parameters.item().get("detrend_metrics"))
+        return OceanCurrentNoiseField(harmonic_params, detrend_stats)
 
     def reset(self, rng: np.random.default_rng) -> None:
         """Initializes the simplex noise with a new random number generator."""
