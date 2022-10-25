@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from IPython.display import HTML
+import pytz
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
@@ -103,6 +104,11 @@ class DataSource(abc.ABC):
         ]
 
         self.initialize_casadi_functions(grid, xarray)
+
+    @staticmethod
+    def make_datetime_timezone_aware(time: datetime.datetime):
+        """Takes a datetime object and makes it timezone-aware by setting it to be in UTC."""
+        return pytz.utc.localize(time)
 
     @staticmethod
     def convert_to_x_y_time_bounds(

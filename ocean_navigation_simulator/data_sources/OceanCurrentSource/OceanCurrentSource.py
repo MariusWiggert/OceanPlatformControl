@@ -12,7 +12,6 @@ import xarray as xr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
-import pytz
 
 from ocean_navigation_simulator.data_sources.DataSource import (
     DataSource,
@@ -307,6 +306,9 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             most_recent_fmrc_at_time if most_recent_fmrc_at_time is not None else t_interval[0]
         )
 
+        for idx in range(len(t_interval)):
+            t_interval[idx] = ForecastFileSource.make_datetime_timezone_aware(t_interval[idx])
+
         # Step 2: Return Subset
         return super().get_data_over_area(
             x_interval,
@@ -415,9 +417,8 @@ class ForecastFromHindcastSource(HindcastFileSource):
             t_interval[0] = t_interval[0].replace(hour=12) + datetime.timedelta(days=-1)
             t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
 
-        # TODO: find out how other methods handle time ranges and timestamps, posix
-        t_interval[0] = pytz.utc.localize(t_interval[0])
-        t_interval[1] = pytz.utc.localize(t_interval[1])
+        for idx in range(len(t_interval)):
+            t_interval[idx] = ForecastFromHindcastSource.make_datetime_timezone_aware(t_interval[idx])
 
         # Step 2: Return Subset
         return super().get_data_over_area(
@@ -447,9 +448,8 @@ class GroundTruthFromNoise(OceanCurrentSource):
         temporal_resolution: Optional[float] = None,
     ) -> xr.Dataset:
 
-        # TODO: find out how other methods handle time ranges and timestamps, posix
-        t_interval[0] = pytz.utc.localize(t_interval[0])
-        t_interval[1] = pytz.utc.localize(t_interval[1])
+        for idx in range(len(t_interval)):
+            t_interval[idx] = GroundTruthFromNoise.make_datetime_timezone_aware(t_interval[idx])
 
         ds = self.hindcast_data_source.get_data_over_area(
             x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
