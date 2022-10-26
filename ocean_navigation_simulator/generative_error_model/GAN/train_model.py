@@ -345,7 +345,6 @@ def initialize(test: bool = False):
                     f"_{all_cfgs['dataset']['len']}" +
                     f"_{all_cfgs['dataset']['random_subsets']}" +
                     f"_{all_cfgs['dataset']['concat_len']}",
-               config=all_cfgs,
                tags=f"test={test}",
                **wandb_cfgs)
     wandb.save(config_file)
@@ -373,9 +372,10 @@ def main(sweep: Optional[bool] = False):
     # seed for reproducibility
     torch.manual_seed(0)
 
-    # if sweep set parameters
+    # update wandb configs
     if sweep:
         all_cfgs = sweep_set_parameter(all_cfgs)
+        wandb.config.update(all_cfgs)
 
     # simplify config access
     model_type = all_cfgs["model"]
@@ -434,7 +434,7 @@ def main(sweep: Optional[bool] = False):
 
 
 def test():
-    all_cfgs = initialize()
+    all_cfgs = initialize(test=True)
     print("####### Start Testing #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

@@ -4,7 +4,7 @@ from train_model import main
 
 sweep_configuration = {
     'method': 'bayes',
-    'name': 'sweep',
+    'name': 'cool-sweepedy-sweeeep',
     'metric':
     {
         'goal': 'minimize',
@@ -23,12 +23,14 @@ sweep_configuration = {
 }
 
 
-def sweep():
-    # Initialize sweep by passing in config. (Optional) Provide a name of the project.
-    sweep_id = wandb.sweep(sweep=sweep_configuration,
-                           project='Generative Models for Realistic Simulation of Ocean Currents')
+def sweep(sweep_id: str = None):
+    if sweep_id is None:
+        # Initialize sweep by passing in config. (Optional) Provide a name of the project.
+        sweep_id = wandb.sweep(sweep=sweep_configuration,
+                               project='Generative Models for Realistic Simulation of Ocean Currents')
+
     # Start sweep job.
-    wandb.agent(sweep_id, lambda: main(sweep=True), count=4)
+    wandb.agent(sweep_id, lambda: main(sweep=True), count=10)
 
 
 if __name__ == "__main__":
