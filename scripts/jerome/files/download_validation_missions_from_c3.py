@@ -3,8 +3,8 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from ocean_navigation_simulator.utils.misc import get_c3
 import ocean_navigation_simulator.utils.paths as paths
+from ocean_navigation_simulator.utils.misc import get_c3
 
 
 def run():

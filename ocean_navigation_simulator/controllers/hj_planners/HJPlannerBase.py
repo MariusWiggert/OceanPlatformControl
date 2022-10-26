@@ -8,6 +8,9 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
 
+# Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
+# sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
+import hj_reachability as hj
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,9 +18,6 @@ import scipy
 import xarray as xr
 from scipy.interpolate import interp1d
 
-# Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
-# sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
-import hj_reachability as hj
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
@@ -46,7 +46,7 @@ class HJPlannerBase(Controller):
         See Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = None):
+    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = {}):
         """
         Constructor for the HJ Planner Baseclass.
         Args:
@@ -80,13 +80,13 @@ class HJPlannerBase(Controller):
             "direction": "multi-time-reach-back",
             "n_time_vector": 199,
             # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-            "deg_around_xt_xT_box": 4.0,  # area over which to run HJ_reachability
+            "deg_around_xt_xT_box": 2.0,  # area over which to run HJ_reachability
             "accuracy": "high",
             "artificial_dissipation_scheme": "local_local",
             "T_goal_in_seconds": problem.timeout.total_seconds(),
             # the maximum allowed time for the navigation problem
             "use_geographic_coordinate_system": True,
-            "progress_bar": True,
+            "progress_bar": False,
             "initial_set_radii": [problem.target_radius, problem.target_radius],
             # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
             # Note: grid_res should always be SMALLER than initial_set_radii, otherwise reachability behaves weirdly.
@@ -631,6 +631,7 @@ class HJPlannerBase(Controller):
             y_interval=y_interval,
             t_interval=t_interval,
             spatial_resolution=self.specific_settings["grid_res"],
+            throw_exceptions=True,
         )
 
         # calculate relative posix_time (we use it in interpolation because jax uses float32 and otherwise cuts off)
@@ -1076,10 +1077,11 @@ class HJPlannerBase(Controller):
             width_deg: width in degrees for the grid
             width: width in points for the grid
         """
-        if observation is not None:
+        if observation is not None and isinstance(observation, ArenaObservation):
             self.replan_if_necessary(observation)
             point = observation.platform_state.to_spatio_temporal_point()
-        elif point is None:
+
+        if not type(point) in [SpatioTemporalPoint, PlatformState]:
             raise Exception(
                 "Either ArenaObservation or SpatioTemporalPoint has to be given for interpolation."
             )
@@ -1104,8 +1106,8 @@ class HJPlannerBase(Controller):
         )
         if extrapolate_x or extrapolate_y or extrapolate_t:
             message = (
-                f"Extrapolating in {'x' if extrapolate_x else 'y' if extrapolate_y else 't'}. \n"
-                + f"Requested: out_t: {out_t:.0f} out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}] out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}] \n"
+                f"Extrapolating in {'x' if extrapolate_x else 'y' if extrapolate_y else 't'}. "
+                + f"Requested: out_t: {out_t:.0f} out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}] out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]. "
                 + "Available:"
                 + f" in_t: [{self.current_data_t_0+self.reach_times[0]:.0f}, {self.current_data_t_0+self.reach_times[-1]:.0f}]"
                 + f" in_x: [{self.grid.coordinate_vectors[0][0]:.2f}, {self.grid.coordinate_vectors[0][-1]:.2f}]"
@@ -1157,6 +1159,10 @@ class HJPlannerBase(Controller):
             pickle.dump(self.initial_values, file)
 
         self.logger.info(f"HJPlannerBase: Saving plan to {folder}")
+
+    def pickle(self, dir):
+        with open(dir, "wb") as f:
+            pickle.dump(self, f)
 
     def restore_state(self, folder):
         # Used in Replanning

@@ -7,34 +7,19 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
     GenerationRunner,
 )
 
-# import os
-# for dir in os.listdir(
-#     "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/"
-# ):
-#     GenerationRunner.plot_starts_and_targets(
-#         "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/"
-#         + dir
-#         + "/",
-#     )
-#     GenerationRunner.plot_target_dates_histogram(
-#         "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/"
-#         + dir
-#         + "/",
-#     )
+for dir in os.listdir(
+    "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/"
+):
+    f = "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/" + dir + "/"
+    # GenerationRunner.plot_starts_and_targets(f)
+    # GenerationRunner.plot_target_dates_histogram(f)
+    GenerationRunner.plot_ttr_histogram(f)
+
+
 from ocean_navigation_simulator.utils import cluster_utils
 
-results_folder = "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_2022_10_21_04_10_04/"
+# generation = "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/"
+# generation = "~/Desktop/"
 
-# GenerationRunner.plot_starts_and_targets(results_folder)
-# GenerationRunner.plot_target_dates_histogram(results_folder)
-
-# Step 1: Load Data
-print('Storage Connection:', cluster_utils.check_storage_connection())
-problems_df = pd.read_csv(f"{results_folder}problems.csv")
-analysis_folder = f"{results_folder}analysis/"
-os.makedirs(analysis_folder, exist_ok=True)
-
-problems_df[problems_df['random'] == False].plot.hist('ttr_in_h', bins=100)
-
-plt.show()
-
+# GenerationRunner.plot_starts_and_targets(generation)
+# GenerationRunner.plot_target_dates_histogram(generation)

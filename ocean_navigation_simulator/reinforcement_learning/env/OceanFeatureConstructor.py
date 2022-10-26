@@ -209,18 +209,26 @@ class OceanFeatureConstructor:
             ]
             self.observer.observe(obs)
             self.observer.fit()
+            if "mag" in config["features"]["observer"]["variables"]:
+                variables = ["error_u", "error_v"]
+            else:
+                variables = config["features"]["observer"]["variables"]
             gp_map = (
                 self.observer.get_data_over_area(
                     x_interval=x_interval,
                     y_interval=y_interval,
                     t_interval=[t_interval[0], t_interval[-1]],
+                    throw_exceptions=False,
                 )
                 .interp(
                     time=[np.datetime64(t.replace(tzinfo=None)) for t in t_interval],
                     lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
                     lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
                     method="linear",
-                )[config["features"]["observer"]["variables"]]
+                    kwargs={
+                        "fill_value": "extrapolate",
+                    },
+                )[variables]
                 .to_array()
                 .to_numpy()
                 .astype("float32")
@@ -228,6 +236,12 @@ class OceanFeatureConstructor:
             gp_map = np.moveaxis(gp_map, [0, 1, 2, 3], [2, 3, 0, 1]).reshape(
                 (config["xy_width_points"], config["xy_width_points"], -1)
             )
+
+            if "mag" in config["features"]["observer"]["variables"]:
+                dir = np.arctan2(gp_map[..., 0], gp_map[..., 1])
+                mag = np.linalg.norm(gp_map, axis=2)
+                gp_map = np.stack((mag, dir), axis=2)
+
             map = np.concatenate((map, gp_map), axis=2, dtype="float32")
 
         # Step 3: Hindcast Currents
@@ -247,7 +261,10 @@ class OceanFeatureConstructor:
                     lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
                     lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
                     method="linear",
-                )["water_u", "water_v"]
+                    kwargs={
+                        "fill_value": "extrapolate",
+                    },
+                )["water_v", "water_u"]
                 .to_array()
                 .to_numpy()
                 .astype("float32")
@@ -274,6 +291,9 @@ class OceanFeatureConstructor:
                     lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
                     lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
                     method="linear",
+                    kwargs={
+                        "fill_value": "extrapolate",
+                    },
                 )["water_u", "water_v"]
                 .to_array()
                 .to_numpy()
@@ -301,6 +321,9 @@ class OceanFeatureConstructor:
                     lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
                     lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
                     method="linear",
+                    kwargs={
+                        "fill_value": "extrapolate",
+                    },
                 )
                 .to_array()
                 .to_numpy()
@@ -320,6 +343,9 @@ class OceanFeatureConstructor:
                     lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
                     lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
                     method="linear",
+                    kwargs={
+                        "fill_value": "extrapolate",
+                    },
                 )
                 .to_array()
                 .to_numpy()
@@ -330,6 +356,9 @@ class OceanFeatureConstructor:
             )
             error_map = current_fc - current_hc
             map = np.concatenate((map, error_map.squeeze()), axis=2, dtype="float32")
+
+        map = np.clip(map, -10000, 10000)
+        map = np.nan_to_num(map)
 
         return map.flatten() if config["flatten"] else map.squeeze()
 

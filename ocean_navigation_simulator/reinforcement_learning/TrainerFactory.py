@@ -2,11 +2,11 @@ import ray
 from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
 
-from ocean_navigation_simulator.reinforcement_learning.env.OceanEnvFactory import (
-    OceanEnvFactory,
-)
 from ocean_navigation_simulator.reinforcement_learning.CustomApexDQN import (
     CustomApexDQN,
+)
+from ocean_navigation_simulator.reinforcement_learning.env.OceanEnvFactory import (
+    OceanEnvFactory,
 )
 from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (
     OceanTorchModel,
@@ -27,15 +27,12 @@ class TrainerFactory:
                 config=config["environment"],
                 feature_constructor_config=config["feature_constructor"],
                 reward_function_config=config["reward_function"],
-                num_workers=config["algorithm"]["num_workers"],
+                train_workers=config["algorithm"]["num_workers"],
+                eval_workers=config["algorithm"]["evaluation_num_workers"],
                 result_root=f"{config['folders']['experiment']}workers",
                 verbose=verbose,
             ),
         )
-
-        # Step 2: Register Model
-        if config["algorithm"]["model"].get("custom_model", "") == "OceanTorchModel":
-            ModelCatalog.register_custom_model("OceanTorchModel", OceanTorchModel)
 
         # Step 3: Select Class
         if config["algorithm_name"] == "apex-dqn":

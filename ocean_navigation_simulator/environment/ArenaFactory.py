@@ -16,9 +16,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.utils.misc import get_c3, timing
-
-# TODO: change to use loggers
+from ocean_navigation_simulator.utils.misc import get_c3, timing, timing_logger
 
 logger = logging.getLogger("arena_factory")
 
@@ -54,8 +52,6 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         throw_exceptions: Optional[bool] = True,
-        spatial_resolution=0.1,
-        verbose: Optional[int] = 10,
     ) -> Arena:
         """
         Create an Arena with all needed configuration dictionaries.
@@ -80,9 +76,10 @@ class ArenaFactory:
                 problem=problem
             )
         """
-        with timing(
-            f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{:.1f}}s)",
-            verbose,
+        with timing_logger(
+            f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{}})",
+            logger,
+            logging.INFO,
         ):
             # Step 1: Load Configuration from file
             if scenario_file is not None:
@@ -113,7 +110,6 @@ class ArenaFactory:
                         problem.start_state.date_time - datetime.timedelta(hours=2),
                         problem.start_state.date_time
                         + problem.timeout
-                        + datetime.timedelta(seconds=config["casadi_cache_dict"]["time_around_x_t"])
                         + datetime.timedelta(hours=1),
                     ]
 
@@ -129,31 +125,39 @@ class ArenaFactory:
                 and config["ocean_dict"]["hindcast"] is not None
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
-                with timing(
-                    f"ArenaFactory: Download Hindcast Files: {t_interval} ({{:.1f}}s)", verbose
+                with timing_logger(
+                    f"ArenaFactory: Download Hindcast Files: {t_interval} ({{}})",
+                    logger,
+                    logging.INFO,
                 ):
-                    # downloaded_files = ArenaFactory.download_required_files(
-                    #     archive_source=config["ocean_dict"]["hindcast"]["source_settings"][
-                    #         "source"
-                    #     ],
-                    #     archive_type=config["ocean_dict"]["hindcast"]["source_settings"]["type"],
-                    #     download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
-                    #         "folder"
-                    #     ],
-                    #     region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                    #         "region", "GOM"
-                    #     ),
-                    #     t_interval=t_interval,
-                    #     throw_exceptions=throw_exceptions,
-                    #     points=points,
-                    #     verbose=verbose,
-                    # )
+
+                    if config["ocean_dict"]["hindcast"]["source_settings"].get("local", False):
+                        files = ArenaFactory.find_hycom_files(
+                            config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
+                            t_interval,
+                        )
+                    else:
+                        files = ArenaFactory.download_required_files(
+                            archive_source=config["ocean_dict"]["hindcast"]["source_settings"][
+                                "source"
+                            ],
+                            archive_type=config["ocean_dict"]["hindcast"]["source_settings"][
+                                "type"
+                            ],
+                            download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
+                                "folder"
+                            ],
+                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
+                                "region", "GOM"
+                            ),
+                            t_interval=t_interval,
+                            throw_exceptions=throw_exceptions,
+                            points=points,
+                        )
+
+                    logger.info(f"Hindcast Files: {files}")
 
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
-                    files = ArenaFactory.find_hycom_files(
-                        config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
-                        t_interval
-                    )
                     config["ocean_dict"]["hindcast"]["source_settings"]["folder"] = files
 
             # Step 6: Download Forecast
@@ -162,31 +166,38 @@ class ArenaFactory:
                 and config["ocean_dict"]["forecast"] is not None
                 and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
-                with timing(
-                    f"ArenaFactory: Download Forecast Files: {t_interval} ({{:.1f}}s)", verbose
+                with timing_logger(
+                    f"ArenaFactory: Download Forecast Files: {t_interval} ({{}})",
+                    logger,
+                    logging.INFO,
                 ):
-                    # downloaded_files = ArenaFactory.download_required_files(
-                    #     archive_source=config["ocean_dict"]["forecast"]["source_settings"][
-                    #         "source"
-                    #     ],
-                    #     archive_type=config["ocean_dict"]["forecast"]["source_settings"]["type"],
-                    #     download_folder=config["ocean_dict"]["forecast"]["source_settings"][
-                    #         "folder"
-                    #     ],
-                    #     region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                    #         "region", "GOM"
-                    #     ),
-                    #     t_interval=t_interval,
-                    #     throw_exceptions=throw_exceptions,
-                    #     points=points,
-                    #     verbose=verbose,
-                    # )
+                    if config["ocean_dict"]["forecast"]["source_settings"].get("local", False):
+                        files = ArenaFactory.find_copernicus_files(
+                            config["ocean_dict"]["forecast"]["source_settings"]["folder"],
+                            t_interval,
+                        )
+                    else:
+                        files = ArenaFactory.download_required_files(
+                            archive_source=config["ocean_dict"]["forecast"]["source_settings"][
+                                "source"
+                            ],
+                            archive_type=config["ocean_dict"]["forecast"]["source_settings"][
+                                "type"
+                            ],
+                            download_folder=config["ocean_dict"]["forecast"]["source_settings"][
+                                "folder"
+                            ],
+                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
+                                "region", "GOM"
+                            ),
+                            t_interval=t_interval,
+                            throw_exceptions=throw_exceptions,
+                            points=points,
+                        )
+
+                    logger.info(f"Forecast Files: {files}")
 
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
-                    files = ArenaFactory.find_copernicus_files(
-                        config["ocean_dict"]["forecast"]["source_settings"]["folder"],
-                        t_interval
-                    )
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
 
             # Step 7: Create Arena
@@ -219,7 +230,6 @@ class ArenaFactory:
 
         return files
 
-
     @staticmethod
     def find_copernicus_files(path, t_interval):
         files = []
@@ -236,8 +246,6 @@ class ArenaFactory:
 
         return files
 
-
-    # TODO: automatically select best region depending on given points
     @staticmethod
     def download_required_files(
         archive_source: str,
@@ -291,7 +299,7 @@ class ArenaFactory:
             if throw_exceptions:
                 raise MissingOceanFileException(message)
             else:
-                print(message)
+                logger.error(message)
                 return 0
         elif files.count < (t_interval[1] - t_interval[0]).days + 1:
             message = "Only {count}/{expected} files in the database for {archive_source}, {archive_type}, {region} and t_0={t_0} and t_T={t_T}: {filenames}".format(
@@ -309,7 +317,7 @@ class ArenaFactory:
             if throw_exceptions:
                 raise MissingOceanFileException(message)
             else:
-                print(message)
+                logger.error(message)
 
         # Step 3: Check Basic Spatial Coverage
         ArenaFactory._check_spacial_coverage(files, points)
@@ -467,13 +475,13 @@ class ArenaFactory:
                         raise CorruptedOceanFileException(error)
                     elif error:
                         os.remove(temp_folder + filename)
-                        print(error)
+                        logger.warning(error)
                         continue
 
                     # Move thread-safe
                     os.replace(temp_folder + filename, download_folder + filename)
                     if verbose > 0:
-                        print(f"File downloaded: '{filename}', {filesize}B.")
+                        logger.info(f"File downloaded: '{filename}', {filesize}B.")
                 else:
                     # Path().touch()
                     os.system(f"touch {download_folder + filename}")
@@ -521,7 +529,7 @@ class ArenaFactory:
                     )
 
                     if not lon_covered or not lat_covered:
-                        raise CoverageOceanFileException(
+                        logger.error(
                             "The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
                                 point,
                                 spacial_coverage.start.longitude,

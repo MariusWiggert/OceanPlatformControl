@@ -14,7 +14,6 @@ import ray
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils.misc import (
@@ -46,7 +45,7 @@ class GenerationRunner:
             "%Y_%m_%d_%H_%M_%S"
         )
         self.results_folder = f'{config["generation_folder"]}/{self.name}_{self.timestring}/'
-        self.config["results_folder"] = self.results_folder
+        self.config["generation"] = self.results_folder
         cluster_utils.ensure_storage_connection()
         os.makedirs(self.results_folder)
         os.makedirs(f"{self.results_folder}config/")
@@ -257,9 +256,9 @@ class GenerationRunner:
         problems_df.to_csv(results_folder + "problems.csv")
 
         # # Step 2: Errors
-        # with open(results_folder + "errors.txt", "wt") as outfile:
+        # with open(generation + "errors.txt", "wt") as outfile:
         #     for batch in batches:
-        #         error_file = results_folder + f"groups/group_{batch//100}/batch_{batch}/errors.txt"
+        #         error_file = generation + f"groups/group_{batch//100}/batch_{batch}/errors.txt"
         #         if os.path.exists(error_file):
         #             with open(error_file, "rt") as infile:
         #                 outfile.write("\n" + infile.read())
@@ -331,7 +330,7 @@ class GenerationRunner:
         ax.get_figure().show()
 
     # @staticmethod
-    # def animate_starts_and_targets(results_folder):
+    # def animate_starts_and_targets(generation):
     #     problem_s = config['mission_generation']['problem_timeout'].total_seconds()
     #
     #     def add_ax_func(ax, posix_time):
@@ -404,7 +403,26 @@ class GenerationRunner:
             analysis_folder = f"{results_folder}analysis/"
             os.makedirs(analysis_folder, exist_ok=True)
 
+    @staticmethod
+    def plot_ttr_histogram(results_folder):
+        # Step 1: Load Data
+        df = pd.read_csv(f"{results_folder}problems.csv")
+        analysis_folder = results_folder + "analysis/"
+        os.makedirs(analysis_folder, exist_ok=True)
 
+        if "random" in df:
+            df = df[df["random"] == False]
 
+        if "ttr_in_h" in df:
+            ttr = df["ttr_in_h"].tolist()
+        elif "optimal_time_in_h" in df:
+            ttr = df["optimal_time_in_h"].tolist()
+        else:
+            return
 
-
+        # Step 2: Plot
+        plt.figure()
+        plt.hist(ttr, bins=100)
+        plt.title("Mission Time-To-Reach Histogram")
+        plt.savefig(analysis_folder + "ttr.png", dpi=300)
+        plt.show()

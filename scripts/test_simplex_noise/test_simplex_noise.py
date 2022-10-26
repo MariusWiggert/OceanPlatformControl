@@ -20,12 +20,14 @@
 """
 import logging
 
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
+from ocean_navigation_simulator.controllers.NaiveController import (
+    NaiveController,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.FileProblemFactory import (
     FileProblemFactory,
 )
-from ocean_navigation_simulator.utils.misc import timing, set_arena_loggers
+from ocean_navigation_simulator.utils.misc import set_arena_loggers, timing
 
 with timing("Script running for {:.1f}s"):
     set_arena_loggers(logging.INFO)
@@ -62,7 +64,7 @@ with timing("Script running for {:.1f}s"):
     print(
         "Simulation finished: {status}, {passed:.1f}h".format(
             status=arena.problem_status_text(arena.problem_status(problem=problem)),
-            passed = problem.passed_seconds(arena.platform.state) / 3600
+            passed=problem.passed_seconds(arena.platform.state) / 3600,
         )
     )
     arena.plot_all_on_map(problem=problem)

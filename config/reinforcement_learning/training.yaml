@@ -59,10 +59,10 @@ algorithm:
 #    soft_horizon: False
 #    rollout_fragment_length: 50
     ##### Training #####
-#    replay_buffer_config:
-#        capacity: 4000000
-#        learning_starts: 50000
-#        no_local_replay_buffer: True
+    replay_buffer_config:
+        capacity: 2000000
+#        no_local_replay_buffer: False
+#        store_buffer_in_checkpoints: True
 #        prioritized_replay_alpha: 0.6
 #        prioritized_replay_beta: 0.4
 #        prioritized_replay_eps: 0.000001
@@ -70,9 +70,13 @@ algorithm:
 #        replay_sequence_length: 1
 #        type: 'MultiAgentReplayBuffer'
 #    train_batch_size: 512
-#    min_sample_timesteps_per_iteration: 50000 # 900 steps / epoch * 200 machines = 180000
-#    training_intensity: 1
-#    target_network_update_freq: 20000
+#    store_buffer_in_checkpoints: True
+
+    min_sample_timesteps_per_iteration: 100000 # 300 steps / epoch * 200 machines = 60000
+    target_network_update_freq: 100000
+    num_steps_sampled_before_learning_starts: 100000 #500000
+    training_intensity: 1
+
     keep_per_episode_custom_metrics: True
     optimizer:
         num_replay_buffer_shards: 1
@@ -81,20 +85,25 @@ algorithm:
 #    exploration_config: {"type": "SoftQ"}
         # worker_side_prioritization: True,
     ##### Evaluation #####
-#    evaluation_config:
-#        evaluation_interval: 1
-#        evaluation_duration: 1000
-#        evaluation_duration_unit: "episodes"
-#        env_config:
-#            evaluation: True
+    evaluation_interval: 10
+    evaluation_duration: 204
+    evaluation_duration_unit: "episodes"
+    evaluation_num_workers: 102
+    evaluation_sample_timeout_s: 600
+    evaluation_config:
+        explore: False
+        env_config:
+            evaluation: True
     ##### Workers #####
     num_gpus: 1
     num_workers: 102
-    num_cpus_per_worker: 1
+    num_cpus_per_worker: 0.5
     num_gpus_per_worker: 0
     placement_strategy: 'SPREAD'
     ignore_worker_failures: True
     recreate_failed_workers: True
+
+#    output: 'logdir'
 
 experiments_folder: '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/'
 
@@ -102,15 +111,24 @@ environment:
     scenario_file: 'config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml'
     scenario_config: {}
 
-    missions:
+    train_missions:
         folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/'
 
         filter:
-            starts_per_target: 8
+            no_random: True
+            stop: 70000
+
+    eval_missions:
+        folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/'
+
+        filter:
+            no_random: True
+            start: 70000
+            stop: 204
 
     arena_steps_per_env_step: 1
     actions: 8
-    fake: 'hj_planner_forecast' #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
+    fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
     render: False
 
 feature_constructor:
@@ -124,7 +142,7 @@ feature_constructor:
             ttr_forecast: True
             ttr_hindcast: False
             observer:
-                variables: ['error_u', 'error_v'] #['error_u', 'error_v'] #['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
+                variables: ['error_u', 'error_v'] #['mag', 'dir'] #,['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
                 time: [0]           # offsets in h
             currents_hindcast: []   # offsets in h
             currents_forecast: []   # offsets in h

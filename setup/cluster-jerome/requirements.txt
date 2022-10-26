@@ -33,4 +33,4 @@ torchsummary==1.5.1
 torchinfo==1.7.1
 tqdm==4.64
 xarray==0.21.1
-wandb==0.13.3
+wandb==0.13.4

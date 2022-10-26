@@ -10,16 +10,16 @@ results_folder = "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast
 
 
 # Step 1: Analyze Missing Files
-# existing, missing = GenerationRunner.analyze_batches(results_folder, 10000)
+# existing, missing = GenerationRunner.analyze_batches(generation, 10000)
 
 
 # Step 2: Rerun missing Batches
 # import pickle
-# with open(f"{results_folder}config/config.pickle", "rb") as f:
+# with open(f"{generation}config/config.pickle", "rb") as f:
 #     config = pickle.load(f)
 # GenerationRunner.rerun_missing_batches(
 #     config=config,
-#     results_folder=results_folder,
+#     generation=generation,
 #     length=10000,
 #     verbose=3,
 # )
@@ -31,8 +31,8 @@ GenerationRunner.combine_batches(
 )
 
 # Step 4: Analyse Generation
-# GenerationRunner.analyse_performance(results_folder)
-# GenerationRunner.plot_starts_and_targets(results_folder)
-# GenerationRunner.plot_target_dates_histogram(results_folder)
+# GenerationRunner.analyse_performance(generation)
+# GenerationRunner.plot_starts_and_targets(generation)
+# GenerationRunner.plot_target_dates_histogram(generation)
 
 print("Finished")

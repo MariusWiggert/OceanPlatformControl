@@ -92,6 +92,7 @@ class Observer:
         t_interval: List[Union[datetime.datetime, int]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xarray:
         """Computes the xarray dataset that contains the prediction errors, the new forecasts (water_u & water_v), the
         old forecasts (renamed: initial_forecast_u & initial_forecast_v) and also std_error_u & std_error_v for the u
@@ -106,7 +107,12 @@ class Observer:
             the computed xarray
         """
         forecasts = self.forecast_data_source.get_data_over_area(
-            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution,
+            temporal_resolution,
+            throw_exceptions=throw_exceptions,
         )
         # Get all the points that we will query to the model as a 2D array. Coord field act like np.meshgrid but is
         # flattened

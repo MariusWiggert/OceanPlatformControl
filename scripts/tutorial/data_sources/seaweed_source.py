@@ -4,7 +4,6 @@ import logging
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.utils import units
 
-
 # Get Info Message from all arena components
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 

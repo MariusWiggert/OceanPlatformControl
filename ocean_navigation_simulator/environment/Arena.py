@@ -237,7 +237,7 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-        with timing_logger('Platform Step ({})', self.logger, logging.DEBUG):
+        with timing_logger("Platform Step ({})", self.logger, logging.DEBUG):
             state = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
@@ -248,7 +248,7 @@ class Arena:
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
 
-        with timing_logger('Create Observation ({})', self.logger, logging.DEBUG):
+        with timing_logger("Create Observation ({})", self.logger, logging.DEBUG):
             obs = ArenaObservation(
                 platform_state=state,
                 true_current_at_state=self.ocean_field.get_ground_truth(
@@ -448,6 +448,7 @@ class Arena:
 
     def plot_all_on_map(
         self,
+        ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
         index: Optional[int] = -1,
         show_current_position: Optional[bool] = True,
@@ -499,7 +500,7 @@ class Arena:
             )
         else:
             raise Exception(
-                f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed."
+                f"Arena: Background '{background}' is not available only 'current', 'solar' or 'seaweed."
             )
 
         if show_state_trajectory:

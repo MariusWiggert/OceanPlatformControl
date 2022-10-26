@@ -224,6 +224,7 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         t_interval: List[datetime.datetime],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -237,7 +238,12 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         """
         # Step 1: Subset and interpolate the xarray accordingly in the DataSource Class
         subset = super().get_data_over_area(
-            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution,
+            temporal_resolution,
+            throw_exceptions=throw_exceptions,
         )
 
         # Step 2: make explicit
@@ -288,6 +294,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
         most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         # format to datetime object
         if not isinstance(t_interval[0], datetime.datetime):
@@ -307,6 +314,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             t_interval,
             spatial_resolution=spatial_resolution,
             temporal_resolution=temporal_resolution,
+            throw_exceptions=throw_exceptions,
         )
 
     def load_ocean_current_from_idx(self):
@@ -390,8 +398,10 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         self.DataArray = self.DataArray.fillna({"water_u": 0.0, "water_v": 0.0})
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
-                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
+        return OceanCurrentVector(
+            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+        )
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
@@ -439,9 +449,9 @@ def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
         if os.path.isdir(place):
             files_list.append(
                 [
-                    folder + f
-                    for f in os.listdir(folder)
-                    if (os.path.isfile(os.path.join(folder, f)) and f != ".DS_Store")
+                    place + f
+                    for f in os.listdir(place)
+                    if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
                 ]
             )
         elif os.path.isfile(place):

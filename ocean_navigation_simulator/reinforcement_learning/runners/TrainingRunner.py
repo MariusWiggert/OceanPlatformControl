@@ -5,7 +5,9 @@ import pprint
 import random
 import shutil
 import time
+from functools import partial
 from typing import Dict, List, Optional
+from statistics import mean, median
 
 import gym
 import numpy as np
@@ -13,9 +15,11 @@ import pytz
 import ray
 import torch
 import wandb
+from ray.air.callbacks.wandb import WandbLoggerCallback
 from ray.rllib import BaseEnv, Policy, RolloutWorker
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation import Episode
+
 from torchinfo import torchinfo
 
 from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import (
@@ -61,7 +65,6 @@ class TrainingRunner:
         self.config["folders"] = {
             "experiment": experiment_path,
             "config": f"{experiment_path}config/",
-            "source": f"{experiment_path}source/",
             "results": f"{experiment_path}results/",
             "checkpoints": f"{experiment_path}checkpoints/",
         }
@@ -70,38 +73,27 @@ class TrainingRunner:
 
         # Step 2: Start Weights & Biases
         cluster_utils.ensure_storage_connection()
-        wandb.tensorboard.patch(
-            root_logdir=self.config["folders"]["experiment"], tensorboard_x=True
-        )
         wandb.init(
             project="seaweed-rl",
             entity="jeromejeannin",
-            dir="~",
+            dir="/tmp/",
             name=f"{self.name}_{self.timestring}",
-            tags=["baseline" if self.config["environment"]["fake"] else "experiment"] + tags,
+            tags=["baseline" if self.config["environment"]["fake"] not in [False, 'residual'] else "experiment"] + tags,
             config=self.config,
         )
         with open(f"{self.config['folders']['experiment']}wandb_run_id", "wt") as f:
             f.write(wandb.run.id)
 
-        # Step 3: Save configuration & source
-        json.dump(
-            self.config, open(f"{self.config['folders']['config']}config.json", "w"), indent=4
-        )
-        wandb.save(f"{self.config['folders']['config']}config.json")
+        # Step 3: Save configuration
+        with open(f"{self.config['folders']['config']}config.json", "w") as f:
+            json.dump(self.config, f, indent=4)
 
-        # Step 4: Fix Seeds
-        np.random.seed(self.config["algorithm"]["seed"])
-        random.seed(self.config["algorithm"]["seed"])
-        torch.manual_seed(self.config["algorithm"]["seed"])
-
-        # Step 5: Custom Metric
+        # Step 4: Custom Metric
         # https://docs.ray.io/en/latest/rllib/rllib-training.html#callbacks-and-custom-metrics
         # https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
         class CustomCallback(ray.rllib.algorithms.callbacks.DefaultCallbacks):
             def __init__(self):
                 super().__init__()
-                self.episodes_sampled = 0
 
             def on_episode_end(
                 self,
@@ -113,17 +105,8 @@ class TrainingRunner:
                 env_index: int,
             ):
                 info = episode.last_info_for()
-                if info["problem_status"] != 0:
-                    episode.custom_metrics["success"] = info["problem_status"] > 0
-                if info["problem_status"] > 0:
-                    episode.custom_metrics["arrival_time_in_h"] = info["arrival_time_in_h"]
-                episode.custom_metrics["problem_status"] = info["problem_status"]
-                episode.custom_metrics["ram_usage_MB"] = info["ram_usage_MB"]
-                episode.custom_metrics["episode_time"] = info["episode_time"]
-                episode.custom_metrics["average_step_time"] = info["average_step_time"]
-                episode.custom_metrics["episode_length"] = info["average_step_time"]
-                # episode.custom_metrics["problem_index"] = info["problem"].extra_info['index']
-                self.episodes_sampled += 1
+                for k, v in reduce_dict(info).items():
+                    episode.custom_metrics['hist_stats/'+k] = v
 
             def on_train_result(
                 self,
@@ -133,73 +116,103 @@ class TrainingRunner:
                 trainer=None,
                 **kwargs,
             ):
-                for k, v in result["custom_metrics"].copy().items():
-                    if len(v) > 0:
-                        result["custom_metrics"][f"{k}_min"] = min(v)
-                        result["custom_metrics"][f"{k}_mean"] = sum(v) / len(v)
-                        result["custom_metrics"][f"{k}_max"] = max(v)
-                result["custom_metrics"]["episodes_sampled"] = self.episodes_sampled
-                self.episodes_sampled = 0
+                def add_statistics(metrics):
+                    for k, v in metrics.copy().items():
+                        k = k.replace('hist_stats/', '')
+                        metrics[f"{k}_min"] = min(v)
+                        metrics[f"{k}_mean"] = mean(v)
+                        metrics[f"{k}_median"] = median(v)
+                        metrics[f"{k}_max"] = max(v)
+                    return metrics
+
+                for k, v in add_statistics(result["custom_metrics"]).items():
+                    result["custom_metrics"][k] = v
+                if "evaluation" in result:
+                    for k, v in add_statistics(result["evaluation"]["custom_metrics"]).items():
+                        result["evaluation"]["custom_metrics"][k] = v
+
 
         self.config["algorithm"]["callbacks"] = CustomCallback
 
-        # Step 6: Create Trainer
+        # Step 5: Create Trainer
         self.trainer = TrainerFactory.create(
             config=self.config,
             logger_path=self.config["folders"]["experiment"],
             verbose=verbose - 1,
         )
 
-        # Step 7: Model & Config Data
+        # Step 6: Model & Config Data
         wandb.config.update({"algorithm_final": self.trainer.config})
         with open(f"{self.config['folders']['config']}agent_config_final.json", "wt") as f:
             pprint.pprint(self.trainer.config, stream=f)
-        wandb.save(f"{self.config['folders']['config']}agent_config_final.json")
 
-        self.analyze_custom_torch_model()
+        self.analyze_model()
 
-    def analyze_custom_torch_model(self):
-        policy = self.trainer.get_policy()
+    def analyze_model(self):
+        self.policy = self.trainer.get_policy()
+        self.model = self.policy.model
 
-        print("Policy Class", policy)
-        print("Preprocessor", self.trainer.workers.local_worker().preprocessors)
-        print("Filter", self.trainer.workers.local_worker().filters)
+        policy_info = {
+            "Policy Class": str(self.policy),
+            "Preprocessor": str(self.trainer.workers.local_worker().preprocessors),
+            "Filter": str(self.trainer.workers.local_worker().filters),
+        }
+        print("Policy Info:", policy_info)
+        wandb.run.summary.update(reduce_dict({'Policy Info': policy_info}))
+
+        # Trainable Variables
+        layers_variables = [p.numel() for p in self.model.parameters() if p.requires_grad]
+        module_variables = {
+            n: sum([p.numel() for p in m.parameters() if p.requires_grad])
+            for n, m in self.model.named_children()
+        }
+        model_variables = {
+            "Total": sum(layers_variables),
+            "Layers": layers_variables,
+            "Modules": list(module_variables.values()),
+            "Modules Named": module_variables,
+        }
+        print("Model Variables:", model_variables)
+        wandb.run.summary.update(reduce_dict({"Model Variables": model_variables}))
 
         # Model Informations
-        self.model = policy.model
         if isinstance(self.model.obs_space, gym.spaces.Tuple):
             shape = [o.shape for o in self.model.obs_space]
             self.dummy_input = [torch.randn((32,) + s) for s in shape]
         else:
             shape = self.model.obs_space.shape
             self.dummy_input = torch.randn((32,) + shape)
-        trainable_variables = [p.numel() for p in self.model.parameters() if p.requires_grad]
-        trainable_variables_modules = [
-            sum([p.numel() for p in m.parameters() if p.requires_grad])
-            for m in self.model.children()
-        ]
-        trainable_variables_modules_named = {
-            n: sum([p.numel() for p in m.parameters() if p.requires_grad])
-            for n, m in self.model.named_children()
-        }
-        total_trainable_variables = sum(trainable_variables)
-        print(f"trainable parameters: {trainable_variables}")
-        print(f"trainable parameters per module: {trainable_variables_modules}")
-        print(f"trainable parameters per module: {trainable_variables_modules_named}")
-        print(f"total trainable parameters: {total_trainable_variables}")
 
         # Export Model
         epoch = 0
+        self.export_model(epoch)
+
+        # Model Summary
+        model_info = torchinfo.summary(
+            self.model,
+            input_data=self.dummy_input,
+            depth=10,
+            verbose=1,
+            col_names=["input_size","output_size","num_params","kernel_size","trainable"],
+            row_settings=("depth", "var_names"),
+        ).__repr__()
+        with open(
+            f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log", "wt"
+        ) as f:
+            f.write(model_info)
+
+    def export_model(self, epoch):
         cluster_utils.ensure_storage_connection()
-        os.makedirs(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/")
-        torch.save(
-            self.model, f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.pt"
-        )
+        folder = f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/"
+
+        os.makedirs(folder, exist_ok=True)
+
+        torch.save(self.model, folder + "model.pt")
         if isinstance(self.dummy_input, list):
             torch.onnx.export(
                 self.model,
                 args=tuple(i.cuda() for i in self.dummy_input),
-                f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx",
+                f=folder + "model.onnx",
                 export_params=True,
                 opset_version=15,
             )
@@ -207,57 +220,73 @@ class TrainingRunner:
             torch.onnx.export(
                 self.model,
                 self.dummy_input.cuda(),
-                f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx",
+                f=folder + "model.onnx",
                 export_params=True,
                 opset_version=15,
             )
 
-        # Model Summary
-        model_summary = torchinfo.summary(
-            self.model, input_data=self.dummy_input, depth=10, verbose=1
-        )
-        with open(
-            f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log", "wt"
-        ) as f:
-            f.write(model_summary.__repr__())
-        wandb.save(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log")
-
-        # Weights & Biases
-        wandb.watch(
-            models=self.model,
-            log="all",
-            log_freq=1,
-        )
-        wandb.config.update({"trainable_variables_detail": trainable_variables})
-        wandb.config.update({"trainable_variables_module": trainable_variables_modules})
-        wandb.config.update({"trainable_variables_module_named": trainable_variables_modules_named})
-        wandb.config.update({"trainable_variables": total_trainable_variables})
-
-    def run(self, epochs=100, silent=False):
+    def run(self, epochs=100, silent=False, checkpoint_freq=1):
         print(
             f'Starting training of {epochs} epochs @ {datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime("%Y-%m-%d %H:%M:%S")}'
         )
 
+        wandb.watch(
+            models=self.trainer.get_policy().model,
+            log='all',
+            log_freq=1,
+        )
+
         try:
             for epoch in range(1, epochs + 1):
-                # Step 1: Train epoch
+                # self.gradients = {}
+                #
+                # def hook(name, grad):
+                #     if name in self.gradients:
+                #         self.gradients[name] = torch.cat((self.gradients[name], grad.data.reshape(-1)),0)
+                #     else:
+                #         self.gradients[name] = grad.data.reshape(-1)
+                #
+                # for name, p in self.trainer.get_policy().model.named_parameters():
+                #     if p.requires_grad:
+                #         p.register_hook(partial(hook, name))
+
+                # Step 1: Train
                 train_start = time.time()
-                result = self.trainer.train()
-                self.results.append(result)
+                rllib_result = self.trainer.train()
                 self.train_times.append(time.time() - train_start)
 
+                rllib_result.pop('config', None)
+                weights = {n: p.data for n, p in self.trainer.get_policy().model.named_parameters() if p.requires_grad}
+                results = reduce_dict({
+                    "ray/tune": rllib_result,
+                    # "gradients": self.gradients,
+                    "weights": weights,
+                })
+                for k, v in results.copy().items():
+                    if isinstance(v, list):
+                        results[k] = np.array(v)
+                    if isinstance(v, str):
+                        del results[k]
+                    if isinstance(v, bool):
+                        results[k] = int(v)
+
+                # pprint.pprint(results)
+                self.results.append(results)
+                wandb.log(results, step=epoch, commit=True)
+
                 cluster_utils.ensure_storage_connection()
-                with open(f"{self.config['folders']['results']}epoch{epoch}.json", "wt") as f:
-                    pprint.pprint(result, stream=f)
+                # with open(f"{self.config['folders']['results']}epoch{epoch}.json", "wt") as f:
+                #     json.dump(result, f, indent=4)
 
                 # Step 2: Save checkpoint
-                cluster_utils.ensure_storage_connection()
-                self.trainer.save(checkpoint_dir=self.config["folders"]["checkpoints"])
-                # torch.onnx.export(self.model, args=(self.dummy_input[0].cuda(), self.dummy_input[1].cuda()), f=f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.onnx", export_params=True, opset_version=15)
+                if epoch % checkpoint_freq == 0:
+                    cluster_utils.ensure_storage_connection()
+                    self.trainer.save(checkpoint_dir=self.config["folders"]["checkpoints"])
+                    # self.export_model(epoch)
 
                 # Step 3: Print results
                 if self.verbose and not silent:
-                    self.print_result(result, epoch, epochs)
+                    self.print_result(rllib_result, epoch, epochs)
 
                 # wandb.synch()
         except KeyboardInterrupt:
@@ -271,11 +300,17 @@ class TrainingRunner:
         print(f"--------- Epoch {epoch} ---------")
 
         if result["episodes_this_iter"] > 0:
-            print("-- Custom Metrics --")
-            for k, v in result["custom_metrics"].items():
-                if "mean" in k:
-                    print(f"{k}: {v:.2f}")
-            print(" ")
+
+            def print_custom_metrics(result, eval=False):
+                print(f"-- Custom Metrics {'Evaluation' if eval else ''}--")
+                # for k, v in result["custom_metrics"].items():
+                #     if "mean" in k:
+                #         print(f"{k}: {v:.2f}")
+                # print(" ")
+
+            print_custom_metrics(result['sampler_results'])
+            if "evaluation" in result['sampler_results']:
+                print_custom_metrics(result['sampler_results']["evaluation"], eval=True)
 
             print(
                 f'-- Episode Rewards [Min: {result["episode_reward_min"]:.1f}, Mean: {result["episode_reward_mean"]:.2f}, Max: {result["episode_reward_max"]:.1f}]  --'
@@ -293,7 +328,7 @@ class TrainingRunner:
             )
             print(result["hist_stats"]["episode_lengths"][-min(50, result["episodes_this_iter"]) :])
             print(
-                f'Episodes Sampled: {result["episodes_this_iter"]:,} (Total: {result["episodes_total"]:,}, custom: {result["custom_metrics"]["episodes_sampled"]:,})'
+                f'Episodes Sampled: {result["episodes_this_iter"]:,} (Total: {result["episodes_total"]:,})'
             )
             print(
                 f'Episode Steps Sampled: {sum(episodes_this_iteration):,} (Total: {sum(result["hist_stats"]["episode_lengths"]):,})'
@@ -366,3 +401,17 @@ class TrainingRunner:
                     print(
                         f"RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} without progress.csv file {bcolors.ENDC}"
                     )
+
+
+def reduce_dict(ob):
+    if type(ob) is dict:
+        new = {}
+        for k1, v1 in ob.items():
+            if type(v1) is dict:
+                for k2, v2 in reduce_dict(v1).items():
+                    new[k1 + '/' + k2] = v2
+            else:
+                new[k1] = v1
+        return new
+    else:
+        return dict

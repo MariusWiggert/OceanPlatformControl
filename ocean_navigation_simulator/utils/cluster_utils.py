@@ -166,6 +166,7 @@ def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-cluster"):
 def check_storage_connection():
     return os.path.exists("/seaweed-storage/connected")
 
+
 def ensure_storage_connection():
     """
     Checks if the Azure storage is connected.

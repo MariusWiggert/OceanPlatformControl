@@ -5,7 +5,7 @@ import ray
 import torch
 from ray.rllib import Policy
 from ray.rllib.algorithms.apex_dqn import ApexDQN
-from ray.rllib.models import ModelV2
+from ray.rllib.models import ModelCatalog, ModelV2
 from ray.rllib.models.torch.torch_action_dist import (
     TorchDistributionWrapper,
     get_torch_categorical_class_with_temperature,
@@ -16,7 +16,11 @@ from ray.rllib.policy.torch_mixins import (
     TargetNetworkMixin,
 )
 from ray.rllib.utils.typing import AlgorithmConfigDict
-from ray.tune.registry import RLLIB_MODEL, _global_registry
+from ray.tune.registry import _global_registry, RLLIB_MODEL
+
+from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (
+    OceanTorchModel,
+)
 
 """
  This class modifies the rllib ApexDQN slightly s.t. that we can freely use custom models.
@@ -27,6 +31,7 @@ from ray.tune.registry import RLLIB_MODEL, _global_registry
 class CustomApexDQN(ApexDQN):
     def get_default_policy_class(self, config):
         if config["framework"] == "torch" and config.get("model").get("custom_model"):
+
             # Define custom model interaction for policy
             def custom_compute_q_values(policy: Policy, model: ModelV2, input_dict, **kwargs):
                 if isinstance(input_dict["obs"], tuple):
@@ -48,8 +53,7 @@ class CustomApexDQN(ApexDQN):
 
                 dqn_torch_policy.compute_q_values = custom_compute_q_values
 
-                model_cls = _global_registry.get(RLLIB_MODEL, config["model"]["custom_model"])
-                model = model_cls(
+                model = OceanTorchModel(
                     obs_space,
                     action_space,
                     action_space.n,
@@ -57,7 +61,7 @@ class CustomApexDQN(ApexDQN):
                     "model",
                     **config["model"]["custom_model_config"]
                 )
-                policy.target_model = model_cls(
+                policy.target_model = OceanTorchModel(
                     obs_space,
                     action_space,
                     action_space.n,

@@ -1,13 +1,13 @@
 import datetime
 import math
 import os
+import shutil
 import time
 import traceback
 from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
-import shutil
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
@@ -64,9 +64,9 @@ class MissionGenerator:
         self.errors = []
 
         with timing_dict(
-            "MissionGenerator: Batch finished ({:.1f}s)",
             self.performance,
             "total_time",
+            "MissionGenerator: Batch finished ({:.1f}s)",
             self.verbose,
         ):
             while True:
@@ -75,9 +75,9 @@ class MissionGenerator:
 
                     # Step 1: Generate Batch
                     with timing_dict(
-                        "MissionGenerator: Generated Batch ({:.2f}s)",
                         self.performance,
                         "generate_time",
+                        "MissionGenerator: Generated Batch ({:.2f}s)",
                         self.verbose,
                     ):
                         problems = self.generate_batch()
@@ -85,9 +85,9 @@ class MissionGenerator:
                     # Step 2: Plot or Animate Batch
                     if self.config["animate_batch"]:
                         with timing_dict(
-                            "MissionGenerator: Animated Batch ({:.2f}s)",
                             self.performance,
                             "plot_time",
+                            "MissionGenerator: Animated Batch ({:.2f}s)",
                             self.verbose,
                         ):
                             cluster_utils.ensure_storage_connection()
@@ -97,9 +97,9 @@ class MissionGenerator:
 
                     if self.config["plot_batch"]:
                         with timing_dict(
-                            "MissionGenerator: Plotted Batch ({:.2f}s)",
                             self.performance,
                             "plot_time",
+                            "MissionGenerator: Plotted Batch ({:.2f}s)",
                             self.verbose,
                         ):
                             cluster_utils.ensure_storage_connection()
@@ -110,9 +110,9 @@ class MissionGenerator:
                     # step 3: Cache Hindcast Planner
                     if self.config["cache_hindcast"]:
                         with timing_dict(
-                            "MissionGenerator: Cached Hindcast ({:.2f}s)",
                             self.performance,
                             "hindcast_time",
+                            "MissionGenerator: Cached Hindcast ({:.2f}s)",
                             self.verbose,
                         ):
                             cluster_utils.ensure_storage_connection()
@@ -123,9 +123,9 @@ class MissionGenerator:
                     # # Step 4: Cache Forecast Planner
                     if self.config["cache_forecast"]:
                         with timing_dict(
-                            "MissionGenerator: Cached Forecast ({:.2f}s)",
                             self.performance,
                             "forecast_time",
+                            "MissionGenerator: Cached Forecast ({:.2f}s)",
                             self.verbose,
                         ):
                             self.run_forecast(problem=problems[0])
@@ -281,9 +281,9 @@ class MissionGenerator:
                 ],
             }
             with timing_dict(
-                "MissionGenerator: Run Hindcast Planner ({:.2f}s)",
                 self.performance,
                 "hindcast_time",
+                "MissionGenerator: Run Hindcast Planner ({:.2f}s)",
                 self.verbose,
             ):
                 self.hindcast_planner = HJReach2DPlanner(
@@ -652,7 +652,6 @@ class MissionGenerator:
             scenario_file=self.config["scenario_file"],
             problem=problem,
             throw_exceptions=True,
-            verbose=self.verbose - 2,
         )
 
         # Run Arena until Timeout (reset position to no leave arena)

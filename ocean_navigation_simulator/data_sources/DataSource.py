@@ -100,7 +100,7 @@ class DataSource(abc.ABC):
         )
 
         # Step 2: Get the data from itself and update casadi_grid_dict
-        xarray = self.get_data_over_area(x_interval, y_interval, t_interval)
+        xarray = self.get_data_over_area(x_interval, y_interval, t_interval, throw_exceptions=False)
         self.casadi_grid_dict = self.get_grid_dict_from_xr(xarray)
 
         # Step 3: Set up the grid
@@ -179,19 +179,19 @@ class DataSource(abc.ABC):
         y_interval: List[float],
         t_interval: List[datetime.datetime],
         logger: logging.Logger,
+        throw_exception: Optional[bool] = True,
     ):
+        temporal_error = False
+        spatial_error = False
+
         """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         # Step 1: collateral check is any dimension 0?
         if 0 in (len(array.coords["lat"]), len(array.coords["lon"]), len(array.coords["time"])):
             # check which dimension for more informative errors
             if len(array.coords["time"]) == 0:
-                raise SubsettingDataSourceException(
-                    "None of the requested t_interval is in the file." + f"{self.files_dicts}"
-                )
+                temporal_error = "None of the requested t_interval is in the file."
             else:
-                raise SubsettingDataSourceException(
-                    "None of the requested spatial area is in the file." + f"{self.files_dicts}"
-                )
+                spatial_error = "None of the requested spatial area is in the file."
 
         # Step 2: Data partially not in the array check
         # changing comparison to include last point
@@ -199,28 +199,31 @@ class DataSource(abc.ABC):
             array.coords["lat"].data[0] >= y_interval[0]
             or array.coords["lat"].data[-1] <= y_interval[1]
         ):
-            raise SubsettingDataSourceException(
-                f"Part of the y requested area is outside of file (file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}])."
-                + f"{self.files_dicts}"
-            )
+            spatial_error = f"Part of the y requested area is outside of file (requested: [{y_interval[0]}, {y_interval[1]}])."
         if (
             array.coords["lon"].data[0] >= x_interval[0]
             or array.coords["lon"].data[-1] <= x_interval[1]
         ):
-            raise SubsettingDataSourceException(
-                f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}])."
-                + f"{self.files_dicts}"
-            )
+            spatial_error = f"Part of the x requested area is outside of file (requested: [{x_interval[0]}, {x_interval[1]}])."
         if units.get_datetime_from_np64(array.coords["time"].data[0]) >= t_interval[0]:
-            raise SubsettingDataSourceException(
-                f"The starting time is not in the array (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."
-                + f"{self.files_dicts}"
-            )
+            temporal_error = f"The starting time is not in the array (requested: [{t_interval[0]}, {t_interval[1]}])."
         if units.get_datetime_from_np64(array.coords["time"].data[-1]) <= t_interval[1]:
-            raise SubsettingDataSourceException(
-                f"The requested final time is not part of the subset (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."
-                + f"{self.files_dicts}"
+            temporal_error = f"The requested final time is not part of the subset (requested: [{t_interval[0]}, {t_interval[1]}])."
+
+        if temporal_error or spatial_error:
+            error = temporal_error or spatial_error
+            error += " (files: x_range: {x}, y_range: {y}, t_range:{t})".format(
+                x=self.grid_dict["x_range"],
+                y=self.grid_dict["y_range"],
+                t=[
+                    self.grid_dict["t_range"][0].strftime("%Y-%m-%d %H-%M-%S"),
+                    self.grid_dict["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
+                ],
             )
+            if throw_exception and ():
+                raise SubsettingDataSourceException(error)
+            elif temporal_error or spatial_error:
+                logger.warning(error)
 
     def plot_data_at_time_over_area(
         self,
@@ -592,6 +595,7 @@ class XarraySource(abc.ABC):
         t_interval: List[Union[datetime.datetime, int]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -629,7 +633,9 @@ class XarraySource(abc.ABC):
         )
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
-        self.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
+        self.array_subsetting_sanity_check(
+            subset, x_interval, y_interval, t_interval, self.logger, throw_exceptions
+        )
 
         # Step 4: perform interpolation to a specific resolution if requested
         if spatial_resolution is not None or temporal_resolution is not None:

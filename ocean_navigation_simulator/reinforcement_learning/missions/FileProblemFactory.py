@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import numpy as np
@@ -33,6 +34,8 @@ class FileProblemFactory(ProblemFactory):
         self.filter = filter
         self.seed = seed
 
+        self.base_path = os.path.dirname(csv_file)
+
         self.df = pd.read_csv(csv_file, index_col=0).reset_index()
         self.indices = FileProblemFactory.filter(self.df, self.filter, self.seed)
 
@@ -47,40 +50,40 @@ class FileProblemFactory(ProblemFactory):
 
     def next_problem(self) -> CachedNavigationProblem:
         if not self.has_problems_remaining():
-            if self.filter.get("limit", False):
-                self.indices = FileProblemFactory.filter(self.df, self.filter, self.seed)
-            else:
+            if self.filter.get("finite", False):
                 raise Exception("No more available Problems.")
+            else:
+                self.indices = FileProblemFactory.filter(self.df, self.filter, self.seed)
 
         row = self.df.iloc[self.indices.pop(0)]
 
-        return CachedNavigationProblem.from_pandas_row(row)
+        return CachedNavigationProblem.from_pandas_row(row, self.base_path)
 
     @staticmethod
     def filter(df, filter, seed=None):
         if filter.get("indices", False):
             indices = filter["indices"]
         else:
-            if filter.get("starts_per_target", False) and "factory_index" in df:
-                df = df[df["factory_index"] < filter["starts_per_target"]]
-
             if filter.get("no_random", False) and "random" in df:
                 df = df[~df["random"]]
+
+            if filter.get("starts_per_target", False):
+                df = df.groupby("batch").head(filter["starts_per_target"])
 
             if filter.get("exclude", False):
                 df = df.drop(filter["exclude"])
 
-            if filter.get("leave", False):
-                df = df[: -filter["leave"]]
+            if filter.get("start", False):
+                df = df[filter["start"] :]
+
+            if filter.get("stop", False):
+                df = df[: filter["stop"]]
 
             indices = df.index.to_list()
 
         if seed is not None:
             random = np.random.default_rng(seed)
             indices = random.permutation(indices).tolist()
-
-        if filter.get("limit", False):
-            indices = indices[: filter["limit"]]
 
         return indices
 

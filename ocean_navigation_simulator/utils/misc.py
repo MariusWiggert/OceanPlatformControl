@@ -73,16 +73,16 @@ def timing_logger(string, logger: logging.Logger, level=logging.INFO):
     """
     start = time.time()
     yield
-    _time = time.time()-start
-    if _time > 1:
-        text = f"{_time:.2f}s"
+    exec_time = time.time() - start
+    if exec_time > 1:
+        text = f"{exec_time:.2f}s"
     else:
-        text = f"{1000*_time:.2f}ms"
+        text = f"{1000*exec_time:.2f}ms"
     logger.log(level, string.format(text))
 
 
 @contextlib.contextmanager
-def timing_dict(string, dict, field, verbose: Optional[int] = 1):
+def timing_dict(dict, field, string=None, verbose: Optional[int] = 1):
     """
     Simple tool to check how long a specific code-part takes.
     :arg
@@ -94,7 +94,7 @@ def timing_dict(string, dict, field, verbose: Optional[int] = 1):
     exec_time = time.time() - start
     dict[field] += exec_time
 
-    if verbose > 0:
+    if string is not None and verbose > 0:
         print(string.format(exec_time))
 
 
@@ -114,6 +114,8 @@ def set_arena_loggers(level):
 
     logging.getLogger("arena.solar_field").setLevel(level)
     logging.getLogger("arena.solar_field.analytical_source").setLevel(level)
+
+    logging.getLogger("OceanEnv").setLevel(level)
 
 
 def silence_ray_and_tf():

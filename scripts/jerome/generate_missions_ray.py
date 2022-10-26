@@ -26,8 +26,8 @@ script_start_time = time.time()
 
 cluster_utils.init_ray()
 
-cluster_utils.purge_download_temp_folders()
-cluster_utils.analyze_download_temp_folders()
+# cluster_utils.purge_download_temp_folders()
+# cluster_utils.analyze_download_temp_folders()
 
 runner = GenerationRunner(
     name="divers_training_improved",

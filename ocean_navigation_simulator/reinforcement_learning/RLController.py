@@ -1,5 +1,7 @@
 import json
 
+import numpy as np
+from ray.rllib.models import ModelCatalog
 from ray.rllib.policy.policy import Policy
 
 from ocean_navigation_simulator.controllers.Controller import Controller
@@ -21,6 +23,9 @@ from ocean_navigation_simulator.reinforcement_learning.env.OceanFeatureConstruct
 )
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
     CachedNavigationProblem,
+)
+from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (
+    OceanTorchModel,
 )
 from ocean_navigation_simulator.utils import cluster_utils
 
@@ -46,12 +51,14 @@ class RLController(Controller):
 
         # Step 1: Recover Configuration
         cluster_utils.ensure_storage_connection()
-        with open(f'{config["experiment"]}config/config.json') as f:
+        with open(f'{config["controller"]["experiment"]}config/config.json') as f:
             self.experiment_config = json.load(f)
 
         # Step 2: Create Policy
+        ModelCatalog.register_custom_model("OceanTorchModel", OceanTorchModel)
+
         self.policy = Policy.from_checkpoint(
-            f'{config["experiment"]}checkpoints/checkpoint_{config["checkpoint"]:06d}/policies/default_policy'
+            f'{config["controller"]["experiment"]}checkpoints/checkpoint_{config["controller"]["checkpoint"]:06d}/policies/default_policy'
         )
 
         # Step 3: Create Feature Constructor
@@ -85,6 +92,10 @@ class RLController(Controller):
             problem=self.problem,
         )
         action, _, _ = self.policy.compute_single_action(obs=obs, explore=False)
+        direction = 2 * np.pi * action / self.self.experiment_config['environment']["actions"]
+
+        if self.experiment_config['environment']["fake"] == "residual":
+            direction = self.forecast_planner.get_action(observation=self.prev_obs).direction
 
         # go towards the center of the target with full power
-        return PlatformAction(magnitude=1, direction=action)
+        return PlatformAction(magnitude=1, direction=direction )

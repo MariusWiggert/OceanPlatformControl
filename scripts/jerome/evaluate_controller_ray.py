@@ -5,10 +5,16 @@ import time
 
 import pytz
 
+
 os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 sys.path.extend(["/home/ubuntu/OceanPlatformControl"])
 print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
+
+from ocean_navigation_simulator.reinforcement_learning.RLController import RLController
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 
 # from ocean_navigation_simulator.reinforcement_learning.RLController import RLController
 from ocean_navigation_simulator.reinforcement_learning.runners.EvaluationRunner import (
@@ -26,26 +32,32 @@ cluster_utils.init_ray()
 eval_runner = EvaluationRunner(
     config={
         "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
-        "controller": {
-            "name": "CachedHJReach2DPlannerForecast",
-            "folder": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/",
-        },
         # "controller": {
-        #     'type': RLController,
-        #     "experiment": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/unique_training_data_2022_10_11_20_24_42/",
-        #     "checkpoint": 255,
+        #     "name": "CachedHJReach2DPlannerForecast",
+        # "name": 'HJ Planner Forecast',
+        # "type": HJReach2DPlanner,
+        # "folder": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/",
         # },
+        "controller": {
+            "type": RLController,
+            "name": "RLController",
+            "experiment": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_2022_10_24_13_35_20/",
+            "checkpoint": 85,
+        },
         "missions": {
             "folder": "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/",
             "filter": {
-                "starts_per_target": 8,
-                "limit": 100,
+                "no_random": True,
+                "starts_per_target": 1,
+                # "start": 0000,
+                "limit": 1,
             },
-            "seed": 2022,
+            "seed": None,
         },
         "wandb": {
-            "fake_iterations": True,
-            "upload_summary": False,
+            "run_id": False,
+            "fake_iterations": False,
+            "upload_summary": True,
         },
         "ray_options": {
             "max_retries": 10,
@@ -54,7 +66,7 @@ eval_runner = EvaluationRunner(
                 "GPU": 0.0,
                 "RAM": 4000,
                 # "Head CPU": 1.0,
-                # "Worker CPU": 1.0,
+                "Unique CPU": 1.0,
             },
         },
     },
