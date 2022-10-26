@@ -43,6 +43,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.utils.misc import timing_logger
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
@@ -236,7 +237,8 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-        state = self.platform.simulate_step(action)
+        with timing_logger('Platform Step ({})', self.logger, logging.DEBUG):
+            state = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
             self.state_trajectory = np.append(
@@ -246,13 +248,15 @@ class Arena:
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
 
-        return ArenaObservation(
-            platform_state=state,
-            true_current_at_state=self.ocean_field.get_ground_truth(
-                state.to_spatio_temporal_point()
-            ),
-            forecast_data_source=self.ocean_field.forecast_data_source,
-        )
+        with timing_logger('Create Observation ({})', self.logger, logging.DEBUG):
+            obs = ArenaObservation(
+                platform_state=state,
+                true_current_at_state=self.ocean_field.get_ground_truth(
+                    state.to_spatio_temporal_point()
+                ),
+                forecast_data_source=self.ocean_field.forecast_data_source,
+            )
+        return obs
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""

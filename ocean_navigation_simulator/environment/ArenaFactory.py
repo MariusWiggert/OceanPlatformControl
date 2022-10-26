@@ -149,10 +149,12 @@ class ArenaFactory:
                     #     verbose=verbose,
                     # )
 
-                    files =
-
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
-                    config["ocean_dict"]["hindcast"]["source_settings"]["folder"] = downloaded_files
+                    files = ArenaFactory.find_hycom_files(
+                        config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
+                        t_interval
+                    )
+                    config["ocean_dict"]["hindcast"]["source_settings"]["folder"] = files
 
             # Step 6: Download Forecast
             if (
@@ -180,10 +182,12 @@ class ArenaFactory:
                     #     verbose=verbose,
                     # )
 
-
-
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
-                    config["ocean_dict"]["forecast"]["source_settings"]["folder"] = downloaded_files
+                    files = ArenaFactory.find_copernicus_files(
+                        config["ocean_dict"]["forecast"]["source_settings"]["folder"],
+                        t_interval
+                    )
+                    config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
 
             # Step 7: Create Arena
             return Arena(
@@ -199,7 +203,39 @@ class ArenaFactory:
             )
 
     @staticmethod
-    def
+    def find_hycom_files(path, t_interval):
+        files = []
+
+        start_min = t_interval[0] - datetime.timedelta(days=1)
+        start_max = t_interval[1]
+
+        for f in os.listdir(path):
+
+            start = datetime.datetime.fromisoformat(f[28:47]).replace(tzinfo=datetime.timezone.utc)
+            end = datetime.datetime.fromisoformat(f[49:68]).replace(tzinfo=datetime.timezone.utc)
+
+            if start_min <= start <= start_max:
+                files.append(path + f)
+
+        return files
+
+
+    @staticmethod
+    def find_copernicus_files(path, t_interval):
+        files = []
+
+        start_min = t_interval[0] - datetime.timedelta(days=1)
+        start_max = t_interval[1]
+
+        for f in os.listdir(path):
+            start = datetime.datetime.fromisoformat(f[40:59]).replace(tzinfo=datetime.timezone.utc)
+            end = datetime.datetime.fromisoformat(f[61:80]).replace(tzinfo=datetime.timezone.utc)
+
+            if start_min <= start <= start_max:
+                files.append(path + f)
+
+        return files
+
 
     # TODO: automatically select best region depending on given points
     @staticmethod

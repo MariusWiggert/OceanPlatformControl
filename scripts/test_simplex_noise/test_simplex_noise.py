@@ -27,7 +27,7 @@ from ocean_navigation_simulator.reinforcement_learning.missions.FileProblemFacto
 )
 from ocean_navigation_simulator.utils.misc import timing, set_arena_loggers
 
-with timing("Running for {:.1f}s"):
+with timing("Script running for {:.1f}s"):
     set_arena_loggers(logging.INFO)
 
     # Step 1: Create Problem, Controller & Arena
@@ -50,12 +50,19 @@ with timing("Running for {:.1f}s"):
         },
         problem=problem,
     )
+    arena.collect_trajectory = False
 
     # Step 2: Run Simulation until termination
     observation = arena.reset(problem.start_state)
 
-    while problem.is_done(observation.platform_state) == 0:
-        observation = arena.step(controller.get_action(observation))
+    with timing("Arena running for {:.1f}s"):
+        while problem.is_done(observation.platform_state) == 0:
+            observation = arena.step(controller.get_action(observation))
 
-    print("Simulation finished:", arena.problem_status_text(arena.problem_status(problem=problem)))
+    print(
+        "Simulation finished: {status}, {passed:.1f}h".format(
+            status=arena.problem_status_text(arena.problem_status(problem=problem)),
+            passed = problem.passed_seconds(arena.platform.state) / 3600
+        )
+    )
     arena.plot_all_on_map(problem=problem)

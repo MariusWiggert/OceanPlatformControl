@@ -73,7 +73,12 @@ def timing_logger(string, logger: logging.Logger, level=logging.INFO):
     """
     start = time.time()
     yield
-    logger.log(level, string.format(time.time() - start))
+    _time = time.time()-start
+    if _time > 1:
+        text = f"{_time:.2f}s"
+    else:
+        text = f"{1000*_time:.2f}ms"
+    logger.log(level, string.format(text))
 
 
 @contextlib.contextmanager
