@@ -14,4 +14,6 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 # print('current_data_t_0:', planner.current_data_t_0)
 # print('current_data_t_T:', planner.current_data_t_T)
 
-GenerationRunner.plot_generation("/seaweed-storage/generation/increased_planner_area/", n=-1)
+GenerationRunner.plot_starts_and_targets(
+    "/seaweed-storage/generation/increased_planner_area/", n=-1
+)

@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Dict, Optional
 
 import ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
@@ -24,7 +23,6 @@ class OceanCurrentField(DataField):
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
         use_geographic_coordinate_system: Optional[bool] = True,
-        verbose: Optional[int] = 0,
     ):
         """Initialize the source objects from the respective settings dicts.
         Args:
@@ -40,7 +38,6 @@ class OceanCurrentField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         super().__init__(
             casadi_cache_dict,
             hindcast_source_dict,
@@ -68,7 +65,3 @@ class OceanCurrentField(DataField):
                     source_dict["source"]
                 )
             )
-
-    def __del__(self):
-        # print('__del__ called in OceanCurrentField')
-        pass

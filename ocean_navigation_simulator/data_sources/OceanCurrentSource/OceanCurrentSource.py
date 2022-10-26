@@ -200,7 +200,6 @@ class OceanCurrentSource(DataSource):
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
-        # print('__del__ called in OceanCurrentSource')
         del self.u_curr_func
         del self.v_curr_func
         pass
@@ -215,7 +214,6 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field.ocean_source")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         self.u_curr_func, self.v_curr_func = [None] * 2
         self.dask_array = None
 
@@ -273,7 +271,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         # Step 2: derive the time coverage and grid_dict for from the first file
         self.t_forecast_coverage = [
             self.files_dicts[0]["t_range"][0],  # t_0 of fist forecast file
-            self.files_dicts[-1]["t_range"][1], # t_final of last forecast file
+            self.files_dicts[-1]["t_range"][1],  # t_final of last forecast file
         ]
 
         self.grid_dict = self.files_dicts[0]
@@ -317,6 +315,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
             data_frame=xr.open_dataset(self.files_dicts[self.rec_file_idx]["file"]),
             currents=self.source_config_dict["source_settings"].get("currents", "normal"),
         )
+        # Hack for the moment: otherwise simulation interpolate NaN's near to shore
+        self.DataArray = self.DataArray.fillna({"water_u": 0.0, "water_v": 0.0})
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
@@ -371,7 +371,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         # Step 1: get the dictionary of all files from the specific folder
         self.files_dicts = get_file_dicts(
             source_config_dict["source_settings"]["folder"],
-            currents=source_config_dict["source_settings"].get("currents", "normal")
+            currents=source_config_dict["source_settings"].get("currents", "normal"),
         )
 
         # Step 2: open the respective file as multi dataset
@@ -385,6 +385,9 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+
+        # Hack for the moment: otherwise simulation interpolate NaN's near to shore
+        self.DataArray = self.DataArray.fillna({"water_u": 0.0, "water_v": 0.0})
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
@@ -415,9 +418,9 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 # Helper functions across the OceanCurrentSource objects
 def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
     """
-        Creates an list of dicts ordered according to time available, one for each nc file available in folder.
-        The dicts for each file contains:
-        {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
+    Creates an list of dicts ordered according to time available, one for each nc file available in folder.
+    The dicts for each file contains:
+    {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
     """
     # Step 1: get a list of files from the folder
     files_list = []
@@ -430,11 +433,13 @@ def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
 
     for place in folder:
         if os.path.isdir(place):
-            files_list.append([
-                folder + f
-                for f in os.listdir(folder)
-                if (os.path.isfile(os.path.join(folder, f)) and f != ".DS_Store")
-            ])
+            files_list.append(
+                [
+                    folder + f
+                    for f in os.listdir(folder)
+                    if (os.path.isfile(os.path.join(folder, f)) and f != ".DS_Store")
+                ]
+            )
         elif os.path.isfile(place):
             files_list.append(place)
 
@@ -466,23 +471,24 @@ def format_xarray(data_frame: xr, currents: AnyStr = "normal") -> xr:
     # format and name variables and dimensions consistenly across sources
     if "source" not in data_frame.attrs or "HYCOM" in data_frame.attrs["source"]:
         data_frame["time"] = data_frame["time"].dt.round("H")
-        return data_frame
     elif "MERCATOR" in data_frame.attrs["source"]:
         # for consistency we need to rename the variables in the xarray the same as in hycom
         data_frame = data_frame.rename({"latitude": "lat", "longitude": "lon"})
         if currents == "total":
-            return data_frame[["utotal", "vtotal"]].rename(
+            data_frame = data_frame[["utotal", "vtotal"]].rename(
                 {"utotal": "water_u", "vtotal": "water_v"}
             )
         elif currents == "normal":
-            return data_frame[["uo", "vo"]].rename({"uo": "water_u", "vo": "water_v"})
+            data_frame = data_frame[["uo", "vo"]].rename({"uo": "water_u", "vo": "water_v"})
     # for the generated noise fields
     elif "u_error" in data_frame.keys():
         # Note: a hack because of Jonas file, need to change that!
         data_frame = data_frame.transpose("time", "lat", "lon")
-        return data_frame[["u_error", "v_error"]].rename(
+        data_frame = data_frame[["u_error", "v_error"]].rename(
             {"u_error": "water_u", "v_error": "water_v"}
         )
+
+    return data_frame
 
 
 def get_grid_dict_from_file(file: AnyStr, currents="normal") -> dict:

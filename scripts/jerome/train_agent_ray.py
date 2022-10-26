@@ -24,11 +24,11 @@ script_start_time = time.time()
 cluster_utils.init_ray()
 
 runner = TrainingRunner(
-    name="test_linting",
+    name="baseline_hj_planner_forecast",
     tags=[],
     config=yaml.load(open("config/reinforcement_learning/training.yaml"), Loader=yaml.FullLoader),
     verbose=2,
-).run(epochs=300)
+).run(epochs=400)
 
 # cluster_utils.destroy_cluster()
 

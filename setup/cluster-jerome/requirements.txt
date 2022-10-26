@@ -1,11 +1,11 @@
 casadi==3.5.5
-chex==0.1.4
+chex==0.1.5
 dask==2022.3.0
 DateTime==4.3
 geopy==2.2.0
 gym==0.23
 h5py==3.7.0
-imageio==2.21.
+imageio==2.21
 ipython==7.28.0
 jupyter==1.0.0
 jsonpickle==2.2.0

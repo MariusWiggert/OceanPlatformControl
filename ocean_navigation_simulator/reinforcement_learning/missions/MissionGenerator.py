@@ -1,29 +1,38 @@
 import datetime
 import math
+import os
 import time
-from typing import List, Optional, Union, Tuple
+import traceback
+from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
+import shutil
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
 )
+from ocean_navigation_simulator.data_sources.DataSource import (
+    SubsettingDataSourceException,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import (
     ArenaFactory,
-    MissingOceanFileException,
     CorruptedOceanFileException,
+    MissingOceanFileException,
 )
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatioTemporalPoint,
+)
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
     CachedNavigationProblem,
 )
-from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.utils.misc import bcolors, timing
+from ocean_navigation_simulator.utils import cluster_utils, units
+from ocean_navigation_simulator.utils.misc import bcolors, timing_dict
 
 
 class MissionGenerator:
@@ -31,59 +40,153 @@ class MissionGenerator:
 
     def __init__(
         self,
-        scenario_file: str,
         config: Optional[dict] = {},
         verbose: Optional[int] = 0,
     ):
-        self.scenario_file = scenario_file
         self.config = config
         self.verbose = verbose
 
         self.random = np.random.default_rng(self.config["seed"])
 
-    def generate_batch(self) -> [CachedNavigationProblem]:
+    def cache_batch(self) -> Tuple[List[CachedNavigationProblem], dict, List]:
+        """Generate Batch, Cache Hindcast, Cache Forecast and Plot Batch"""
+        self.performance = {
+            "total_time": 0,
+            "generate_time": 0,
+            "plot_time": 0,
+            "forecast_time": 0,
+            "hindcast_time": 0,
+            "starts": 0,
+            "errors": 0,
+            "target_resampling": 0,
+            "start_resampling": 0,
+        }
+        self.errors = []
+
+        with timing_dict(
+            "MissionGenerator: Batch finished ({:.1f}s)",
+            self.performance,
+            "total_time",
+            self.verbose,
+        ):
+            while True:
+                try:
+                    os.makedirs(self.config["cache_folder"], exist_ok=True)
+
+                    # Step 1: Generate Batch
+                    with timing_dict(
+                        "MissionGenerator: Generated Batch ({:.2f}s)",
+                        self.performance,
+                        "generate_time",
+                        self.verbose,
+                    ):
+                        problems = self.generate_batch()
+
+                    # Step 2: Plot or Animate Batch
+                    if self.config["animate_batch"]:
+                        with timing_dict(
+                            "MissionGenerator: Animated Batch ({:.2f}s)",
+                            self.performance,
+                            "plot_time",
+                            self.verbose,
+                        ):
+                            cluster_utils.ensure_storage_connection()
+                            self.plot_last_batch_animation(
+                                filename=f"{self.config['cache_folder']}animation.gif"
+                            )
+
+                    if self.config["plot_batch"]:
+                        with timing_dict(
+                            "MissionGenerator: Plotted Batch ({:.2f}s)",
+                            self.performance,
+                            "plot_time",
+                            self.verbose,
+                        ):
+                            cluster_utils.ensure_storage_connection()
+                            self.plot_last_batch_snapshot(
+                                filename=f"{self.config['cache_folder']}snapshot.png"
+                            )
+
+                    # step 3: Cache Hindcast Planner
+                    if self.config["cache_hindcast"]:
+                        with timing_dict(
+                            "MissionGenerator: Cached Hindcast ({:.2f}s)",
+                            self.performance,
+                            "hindcast_time",
+                            self.verbose,
+                        ):
+                            cluster_utils.ensure_storage_connection()
+                            self.hindcast_planner.save_planner_state(
+                                f"{self.config['cache_folder']}hindcast_planner/"
+                            )
+
+                    # # Step 4: Cache Forecast Planner
+                    if self.config["cache_forecast"]:
+                        with timing_dict(
+                            "MissionGenerator: Cached Forecast ({:.2f}s)",
+                            self.performance,
+                            "forecast_time",
+                            self.verbose,
+                        ):
+                            self.run_forecast(problem=problems[0])
+                except Exception as e:
+                    if self.verbose > 2:
+                        print(bcolors.red(self.problems[0]))
+                        print(bcolors.red(str(e)))
+                        print(traceback.format_exc())
+                    self.performance["errors"] += 1
+                    self.errors.append(str(e))
+                    shutil.rmtree(self.config["cache_folder"], ignore_errors=True)
+                else:
+                    break
+
+        self.performance["starts"] = len(self.problems)
+
+        return self.problems, self.performance, self.errors
+
+    def generate_batch(self) -> List[CachedNavigationProblem]:
         """Generate a target and a batch of starts according to config"""
         self.problems = []
 
-        with timing("MissionGenerator: Batch created ({:.1f}s)", self.verbose):
-            # Step 1: Generate Target & Starts until enough valid target/starts found
-            while not (target := self.generate_target()) or not (starts := self.generate_starts()):
-                pass
+        # Step 1: Generate Target & Starts until enough valid target/starts found
+        while not (target := self.generate_target()) or not (starts := self.generate_starts()):
+            pass
 
-            # Step 2: Create Problems
-            for random, start in starts:
-                ttr = self.hindcast_planner.interpolate_value_function_in_hours(point=start).item()
-                feasible = ttr < self.config["problem_timeout"].total_seconds() / 3600
+        # Step 2: Create Problems
+        for random, start, distance_to_shore in starts:
+            ttr = self.hindcast_planner.interpolate_value_function_in_hours(point=start).item()
+            feasible = ttr < self.config["problem_timeout"].total_seconds() / 3600
 
-                self.problems.append(
-                    CachedNavigationProblem(
-                        start_state=PlatformState(
-                            lon=start.lon,
-                            lat=start.lat,
-                            date_time=start.date_time,
-                        ),
-                        end_region=target.to_spatial_point(),
-                        target_radius=self.config["problem_target_radius"],
-                        timeout=(target.date_time - start.date_time),
-                        platform_dict=self.arena.platform.platform_dict,
-                        extra_info={
-                            "timeout_datetime": target.date_time.isoformat(),
-                            "start_target_distance_deg": target.haversine(start).deg,
-                            "feasible": feasible,
-                            "ttr_in_h": ttr,
-                            "random": random,
-                            # Planner Caching
-                            "x_cache": self.hj_planner_frame["x_interval"],
-                            "y_cache": self.hj_planner_frame["y_interval"],
-                            # "t_cache": self.hj_planner_time_frame,
-                            # Factory
-                            "factory_seed": self.config["seed"],
-                            "factory_index": len(self.problems),
-                        },
-                    )
+            self.problems.append(
+                CachedNavigationProblem(
+                    start_state=PlatformState(
+                        lon=start.lon,
+                        lat=start.lat,
+                        date_time=start.date_time,
+                    ),
+                    end_region=target.to_spatial_point(),
+                    target_radius=self.config["problem_target_radius"],
+                    timeout=(target.date_time - start.date_time),
+                    platform_dict=self.arena.platform.platform_dict,
+                    extra_info={
+                        "timeout_datetime": target.date_time.isoformat(),
+                        "start_target_distance_deg": target.haversine(start).deg,
+                        "feasible": feasible,
+                        "ttr_in_h": ttr,
+                        "random": random,
+                        "distance_to_shore_deg": distance_to_shore.deg,
+                        # Planner Caching
+                        "x_cache": self.hj_planner_frame["x_interval"],
+                        "y_cache": self.hj_planner_frame["y_interval"],
+                        # "t_cache": self.hj_planner_time_frame,
+                        # Factory
+                        "factory_seed": self.config["seed"],
+                        "factory_index": len(self.problems),
+                    },
                 )
-                if self.verbose > 2:
-                    print(f"MissionGenerator: Problem created: {self.problems[-1]}")
+            )
+            if self.verbose > 2:
+                print(f"MissionGenerator: Problem created: {self.problems[-1]}")
 
         return self.problems
 
@@ -130,29 +233,25 @@ class MissionGenerator:
         ##### Step 2: Reject if files are missing or corrupted #####
         try:
             self.arena = ArenaFactory.create(
-                scenario_file=self.scenario_file,
-                scenario_config={
-                    'ocean_dict': {
-                        'hindcast': {
-
-                        }
-                    }
-                },
+                scenario_file=self.config["scenario_file"],
                 x_interval=self.config["x_range"],
                 y_interval=self.config["y_range"],
                 t_interval=[
-                    fake_start.date_time - datetime.timedelta(days=1),
-                    fake_target.date_time + datetime.timedelta(days=1),
+                    fake_start.date_time - datetime.timedelta(hours=1),
+                    fake_target.date_time + datetime.timedelta(days=1, hours=1),
                 ],
+                throw_exceptions=True,
                 verbose=self.verbose - 2,
             )
-        except (MissingOceanFileException, CorruptedOceanFileException):
+        except (MissingOceanFileException, CorruptedOceanFileException) as e:
             if self.verbose > 1:
                 print(
                     bcolors.red(
-                        f"MissionGenerator: Target aborted because of missing or corrupted files: [{fake_start.date_time}, {fake_target.date_time}]."
+                        f"MissionGenerator: Target aborted because of missing or corrupted files: [{fake_start.date_time}, {fake_target.date_time}] {e}."
                     )
                 )
+            self.performance["errors"] += 1
+            self.errors.append(str(e))
             return False
 
         # Step 3: Reject if to close to land
@@ -163,41 +262,60 @@ class MissionGenerator:
             if self.verbose > 1:
                 print(
                     bcolors.red(
-                        f"MissionGenerator: Target aborted because too close to land: {fake_target.to_spatial_point()}."
+                        f"MissionGenerator: Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
                     )
                 )
+            self.performance["target_resampling"] += 1
             return False
 
         ##### Step 3: Run multi-time-back HJ Planner #####
-        self.hj_planner_frame = {
-            "x_interval": [
-                fake_target.lon.deg - self.config["hj_planner_box"],
-                fake_target.lon.deg + self.config["hj_planner_box"],
-            ],
-            "y_interval": [
-                fake_target.lat.deg - self.config["hj_planner_box"],
-                fake_target.lat.deg + self.config["hj_planner_box"],
-            ],
-        }
-        self.hindcast_planner = HJReach2DPlanner(
-            problem=NavigationProblem(
-                start_state=fake_start,
-                end_region=fake_target.to_spatial_point(),
-                target_radius=self.config["problem_target_radius"],
-                timeout=self.config["problem_timeout"],
-                platform_dict=self.arena.platform.platform_dict,
-            ),
-            specific_settings=self.config["hj_specific_settings"] | self.hj_planner_frame,
-        )
-        self.hindcast_planner.replan_if_necessary(
-            ArenaObservation(
-                platform_state=fake_start,
-                true_current_at_state=self.arena.ocean_field.get_ground_truth(
-                    fake_start.to_spatio_temporal_point()
-                ),
-                forecast_data_source=self.arena.ocean_field.hindcast_data_source,
-            )
-        )
+        try:
+            self.hj_planner_frame = {
+                "x_interval": [
+                    fake_target.lon.deg - self.config["hj_planner_box"],
+                    fake_target.lon.deg + self.config["hj_planner_box"],
+                ],
+                "y_interval": [
+                    fake_target.lat.deg - self.config["hj_planner_box"],
+                    fake_target.lat.deg + self.config["hj_planner_box"],
+                ],
+            }
+            with timing_dict(
+                "MissionGenerator: Run Hindcast Planner ({:.2f}s)",
+                self.performance,
+                "hindcast_time",
+                self.verbose,
+            ):
+                self.hindcast_planner = HJReach2DPlanner(
+                    problem=NavigationProblem(
+                        start_state=fake_start,
+                        end_region=fake_target.to_spatial_point(),
+                        target_radius=self.config["problem_target_radius"],
+                        timeout=self.config["problem_timeout"],
+                        platform_dict=self.arena.platform.platform_dict,
+                    ),
+                    specific_settings=self.config["hj_specific_settings"] | self.hj_planner_frame,
+                )
+                self.hindcast_planner.replan_if_necessary(
+                    ArenaObservation(
+                        platform_state=fake_start,
+                        true_current_at_state=self.arena.ocean_field.get_ground_truth(
+                            fake_start.to_spatio_temporal_point()
+                        ),
+                        forecast_data_source=self.arena.ocean_field.hindcast_data_source,
+                    )
+                )
+        except SubsettingDataSourceException as e:
+            if self.verbose > 1:
+                print(
+                    bcolors.red(
+                        f"MissionGenerator: Target aborted because of subsetting exception: [{fake_start.date_time}, {fake_target.date_time}] {e}."
+                    )
+                )
+                print(e)
+            self.performance["errors"] += 1
+            self.errors.append(str(e))
+            return False
 
         ##### Overwrite with biggest available time in hj planner #####
         real_target = SpatioTemporalPoint(
@@ -221,7 +339,7 @@ class MissionGenerator:
 
         return real_target
 
-    def generate_starts(self) -> Union[List[Tuple[bool, SpatioTemporalPoint]], bool]:
+    def generate_starts(self) -> Union[List[Tuple[bool, SpatioTemporalPoint, float]], bool]:
         """
         Samples in/feasible starts from the already generated target.
         Returns:
@@ -270,7 +388,7 @@ class MissionGenerator:
 
     def sample_feasible_points(
         self, sampling_frame, mission_time
-    ) -> List[Tuple[bool, SpatioTemporalPoint]]:
+    ) -> List[Tuple[bool, SpatioTemporalPoint, float]]:
         planner = self.hindcast_planner
 
         # Step 1: Find reachable points with minimum distance from frame
@@ -288,7 +406,7 @@ class MissionGenerator:
 
         if self.verbose > 1:
             print(
-                "Sampling Ratio: {n}/{d} = {ratio:.2%}".format(
+                "MissionGenerator: Sampling Ratio: {n}/{d} = {ratio:.2%}".format(
                     n=points_to_sample.shape[0],
                     d=planner.all_values[0].size,
                     ratio=points_to_sample.shape[0] / planner.all_values[0].size,
@@ -318,10 +436,7 @@ class MissionGenerator:
                 lat=units.Distance(deg=coordinates[1] + noise[1]),
                 # Smallest available time in hj planner
                 date_time=datetime.datetime.fromtimestamp(
-                    math.ceil(
-                        self.hindcast_planner.current_data_t_0
-                        + self.hindcast_planner.reach_times[0]
-                    ),
+                    math.ceil(planner.current_data_t_0 + planner.reach_times[0]),
                     tz=datetime.timezone.utc,
                 ),
             )
@@ -331,13 +446,15 @@ class MissionGenerator:
                 point.to_spatial_point()
             )
             if distance_to_shore.deg > self.config["min_distance_from_land"]:
-                sampled_points.append((False, point))
+                sampled_points.append((False, point, distance_to_shore))
+            else:
+                self.performance["start_resampling"] += 1
             if len(sampled_points) >= self.config["feasible_missions_per_target"]:
                 break
 
         return sampled_points
 
-    def sample_random_points(self, sampling_frame) -> List[Tuple[bool, SpatioTemporalPoint]]:
+    def sample_random_points(self, sampling_frame) -> List[Tuple[bool, SpatioTemporalPoint, float]]:
         """uniform Sampling in Frame"""
         sampled_points = []
 
@@ -364,7 +481,9 @@ class MissionGenerator:
                 point.to_spatial_point()
             )
             if distance_to_shore.deg > self.config["min_distance_from_land"]:
-                sampled_points.append((True, point))
+                sampled_points.append((True, point, distance_to_shore))
+            else:
+                self.performance["start_resampling"] += 1
             if len(sampled_points) >= self.config["random_missions_per_target"]:
                 break
 
@@ -388,22 +507,23 @@ class MissionGenerator:
 
         ax = self.hindcast_planner.plot_reachability_snapshot_over_currents(return_ax=True)
         self.add_problems_to_ax(ax)
-        ax.get_figure().show()
+
+        if filename is None:
+            ax.get_figure().show()
+        else:
+            ax.get_figure().savefig(filename)
 
     def plot_last_batch_animation(self, filename):
-        with timing("MissionGenerator: Batch plotted ({:.1f}s)", self.verbose):
-            if len(self.problems) == 0:
-                raise Exception(
-                    "plot_last_batch_animation can only be called after generate_batch."
-                )
+        if len(self.problems) == 0:
+            raise Exception("plot_last_batch_animation can only be called after generate_batch.")
 
-            def add_Drawing(*args):
-                self.add_problems_to_ax(*args)
+        def add_Drawing(*args):
+            self.add_problems_to_ax(*args)
 
-            self.hindcast_planner.plot_reachability_animation(
-                filename=filename,
-                add_drawing=add_Drawing,
-            )
+        self.hindcast_planner.plot_reachability_animation(
+            filename=filename,
+            add_drawing=add_Drawing,
+        )
 
     #
     # def plot_batch_animation(self, filename: str, random_sample_points: Optional[int] = 10):
@@ -495,35 +615,49 @@ class MissionGenerator:
     #         #         )
     #
     #         ax.set_title(f"Multi-Reach at time ({rel_time_in_seconds/3600:.1f}h)")
-    #
-    #     self.hindcast_planner.plot_reachability_animation(
-    #         filename=filename,
-    #         add_drawing=add_drawing,
-    #     )
-    #
-    #     if self.verbose > 0:
-    #         print(
-    #             f"MissionGenerator: Batch of {len(self.problems)} plotted ({time.time()-plot_start_time:.1f}s)"
-    #         )
 
-    def run_forecast(self, batch_folder, problem):
+    def run_forecast(self, problem):
         """
         We have to trick the planner here to run exactly the forecasts we need:
             - we take any problem of the current batch (they share the same target, so the planner is the same)
             - we run until timeout (problem.is_done == -1)
             - we reset the platform x&y to start coordinates s.t. we never runs out of area
         """
-        arena = ArenaFactory.create(scenario_file=self.scenario_file, problem=problem)
-
         forecast_planner = HJReach2DPlanner(
             problem=problem,
             specific_settings=self.hindcast_planner.specific_settings
             | self.hj_planner_frame
-            | {"planner_path": batch_folder, "save_after_planning": True},
+            | {"planner_path": self.config["cache_folder"], "save_after_planning": True},
+        )
+
+        # # Run Arena until Timeout (use start position to not leave arena)
+        # sim_date_time = problem.start_state.date_time
+        # while sim_date_time < problem.start_state.date_time + problem.timeout:
+        #     forecast_planner.replan_if_necessary(
+        #         ArenaObservation(
+        #             platform_state=PlatformState(
+        #                 lon=problem.start_state.lon,
+        #                 lat=problem.start_state.lat,
+        #                 date_time=sim_date_time,
+        #             ),
+        #             true_current_at_state=self.arena.ocean_field.get_ground_truth(
+        #                 problem.start_state.to_spatio_temporal_point()
+        #             ),
+        #             forecast_data_source=self.arena.ocean_field.forecast_data_source,
+        #         )
+        #     )
+        #     sim_date_time += datetime.timedelta(minutes=10)
+
+        arena = ArenaFactory.create(
+            scenario_file=self.config["scenario_file"],
+            problem=problem,
+            throw_exceptions=True,
+            verbose=self.verbose - 2,
         )
 
         # Run Arena until Timeout (reset position to no leave arena)
         observation = arena.reset(problem.start_state)
+
         while problem.is_done(observation.platform_state) != -1:
             observation = arena.step(forecast_planner.get_action(observation))
             arena.platform.state.lon = problem.start_state.lon

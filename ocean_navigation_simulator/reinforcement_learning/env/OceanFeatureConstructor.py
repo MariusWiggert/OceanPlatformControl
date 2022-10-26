@@ -114,33 +114,27 @@ class OceanFeatureConstructor:
         )
 
     def get_features_from_state(
-        self, fc_obs: ArenaObservation, hc_obs: ArenaObservation, problem: NavigationProblem
+        self, obs: ArenaObservation, problem: NavigationProblem
     ) -> Union[np.ndarray, Tuple[np.ndarray]]:
         features = ()
 
         # # Step 1: Raw Measurements
         if self.config["measurements"]:
             features += (
-                self.get_measurements_from_state(
-                    fc_obs, hc_obs, problem, self.config["measurements"]
-                ),
+                self.get_measurements_from_state(obs, problem, self.config["measurements"]),
             )
 
         # Step 2: Local Map
         if self.config["local_map"]:
-            features += (
-                self.get_map_from_state(fc_obs, hc_obs, problem, self.config["local_map"]),
-            )
+            features += (self.get_map_from_state(obs, problem, self.config["local_map"]),)
 
         # Step 3: Global Map
         if self.config["global_map"]:
-            features += (
-                self.get_map_from_state(fc_obs, hc_obs, problem, self.config["global_map"]),
-            )
+            features += (self.get_map_from_state(obs, problem, self.config["global_map"]),)
 
         # Step 4: Meta Information
         if self.config["meta"]:
-            features += (self.get_meta_from_state(fc_obs, hc_obs, problem, self.config["meta"]),)
+            features += (self.get_meta_from_state(obs, problem, self.config["meta"]),)
 
         if self.config["flatten"]:
             return np.concatenate(tuple(f.flatten() for f in features))
@@ -149,16 +143,16 @@ class OceanFeatureConstructor:
         else:
             return features[0]
 
-    def get_measurements_from_state(self, fc_obs, hc_obs, problem, config) -> np.ndarray:
+    def get_measurements_from_state(self, obs, problem, config) -> np.ndarray:
         self.measurements = np.append(
             self.measurements[1 - config :],
             np.array(
                 [
                     [
-                        fc_obs.platform_state.lon.deg,
-                        fc_obs.platform_state.lat.deg,
-                        fc_obs.true_current_at_state.u,
-                        fc_obs.true_current_at_state.v,
+                        obs.platform_state.lon.deg,
+                        obs.platform_state.lat.deg,
+                        obs.true_current_at_state.u,
+                        obs.true_current_at_state.v,
                     ]
                 ]
             ),
@@ -174,28 +168,34 @@ class OceanFeatureConstructor:
         )
         return np.append(measurements, repeats, axis=0)
 
-    def get_map_from_state(self, fc_obs, hc_obs, problem, config) -> np.ndarray:
+    def get_map_from_state(self, obs, problem, config) -> np.ndarray:
         x_interval = [
-            fc_obs.platform_state.lon.deg - config["xy_width_degree"] / 2,
-            fc_obs.platform_state.lon.deg + config["xy_width_degree"] / 2,
+            obs.platform_state.lon.deg - config["xy_width_degree"] / 2,
+            obs.platform_state.lon.deg + config["xy_width_degree"] / 2,
         ]
         y_interval = [
-            fc_obs.platform_state.lat.deg - config["xy_width_degree"] / 2,
-            fc_obs.platform_state.lat.deg + config["xy_width_degree"] / 2,
+            obs.platform_state.lat.deg - config["xy_width_degree"] / 2,
+            obs.platform_state.lat.deg + config["xy_width_degree"] / 2,
         ]
         map = np.zeros((config["xy_width_points"], config["xy_width_points"], 0), dtype="float32")
 
         # Step 1: TTR Map
         if config["features"]["ttr_forecast"]:
             ttr_forecast = self.forecast_planner.interpolate_value_function_in_hours(
-                fc_obs, width_deg=config["xy_width_degree"], width=config["xy_width_points"]
+                point=obs.platform_state.to_spatio_temporal_point(),
+                width_deg=config["xy_width_degree"],
+                width=config["xy_width_points"],
+                allow_spacial_extrapolation=True,
             )
             map = np.concatenate(
                 (map, np.expand_dims(ttr_forecast, axis=2)), axis=2, dtype="float32"
             )
         if config["features"]["ttr_hindcast"]:
             ttr_hindcast = self.hindcast_planner.interpolate_value_function_in_hours(
-                hc_obs, width_deg=config["xy_width_degree"], width=config["xy_width_points"]
+                point=obs.platform_state.to_spatio_temporal_point(),
+                width_deg=config["xy_width_degree"],
+                width=config["xy_width_points"],
+                allow_spacial_extrapolation=True,
             )
             map = np.concatenate(
                 (map, np.expand_dims(ttr_hindcast, axis=2)), axis=2, dtype="float32"
@@ -204,10 +204,10 @@ class OceanFeatureConstructor:
         # Step 2: GP Observer
         if len(config["features"]["observer"]["variables"]) > 0:
             t_interval = [
-                hc_obs.platform_state.date_time + datetime.timedelta(hours=h)
+                obs.platform_state.date_time + datetime.timedelta(hours=h)
                 for h in config["features"]["observer"]["time"]
             ]
-            self.observer.observe(fc_obs)
+            self.observer.observe(obs)
             self.observer.fit()
             gp_map = (
                 self.observer.get_data_over_area(
@@ -233,11 +233,11 @@ class OceanFeatureConstructor:
         # Step 3: Hindcast Currents
         if len(config["features"]["currents_hindcast"]) > 0:
             t_interval = [
-                hc_obs.platform_state.date_time + datetime.timedelta(hours=h)
+                obs.platform_state.date_time + datetime.timedelta(hours=h)
                 for h in config["features"]["currents_hindcast"]
             ]
             current_map = (
-                hc_obs.forecast_data_source.get_data_over_area(
+                obs.forecast_data_source.get_data_over_area(
                     x_interval=x_interval,
                     y_interval=y_interval,
                     t_interval=[t_interval[0], t_interval[-1]],
@@ -260,11 +260,11 @@ class OceanFeatureConstructor:
         # Step 4: Forecast Currents
         if len(config["features"]["currents_forecast"]) > 0:
             t_interval = [
-                fc_obs.platform_state.date_time + datetime.timedelta(hours=h)
+                obs.platform_state.date_time + datetime.timedelta(hours=h)
                 for h in config["features"]["currents_forecast"]
             ]
             current_map = (
-                fc_obs.forecast_data_source.get_data_over_area(
+                obs.forecast_data_source.get_data_over_area(
                     x_interval=x_interval,
                     y_interval=y_interval,
                     t_interval=[t_interval[0], t_interval[-1]],
@@ -287,11 +287,11 @@ class OceanFeatureConstructor:
         # Step 5: True Error
         if len(config["features"]["true_error"]) > 0:
             t_interval = [
-                fc_obs.platform_state.date_time + datetime.timedelta(hours=h)
+                obs.platform_state.date_time + datetime.timedelta(hours=h)
                 for h in config["features"]["true_error"]
             ]
             current_fc = (
-                fc_obs.forecast_data_source.get_data_over_area(
+                obs.forecast_data_source.get_data_over_area(
                     x_interval=x_interval,
                     y_interval=y_interval,
                     t_interval=[t_interval[0], t_interval[-1]],
@@ -310,7 +310,7 @@ class OceanFeatureConstructor:
                 (config["xy_width_points"], config["xy_width_points"], -1)
             )
             current_hc = (
-                hc_obs.forecast_data_source.get_data_over_area(
+                obs.forecast_data_source.get_data_over_area(
                     x_interval=x_interval,
                     y_interval=y_interval,
                     t_interval=[t_interval[0], t_interval[-1]],
@@ -333,24 +333,26 @@ class OceanFeatureConstructor:
 
         return map.flatten() if config["flatten"] else map.squeeze()
 
-    def get_meta_from_state(self, fc_obs, hc_obs, problem, config) -> np.ndarray:
+    def get_meta_from_state(self, obs, problem, config) -> np.ndarray:
         features = []
 
         if "lon" in config:
-            features += [fc_obs.platform_state.lon.deg]
+            features += [obs.platform_state.lon.deg]
         if "lat" in config:
-            features += [fc_obs.platform_state.lon.deg]
+            features += [obs.platform_state.lon.deg]
         if "time" in config:
-            features += [fc_obs.platform_state.date_time.timestamp()]
+            features += [obs.platform_state.date_time.timestamp()]
         if "target_distance" in config:
-            features += [problem.distance(fc_obs.platform_state)]
+            features += [problem.distance(obs.platform_state)]
         if "target_direction" in config:
-            features += [problem.angle(fc_obs.platform_state)]
+            features += [problem.angle(obs.platform_state)]
         if "episode_time_in_h" in config:
-            features += [problem.passed_seconds(fc_obs.platform_state) / 3600]
+            features += [problem.passed_seconds(obs.platform_state) / 3600]
         if "ttr_center" in config:
             features += [
-                self.forecast_planner.interpolate_value_function_in_hours(fc_obs).squeeze()
+                self.forecast_planner.interpolate_value_function_in_hours(
+                    point=obs.platform_state.to_spatio_temporal_point()
+                ).squeeze()
             ]
 
         return np.array(features)

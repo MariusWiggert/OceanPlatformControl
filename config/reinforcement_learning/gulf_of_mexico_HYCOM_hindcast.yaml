@@ -20,17 +20,7 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: "/tmp/hycom_hindcast/"
+            folder: "/home/ubuntu/hycom_hindcast/"
             source: "HYCOM"
             type: "hindcast"
             currents: 'total'
-    forecast:
-        null
-
-solar_dict:
-    hindcast: null
-    forecast: null
-
-seaweed_dict:
-    hindcast: null
-    forecast: null

@@ -3,19 +3,24 @@ import json
 from ray.rllib.policy.policy import Policy
 
 from ocean_navigation_simulator.controllers.Controller import Controller
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJReach2DPlanner,
-)
+
+# from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+#     HJReach2DPlanner,
+# )
 from ocean_navigation_simulator.environment.Arena import (
     Arena,
     ArenaObservation,
 )
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
-)
+
+# from ocean_navigation_simulator.environment.NavigationProblem import (
+#     NavigationProblem,
+# )
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.reinforcement_learning.env.OceanFeatureConstructor import (
     OceanFeatureConstructor,
+)
+from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
+    CachedNavigationProblem,
 )
 from ocean_navigation_simulator.utils import cluster_utils
 
@@ -32,7 +37,7 @@ class RLController(Controller):
     def __init__(
         self,
         config: dict,
-        problem: NavigationProblem,
+        problem: CachedNavigationProblem,
         arena: Arena,
     ):
         super().__init__(problem)
@@ -50,18 +55,13 @@ class RLController(Controller):
         )
 
         # Step 3: Create Feature Constructor
-        self.hindcast_planner = HJReach2DPlanner.from_saved_planner_state(
-            folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/hindcast_planner/',
-            problem=self.problem,
+        self.hindcast_planner = problem.get_cached_hindcast_planner(
+            self.config["missions"]["folder"]
         )
-        self.forecast_planner = HJReach2DPlanner.from_saved_planner_state(
-            folder=f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/forecast_planner_idx_0/',
-            problem=self.problem,
-            specific_settings={
-                "load_plan": True,
-                "planner_path": f'{self.config["missions"]["folder"]}groups/group_{self.problem.extra_info["group"]}/batch_{self.problem.extra_info["batch"]}/',
-            },
+        self.forecast_planner = problem.get_cached_forecast_planner(
+            self.config["missions"]["folder"]
         )
+
         self.feature_constructor = OceanFeatureConstructor(
             forecast_planner=self.forecast_planner,
             hindcast_planner=self.hindcast_planner,
@@ -76,9 +76,12 @@ class RLController(Controller):
         Returns:
             SimulatorAction dataclass
         """
+        self.forecast_planner.replan_if_necessary(observation)
+        self.hindcast_planner.replan_if_necessary(
+            observation.replace_datasource(self.arena.ocean_field.hindcast_data_source)
+        )
         obs = self.feature_constructor.get_features_from_state(
-            fc_obs=observation,
-            hc_obs=observation.replace_datasource(self.arena.ocean_field.hindcast_data_source),
+            obs=observation,
             problem=self.problem,
         )
         action, _, _ = self.policy.compute_single_action(obs=obs, explore=False)

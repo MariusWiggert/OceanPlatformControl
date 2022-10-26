@@ -5,21 +5,18 @@
 
 
 # An unique identifier for the head node and workers of this cluster.
-cluster_name: default
+cluster_name: jerome
 
 # The maximum number of workers nodes to launch in addition to the head node.
 #initial_workers: 12
-min_workers: 12
-max_workers: 12
-
-upscaling_speed: 24
+max_workers: 6
 
 # Cloud-provider specific configuration.
 provider:
     type: azure
     # https://azure.microsoft.com/en-us/global-infrastructure/locations
     location: eastus # canadacentral
-    resource_group: jerome-ray-cpu
+    resource_group: jerome-cluster
     # set subscription id otherwise the default from az cli will be used
     subscription_id: 320d211e-ea73-4cc2-9f71-18da686ab665
     cache_stopped_nodes: True
@@ -40,7 +37,7 @@ available_node_types:
     ray.head.default:
         max_workers: 0
         # The resources provided by this node type.
-        resources: {"GPU": 1, "CPU": 6, "Head CPU": 6, "RAM": 56000}
+        resources: {"GPU": 1, "CPU": 6, "Head CPU": 6, "Unique CPU": 1, "Node": 1, "RAM": 56000}
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
@@ -49,13 +46,18 @@ available_node_types:
                 #     Too many small machines is laborious.
                 #     Too few machines can have a disk bottleneck
                 #   On GPU machines cores are proportionally more expensive.
-                # GPU:
+                # GPU (Tesla K80):
                 #   - Standard_NC6_Promo (US$289.08, 56GB RAM) 290/30 = 10
                 #   - Standard_NC12_Promo (US$578.16, 112GB RAM)
                 #   - Standard_NC24_Promo (US$1,156.32, 225GB RAM)
                 #   - Standard_NC6 (US$657.00, 56GB RAM)
                 #   - Standard_NC12 (US$1,314.00, 112GB RAM)
                 #   - Standard_NC24 (US$2,628.00, 225GB RAM)
+                # GPU (Tesla T4):
+                #   - Standard_NC4as_T4_v3 (US$383.98, 28GB RAM) 290/30 = 10
+                #   - Standard_NC8as_T4_v3 (US$548.96, 56GB RAM)
+                #   - Standard_NC16as_T4_v3 (US$878.92, 110GB RAM)
+                #   - Standard_NC64as_T4_v3 (US$3,176.96, 440GB RAM)
                 # General Purpose:
                 #   - Standard_D2s_v5 (US$70.08, 8GB RAM)
                 #   - Standard_D4s_v5 (US$140.16, 16GB RAM)
@@ -89,15 +91,14 @@ available_node_types:
     ray.worker.default:
         # The minimum number of worker nodes of this type to launch.
         # This number should be >= 0.
-        min_workers: 12
-        max_workers: 12
+        min_workers: 6
+        max_workers: 6
         # The resources provided by this node type.
-        resources: {"CPU": 8, "Worker CPU": 8, "RAM": 32000}
+        resources: {"CPU": 16, "Worker CPU": 16, "Unique CPU": 16, "Node": 1, "RAM": 64000}
         # Provider-specific config, e.g. instance type.
         node_config:
             azure_arm_parameters:
-                vmSize: Standard_D8s_v5
-                # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
+                vmSize: Standard_D16s_v5
                 imagePublisher: microsoft-dsvm
                 imageOffer: ubuntu-2004
                 imageSku: '2004'
@@ -110,7 +111,7 @@ head_node_type: ray.head.default
 # dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
 file_mounts: {
     "~/.ssh": "setup/cluster-jerome/keys",
-    "~/OceanPlatformControl/setup": "setup",
+    "~/OceanPlatformControl/setup/cluster-jerome": "setup/cluster-jerome",
 }
 
 # Files or directories to copy from the head node to the worker nodes. The format is a
@@ -144,12 +145,16 @@ initialization_commands:
 # List of shell commands to run to set up nodes.
 # NOTE: rayproject/ray-ml:latest has ray latest bundled
 setup_commands: []
+#    - pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"
+#    - pip install ray==1.13
     # Note: if you're developing Ray, you probably want to create an AMI that
     # has your Ray repo pre-cloned. Then, you can replace the pip installs
     # below with a git checkout <your_sha> (and possibly a recompile).
 
 # Custom commands that will be run on the head node after common setup.
 head_setup_commands: []
+    # install requirements needed by ray head node
+#    - pip install -U azure-cli-core azure-identity azure-mgmt-compute azure-mgmt-network azure-mgmt-resource msrestazure
 
 # Custom commands that will be run on worker nodes after common setup.
 worker_setup_commands: []

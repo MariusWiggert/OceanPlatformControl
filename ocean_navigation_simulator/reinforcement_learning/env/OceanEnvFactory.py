@@ -1,15 +1,16 @@
 from typing import Optional
 
-from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
+from ocean_navigation_simulator.reinforcement_learning.missions.FileProblemFactory import (
     FileProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.env.OceanEnv import OceanEnv
+from ocean_navigation_simulator.reinforcement_learning.env.OceanEnv import (
+    OceanEnv,
+)
 
 
 class OceanEnvFactory:
     """
-    Delivers Env for rllib. It can split up indices s.t. each worker has unique
-    training data.
+    Delivers Env for rllib. It can split up indices s.t. each worker has unique training data.
     """
 
     def __init__(
@@ -28,16 +29,11 @@ class OceanEnvFactory:
         self.result_root = result_root
         self.verbose = verbose
 
-        self.split_indices()
-
-    def split_indices(self):
-        if self.num_workers == 0:
-            self.indices = self.num_workers * [None]
-        else:
+        if self.num_workers > 0:
             self.indices = FileProblemFactory.split_indices(
-                csv_file=f"{self.config['problem_folder']}problems.csv",
+                csv_file=f"{self.config['missions']['folder']}problems.csv",
+                filter=self.config["missions"]["filter"],
                 split=self.num_workers,
-                leave=self.config["validation_length"],
             )
 
     def __call__(self, env_config):

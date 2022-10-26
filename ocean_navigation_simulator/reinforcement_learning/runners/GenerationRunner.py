@@ -5,17 +5,26 @@ import pickle
 import pprint
 import shutil
 import sys
-import time
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 import pytz
 import ray
+import seaborn as sns
 from matplotlib import pyplot as plt
 
+
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.utils import cluster_utils
-from ocean_navigation_simulator.utils.misc import get_process_information_dict
+from ocean_navigation_simulator.utils.misc import (
+    bcolors,
+    get_process_information_dict,
+    set_arena_loggers,
+    silence_ray_and_tf,
+)
+
+sns.set_theme()
 
 
 class GenerationRunner:
@@ -27,14 +36,10 @@ class GenerationRunner:
      - each batch is run in a separate process and retried several times to handle memory overflow of hj planner
     """
 
-    def __init__(self, name: str, config: {}, verbose: Optional[int] = 0):
+    def __init__(self, name: str, config: dict, verbose: Optional[int] = 0):
         self.name = name
         self.config = config
         self.verbose = verbose
-
-        print(
-            f'GenerationRunner: Generating {config["size"]["groups"] * config["size"]["batches_per_group"]} batches in {config["size"]["groups"]} groups'
-        )
 
         # Step 1: Prepare Paths & Save configuration
         self.timestring = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
@@ -50,13 +55,21 @@ class GenerationRunner:
         with open(f"{self.results_folder}config/config.json", "wt") as f:
             pprint.pprint(self.config, stream=f)
 
+        print(
+            "GenerationRunner: Generating {b} batches in {g} groups ({f})".format(
+                b=config["size"]["groups"] * config["size"]["batches_per_group"],
+                g=config["size"]["groups"],
+                f=self.results_folder,
+            )
+        )
+
         # Step 2: Run Generation with Ray
         self.ray_results = ray.get(
             [
                 self.generate_batch_ray.options(
-                    num_cpus=config["ray_options"]["resources"]["CPU"],
-                    num_gpus=config["ray_options"]["resources"]["GPU"],
-                    max_retries=config["ray_options"]["max_retries"],
+                    num_cpus=config["ray_options"]["resources"].get("CPU", 1.0),
+                    num_gpus=config["ray_options"]["resources"].get("GPU", 0.0),
+                    max_retries=config["ray_options"].get("max_retries", 10),
                     resources={
                         i: config["ray_options"]["resources"][i]
                         for i in config["ray_options"]["resources"]
@@ -64,7 +77,6 @@ class GenerationRunner:
                     },
                 ).remote(
                     results_folder=self.results_folder,
-                    scenario_file=config["scenario_file"],
                     mission_generation_config=config["mission_generation"],
                     group=int(batch // config["size"]["batches_per_group"]),
                     batch=batch,
@@ -73,16 +85,20 @@ class GenerationRunner:
                 for batch in range(config["size"]["groups"] * config["size"]["batches_per_group"])
             ]
         )
-        self.problems = [problem for problems in self.ray_results for problem in problems]
+        self.problems = [problem for results in self.ray_results for problem in results[0]]
+        self.errors = [error for results in self.ray_results for error in results[1]]
 
         # Step 3: Save Results
         cluster_utils.ensure_storage_connection()
         self.problems_df = pd.DataFrame(self.problems)
         self.problems_df.to_csv(f"{self.results_folder}problems.csv")
+        with open(self.results_folder + "errors.txt", "wt") as f:
+            f.write("\n".join(self.errors))
 
         # Step 4: Analyse Generation
-        GenerationRunner.analyse_generation(self.results_folder)
-        GenerationRunner.plot_generation(self.results_folder)
+        GenerationRunner.analyse_performance(self.results_folder)
+        GenerationRunner.plot_starts_and_targets(self.results_folder)
+        GenerationRunner.plot_target_dates_histogram(self.results_folder)
 
     # Memory Leak of HJ Planner: Only run on workers and with a new process each
     # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-remote
@@ -90,100 +106,166 @@ class GenerationRunner:
     @ray.remote(max_calls=1)
     def generate_batch_ray(
         results_folder: str,
-        scenario_file: str,
         mission_generation_config: dict,
         group: int,
         batch: int,
         verbose,
     ):
-        import os
-
-        os.environ["LOGLEVEL"] = "WARN"
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-        # Supress TF CPU warnings:
-        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # FATAL
-        logging.getLogger("tensorflow").setLevel(logging.FATAL)
-        logging.getLogger("absl").setLevel(logging.FATAL)
-        import warnings
-
-        warnings.simplefilter("ignore", UserWarning)
+        # Step 1: Supress Loggers & Warnings
+        if verbose > 3:
+            set_arena_loggers(logging.INFO)
+            silence_ray_and_tf()
+        else:
+            set_arena_loggers(logging.WARNING)
 
         from ocean_navigation_simulator.reinforcement_learning.missions.MissionGenerator import (
             MissionGenerator,
         )
 
-        try:
-            batch_start_time = time.time()
-            batch_folder = f"{results_folder}groups/group_{group}/batch_{batch}/"
+        # Step 2: Prepare Batch Folder
+        cluster_utils.ensure_storage_connection()
+        batch_folder = f"{results_folder}groups/group_{group}/batch_{batch}/"
+        os.makedirs(batch_folder, exist_ok=True)
 
+        try:
             if verbose > 0:
                 print(f"GenerationRunner: Starting Batch {batch} Group {group}")
 
-            # Step 1: Generate Batch
-            generate_start = time.time()
+            # Step 3: Generate Batch
             problem_factory = MissionGenerator(
-                scenario_file=scenario_file,
-                config={"seed": batch} | mission_generation_config,
+                config=mission_generation_config
+                | {
+                    "seed": batch,
+                    "cache_folder": batch_folder,
+                },
                 verbose=verbose - 1,
             )
-            problems = problem_factory.generate_batch()
-            generate_time = time.time() - generate_start
+            problems, performance, errors = problem_factory.cache_batch()
 
-            # Step 2: Plot Batch
-            if mission_generation_config["animate_batch"]:
-                plot_start = time.time()
-                cluster_utils.ensure_storage_connection()
-                os.makedirs(batch_folder, exist_ok=True)
-                problem_factory.plot_last_batch_animation(filename=f"{batch_folder}animation.gif")
-                plot_time = time.time() - plot_start
-            else:
-                plot_time = 0.0
+            # Step 4: Format Batch Results
+            batch_info = (
+                {
+                    "group": group,
+                    "batch": batch,
+                }
+                | performance
+                | get_process_information_dict()
+            )
+            batch_results = [problem.to_dict() | batch_info for problem in problems]
 
-            # step 3: Save Hindcast Planner
-            if mission_generation_config["cache_forecast"]:
-                cluster_utils.ensure_storage_connection()
-                problem_factory.hindcast_planner.save_planner_state(f"{batch_folder}hindcast_planner/")
-
-            # # Step 4: Run & Save Forecast Planner
-            if mission_generation_config["cache_hindcast"]:
-                forecast_start = time.time()
-                problem_factory.run_forecast(batch_folder=batch_folder, problem=problems[0])
-                forecast_time = time.time() - forecast_start
-            else:
-                forecast_time = 0.0
-
-            # Step 5: Format & Save Batch Results
-            cluster_utils.ensure_storage_connection()
-            os.makedirs(batch_folder, exist_ok=True)
-            batch_info = {
-                "group": group,
-                "batch": batch,
-                "total_time": f"{ time.time()-batch_start_time:.2f}s",
-                "generate_time": generate_time,
-                "plot_time": plot_time,
-                "forecast_time": forecast_time,
-            } | get_process_information_dict()
-            batch_results = [
-                problem.to_dict() | batch_info for index, problem in enumerate(problems)
-            ]
+            # Step 5: Save Batch Results
             pd.DataFrame(batch_results).to_csv(f"{batch_folder}problems.csv")
+
+            if len(errors) > 0:
+                with open(batch_folder + "errors.txt", "wt") as f:
+                    f.write("\n\n".join(errors))
 
             if verbose > 0:
                 print(
-                    f'GenerationRunner: Finished Batch {batch} Group {group} (total: {batch_info["total_time"]}, generate: {generate_time:.1f}s, plotting: {plot_time:.1f}s, forecast: {forecast_time:.1f}s), RAM: {batch_info["process_ram"]}'
+                    "GenerationRunner: Finished Batch {b} Group {g} (total: {t:.0f}s, generate: {ge:.0f}s, plotting: {pt:.0f}s, hindcast {ht:.0f}s, forecast {ft:.0f}s), RAM: {ram}".format(
+                        b=batch,
+                        g=group,
+                        t=batch_info["total_time"],
+                        ge=batch_info["generate_time"],
+                        pt=batch_info["plot_time"],
+                        ht=batch_info["hindcast_time"],
+                        ft=batch_info["forecast_time"],
+                        ram=batch_info["process_ram"],
+                    )
                 )
 
         except Exception as e:
             shutil.rmtree(batch_folder, ignore_errors=True)
             if verbose > 0:
-                print(f"GenerationRunner: Aborted Batch {batch} Group {group}")
+                print(bcolors.red(f"GenerationRunner: Aborted Batch {batch} Group {group}"))
                 print(e)
             sys.exit()
 
-        return batch_results
+        return batch_results, errors
 
     @staticmethod
-    def analyse_generation(
+    def analyze_batches(
+        results_folder: str,
+        length: int,
+    ):
+        groups_folder = results_folder + "groups/"
+
+        existing = [
+            batch
+            for batch in range(length)
+            if os.path.exists(
+                groups_folder + f"group_{batch // 100}/" + f"batch_{batch}/" + "problems.csv"
+            )
+        ]
+        missing = [
+            batch
+            for batch in range(length)
+            if not os.path.exists(
+                groups_folder + f"group_{batch // 100}/" + f"batch_{batch}/" + "problems.csv"
+            )
+        ]
+
+        print("Existing: ", len(existing))
+
+        print("Missing CSV: ", len(missing))
+        print("Missing CSV: ", missing)
+
+        return existing, missing
+
+    @staticmethod
+    def rerun_missing_batches(
+        config,
+        results_folder,
+        length,
+        verbose,
+    ):
+        _, missing = GenerationRunner.analyze_batches(results_folder, length)
+
+        ray.get(
+            [
+                GenerationRunner.generate_batch_ray.options(
+                    num_cpus=config["ray_options"]["resources"].get("CPU", 1.0),
+                    num_gpus=config["ray_options"]["resources"].get("GPU", 0.0),
+                    max_retries=config["ray_options"].get("max_retries", 10),
+                    resources={
+                        i: config["ray_options"]["resources"][i]
+                        for i in config["ray_options"]["resources"]
+                        if i != "CPU" and i != "GPU"
+                    },
+                ).remote(
+                    results_folder=results_folder,
+                    mission_generation_config=config["mission_generation"],
+                    group=int(batch // config["size"]["batches_per_group"]),
+                    batch=batch,
+                    verbose=verbose,
+                )
+                for batch in missing
+            ]
+        )
+
+    @staticmethod
+    def combine_batches(results_folder, length):
+        batches, _ = GenerationRunner.analyze_batches(results_folder, length)
+
+        # Step 1: Problems
+        cluster_utils.ensure_storage_connection()
+        batch_dfs = [
+            pd.read_csv(results_folder + f"groups/group_{batch//100}/batch_{batch}/problems.csv")
+            for batch in batches
+        ]
+        problems_df = pd.concat(batch_dfs, ignore_index=True)
+        problems_df.to_csv(results_folder + "problems.csv")
+
+        # # Step 2: Errors
+        # with open(results_folder + "errors.txt", "wt") as outfile:
+        #     for batch in batches:
+        #         error_file = results_folder + f"groups/group_{batch//100}/batch_{batch}/errors.txt"
+        #         if os.path.exists(error_file):
+        #             with open(error_file, "rt") as infile:
+        #                 outfile.write("\n" + infile.read())
+
+    @staticmethod
+    def analyse_performance(
         results_folder: str,
     ):
         cluster_utils.ensure_storage_connection()
@@ -191,7 +273,7 @@ class GenerationRunner:
 
         ram_numerical = np.array(
             [
-                float(row["batch_ram"].removesuffix("MB").replace(",", ""))
+                float(row["process_ram"].removesuffix("MB").replace(",", ""))
                 for index, row in problems_df.iterrows()
             ]
         )
@@ -199,31 +281,130 @@ class GenerationRunner:
         print(f"RAM Mean: {ram_numerical.mean():.1f}")
         print(f"RAM Max:  {ram_numerical.max():.1f}")
 
-        time_numerical = np.array(
-            [float(row["batch_time"].removesuffix("s")) for index, row in problems_df.iterrows()]
-        )
+        time_numerical = np.array([row["total_time"] for index, row in problems_df.iterrows()])
         print(f"Batch Time Min:  {time_numerical.min():.1f}s")
         print(f"Batch Time Mean: {time_numerical.mean():.1f}s")
         print(f"Batch Time Max:  {time_numerical.max():.1f}s")
 
     @staticmethod
-    def plot_generation(
-        results_folder: str,
-    ):
-        # Step 1:
+    def plot_starts_and_targets(results_folder: str):
+        # Step 1: Load Problems and Config
         cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f"{results_folder}problems.csv")
         target_df = problems_df[problems_df["factory_index"] == 0]
         analysis_folder = f"{results_folder}analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
+        with open(f"{results_folder}config/config.pickle", "rb") as f:
+            config = pickle.load(f)
+
+        if "mission_generation" in config:
+            t_interval = config["mission_generation"]["t_range"]
+        else:
+            t_interval = config["t_range"]
 
         # Step 2:
-        plt.figure(figsize=(12, 12))
-        plt.scatter(
-            target_df["x_T_lon"], target_df["x_T_lat"], c="green", marker="x", label="target"
+        arena = ArenaFactory.create(
+            # only use hindcast
+            scenario_file="config/reinforcement_learning/gulf_of_mexico_HYCOM_hindcast.yaml",
+            t_interval=t_interval,
+            throw_exceptions=False,
         )
-        plt.scatter(
-            problems_df["x_0_lon"], problems_df["x_0_lat"], c="red", marker="o", label="start"
+
+        ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+            # Plot currents over full GOM
+            # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
+            x_interval=[-97.9, -76.41],
+            y_interval=[18.13, 31.92],
+            time=t_interval[0],
+            spatial_resolution=0.2,
+            return_ax=True,
+            figsize=(32, 24),
         )
-        plt.savefig(f"{analysis_folder}starts_and_targets.png")
-        plt.show()
+        ax.scatter(
+            problems_df["x_0_lon"], problems_df["x_0_lat"], c="red", marker="o", s=6, label="starts"
+        )
+        ax.scatter(
+            target_df["x_T_lon"], target_df["x_T_lat"], c="green", marker="x", s=12, label="targets"
+        )
+        ax.legend()
+        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.png")
+        ax.get_figure().show()
+
+    # @staticmethod
+    # def animate_starts_and_targets(results_folder):
+    #     problem_s = config['mission_generation']['problem_timeout'].total_seconds()
+    #
+    #     def add_ax_func(ax, posix_time):
+    #         cur_df = target_df[pd.Timestamp(posix_time) < target_df["t_0"] & target_df["t_0"] < pd.Timestamp(posix_time + problem_s)]
+    #
+    #         ax.scatter(
+    #             problems_df["x_0_lon"], problems_df["x_0_lat"], c="red", marker="o", s=6, label="starts"
+    #         )
+    #         ax.scatter(
+    #             target_df["x_T_lon"], target_df["x_T_lat"], c="green", marker="x", s=12, label="targets"
+    #         )
+    #
+    #     arena.ocean_field.hindcast_data_source.animate_data(
+    #         x_interval=[-98.0, -76.4000244140625],
+    #         y_interval=[18.1200008392334, 31.92000007629394],
+    #         t_interval=[
+    #             config['mission_generation']['t_range'][0],
+    #             config['mission_generation']['t_range'][1]
+    #
+    #         ],
+    #         temporal_resolution=3600 * 24,
+    #         add_ax_func=add_ax_func,
+    #         output=f"{analysis_folder}starts_and_targets.gif",
+    #     )
+
+    @staticmethod
+    def plot_target_dates_histogram(results_folder):
+        # Step 1: Load Data
+        cluster_utils.ensure_storage_connection()
+        problems_df = pd.read_csv(f"{results_folder}problems.csv")
+        analysis_folder = f"{results_folder}analysis/"
+        os.makedirs(analysis_folder, exist_ok=True)
+
+        # Step 2: Prepare Data
+        target_df = problems_df[problems_df["factory_index"] == 0]
+        target_df.insert(2, "t_0_pd", pd.to_datetime(target_df.loc[:, "t_0"]))
+        target_df.insert(3, "t_0_ymd", target_df["t_0_pd"].map(lambda x: x.strftime("%Y-%m-%d")))
+        df = target_df
+
+        # Step 3: Plot
+        fig, ax = plt.subplots(figsize=(16, 12))
+
+        days = pd.date_range(
+            df["t_0_pd"].min() - pd.DateOffset(days=1) - pd.DateOffset(day=1),
+            df["t_0_pd"].max(),
+            freq="D",
+        )
+        months = pd.date_range(
+            df["t_0_pd"].min() - pd.DateOffset(months=1),
+            df["t_0_pd"].max() + pd.DateOffset(months=1),
+            freq="MS",
+        )
+
+        df["t_0_pd"].astype(np.int64).plot.hist(ax=ax, bins=days.astype(np.int64))
+
+        ax.set_xticks(months.astype(np.int64).to_list())
+        ax.set_xticklabels(months.strftime("%Y-%m").to_list(), rotation=45)
+
+        unique_days = len(df["t_0_ymd"].unique())
+        fig.suptitle(f"Target Day Histogram (Days: {unique_days})")
+
+        fig.savefig(f"{analysis_folder}target_day_histogram.png")
+        fig.show()
+
+        @staticmethod
+        def plot_ttr_histogram(results_folder):
+            # Step 1: Load Data
+            cluster_utils.ensure_storage_connection()
+            problems_df = pd.read_csv(f"{results_folder}problems.csv")
+            analysis_folder = f"{results_folder}analysis/"
+            os.makedirs(analysis_folder, exist_ok=True)
+
+
+
+
+

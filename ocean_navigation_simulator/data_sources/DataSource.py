@@ -26,6 +26,7 @@ from ocean_navigation_simulator.utils import units
 class DataSourceException(Exception):
     pass
 
+
 class SubsettingDataSourceException(DataSourceException):
     pass
 
@@ -132,13 +133,14 @@ class DataSource(abc.ABC):
             lon_bnds: [x_lower, x_upper] in degrees
         """
         t_interval = [x_0.date_time, x_0.date_time + datetime.timedelta(seconds=temp_horizon_in_s)]
+        # somehow jax DeviceArray ended up here, float solves it for the time beeing.
         lon_bnds = [
-            min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box,
-            max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box,
+            float(min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box),
+            float(max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box),
         ]
         lat_bnds = [
-            min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box,
-            max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box,
+            float(min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box),
+            float(max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box),
         ]
 
         return t_interval, lat_bnds, lon_bnds
@@ -170,8 +172,8 @@ class DataSource(abc.ABC):
 
         return grid_dict
 
-    @staticmethod
     def array_subsetting_sanity_check(
+        self,
         array: xr,
         x_interval: List[float],
         y_interval: List[float],
@@ -183,30 +185,41 @@ class DataSource(abc.ABC):
         if 0 in (len(array.coords["lat"]), len(array.coords["lon"]), len(array.coords["time"])):
             # check which dimension for more informative errors
             if len(array.coords["time"]) == 0:
-                raise SubsettingDataSourceException("None of the requested t_interval is in the file.")
+                raise SubsettingDataSourceException(
+                    "None of the requested t_interval is in the file." + f"{self.files_dicts}"
+                )
             else:
-                raise SubsettingDataSourceException("None of the requested spatial area is in the file.")
+                raise SubsettingDataSourceException(
+                    "None of the requested spatial area is in the file." + f"{self.files_dicts}"
+                )
 
         # Step 2: Data partially not in the array check
+        # changing comparison to include last point
         if (
-            array.coords["lat"].data[0] > y_interval[0]
-            or array.coords["lat"].data[-1] < y_interval[1]
+            array.coords["lat"].data[0] >= y_interval[0]
+            or array.coords["lat"].data[-1] <= y_interval[1]
         ):
             raise SubsettingDataSourceException(
                 f"Part of the y requested area is outside of file (file: [{array.coords['lat'].data[0]}, {array.coords['lat'].data[-1]}], requested: [{y_interval[0]}, {y_interval[1]}])."
+                + f"{self.files_dicts}"
             )
         if (
-            array.coords["lon"].data[0] > x_interval[0]
-            or array.coords["lon"].data[-1] < x_interval[1]
+            array.coords["lon"].data[0] >= x_interval[0]
+            or array.coords["lon"].data[-1] <= x_interval[1]
         ):
             raise SubsettingDataSourceException(
                 f"Part of the x requested area is outside of file (file: [{array.coords['lon'].data[0]}, {array.coords['lon'].data[-1]}], requested: [{x_interval[0]}, {x_interval[1]}])."
+                + f"{self.files_dicts}"
             )
-        if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
-            raise SubsettingDataSourceException(f"The starting time is not in the array (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}])).")
-        if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
+        if units.get_datetime_from_np64(array.coords["time"].data[0]) >= t_interval[0]:
+            raise SubsettingDataSourceException(
+                f"The starting time is not in the array (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."
+                + f"{self.files_dicts}"
+            )
+        if units.get_datetime_from_np64(array.coords["time"].data[-1]) <= t_interval[1]:
             raise SubsettingDataSourceException(
                 f"The requested final time is not part of the subset (file: [{array.coords['time'].data[0]}, {array.coords['time'].data[-1]}], requested: [{t_interval[0]}, {t_interval[1]}]))."
+                + f"{self.files_dicts}"
             )
 
     def plot_data_at_time_over_area(
@@ -604,9 +617,11 @@ class XarraySource(abc.ABC):
             np.datetime64(t_interval[1].replace(tzinfo=None)) + dt,
         ]
         dlon = self.DataArray["lon"][1] - self.DataArray["lon"][0]
-        x_interval_extended = [x_interval[0] - 1.5 * dlon.item(), x_interval[1] + 1.5 * dlon.item()]
+        # Subsetting was to strict with 1.5: sometimes it would reject
+        TOL = 2.0  # befoer: 1.5
+        x_interval_extended = [x_interval[0] - TOL * dlon.item(), x_interval[1] + TOL * dlon.item()]
         dlat = self.DataArray["lat"][1] - self.DataArray["lat"][0]
-        y_interval_extended = [y_interval[0] - 1.5 * dlat.item(), y_interval[1] + 1.5 * dlat.item()]
+        y_interval_extended = [y_interval[0] - TOL * dlat.item(), y_interval[1] + TOL * dlat.item()]
         subset = self.DataArray.sel(
             time=slice(t_interval_extended[0], t_interval_extended[1]),
             lon=slice(x_interval_extended[0], x_interval_extended[1]),
@@ -614,9 +629,7 @@ class XarraySource(abc.ABC):
         )
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
-        DataSource.array_subsetting_sanity_check(
-            subset, x_interval, y_interval, t_interval, self.logger
-        )
+        self.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
 
         # Step 4: perform interpolation to a specific resolution if requested
         if spatial_resolution is not None or temporal_resolution is not None:
@@ -781,9 +794,7 @@ class AnalyticalSource(abc.ABC):
         subset = self.create_xarray(grids_dict, data_tuple)
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
-        DataSource.array_subsetting_sanity_check(
-            subset, x_interval, y_interval, t_interval, self.logger
-        )
+        self.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
 
         return subset
 

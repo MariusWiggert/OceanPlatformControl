@@ -52,7 +52,7 @@ class TrainingRunner:
         # Step 1: Prepare Paths & Folders
         cluster_utils.ensure_storage_connection()
         TrainingRunner.clean_results(
-            self.config["experiments_folder"], verbose=1, iteration_limit=10, delete=False
+            self.config["experiments_folder"], verbose=0, iteration_limit=10, delete=True
         )
         self.timestring = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
             "%Y_%m_%d_%H_%M_%S"
@@ -76,7 +76,7 @@ class TrainingRunner:
         wandb.init(
             project="seaweed-rl",
             entity="jeromejeannin",
-            dir="/seaweed-storage/",
+            dir="~",
             name=f"{self.name}_{self.timestring}",
             tags=["baseline" if self.config["environment"]["fake"] else "experiment"] + tags,
             config=self.config,
@@ -89,11 +89,6 @@ class TrainingRunner:
             self.config, open(f"{self.config['folders']['config']}config.json", "w"), indent=4
         )
         wandb.save(f"{self.config['folders']['config']}config.json")
-        # with zipfile.ZipFile(f'{self.experiment_folder}source.zip', 'w') as file:
-        #     file.write('config', 'config')
-        #     file.write('ocean_navigation_simulation', 'ocean_navigation_simulation')
-        #     file.write('scripts', 'scripts')
-        #     file.write('setup', 'setup')
 
         # Step 4: Fix Seeds
         np.random.seed(self.config["algorithm"]["seed"])
@@ -251,6 +246,7 @@ class TrainingRunner:
                 self.results.append(result)
                 self.train_times.append(time.time() - train_start)
 
+                cluster_utils.ensure_storage_connection()
                 with open(f"{self.config['folders']['results']}epoch{epoch}.json", "wt") as f:
                     pprint.pprint(result, stream=f)
 
@@ -274,34 +270,35 @@ class TrainingRunner:
     def print_result(self, result, epoch, epochs):
         print(f"--------- Epoch {epoch} ---------")
 
-        print("-- Custom Metrics --")
-        for k, v in result["custom_metrics"].items():
-            if "mean" in k:
-                print(f"{k}: {v:.2f}")
-        print(" ")
+        if result["episodes_this_iter"] > 0:
+            print("-- Custom Metrics --")
+            for k, v in result["custom_metrics"].items():
+                if "mean" in k:
+                    print(f"{k}: {v:.2f}")
+            print(" ")
 
-        print(
-            f'-- Episode Rewards [Min: {result["episode_reward_min"]:.1f}, Mean: {result["episode_reward_mean"]:.2f}, Max: {result["episode_reward_max"]:.1f}]  --'
-        )
-        print(
-            f'[{", ".join([f"{elem:.1f}" for elem in result["hist_stats"]["episode_reward"][-min(50, result["episodes_this_iter"]):]])}]'
-        )
-        print(" ")
+            print(
+                f'-- Episode Rewards [Min: {result["episode_reward_min"]:.1f}, Mean: {result["episode_reward_mean"]:.2f}, Max: {result["episode_reward_max"]:.1f}]  --'
+            )
+            print(
+                f'[{", ".join([f"{elem:.1f}" for elem in result["hist_stats"]["episode_reward"][-min(50, result["episodes_this_iter"]):]])}]'
+            )
+            print(" ")
 
-        episodes_this_iteration = result["hist_stats"]["episode_lengths"][
-            -result["episodes_this_iter"] :
-        ]
-        print(
-            f'-- Reported Episode Length [Min: {min(episodes_this_iteration):.0f}, Mean: {result["episode_len_mean"]:.1f}, Max: {max(episodes_this_iteration):.0f}] --'
-        )
-        print(result["hist_stats"]["episode_lengths"][-min(50, result["episodes_this_iter"]) :])
-        print(
-            f'Episodes Sampled: {result["episodes_this_iter"]:,} (Total: {result["episodes_total"]:,}, custom: {result["custom_metrics"]["episodes_sampled"]:,})'
-        )
-        print(
-            f'Episode Steps Sampled: {sum(episodes_this_iteration):,} (Total: {sum(result["hist_stats"]["episode_lengths"]):,})'
-        )
-        print(" ")
+            episodes_this_iteration = result["hist_stats"]["episode_lengths"][
+                -result["episodes_this_iter"] :
+            ]
+            print(
+                f'-- Reported Episode Length [Min: {min(episodes_this_iteration):.0f}, Mean: {result["episode_len_mean"]:.1f}, Max: {max(episodes_this_iteration):.0f}] --'
+            )
+            print(result["hist_stats"]["episode_lengths"][-min(50, result["episodes_this_iter"]) :])
+            print(
+                f'Episodes Sampled: {result["episodes_this_iter"]:,} (Total: {result["episodes_total"]:,}, custom: {result["custom_metrics"]["episodes_sampled"]:,})'
+            )
+            print(
+                f'Episode Steps Sampled: {sum(episodes_this_iteration):,} (Total: {sum(result["hist_stats"]["episode_lengths"]):,})'
+            )
+            print(" ")
 
         print("-- Enivironment Steps --")
         print(

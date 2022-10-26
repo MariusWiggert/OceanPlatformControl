@@ -39,11 +39,11 @@ with timing("Running for {:.1f}s"):
     # Download Files to /tmp/*
     arena = ArenaFactory.create(
         scenario_file="scripts/test_simplex_noise/gulf_of_mexico_Copernicus_forecast_Simplex_hindcast.yaml",
-        scenario_config = {
-            'ocean_dict': {
-                'forecast': {
-                    'source_settings': {
-                        'seed': 2022,
+        scenario_config={
+            "ocean_dict": {
+                "forecast": {
+                    "source_settings": {
+                        "seed": 2022,
                     }
                 }
             }

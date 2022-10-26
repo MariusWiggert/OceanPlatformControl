@@ -6,6 +6,7 @@ print(sys.path)
 
 import os
 
+os.environ["LOGLEVEL"] = "INFO"
 os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 
 import datetime
@@ -25,25 +26,17 @@ script_start_time = time.time()
 
 cluster_utils.init_ray()
 
+cluster_utils.purge_download_temp_folders()
+cluster_utils.analyze_download_temp_folders()
+
 runner = GenerationRunner(
-    name="divers_training",
+    name="divers_training_improved",
     config={
-        "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
         "generation_folder": "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast",
-        # Only Hindcast:
-        # -- GPU: 1 batch: 80s  = ~1.5min
-        # Calculated: 1200 batches @ 8 gpus ~ 3.75h
-        # -- CPU: 1 batch: 150s = ~3min
-        # Measured: 96 batches @ 96 cores: 7min 17s
-        # Measured: 384 batches @ 96 cores = 20min, 21min 37s
-        # Measured: 10'000 batches @ 96 core = 9h 31min 33s
-        # Calculated: 1'000 batches @ 96 core ~ 54min, 10'000 batches @ 96 core ~ 9h,
-        # With Forecast:
-        # Measured:
-        # 1 batch @ 1 machine: 9min 47s -> 100 batches / 10min -> 600 batches / 1h -> 10'000 batches / 16.6h
-        # 96 Batches = 8.5GB -> 5'000 batches = 442GB
+        # 50 * 10min = 1000min = 8h
+        # 10'000 * 100MB = 1TB
         "size": {
-            "groups": 1,
+            "groups": 100,
             "batches_per_group": 100,
         },
         "ray_options": {
@@ -57,15 +50,17 @@ runner = GenerationRunner(
             },
         },
         "mission_generation": {
+            "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
             ##### Target Sampling #####
-            # Available: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
-            "x_range": [units.Distance(deg=-95.9), units.Distance(deg=-79.1)],
-            "y_range": [units.Distance(deg=20.1), units.Distance(deg=29.9)],
+            # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
+            # Copernicus FC: lon: [-98.0, -76.416664], lat: [18.083334, 30.0]
+            # COmbined: [-98.0, -76.416664], [18.1200008392334, 30.0]
+            "x_range": [units.Distance(deg=-95.9), units.Distance(deg=-78.52)],
+            "y_range": [units.Distance(deg=20.22), units.Distance(deg=27.9)],
             "t_range": [
-                # Copernicus FC: 2022-04 until today
-                # HYCOM Hindcast: 2021-09 until today
-                datetime.datetime(year=2022, month=4, day=4, tzinfo=datetime.timezone.utc),
-                datetime.datetime(year=2022, month=10, day=16, tzinfo=datetime.timezone.utc),
+                # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
+                datetime.datetime(year=2022, month=4, day=8, tzinfo=datetime.timezone.utc),
+                datetime.datetime(year=2022, month=10, day=9, tzinfo=datetime.timezone.utc),
             ],
             "problem_timeout": datetime.timedelta(hours=150),
             "target_distance_from_land": 0.5,
@@ -94,14 +89,14 @@ runner = GenerationRunner(
             #   0.1 deg ~= 11km = 3h @ 1m/s, 30h @ 0.1m/s
             #   1 deg ~= 111km = 30h @ 1m/s, 300h @ 0.1m/s
             #   2 deg ~= 111km = 60h @ 1m/s
-
-            "plot_batch": False,
-            "animate_batch": True,
-            "cache_forecast": False,
-            "cache_hindcast": False,
+            ##### Actions #####
+            "plot_batch": True,
+            "animate_batch": False,
+            "cache_forecast": True,
+            "cache_hindcast": True,
         },
     },
-    verbose=3,
+    verbose=2,
 )
 
 script_time = time.time() - script_start_time

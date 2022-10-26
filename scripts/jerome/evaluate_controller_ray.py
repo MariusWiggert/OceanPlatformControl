@@ -10,7 +10,7 @@ sys.path.extend(["/home/ubuntu/OceanPlatformControl"])
 print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
 
-from ocean_navigation_simulator.reinforcement_learning.RLController import RLController
+# from ocean_navigation_simulator.reinforcement_learning.RLController import RLController
 from ocean_navigation_simulator.reinforcement_learning.runners.EvaluationRunner import (
     EvaluationRunner,
 )
@@ -21,18 +21,31 @@ print(
 )
 script_start_time = time.time()
 
-cluster_utils.ray_init()
+cluster_utils.init_ray()
 
 eval_runner = EvaluationRunner(
     config={
-        "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast",
-        "controller": RLController,
-        "experiment": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/unique_training_data_2022_10_11_20_24_42/",
-        "checkpoint": 255,
+        "scenario_file": "config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
+        "controller": {
+            "name": "CachedHJReach2DPlannerForecast",
+            "folder": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/",
+        },
+        # "controller": {
+        #     'type': RLController,
+        #     "experiment": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/unique_training_data_2022_10_11_20_24_42/",
+        #     "checkpoint": 255,
+        # },
         "missions": {
-            "folder": "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/verification_1000_problems/",
-            "limit": 1000,
-            "exclude": [756],
+            "folder": "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/",
+            "filter": {
+                "starts_per_target": 8,
+                "limit": 100,
+            },
+            "seed": 2022,
+        },
+        "wandb": {
+            "fake_iterations": True,
+            "upload_summary": False,
         },
         "ray_options": {
             "max_retries": 10,

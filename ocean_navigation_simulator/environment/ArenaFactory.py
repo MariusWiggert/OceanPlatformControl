@@ -132,22 +132,24 @@ class ArenaFactory:
                 with timing(
                     f"ArenaFactory: Download Hindcast Files: {t_interval} ({{:.1f}}s)", verbose
                 ):
-                    downloaded_files = ArenaFactory.download_required_files(
-                        archive_source=config["ocean_dict"]["hindcast"]["source_settings"][
-                            "source"
-                        ],
-                        archive_type=config["ocean_dict"]["hindcast"]["source_settings"]["type"],
-                        download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
-                            "folder"
-                        ],
-                        region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                            "region", "GOM"
-                        ),
-                        t_interval=t_interval,
-                        throw_exceptions=throw_exceptions,
-                        points=points,
-                        verbose=verbose,
-                    )
+                    # downloaded_files = ArenaFactory.download_required_files(
+                    #     archive_source=config["ocean_dict"]["hindcast"]["source_settings"][
+                    #         "source"
+                    #     ],
+                    #     archive_type=config["ocean_dict"]["hindcast"]["source_settings"]["type"],
+                    #     download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
+                    #         "folder"
+                    #     ],
+                    #     region=config["ocean_dict"]["hindcast"]["source_settings"].get(
+                    #         "region", "GOM"
+                    #     ),
+                    #     t_interval=t_interval,
+                    #     throw_exceptions=throw_exceptions,
+                    #     points=points,
+                    #     verbose=verbose,
+                    # )
+
+                    files =
 
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["hindcast"]["source_settings"]["folder"] = downloaded_files
@@ -161,22 +163,24 @@ class ArenaFactory:
                 with timing(
                     f"ArenaFactory: Download Forecast Files: {t_interval} ({{:.1f}}s)", verbose
                 ):
-                    downloaded_files = ArenaFactory.download_required_files(
-                        archive_source=config["ocean_dict"]["forecast"]["source_settings"][
-                            "source"
-                        ],
-                        archive_type=config["ocean_dict"]["forecast"]["source_settings"]["type"],
-                        download_folder=config["ocean_dict"]["forecast"]["source_settings"][
-                            "folder"
-                        ],
-                        region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                            "region", "GOM"
-                        ),
-                        t_interval=t_interval,
-                        throw_exceptions=throw_exceptions,
-                        points=points,
-                        verbose=verbose,
-                    )
+                    # downloaded_files = ArenaFactory.download_required_files(
+                    #     archive_source=config["ocean_dict"]["forecast"]["source_settings"][
+                    #         "source"
+                    #     ],
+                    #     archive_type=config["ocean_dict"]["forecast"]["source_settings"]["type"],
+                    #     download_folder=config["ocean_dict"]["forecast"]["source_settings"][
+                    #         "folder"
+                    #     ],
+                    #     region=config["ocean_dict"]["hindcast"]["source_settings"].get(
+                    #         "region", "GOM"
+                    #     ),
+                    #     t_interval=t_interval,
+                    #     throw_exceptions=throw_exceptions,
+                    #     points=points,
+                    #     verbose=verbose,
+                    # )
+
+
 
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = downloaded_files
@@ -193,6 +197,9 @@ class ArenaFactory:
                 seaweed_dict=config.get("seaweed_dict", None),
                 spatial_boundary=config.get("spatial_boundary", None),
             )
+
+    @staticmethod
+    def
 
     # TODO: automatically select best region depending on given points
     @staticmethod
@@ -346,7 +353,7 @@ class ArenaFactory:
 
         return c3_file_type.fetch(
             spec={
-                "filter": f'contains(archive.description, "{region}") && status == "downloaded"{time_filter}',
+                "filter": f'contains(archive.{"description" if region=="GOM" else "name"}, "{region}") && status == "downloaded"{time_filter}',
                 "order": "ascending(subsetOptions.timeRange.start)",
             }
         )
@@ -407,13 +414,17 @@ class ArenaFactory:
                             ):
                                 error = "File shorter than declared in meta: filename={filename}, meta: [{ms},{me}], file: [{gs},{ge}]".format(
                                     filename=filename,
-                                    ms=file.subsetOptions.timeRange.start.strftime("%Y-%m-%d %H-%M-%S"),
-                                    me=file.subsetOptions.timeRange.end.strftime("%Y-%m-%d %H-%M-%S"),
-                                    gs=grid_dict_list['t_range'][0].strftime("%Y-%m-%d %H-%M-%S"),
-                                    ge=grid_dict_list['t_range'][-1].strftime("%Y-%m-%d %H-%M-%S"),
+                                    ms=file.subsetOptions.timeRange.start.strftime(
+                                        "%Y-%m-%d %H-%M-%S"
+                                    ),
+                                    me=file.subsetOptions.timeRange.end.strftime(
+                                        "%Y-%m-%d %H-%M-%S"
+                                    ),
+                                    gs=grid_dict_list["t_range"][0].strftime("%Y-%m-%d %H-%M-%S"),
+                                    ge=grid_dict_list["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
                                 )
 
-                        except Exception as e:
+                        except Exception:
                             error = f"Corrupted file: '{filename}'."
 
                     if error and throw_exceptions:
@@ -533,7 +544,11 @@ class ArenaFactory:
                 ]
                 for i, delta in enumerate(deltas):
                     if not delta == 1:
-                        print('Missing Files after:', os.path.basename(files.objs[i].file.contentLocation), f'delta: {delta * 24}h')
+                        print(
+                            "Missing Files after:",
+                            os.path.basename(files.objs[i].file.contentLocation),
+                            f"delta: {delta * 24}h",
+                        )
 
             # Plot
             import matplotlib.pyplot as plt

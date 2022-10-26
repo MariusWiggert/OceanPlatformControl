@@ -3,11 +3,11 @@ import pickle
 import warnings
 from typing import Optional, Union
 
-import hj_reachability as hj
 import jax.numpy as jnp
 import numpy as np
 import xarray as xr
 
+import hj_reachability as hj
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
     HJPlannerBase,
 )

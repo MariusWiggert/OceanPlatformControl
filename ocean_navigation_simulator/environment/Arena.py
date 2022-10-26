@@ -5,7 +5,6 @@
 import dataclasses
 import datetime as dt
 import logging
-import os
 import time
 from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
@@ -144,7 +143,6 @@ class Arena:
         """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
@@ -309,7 +307,7 @@ class Arena:
             'Invalid'       otherwise
         """
         if problem_status == 1:
-            return "Success"
+            return "Target reached"
         elif problem_status == 0:
             return "Running"
         elif problem_status == -1:

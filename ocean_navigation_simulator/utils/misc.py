@@ -29,7 +29,10 @@ def get_c3(verbose: Optional[int] = 0):
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
     USERNAME = "mariuswiggert@berkeley.edu"
 
-    if not hasattr(get_c3, "c3"):
+    # reload after 10min to prevent c3 timeout
+    if not hasattr(get_c3, "c3") or (
+        not hasattr(get_c3, "timestamp") and (time.time() - get_c3.timestamp) > 600
+    ):
         logging.getLogger("c3python.c3python").setLevel(logging.WARN)
         with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
             get_c3.c3 = C3Python(
@@ -40,6 +43,7 @@ def get_c3(verbose: Optional[int] = 0):
                 keyfile=KEYFILE,
                 username=USERNAME,
             ).get_c3()
+            get_c3.timestamp = time.time()
     return get_c3.c3
 
 
@@ -51,12 +55,81 @@ def timing(string, verbose: Optional[int] = 1):
         string:
         verbose:
     """
+    start = time.time()
+    yield
+    exec_time = time.time() - start
+
     if verbose > 0:
-        start = time.time()
-        yield
-        print(string.format(time.time() - start))
-    else:
-        yield
+        print(string.format(exec_time))
+
+
+@contextlib.contextmanager
+def timing_logger(string, logger: logging.Logger, level=logging.INFO):
+    """
+    Simple tool to check how long a specific code-part takes.
+    :arg
+        string:
+        verbose:
+    """
+    start = time.time()
+    yield
+    logger.log(level, string.format(time.time() - start))
+
+
+@contextlib.contextmanager
+def timing_dict(string, dict, field, verbose: Optional[int] = 1):
+    """
+    Simple tool to check how long a specific code-part takes.
+    :arg
+        string:
+        verbose:
+    """
+    start = time.time()
+    yield
+    exec_time = time.time() - start
+    dict[field] += exec_time
+
+    if verbose > 0:
+        print(string.format(exec_time))
+
+
+def set_arena_loggers(level):
+    logging.getLogger("arena").setLevel(level)
+    logging.getLogger("arena_factory").setLevel(level)
+    logging.getLogger("arena.platform").setLevel(level)
+    logging.getLogger("arena.controller").setLevel(level)
+
+    logging.getLogger("data_source").setLevel(level)
+
+    logging.getLogger("arena.ocean_field").setLevel(level)
+    logging.getLogger("arena.ocean_field.ocean_source").setLevel(level)
+
+    logging.getLogger("arena.ocean_field.seaweed_growth_source").setLevel(level)
+    logging.getLogger("arena.seaweed_growth_field").setLevel(level)
+
+    logging.getLogger("arena.solar_field").setLevel(level)
+    logging.getLogger("arena.solar_field.analytical_source").setLevel(level)
+
+
+def silence_ray_and_tf():
+    # 0 = all messages are logged (default behavior)
+    # 1 = INFO messages are not printed
+    # 2 = INFO and WARNING messages are not printed
+    # 3 = INFO, WARNING, and ERROR messages are not printed
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+    logging.getLogger("tensorflow").setLevel(logging.FATAL)
+    logging.getLogger("absl").setLevel(logging.FATAL)
+    logging.getLogger("external").setLevel(logging.FATAL)
+    logging.getLogger(
+        "external/org_tensorflow/tensorflow/compiler/xla/stream_executor/cuda"
+    ).setLevel(logging.FATAL)
+    import warnings
+
+    warnings.simplefilter("ignore", UserWarning)
+
+    logging.getLogger("ray").setLevel(logging.WARN)
+    logging.getLogger("rllib").setLevel(logging.WARN)
+    logging.getLogger("policy").setLevel(logging.WARN)
 
 
 def get_process_information_dict() -> dict:
@@ -116,4 +189,4 @@ class bcolors:
 
     @staticmethod
     def red(string: str) -> str:
-        return f"{bcolors.FAIL}{string}{bcolors.ENDC}"
+        return f"{bcolors.FAIL}{str(string)}{bcolors.ENDC}"

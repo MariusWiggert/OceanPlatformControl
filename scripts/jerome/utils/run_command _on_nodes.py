@@ -64,9 +64,11 @@ script_start_time = time.time()
 
 # COMMAND = 'pip install chex==0.1.5'
 
-cluster_utils.run_command_on_all_nodes(
-    "rm -rf /tmp/copernicus_forecast*; rm -rf /tmp/hycom_hindcast*"
-)
+# cluster_utils.run_command_on_all_nodes(
+#     "rm -rf /home/ubuntu/copernicus_forecast*; rm -rf /home/ubuntu/hycom_hindcast*"
+# )
+
+cluster_utils.purge_download_temp_folders()
 
 # cluster_utils.run_command_on_all_nodes(
 #     "rm -rf /tmp/hycom_hindcast/; rm -rf /tmp/copernicus_forecast/"

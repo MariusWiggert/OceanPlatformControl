@@ -8,19 +8,25 @@ from typing import Optional
 import pandas as pd
 import pytz
 import ray
+
+# import wandb
 import wandb
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
+
+from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
+    CachedNavigationProblem,
 )
-from ocean_navigation_simulator.problem_factories.FileProblemFactory import (
+from ocean_navigation_simulator.reinforcement_learning.missions.FileProblemFactory import (
     FileProblemFactory,
 )
+from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils.misc import (
     bcolors,
     get_process_information_dict,
     timing,
+    set_arena_loggers,
+    silence_ray_and_tf,
 )
 
 
@@ -39,10 +45,11 @@ class EvaluationRunner:
         time_string = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
             "%Y_%m_%d_%H_%M_%S"
         )
+        cluster_utils.ensure_storage_connection()
         problems = FileProblemFactory(
             csv_file=f"{config['missions']['folder']}problems.csv",
-            limit=config["missions"]["limit"],
-            exclude=config["missions"]["exclude"],
+            filter=config["missions"].get("filter", {}),
+            seed=config["missions"].get("seed", None),
         ).get_problem_list()
         if verbose > 0:
             print(f"EvaluationRunner: Running {len(problems)} Missions")
@@ -60,25 +67,54 @@ class EvaluationRunner:
                         if i != "CPU" and i != "GPU"
                     },
                 ).remote(
+                    i,
                     config=config,
                     problem=problem,
                     verbose=verbose - 1,
                 )
-                for problem in problems
+                for i, problem in enumerate(problems)
             ]
         )
-        results_df = pd.DataFrame(ray_results).set_index("index").rename_axis(None)
-        os.makedirs(f"{config['experiment']}evaluation/", exist_ok=True)
-        results_df.to_csv(f"{config['experiment']}evaluation/evaluation_{time_string}.csv")
+        results_df = pd.DataFrame(ray_results)
 
-        # Step 3: Update Weights & Biases
-        with open(f"{config['experiment']}wandb_run_id", "rt") as f:
-            wandb_run_id = f.read()
-        self.update_wandb_summary(
-            csv_file=f"{config['experiment']}evaluation/evaluation_{time_string}.csv",
-            wandb_run_id=wandb_run_id,
-            time_string=time_string,
+        results_folder = config["controller"].get(
+            "experiment",
+            "/seaweed-storage/evaluation/" + config["controller"]["name"] + "_" + time_string + "/",
         )
+        os.makedirs(results_folder + "evaluation/", exist_ok=True)
+        csv_file = results_folder + f"evaluation/evaluation_{time_string}.csv"
+        results_df.to_csv(csv_file)
+
+        self.print_results(csv_file)
+
+        # Step 3: Weights & Biases
+        if config['wandb']['fake_iterations']:
+            self.fake_wandb_iterations()
+
+        # if config['wandb']['upload_summary']:
+        #     with open(f"{config['experiment']}wandb_run_id", "rt") as f:
+        #         wandb_run_id = f.read()
+        #     self.update_wandb_summary(
+        #         csv_file=f"{config['experiment']}evaluation/evaluation_{time_string}.csv",
+        #         wandb_run_id=wandb_run_id,
+        #         time_string=time_string,
+        #     )
+
+    @staticmethod
+    def fake_wandb_iterations(csv_file, config, iterations=300):
+        df = pd.read_csv(csv_file, index_col=0)
+        wandb.init(
+            project="seaweed-rl",
+            entity="jeromejeannin",
+            dir="/seaweed-storage/",
+            config=config,
+        )
+        wandb.run.summary["validation_1000"] = {
+            "date": time_string,
+            "success": df["success"].mean(),
+            "running_time": df["running_time"].mean(),
+        }
+        wandb.finish()
 
     @staticmethod
     def update_wandb_summary(csv_file, wandb_run_id, time_string):
@@ -98,15 +134,29 @@ class EvaluationRunner:
         wandb.finish()
 
     @staticmethod
+    def print_results(csv_file):
+        df = pd.read_csv(csv_file, index_col=0)
+
+        print("success:", df["success"].mean())
+        print("running_time:", df["running_time"].mean())
+
+
+    @staticmethod
     @ray.remote(max_calls=1)
     def evaluation_run(
+        i,
         config: dict,
-        problem: NavigationProblem,
+        problem: CachedNavigationProblem,
         verbose: int = 0,
     ):
-        logging.getLogger("ray").setLevel(logging.WARN)
-        logging.getLogger("rllib").setLevel(logging.WARN)
-        logging.getLogger("policy").setLevel(logging.WARN)
+
+        cluster_utils.ensure_storage_connection()
+
+        if verbose < 3:
+            set_arena_loggers(logging.WARNING)
+            silence_ray_and_tf()
+        else:
+            set_arena_loggers(logging.INFO)
 
         try:
             mission_start_time = time.time()
@@ -124,7 +174,12 @@ class EvaluationRunner:
             # Step 2: Create Controller
             with timing("EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
                 problem.platform_dict = arena.platform.platform_dict
-                if config["controller"].__name__ == "RLController":
+
+                if config["controller"]["name"] == "CachedHJReach2DPlannerForecast":
+                    controller = problem.get_cached_forecast_planner(config["missions"]["folder"])
+                elif config["controller"]["name"] == "CachedHJReach2DPlannerHindcast":
+                    controller = problem.get_cached_hindcast_planner(config["missions"]["folder"])
+                elif config["controller"]["type"].__name__ == "RLController":
                     controller = config["controller"](
                         config=config,
                         problem=problem,
@@ -132,13 +187,18 @@ class EvaluationRunner:
                         verbose=verbose - 2,
                     )
                 else:
-                    controller = config["controller"](problem=problem, verbose=verbose - 2)
+                    controller = config["controller"]["type"](problem=problem, verbose=verbose - 2)
 
             # Step 3: Run Arena
             with timing("EvaluationRunner: Run Arena ({{:.1f}}s)", verbose - 1):
                 steps = 0
                 while problem_status == 0:
-                    action = controller.get_action(observation)
+                    if config["controller"]["name"] == "CachedHJReach2DPlannerHindcast":
+                        action = controller.get_action(
+                            observation.replace_datasource(arena.ocean_field.hindcast_data_source)
+                        )
+                    else:
+                        action = controller.get_action(observation)
                     observation = arena.step(action)
                     problem_status = arena.problem_status(problem=problem)
                     steps += 1
@@ -148,11 +208,11 @@ class EvaluationRunner:
                 {
                     "index": problem.extra_info["index"],
                     "controller": type(controller).__name__,
-                    "success": True if problem_status == 1 else False,
+                    "success": True if problem_status > 0 else False,
                     "problem_status": problem_status,
                     "steps": steps,
                     "running_time": problem.passed_seconds(observation.platform_state),
-                    "final_distance": problem.distance(observation.platform_state),
+                    "final_distance": problem.distance(observation.platform_state).deg,
                 }
                 | {
                     "process_time": f"{time.time() - mission_start_time:.2f}s",
@@ -161,21 +221,28 @@ class EvaluationRunner:
             )
 
             if verbose > 0:
-                status = (
-                    f"{bcolors.OKGREEN}Success{bcolors.ENDC}"
-                    if problem_status > 0
-                    else f"{bcolors.FAIL}Timeout{bcolors.ENDC}"
-                    if problem_status == -1
-                    else (
-                        f"{bcolors.FAIL}Stranded{bcolors.ENDC}"
-                        if problem_status == -2
-                        else f"{bcolors.FAIL}Outside Arena{bcolors.ENDC}"
-                    )
-                )
+                text = arena.problem_status_text(problem_status)
+                status = bcolors.green(text) if problem_status > 0 else bcolors.red(text)
                 print(
-                    f'EvaluationRunner: Finished Mission {result["index"]:03d} with {status}',
-                    f'({steps} Steps, {result["running_time"]/(3600*24):.0f}d {result["running_time"] % (3600*24) / 3600:.0f}h, {result["final_distance"]:.4f} Degree)',
-                    f'(Process: {result["process_time"]}, RAM: {result["process_ram"]}, GPU: {result["process_gpu_used"]})',
+                    "EvaluationRunner: Finished Mission {i} (I{I}, G{gr} B{b} FI{fi})".format(
+                        i=i,
+                        I=problem.extra_info["index"],
+                        gr=problem.extra_info["group"],
+                        b=problem.extra_info["batch"],
+                        fi=problem.extra_info["factory_index"],
+                    ),
+                    "({status}, {steps} Steps, {running_time:.1f}h, ttr: {ttr:.1f}h, {dist:.2f}°)".format(
+                        status=status,
+                        steps=steps,
+                        running_time=result["running_time"] / 3600,
+                        ttr=problem.extra_info["ttr_in_h"],
+                        dist=result["final_distance"],
+                    ),
+                    "(Process: {time}, RAM: {ram}, GPU: {gpu})".format(
+                        time=result["process_time"],
+                        ram=result["process_ram"],
+                        gpu=result["process_gpu_used"],
+                    ),
                 )
 
             return result

@@ -25,10 +25,8 @@ class OceanRewardFunction:
 
     def get_reward(
         self,
-        prev_fc_obs: ArenaObservation,
-        curr_fc_obs: ArenaObservation,
-        prev_hc_obs: ArenaObservation,
-        curr_hc_obs: ArenaObservation,
+        prev_obs: ArenaObservation,
+        curr_obs: ArenaObservation,
         problem: NavigationProblem,
         problem_status: int,
     ) -> float:
@@ -51,18 +49,18 @@ class OceanRewardFunction:
         if problem_status == 0:
             if self.config["delta_ttr_forecast"] > 0:
                 prev_ttr_fc = self.forecast_planner.interpolate_value_function_in_hours(
-                    observation=prev_fc_obs
+                    point=prev_obs.platform_state.to_spatio_temporal_point()
                 ).item()
                 curr_ttr_fc = self.forecast_planner.interpolate_value_function_in_hours(
-                    observation=curr_fc_obs
+                    point=curr_obs.platform_state.to_spatio_temporal_point()
                 ).item()
                 reward += self.config["delta_ttr_forecast"] * (prev_ttr_fc - curr_ttr_fc)
             if self.config["delta_ttr_hindcast"] > 0:
                 prev_ttr_hc = self.hindcast_planner.interpolate_value_function_in_hours(
-                    observation=prev_hc_obs
+                    point=prev_obs.platform_state.to_spatio_temporal_point()
                 ).item()
                 curr_ttr_hc = self.hindcast_planner.interpolate_value_function_in_hours(
-                    observation=curr_hc_obs
+                    point=curr_obs.platform_state.to_spatio_temporal_point()
                 ).item()
                 reward += self.config["delta_ttr_hindcast"] * (prev_ttr_hc - curr_ttr_hc)
 

@@ -20,45 +20,38 @@ algorithm:
     double_q: True
     ##### Model #####
     model:
-        # _use_default_native_models: True
-        # Filter config: List of [out_channels, kernel, stride] for each filter.
-#        dim: 21
-#        conv_filters: [
-#            [4, [5, 5], 1],
-#            [16, [5, 5], 1],
-#            [441, [21, 21], 1]
-#        ]
-#        conv_activation: 'relu'
         custom_model: 'OceanTorchModel'
         custom_model_config:
             map:
-                normalize: True
+                normalize: False
 
-                units: [ 512, 512 ]
-                activation: [ 'tanh', 'tanh' ] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer_std: [ 1, 1 ]
+                units: [ 512, 512, 256 ]
+                activation: [ 'tanh', 'tanh', 'tanh' ] # Supported values: "tanh", "relu", "swish", "linear".
+                initializer: [ 1, 1, 0.01 ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
 
 #                channels: [ 4, 16 ]
 #                kernel: [ [5,5], [5,5] ]
 #                stride: []
 #                padding: []
-#                activation: []
+#                activation: [ 'relu' ]
 
             meta:
-                input_activation: 'tanh'
+                input_activation: False #'tanh'
                 units: []
                 activation: [] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer_std: []
+                initializer: [] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
 
             joined:
-                units: [ 256, 256 ]
+                input_activation: False #'tanh'
+                units: []
                 activation: [ 'tanh', 'relu' ] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer_std: [ 0.01, False ]
+                initializer: [ 0.01, 'xavier_uniform' ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
 
             dueling_heads:
+                residual: False
                 units: [ 128, 128 ]
                 activation: [ 'relu', 'relu', 'linear' ] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer_std: [ False, False, False ] # Supported values: False (), or float (std of normc_initializer)
+                initializer: [ 'xavier_uniform', 'xavier_uniform', 'xavier_uniform' ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
 
     _disable_preprocessor_api: True
     ##### Episodes #####
@@ -67,8 +60,8 @@ algorithm:
 #    rollout_fragment_length: 50
     ##### Training #####
 #    replay_buffer_config:
-#        capacity: 2000000
-#        learning_starts: 10000
+#        capacity: 4000000
+#        learning_starts: 50000
 #        no_local_replay_buffer: True
 #        prioritized_replay_alpha: 0.6
 #        prioritized_replay_beta: 0.4
@@ -77,9 +70,9 @@ algorithm:
 #        replay_sequence_length: 1
 #        type: 'MultiAgentReplayBuffer'
 #    train_batch_size: 512
-#    timesteps_per_iteration: 10000
+#    min_sample_timesteps_per_iteration: 50000 # 900 steps / epoch * 200 machines = 180000
 #    training_intensity: 1
-#    target_network_update_freq: 10.0e3,
+#    target_network_update_freq: 20000
     keep_per_episode_custom_metrics: True
     optimizer:
         num_replay_buffer_shards: 1
@@ -109,13 +102,16 @@ environment:
     scenario_file: 'config/reinforcement_learning/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml'
     scenario_config: {}
 
-    problem_folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/training_40000_problems/'
-    validation_length: 2000
+    missions:
+        folder: '/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/'
+
+        filter:
+            starts_per_target: 8
 
     arena_steps_per_env_step: 1
     actions: 8
+    fake: 'hj_planner_forecast' #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
     render: False
-    fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
 
 feature_constructor:
     flatten: False
@@ -129,10 +125,10 @@ feature_constructor:
             ttr_hindcast: False
             observer:
                 variables: ['error_u', 'error_v'] #['error_u', 'error_v'] #['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
-                time: [0] # offsets in h
-            currents_hindcast: [] # offsets in h
-            currents_forecast: [] # offsets in h
-            true_error: [] # offsets in h
+                time: [0]           # offsets in h
+            currents_hindcast: []   # offsets in h
+            currents_forecast: []   # offsets in h
+            true_error: []          # offsets in h
     global_map: False
     meta: False #['lon', 'lat'] #, 'time', 'target_distance', 'target_direction', 'episode_time_in_h']
 

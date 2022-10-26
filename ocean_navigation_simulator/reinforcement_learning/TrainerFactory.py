@@ -2,11 +2,11 @@ import ray
 from ray.rllib.models import ModelCatalog
 from ray.tune.logger import UnifiedLogger
 
-from ocean_navigation_simulator.reinforcement_learning.OceanApexDQN import (
-    OceanApexDQN,
-)
 from ocean_navigation_simulator.reinforcement_learning.env.OceanEnvFactory import (
     OceanEnvFactory,
+)
+from ocean_navigation_simulator.reinforcement_learning.CustomApexDQN import (
+    CustomApexDQN,
 )
 from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (
     OceanTorchModel,
@@ -39,7 +39,7 @@ class TrainerFactory:
 
         # Step 3: Select Class
         if config["algorithm_name"] == "apex-dqn":
-            trainer_class = OceanApexDQN
+            trainer_class = CustomApexDQN
         else:
             raise ValueError(f"Algorithm '{config['algorithm_name']}' not implemented.")
 

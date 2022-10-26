@@ -1,6 +1,5 @@
 import abc
 import logging
-import os
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -25,7 +24,6 @@ class Controller(abc.ABC):
         self.problem = problem
         # initialize logger
         self.logger = logging.getLogger("arena.controller")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
