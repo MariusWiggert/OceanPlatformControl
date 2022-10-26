@@ -389,6 +389,10 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         # Hack for the moment: otherwise simulation interpolate NaN's near to shore
         self.DataArray = self.DataArray.fillna({"water_u": 0.0, "water_v": 0.0})
 
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        return OceanCurrentVector(u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                                  v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()))
+
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
