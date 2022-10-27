@@ -177,7 +177,7 @@ def get_scheduler(optimizer, scheduler_configs: Dict):
     return scheduler
 
 
-def predict_fixed_batch(model, dataloader, device):
+def predict_fixed_batch(model, dataloader, device) -> dict:
     """Performs prediction on a fixed batch to be able to assess performance qualitatively.
     This batch is visualized and saved on weights and biases."""
 
@@ -197,8 +197,8 @@ def predict_fixed_batch(model, dataloader, device):
     ground_truth = wandb.Image(ground_truth, caption="Fixed batch samples")
     predictions = wandb.Image(predictions, caption="Fixed batch predictions")
     samples = wandb.Image(samples, caption="Fixed batch samples")
-    wandb.log({"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions, "fixed_batch_inputs": samples})
     model.train()
+    return {"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions, "fixed_batch_inputs": samples}
 
 
 def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor) -> Optional[Dict[str, float]]:
@@ -276,7 +276,6 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 optimizer.step()
 
                 tepoch.set_postfix(loss=str(round(train_loss.item() / data.shape[0], 3)))
-                # wandb.log({"train_loss": round(train_loss.item() / data.shape[0], 3)})
 
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Training avg loss: {avg_loss:.2f}.")
@@ -310,26 +309,23 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
                     metrics_ratio[metric_name] += metric_values[metric_name] / (metric_values_baseline[metric_name]+1e-8)
 
                 tepoch.set_postfix(loss=str(round(val_loss.item() / data.shape[0], 3)))
-                # wandb.log({"val_loss": round(val_loss.item() / data.shape[0], 3)})
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
     metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
-    wandb.log(metrics)
-    wandb.log(metrics_ratio)
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Validation avg loss: {avg_loss:.2f}")
-    return avg_loss
+    return avg_loss, metrics, metrics_ratio
 
 
 def clean_up_training(model, optimizer, dataloader, base_path: str, device: str):
     """Saves final model. Saves plot for fixed batch."""
 
     save_checkpoint(model, optimizer, f"{os.path.join(base_path, now_str)}.pth")
-    predict_fixed_batch(model, dataloader, device)
+    _ = predict_fixed_batch(model, dataloader, device)
     wandb.finish()
 
 
-def initialize(test: bool = False):
+def initialize(sweep: bool, test: bool = False):
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="specify the file config for model and training")
     config_file = parser.parse_args().config_file
@@ -339,14 +335,18 @@ def initialize(test: bool = False):
     all_cfgs["model_save_name"] = f"{now_str}.pth"
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
                entity="ocean-platform-control",
-               name=f"{all_cfgs['train']['loss']['types']}" +
-                    f"_{all_cfgs[all_cfgs['model']]['norm_type']}" +
-                    f"_{all_cfgs['dataset']['area']}" +
-                    f"_{all_cfgs['dataset']['len']}" +
-                    f"_{all_cfgs['dataset']['random_subsets']}" +
-                    f"_{all_cfgs['dataset']['concat_len']}",
                tags=f"test={test}",
                **wandb_cfgs)
+    # update wandb configs
+    if sweep:
+        all_cfgs |= sweep_set_parameter(all_cfgs)
+        wandb.config.update(all_cfgs)
+        wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
+                         f"_{all_cfgs[all_cfgs['model']]['norm_type']}" + \
+                         f"_{all_cfgs['dataset']['area']}" + \
+                         f"_{all_cfgs['dataset']['len']}" + \
+                         f"_{all_cfgs['dataset']['random_subsets']}" + \
+                         f"_{all_cfgs['dataset']['concat_len']}"
     wandb.save(config_file)
     return all_cfgs
 
@@ -363,7 +363,7 @@ def sweep_set_parameter(args):
 
 
 def main(sweep: Optional[bool] = False):
-    all_cfgs = initialize()
+    all_cfgs = initialize(sweep=True)
     print("####### Start Training #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"-> Running on: {device}.")
@@ -371,11 +371,6 @@ def main(sweep: Optional[bool] = False):
 
     # seed for reproducibility
     torch.manual_seed(0)
-
-    # update wandb configs
-    if sweep:
-        all_cfgs = sweep_set_parameter(all_cfgs)
-        wandb.config.update(all_cfgs)
 
     # simplify config access
     model_type = all_cfgs["model"]
@@ -406,35 +401,34 @@ def main(sweep: Optional[bool] = False):
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
             print()
-            wandb.log({"lr": optimizer.param_groups[0]["lr"]})
-            metrics = {}
+            to_log = dict()
+            to_log |= {"lr": optimizer.param_groups[0]["lr"]}
             cfgs_train["epoch"] = epoch
 
             train_loss = train(model, train_loader, device, optimizer, cfgs_train)
             train_losses.append(train_loss)
-            metrics |= {"train_loss": train_loss}
-            wandb.log({"train_loss": train_loss})
+            to_log |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                val_loss = validation(model, val_loader, device, cfgs_train, all_cfgs["metrics"])
+                val_loss, metrics, metrics_ratio = validation(model, val_loader, device, cfgs_train, all_cfgs["metrics"])
                 val_losses.append(val_loss)
-                metrics |= {"val_loss": val_loss}
-                wandb.log({"val_loss": val_loss})
+                to_log |= {"val_loss": val_loss}
+                to_log |= metrics
+                to_log |= metrics_ratio
             if cfgs_lr_scheduler["value"]:
                 lr_scheduler.step(val_loss)
 
-            wandb.log(metrics)
-            # print(f"Epoch metrics: {metrics}.")
-
             if epoch % 5 == 0 or epoch == 1:
-                predict_fixed_batch(model, fixed_batch_loader, device)
+                visualisations = predict_fixed_batch(model, fixed_batch_loader, device)
+                to_log |= visualisations
+
+            wandb.log(to_log)
 
     finally:
         clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs["save_base_path"], device)
 
-
 def test():
-    all_cfgs = initialize(test=True)
+    all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

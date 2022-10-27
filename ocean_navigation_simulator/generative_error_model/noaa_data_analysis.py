@@ -23,9 +23,17 @@ def plot_monthly_means(data, lon_range, lat_range, save_path: str = ""):
     # plotting
     fig, axs = plt.subplots(4, 3, figsize=(18, 20))
     x_tick_labels = np.linspace(lon_range[0], lon_range[1], round((lon_range[1]-lon_range[0])/(res[1]/360)))
-    x_ticks = np.linspace(0, abs(pix_idx_lon[1] - pix_idx_lon[0]), len(x_tick_labels))
     y_tick_labels = np.linspace(lat_range[0], lat_range[1], round((lat_range[1]-lat_range[0])/(res[0]/180)))
+    if len(x_tick_labels) > 8:
+        x_tick_labels = np.linspace(lon_range[0], lon_range[1], 8)
+    if len(y_tick_labels) > 8:
+        y_tick_labels = np.linspace(lat_range[0], lat_range[1], 8)
+    x_ticks = np.linspace(0, abs(pix_idx_lon[1] - pix_idx_lon[0]), len(x_tick_labels))
     y_ticks = np.linspace(0, abs(pix_idx_lat[0] - pix_idx_lat[1]), len(y_tick_labels))
+
+    # round labels
+    x_tick_labels = [round(label, 1) for label in x_tick_labels]
+    y_tick_labels = [round(label, 1) for label in y_tick_labels]
 
     month_list = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     for idx in range(0, 12):
@@ -48,13 +56,21 @@ def plot_monthly_means(data, lon_range, lat_range, save_path: str = ""):
 if __name__ == "__main__":
     data = xr.open_dataset("/home/jonas/Downloads/drifter_monthlymeans.nc", decode_times=False)
 
-    # # Region 1
+    # # My Region 1
     # lon_range = np.array([-146.25, -125])
     # lat_range = np.array([15, 36.25])
+
+    # # Region 1
+    # lon_range = np.array([-160, -105])
+    # lat_range = np.array([15, 40])
 
     # GoM
     lon_range = np.array([-100, -80])
     lat_range = np.array([14, 30])
+
+    # # Region 6
+    # lon_range = np.array([-36, 16])
+    # lat_range = np.array([-33, 6])
 
     plot_monthly_means(data, lon_range, lat_range, "/home/jonas/Downloads/GoM_trends.png")
 

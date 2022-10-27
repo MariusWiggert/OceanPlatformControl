@@ -69,6 +69,7 @@ class ForecastHindcastDatasetNpy(Dataset):
         for area in areas:
             try:
                 fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
+                # print(fc_file_paths[0].split("/")[-1])
                 hc_file_paths = sorted(glob.glob(f"{hc_dir}/{area}/*.npy"))
                 if len(fc_file_paths) != len(hc_file_paths):
                     raise ValueError("Number of forecast and hindcast files is different!")
