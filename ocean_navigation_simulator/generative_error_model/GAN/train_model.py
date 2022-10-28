@@ -6,6 +6,7 @@ from Discriminator import Discriminator
 from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
     init_weights, save_checkpoint, load_checkpoint
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
+from ssim import ssim
 
 import wandb
 import os
@@ -223,8 +224,10 @@ def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Ten
                                               predictions[idx, 0, :, :].squeeze(),
                                               predictions[idx, 1, :, :].squeeze())
             metrics["vector_correlation"] += vec_corr_val
-        else:
-            raise NotImplementedError("This specified metric does not exist!")
+        if "ssim" in metric_names:
+            ssim_val = ssim(torch.Tensor(ground_truth[idx].squeeze()),
+                            torch.Tensor(predictions[idx].squeeze()))
+            metrics["ssim"] += ssim_val
     metrics = {metric_name: metric_value / ground_truth.shape[0] for metric_name, metric_value in metrics.items()}
     return metrics
 
@@ -341,12 +344,12 @@ def initialize(sweep: bool, test: bool = False):
     if sweep:
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
-        wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
-                         f"_{all_cfgs[all_cfgs['model']]['norm_type']}" + \
-                         f"_{all_cfgs['dataset']['area']}" + \
-                         f"_{all_cfgs['dataset']['len']}" + \
-                         f"_{all_cfgs['dataset']['random_subsets']}" + \
-                         f"_{all_cfgs['dataset']['concat_len']}"
+    wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
+                     f"_{all_cfgs[all_cfgs['model']]['norm_type']}" + \
+                     f"_{all_cfgs['dataset']['area']}" + \
+                     f"_{all_cfgs['dataset']['len']}" + \
+                     f"_{all_cfgs['dataset']['random_subsets']}" + \
+                     f"_{all_cfgs['dataset']['concat_len']}"
     wandb.save(config_file)
     return all_cfgs
 
@@ -357,13 +360,13 @@ def sweep_set_parameter(args):
     args["train"]["learning_rate"] = wandb.config.lr
     args[args["model"]]["init_type"] = wandb.config.weight_init
     args[args["model"]]["norm_type"] = wandb.config.norm_type
-    args["train"]["loss"]["types"] = wandb.config.loss_type
-    args["train"]["loss"]["weighting"] = wandb.config.loss_weighting
+    args["train"]["loss"]["types"] = wandb.config.loss_settings[0]
+    args["train"]["loss"]["weighting"] = wandb.config.loss_settings[1]
     return args
 
 
 def main(sweep: Optional[bool] = False):
-    all_cfgs = initialize(sweep=True)
+    all_cfgs = initialize(sweep=sweep)
     print("####### Start Training #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"-> Running on: {device}.")
@@ -418,7 +421,7 @@ def main(sweep: Optional[bool] = False):
             if cfgs_lr_scheduler["value"]:
                 lr_scheduler.step(val_loss)
 
-            if epoch % 5 == 0 or epoch == 1:
+            if epoch % 1 == 0 or epoch == 1:
                 visualisations = predict_fixed_batch(model, fixed_batch_loader, device)
                 to_log |= visualisations
 
@@ -426,6 +429,7 @@ def main(sweep: Optional[bool] = False):
 
     finally:
         clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs["save_base_path"], device)
+
 
 def test():
     all_cfgs = initialize(sweep=False, test=True)

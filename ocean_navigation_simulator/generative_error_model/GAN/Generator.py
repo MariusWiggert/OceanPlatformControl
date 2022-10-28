@@ -88,6 +88,8 @@ def get_norm_layer(norm_type='instance'):
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == 'instance':
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    elif norm_type == 'no_norm':
+        norm_layer = nn.Identity
     else:
         raise NotImplementedError(f"Normalization layer {norm_type} is not found")
     return norm_layer

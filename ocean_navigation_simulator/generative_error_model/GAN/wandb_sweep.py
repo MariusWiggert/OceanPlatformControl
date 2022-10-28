@@ -14,11 +14,10 @@ sweep_configuration = {
     {
         'batch_size': {'values': [16, 32, 64, 128]},
         'epochs': {'values': [30]},
-        'lr': {'max': 0.1, 'min': 0.0001},
+        'lr': {'max': 0.01, 'min': 0.0001},
         'weight_init': {'values': ['xavier', 'normal']},
-        'norm_type': {'values': ['instance', 'batch']},
-        'loss_type': {'values': [['mse'], ['l1']]},
-        'loss_weighting': {'values': [[1], [1]]}
+        'norm_type': {'values': ['instance', 'batch', 'no_norm']},
+        'loss_settings': {'values': [(['mse'], [1]), (['l1'], [1])]},
      }
 }
 

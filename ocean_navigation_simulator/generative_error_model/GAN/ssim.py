@@ -29,11 +29,8 @@ def create_window(window_size, channel=1):
     return window
 
 
-def ssim(img1, img2, val_range, window_size=11, window=None, size_average=True, full=False):
-    L = val_range  # L is the dynamic range of the pixel values (255 for 8-bit grayscale images),
-
+def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False):
     pad = window_size // 2
-
     try:
         _, channels, height, width = img1.size()
     except:
@@ -91,10 +88,10 @@ def main():
     print(f"Dataset length: {len(dataset)}")
     dataloader = iter(dataset)
     ssim_values = []
-    for i in range(1000):
+    for i in range(192):
         fc, hc = next(dataloader)
         fc, hc = torch.Tensor(fc), torch.Tensor(hc)
-        ssim_values.append(ssim(fc, hc, 255))
+        ssim_values.append(ssim(fc, hc))
 
     print(np.array(ssim_values).sum()/len(ssim_values))
 
