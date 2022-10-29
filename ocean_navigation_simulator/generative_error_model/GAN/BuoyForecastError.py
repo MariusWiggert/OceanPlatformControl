@@ -4,6 +4,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 import os
 from warnings import warn
+import glob
 import torchvision.transforms as transforms
 
 
@@ -85,17 +86,61 @@ class BuoyForecastError(Dataset):
         return fc, sparse_data
 
 
+class BuoyForecastErrorNpy(Dataset):
+    def __init__(self, fc_dir, buoy_dir, areas=("area1"), concat_len=1, transform=None):
+        self.fc_dir = fc_dir
+        self.buoy_dir = buoy_dir
+        self.transform = transform
+        self.hours_in_file = 24 * 8
+        self.concat_len = concat_len
+
+        self.area_lens = {}
+        self.fc_file_paths = []
+        self.buoy_file_paths = []
+        for area in list(areas):
+            try:
+                fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
+                buoy_file_paths = sorted(glob.glob(f"{buoy_dir}/{area}/*.npy"))
+                if len(fc_file_paths) != len(buoy_file_paths):
+                    print("\n\nNumber of forecast and buoy files is different!\n\n")
+                self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
+                self.fc_file_paths.extend(fc_file_paths)
+                self.buoy_file_paths.extend(buoy_file_paths)
+            except:
+                raise ValueError("Specified area does not exist!")
+
+        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
+        self.buoy_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.buoy_file_paths]
+
+    def __len__(self):
+        return min(len(self.fc_file_paths), len(self.buoy_file_paths)) * (self.hours_in_file//self.concat_len)
+
+    def __getitem__(self, idx):
+        if self.concat_len == 1:
+            file_idx = idx // self.hours_in_file
+            time_step_idx = idx % self.hours_in_file
+            fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
+            buoy_data = self.buoy_data[file_idx][time_step_idx].squeeze()
+        else:
+            file_idx = (idx * self.concat_len + self.concat_len - 1) // self.hours_in_file
+            time_step_idx = (idx * self.concat_len) % self.hours_in_file
+            fc_data = self.fc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
+            buoy_data = self.buoy_data[file_idx][time_step_idx].squeeze()
+            fc_data = fc_data.reshape(-1, fc_data.shape[-2], fc_data.shape[-1])
+
+        assert fc_data.shape[0] == 2 * self.concat_len, "Error with concatting time steps!"
+        return fc_data, buoy_data
+
+
 def round_to_multiple(numbers: np.ndarray, multiple: float = 1 / 12):
     return multiple * np.round_(numbers / multiple)
 
 
-def test():
-    data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
-    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area1")
-    gt_dir = os.path.join(data_dir, "data/drifter_data/dataset_forecast_error/area1")
-    dataset = BuoyForecastError(fc_dir, gt_dir, sparse_type="forecast")
-    idx = np.random.randint(1000)
-    dataset_item = dataset.__getitem__(idx)
+def main():
+    fc_dir = "data/drifter_data/forecasts_preprocessed"
+    gt_dir = "data/drifter_data/buoy_preprocessed"
+    dataset = BuoyForecastErrorNpy(fc_dir, gt_dir, areas=["area1"])
+    dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
     # import matplotlib.pyplot as plt
@@ -105,4 +150,4 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
+    main()

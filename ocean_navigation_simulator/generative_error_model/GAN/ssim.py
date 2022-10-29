@@ -1,4 +1,6 @@
 from ForecastHindcastDataset import ForecastHindcastDatasetNpy
+from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse
+from utils import l1, mse
 
 import torch.nn.functional as F
 import torch
@@ -87,13 +89,19 @@ def main():
     dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"], concat_len=1)
     print(f"Dataset length: {len(dataset)}")
     dataloader = iter(dataset)
-    ssim_values = []
-    for i in range(192):
+    ssim_values, rmse_values, mse_values, l1_values = [], [], [], []
+    for i in range(round(0.9*len(dataset)), round(0.95*len(dataset))):
         fc, hc = next(dataloader)
         fc, hc = torch.Tensor(fc), torch.Tensor(hc)
         ssim_values.append(ssim(fc, hc))
+        rmse_values.append(rmse(fc, hc))
+        mse_values.append(np.sqrt(mse(fc, hc)))
+        l1_values.append(l1(fc, hc))
 
     print(np.array(ssim_values).sum()/len(ssim_values))
+    print(np.array(rmse_values).sum()/len(rmse_values))
+    print(np.array(mse_values).sum()/len(mse_values))
+    print(np.array(l1_values).sum()/len(l1_values))
 
 
 if __name__ == "__main__":

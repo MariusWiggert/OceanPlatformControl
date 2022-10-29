@@ -102,7 +102,7 @@ class ForecastHindcastDatasetNpy(Dataset):
         return fc_data, hc_data
 
 
-def test_xr():
+def main_xr():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
     fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area3")
     hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts/area3")
@@ -110,24 +110,24 @@ def test_xr():
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
-    import matplotlib.pyplot as plt
-    plt.imshow(dataset_item[0][0], origin="lower")
-    plt.show()
-    plt.imshow(dataset_item[1][0], origin="lower")
-    plt.show()
-    plt.imshow(dataset_item[1][0] - dataset_item[0][0], origin="lower")
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.imshow(dataset_item[0][0], origin="lower")
+    # plt.show()
+    # plt.imshow(dataset_item[1][0], origin="lower")
+    # plt.show()
+    # plt.imshow(dataset_item[1][0] - dataset_item[0][0], origin="lower")
+    # plt.show()
 
 
-def test_npy():
+def main_npy():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
     fc_dir = os.path.join("data/drifter_data/forecasts_preprocessed")
     hc_dir = os.path.join("data/drifter_data/hindcasts_preprocessed")
-    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"], concat_len=2)
+    dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"], concat_len=1)
     print(f"Dataset length: {len(dataset)}")
-    dataset_item = dataset.__getitem__(int(30144/2)-1)
+    dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
 
 if __name__ == "__main__":
-    test_npy()
+    main_npy()

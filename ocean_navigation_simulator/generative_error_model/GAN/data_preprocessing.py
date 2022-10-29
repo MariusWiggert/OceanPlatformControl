@@ -32,6 +32,10 @@ def save_sparse_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_ran
     """Takes sparse buoy data, turns it into a sparse matrix and saves it as an .npy file."""
     files = sorted(os.listdir(file_dir))
     for file in files:
+        output_file_path = os.path.join(output_dir, "".join(file.split(".")[:-1])) + ".npy"
+        if os.path.exists(output_file_path):
+            print(f"File {''.join(output_file_path.split('/')[-1])} already exists!")
+            continue
         data = pd.read_csv(os.path.join(file_dir, file))
         data["hour"] = data["time"].apply(lambda x: x[:13])
         hours = sorted(list(set(data["hour"].tolist())))
@@ -48,7 +52,7 @@ def save_sparse_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_ran
             output_data[time_step, 1, lon_idx, lat_idx] = data_time_step["v"].values
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        np.save(os.path.join(output_dir, "".join(file.split(".")[:-1])) + ".npy", output_data)
+        np.save(output_file_path, output_data)
 
 
 def round_to_multiple(numbers: np.ndarray, multiple: float = 1 / 12):
@@ -79,4 +83,4 @@ def run(area: str, buoy=False):
 
 
 if __name__ == "__main__":
-    run("area1")
+    run("area1", buoy=True)
