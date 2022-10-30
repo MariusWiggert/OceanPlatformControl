@@ -74,7 +74,7 @@ data_generation:
     # if window shift = 0: input= [x{t}...x{t+4}]
     output_tile_dims: [ 25, 25, 12 ]
     size_per_file_in_mb: 2000
-    folder_training: "data_ablation_study/GP_sampled/training_medium/"
+    folder_training: "data_ablation_study/GP_sampled/training/"
     shuffle_training: True
     #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
     #folder_validation: "data_ablation_study/GP_output_corrected/validation_off_season/"

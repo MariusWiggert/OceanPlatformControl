@@ -41,19 +41,19 @@ def main():
     parser.add_argument('--training', action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
     validation = not args.training
+    i = args.index
     if args.training:
         folder = args.folder
         output_folder = args.folder_output
     else:
         # todo: to fix
-        i = args.index
         print(f"step: {i}")
         folder = f"/home/killian2k/seaweed/OceanPlatformControl/data_NN_DA/validation/copy_{i}/"
         output_folder = f"/home/killian2k/seaweed/OceanPlatformControl/data_NN_DA/GP_all_files_validation/copy_{i}/"
     x = np.load(f"{folder}{args.filename}_x.npy", mmap_mode='r')
-    out_x = f"{output_folder}{args.filename}_x.npy"
+    out_x = f"{output_folder}{args.filename}_{i}_x.npy"
     y = np.load(f"{folder}{args.filename}_y.npy", mmap_mode='r')
-    out_y = f"{output_folder}{args.filename}_y.npy"
+    out_y = f"{output_folder}{args.filename}_{i}_y.npy"
 
     # error = np.load("/datadrive/files_copy_1/error.csv", mmap_mode='r')
     # measurement = np.load("/datadrive/files_copy_1/measurement.csv", mmap_mode='r')

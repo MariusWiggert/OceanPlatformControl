@@ -16,8 +16,12 @@ tile_radius = 1
 delta_points = 1 / 12
 # lon_left, lon_right = -95.362841, -85.766062
 # lat_bottom, lat_top = 22.0, 27
-lon_left, lon_right = -28.99999999999986, - 23.000000000000014  # -62, -12
-lat_bottom, lat_top = 8, 26
+zone = 1
+file_used_to_check_boundaries = f"data_ablation_study/fc/validation_zone{zone}/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-21T12:30:00Z-2022-04-21T12:30:00Z-2022-04-30T23:30:00Z.nc"
+file = xr.open_dataset(file_used_to_check_boundaries)
+lon_left, lon_right = file['longitude'].min().item(), file[
+    'longitude'].max().item()  # -28.99999999999986, - 23.000000000000014  # -62, -12
+lat_bottom, lat_top = file['latitude'].min().item(), file['latitude'].max().item()
 
 
 def get_area_coordinates():
@@ -182,7 +186,7 @@ def get_area_coordinates():
 
 # Validation
 start_date = datetime.datetime(2022, 4, 21, 12, 00, 00)
-end_date = datetime.datetime(2022, 4, 28
+end_date = datetime.datetime(2022, 5, 7
                              , 12, 00, 00)
 validation = [(start_date, end_date)]
 # all_intervals = [medium_to_big]
@@ -191,8 +195,9 @@ validation = [(start_date, end_date)]
 duration_simulation_default = datetime.timedelta(days=4)
 max_velocity = Velocity(mps=1)
 distance_start_end_point = max_velocity * duration_simulation_default
+
+
 # file_used_to_check_boundaries = "data_ablation_study/fc/april/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-04T12:30:00Z-2022-04-04T12:30:00Z-2022-04-13T23:30:00Z.nc"
-file_used_to_check_boundaries = "data_ablation_study/fc/validation_zone7/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-21T12:30:00Z-2022-04-21T12:30:00Z-2022-04-30T23:30:00Z.nc"
 
 
 def generate_end_point(initial_point: SpatialPoint) -> SpatialPoint:
@@ -355,10 +360,10 @@ if __name__ == "__main__":
     #              args.problems // (1 if train_valid_testing else 3), args.seed)
 
     # If only one big chunk
-    legend = 'validation_off_season'
+    legend = f'validation_{zone}_off_season'
     print("intervals: ", validation)
-    main(validation, os.path.join(args.dir, f"validation_off_season"),
-         args.file + f"_validation_off_season",
+    main(validation, os.path.join(args.dir, legend),
+         args.file + legend,
          args.problems, args.seed)
 
     print("Over.")

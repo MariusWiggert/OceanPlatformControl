@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import argparse
+import json
 import math
 import os
 import time
@@ -456,7 +457,7 @@ def loop_train_validation(training_mode: bool, args, model, device, data_loader:
             official_metrics[k] /= total
 
         return total_loss_overall, total_loss_pinn, total_loss_hindcast, np.array(
-            list_ratios).mean(), official_metrics, all_metrics
+            list_ratios).mean(), official_metrics
 
 
 def end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
@@ -551,11 +552,13 @@ def get_args(all_cfgs):
     # END ALTERNATIVE
 
 
-def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False, enable_wandb: bool = True):
+def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False, enable_wandb: bool = True,
+         model_to_load: str = None, json_model: str = None, testing_folder: str = None):
     np.set_printoptions(precision=2)
     parser = argparse.ArgumentParser(description='yaml config file path')
     parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
     config_file = parser.parse_args().file_configs + ".yaml"
+
     all_cfgs = yaml.load(open(config_file, 'r'),
                          Loader=yaml.FullLoader)
     args = get_args(all_cfgs)
@@ -596,12 +599,17 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    dataset_training = CustomOceanCurrentsFromFiles(folder_training,
-                                                    max_items=args.batch_size * args.max_batches_training_set,
-                                                    tile_size=args.tile_size,
-                                                    return_GP_FC_IMP_FC=args.return_GP_FC_IMP_FC)
+    if not evaluate_only:
+        dataset_training = CustomOceanCurrentsFromFiles(folder_training,
+                                                        max_items=args.batch_size * args.max_batches_training_set,
+                                                        tile_size=args.tile_size,
+                                                        return_GP_FC_IMP_FC=args.return_GP_FC_IMP_FC)
+        train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     print("validate_each_file_separately", args.validate_each_file_separately)
     if not args.validate_each_file_separately:
+        if testing_folder is not None:
+            folder_validation = testing_folder
+            print("Validation replace by the testing set.")
         datasets_validation = CustomOceanCurrentsFromFiles(folder_validation,
                                                            max_items=args.validation_batch_size * args.max_batches_validation_set,
                                                            tile_size=args.tile_size,
@@ -618,9 +626,8 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
                         return_GP_FC_IMP_FC=args.return_GP_FC_IMP_FC))
 
     print(
-        f"lengths ds: training:{len(dataset_training)}, validation:{[len(dataset_validation) for dataset_validation in datasets_validation]}")
+        f"lengths ds: training:{len(dataset_training) if not evaluate_only else 'NA'}, validation:{[len(dataset_validation) for dataset_validation in datasets_validation]}")
 
-    train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
     validation_loaders = [torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs) for
                           dataset_validation in datasets_validation]
 
@@ -633,10 +640,7 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
         wandb.config.update(cfg_neural_network, allow_val_change=False)
         wandb.save(config_file)
         if setup_wandb_parameters_sweep:
-            # print("old ch_sz", cfg_neural_network.ch_sz)
-            args.epochs = 22
-            print("epochs set to ", args.epochs)
-            # args.epochs = wandb.config.epochs
+            args.epochs = wandb.config.epochs
             args.batch_size = wandb.config.batch_size
             args.lr = wandb.config.lr
             args.optimizer.parameters.weight_decay = wandb.config.weight_decay
@@ -646,12 +650,24 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
             cfg_neural_network.dropout_bottom = wandb.config.dropout_bottom
             cfg_neural_network.dropout_decoder = wandb.config.dropout_decoder
             cfg_neural_network.activation = wandb.config.activation
-            # print("new ch_sz", cfg_neural_network.ch_sz)
 
-    print(f"Weight physical loss: {args.lambda_physical_loss}")
     model = get_model(args.model_type, cfg_neural_network, device)
-    if args.model_to_load:
+    if args.model_to_load is not None:
         model.load_state_dict(torch.load(args.model_to_load))
+    if model_to_load is not None:
+        if args.model_to_load is not None:
+            raise UserWarning(
+                "The weights specified in the config file is not loaded. The weights specified as a parameter is loaded instead")
+        f = open(json_model)
+        data = recursive_doc_dict(json.load(f))
+        cfg_neural_network.ch_sz = data.ch_sz.value
+        cfg_neural_network.downsizing_method = data.downsizing_method.value
+        cfg_neural_network.dropout_encoder = data.dropout_encoder.value
+        cfg_neural_network.dropout_bottom = data.dropout_bottom.value
+        cfg_neural_network.dropout_decoder = data.dropout_decoder.value
+        cfg_neural_network.activation = data.activation.value
+        model = get_model(args.model_type, cfg_neural_network, device)
+        model.load_state_dict(torch.load(model_to_load))
     optimizer = get_optimizer(model, cfg_optimizer.get("name", ""), cfg_optimizer.get("parameters", {}), args.lr)
 
     # scheduler = schedulers.StepLR(optimizer, step_size=1, gamma=args.gamma)
@@ -663,30 +679,29 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
     train_losses_overall, validation_losses_overall = list(), list()
     train_losses_no_pinn, validation_losses_no_pinn = list(), list()
     train_losses_pinn, validation_losses_pinn = list(), list()
-
+    if evaluate_only:
+        args.epochs = 1
     for epoch in range(1, args.epochs + 1):
         all_metrics = {}
         # Training
         if not evaluate_only:
             print(f"starting Training epoch {epoch}/{args.epochs}.")
             time.sleep(0.2)
-            overall_loss, loss_pinn, loss_no_pinn, ratio, metrics, official_metrics = loop_train_validation(True, args,
-                                                                                                            model,
-                                                                                                            device,
-                                                                                                            train_loader,
-                                                                                                            epoch,
-                                                                                                            model_error,
-                                                                                                            cfg_dataset,
-                                                                                                            optimizer)
+            overall_loss, loss_pinn, loss_no_pinn, ratio, metrics = loop_train_validation(True, args,
+                                                                                          model,
+                                                                                          device,
+                                                                                          train_loader,
+                                                                                          epoch,
+                                                                                          model_error,
+                                                                                          cfg_dataset,
+                                                                                          optimizer)
             all_metrics |= metrics
             train_losses_overall.append(overall_loss)
             train_losses_no_pinn.append(loss_no_pinn)
             train_losses_pinn.append(loss_pinn)
             train_ratios.append(ratio)
-            metrics |= {"train_loss": overall_loss, "train_loss_pinn": loss_pinn, "train_loss_hc": loss_no_pinn,
-                        "train_ratio": ratio}
-
-            all_metrics |= official_metrics
+            all_metrics |= {"train_loss": overall_loss, "train_loss_pinn": loss_pinn, "train_loss_hc": loss_no_pinn,
+                            "train_ratio": ratio}
 
         # Testing
         print(f"starting Testing epoch {epoch}/{args.epochs}.")
@@ -695,20 +710,20 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
         merged_metrics = defaultdict(int)
         for i, validation_loader in enumerate(validation_loaders):
             suffix = f"_{i}"
-            overall, pinn, no_pinn, ra, metrics, official_metrics = loop_train_validation(False, args, model, device,
-                                                                                          validation_loader, epoch,
-                                                                                          model_error, cfg_dataset,
-                                                                                          suffix=suffix)
+            overall, pinn, no_pinn, ra, metrics = loop_train_validation(False, args, model, device,
+                                                                        validation_loader, epoch,
+                                                                        model_error, cfg_dataset,
+                                                                        suffix=suffix)
             for k, v in metrics.items():
                 merged_metrics[k[:-len(suffix)]] += v
             overall_loss.append(overall), loss_pinn.append(pinn), loss_no_pinn.append(no_pinn), ratio.append(ra)
+            merged_metrics |= metrics
         overall_loss, loss_pinn, loss_no_pinn, ratio = np.array(overall_loss), np.array(loss_pinn), np.array(
             loss_no_pinn), np.array(ratio)
         validation_losses_overall.append(overall_loss)
         validation_losses_pinn.append(loss_pinn)
         validation_losses_no_pinn.append(loss_no_pinn)
         validation_ratios.append(ratio)
-        all_metrics |= official_metrics
         all_metrics |= {"learning rate": optimizer.param_groups[0]['lr']}
 
         if len(overall_loss) > 1:
@@ -727,26 +742,20 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
             else:
                 scheduler.step()
         if len(validation_loaders) > 1:
-            merged_metrics = {"validation_" + k + "_merged": v / len(validation_loaders) for k, v in
-                              merged_metrics.items()}
-            print(merged_metrics)
+            merged_metrics |= {k: v / len(validation_loaders) for k, v in
+                               merged_metrics.items() if k.endswith("_validation")}
+            print("merged metrics:", merged_metrics)
             all_metrics |= merged_metrics
         if max_loss > overall_loss.mean():
             max_loss = overall_loss.mean()
 
-            name_file = f'model_{epoch}.h5'
-            print(f"saved model at epoch {epoch}: {name_file}")
-            if wandb:
+            if enable_wandb:
+                name_file = f'model_{epoch}.h5'
+                print(f"saved model at epoch {epoch}: {name_file}")
                 torch.save(model.state_dict(), os.path.join(wandb.run.dir, name_file))
                 wandb.save(name_file)
                 wandb.log(all_metrics)
 
-        if epoch % 30 == 0:
-            __create_loss_plot(args, train_losses_pinn, validation_losses_pinn, train_ratios, validation_ratios,
-                               True)
-            __create_loss_plot(args, train_losses_no_pinn, validation_losses_no_pinn, train_ratios,
-                               validation_ratios,
-                               False)
         # finally:
         #
         #     end_training(model, args, train_losses_no_pinn, train_losses_pinn, validation_losses_no_pinn,
@@ -755,6 +764,8 @@ def main(setup_wandb_parameters_sweep: bool = False, evaluate_only: bool = False
         #     del model, optimizer, scheduler, scheduler_step_takes_argument, max_loss, \
         #         train_ratios, validation_ratios, train_losses_overall, validation_losses_overall
         #     train_losses_pinn, validation_losses_pinn, train_losses_no_pinn, validation_losses_no_pinn, metrics
+
+        return all_metrics
 
 
 if __name__ == '__main__':
