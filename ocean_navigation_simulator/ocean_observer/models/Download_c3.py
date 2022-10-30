@@ -62,6 +62,7 @@ class C3Downloader:
             region_name = [name for name in names if region in conversion(name)]
             idx = names.index(region_name[0])
         except:
+            print(f"regions available: {names}")
             raise ValueError(
                 f"Specified region name '{region}' is not a {source} {type_of_data.capitalize()} Data Archive!")
         type_map = {"forecast": "fmrcArchive", "hindcast": "hindcastArchive"}
@@ -101,42 +102,54 @@ class C3Downloader:
 
 if __name__ == "__main__":
     c3_downloader = C3Downloader()
-    april_time_interval = [datetime.datetime(2022, 3, 28, 12, 0, 0), datetime.datetime(2022, 4, 29, 12, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", april_time_interval)
-    c3_downloader.download_files(files, "april", False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", april_time_interval)
-    c3_downloader.download_files(files, "april", True)
+    # april_time_interval = [datetime.datetime(2022, 3, 28, 12, 0, 0), datetime.datetime(2022, 4, 29, 12, 0, 0)]
+    # files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", april_time_interval)
+    # c3_downloader.download_files(files, "april", False)
+    # files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", april_time_interval)
+    # c3_downloader.download_files(files, "april", True)
+    #
+    # may_time_interval = [datetime.datetime(2022, 5, 1, 0, 0, 0), datetime.datetime(2022, 6, 1, 0, 0, 0)]
+    # files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", may_time_interval)
+    # c3_downloader.download_files(files, "may", False)
+    # files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", may_time_interval)
+    # c3_downloader.download_files(files, "may", True)
+    #
+    # june_time_interval = [datetime.datetime(2022, 6, 1, 0, 0, 0), datetime.datetime(2022, 7, 1, 0, 0, 0)]
+    # files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", june_time_interval)
+    # c3_downloader.download_files(files, "june", False)
+    # files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", june_time_interval)
+    # c3_downloader.download_files(files, "june", True)
+    #
+    # m = "july"
+    # time_interval = [datetime.datetime(2022, 7, 1, 0, 0, 0), datetime.datetime(2022, 8, 1, 0, 0, 0)]
+    # files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
+    # c3_downloader.download_files(files, m, False)
+    # files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
+    # c3_downloader.download_files(files, m, True)
+    #
+    # m = "august"
+    # time_interval = [datetime.datetime(2022, 8, 1, 0, 0, 0), datetime.datetime(2022, 9, 1, 0, 0, 0)]
+    # files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
+    # c3_downloader.download_files(files, m, False)
+    # files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
+    # c3_downloader.download_files(files, m, True)
+    #
+    # m = "september"
+    # time_interval = [datetime.datetime(2022, 9, 1, 0, 0, 0), datetime.datetime(2022, 9, 16, 0, 0, 0)]
+    # files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
+    # c3_downloader.download_files(files, m, False)
+    # files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
+    # c3_downloader.download_files(files, m, True)
+    # print("--- over ---")
 
-    may_time_interval = [datetime.datetime(2022, 5, 1, 0, 0, 0), datetime.datetime(2022, 6, 1, 0, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", may_time_interval)
-    c3_downloader.download_files(files, "may", False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", may_time_interval)
-    c3_downloader.download_files(files, "may", True)
-
-    june_time_interval = [datetime.datetime(2022, 6, 1, 0, 0, 0), datetime.datetime(2022, 7, 1, 0, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", june_time_interval)
-    c3_downloader.download_files(files, "june", False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", june_time_interval)
-    c3_downloader.download_files(files, "june", True)
-
-    m = "july"
-    time_interval = [datetime.datetime(2022, 7, 1, 0, 0, 0), datetime.datetime(2022, 8, 1, 0, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, True)
-
-    m = "august"
-    time_interval = [datetime.datetime(2022, 8, 1, 0, 0, 0), datetime.datetime(2022, 9, 1, 0, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, True)
-
-    m = "september"
-    time_interval = [datetime.datetime(2022, 9, 1, 0, 0, 0), datetime.datetime(2022, 9, 16, 0, 0, 0)]
-    files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, False)
-    files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)
-    c3_downloader.download_files(files, m, True)
-    print("--- over ---")
+    print("download zone 2")
+    # april_time_interval = [datetime.datetime(2022, 3, 28, 12, 0, 0), datetime.datetime(2022, 4, 29, 12, 0, 0)]
+    april_time_interval = [datetime.datetime(2022, 4, 29, 12, 0, 0), datetime.datetime(2022, 5, 21, 12, 0, 0)]
+    for i in range(2, 7, 1):
+        try:
+            files = c3_downloader.get_files_list("Hycom", "hindcast", f"Region {i}", april_time_interval)
+            c3_downloader.download_files(files, f"validation_zone{i}", False)
+            files = c3_downloader.get_files_list("Copernicus", "forecast", f"Region {i}", april_time_interval)
+            c3_downloader.download_files(files, f"validation_zone{i}", True)
+        except ValueError as e:
+            print(f"error with {i}")

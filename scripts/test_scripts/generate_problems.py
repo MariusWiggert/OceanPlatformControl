@@ -3,7 +3,6 @@ import datetime
 import math
 import os
 import random
-from datetime import datetime as dt
 from typing import Union, List
 
 import numpy as np
@@ -15,8 +14,10 @@ from ocean_navigation_simulator.utils.units import Velocity, Distance
 
 tile_radius = 1
 delta_points = 1 / 12
-lon_left, lon_right = -95.362841, -85.766062
-lat_bottom, lat_top = 22.0, 27
+# lon_left, lon_right = -95.362841, -85.766062
+# lat_bottom, lat_top = 22.0, 27
+lon_left, lon_right = -28.99999999999986, - 23.000000000000014  # -62, -12
+lat_bottom, lat_top = 8, 26
 
 
 def get_area_coordinates():
@@ -116,80 +117,82 @@ def get_area_coordinates():
 
 
 # # New Split
-list_all_pairs_train_test = []
-training = [
-    (dt(2022, 3, 31, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 4, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))
-]
-validation = [
-    (
-        dt(2022, 4, 22, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 4, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-testing = [
-    (
-        dt(2022, 5, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 5, 8, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-list_all_pairs_train_test.append((training, validation, testing))
-# set_2
-training = [
-    (
-        dt(2022, 5, 9, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 5, 13, 12, 30, 1, tzinfo=datetime.timezone.utc)),
-    (dt(2022, 5, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
-     dt(2022, 5, 29, 12, 30, 1, tzinfo=datetime.timezone.utc))
-]
-validation = [
-    (
-        dt(2022, 5, 30, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 6, 5, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-testing = [
-    (
-        dt(2022, 6, 6, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 6, 12, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-list_all_pairs_train_test.append((training, validation, testing))
-
-# set_3
-training = [
-    (
-        dt(2022, 6, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 6, 27, 12, 30, 1, tzinfo=datetime.timezone.utc)),
-    (
-        dt(2022, 7, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 7, 11, 12, 30, 1, tzinfo=datetime.timezone.utc))
-]
-validation = [(
-    dt(2022, 7, 13, 12, 30, 1, tzinfo=datetime.timezone.utc),
-    dt(2022, 7, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-
-testing = [
-    (
-        dt(2022, 7, 20, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 7, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-list_all_pairs_train_test.append((training, validation, testing))
-# set_4
-training = [
-    (dt(2022, 7, 29, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 4, 12, 30, 1, tzinfo=datetime.timezone.utc)),
-    (dt(2022, 8, 6, 15, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 18, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-validation = [
-    (
-        dt(2022, 8, 21, 15, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 8, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-testing = [
-    (
-        dt(2022, 9, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
-        dt(2022, 9, 8, 12, 30, 1, tzinfo=datetime.timezone.utc))]
-list_all_pairs_train_test.append((training, validation, testing))
+# list_all_pairs_train_test = []
+# training = [
+#     (dt(2022, 3, 31, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 4, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# ]
+# validation = [
+#     (
+#         dt(2022, 4, 22, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 4, 28, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# testing = [
+#     (
+#         dt(2022, 5, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 5, 8, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation, testing))
+# # set_2
+# training = [
+#     (
+#         dt(2022, 5, 9, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 5, 13, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+#     (dt(2022, 5, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#      dt(2022, 5, 29, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# ]
+# validation = [
+#     (
+#         dt(2022, 5, 30, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 6, 5, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# testing = [
+#     (
+#         dt(2022, 6, 6, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 6, 12, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation, testing))
+#
+# # set_3
+# training = [
+#     (
+#         dt(2022, 6, 15, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 6, 27, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+#     (
+#         dt(2022, 7, 1, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 7, 11, 12, 30, 1, tzinfo=datetime.timezone.utc))
+# ]
+# validation = [(
+#     dt(2022, 7, 13, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#     dt(2022, 7, 19, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+#
+# testing = [
+#     (
+#         dt(2022, 7, 20, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 7, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation, testing))
+# # set_4
+# training = [
+#     (dt(2022, 7, 29, 12, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 4, 12, 30, 1, tzinfo=datetime.timezone.utc)),
+#     (dt(2022, 8, 6, 15, 30, 1, tzinfo=datetime.timezone.utc), dt(2022, 8, 18, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# validation = [
+#     (
+#         dt(2022, 8, 21, 15, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 8, 26, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# testing = [
+#     (
+#         dt(2022, 9, 2, 12, 30, 1, tzinfo=datetime.timezone.utc),
+#         dt(2022, 9, 8, 12, 30, 1, tzinfo=datetime.timezone.utc))]
+# list_all_pairs_train_test.append((training, validation, testing))
 
 # Validation
-# start_date = datetime.datetime(2022, 3, 30, 12, 00, 00)
-# end_date = datetime.datetime(2022, 4, 29, 12, 00, 00)
-# all_intervals = [(start_date, end_date)]
+start_date = datetime.datetime(2022, 4, 21, 12, 00, 00)
+end_date = datetime.datetime(2022, 4, 28
+                             , 12, 00, 00)
+validation = [(start_date, end_date)]
 # all_intervals = [medium_to_big]
 
 # all_intervals = [(datetime.datetime(2022, 5, 7, 12, 00, 00), datetime.datetime(2022, 5, 27, 12, 00, 00))]
 duration_simulation_default = datetime.timedelta(days=4)
 max_velocity = Velocity(mps=1)
 distance_start_end_point = max_velocity * duration_simulation_default
-file_used_to_check_boundaries = "data_ablation_study/fc/april/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-04T12:30:00Z-2022-04-04T12:30:00Z-2022-04-13T23:30:00Z.nc"
+# file_used_to_check_boundaries = "data_ablation_study/fc/april/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-04T12:30:00Z-2022-04-04T12:30:00Z-2022-04-13T23:30:00Z.nc"
+file_used_to_check_boundaries = "data_ablation_study/fc/validation_zone7/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-04-21T12:30:00Z-2022-04-21T12:30:00Z-2022-04-30T23:30:00Z.nc"
 
 
 def generate_end_point(initial_point: SpatialPoint) -> SpatialPoint:
@@ -314,9 +317,9 @@ def check_area_to_have_no_nan():
         lat_top -= delta_points
     print("new lat boundaries: ", lat_bottom, lat_top)
 
-    assert not np.isnan(lon_lat_xarray.sel(latitude=slice(lat_bottom - tile_radius, lat_top + tile_radius),
-                                           longitude=slice(lon_left - tile_radius,
-                                                           lon_right + tile_radius)).to_array().to_numpy()).sum()
+    # assert not np.isnan(lon_lat_xarray.sel(latitude=slice(lat_bottom - tile_radius, lat_top + tile_radius),
+    #                                        longitude=slice(lon_left - tile_radius,
+    #                                                        lon_right + tile_radius)).to_array().to_numpy()).sum()
 
 
 def main(intervals: List, dir_name=None, filename=None, number_problems=40, seed=10):
@@ -342,20 +345,20 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     names = ['small', 'medium', 'big']
     # for i, inter in enumerate([small, small_to_medium, medium_to_big]):
-    for i, (train, valid, testing) in enumerate(list_all_pairs_train_test):
-        print(f"start set {i}")
-        for j, train_valid_testing in enumerate([train, valid, testing]):
-            legend = 'training' if j == 0 else ('validation' if j == 1 else 'testing')
-            print("intervals: ", train_valid_testing)
-            main(train_valid_testing, os.path.join(args.dir, f"set_{i}"),
-                 args.file + f"_{i}_{legend}",
-                 args.problems // (1 if train_valid_testing else 3), args.seed)
+    # for i, (train, valid, testing) in enumerate(list_all_pairs_train_test):
+    #     print(f"start set {i}")
+    #     for j, train_valid_testing in enumerate([train, valid, testing]):
+    #         legend = 'training' if j == 0 else ('validation' if j == 1 else 'testing')
+    #         print("intervals: ", train_valid_testing)
+    #         main(train_valid_testing, os.path.join(args.dir, f"set_{i}"),
+    #              args.file + f"_{i}_{legend}",
+    #              args.problems // (1 if train_valid_testing else 3), args.seed)
 
     # If only one big chunk
-    # legend = 'validation_off_season'
-    # print("intervals: ", validation)
-    # main(validation, os.path.join(args.dir, f"validation_off_season"),
-    #      args.file + f"_validation_off_season",
-    #      args.problems, args.seed)
+    legend = 'validation_off_season'
+    print("intervals: ", validation)
+    main(validation, os.path.join(args.dir, f"validation_off_season"),
+         args.file + f"_validation_off_season",
+         args.problems, args.seed)
 
     print("Over.")
