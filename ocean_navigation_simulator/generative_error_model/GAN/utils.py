@@ -1,6 +1,7 @@
 import torch
 from torch.nn import functional as F
 from torch.nn import init
+import functools
 
 
 # _____________________________ LOSSES ___________________________________ #
@@ -92,6 +93,24 @@ def init_weights(net, init_type='normal', init_gain=0.02):
 
     print('-> Initialize network with %s' % init_type)
     net.apply(init_func)  # apply the initialization function <init_func>
+
+
+def get_norm_layer(norm_type='instance'):
+    """Return a normalization layer
+    Parameters:
+        norm_type (str) -- the name of the normalization layer: batch | instance
+    BatchNorm, uses learnable affine parameters and track running statistics (mean/stddev).
+    InstanceNorm, does not use learnable affine parameters. It does not track running statistics.
+    """
+    if norm_type == 'batch':
+        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+    elif norm_type == 'instance':
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    elif norm_type == 'no_norm':
+        norm_layer = nn.Identity
+    else:
+        raise NotImplementedError(f"Normalization layer {norm_type} is not found")
+    return norm_layer
 
 
 # _____________________________ SAVING __________________________________ #

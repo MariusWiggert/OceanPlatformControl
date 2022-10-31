@@ -1,5 +1,5 @@
-from BuoyForecastError import BuoyForecastError
-from ForecastHindcastDataset import ForecastHindcastDataset, ForecastHindcastDatasetNpy
+from BuoyForecastError import BuoyForecastErrorNpy
+from ForecastHindcastDataset import ForecastHindcastDatasetNpy
 from UNet import UNet
 from Generator import Generator
 from Discriminator import Discriminator
@@ -45,6 +45,10 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
                           features=model_configs["features"],
                           norm=model_configs["norm_type"],
                           dropout=model_configs["dropout"])
+    elif model_type == "discriminator":
+        model = Discriminator(in_channels=model_configs["in_channels"],
+                              features=model_configs["features"],
+                              norm=model_configs["norm_type"])
     return model.to(device)
 
 
@@ -60,10 +64,10 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     handles which dataset to use."""
 
     if dataset_type == "forecastbuoy":
-        dataset = BuoyForecastError(dataset_configs["forecasts"],
-                                    dataset_configs["ground_truth"],
-                                    dataset_configs["sparse_type"],
-                                    dataset_configs["len"])
+        dataset = BuoyForecastErrorNpy(dataset_configs["forecasts"],
+                                       dataset_configs["ground_truth"],
+                                       dataset_configs["area"],
+                                       dataset_configs["concat_len"])
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
                                              dataset_configs["hindcasts"],
@@ -376,21 +380,29 @@ def main(sweep: Optional[bool] = False):
     torch.manual_seed(0)
 
     # simplify config access
-    model_type = all_cfgs["model"]
-    cfgs_model = all_cfgs[model_type]
+    model_types = all_cfgs["model"]
+    cfgs_gen = all_cfgs[model_types[0]]
+    cfgs_disc = all_cfgs[model_types[1]]
     cfgs_dataset = all_cfgs["dataset"]
     cfgs_train = all_cfgs["train"]
-    cfgs_optimizer = all_cfgs["optimizer"]
+    cfgs_gen_optimizer = all_cfgs["gen_optimizer"]
+    cfgs_disc_optimizer = all_cfgs["disc_optimizer"]
     cfgs_lr_scheduler = all_cfgs["train"]["lr_scheduler_configs"]
 
     # load training data
     train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
-    print(f"-> Model: {model_type}.")
+    print(f"-> Model: {model_types}.")
     print(f"-> Losses: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
-    model = get_model(model_type, cfgs_model, device)
-    optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
+    generator = get_model(model_types[0], cfgs_gen, device)
+    discriminator = get_model(model_types[1], cfgs_disc, device)
+    gen_optimizer = get_optimizer(generator, cfgs_gen_optimizer["name"],
+                                  cfgs_gen_optimizer["parameters"],
+                                  lr=cfgs_train["learning_rate"])
+    disc_optimizer = get_optimizer(discriminator, cfgs_disc_optimizer["name"],
+                                   cfgs_disc_optimizer["parameters"],
+                                   lr=cfgs_train["learning_rate"])
     if cfgs_lr_scheduler["value"]:
         lr_scheduler = get_scheduler(optimizer, cfgs_lr_scheduler)
     if all_cfgs["load_from_chkpt"]["value"]:

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import functools
+from utils import get_norm_layer
 
 
 class Block(nn.Module):
@@ -75,24 +75,6 @@ class Generator(nn.Module):
         up6 = self.up6(torch.cat([up5, d3], 1))
         up7 = self.up7(torch.cat([up6, d2], 1))
         return self.final_up(torch.cat([up7, d1], 1))
-
-
-def get_norm_layer(norm_type='instance'):
-    """Return a normalization layer
-    Parameters:
-        norm_type (str) -- the name of the normalization layer: batch | instance
-    BatchNorm, uses learnable affine parameters and track running statistics (mean/stddev).
-    InstanceNorm, does not use learnable affine parameters. It does not track running statistics.
-    """
-    if norm_type == 'batch':
-        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
-    elif norm_type == 'instance':
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
-    elif norm_type == 'no_norm':
-        norm_layer = nn.Identity
-    else:
-        raise NotImplementedError(f"Normalization layer {norm_type} is not found")
-    return norm_layer
 
 
 def test():
