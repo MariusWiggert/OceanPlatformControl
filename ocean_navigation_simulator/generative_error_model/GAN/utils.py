@@ -1,6 +1,7 @@
 import torch
 from torch.nn import functional as F
 from torch.nn import init
+import torch.nn as nn
 import functools
 
 
@@ -106,6 +107,8 @@ def get_norm_layer(norm_type='instance'):
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == 'instance':
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    elif norm_type == 'spectral':
+        norm_layer = nn.utils.spectral_norm
     elif norm_type == 'no_norm':
         norm_layer = nn.Identity
     else:
