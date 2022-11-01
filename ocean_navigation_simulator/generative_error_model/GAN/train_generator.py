@@ -1,5 +1,5 @@
-from BuoyForecastDataset import BuoyForecastErrorNpy
-from ForecastHindcastDataset import ForecastHindcastDatasetNpy
+from BuoyForecastDataset import BuoyForecastError
+from ForecastHindcastDataset import ForecastHindcastDataset, ForecastHindcastDatasetNpy
 from Generator import Generator
 from Discriminator import Discriminator
 from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
@@ -30,19 +30,20 @@ import numpy as np
 now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 
 
-def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
+def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     """Handles which model to use which is specified in config file."""
 
-    if model_type == "generator":
+    if model_type == "unet":
+        model = UNet(in_channels=model_configs["in_channels"],
+                     out_channels=model_configs["out_channels"],
+                     features=model_configs["features"],
+                     dropout=model_configs["dropout"])
+    elif model_type == "generator":
         model = Generator(in_channels=model_configs["in_channels"],
                           out_channels=model_configs["out_channels"],
                           features=model_configs["features"],
                           norm=model_configs["norm_type"],
                           dropout=model_configs["dropout"])
-    elif model_type == "discriminator":
-        model = Discriminator(in_channels=model_configs["in_channels"],
-                              features=model_configs["features"],
-                              norm=model_configs["norm_type"])
     return model.to(device)
 
 
@@ -58,10 +59,10 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     handles which dataset to use."""
 
     if dataset_type == "forecastbuoy":
-        dataset = BuoyForecastErrorNpy(dataset_configs["forecasts"],
-                                       dataset_configs["ground_truth"],
-                                       dataset_configs["area"],
-                                       dataset_configs["concat_len"])
+        dataset = BuoyForecastError(dataset_configs["forecasts"],
+                                    dataset_configs["ground_truth"],
+                                    dataset_configs["sparse_type"],
+                                    dataset_configs["len"])
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
                                              dataset_configs["hindcasts"],
@@ -256,72 +257,31 @@ def loss_function(predictions, target, losses: List[str], loss_weightings: List[
     return loss
 
 
-def gan_loss_disc(disc_real, disc_fake):
-    """
-    Parameters:
-        disc_real - output of discriminator for real examples
-        disc_fake - output of discriminaor for fake examples
-    """
-    disc_real_loss = nn.BCEWithLogitsLoss(disc_real, torch.ones_like(disc_real))
-    disc_fake_loss = nn.BCEWithLogitsLoss(disc_fake, torch.zeros_like(disc_fake))
-    disc_loss = (disc_real_loss + disc_fake_loss) / 2  # division to make disc learn more slowly
-    return disc_loss
-
-
-def gan_loss_gen(disc_fake, target_fake, target, l1_scaling: Optional[float] = 100):
-    """
-    Parameters:
-        disc_fake - output of discriminator for fake examples
-        target_fake - output of generator
-        target - ground truth data
-    """
-    gen_fake_loss = nn.BCEWithLogitsLoss(disc_fake, torch.ones_like(disc_fake))
-    l1_val = l1(target_fake, target) * l1_scaling
-    gen_loss = gen_fake_loss.item() + l1_val
-    return gen_loss
-
-
-def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, cfgs_train):
-    gen_loss_sum, disc_loss_sum = 0, 0
-    [model.train() for model in models]
+def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
+    total_loss = 0
+    model.train()
     with torch.enable_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Training epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
             for data, target in tepoch:
-                data, target = data.to(device).float(), target.to(device).float()
+                data, target = data.to(device), target.to(device)
 
-                # train discriminator
-                target_fake = models[0](data)
-                # mask the generator output to match target (buoy data)
-                mask = torch.where(target != 0, 1, 0)
-                target_fake = torch.mul(target_fake.detach(), mask).float()
-                # check whether same num of non-zero values in target and target_fake
-                assert mask.sum() == torch.where(target_fake != 0, 1, 0).sum()
-                # compute real and fake outputs of discriminator
-                disc_real = models[1](data, target)
-                disc_fake = models[1](data, target_fake)  # need to call detach to remove from comp graph
-                disc_loss = gan_loss_disc(disc_real, disc_fake)
-                disc_loss_sum += disc_loss.item()
+                output = model(data)
 
-                optimizers[1].zero_grad()
-                optimizers[1].backward()
-                optimizers[1].step()
+                # compute loss
+                train_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
+                total_loss += train_loss.item()
 
-                # train generator
-                disc_fake = models[1](data, target_fake)
-                gen_loss = gan_loss_gen(disc_fake, target_fake, target)
-                gen_loss_sum += gen_loss.item()
+                # perform optim step
+                optimizer.zero_grad()
+                train_loss.backward()
+                optimizer.step()
 
-                optimizers[0].zero_grad()
-                optimizers[0].backward()
-                optimizers[0].step()
+                tepoch.set_postfix(loss=str(round(train_loss.item() / data.shape[0], 3)))
 
-                tepoch.set_postfix(loss=f"{round(gen_loss.item() / data.shape[0], 3)}")
-
-    avg_disc_loss = disc_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
-    avg_gen_loss = gen_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Training avg loss: {avg_loss:.2f}.")
-    return avg_gen_loss, avg_disc_loss
+    return avg_loss
 
 
 def validation(model, dataloader, device, cfgs_train, metrics_names):
@@ -359,12 +319,11 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
     return avg_loss, metrics, metrics_ratio
 
 
-def clean_up_training(models, optimizers, name_extensions, dataloader, base_path: str, device: str):
+def clean_up_training(model, optimizer, dataloader, base_path: str, device: str):
     """Saves final model. Saves plot for fixed batch."""
 
-    for i in range(len(models)):
-        save_checkpoint(models[i], optimizers[i], f"{os.path.join(base_path, now_str)}_{name_extensions[i]}.pth")
-    _ = predict_fixed_batch(models[0], dataloader, device)
+    save_checkpoint(model, optimizer, f"{os.path.join(base_path, now_str)}.pth")
+    _ = predict_fixed_batch(model, dataloader, device)
     wandb.finish()
 
 
@@ -385,6 +344,7 @@ def initialize(sweep: bool, test: bool = False):
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
     wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
+                     f"_{all_cfgs[all_cfgs['model']]['norm_type']}" + \
                      f"_{all_cfgs['dataset']['area']}" + \
                      f"_{all_cfgs['dataset']['len']}" + \
                      f"_{all_cfgs['dataset']['random_subsets']}" + \
@@ -415,42 +375,28 @@ def main(sweep: Optional[bool] = False):
     torch.manual_seed(0)
 
     # simplify config access
-    model_types = all_cfgs["model"]
-    cfgs_gen = all_cfgs[model_types[0]]
-    cfgs_disc = all_cfgs[model_types[1]]
+    model_type = all_cfgs["model"]
+    cfgs_model = all_cfgs[model_type]
     cfgs_dataset = all_cfgs["dataset"]
     cfgs_train = all_cfgs["train"]
-    cfgs_gen_optimizer = all_cfgs["gen_optimizer"]
-    cfgs_disc_optimizer = all_cfgs["disc_optimizer"]
+    cfgs_optimizer = all_cfgs["optimizer"]
     cfgs_lr_scheduler = all_cfgs["train"]["lr_scheduler_configs"]
 
     # load training data
     train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
-    print(f"-> Model: {model_types}.")
+    print(f"-> Model: {model_type}.")
     print(f"-> Losses: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
-    generator = get_model(model_types[0], cfgs_gen, device)
-    discriminator = get_model(model_types[1], cfgs_disc, device)
-    gen_optimizer = get_optimizer(generator, cfgs_gen_optimizer["name"],
-                                  cfgs_gen_optimizer["parameters"],
-                                  lr=cfgs_train["learning_rate"])
-    disc_optimizer = get_optimizer(discriminator, cfgs_disc_optimizer["name"],
-                                   cfgs_disc_optimizer["parameters"],
-                                   lr=cfgs_train["learning_rate"])
+    model = get_model(model_type, cfgs_model, device)
+    optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
     if cfgs_lr_scheduler["value"]:
-        gen_lr_scheduler = get_scheduler(gen_optimizer, cfgs_lr_scheduler)
-        disc_lr_scheduler = get_scheduler(disc_optimizer, cfgs_lr_scheduler)
+        lr_scheduler = get_scheduler(optimizer, cfgs_lr_scheduler)
     if all_cfgs["load_from_chkpt"]["value"]:
-        gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                           all_cfgs["load_from_chkpt"]["generator_checkpoint"])
-        load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
-        disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                            all_cfgs["load_from_chkpt"]["discriminator_checkpoint"])
-        load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
+        checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
+        load_checkpoint(checkpoint_path, model, optimizer, cfgs_train["learning_rate"], device)
     else:
-        init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
-        init_weights(discriminator, init_type=cfgs_disc["init_type"], init_gain=cfgs_disc["init_gain"])
+        init_weights(model, init_type=cfgs_model["init_type"], init_gain=cfgs_model["init_gain"])
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
     train_losses, val_losses, lrs = list(), list(), list
@@ -458,50 +404,30 @@ def main(sweep: Optional[bool] = False):
         for epoch in range(1, cfgs_train["epochs"] + 1):
             print()
             to_log = dict()
-            to_log |= {"gen_lr": gen_optimizer.param_groups[0]["lr"],
-                       "disc_lr": disc_optimizer.param_groups[0]["lr"]}
+            to_log |= {"lr": optimizer.param_groups[0]["lr"]}
             cfgs_train["epoch"] = epoch
 
-            train_loss = train((generator, discriminator),
-                               (gen_optimizer, disc_optimizer),
-                               train_loader,
-                               device,
-                               cfgs_train)
+            train_loss = train(model, train_loader, device, optimizer, cfgs_train)
             train_losses.append(train_loss)
             to_log |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio = validation(generator,
-                                                              val_loader,
-                                                              device,
-                                                              cfgs_train,
-                                                              all_cfgs["metrics"])
+                val_loss, metrics, metrics_ratio = validation(model, val_loader, device, cfgs_train, all_cfgs["metrics"])
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
                 to_log |= metrics_ratio
             if cfgs_lr_scheduler["value"]:
-                gen_lr_scheduler.step(val_loss)
-                disc_lr_scheduler.step(val_loss)
+                lr_scheduler.step(val_loss)
 
-            if all_cfgs["save_model"] and epoch % 5 == 0:
-                gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{now_str}_gen.pth")
-                save_checkpoint(generator, gen_optimizer, gen_checkpoint_path)
-                disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{now_str}_disc.pth")
-                save_checkpoint(discriminator, disc_optimizer, disc_checkpoint_path)
-
-            visualisations = predict_fixed_batch(generator, fixed_batch_loader, device)
-            to_log |= visualisations
+            if epoch % 1 == 0 or epoch == 1:
+                visualisations = predict_fixed_batch(model, fixed_batch_loader, device)
+                to_log |= visualisations
 
             wandb.log(to_log)
 
     finally:
-        clean_up_training((generator, discriminator),
-                          (gen_optimizer, disc_optimizer),
-                          ("gen", "disc"),
-                          fixed_batch_loader,
-                          all_cfgs["save_base_path"],
-                          device)
+        clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs["save_base_path"], device)
 
 
 def test():

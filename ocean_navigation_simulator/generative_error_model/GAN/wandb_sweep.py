@@ -1,5 +1,5 @@
 import wandb
-from train_model import main
+from train_gan import main
 
 
 sweep_configuration = {

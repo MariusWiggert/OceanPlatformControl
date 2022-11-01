@@ -1,7 +1,6 @@
 from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import SimplexNoiseModel, HarmonicParameters
 from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
 from ocean_navigation_simulator.generative_error_model.utils import convert_degree_to_km
-from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.utils import timer
 
 from typing import List, Dict, Any, Optional

@@ -102,7 +102,7 @@ class BuoyForecastErrorNpy(Dataset):
                 fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
                 buoy_file_paths = sorted(glob.glob(f"{buoy_dir}/{area}/*.npy"))
                 if len(fc_file_paths) != len(buoy_file_paths):
-                    print("\n\nNumber of forecast and buoy files is different!\n\n")
+                    print("\nNumber of forecast and buoy files is different!\n")
                 self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
                 self.fc_file_paths.extend(fc_file_paths)
                 self.buoy_file_paths.extend(buoy_file_paths)
