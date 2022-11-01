@@ -113,6 +113,7 @@ class ArenaFactory:
                             "folder"
                         ],
                         t_interval=t_interval,
+                        region=config["ocean_dict"].get("area"),
                         throw_exceptions=True,
                         points=points,
                         verbose=verbose,
@@ -134,6 +135,7 @@ class ArenaFactory:
                             "folder"
                         ],
                         t_interval=t_interval,
+                        region=config["ocean_dict"].get("area"),
                         throw_exceptions=True,
                         points=points,
                         verbose=verbose,
