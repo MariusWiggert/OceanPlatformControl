@@ -24,23 +24,19 @@ from c3python import C3Python
 ### Getting C3 Object for data downloading ###
 def get_c3(verbose: Optional[int] = 0):
     """Helper function to get C3 object both on C3 cluster and locally access to the C3 Database"""
-    global c3
-    if "c3" in globals():
-        return c3
-    else:
-        KEYFILE = "setup/keys/c3-rsa-marius.pem"
-        USERNAME = "mariuswiggert@berkeley.edu"
-        if not hasattr(get_c3, "c3"):
-            with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
-                get_c3.c3 = C3Python(
-                    # Old Tag: url='https://dev01-seaweed-control.c3dti.ai', tag='dev01',
-                    url="https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud",
-                    tag="devseaweedrc1",
-                    tenant="seaweed-control",
-                    keyfile=KEYFILE,
-                    username=USERNAME,
-                ).get_c3()
-        return get_c3.c3
+    KEYFILE = "setup/keys/c3-rsa-marius.pem"
+    USERNAME = "mariuswiggert@berkeley.edu"
+    if not hasattr(get_c3, "c3"):
+        with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
+            get_c3.c3 = C3Python(
+                # Old Tag: url='https://dev01-seaweed-control.c3dti.ai', tag='dev01',
+                url="https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud",
+                tag="devseaweedrc1",
+                tenant="seaweed-control",
+                keyfile=KEYFILE,
+                username=USERNAME,
+            ).get_c3()
+    return get_c3.c3
 
 
 @contextlib.contextmanager

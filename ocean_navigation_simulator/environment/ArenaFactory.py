@@ -50,6 +50,7 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 10,
+        c3: Optional = None
     ) -> Arena:
         """
         If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files.
@@ -104,20 +105,8 @@ class ArenaFactory:
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
                 with timing("ArenaFactory: Download Hindcast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_required_files(
-                        archive_source=config["ocean_dict"]["hindcast"]["source_settings"][
-                            "source"
-                        ],
-                        archive_type=config["ocean_dict"]["hindcast"]["source_settings"]["type"],
-                        download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
-                            "folder"
-                        ],
-                        t_interval=t_interval,
-                        region=config["ocean_dict"].get("area"),
-                        throw_exceptions=True,
-                        points=points,
-                        verbose=verbose,
-                    )
+                    ArenaFactory.download_files(config=config, type="hindcast",
+                                                t_interval=t_interval, points=points, verbose=verbose, c3=c3)
 
             # Step 6: Download Forecast
             if (
@@ -126,20 +115,8 @@ class ArenaFactory:
                 and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
                 with timing("ArenaFactory: Download Forecast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_required_files(
-                        archive_source=config["ocean_dict"]["forecast"]["source_settings"][
-                            "source"
-                        ],
-                        archive_type=config["ocean_dict"]["forecast"]["source_settings"]["type"],
-                        download_folder=config["ocean_dict"]["forecast"]["source_settings"][
-                            "folder"
-                        ],
-                        t_interval=t_interval,
-                        region=config["ocean_dict"].get("area"),
-                        throw_exceptions=True,
-                        points=points,
-                        verbose=verbose,
-                    )
+                    ArenaFactory.download_files(config=config, type="forecast",
+                                                t_interval=t_interval, points=points, verbose=verbose, c3=c3)
 
             # Step 7: Create Arena
             return Arena(
@@ -152,6 +129,25 @@ class ArenaFactory:
                 spatial_boundary=config["spatial_boundary"],
             )
 
+    @staticmethod
+    def download_files(config, type, t_interval, points, verbose, c3=None):
+        """Helper method to be run in C3 context manager."""
+        ArenaFactory.download_required_files(
+            archive_source=config["ocean_dict"][type]["source_settings"][
+                "source"
+            ],
+            archive_type=config["ocean_dict"][type]["source_settings"]["type"],
+            download_folder=config["ocean_dict"][type]["source_settings"][
+                "folder"
+            ],
+            t_interval=t_interval,
+            region=config["ocean_dict"]["area"],
+            throw_exceptions=True,
+            points=points,
+            verbose=verbose,
+            c3=c3
+        )
+
     # TODO: automatically select best region depending on given points
     @staticmethod
     def download_required_files(
@@ -163,6 +159,7 @@ class ArenaFactory:
         points: Optional[List[SpatialPoint]] = None,
         throw_exceptions: bool = False,
         verbose: Optional[int] = 10,
+        c3: Optional = None,
     ) -> int:
         """
         helper function for thread-safe download of available current files from c3
@@ -175,6 +172,7 @@ class ArenaFactory:
             points: List of SpatialPoints to check for file coverage
             throw_exceptions: throw exceptions for missing or corrupted files
             verbose: silence print statements with 0
+            c3: c3 object can be passed in directly, if not a c3 object is created
         Returns:
             amount of files found
         Examples:
@@ -192,6 +190,7 @@ class ArenaFactory:
             region=region,
             t_interval=t_interval,
             verbose=verbose,
+            c3=c3
         )
 
         # Step 2: Check File Count
@@ -235,6 +234,7 @@ class ArenaFactory:
             download_folder=download_folder,
             throw_exceptions=throw_exceptions,
             verbose=verbose,
+            c3=c3
         )
 
         return files.count
@@ -246,6 +246,7 @@ class ArenaFactory:
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
         verbose: Optional[int] = 10,
+        c3: Optional = None
     ):
         """
         helper function to get a list of available files from c3
@@ -286,7 +287,8 @@ class ArenaFactory:
             raise ValueError(f"Region {region} invalid.")
 
         # Step 2: Find c3 type
-        c3 = get_c3(verbose - 1)
+        if c3 is None:
+            c3 = get_c3(verbose - 1)
         archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
         c3_file_type = getattr(
             c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
@@ -310,9 +312,10 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10):
+    def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10, c3: Optional = None):
         """thread-safe download with corruption and file size check"""
-        c3 = get_c3(verbose - 1)
+        if c3 is None:
+            c3 = get_c3(verbose - 1)
 
         # Step 1: Sanitize Inputs
         if not download_folder.endswith("/"):
