@@ -653,7 +653,7 @@ class HJPlannerBase(Controller):
         self.nondim_dynamics.offset_vec = self.offset_vec
 
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
-        self.logger.debug("HJPlannerBase: Cache Size ", hj.solver._solve._cache_size())
+        self.logger.debug("HJPlannerBase: Cache Size " + str(hj.solver._solve._cache_size()))
         hj.solver._solve._clear_cache()
         # xla._xla_callable.cache_clear()
 

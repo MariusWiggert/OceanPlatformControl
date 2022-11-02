@@ -45,7 +45,6 @@ from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseF
 # Via diff in pandas and checking if consistent
 # TODO: NaN handling as obstacles in the HJ planner would be really useful! (especially for analytical!)
 # TODO: Does not work well yet for getting the most recent forecast point data (because needs to load casadi in)
-# TODO: Clean up the mess with get_data_at_point, maybe by checking if caching function exists or not?
 # Note: Error files from generated noise from jonas reading is a hack right now, need to change that!
 
 
@@ -241,6 +240,9 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
+        # Step 0: enforce timezone aware datetime objects
+        t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
+
         # Step 1: Subset and interpolate the xarray accordingly in the DataSource Class
         subset = super().get_data_over_area(
             x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
@@ -258,8 +260,16 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         return dataframe
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
-        data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
-        return OceanCurrentVector(u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item())
+        # if caching function exists, use that for faster point data access
+        if self.u_curr_func is not None:
+            return OceanCurrentVector(
+                u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            )
+        # otherwise use the general xarray interpolation function (slower)
+        else:
+            data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
+            return OceanCurrentVector(u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item())
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
@@ -295,19 +305,13 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         temporal_resolution: Optional[float] = None,
         most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
     ) -> xr:
-        # format to datetime object
-        if not isinstance(t_interval[0], datetime.datetime):
-            t_interval = [
-                datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
-                for time in t_interval
-            ]
+        # Step 0: enforce timezone aware datetime objects
+        t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
+
         # Step 1: Make sure we use the right forecast either most_recent_fmrc_at_time or default t_interval[0]
         self.check_for_most_recent_fmrc_dataframe(
             most_recent_fmrc_at_time if most_recent_fmrc_at_time is not None else t_interval[0]
         )
-
-        for idx in range(len(t_interval)):
-            t_interval[idx] = ForecastFileSource.make_datetime_timezone_aware(t_interval[idx])
 
         # Step 2: Return Subset
         return super().get_data_over_area(
@@ -378,7 +382,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         # Step 1: get the dictionary of all files from the specific folder
         self.files_dicts = get_file_dicts(
             source_config_dict["source_settings"]["folder"],
-            source_config_dict["source_settings"]["currents"],
+            source_config_dict["source_settings"].get("currents", "total"),
         )
 
         # Step 2: open the respective file as multi dataset
@@ -394,44 +398,15 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
 
 
-class ForecastFromHindcastSource(HindcastFileSource):
-    """Takes a hindcast file source and ensures that it is 5 days long and always starts at noon."""
-
-    def __init__(self, source_config_dict: dict):
-        super().__init__(source_config_dict)
-
-    def get_data_over_area(
-        self,
-        x_interval: List[float],
-        y_interval: List[float],
-        t_interval: List[datetime.datetime],
-        spatial_resolution: Optional[float] = None,
-        temporal_resolution: Optional[float] = None,
-    ) -> xr:
-        # Step 1: Ensure output is 5 days long and starts at noon.
-        hours = int(t_interval[0].strftime("%H"))
-        if hours >= 12:
-            t_interval[0] = t_interval[0].replace(hour=12)
-            t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
-        else:
-            t_interval[0] = t_interval[0].replace(hour=12) + datetime.timedelta(days=-1)
-            t_interval[1] = t_interval[0] + datetime.timedelta(days=5)
-
-        for idx in range(len(t_interval)):
-            t_interval[idx] = ForecastFromHindcastSource.make_datetime_timezone_aware(t_interval[idx])
-
-        # Step 2: Return Subset
-        return super().get_data_over_area(
-            x_interval,
-            y_interval,
-            t_interval,
-            spatial_resolution=spatial_resolution,
-            temporal_resolution=temporal_resolution,
-        )
-
-
 class GroundTruthFromNoise(OceanCurrentSource):
-    def __init__(self, seed: int, params_path: str, hindcast_data_source):
+    """DataSource to add Noise to a Hindcast Data Source to model forecast error with fine-grained currents."""
+    def __init__(self, seed: int, params_path: str, hindcast_data_source: DataSource):
+        """Args:
+              seed: integer as the random seed to the noise model (to generate diverse noise that is reproducible)
+              params_path: path to the npy file where the noise model parameters are stored
+               e.g. "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+              hindcast_data_source: data source to which the generative noise is added
+        """
         self.hindcast_data_source = hindcast_data_source
 
         # initialize NoiseField
@@ -448,14 +423,17 @@ class GroundTruthFromNoise(OceanCurrentSource):
         temporal_resolution: Optional[float] = None,
     ) -> xr.Dataset:
 
-        for idx in range(len(t_interval)):
-            t_interval[idx] = GroundTruthFromNoise.make_datetime_timezone_aware(t_interval[idx])
+        # Step 0: enforce timezone aware datetime objects
+        t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
 
+        # Step 1: get hindcast dataframe
         ds = self.hindcast_data_source.get_data_over_area(
             x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
         )
-
+        # Step 2: get noise df for the same lon, lat, time grid
         additive_noise = self.noise.get_noise(ds["lon"].values, ds["lat"].values, ds["time"].values)
+
+        # Step 3: return dataframe with added noise
         return ds + additive_noise
 
 
@@ -509,7 +487,7 @@ def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
     return list_of_dicts
 
 
-def format_xarray(data_frame: xr, currents: AnyStr = "normal") -> xr:
+def format_xarray(data_frame: xr, currents: AnyStr = "total") -> xr:
     """Helper Function to format Data Arrays consistently.
     Args:
           data_frame: data_frame object
@@ -542,7 +520,7 @@ def format_xarray(data_frame: xr, currents: AnyStr = "normal") -> xr:
         )
 
 
-def get_grid_dict_from_file(file: AnyStr, currents="normal") -> dict:
+def get_grid_dict_from_file(file: AnyStr, currents="total") -> dict:
     """Helper function to create a grid dict from a local nc3 file."""
     f = format_xarray(xr.open_dataset(file), currents=currents)
     # get the time coverage in POSIX

@@ -106,9 +106,13 @@ class DataSource(abc.ABC):
         self.initialize_casadi_functions(grid, xarray)
 
     @staticmethod
-    def make_datetime_timezone_aware(time: datetime.datetime):
-        """Takes a datetime object and makes it timezone-aware by setting it to be in UTC."""
-        return pytz.utc.localize(time)
+    def enforce_utc_datetime_object(time: Union[datetime.datetime, int]):
+        """Takes a datetime object or posix timestamp and makes it timezone-aware by setting it to be in UTC."""
+        # format to datetime object
+        if not isinstance(time, datetime.datetime):
+            return datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+        else:
+            return pytz.utc.localize(time)
 
     @staticmethod
     def convert_to_x_y_time_bounds(
