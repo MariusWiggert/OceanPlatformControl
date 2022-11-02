@@ -470,7 +470,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
             x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
         )
         # Step 2: get noise df for the same lon, lat, time grid
-        additive_noise = self.noise.get_noise(ds["lon"].values, ds["lat"].values, ds["time"].values)
+        additive_noise = self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
 
         # Step 3: return dataframe with added noise
         return ds + additive_noise

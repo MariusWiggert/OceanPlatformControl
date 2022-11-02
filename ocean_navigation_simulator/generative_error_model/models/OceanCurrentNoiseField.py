@@ -3,9 +3,8 @@ from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel 
     HarmonicParameters,
 )
 from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
-from ocean_navigation_simulator.utils import units
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import xarray as xr
 import datetime
 import numpy as np
@@ -34,28 +33,74 @@ class OceanCurrentNoiseField(GenerativeModel):
         """Initializes the simplex noise with a new random number generator."""
         self.model.reset(rng)
 
-    def get_noise(
+    def get_noise_from_ranges(self,
+                              x_interval: List[float],
+                              y_interval: List[float],
+                              t_interval: List[datetime.datetime],
+                              spatial_resolution: Optional[float] = None,
+                              temporal_resolution: Optional[float] = None
+                              ) -> xr.Dataset:
+        """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
+        Parameters:
+            spatial_resolution - in degrees
+            temporal_resolution - in hours
+        """
+
+        if temporal_resolution is None:
+            lon_res, lat_res, = 1/12, 1/12
+        else:
+            lon_res, lat_res = spatial_resolution, spatial_resolution
+
+        if spatial_resolution is None:
+            t_res = 1
+        else:
+            t_res = temporal_resolution
+        lon_range, lat_range, t_range = x_interval, y_interval, t_interval
+
+        # Drop timezome from datetime
+        t_range[0] = t_range[0].replace(tzinfo=None)
+        t_range[1] = t_range[1].replace(tzinfo=None)
+
+        # Create axis locations. Time is taken relative to first timestamp, spatial axis are global.
+        lon_locs = np.arange(lon_range[0], lon_range[1] + lon_res, lon_res)
+        lat_locs = np.arange(lat_range[0], lat_range[1] + lat_res, lat_res)
+        t_locs = np.array(timedelta_range_hours(datetime.timedelta(hours=0),
+                                                t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
+                                                t_res))
+        t_locs = np.array([np.timedelta64(timedelta) for timedelta in t_locs])
+
+        return self.get_noise(lon_locs, lat_locs, t_locs, t_range[0])
+
+    def get_noise_from_axes(
         self, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: np.ndarray
     ) -> xr.Dataset:
-        """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
-        Assumes the origin is positioned in top left corner at timedelta=0 hrs."""
+        """Uses the SimplexNoiseModel to produce a noise field over the specified axes arrays."""
 
-        # create axis steps
-        lon_locs = np.array([lon_val - lon_axis[0] for lon_val in lon_axis])
-        lat_locs = np.array([lat_val - lat_axis[0] for lat_val in lat_axis])
+        # make time relative to first time step.
         t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis])
 
-        # get a row of const lat and varying lon and time.
-        # Need to convert from degrees to km first. Can't sample all position at once because degree space
-        # is not Euclidean and opensimplex only allows for axis sampling. Therefore, sample one plane of lon
-        # and time pairs at a time for which lat is const.
-        noise = np.zeros((len(t_locs), len(lat_locs), len(lon_locs), 2), dtype=np.single)
+        return self.get_noise(lon_axis, lat_axis, t_locs, t_axis[0])
+
+    def get_noise(self,
+                  lon_locs: np.ndarray,
+                  lat_locs: np.ndarray,
+                  t_locs: np.ndarray,
+                  t_origin: datetime.datetime):
+
+        """This method iteratively gets a slice of constant lat and varying lon and time with every iteration.
+        Cannot sample all positions at once because degree-space is not Euclidean and OpenSimplex only allows
+        for axis sampling.
+        Therefore, the method samples one (2D) slice of lon and time pairs at a time for which lat is constant.
+        Convert from degrees to km first before passing into get_noise method."""
+
+        noise = np.zeros((len(t_locs), len(lat_locs), len(lon_locs), 2))
         for i, lat_loc in enumerate(lat_locs):
             # constant latitude for conversion of lon values
             lat_pos = np.full(len(lon_locs), lat_loc)
-            x_km, y_km = convert_degree_to_km(lon_locs - lon_axis[0], lat_pos - lat_axis[0])
+            x_km, y_km = convert_degree_to_km(lon_locs, lat_pos)
             y_km = np.array([y_km[0]])
 
+            # return noise of shape [time, lat, lon, current_component]
             noise[:, i, :, :] = np.squeeze(self.model.get_noise(x_km, y_km, t_locs), axis=1)
 
         # reintroduce trends into error
@@ -65,20 +110,23 @@ class OceanCurrentNoiseField(GenerativeModel):
         noise[:, :, :, 1] = (
             noise[:, :, :, 1] * self.detrend_statistics[1, 1] + self.detrend_statistics[1, 0]
         )
-
-        return self._create_xarray(noise, lon_axis, lat_axis, t_axis)
+        return self._create_xarray(noise, lon_locs, lat_locs, t_locs, t_origin)
 
     @staticmethod
     def _create_xarray(
-        data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: np.ndarray
-    ):
+        data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: np.ndarray, t_start: datetime.datetime
+    ) -> xr.Dataset:
 
         ds = xr.Dataset(
             data_vars=dict(
                 water_u=(["time", "lat", "lon"], data[:, :, :, 0]),
                 water_v=(["time", "lat", "lon"], data[:, :, :, 1]),
             ),
-            coords=dict(time=t_axis, lat=lat_axis, lon=lon_axis),
+            coords=dict(
+                time=datetime_range_from_timedeltas(t_start, t_axis.tolist()),
+                lat=lat_axis,
+                lon=lon_axis
+            ),
             attrs=dict(description="An ocean current error sample over time and space."),
         )
         return ds
@@ -101,26 +149,19 @@ def timedelta_to_hours(timedelta: datetime.timedelta):
 
 
 def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair in km.
-    Note: e.g. pts1 -> np.array([lon, lat])."""
+    """Takes two sets of points, each with a lat and lon degree, and computes the distance between each pair and
+    the origin ([0, 0] degrees) in km."""
+    lon = lon + 180
     # https://stackoverflow.com/questions/24617013/convert-latitude-and-longitude-to-x-and-y-grid-system-using-python
     x = lon * 40075.2 * np.cos(lat * np.pi / 360) / 360
     y = lat * (39806.64 / 360)
     return x, y
 
 
-def test():
-    params_path = "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
-    parameters = np.load(params_path, allow_pickle=True)
+def main():
+    params_path = "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
 
-    # define the components instead of receiving them from OceanCurrentNoiseField
-    harmonic_params = {
-        "U_COMP": parameters.item().get("U_COMP"),
-        "V_COMP": parameters.item().get("V_COMP"),
-    }
-    detrend_stats = parameters.item().get("detrend_metrics")
-
-    noise_field = OceanCurrentNoiseField(harmonic_params, np.array(detrend_stats))
+    noise_field = OceanCurrentNoiseField.load_config_from_file(params_path)
     rng = np.random.default_rng(21)  # try different seeds to see if deterministic
     noise_field.reset(rng)
 
@@ -132,8 +173,8 @@ def test():
         datetime.datetime(2022, 6, 2, 12, 30, 0),
     ]
     # get the noise
-    print(noise_field.get_noise(lon_interval, lat_interval, t_interval))
+    print(noise_field.get_noise_from_ranges(lon_interval, lat_interval, t_interval))
 
 
 if __name__ == "__main__":
-    test()
+    main()
