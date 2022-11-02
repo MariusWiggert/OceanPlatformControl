@@ -21,7 +21,6 @@ class NavigationProblem(Problem):
     end_region: SpatialPoint
     target_radius: float
     timeout: datetime.timedelta = None
-    platform_dict: dict = None
     x_range: List = None
     y_range: List = None
     extra_info: dict = None

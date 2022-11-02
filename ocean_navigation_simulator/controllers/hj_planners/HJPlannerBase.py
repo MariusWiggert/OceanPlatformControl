@@ -6,7 +6,7 @@ import time
 from bisect import bisect
 from datetime import datetime, timezone
 from functools import partial
-from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
+from typing import AnyStr, Callable, List, Optional, Tuple, Union
 
 # Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
@@ -46,7 +46,7 @@ class HJPlannerBase(Controller):
         See Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = None):
+    def __init__(self, problem: NavigationProblem, specific_settings: dict):
         """
         Constructor for the HJ Planner Baseclass.
         Args:
@@ -74,29 +74,7 @@ class HJPlannerBase(Controller):
                     If False then the coordinate system and speeds of the agent are in m/s.
         """
         super().__init__(problem)
-        self.specific_settings = {
-            "replan_on_new_fmrc": True,
-            "replan_every_X_seconds": None,
-            "direction": "multi-time-reach-back",
-            "n_time_vector": 199,
-            # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-            "deg_around_xt_xT_box": 4.0,  # area over which to run HJ_reachability
-            "accuracy": "high",
-            "artificial_dissipation_scheme": "local_local",
-            "T_goal_in_seconds": problem.timeout.total_seconds(),
-            # the maximum allowed time for the navigation problem
-            "use_geographic_coordinate_system": True,
-            "progress_bar": True,
-            "initial_set_radii": [problem.target_radius, problem.target_radius],
-            # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
-            # Note: grid_res should always be SMALLER than initial_set_radii, otherwise reachability behaves weirdly.
-            "grid_res": 0.04,
-            # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-            "d_max": 0.0,
-            # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
-            # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
-            "platform_dict": problem.platform_dict,
-        } | specific_settings
+        self.specific_settings = specific_settings
 
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
