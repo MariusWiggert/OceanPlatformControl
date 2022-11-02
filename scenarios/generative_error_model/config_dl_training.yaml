@@ -1,12 +1,14 @@
-model: "generator"
-dataset_type: "forecasthindcast"
-wandb_mode: "online"
+model: ["generator", "discriminator"]
+save_model: True
+dataset_type: "forecastbuoy"
+wandb_mode: "offline"
 save_base_path: "data/drifter_data/models"
-metrics: ["rmse", "vector_correlation", "ssim"]
+metrics: ["rmse", "vector_correlation"]
 
 load_from_chkpt:
   value: False
-  file_name: "2022-10-19_16:40:48.pth"
+  generator_checkpoint: ""
+  discriminator_checkpoint: ""
 
 #unet:
 #  in_channels: 2
@@ -18,19 +20,41 @@ generator:
   in_channels: 2
   out_channels: 2
   features: 64
-  dropout: False
+  dropout: True
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
+
+gen_optimizer:
+  name: "Adam"
+  parameters:
+#    betas: [0.95, 0.9995]
+    betas: [0.5, 0.999]
+    eps: 0.00001
+    weight_decay: 0.0003
+
+discriminator:
+  in_channels: 2
+  features: [64, 128, 256, 512]
+  init_type: "xavier"
+  init_gain: 1.0
+  norm_type: "batch"
+
+disc_optimizer:
+  name: "Adam"
+  parameters:
+#    betas: [0.95, 0.9995]
+    betas: [0.5, 0.999]
+    eps: 0.00001
+    weight_decay: 0.0003
 
 train:
   batch_size: 32
   test_batch_size: 32
   epochs: 30
   loss:
-    # choice: l1, mse, sparse_mse, total_variation, mass_conservation
-    types: [ "l1" ]
-    weighting: [ 1 ]
+    types: [ "G_GAN", "G_L1", "D_real", "D_fake" ]
+    weighting: [ 1, 100, 1, 1 ]
   learning_rate: 0.0001
   lr_scheduler_configs:
     value: True
@@ -40,22 +64,13 @@ train:
     threshold: 0.0001
     patience: 3
 
-optimizer:
-  name: "Adam"
-  parameters:
-#    betas: [0.95, 0.9995]
-    betas: [0.5, 0.999]
-    eps: 0.00001
-    weight_decay: 0.0003
-
 dataset:
   forecasts: "data/drifter_data/forecasts_preprocessed"
   hindcasts: "data/drifter_data/hindcasts_preprocessed"
-  ground_truth: "data/drifter_data/dataset_forecast_error/area1"
-  sparse_type: "forecast"
+  ground_truth: "data/drifter_data/buoy_preprocessed"
   area: ["area1"]
-  shuffle: True
-  len: 12000   # None
-  split: [0.95, 0.025, 0.025]
+  shuffle: False
+  len: 100   # None
+  split: [0.8, 0.1, 0.1]
   random_subsets: False  # if len < len(dataset) how to choose subsets?
   concat_len: 1
