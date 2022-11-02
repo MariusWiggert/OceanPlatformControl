@@ -139,8 +139,8 @@ class OceanCurrentNoiseField(GenerativeModel):
 
         ds = xr.Dataset(
             data_vars=dict(
-                u_error=(["time", "lat", "lon"], data[:, :, :, 0]),
-                v_error=(["time", "lat", "lon"], data[:, :, :, 1]),
+                water_u=(["time", "lat", "lon"], data[:, :, :, 0]),
+                water_v=(["time", "lat", "lon"], data[:, :, :, 1]),
             ),
             coords=dict(
                 time=datetime_range_from_timedeltas(t_start, t_locs),
