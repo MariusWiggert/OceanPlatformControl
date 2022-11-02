@@ -4,10 +4,7 @@ import time
 
 import yaml
 
-from ocean_navigation_simulator.problem_factories.Constructor import (
-    Constructor,
-)
-
+from ocean_navigation_simulator.problem_factories.Constructor import Constructor
 # %% configs
 observer_config = {
     "observer": {

@@ -62,6 +62,8 @@ class Constructor:
         # Create observer from config
         self.observer = self.__observer_constructor()
 
+        self.__problem_constructor()
+
     def __problem_constructor(self) -> Type[Problem]:
         """Constructs and returns problem depending on objective and mission
 
@@ -76,8 +78,6 @@ class Constructor:
         X_0 = []
 
         for x in self.mission_conf["x_0"]:
-            print(type(x["lon"]))
-
             X_0.append(
                 PlatformState(
                     lon=units.Distance(deg=x["lon"]),
