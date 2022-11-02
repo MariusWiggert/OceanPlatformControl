@@ -111,8 +111,9 @@ class DataSource(abc.ABC):
         # format to datetime object
         if not isinstance(time, datetime.datetime):
             return datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
-        else:
-            return pytz.utc.localize(time)
+        elif time.tzinfo is None:
+            return time.replace(tzinfo=datetime.timezone.utc)
+        return time
 
     @staticmethod
     def convert_to_x_y_time_bounds(
@@ -234,8 +235,7 @@ class DataSource(abc.ABC):
         """
 
         # format to datetime object
-        if not isinstance(time, datetime.datetime):
-            time = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+        time = self.enforce_utc_datetime_object(time=time)
 
         # Step 1: get the area data
         area_xarray = self.get_data_over_area(

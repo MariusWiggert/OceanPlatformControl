@@ -398,6 +398,44 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
 
 
+class ForecastFromHindcastSource(HindcastFileSource):
+    """Takes a hindcast source and ensures that it starts at 12 o'clock utc and is forecast_length_in_days long."""
+
+    def __init__(self, source_config_dict: dict):
+        super().__init__(source_config_dict)
+        self.forecast_length_in_days = source_config_dict['forecast_length_in_days']
+
+    def get_data_over_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[datetime.datetime],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+    ) -> xr:
+        # Step 0: enforce timezone aware datetime objects
+        t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
+
+        # Step 1: edit t_interval to ensure output is forecast_length_in_days days long and starts at noon.
+        # If hours > 12 then we set the start time back to 12 o'clock
+        if int(t_interval[0].strftime("%H")) >= 12:
+            t_interval[0] = t_interval[0].replace(hour=12)
+        # If hours < 12 we go one day back and set the time to 12 o'clock
+        else:
+            t_interval[0] = t_interval[0].replace(hour=12) - datetime.timedelta(days=1)
+        # add the forecast_length_in_days for the final time
+        t_interval[1] = t_interval[0] + datetime.timedelta(days=self.forecast_length_in_days)
+
+        # Step 2: Return Subset
+        return super().get_data_over_area(
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution=spatial_resolution,
+            temporal_resolution=temporal_resolution,
+        )
+
+
 class GroundTruthFromNoise(OceanCurrentSource):
     """DataSource to add Noise to a Hindcast Data Source to model forecast error with fine-grained currents."""
     def __init__(self, seed: int, params_path: str, hindcast_data_source: DataSource):
@@ -408,6 +446,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
               hindcast_data_source: data source to which the generative noise is added
         """
         self.hindcast_data_source = hindcast_data_source
+        self.source_config_dict = hindcast_data_source.source_config_dict
 
         # initialize NoiseField
         self.noise = OceanCurrentNoiseField.load_config_from_file(params_path)
