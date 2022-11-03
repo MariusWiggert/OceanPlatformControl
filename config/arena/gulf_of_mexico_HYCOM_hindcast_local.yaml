@@ -16,13 +16,21 @@ use_geographic_coordinate_system: True
 spatial_boundary: null
 
 ocean_dict:
+    area: "GOM"
     hindcast:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: "data/hindcast_test/"
+            source: "HYCOM"
+            type: "hindcast"
+            folder: "data/hindcast_test_download/"
     forecast:
-        null
+        field: 'OceanCurrents'
+        source: 'forecast_files'
+        source_settings:
+            source: "Copernicus"
+            type: "forecast"
+            folder: "data/cop_forecast_download/"
 
 solar_dict:
     hindcast: null

@@ -315,7 +315,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """Helper Function to load an OceanCurrent object."""
         self.DataArray = format_xarray(
             data_frame=xr.open_dataset(self.files_dicts[self.rec_file_idx]["file"]),
-            currents=self.source_config_dict["source_settings"].get("currents", "normal"),
+            currents=self.source_config_dict["source_settings"].get("currents", "total"),
         )
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
@@ -446,7 +446,7 @@ def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
     return list_of_dicts
 
 
-def format_xarray(data_frame: xr, currents: AnyStr = "normal") -> xr:
+def format_xarray(data_frame: xr, currents: AnyStr = "total") -> xr:
     """Helper Function to format Data Arrays consistently.
     Args:
           data_frame: data_frame object
@@ -479,7 +479,7 @@ def format_xarray(data_frame: xr, currents: AnyStr = "normal") -> xr:
         )
 
 
-def get_grid_dict_from_file(file: AnyStr, currents="normal") -> dict:
+def get_grid_dict_from_file(file: AnyStr, currents="total") -> dict:
     """Helper function to create a grid dict from a local nc3 file."""
     f = format_xarray(xr.open_dataset(file), currents=currents)
     # get the time coverage in POSIX
