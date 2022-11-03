@@ -288,6 +288,15 @@ class Arena:
         else:
             return False
 
+    def final_distance_to_target(self, problem: NavigationProblem) -> float:
+        # Step 1: calculate min distance
+        total_distance = problem.distance(PlatformState.from_numpy(self.state_trajectory[-1, :])).deg
+        min_distance_to_target = total_distance - problem.target_radius
+        # Step 2: Set 0 when inside and the distance when outside
+        if min_distance_to_target <= 0:
+            min_distance_to_target = 0.0
+        return min_distance_to_target
+
     @staticmethod
     def format_timeout(timeout) -> Union[datetime.timedelta, None]:
         """Helper function because we want timeout to be able to be from a dict/string."""

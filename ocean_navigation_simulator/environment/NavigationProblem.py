@@ -24,7 +24,7 @@ class NavigationProblem(Problem):
     y_range: List = None
     extra_info: dict = None
 
-    def distance(self, state: PlatformState) -> float:
+    def distance(self, state: PlatformState) -> units.Distance:
         return self.end_region.distance(state.to_spatial_point())
 
     def angle(self, state: PlatformState) -> float:
