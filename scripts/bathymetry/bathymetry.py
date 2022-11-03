@@ -33,11 +33,18 @@ def format_spatial_resolution(
     return xarray_new
 
 
-def coarsen(filename: str) -> xr.Dataset():
+def coarsen(filename: str, res_lat: float, res_lon: float) -> xr.Dataset():
     """Generate a coarsened global bathymetry map. Resolution: 1/12 degree."""
     ds = xr.open_dataset(filename, chunks={"lat": 8640, "lon": 4320})
     ds["elevation"] = ds["elevation"].astype("float32")
-    coarsened = ds.coarsen(lat=20, lon=20, boundary="exact").mean()
+
+    # Resolution gebco = 1/240 th degree = 1/4 min
+    # To get to e.g. 1/12 degree resolution, we need to combine 1/12 * 240 = 20 points in one
+    # TODO: how to inform about rounding in case we need to round?
+    lat_coarsening = np.rint(res_lat * 240)
+    lon_coarsening = np.rint(res_lon * 240)
+    # TODO: how to do the coord_func ? mean, max, ...? Why apply mean at end instead of max in function
+    coarsened = ds.coarsen(lat=lat_coarsening, lon=lon_coarsening, boundary="exact").mean()
     coarsened = coarsened.compute()
     return coarsened
 
@@ -124,19 +131,14 @@ def plot_bathymetry_orthographic(
 
 def generate_global_bathymetry_maps(filename, res_lat, res_lon):
     # , depth_min, depth_decomposition):
-    f_original = xr.open_dataset(filename)
-    f = coarsen(f_original)
-    # TODO: represent res_lon, res_lat as well
-    f.to_netcdf("data/bathymetry/bathymetry_global_downsampled.nc")
+    high_res = xr.open_dataset(filename)
+    low_res = coarsen(high_res, res_lat, res_lon)
+    low_res.to_netcdf(f"data/bathymetry/bathymetry_global_res_{res_lat:.3f}_{res_lon:.3f}.nc")
 
 
 if __name__ == "__main__":
-    # Load netcdf file
-    # file = (
-    #     "data/bathymetry/GEBCO_11_Oct_2022_b9b140021f06/gebco_2022_n24.0_s18.0_w-163.0_e-153.0.nc"
-    # )
-    gebco_global_fname = "data/bathymetry/GEBCO_2022.nc"
-    arr = coarsen(gebco_global_fname)
+    gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
+    arr = coarsen(gebco_global_filename)
 
     # generate_global_bathymetry_maps(gebco_global_fname, 1 / 12, 1 / 12)
 
@@ -147,9 +149,6 @@ if __name__ == "__main__":
     # print(y_range, x_range)
     # print(f.sel(lat=slice(20, 21)))
 
-    # f = format_spatial_resolution(f)
-    # # print(f_new_res)
-
     # depth_min = -30
     # depth_decomposition = -1500
 
@@ -157,16 +156,3 @@ if __name__ == "__main__":
     # area_forbidden = f.variables["elevation"] > depth_min
     # area_floatable = np.logical_not(f.variables["elevation"])
     # area_decomposition = f.variafilenamebles["elevation"] < -1500
-
-    # res_lat = 1 / 12
-    # res_lon = 1 / 12
-    # gebco_global_fname = "data/bathymetry/GEBCO_2022.nc"
-    # # generate_global_bathymetry_maps(
-    # #     gebco_global_fname, res_lat, res_lon
-    # # )  # , depth_min, depth_decomposition)
-
-    # f = xr.open_dataset(gebco_global_fname)
-    # print(f)
-    # print(len(f.variables["lat"]))
-
-    # print("Done")
