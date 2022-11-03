@@ -127,6 +127,7 @@ class ArenaFactory:
                 solar_dict=config["solar_dict"],
                 seaweed_dict=config["seaweed_dict"],
                 spatial_boundary=config["spatial_boundary"],
+                timeout=config.get('timeout', None),
             )
 
     @staticmethod

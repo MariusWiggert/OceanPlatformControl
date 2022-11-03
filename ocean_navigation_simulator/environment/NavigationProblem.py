@@ -20,13 +20,9 @@ class NavigationProblem(Problem):
     start_state: PlatformState
     end_region: SpatialPoint
     target_radius: float
-    timeout: datetime.timedelta = None
     x_range: List = None
     y_range: List = None
     extra_info: dict = None
-
-    def passed_seconds(self, state: PlatformState) -> float:
-        return (state.date_time - self.start_state.date_time).total_seconds()
 
     def distance(self, state: PlatformState) -> float:
         return self.end_region.distance(state.to_spatial_point())
@@ -35,9 +31,7 @@ class NavigationProblem(Problem):
         return self.end_region.angle(state.to_spatial_point())
 
     def is_done(self, state: PlatformState) -> int:
-        if self.passed_seconds(state) >= self.timeout.total_seconds():
-            return -1
-        elif state.distance(self.end_region).deg <= self.target_radius:
+        if state.distance(self.end_region).deg <= self.target_radius:
             return 1
         return 0
 
@@ -79,7 +73,6 @@ class NavigationProblem(Problem):
                 lat=units.Distance(deg=mission["x_T_lat"]),
             ),
             target_radius=mission["target_radius"],
-            timeout=datetime.timedelta(hours=mission["timeout_in_h"]),
             x_range=[
                 units.Distance(deg=mission["x_range_l"]),
                 units.Distance(deg=mission["x_range_h"]),
@@ -104,7 +97,6 @@ class NavigationProblem(Problem):
                 "x_T_lon": self.end_region.lon.deg,
                 "x_T_lat": self.end_region.lat.deg,
                 "target_radius": self.target_radius,
-                "timeout_in_h": self.timeout.total_seconds() / 3600,
             }
             | (
                 {
@@ -131,6 +123,5 @@ class NavigationProblem(Problem):
             e=self.end_region,
             ot=self.extra_info["optimal_time_in_h"]
             if "optimal_time_in_h" in self.extra_info
-            else float("inf"),
-            t=self.timeout.total_seconds() / 3600,
+            else float("inf")
         )

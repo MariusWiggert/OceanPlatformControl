@@ -2,6 +2,8 @@ casadi_cache_dict:
     deg_around_x_t: 0.5
     time_around_x_t: 172800. # 3600 * 24 * 5
 
+timeout: 172800 # in seconds, here 3600 * 24 * 5
+
 platform_dict:
     battery_cap_in_wh: 400.0
     u_max_in_mps: 0.1
@@ -23,14 +25,8 @@ ocean_dict:
         source_settings:
             source: "HYCOM"
             type: "hindcast"
-            folder: "data/hindcast_test_download/"
-    forecast:
-        field: 'OceanCurrents'
-        source: 'forecast_files'
-        source_settings:
-            source: "Copernicus"
-            type: "forecast"
-            folder: "data/cop_forecast_download/"
+            folder: "data/hindcast_test/"
+    forecast: null
 
 solar_dict:
     hindcast: null

@@ -5,7 +5,8 @@ import time
 import yaml
 
 from ocean_navigation_simulator.problem_factories.Constructor import Constructor
-# %% configs
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+# % configs
 observer_config = {
     "observer": {
         "life_span_observations_in_sec": 86400,  # 24 * 3600
@@ -44,26 +45,24 @@ x_T = {"lon": -80.3, "lat": 24.6}
 with open(f"config/arena/gulf_of_mexico_HYCOM_hindcast_local.yaml") as f:
     arena_config = yaml.load(f, Loader=yaml.FullLoader)
 
-
 mission_config = {
     "x_0": [x_0],
     "x_T": x_T,
     "target_radius": 0.1,
-    "timeout": datetime.timedelta(days=5),
     "seed": 12344093,
 }
-
+#%
 ctrl_config = {
     "ctrl_name": "ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner",
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
-    "direction": "backward",
+    "direction": "multi-time-reach-back",
     "n_time_vector": 200,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 5,
+    "T_goal_in_seconds": 3600 * 24 * 4,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
@@ -77,6 +76,8 @@ ctrl_config = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
 }
 
+objective_conf = {'type': "nav"}
+
 
 ## % run eval
 mission_start_time = time.time()
@@ -85,7 +86,7 @@ mission_start_time = time.time()
 constructor = Constructor(
     arena_conf=arena_config,
     mission_conf=mission_config,
-    objective="nav",
+    objective_conf=objective_conf,
     ctrl_conf=ctrl_config,
     observer_conf=observer_config,
 )
@@ -98,9 +99,7 @@ problem = constructor.problem
 arena = constructor.arena
 observation = arena.reset(platform_state=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
-
-
-# %% Plot the problem on the map
+# % Plot the problem on the map
 # t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
 #     x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
 # )
@@ -144,10 +143,8 @@ while problem_status == 0:
 
     # update problem status
     problem_status = arena.problem_status(problem=problem)
-
-
+#%%
 arena.plot_all_on_map(problem=problem)
+#%%
 arena.animate_trajectory(problem=problem, temporal_resolution=7200)
-
-
 # %%

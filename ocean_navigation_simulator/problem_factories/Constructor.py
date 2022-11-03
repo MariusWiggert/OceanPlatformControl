@@ -1,4 +1,5 @@
 import datetime
+import logging
 from importlib import import_module
 from typing import Type, Union
 
@@ -24,7 +25,7 @@ class Constructor:
         self,
         arena_conf: dict,
         mission_conf: dict,
-        objective: Union["nav", "max_seaweed"],
+        objective_conf: dict,
         ctrl_conf: dict,
         observer_conf: dict,
     ):
@@ -33,13 +34,13 @@ class Constructor:
         Args:
             arena_conf: dictionary which specifies the arena configuration
             mission_conf: dictionary which contains the mission configuration
-            objective: string which specifies which objective the experiment has i.e "nav" for navigation --> currently takes only two objectives ["nav","max_seaweed"]
+            objective: dict which specifies which objective the experiment has under 'type' i.e 'type': "nav" for navigation
             ctrl_conf: dictionary which specifies the controller configuration
             observer_conf: dictionary which specifies the observer configuration
         """
         # Init
         self.mission_conf = mission_conf
-        self.objective = objective
+        self.objective_conf = objective_conf
         self.ctrl_conf = ctrl_conf
         self.observer_conf = observer_conf
 
@@ -77,6 +78,10 @@ class Constructor:
         # Create PlatformState objects from mission config
         X_0 = []
 
+        # handle user error when fed in not as list
+        if type(self.mission_conf["x_0"]) == dict:
+            raise TypeError("mission_conf[x_0] needs to be a list of state dicts!, not a dict itself.")
+
         for x in self.mission_conf["x_0"]:
             X_0.append(
                 PlatformState(
@@ -93,12 +98,11 @@ class Constructor:
             lat=units.Distance(deg=self.mission_conf["x_T"]["lat"]),
         )
 
-        if self.objective == "nav":
+        if self.objective_conf['type'] == "nav":
             return NavigationProblem(
                 start_state=X_0[0],
                 end_region=x_T,
                 target_radius=self.mission_conf["target_radius"],
-                timeout=self.mission_conf["timeout"],
             )
 
         # TODO: Adapt to new objectives i.e.:

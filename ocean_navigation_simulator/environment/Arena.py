@@ -3,7 +3,7 @@
      the seaweed as well as battery usage.
 """
 import dataclasses
-import datetime as dt
+import datetime
 import logging
 import os
 import time
@@ -107,6 +107,7 @@ class Arena:
     solar_field: SolarIrradianceField = None
     seaweed_field: SeaweedGrowthField = None
     platform: Platform = None
+    timeout: Union[datetime.timedelta, int] = None
 
     def __init__(
         self,
@@ -118,7 +119,7 @@ class Arena:
         seaweed_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
         collect_trajectory: Optional[bool] = True,
-        logging_level: Optional[AnyStr] = "INFO",
+        timeout: Union[datetime.timedelta, int] = None
     ):
         """OceanPlatformArena constructor.
         Args:
@@ -140,11 +141,12 @@ class Arena:
                                              specify the seaweed growth data source. Details see SeaweedGrowthField.
             spatial_boundary:                dictionary containing the "x" and "y" spatial boundaries as list of [min, max]
             collect_trajectory:              boolean if True trajectory of states and actions is logged, otherwise not.
-            logging_level:                   Level applied for logging.
+            timeout:                         integer (in seconds) or timedelta object for max sim run (None sets no limit)
         """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
         self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        self.timeout = self.format_timeout(timeout)
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
@@ -278,6 +280,24 @@ class Arena:
             point = self.platform.state
         return self.ocean_field.hindcast_data_source.is_on_land(point)
 
+    def is_timeout(self) -> bool:
+        # calculate passed_seconds
+        if self.timeout is not None:
+            total_seconds = (self.platform.state.date_time - self.initial_state.date_time).total_seconds()
+            return total_seconds >= self.timeout.total_seconds()
+        else:
+            return False
+
+    @staticmethod
+    def format_timeout(timeout) -> Union[datetime.timedelta, None]:
+        """Helper function because we want timeout to be able to be from a dict/string."""
+        if isinstance(timeout, datetime.timedelta):
+            return timeout
+        elif timeout is not None:
+            return datetime.timedelta(seconds=timeout)
+        else:
+            return None
+
     def problem_status(
         self, problem: Problem, check_inside: Optional[bool] = True, margin: Optional[float] = 0.0
     ) -> int:
@@ -290,6 +310,8 @@ class Arena:
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
         """
+        if self.is_timeout():
+            return -1
         if self.is_on_land():
             return -2
         elif check_inside and not self.is_inside_arena(margin):
@@ -545,7 +567,7 @@ class Arena:
         format_datetime_x_axis(ax)
 
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
         ax.plot(dates, self.state_trajectory[::stride, 3])
@@ -576,7 +598,7 @@ class Arena:
         format_datetime_x_axis(ax)
 
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
         ax.plot(dates, self.state_trajectory[::stride, 3], marker=".")
@@ -612,7 +634,7 @@ class Arena:
 
         # plot
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[:-1:stride, 2]
         ]
         if to_plot == "both" or to_plot == "thrust":
