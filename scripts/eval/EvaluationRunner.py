@@ -3,6 +3,8 @@ import datetime
 import time
 
 import yaml
+import logging
+# logging.basicConfig(filename='example.log', encoding='utf-8', level=logging.DEBUG)
 
 from ocean_navigation_simulator.problem_factories.Constructor import Constructor
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
@@ -77,6 +79,17 @@ ctrl_config = {
 }
 
 objective_conf = {'type': "nav"}
+
+#%%
+with ArenaFactory.download_files(
+        config=arena_config, type="hindcast",
+        t_interval=[datetime.datetime(2021, 11, 25), datetime.datetime(2021, 11, 27)],
+        points=None, verbose=1) as download_hindcast_files_to_local:
+
+    print("inside")
+
+
+#%%
 
 
 ## % run eval

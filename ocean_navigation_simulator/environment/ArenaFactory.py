@@ -15,6 +15,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import get_c3, timing
+from contextlib import contextmanager
 
 # TODO: change to use loggers
 
@@ -131,23 +132,44 @@ class ArenaFactory:
             )
 
     @staticmethod
+    @contextmanager
     def download_files(config, type, t_interval, points, verbose, c3=None):
         """Helper method to be run in C3 context manager."""
-        ArenaFactory.download_required_files(
-            archive_source=config["ocean_dict"][type]["source_settings"][
-                "source"
-            ],
-            archive_type=config["ocean_dict"][type]["source_settings"]["type"],
-            download_folder=config["ocean_dict"][type]["source_settings"][
-                "folder"
-            ],
-            t_interval=t_interval,
-            region=config["ocean_dict"]["area"],
-            throw_exceptions=True,
-            points=points,
-            verbose=verbose,
-            c3=c3
-        )
+        folder = config["ocean_dict"][type]["source_settings"]["folder"]
+        try:
+            ArenaFactory.download_required_files(
+                archive_source=config["ocean_dict"][type]["source_settings"][
+                    "source"
+                ],
+                archive_type=config["ocean_dict"][type]["source_settings"]["type"],
+                download_folder=folder,
+                t_interval=t_interval,
+                region=config["ocean_dict"]["area"],
+                throw_exceptions=True,
+                points=points,
+                verbose=verbose,
+                c3=c3
+            )
+            yield True
+        finally:
+            try:
+                shutil.rmtree(folder)
+            except BaseException:
+                pass
+            # for filename in os.listdir(folder):
+            #     file_path = os.path.join(folder, filename)
+            #     try:
+            #         if os.path.isfile(file_path) or os.path.islink(file_path):
+            #             os.unlink(file_path)
+            #         elif os.path.isdir(file_path):
+            #             shutil.rmtree(file_path)
+            #     except Exception as e:
+            #         print('Failed to delete %s. Reason: %s' % (file_path, e))
+            # for f in hindcast_dicts:
+            #     try:
+            #         os.remove(f['file'])
+            #     except FileNotFoundError:
+            #         pass
 
     # TODO: automatically select best region depending on given points
     @staticmethod

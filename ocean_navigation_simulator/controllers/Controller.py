@@ -26,6 +26,9 @@ class Controller(abc.ABC):
         # initialize logger
         self.logger = logging.getLogger("arena.controller")
         self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        # saving the planned trajectories for inspection purposes
+        # Needs to be here so that logging works in C3
+        self.planned_trajs = []
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
