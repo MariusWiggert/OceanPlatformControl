@@ -37,6 +37,13 @@ class SpatialPoint:
             )
         )
 
+    @staticmethod
+    def from_dict(point_dict: dict):
+        return SpatialPoint(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+        )
+
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])
 
@@ -63,6 +70,14 @@ class SpatioTemporalPoint:
     lon: units.Distance
     lat: units.Distance
     date_time: datetime.datetime
+
+    @staticmethod
+    def from_dict(point_dict: dict):
+        return SpatioTemporalPoint(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+            date_time = datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z")
+        )
 
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp()])
@@ -125,6 +140,16 @@ class PlatformState:
 
     def __getitem__(self, item):
         return self.__array__()[item]
+
+    @staticmethod
+    def from_dict(point_dict: dict):
+        return PlatformState(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+            date_time=datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z"),
+            battery_charge=units.Energy(joule=point_dict.get('battery_charge', None)),
+            seaweed_mass=units.Mass(kg=point_dict.get('seaweed_mass', None)),
+        )
 
     @staticmethod
     def from_numpy(numpy_array):
