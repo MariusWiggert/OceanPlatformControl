@@ -1,3 +1,4 @@
+#%%
 import datetime
 import logging
 import os
@@ -33,8 +34,8 @@ config = {
     "y_range": [units.Distance(deg=20.22), units.Distance(deg=27.9)],
     "t_range": [
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
-        datetime.datetime(year=2022, month=4, day=8, tzinfo=datetime.timezone.utc),
-        datetime.datetime(year=2022, month=10, day=9, tzinfo=datetime.timezone.utc),
+        datetime.datetime(year=2022, month=8, day=21, tzinfo=datetime.timezone.utc),
+        datetime.datetime(year=2022, month=8, day=28, tzinfo=datetime.timezone.utc),
     ],
     "problem_timeout": datetime.timedelta(hours=150),
     "target_distance_from_land": 0.5,
@@ -65,10 +66,10 @@ config = {
     "cache_hindcast": False,
 }
 
-results_folder = "/tmp/missions/"
+results_folder = "data/tmp/missions/"
 os.makedirs(results_folder, exist_ok=True)
 all_problems = []
-for worker in range(10):
+for worker in range(1):
     mission_generator = MissionGenerator(
         config=config
         | {
