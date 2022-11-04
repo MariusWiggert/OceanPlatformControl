@@ -5,7 +5,7 @@ import ray
 import torch
 from ray.rllib import Policy
 from ray.rllib.algorithms.apex_dqn import ApexDQN
-from ray.rllib.models import ModelCatalog, ModelV2
+from ray.rllib.models import ModelV2
 from ray.rllib.models.torch.torch_action_dist import (
     TorchDistributionWrapper,
     get_torch_categorical_class_with_temperature,
@@ -16,7 +16,6 @@ from ray.rllib.policy.torch_mixins import (
     TargetNetworkMixin,
 )
 from ray.rllib.utils.typing import AlgorithmConfigDict
-from ray.tune.registry import _global_registry, RLLIB_MODEL
 
 from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (
     OceanTorchModel,

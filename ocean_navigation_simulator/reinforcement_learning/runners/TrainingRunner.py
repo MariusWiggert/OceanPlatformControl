@@ -2,12 +2,10 @@ import datetime
 import json
 import os
 import pprint
-import random
 import shutil
 import time
-from functools import partial
-from typing import Dict, List, Optional
 from statistics import mean, median
+from typing import Dict, List, Optional
 
 import gym
 import numpy as np
@@ -15,11 +13,9 @@ import pytz
 import ray
 import torch
 import wandb
-from ray.air.callbacks.wandb import WandbLoggerCallback
 from ray.rllib import BaseEnv, Policy, RolloutWorker
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation import Episode
-
 from torchinfo import torchinfo
 
 from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import (
@@ -56,7 +52,11 @@ class TrainingRunner:
         # Step 1: Prepare Paths & Folders
         cluster_utils.ensure_storage_connection()
         TrainingRunner.clean_results(
-            self.config["experiments_folder"], verbose=0, iteration_limit=10, delete=True
+            self.config["experiments_folder"],
+            verbose=0,
+            iteration_limit=10,
+            ignore_most_recent=5,
+            delete=True,
         )
         self.timestring = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
             "%Y_%m_%d_%H_%M_%S"
@@ -78,9 +78,15 @@ class TrainingRunner:
             entity="jeromejeannin",
             dir="/tmp/",
             name=f"{self.name}_{self.timestring}",
-            tags=["baseline" if self.config["environment"]["fake"] not in [False, 'residual'] else "experiment"] + tags,
+            tags=[
+                "baseline"
+                if self.config["environment"]["fake"] not in [False, "residual", None]
+                else "experiment"
+            ]
+            + tags,
             config=self.config,
         )
+        wandb.run.log_code(".")
         with open(f"{self.config['folders']['experiment']}wandb_run_id", "wt") as f:
             f.write(wandb.run.id)
 
@@ -106,7 +112,7 @@ class TrainingRunner:
             ):
                 info = episode.last_info_for()
                 for k, v in reduce_dict(info).items():
-                    episode.custom_metrics['hist_stats/'+k] = v
+                    episode.custom_metrics["hist_stats/" + k] = v
 
             def on_train_result(
                 self,
@@ -118,7 +124,7 @@ class TrainingRunner:
             ):
                 def add_statistics(metrics):
                     for k, v in metrics.copy().items():
-                        k = k.replace('hist_stats/', '')
+                        k = k.replace("hist_stats/", "")
                         metrics[f"{k}_min"] = min(v)
                         metrics[f"{k}_mean"] = mean(v)
                         metrics[f"{k}_median"] = median(v)
@@ -130,7 +136,6 @@ class TrainingRunner:
                 if "evaluation" in result:
                     for k, v in add_statistics(result["evaluation"]["custom_metrics"]).items():
                         result["evaluation"]["custom_metrics"][k] = v
-
 
         self.config["algorithm"]["callbacks"] = CustomCallback
 
@@ -158,7 +163,7 @@ class TrainingRunner:
             "Filter": str(self.trainer.workers.local_worker().filters),
         }
         print("Policy Info:", policy_info)
-        wandb.run.summary.update(reduce_dict({'Policy Info': policy_info}))
+        wandb.run.summary.update(reduce_dict({"Policy Info": policy_info}))
 
         # Trainable Variables
         layers_variables = [p.numel() for p in self.model.parameters() if p.requires_grad]
@@ -193,7 +198,7 @@ class TrainingRunner:
             input_data=self.dummy_input,
             depth=10,
             verbose=1,
-            col_names=["input_size","output_size","num_params","kernel_size","trainable"],
+            col_names=["input_size", "output_size", "num_params", "kernel_size", "trainable"],
             row_settings=("depth", "var_names"),
         ).__repr__()
         with open(
@@ -232,7 +237,7 @@ class TrainingRunner:
 
         wandb.watch(
             models=self.trainer.get_policy().model,
-            log='all',
+            log="all",
             log_freq=1,
         )
 
@@ -255,13 +260,19 @@ class TrainingRunner:
                 rllib_result = self.trainer.train()
                 self.train_times.append(time.time() - train_start)
 
-                rllib_result.pop('config', None)
-                weights = {n: p.data for n, p in self.trainer.get_policy().model.named_parameters() if p.requires_grad}
-                results = reduce_dict({
-                    "ray/tune": rllib_result,
-                    # "gradients": self.gradients,
-                    "weights": weights,
-                })
+                rllib_result.pop("config", None)
+                weights = {
+                    n: p.data
+                    for n, p in self.trainer.get_policy().model.named_parameters()
+                    if p.requires_grad
+                }
+                results = reduce_dict(
+                    {
+                        "ray/tune": rllib_result,
+                        # "gradients": self.gradients,
+                        "weights": weights,
+                    }
+                )
                 for k, v in results.copy().items():
                     if isinstance(v, list):
                         results[k] = np.array(v)
@@ -308,9 +319,9 @@ class TrainingRunner:
                 #         print(f"{k}: {v:.2f}")
                 # print(" ")
 
-            print_custom_metrics(result['sampler_results'])
-            if "evaluation" in result['sampler_results']:
-                print_custom_metrics(result['sampler_results']["evaluation"], eval=True)
+            print_custom_metrics(result["sampler_results"])
+            if "evaluation" in result["sampler_results"]:
+                print_custom_metrics(result["sampler_results"]["evaluation"], eval=True)
 
             print(
                 f'-- Episode Rewards [Min: {result["episode_reward_min"]:.1f}, Mean: {result["episode_reward_mean"]:.2f}, Max: {result["episode_reward_max"]:.1f}]  --'
@@ -359,7 +370,7 @@ class TrainingRunner:
         filter: str = "",
         iteration_limit: Optional[int] = 10,
         delete: Optional[bool] = False,
-        ignore_most_recent: Optional[int] = 1,
+        ignore_most_recent: Optional[int] = 5,
         verbose: Optional[int] = 0,
     ):
         """
@@ -409,7 +420,7 @@ def reduce_dict(ob):
         for k1, v1 in ob.items():
             if type(v1) is dict:
                 for k2, v2 in reduce_dict(v1).items():
-                    new[k1 + '/' + k2] = v2
+                    new[k1 + "/" + k2] = v2
             else:
                 new[k1] = v1
         return new

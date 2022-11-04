@@ -12,9 +12,10 @@ print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
 
 from ocean_navigation_simulator.reinforcement_learning.RLController import RLController
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJReach2DPlanner,
-)
+
+# from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+#     HJReach2DPlanner,
+# )
 
 # from ocean_navigation_simulator.reinforcement_learning.RLController import RLController
 from ocean_navigation_simulator.reinforcement_learning.runners.EvaluationRunner import (
@@ -41,16 +42,16 @@ eval_runner = EvaluationRunner(
         "controller": {
             "type": RLController,
             "name": "RLController",
-            "experiment": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_2022_10_24_13_35_20/",
-            "checkpoint": 85,
+            "experiment": "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/half_hour_steps_2022_10_31_19_23_21/",
+            "checkpoint": 60,
         },
         "missions": {
             "folder": "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/",
             "filter": {
                 "no_random": True,
-                "starts_per_target": 1,
-                # "start": 0000,
-                "limit": 1,
+                # "starts_per_target": 1,
+                "start": 70204,
+                "limit": 1000,
             },
             "seed": None,
         },

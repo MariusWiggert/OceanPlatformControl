@@ -319,14 +319,14 @@ class OceanEnv(gym.Env):
                     w=self.worker_index,
                     r=self.resets,
                     evaluation="Eval" if self.evaluation else "Train",
-                ),
-                "Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time}".format(
+                )
+                + "Step {st} @ {ph:.0f}h, {pm:.0f}min, sim:{sim_time}".format(
                     st=self.steps,
                     ph=self.problem.passed_seconds(observation.platform_state) // 3600,
                     pm=self.problem.passed_seconds(observation.platform_state) % 3600 / 60,
                     sim_time=observation.platform_state.date_time,
-                ),
-                "(step: {t:.1f}ms, {mem:,.0f}MB)".format(
+                )
+                + "(step: {t:.1f}ms, {mem:,.0f}MB)".format(
                     t=1000 * (time.time() - step_start),
                     mem=psutil.Process().memory_info().rss / 1e6,
                 ),

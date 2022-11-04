@@ -5,6 +5,7 @@ import pickle
 import pprint
 import shutil
 import sys
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -15,6 +16,9 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
+    CachedNavigationProblem,
+)
 from ocean_navigation_simulator.utils import cluster_utils
 from ocean_navigation_simulator.utils.misc import (
     bcolors,
@@ -286,39 +290,36 @@ class GenerationRunner:
         print(f"Batch Time Max:  {time_numerical.max():.1f}s")
 
     @staticmethod
-    def plot_starts_and_targets(results_folder: str):
+    def plot_starts_and_targets(results_folder: str, scenario_file: str):
         # Step 1: Load Problems and Config
-        cluster_utils.ensure_storage_connection()
+        if results_folder.startswith("/seaweed-storage/"):
+            cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f"{results_folder}problems.csv")
         target_df = problems_df[problems_df["factory_index"] == 0]
         analysis_folder = f"{results_folder}analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
-        with open(f"{results_folder}config/config.pickle", "rb") as f:
-            config = pickle.load(f)
 
-        if "mission_generation" in config:
-            t_interval = config["mission_generation"]["t_range"]
-        else:
-            t_interval = config["t_range"]
+        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0])
 
         # Step 2:
         arena = ArenaFactory.create(
             # only use hindcast
-            scenario_file="config/reinforcement_learning/gulf_of_mexico_HYCOM_hindcast.yaml",
-            t_interval=t_interval,
+            scenario_file=scenario_file,
+            problem=problem,
             throw_exceptions=False,
         )
-
-        ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-            # Plot currents over full GOM
-            # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
-            x_interval=[-97.9, -76.41],
-            y_interval=[18.13, 31.92],
-            time=t_interval[0],
-            spatial_resolution=0.2,
-            return_ax=True,
-            figsize=(32, 24),
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+                # Plot currents over full GOM
+                # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
+                x_interval=[-97.9, -76.41],
+                y_interval=[18.13, 31.92],
+                time=problem.start_state.date_time,
+                spatial_resolution=0.2,
+                return_ax=True,
+                figsize=(32, 24),
+            )
         ax.scatter(
             problems_df["x_0_lon"], problems_df["x_0_lat"], c="red", marker="o", s=6, label="starts"
         )
@@ -359,7 +360,8 @@ class GenerationRunner:
     @staticmethod
     def plot_target_dates_histogram(results_folder):
         # Step 1: Load Data
-        cluster_utils.ensure_storage_connection()
+        if results_folder.startswith("/seaweed-storage/"):
+            cluster_utils.ensure_storage_connection()
         problems_df = pd.read_csv(f"{results_folder}problems.csv")
         analysis_folder = f"{results_folder}analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
@@ -374,8 +376,8 @@ class GenerationRunner:
         fig, ax = plt.subplots(figsize=(16, 12))
 
         days = pd.date_range(
-            df["t_0_pd"].min() - pd.DateOffset(days=1) - pd.DateOffset(day=1),
-            df["t_0_pd"].max(),
+            df["t_0_pd"].min() - pd.DateOffset(days=1),
+            df["t_0_pd"].max() + pd.DateOffset(day=1),
             freq="D",
         )
         months = pd.date_range(
@@ -395,23 +397,17 @@ class GenerationRunner:
         fig.savefig(f"{analysis_folder}target_day_histogram.png")
         fig.show()
 
-        @staticmethod
-        def plot_ttr_histogram(results_folder):
-            # Step 1: Load Data
-            cluster_utils.ensure_storage_connection()
-            problems_df = pd.read_csv(f"{results_folder}problems.csv")
-            analysis_folder = f"{results_folder}analysis/"
-            os.makedirs(analysis_folder, exist_ok=True)
-
     @staticmethod
     def plot_ttr_histogram(results_folder):
         # Step 1: Load Data
+        if results_folder.startswith("/seaweed-storage/"):
+            cluster_utils.ensure_storage_connection()
         df = pd.read_csv(f"{results_folder}problems.csv")
         analysis_folder = results_folder + "analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
 
         if "random" in df:
-            df = df[df["random"] == False]
+            df = df[~df["random"]]
 
         if "ttr_in_h" in df:
             ttr = df["ttr_in_h"].tolist()

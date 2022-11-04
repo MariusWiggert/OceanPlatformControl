@@ -92,10 +92,10 @@ class RLController(Controller):
             problem=self.problem,
         )
         action, _, _ = self.policy.compute_single_action(obs=obs, explore=False)
-        direction = 2 * np.pi * action / self.self.experiment_config['environment']["actions"]
+        direction = 2 * np.pi * action / self.experiment_config["environment"]["actions"]
 
-        if self.experiment_config['environment']["fake"] == "residual":
+        if self.experiment_config["environment"]["fake"] == "residual":
             direction = self.forecast_planner.get_action(observation=self.prev_obs).direction
 
         # go towards the center of the target with full power
-        return PlatformAction(magnitude=1, direction=direction )
+        return PlatformAction(magnitude=1, direction=direction)

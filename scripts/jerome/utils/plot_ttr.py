@@ -1,17 +1,18 @@
 import logging
 
-import numpy as np
-import seaborn as sns
-from matplotlib import pyplot as plt
-from mpl_toolkits import mplot3d
+# import numpy as np
+# import seaborn as sns
+# from matplotlib import pyplot as plt
+# from mpl_toolkits import mplot3d
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.FileProblemFactory import (
     FileProblemFactory,
 )
-from ocean_navigation_simulator.reinforcement_learning.RLController import (
-    RLController,
-)
+
+# from ocean_navigation_simulator.reinforcement_learning.RLController import (
+#     RLController,
+# )
 from ocean_navigation_simulator.utils.misc import set_arena_loggers, timing
 
 with timing("Script running for {}"):

@@ -1,14 +1,16 @@
 import datetime
 import logging
 import os
-import sys
 import time
 from typing import Optional
 
 import pandas as pd
 import pytz
 import ray
+import seaborn as sns
 import wandb
+from matplotlib import pyplot as plt
+from matplotlib.colors import LogNorm
 
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
@@ -26,6 +28,8 @@ from ocean_navigation_simulator.utils.misc import (
     timing,
     timing_dict,
 )
+
+sns.set_theme()
 
 
 class EvaluationRunner:
@@ -122,16 +126,18 @@ class EvaluationRunner:
     #     wandb.finish()
 
     @staticmethod
-    def update_wandb_summary(csv_file, wandb_run_id, time_string):
+    def update_wandb_summary(csv_file, wandb_run_id, time_string, indexes=None):
         df = pd.read_csv(csv_file, index_col=0)
+        if indexes is not None:
+            df = df[df["index"].isin(indexes)]
         wandb.init(
             project="seaweed-rl",
             entity="jeromejeannin",
-            dir="/seaweed-storage/",
+            dir="/tmp",
             id=wandb_run_id,
             resume="must",
         )
-        wandb.run.summary[f"validation_80000"] = {
+        wandb.run.summary[f"validation_{df.shape[0]}"] = {
             "date": time_string,
             "length": df.shape[0],
             "success": df["success"].mean(),
@@ -140,10 +146,11 @@ class EvaluationRunner:
         wandb.finish()
 
     @staticmethod
-    def print_results(csv_file, indexes):
+    def print_results(csv_file, indexes=None):
         df = pd.read_csv(csv_file, index_col=0)
 
-        df = df[df['index'].isin(indexes)]
+        if indexes is not None:
+            df = df[df["index"].isin(indexes)]
 
         print("success:", df["success"].mean())
         print("running_time:", df["running_time"].mean())
@@ -179,13 +186,13 @@ class EvaluationRunner:
                 )
 
             # Step 1: Create Arena
-            with timing("EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
+            with timing("EvaluationRunner: Created Controller ({})", verbose - 1):
                 arena = ArenaFactory.create(scenario_file=config["scenario_file"], problem=problem)
                 observation = arena.reset(platform_state=problem.start_state)
                 problem_status = arena.problem_status(problem=problem)
 
             # Step 2: Create Controller
-            with timing("EvaluationRunner: Created Controller ({{:.1f}}s)", verbose - 1):
+            with timing("EvaluationRunner: Created Controller ({})", verbose - 1):
                 problem.platform_dict = arena.platform.platform_dict
 
                 if config["controller"]["name"] == "CachedHJReach2DPlannerForecast":
@@ -201,7 +208,7 @@ class EvaluationRunner:
 
             # Step 3: Run Arena
             performance = {"arena": 0, "controller": 0}
-            with timing("EvaluationRunner: Run Arena ({{:.1f}}s)", verbose - 1):
+            with timing("EvaluationRunner: Run Arena ({})", verbose - 1):
                 steps = 0
                 while problem_status == 0:
                     with timing_dict(performance, "controller"):
@@ -283,3 +290,49 @@ class EvaluationRunner:
                 raise e
 
             return False
+
+    @staticmethod
+    def plot_confusion(csv_file1, csv_file2, label1="left", label2="right"):
+        df_1 = pd.read_csv(csv_file1, index_col=0)
+        df_2 = pd.read_csv(csv_file2, index_col=0)
+
+        df_mixed = df_1.merge(
+            df_2, how="inner", left_on="index", right_on="index", suffixes=("_left", "_right")
+        )
+
+        confusion_matrix = pd.crosstab(
+            df_mixed["success_left"],
+            df_mixed["success_right"],
+            rownames=[label1],
+            colnames=[label2],
+        )
+
+        ax = sns.heatmap(
+            confusion_matrix, annot=True, cmap=plt.cm.RdYlGn, square=True, norm=LogNorm(), fmt="g"
+        )
+        plt.tick_params(
+            axis="both", which="major", labelbottom=False, bottom=False, top=True, labeltop=True
+        )
+        ax.xaxis.set_label_position("top")
+        plt.show()
+
+    @staticmethod
+    def plot_mission_time_and_success(df):
+        if "random" in df:
+            df = df[~df["random"]]
+
+        if "ttr_in_h" in df:
+            ttr_succ = df[df["success"]]["ttr_in_h"].tolist()
+            ttr_fail = df[~df["success"]]["ttr_in_h"].tolist()
+        elif "optimal_time_in_h" in df:
+            ttr_succ = df[df["success"]]["optimal_time_in_h"].tolist()
+            ttr_fail = df[~df["success"]]["optimal_time_in_h"].tolist()
+        else:
+            return
+
+        # Step 2: Plot
+        plt.figure()
+        plt.hist(ttr_succ, bins=100, alpha=0.5, color="g", label="success")
+        plt.hist(ttr_fail, bins=100, alpha=0.5, color="r", label="failed")
+        plt.title("Mission Time-To-Reach Histogram")
+        plt.show()

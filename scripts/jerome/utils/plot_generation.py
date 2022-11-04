@@ -1,7 +1,7 @@
 import os
 
-import pandas as pd
-from matplotlib import pyplot as plt
+# import pandas as pd
+# from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner import (
     GenerationRunner,
@@ -16,7 +16,7 @@ for dir in os.listdir(
     GenerationRunner.plot_ttr_histogram(f)
 
 
-from ocean_navigation_simulator.utils import cluster_utils
+# from ocean_navigation_simulator.utils import cluster_utils
 
 # generation = "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/"
 # generation = "~/Desktop/"

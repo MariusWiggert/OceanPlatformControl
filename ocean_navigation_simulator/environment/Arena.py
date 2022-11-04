@@ -183,7 +183,7 @@ class Arena:
         else:
             self.seaweed_field = None
 
-        self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
+        self.logger.info(f" Generate Sources ({time.time() - start:.1f}s)")
 
         # Step 2: Generate Platform
         start = time.time()
@@ -199,7 +199,7 @@ class Arena:
             else None,
         )
 
-        self.logger.info(f"Arena: Generate Platform ({time.time() - start:.1f}s)")
+        self.logger.info(f" Generate Platform ({time.time() - start:.1f}s)")
 
         # Step 3: Initialize Variables
         self.spatial_boundary = spatial_boundary

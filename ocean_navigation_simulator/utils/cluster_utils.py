@@ -1,7 +1,6 @@
 import json
 import os
 import socket
-from typing import Optional
 
 import pandas as pd
 import ray
@@ -28,7 +27,7 @@ def init_ray(**kwargs):
     Args:
         **kwargs: to be passed to ray.init()
     """
-    with timing("Code sent to ray nodes in {:.1f}s", verbose=1):
+    with timing("Code sent to ray nodes in {}", verbose=1):
         # Documentation:
         # https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
         # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
@@ -92,7 +91,7 @@ def analyze_download_temp_folders(basedir="/home/ubuntu/"):
     )
 
 
-def run_command_on_all_nodes(command, resource_group="jerome-cluster", verbose=10):
+def run_command_on_all_nodes(command, resource_group, verbose=10):
     """
     Runs a command on all machines in the specified resourcegroup of our Azure Directory.
     This allows to quickly install new dependencies without running
@@ -111,7 +110,7 @@ def run_command_on_all_nodes(command, resource_group="jerome-cluster", verbose=1
 
     @ray.remote(num_cpus=0.1)
     def run_command_on_node(ip, command):
-        with timing(f"## Node {ip} finished in {{:.0f}}s.", verbose):
+        with timing(f"## Node {ip} finished in {{}}.", verbose):
             if verbose > 0:
                 print(f"##### Starting Command ({command}) on Node {ip}")
             os.system(
@@ -128,7 +127,7 @@ def run_command_on_all_nodes(command, resource_group="jerome-cluster", verbose=1
     print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
 
 
-def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-cluster"):
+def copy_files_to_nodes(local_dir, remote_dir, resource_group):
     """
     Runs a command on all machines in the specified resourcegroup of our Azure Directory.
     This allows to quickly install new dependencies without running
@@ -147,7 +146,7 @@ def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-cluster"):
 
     @ray.remote(num_cpus=0.1)
     def copy_files_to_node(ip, local_dir, remote_dir):
-        with timing(f"## Node {ip} finished in {{:.0f}}s."):
+        with timing(f"## Node {ip} finished in {{}}."):
             print(f"##### Copying directory ({local_dir}) to Node {ip}")
             os.system(
                 f"scp -r -o StrictHostKeyChecking=no -i ~/.ssh/azure {local_dir} ubuntu@{ip}:{remote_dir}"
@@ -181,13 +180,13 @@ def ensure_storage_connection():
         )
 
 
-def get_vm_list(resource_group: Optional[str] = "jerome-cluster"):
+def get_vm_list(resource_group):
     return json.loads(
         os.popen(f"az vm list --resource-group '{resource_group}' --show-details").read()
     )
 
 
-def print_vm_table(vm_dict: dict = None):
+def print_vm_table(vm_dict):
     vm_df = pd.DataFrame(
         [
             {
@@ -197,7 +196,7 @@ def print_vm_table(vm_dict: dict = None):
                 "public_ip": vm["publicIps"],
                 "private_ip": vm["privateIps"],
             }
-            for vm in (vm_dict if vm_dict is not None else get_vm_list())
+            for vm in vm_dict
         ]
     )
     with pd.option_context(

@@ -89,7 +89,7 @@ algorithm:
     evaluation_duration: 204
     evaluation_duration_unit: "episodes"
     evaluation_num_workers: 102
-    evaluation_sample_timeout_s: 600
+    evaluation_sample_timeout_s: 2400
     evaluation_config:
         explore: False
         env_config:
@@ -126,7 +126,7 @@ environment:
             start: 70000
             stop: 204
 
-    arena_steps_per_env_step: 1
+    arena_steps_per_env_step: 3
     actions: 8
     fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
     render: False
@@ -135,14 +135,17 @@ feature_constructor:
     flatten: False
     measurements: False
     local_map:
-        xy_width_degree: 0.2
-        xy_width_points: 5
+        embedding_n: [8, 8, 8, 8]
+        embedding_radius: [0.1, 0.2, 0.4, 0.8]
+#        xy_width_degree: 0.2
+#        xy_width_points: 5
         flatten: False
         features:
             ttr_forecast: True
             ttr_hindcast: False
             observer:
-                variables: ['error_u', 'error_v'] #['mag', 'dir'] #,['water_u', 'water_v'], # list from: 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
+                # list from: 'mag', 'dir', 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
+                variables: ['error_u', 'error_v', 'std_error_u', 'std_error_v']
                 time: [0]           # offsets in h
             currents_hindcast: []   # offsets in h
             currents_forecast: []   # offsets in h

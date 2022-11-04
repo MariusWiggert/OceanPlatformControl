@@ -21,9 +21,11 @@ from c3python import C3Python
 #               usr.publicKey = "<public key from file>"
 #               usr.merge()
 
+c3_logger = logging.getLogger("c3")
+
 
 ### Getting C3 Object for data downloading ###
-def get_c3(verbose: Optional[int] = 0):
+def get_c3():
     """Helper function to get C3 object for access to the C3 Database"""
 
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
@@ -31,10 +33,10 @@ def get_c3(verbose: Optional[int] = 0):
 
     # reload after 10min to prevent c3 timeout
     if not hasattr(get_c3, "c3") or (
-        not hasattr(get_c3, "timestamp") and (time.time() - get_c3.timestamp) > 600
+        not hasattr(get_c3, "timestamp") and (time.time() - get_c3.timestamp) > 300
     ):
         logging.getLogger("c3python.c3python").setLevel(logging.WARN)
-        with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
+        with timing_logger("Utils: Connect to c3 ({})", c3_logger, logging.INFO):
             get_c3.c3 = C3Python(
                 # Old Tag: url='https://dev01-seaweed-control.c3dti.ai', tag='dev01',
                 url="https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud",
@@ -49,18 +51,16 @@ def get_c3(verbose: Optional[int] = 0):
 
 @contextlib.contextmanager
 def timing(string, verbose: Optional[int] = 1):
-    """
-    Simple tool to check how long a specific code-part takes.
-    :arg
-        string:
-        verbose:
-    """
+    """Simple tool to check how long a specific code-part takes."""
     start = time.time()
     yield
     exec_time = time.time() - start
-
+    if exec_time > 1:
+        text = f"{exec_time:.2f}s"
+    else:
+        text = f"{1000*exec_time:.2f}ms"
     if verbose > 0:
-        print(string.format(exec_time))
+        print(string.format(text))
 
 
 @contextlib.contextmanager
@@ -82,7 +82,7 @@ def timing_logger(string, logger: logging.Logger, level=logging.INFO):
 
 
 @contextlib.contextmanager
-def timing_dict(dict, field, string=None, verbose: Optional[int] = 1):
+def timing_dict(dict, field, string=None, logger: logging.Logger = None, level=logging.INFO):
     """
     Simple tool to check how long a specific code-part takes.
     :arg
@@ -93,14 +93,19 @@ def timing_dict(dict, field, string=None, verbose: Optional[int] = 1):
     yield
     exec_time = time.time() - start
     dict[field] += exec_time
-
-    if string is not None and verbose > 0:
-        print(string.format(exec_time))
+    if None not in [string, logger]:
+        if exec_time > 1:
+            text = f"{exec_time:.2f}s"
+        else:
+            text = f"{1000*exec_time:.2f}ms"
+        logger.log(level, string.format(text))
 
 
 def set_arena_loggers(level):
+    """helper function to set all relevant logger levels"""
+    logging.getLogger("c3").setLevel(level)
     logging.getLogger("arena").setLevel(level)
-    logging.getLogger("arena_factory").setLevel(level)
+    logging.getLogger("arena.factory").setLevel(level)
     logging.getLogger("arena.platform").setLevel(level)
     logging.getLogger("arena.controller").setLevel(level)
 
@@ -116,6 +121,7 @@ def set_arena_loggers(level):
     logging.getLogger("arena.solar_field.analytical_source").setLevel(level)
 
     logging.getLogger("OceanEnv").setLevel(level)
+    logging.getLogger("MissionGenerator").setLevel(level)
 
 
 def silence_ray_and_tf():

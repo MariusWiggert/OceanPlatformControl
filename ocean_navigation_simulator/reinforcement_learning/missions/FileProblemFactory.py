@@ -67,6 +67,12 @@ class FileProblemFactory(ProblemFactory):
             if filter.get("no_random", False) and "random" in df:
                 df = df[~df["random"]]
 
+            if filter.get("index_start", False):
+                df = df[filter["index"] > filter["index_start"]]
+
+            if filter.get("index_stop", False):
+                df = df[filter["index"] < filter["index_stop"]]
+
             if filter.get("starts_per_target", False):
                 df = df.groupby("batch").head(filter["starts_per_target"])
 
@@ -78,6 +84,9 @@ class FileProblemFactory(ProblemFactory):
 
             if filter.get("stop", False):
                 df = df[: filter["stop"]]
+
+            if filter.get("limit", False):
+                df = df[: filter["limit"]]
 
             indices = df.index.to_list()
 

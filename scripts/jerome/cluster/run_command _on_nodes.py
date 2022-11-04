@@ -64,7 +64,9 @@ script_start_time = time.time()
 
 # COMMAND = 'pip install chex==0.1.5'
 
-cluster_utils.run_command_on_all_nodes("rm -rf ~/env_16", resource_group="jerome-cluster-2")
+cluster_utils.run_command_on_all_nodes(
+    "ls -la hycom_hindcast | wc; ls -la copernicus_forecast | wc", resource_group="jerome-cluster-3"
+)
 
 # cluster_utils.purge_download_temp_folders()
 

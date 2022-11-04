@@ -99,8 +99,8 @@ class CachedNavigationProblem(NavigationProblem):
             r=self.target_radius,
             opt=self.extra_info.get("ttr_in_h", float("Inf")),
             t=self.timeout.total_seconds() / 3600,
-            i=self.extra_info["index"],
-            gr=self.extra_info["group"],
-            b=self.extra_info["batch"],
-            fi=self.extra_info["factory_index"],
+            i=self.extra_info.get("index", "None"),
+            gr=self.extra_info.get("group", "None"),
+            b=self.extra_info.get("batch", "None"),
+            fi=self.extra_info.get("factory_index", "None"),
         )

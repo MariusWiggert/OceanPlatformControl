@@ -24,7 +24,7 @@ script_start_time = time.time()
 cluster_utils.init_ray()
 
 runner = TrainingRunner(
-    name="plain",
+    name="gp_error_and_std_half_hour",
     tags=[],
     config=yaml.load(open("config/reinforcement_learning/training.yaml"), Loader=yaml.FullLoader),
     verbose=2,

@@ -16,9 +16,9 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.utils.misc import get_c3, timing, timing_logger
+from ocean_navigation_simulator.utils.misc import get_c3, timing_logger
 
-logger = logging.getLogger("arena_factory")
+logger = logging.getLogger("arena.factory")
 
 
 class OceanFileException(Exception):
@@ -69,7 +69,6 @@ class ArenaFactory:
             t_interval: Optional[List[datetime.datetime]] = None,
 
             throw_exceptions: throw exceptions instead of printing errors
-            verbose: if > 0 print timing of creation and downloading
         Example:
             arena = ArenaFactory.create(
                 scenario_file='config/arena/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml',
@@ -126,9 +125,11 @@ class ArenaFactory:
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
                 with timing_logger(
-                    f"ArenaFactory: Download Hindcast Files: {t_interval} ({{}})",
+                    "Download Hindcast Files: {start} until {end} ({{}})".format(
+                        start=t_interval[0].strftime("%Y-%m-%d %H-%M-%S"),
+                        end=t_interval[-1].strftime("%Y-%m-%d %H-%M-%S"),
+                    ),
                     logger,
-                    logging.INFO,
                 ):
 
                     if config["ocean_dict"]["hindcast"]["source_settings"].get("local", False):
@@ -155,7 +156,7 @@ class ArenaFactory:
                             points=points,
                         )
 
-                    logger.info(f"Hindcast Files: {files}")
+                    logger.debug(f"Hindcast Files: {files}")
 
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["hindcast"]["source_settings"]["folder"] = files
@@ -167,9 +168,11 @@ class ArenaFactory:
                 and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
                 with timing_logger(
-                    f"ArenaFactory: Download Forecast Files: {t_interval} ({{}})",
+                    "Download Forecast Files: {start} until {end} ({{}})".format(
+                        start=t_interval[0].strftime("%Y-%m-%d %H-%M-%S"),
+                        end=t_interval[-1].strftime("%Y-%m-%d %H-%M-%S"),
+                    ),
                     logger,
-                    logging.INFO,
                 ):
                     if config["ocean_dict"]["forecast"]["source_settings"].get("local", False):
                         files = ArenaFactory.find_copernicus_files(
@@ -195,7 +198,7 @@ class ArenaFactory:
                             points=points,
                         )
 
-                    logger.info(f"Forecast Files: {files}")
+                    logger.debug(f"Forecast Files: {files}")
 
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
@@ -223,7 +226,7 @@ class ArenaFactory:
         for f in os.listdir(path):
 
             start = datetime.datetime.fromisoformat(f[28:47]).replace(tzinfo=datetime.timezone.utc)
-            end = datetime.datetime.fromisoformat(f[49:68]).replace(tzinfo=datetime.timezone.utc)
+            # end = datetime.datetime.fromisoformat(f[49:68]).replace(tzinfo=datetime.timezone.utc)
 
             if start_min <= start <= start_max:
                 files.append(path + f)
@@ -239,7 +242,7 @@ class ArenaFactory:
 
         for f in os.listdir(path):
             start = datetime.datetime.fromisoformat(f[40:59]).replace(tzinfo=datetime.timezone.utc)
-            end = datetime.datetime.fromisoformat(f[61:80]).replace(tzinfo=datetime.timezone.utc)
+            # end = datetime.datetime.fromisoformat(f[61:80]).replace(tzinfo=datetime.timezone.utc)
 
             if start_min <= start <= start_max:
                 files.append(path + f)
@@ -255,7 +258,6 @@ class ArenaFactory:
         region: str = "GOM",
         points: Optional[List[SpatialPoint]] = None,
         throw_exceptions: bool = False,
-        verbose: Optional[int] = 10,
     ) -> List[str]:
         """
         helper function for thread-safe download of available current files from c3
@@ -267,7 +269,6 @@ class ArenaFactory:
             region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
             points: List of SpatialPoints to check for file coverage
             throw_exceptions: throw exceptions for missing or corrupted files
-            verbose: silence print statements with 0
         Returns:
             list of downloaded files
         Examples:
@@ -284,7 +285,6 @@ class ArenaFactory:
             archive_type=archive_type,
             region=region,
             t_interval=t_interval,
-            verbose=verbose,
         )
 
         # Step 2: Check File Count
@@ -327,7 +327,6 @@ class ArenaFactory:
             files=files,
             download_folder=download_folder,
             throw_exceptions=throw_exceptions,
-            verbose=verbose,
         )
 
         return downloaded_files
@@ -338,7 +337,6 @@ class ArenaFactory:
         archive_type: str,
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
-        verbose: Optional[int] = 10,
     ):
         """
         helper function to get a list of available files from c3
@@ -347,7 +345,6 @@ class ArenaFactory:
             archive_type: one of [forecast, hindcast]
             region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
             t_interval: List of datetime with length 2. None allows to search in all available times.
-            verbose: silence print statements with 0
         Return:
             c3.FetchResult where objs contains the actual files
         Examples:
@@ -379,7 +376,7 @@ class ArenaFactory:
             raise ValueError(f"Region {region} invalid.")
 
         # Step 2: Find c3 type
-        c3 = get_c3(verbose - 1)
+        c3 = get_c3()
         archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
         c3_file_type = getattr(
             c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
@@ -403,7 +400,7 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10):
+    def _download_filelist(files, download_folder, throw_exceptions):
         """
         thread-safe download with corruption and file size check
         Arguments:
@@ -413,10 +410,9 @@ class ArenaFactory:
         Returns:
             list of downloaded files
         """
-        c3 = get_c3(verbose - 1)
+        c3 = get_c3()
 
-        if verbose > 0:
-            print(f"Downloading {files.count} files to '{download_folder}'.")
+        logger.info(f"Downloading {files.count} files to '{download_folder}'.")
 
         # Step 1: Sanitize Inputs
         if not download_folder.endswith("/"):
@@ -480,13 +476,11 @@ class ArenaFactory:
 
                     # Move thread-safe
                     os.replace(temp_folder + filename, download_folder + filename)
-                    if verbose > 0:
-                        logger.info(f"File downloaded: '{filename}', {filesize}B.")
+                    logger.info(f"File downloaded: '{filename}', {filesize/10e6:.1f}MB.")
                 else:
                     # Path().touch()
                     os.system(f"touch {download_folder + filename}")
-                    if verbose > 0:
-                        print(f"File already downloaded: '{filename}', {filesize}B.")
+                    logger.info(f"File already downloaded: '{filename}', {filesize/10e6:.1f}MB.")
 
                 downloaded_files.append(download_folder + filename)
         except BaseException:
@@ -501,8 +495,7 @@ class ArenaFactory:
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
         for file in cached_files[KEEP:]:
-            if verbose > 0:
-                print(f"Deleting old forecast file: '{file}'")
+            logger.info(f"Deleting old forecast file: '{file}'")
             os.remove(file)
 
         return downloaded_files
@@ -557,9 +550,9 @@ class ArenaFactory:
         if files.count > 0:
             if true_length:
                 download_folder = f"/home/ubuntu/{archive_source.lower()}_{archive_type.lower()}/"
-                print(download_folder)
+                logger.info("Download to: " + download_folder)
                 downloaded = ArenaFactory._download_filelist(
-                    files, download_folder=download_folder, throw_exceptions=False, verbose=0
+                    files, download_folder=download_folder, throw_exceptions=False
                 )
                 grid_dict_list = [get_grid_dict_from_file(f, currents="total") for f in downloaded]
                 dates = [d["t_range"][0] for d in grid_dict_list]
@@ -588,7 +581,7 @@ class ArenaFactory:
                 ]
                 for i, delta in enumerate(deltas):
                     if not delta == 1:
-                        print(
+                        logger.warning(
                             "Missing Files after:",
                             os.path.basename(files.objs[i].file.contentLocation),
                             f"delta: {delta * 24}h",
@@ -620,4 +613,4 @@ class ArenaFactory:
             fig.tight_layout()
             plt.show()
         else:
-            print(f"No files for {title}")
+            logger.warning(f"No files for {title}")
