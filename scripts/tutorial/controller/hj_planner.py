@@ -29,7 +29,6 @@ problem = NavigationProblem(
     start_state=x_0,
     end_region=x_T,
     target_radius=0.1,
-    timeout=datetime.timedelta(days=5),
 )
 
 # %% Plot the problem on the map

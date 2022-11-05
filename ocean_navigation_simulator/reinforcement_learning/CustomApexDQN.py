@@ -16,17 +16,21 @@ from ray.rllib.policy.torch_mixins import (
     TargetNetworkMixin,
 )
 from ray.rllib.utils.typing import AlgorithmConfigDict
-from ray.tune.registry import RLLIB_MODEL, _global_registry
+
+from ocean_navigation_simulator.reinforcement_learning.OceanTorchModel import (
+    OceanTorchModel,
+)
+
+"""
+ This class modifies the rllib ApexDQN slightly s.t. that we can freely use custom models.
+ The interaction of the policy with the model is overwritten.
+ """
 
 
-class OceanApexDQN(ApexDQN):
-    """
-    This class modifies the rllib ApexDQN slightly s.t. that we can freely use custom models.
-    The interaction of the policy with the model is overwritten.
-    """
-
+class CustomApexDQN(ApexDQN):
     def get_default_policy_class(self, config):
         if config["framework"] == "torch" and config.get("model").get("custom_model"):
+
             # Define custom model interaction for policy
             def custom_compute_q_values(policy: Policy, model: ModelV2, input_dict, **kwargs):
                 if isinstance(input_dict["obs"], tuple):
@@ -48,8 +52,7 @@ class OceanApexDQN(ApexDQN):
 
                 dqn_torch_policy.compute_q_values = custom_compute_q_values
 
-                model_cls = _global_registry.get(RLLIB_MODEL, config["model"]["custom_model"])
-                model = model_cls(
+                model = OceanTorchModel(
                     obs_space,
                     action_space,
                     action_space.n,
@@ -57,7 +60,7 @@ class OceanApexDQN(ApexDQN):
                     "model",
                     **config["model"]["custom_model_config"]
                 )
-                policy.target_model = model_cls(
+                policy.target_model = OceanTorchModel(
                     obs_space,
                     action_space,
                     action_space.n,

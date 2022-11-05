@@ -37,7 +37,7 @@ observer_config = {
 x_0 = {
     "lon": -82.5,
     "lat": 23.7,
-    "date_time": "2021-11-24 23:12:00.004573 +0000",
+    "date_time": "2022-08-24 23:12:00.004573 +0000",
 }
 
 # x_T = SpatialPoint(lon=units.Distance(deg=-80.3), lat=units.Distance(deg=24.6))
@@ -80,16 +80,25 @@ ctrl_config = {
 
 objective_conf = {'type': "nav"}
 
-#%%
-with ArenaFactory.download_files(
-        config=arena_config, type="hindcast",
-        t_interval=[datetime.datetime(2021, 11, 25), datetime.datetime(2021, 11, 27)],
-        points=None, verbose=1) as download_hindcast_files_to_local:
-
-    print("inside")
-
-
-#%%
+# #%%
+# ArenaFactory.download_files(
+#     config=arena_config, type="hindcast",
+#     t_interval=[datetime.datetime(2021, 11, 25), datetime.datetime(2021, 11, 26)],
+#     points=None, verbose=1)
+# #%%
+# ArenaFactory.download_required_files(
+#         archive_source=arena_config["ocean_dict"]["hindcast"]["source_settings"][
+#             "source"
+#         ],
+#         archive_type=arena_config["ocean_dict"]['hindcast']["source_settings"]["type"],
+#         download_folder="data/hindcast_test_new/",
+#         t_interval=[datetime.datetime(2021, 11, 25), datetime.datetime(2021, 11, 26)],
+#         region=arena_config["ocean_dict"]["area"],
+#         throw_exceptions=True,
+#         points=None,
+#         verbose=1
+#     )
+#%
 
 
 ## % run eval

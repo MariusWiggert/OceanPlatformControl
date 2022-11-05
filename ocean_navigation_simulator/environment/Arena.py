@@ -5,7 +5,6 @@
 import dataclasses
 import datetime
 import logging
-import os
 import time
 from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
@@ -44,6 +43,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.utils.misc import timing_logger
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
@@ -145,7 +145,6 @@ class Arena:
         """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         self.timeout = self.format_timeout(timeout)
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
@@ -240,7 +239,8 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-        state = self.platform.simulate_step(action)
+        with timing_logger("Platform Step ({})", self.logger, logging.DEBUG):
+            state = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
             self.state_trajectory = np.append(
@@ -250,13 +250,15 @@ class Arena:
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
 
-        return ArenaObservation(
-            platform_state=state,
-            true_current_at_state=self.ocean_field.get_ground_truth(
-                state.to_spatio_temporal_point()
-            ),
-            forecast_data_source=self.ocean_field.forecast_data_source,
-        )
+        with timing_logger("Create Observation ({})", self.logger, logging.DEBUG):
+            obs = ArenaObservation(
+                platform_state=state,
+                true_current_at_state=self.ocean_field.get_ground_truth(
+                    state.to_spatio_temporal_point()
+                ),
+                forecast_data_source=self.ocean_field.forecast_data_source,
+            )
+        return obs
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""
@@ -477,6 +479,7 @@ class Arena:
 
     def plot_all_on_map(
         self,
+        ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
         index: Optional[int] = -1,
         show_current_position: Optional[bool] = True,
@@ -528,7 +531,7 @@ class Arena:
             )
         else:
             raise Exception(
-                f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed."
+                f"Arena: Background '{background}' is not available only 'current', 'solar' or 'seaweed."
             )
 
         if show_state_trajectory:

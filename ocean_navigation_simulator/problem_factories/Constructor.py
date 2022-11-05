@@ -44,9 +44,6 @@ class Constructor:
         self.ctrl_conf = ctrl_conf
         self.observer_conf = observer_conf
 
-        # Create problem from config
-        self.problem = self.__problem_constructor()
-
         # Add mission seed to arena for potential forecast generation (i.e. Jonas work)
         if "seed" in self.mission_conf:
             arena_conf["seed"] = self.mission_conf["seed"]
@@ -55,7 +52,10 @@ class Constructor:
         self.arena = ArenaFactory.create(scenario_config=arena_conf)
 
         # Add platform_dict from arena to controll config
-        self.ctrl_conf.update({"platform_dict": self.arena.platform.platform_dict})
+        self.platform_dict = self.arena.platform.platform_dict
+
+        # Create problem from config
+        self.problem = self.__problem_constructor()
 
         # Create controller from config
         self.controller = self.__controller_constructor()
@@ -103,6 +103,7 @@ class Constructor:
                 start_state=X_0[0],
                 end_region=x_T,
                 target_radius=self.mission_conf["target_radius"],
+                platform_dict=self.platform_dict
             )
 
         # TODO: Adapt to new objectives i.e.:

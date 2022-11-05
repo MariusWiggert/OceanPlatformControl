@@ -149,7 +149,7 @@ class HJPlannerBase(Controller):
         self.logger.debug(f"HJPlannerBase: Get Action from Plan ({time.time() - start:.1f}s)")
         return action
 
-    def replan_if_necessary(self, observation: ArenaObservation):
+    def replan_if_necessary(self, observation: ArenaObservation) -> bool:
         if self._check_for_replanning(observation):
             if "load_plan" in self.specific_settings and self.specific_settings["load_plan"]:
                 folder = f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index+1}/'
@@ -180,6 +180,8 @@ class HJPlannerBase(Controller):
                 self.logger.info(
                     f"HJPlannerBase: Re-planning finished ({time.time() - start:.1f}s)"
                 )
+            return True
+        return False
 
     def _check_for_replanning(self, observation: ArenaObservation) -> bool:
         """Helper Function to check if we want to replan with HJ Reachability.
@@ -188,7 +190,7 @@ class HJPlannerBase(Controller):
         """
 
         # Check for re-planning with new forecast (or first time so no idx set yet)
-        if self.specific_settings["replan_on_new_fmrc"] or self.last_fmrc_time_planned_with is None:
+        if self.specific_settings.get("replan_on_new_fmrc", False) or self.last_fmrc_time_planned_with is None:
             old = self.last_fmrc_time_planned_with
             if self._new_forecast_data_available(observation):
                 # If the data_source is an observer, delete all error measurements from the old forecast.
@@ -607,6 +609,7 @@ class HJPlannerBase(Controller):
             y_interval=y_interval,
             t_interval=t_interval,
             spatial_resolution=self.specific_settings["grid_res"],
+            throw_exceptions=True,
         )
 
         # calculate relative posix_time (we use it in interpolation because jax uses float32 and otherwise cuts off)
@@ -1031,14 +1034,18 @@ class HJPlannerBase(Controller):
             ),
             values=ttr_values,
             method="linear",
+            bounds_error=False,
+            fill_value=None,
         )
 
     def interpolate_value_function_in_hours(
         self,
         observation: ArenaObservation = None,
         point: SpatioTemporalPoint = None,
-        width_deg: float = 0,
-        width: int = 1,
+        width_deg: Optional[float] = 0,
+        width: Optional[int] = 1,
+        allow_spacial_extrapolation: Optional[bool] = False,
+        allow_temporal_extrapolation: Optional[bool] = False,
     ) -> np.ndarray:
         """
         Get interpolated TTR value in hours either for a single point or on a grid (if width's passed)
@@ -1048,10 +1055,11 @@ class HJPlannerBase(Controller):
             width_deg: width in degrees for the grid
             width: width in points for the grid
         """
-        if observation is not None:
+        if observation is not None and isinstance(observation, ArenaObservation):
             self.replan_if_necessary(observation)
             point = observation.platform_state.to_spatio_temporal_point()
-        elif point is None:
+
+        if not type(point) in [SpatioTemporalPoint, PlatformState]:
             raise Exception(
                 "Either ArenaObservation or SpatioTemporalPoint has to be given for interpolation."
             )
@@ -1059,28 +1067,44 @@ class HJPlannerBase(Controller):
         out_x = np.linspace(point.lon.deg - width_deg / 2, point.lon.deg + width_deg / 2, width)
         out_y = np.linspace(point.lat.deg - width_deg / 2, point.lat.deg + width_deg / 2, width)
         out_t = point.date_time.timestamp()
+
+        # Sanitize Inputs:
+        extrapolate_x = (
+            out_x[0] <= self.grid.coordinate_vectors[0][0]
+            or self.grid.coordinate_vectors[0][-1] <= out_x[-1]
+        )
+        extrapolate_y = (
+            out_y[0] <= self.grid.coordinate_vectors[1][0]
+            or self.grid.coordinate_vectors[1][-1] <= out_y[-1]
+        )
+        extrapolate_t = not (
+            self.current_data_t_0 + self.reach_times[0]
+            <= out_t
+            <= self.current_data_t_0 + self.reach_times[-1]
+        )
+        if extrapolate_x or extrapolate_y or extrapolate_t:
+            message = (
+                f"Extrapolating in {'x' if extrapolate_x else 'y' if extrapolate_y else 't'}. "
+                + f"Requested: out_t: {out_t:.0f} out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}] out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]. "
+                + "Available:"
+                + f" in_t: [{self.current_data_t_0+self.reach_times[0]:.0f}, {self.current_data_t_0+self.reach_times[-1]:.0f}]"
+                + f" in_x: [{self.grid.coordinate_vectors[0][0]:.2f}, {self.grid.coordinate_vectors[0][-1]:.2f}]"
+                + f" in_y: [{self.grid.coordinate_vectors[1][0]:.2f}, {self.grid.coordinate_vectors[1][-1]:.2f}]"
+            )
+            if (allow_spacial_extrapolation and not extrapolate_t) or (
+                allow_temporal_extrapolation and not (extrapolate_x or extrapolate_y)
+            ):
+                self.logger.warning(message)
+            else:
+                raise ValueError(message)
+
         mx, my = np.meshgrid(out_x, out_y)
 
-        try:
-            return (
-                self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel()))
-                .reshape((width, width))
-                .squeeze()
-            )
-        except BaseException:
-            print(
-                "Requested:",
-                f"  out_t: {out_t:.0f}",
-                f"  out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]",
-                f"  out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]",
-            )
-            print(
-                f"Available:"
-                f"  reach_times: [{self.current_data_t_0+self.reach_times[0]:.0f}, {self.current_data_t_0+self.reach_times[-1]:.0f}]",
-                f"  self.grid.states.x: [{self.grid.states[0, 0, 1]:.2f}, {self.grid.states[0, -1, 1]:.2f}]",
-                f"  self.grid.states.x: [{self.grid.states[0, 0, 0]:.2f}, {self.grid.states[-1, 0, 0]:.2f}]",
-            )
-            raise
+        return (
+            self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel()))
+            .reshape((width, width))
+            .squeeze()
+        )
 
     ## Saving & Loading Planner State
     def save_planner_state(self, folder):
@@ -1113,6 +1137,10 @@ class HJPlannerBase(Controller):
             pickle.dump(self.initial_values, file)
 
         self.logger.info(f"HJPlannerBase: Saving plan to {folder}")
+
+    def pickle(self, dir):
+        with open(dir, "wb") as f:
+            pickle.dump(self, f)
 
     def restore_state(self, folder):
         # Used in Replanning

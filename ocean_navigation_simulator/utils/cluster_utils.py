@@ -1,7 +1,6 @@
 import json
 import os
 import socket
-from typing import Optional
 
 import pandas as pd
 import ray
@@ -28,7 +27,7 @@ def init_ray(**kwargs):
     Args:
         **kwargs: to be passed to ray.init()
     """
-    with timing("Code sent to ray nodes in {:.1f}s", verbose=1):
+    with timing("Code sent to ray nodes in {}", verbose=1):
         # Documentation:
         # https://docs.ray.io/en/latest/ray-core/handling-dependencies.html
         # https://docs.ray.io/en/latest/ray-core/package-ref.html#ray-init
@@ -43,12 +42,11 @@ def init_ray(**kwargs):
                     "./scripts",
                 ],
                 "py_modules": ["ocean_navigation_simulator"],
-                "env_vars": {"LOGLEVEL": "WARN"},
             },
             **kwargs,
         )
 
-    print_ray_resources()
+    return print_ray_resources()
 
 
 def print_ray_resources():
@@ -57,10 +55,10 @@ def print_ray_resources():
     ray.init() has to be called first.
     """
     active_nodes = list(filter(lambda node: node["Alive"] is True, ray.nodes()))
-    cpu_total = ray.cluster_resources()["CPU"] if "CPU" in ray.cluster_resources() else 0
-    gpu_total = ray.cluster_resources()["GPU"] if "GPU" in ray.cluster_resources() else 0
-    cpu_available = ray.available_resources()["CPU"] if "CPU" in ray.available_resources() else 0
-    gpu_available = ray.available_resources()["GPU"] if "GPU" in ray.available_resources() else 0
+    cpu_total = ray.cluster_resources().get("CPU", 0)
+    gpu_total = ray.cluster_resources().get("GPU", 0)
+    cpu_available = ray.available_resources().get("CPU", 0)
+    gpu_available = ray.available_resources().get("GPU", 0)
 
     print(
         f"""This cluster consists of
@@ -68,6 +66,8 @@ def print_ray_resources():
     {cpu_available}/{cpu_total} CPU resources available
     {gpu_available}/{gpu_total} GPU resources available"""
     )
+
+    return active_nodes, cpu_available, gpu_available
 
 
 def destroy_cluster():
@@ -77,7 +77,21 @@ def destroy_cluster():
     os.system("ray down -y setup/ray-config.yaml")
 
 
-def run_command_on_all_nodes(command, resource_group="jerome-ray-cpu"):
+def purge_download_temp_folders(basedir="/home/ubuntu/"):
+    run_command_on_all_nodes(
+        f"rm -rf {basedir}copernicus_forecast/*/; rm -rf {basedir}hycom_hindcast/*/"
+    )
+
+
+def analyze_download_temp_folders(basedir="/home/ubuntu/"):
+    run_command_on_all_nodes(
+        f'echo "Copernicus: $(ls {basedir}copernicus_forecast | wc -l) Files, $(du -sh {basedir}copernicus_forecast | cut -f1)";'
+        + f'echo "Hycom: $(ls {basedir}hycom_hindcast | wc -l) Files, $(du -sh {basedir}copernicus_forecast | cut -f1)"',
+        verbose=0,
+    )
+
+
+def run_command_on_all_nodes(command, resource_group, verbose=10):
     """
     Runs a command on all machines in the specified resourcegroup of our Azure Directory.
     This allows to quickly install new dependencies without running
@@ -86,27 +100,34 @@ def run_command_on_all_nodes(command, resource_group="jerome-ray-cpu"):
         ray.init()
         run_command_on_all_nodes('ls -la', 'your-resource-group')
     :arg
-        command: the console command to run
+        command: the console command to run, can be concatenated with a ;
         resource-group: the resource group where the machines should be found
     """
     vm_list = get_vm_list(resource_group)
-    print("VM List fetched")
+    print_vm_table(vm_list)
 
     ray.init()
 
     @ray.remote(num_cpus=0.1)
     def run_command_on_node(ip, command):
-        with timing(f"## Node {ip} finished in {{:.0f}}s."):
-            print(f"##### Starting Command ({command}) on Node {ip}")
+        with timing(f"## Node {ip} finished in {{}}.", verbose):
+            if verbose > 0:
+                print(f"##### Starting Command ({command}) on Node {ip}")
             os.system(
                 f"ssh -o StrictHostKeyChecking=no -i ~/.ssh/azure ubuntu@{ip} 'source /anaconda/etc/profile.d/conda.sh; conda activate ocean_platform; {command}'"
             )
 
-    ray.get([run_command_on_node.remote(vm["publicIps"], command) for vm in vm_list])
+    ray.get(
+        [
+            run_command_on_node.remote(vm["publicIps"], command)
+            for vm in vm_list
+            if vm["powerState"] == "VM running"
+        ]
+    )
     print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
 
 
-def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-ray-cpu"):
+def copy_files_to_nodes(local_dir, remote_dir, resource_group):
     """
     Runs a command on all machines in the specified resourcegroup of our Azure Directory.
     This allows to quickly install new dependencies without running
@@ -124,15 +145,25 @@ def copy_files_to_nodes(local_dir, remote_dir, resource_group="jerome-ray-cpu"):
     ray.init()
 
     @ray.remote(num_cpus=0.1)
-    def run_command_on_node(ip, local_dir, remote_dir):
-        with timing(f"## Node {ip} finished in {{:.0f}}s."):
+    def copy_files_to_node(ip, local_dir, remote_dir):
+        with timing(f"## Node {ip} finished in {{}}."):
             print(f"##### Copying directory ({local_dir}) to Node {ip}")
             os.system(
                 f"scp -r -o StrictHostKeyChecking=no -i ~/.ssh/azure {local_dir} ubuntu@{ip}:{remote_dir}"
             )
 
-    ray.get([run_command_on_node.remote(vm["publicIps"], local_dir, remote_dir) for vm in vm_list])
+    ray.get(
+        [
+            copy_files_to_node.remote(vm["publicIps"], local_dir, remote_dir)
+            for vm in vm_list
+            if vm["powerState"] == "VM running"
+        ]
+    )
     print(f'Command run on {len(vm_list)} nodes of "{resource_group}"')
+
+
+def check_storage_connection():
+    return os.path.exists("/seaweed-storage/connected")
 
 
 def ensure_storage_connection():
@@ -140,22 +171,22 @@ def ensure_storage_connection():
     Checks if the Azure storage is connected.
     Tries to reconnect and throws an error if not possible.
     """
-    if not os.path.exists("/seaweed-storage/connected"):
+    if not check_storage_connection():
         os.system("bash -i setup/cluster-jerome/set_up_seaweed_storage.sh")
 
-    if not os.path.exists("/seaweed-storage/connected"):
+    if not check_storage_connection():
         raise FileNotFoundError(
             f"Seaweed Storage not connected on node {requests.get('https://api.ipify.org').content.decode('utf8')} / {socket.gethostbyname(socket.gethostname())}"
         )
 
 
-def get_vm_list(resource_group: Optional[str] = "jerome-ray-cpu"):
+def get_vm_list(resource_group):
     return json.loads(
         os.popen(f"az vm list --resource-group '{resource_group}' --show-details").read()
     )
 
 
-def print_vm_table(vm_dict: dict = None):
+def print_vm_table(vm_dict):
     vm_df = pd.DataFrame(
         [
             {
@@ -165,7 +196,7 @@ def print_vm_table(vm_dict: dict = None):
                 "public_ip": vm["publicIps"],
                 "private_ip": vm["privateIps"],
             }
-            for vm in (vm_dict if vm_dict is not None else get_vm_list())
+            for vm in vm_dict
         ]
     )
     with pd.option_context(
