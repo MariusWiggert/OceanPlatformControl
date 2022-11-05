@@ -17,8 +17,11 @@ from IPython.display import HTML
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
     SpatialPoint,
     SpatioTemporalPoint,
+    SpatioTemporalPointSet,
+    SpatialPointSet,
 )
 from ocean_navigation_simulator.utils import units
 
@@ -104,9 +107,41 @@ class DataSource(abc.ABC):
 
         self.initialize_casadi_functions(grid, xarray)
 
+    # @staticmethod
+    # def convert_to_x_y_time_bounds(
+    #     x_0: SpatioTemporalPoint,
+    #     x_T: SpatialPoint,
+    #     deg_around_x0_xT_box: float,
+    #     temp_horizon_in_s: float,
+    # ):
+    #     """Helper function for spatio-temporal subsetting
+    #     Args:
+    #         x_0: SpatioTemporalPoint
+    #         x_T: SpatialPoint goal locations
+    #         deg_around_x0_xT_box: buffer around the box in degree
+    #         temp_horizon_in_s: maximum temp_horizon to look ahead of x_0 time in seconds
+
+    #     Returns:
+    #         t_interval: if time-varying: [t_0, t_T] as utc datetime objects
+    #                     where t_0 and t_T are the start and end respectively
+    #         lat_bnds: [y_lower, y_upper] in degrees
+    #         lon_bnds: [x_lower, x_upper] in degrees
+    #     """
+    #     t_interval = [x_0.date_time, x_0.date_time + datetime.timedelta(seconds=temp_horizon_in_s)]
+    #     lon_bnds = [
+    #         min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box,
+    #         max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box,
+    #     ]
+    #     lat_bnds = [
+    #         min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box,
+    #         max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box,
+    #     ]
+
+    #     return t_interval, lat_bnds, lon_bnds
+
     @staticmethod
     def convert_to_x_y_time_bounds(
-        x_0: SpatioTemporalPoint,
+        x_start: SpatioTemporalPointSet,
         x_T: SpatialPoint,
         deg_around_x0_xT_box: float,
         temp_horizon_in_s: float,
@@ -124,14 +159,18 @@ class DataSource(abc.ABC):
             lat_bnds: [y_lower, y_upper] in degrees
             lon_bnds: [x_lower, x_upper] in degrees
         """
-        t_interval = [x_0.date_time, x_0.date_time + datetime.timedelta(seconds=temp_horizon_in_s)]
+
+        t_interval = [
+            min(x_start.date_time),
+            max(x_start.date_time) + datetime.timedelta(seconds=temp_horizon_in_s),
+        ]
         lon_bnds = [
-            min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box,
-            max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box,
+            min(min(x_start.lon.deg), x_T.lon.deg) - deg_around_x0_xT_box,
+            max(max(x_start.lon.deg), x_T.lon.deg) + deg_around_x0_xT_box,
         ]
         lat_bnds = [
-            min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box,
-            max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box,
+            min(min(x_start.lat.deg), x_T.lat.deg) - deg_around_x0_xT_box,
+            max(max(x_start.lat.deg), x_T.lat.deg) + deg_around_x0_xT_box,
         ]
 
         return t_interval, lat_bnds, lon_bnds
@@ -713,7 +752,7 @@ class AnalyticalSource(abc.ABC):
 
     @abc.abstractmethod
     def map_analytical_function_over_area(self, grids_dict: dict):
-        """Function to map the analytical function over an area with the spatial states and grid_dict times.
+        """Function to map the analytical function over an area with the spatial x_start and grid_dict times.
         Args:
           grids_dict: containing grids of x, y, t dimension
         Returns:

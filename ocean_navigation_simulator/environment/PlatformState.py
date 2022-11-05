@@ -51,6 +51,12 @@ class SpatialPoint:
 
 
 @dataclasses.dataclass
+class SpatialPointSet:
+    lon: units.Distance
+    lat: units.Distance
+
+
+@dataclasses.dataclass
 class SpatioTemporalPoint:
     # TODO: implement nice way to transform a list of those to numpy and back: https://kplauritzen.dk/2021/08/11/convert-dataclasss-np-array.html
     """A dataclass containing SpatioTemporalPoint variables..
@@ -89,6 +95,13 @@ class SpatioTemporalPoint:
 
     def __repr__(self):
         return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
+
+
+@dataclasses.dataclass
+class SpatioTemporalPointSet:
+    lon: np.array(units.Distance)
+    lat: np.array(units.Distance)
+    date_time: np.array(datetime.datetime)
 
 
 @dataclasses.dataclass
@@ -169,3 +182,34 @@ class PlatformState:
 
     def distance(self, other) -> float:
         return self.to_spatial_point().distance(other)
+
+
+@dataclasses.dataclass
+class PlatformStateSet:
+    states: List[PlatformState]
+
+    def __array__(self):
+        return np.array(self.states)  # rows are the number of platforms
+
+    def __len__(self):
+        return len(self.states)
+
+    def __getitem__(self, platform_id):
+        #     return np.array(self.states[platform_id])
+        return self.states[platform_id]
+
+    def __post_init__(self):
+        self.lon = units.Distance(deg=np.array(self.states)[:, 0])
+        self.lat = units.Distance(deg=np.array(self.states)[:, 1])
+        # datetime does not support array, whilst np.datetime64 has no timestamps....
+        self.date_time = np.array([platform.date_time for platform in self.states])
+        self.battery_charge = units.Energy(joule=np.array(self.states)[:, 3])
+        self.seaweed_masse = units.Mass(kg=np.array(self.states)[:, 4])
+
+    def to_spatial_point_set(self) -> SpatialPointSet:
+        """Helper function to just extract the spatial point."""
+        return SpatialPointSet(lon=self.lon, lat=self.lat)
+
+    def to_spatio_temporal_point_set(self) -> SpatioTemporalPoint:
+        """Helper function to just extract the spatial point."""
+        return SpatioTemporalPointSet(lon=self.lon, lat=self.lat, date_time=self.date_time)

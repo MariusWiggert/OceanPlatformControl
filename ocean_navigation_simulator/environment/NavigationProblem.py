@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
     SpatialPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
@@ -17,7 +18,8 @@ from ocean_navigation_simulator.utils import units
 
 @dataclasses.dataclass
 class NavigationProblem(Problem):
-    start_state: PlatformState
+    # start_state: PlatformStateSet
+    start_state: PlatformStateSet
     end_region: SpatialPoint
     target_radius: float
     timeout: datetime.timedelta = None

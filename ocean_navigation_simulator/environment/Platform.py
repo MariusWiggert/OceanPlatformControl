@@ -26,7 +26,7 @@ from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource i
 from ocean_navigation_simulator.data_sources.SolarIrradiance.SolarIrradianceSource import (
     SolarIrradianceSource,
 )
-from ocean_navigation_simulator.environment.PlatformState import PlatformState
+from ocean_navigation_simulator.environment.PlatformState import PlatformState, PlatformStateSet
 from ocean_navigation_simulator.utils import units
 
 
@@ -75,7 +75,7 @@ class Platform:
     ocean_source: OceanCurrentSource = None
     solar_source: SolarIrradianceSource = None
     seaweed_source: SeaweedGrowthSource = None
-    state: PlatformState = None
+    state: PlatformStateSet = None
 
     def __init__(
         self,
