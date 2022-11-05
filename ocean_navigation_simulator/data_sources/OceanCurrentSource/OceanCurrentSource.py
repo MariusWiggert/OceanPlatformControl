@@ -439,7 +439,7 @@ def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
     # Step 1: get a list of files from the folder
     files_list = []
 
-    # Allow for list of files/folders or mixture
+    # Allow for list of files/folders or mixture as input
     # This is useful to prevent loading hundreds of files!
     # Fully backwards compatible
     if type(folder) is not list:
@@ -447,13 +447,14 @@ def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
 
     for place in folder:
         if os.path.isdir(place):
-            files_list.append(
-                [
+            # get all files in the folder
+            all_files_in_place = [
                     place + f
                     for f in os.listdir(place)
                     if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
                 ]
-            )
+            # add all of them to the list
+            files_list += all_files_in_place
         elif os.path.isfile(place):
             files_list.append(place)
 

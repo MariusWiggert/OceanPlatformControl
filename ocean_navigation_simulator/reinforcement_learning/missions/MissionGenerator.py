@@ -247,10 +247,10 @@ class MissionGenerator:
                 scenario_file=self.config["scenario_file"],
                 x_interval=self.config["x_range"],
                 y_interval=self.config["y_range"],
-                # t_interval=[
-                #     fake_start.date_time - datetime.timedelta(hours=1),
-                #     fake_target.date_time + datetime.timedelta(days=1, hours=1),
-                # ],
+                t_interval=[
+                    fake_start.date_time - datetime.timedelta(hours=1),
+                    fake_target.date_time + datetime.timedelta(days=1, hours=1),
+                ],
                 throw_exceptions=True,
             )
             self.arena.reset(fake_start)

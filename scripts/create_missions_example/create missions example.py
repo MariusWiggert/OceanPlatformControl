@@ -24,6 +24,10 @@ logging.getLogger("MissionGenerator").setLevel(logging.INFO)
 # or this if you want to ignore all data warnings
 # logging.getLogger("MissionGenerator").setLevel(logging.FATAL)
 
+# TODO: some small issues with file downloading (Test with c3 cloud to figure out why)
+# TODO: Merge selectively into the experimentRunner branch to get it to work there.
+# TODO: write C3 batch job for it, should be very light, probably just feeding in a json into the job.
+
 config = {
     "scenario_file": "scripts/create_missions_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
     ##### Target Sampling #####
@@ -60,16 +64,16 @@ config = {
     "feasible_mission_time": [datetime.timedelta(hours=20), datetime.timedelta(hours=120)],
     "random_min_distance_from_target": 0.5,
     ##### Actions #####
-    "plot_batch": True,
+    "plot_batch": False,
     "animate_batch": False,
     "cache_forecast": False,
     "cache_hindcast": False,
 }
 
-results_folder = "data/tmp/missions/"
+results_folder = "/tmp/missions/"
 os.makedirs(results_folder, exist_ok=True)
 all_problems = []
-for worker in range(1):
+for worker in range(3):
     mission_generator = MissionGenerator(
         config=config
         | {
@@ -83,9 +87,11 @@ for worker in range(1):
 df = pd.DataFrame([problem.to_dict() for problem in all_problems])
 df.to_csv(results_folder + "problems.csv")
 
-GenerationRunner.plot_starts_and_targets(
-    results_folder,
-    scenario_file="scripts/create_missions_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
-)
-GenerationRunner.plot_target_dates_histogram(results_folder)
-GenerationRunner.plot_ttr_histogram(results_folder)
+#%%
+df.to_csv("problems.csv")
+# GenerationRunner.plot_starts_and_targets(
+#     results_folder,
+#     scenario_file="scripts/create_missions_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
+# )
+# GenerationRunner.plot_target_dates_histogram(results_folder)
+# GenerationRunner.plot_ttr_histogram(results_folder)
