@@ -30,6 +30,7 @@ class Observer:
         if "NN" in config.get("model", {}):
             NN_dict = config["model"]["NN"]
             self.model_error = NN_dict["model_error"]
+            self.model_input = NN_dict["dimension_input"]
             self.NN = get_model(NN_dict["type"], NN_dict["parameters"], device)
         else:
             self.NN = None
@@ -77,8 +78,19 @@ class Observer:
 
     def evaluate_neural_net(self, data):
         data_array = np.expand_dims(data.to_array().to_numpy(), 0)
-        torch_data = torch.tensor(data_array[:, [0, 1, 2, 3, 4, 5]], dtype=torch.float)
-        return self.NN(torch_data)[0].detach().numpy()
+        torch_data = torch.tensor(data_array, dtype=torch.float)
+        # Only take the center of the tile to evaluate on the NN
+        t, lon, lat = self.model_input
+        margin_lon = (torch_data.shape[-2] - lon) // 2
+        margin_lat = (torch_data.shape[-1] - lat) // 2
+        t_xr, lon_xr, lat_xr = data.time[:t], data.lon[margin_lon:margin_lon + lon], data.lat[
+                                                                                     margin_lat:margin_lat + lat]
+        torch_data = torch_data[:, :, :t, margin_lon:margin_lon + lon, margin_lat:margin_lat + lat]
+        output = self.NN(torch_data)[0].detach().numpy()
+        xr_output = xr.Dataset(data_vars=dict(water_u=(["time", "lon", "lat"], output[0]),
+                                              water_v=(["time", "lon", "lat"], output[1])),
+                               coords=dict(time=t_xr, lat=lat_xr, lon=lon_xr)).transpose("time", "lat", "lon")
+        return xr_output
         # 1) Check the input size
         # if len(data["time"]) > n_steps:
         #     data = data.isel(time=slice(1, n_steps + 1))
@@ -138,6 +150,7 @@ class Observer:
 
         # Compute the grid centered around the platform and interpolate the forecast based on that
         m = 1 / 20
+
         l1_lon = np.arange(platform_position.lon.deg, platform_position.lon.deg - radius_space - m, -spatial_resolution)
         l2_lon = np.arange(platform_position.lon.deg, platform_position.lon.deg + radius_space + m, spatial_resolution)
         l1_lat = np.arange(platform_position.lat.deg, platform_position.lat.deg - radius_space - m, -spatial_resolution)

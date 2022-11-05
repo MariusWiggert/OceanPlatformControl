@@ -129,6 +129,7 @@ class PredictionsAndGroundTruthOverArea:
                                 radius_area: float = None, gp_outputs: Optional[List['xr']] = None,
                                 NN_outputs: Optional[List[np.array]] = None):
         print("visualize initial error")
+        use_NN = not (NN_outputs is None or not len(NN_outputs))
         # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
         #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
         # error = init_fc - self.ground_truth
@@ -156,20 +157,20 @@ class PredictionsAndGroundTruthOverArea:
         ax1, self.cbar = OceanCurrentSource.plot_data_from_xarray(0, real_errors[0], ax=ax1,
                                                                   return_cbar=True)
         ax2 = OceanCurrentSource.plot_data_from_xarray(0, initial_forecasts[0], ax=ax2, colorbar=False)
-        ax3, self.cbar_3 = OceanCurrentSource.plot_data_from_xarray(0, errors_predicted[0], ax=ax3, return_cbar=True)
-        if NN_outputs is None:
-            ax4, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(0, (std_output[0] if gp_outputs is not None else
-                                                                            errors_predicted[0]), ax=ax4,
-                                                                        return_cbar=True)
+        ax3 = OceanCurrentSource.plot_data_from_xarray(0, errors_predicted[0], ax=ax3, return_cbar=False,
+                                                       colorbar=False)
+
+        if not use_NN:
+            ax4 = OceanCurrentSource.plot_data_from_xarray(0, (std_output[0] if gp_outputs is not None else
+                                                               errors_predicted[0]), ax=ax4,
+                                                           return_cbar=False)
         else:
-            initial_forecasts
-            ls_NN_xr = [xr.Dataset(data_vars=dict(water_u=(["time", "lon", "lat"], output[0]),
-                                                  water_v=(["time", "lon", "lat"], output[1])),
-                                   coords=dict(lon=range(24), lat=range(24), time=initial_forecasts[i].time)) for
-                        i, output in enumerate(NN_outputs)]
-            ax4, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(0, ls_NN_xr[0], ax=ax4, return_cbar=True)
-        list_for_ax4 = ls_NN_xr if NN_outputs is not None else (std_output if gp_outputs is not None else
-                                                                errors_predicted)
+            ls_NN_xr = [output.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5) for i, output in
+                        enumerate(NN_outputs)]
+            ax4 = OceanCurrentSource.plot_data_from_xarray(0, ls_NN_xr[0], ax=ax4, colorbar=False, set_title=False)
+
+        list_for_ax4 = ls_NN_xr if use_NN else (std_output if gp_outputs is not None else
+                                                errors_predicted)
 
         # x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
 
@@ -181,7 +182,6 @@ class PredictionsAndGroundTruthOverArea:
             ax3.clear()
             ax4.clear()
             self.cbar.remove()
-            self.cbar_3.remove()
             fig.suptitle('At time {}, with a lag of {} hours.'.format(
                 units.get_datetime_from_np64(initial_forecasts[index_prediction]['time'][0]), lag), fontsize=14)
             vmin, vmax = 0, float(max(initial_forecasts[index_prediction].isel(time=lag)["magnitude"].max(),
@@ -190,26 +190,14 @@ class PredictionsAndGroundTruthOverArea:
                                                                     return_cbar=True, vmin=vmin, vmax=vmax)
             OceanCurrentSource.plot_data_from_xarray(lag, initial_forecasts[index_prediction], ax=ax2, colorbar=False,
                                                      vmin=vmin, vmax=vmax)
-            _, self.cbar_3 = OceanCurrentSource.plot_data_from_xarray(lag, errors_predicted[index_prediction], ax=ax3,
-                                                                      return_cbar=True)
-            ax1.set_title("Error forecast vs hindcast [m/s]")
-            ax2.set_title("Forecast currents [m/s]")
-            ax3.set_title("Error currents predicted by the GP [m/s]")
-            if NN_outputs is not None:
-                ax4.set_title("Error by the NN (zoomed in) [m/s]")
-            else:
-                ax4.set_title("std of the error from the GP [m/s]")
+            OceanCurrentSource.plot_data_from_xarray(lag, errors_predicted[index_prediction], ax=ax3, colorbar=False,
+                                                     return_cbar=False, vmin=vmin, vmax=vmax)
 
             # Print trajectory
             if tuple_trajectory_history_new_files is not None:
                 trajectory, new_files = tuple_trajectory_history_new_files
                 datetime_day_selected = units.get_datetime_from_np64(
                     initial_forecasts[index_prediction].isel(time=0)["time"])
-
-                # # index_latest_position_trajectory = max(0, np.argmax(time_prediction_ts < trajectory[:, 2]) - 1)
-                # index_latest_position_trajectory_before = np.sum(timestamp_day_selected > trajectory[:, 2]) - 1
-                # date_latest_position_trajectory_before = datetime.fromtimestamp(
-                #     trajectory[index_latest_position_trajectory_before][2], tz=timezone.utc)
 
                 last_date_before = None
                 latest_position = trajectory[0]
@@ -233,14 +221,13 @@ class PredictionsAndGroundTruthOverArea:
                         lon=slice(x - radius_area / 2, x + radius_area),
                         lat=slice(y - radius_area / 2, y + radius_area))
                     # print("error:", error_small_window)
-                    self.cbar_4.remove()
                     if NN_outputs is None and gp_outputs is None:
                         elem = error_small_window
                         vmin, vmax = None, None
                     else:
                         elem = list_for_ax4[index_prediction]
-                    _, self.cbar_4 = OceanCurrentSource.plot_data_from_xarray(lag, elem, ax=ax4, return_cbar=True,
-                                                                              vmin=vmin, vmax=vmax)
+                    OceanCurrentSource.plot_data_from_xarray(lag, elem, ax=ax4, colorbar=False, return_cbar=False,
+                                                             set_title=False, vmin=vmin, vmax=vmax)
                     for ax in [ax1, ax2, ax3, ax4]:
                         rect = patches.Rectangle((x - radius_area, y - radius_area), radius_area * 2,
                                                  radius_area * 2,
@@ -261,6 +248,14 @@ class PredictionsAndGroundTruthOverArea:
                         elif last_date_before is not None and last_date_before > date_pt:
                             color = 'yellow'
                             ax.scatter(pt[0], pt[1], c=color)
+
+            ax1.set_title("Error forecast vs hindcast [m/s]")
+            ax2.set_title("Forecast currents [m/s]")
+            ax3.set_title("Error currents predicted by the GP [m/s]")
+            if use_NN:
+                ax4.set_title("Error predicted by the GP-3D-Unet [m/s]")
+            else:
+                ax4.set_title("std of the error from the GP [m/s]")
 
         time_dim = list(range(len(list_predictions[-1][0]["time"])))
 
@@ -301,15 +296,24 @@ class PredictionsAndGroundTruthOverArea:
 
         # Create a `matplotlib.widgets.Button` to reset the sliders to initial values.
         resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
-        button = Button(resetax, 'Reset', hovercolor='0.975')
+        button = Button(resetax, 'next', hovercolor='0.975')
 
         def reset(event):
             ax_lag_time.reset()
             forecast_slider.reset()
 
-        button.on_clicked(reset)
+        lag_time_slider._j = 0
+
+        def increment(_):
+            print("increment", lag_time_slider._j)
+            lag_time_slider._j += 2
+            forecast_slider.set_val(lag_time_slider._j)
+
+        button.on_clicked(increment)
+        forecast_slider._button_test = button
         update_maps(0, 0, ax1, ax2, ax3, ax4)
         plt.show()
+
         keyboardClick = False
         while keyboardClick != True:
             keyboardClick = plt.waitforbuttonpress()
@@ -362,7 +366,7 @@ class PredictionsAndGroundTruthOverArea:
         ax4 = OceanCurrentSource.plot_data_from_xarray(0, error_reformated,
                                                        vmin=magnitude.min(),
                                                        vmax=magnitude.max(),
-                                                       ax=ax[1, 0])
+                                                       ax=ax[1, 0], colorbar=False)
         x_lim, y_lim = ax4.get_xlim(), ax4.get_ylim()
         if state_trajectory is not None:
             ax4.plot(trajectory_x, trajectory_y, color='y', marker='+')

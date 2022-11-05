@@ -16,9 +16,10 @@ experiment_runner:
   number_steps_prediction: 96 #120
   delta_between_predictions_in_sec: 3600 #1h
   time_horizon_predictions_in_sec: 86400 # 24 *3600
-  radius_area_around_platform: 3 #2 #0.5 #0.04665226 #3.89189189
-  number_steps_to_predict: 36 #24
-  gt_additional_area: 1.
+  radius_area_around_platform: 0.8
+  radius_area_around_platform_for_NN: 0.5 #2 #0.5 #0.04665226 #3.89189189
+  number_steps_to_predict: 12 #24
+  gt_additional_area: 0.1
   gt_additional_time: 3600
   clear_observations_when_new_file: True
 
@@ -47,20 +48,32 @@ observer:
   life_span_observations_in_sec: 43200 # 12 * 3600
 
   model:
-
-    # After bug :
     gaussian_process:
       kernel:
         type: 'matern'
-        sigma_exp_squared: 3.4904
+        sigma_exp_squared: 5.011571057964094
         scaling:
-          latitude: 0.48426081
-          longitude: 0.6580229922
-          time: 31553.8074593
+          latitude: 0.5753005356364821
+          longitude: 0.5967749664273109
+          time: 42103.57591355196
         parameters:
           length_scale_bounds: "fixed"
           nu: 1.5
 
+    NN:
+      dimension_input: [ 12,13,13 ]
+      model_error: false
+      type: 'cnn'
+      parameters:
+        path_parameters: "ablation_study/models_saved/medium_tile_big_ds.h5"
+        ch_sz: [ 6,24,48,96,192 ]
+        downsizing_method: "avgpool"
+        dropout_encoder: 0.24299222476871712
+        dropout_decoder: 0.13587898683659105
+        dropout_bottom: 0.7479602916555403
+        initial_channels: [ 0,1,2,3,6,7 ]
+        output_paddings: [ [ 0,1,1 ],[ 1,0,0 ],[ 1,0,0 ] ]
+        #output_paddings: [ [ 0,0,0 ],[ 1,0,0 ],[ 1,0,0 ] ]
 
     # {'type': 'matern', 'scaling': {'latitude': 0.48426081412300614, 'longitude': 0.6580229922153629, 'time': 31553.807459317766}, 'sigma_exp_squared': 3.4904, 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([6.58022992e-01, 4.84260814e-01, 3.15538075e+04])}}
     # 16 percent radius .5, lag 12

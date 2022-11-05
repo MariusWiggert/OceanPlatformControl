@@ -49,7 +49,7 @@ class OceanCurrentSource(DataSource):
     @staticmethod
     def plot_data_from_xarray(time_idx: int, xarray: xr, vmin: Optional[float] = 0, vmax: Optional[float] = None,
                               alpha: Optional[float] = 0.5, plot_type: AnyStr = 'quiver',
-                              colorbar: bool = True, ax=None, fill_nan: bool = True,
+                              colorbar: bool = True, ax=None, fill_nan: bool = True, set_title: bool = True,
                               return_cbar=False, fill_space_for_cbar=True) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
@@ -80,7 +80,8 @@ class OceanCurrentSource(DataSource):
         # Step 2: Create ax object
         if ax is None:
             ax = plt.axes()
-        ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
+        if set_title:
+            ax.set_title("Time: " + time.strftime('%Y-%m-%d %H:%M:%S UTC'))
 
         # underly with current magnitude
         if vmax is None:
@@ -108,7 +109,7 @@ class OceanCurrentSource(DataSource):
             ax.set_ylim([time_2D_array['lat'].data.min(), time_2D_array['lat'].data.max()])
             ax.set_xlim([time_2D_array['lon'].data.min(), time_2D_array['lon'].data.max()])
         elif plot_type == 'quiver':
-            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False, width=0.001)
+            xarray.plot.quiver(x='lon', y='lat', u='water_u', v='water_v', ax=ax, add_guide=False)
 
         if return_cbar:
             return ax, cbar

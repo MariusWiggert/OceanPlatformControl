@@ -405,7 +405,8 @@ class ExperimentRunner:
             #                                                            "delta_between_predictions_in_sec", None))[
             #                           ["error_u", "error_v", "std_error_u", "std_error_v"]])
 
-            list_gp_output.append(self.observer.get_data_around_platform(self.last_observation, radius, lags_in_sec))
+            list_gp_output.append(
+                self.observer.get_data_around_platform(self.last_observation.platform_state, radius, lags_in_sec))
             hc = self.arena.ocean_field.hindcast_data_source. \
                 get_data_over_area(*intervals_lon_lat_time_with_margin,
                                    temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None))
@@ -415,7 +416,9 @@ class ExperimentRunner:
         obj.visualize_initial_error(list_forecast_hindcast,
                                     tuple_trajectory_history_new_files=(
                                         self.arena.state_trajectory[:, :3], list_datetime_when_new_forecast_files),
-                                    radius_area=self.variables.get("radius_area_around_platform", None),
+                                    radius_area=self.variables.get("radius_area_around_platform_for_NN",
+                                                                   self.variables.get("radius_area_around_platform",
+                                                                                      None)),
                                     gp_outputs=list_gp_output, NN_outputs=list_NN_output)
 
     def run_all_problems(self, max_number_problems_to_run=None,

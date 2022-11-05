@@ -2,11 +2,14 @@
 #    pickle.dump(results_grids, handle, protocol=pickle.HIGHEST_PROTOCOL)
 import pickle
 
+import matplotlib
 import numpy as np
+from matplotlib import pyplot as plt
 
 plot_fixed = True
 metric_to_plot = 'r2'
 type_set = "testing"
+# type_set = "validation"
 path = f"ablation_study/export_all_results_{type_set}_set/"
 if plot_fixed:
     file_025, file_05, file_1 = path + "config_GP_025_12_fixed_export_4.pickle", path + "config_GP_05_12_fixed_export_4.pickle", path + "config_GP_1_12_fixed_export_4.pickle"
@@ -18,7 +21,7 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
     results_grids_05 = pickle.load(handle_05)
     results_grids_1 = pickle.load(handle_1)
     all_res = [results_grids_025, results_grids_05, results_grids_1]
-    colors = ['r', 'g', 'b']
+    colors = ['orange', 'g', 'b']
     names = ["radius: 0.25°", "radius: 0.5°", "radius: 1°"]
 
     #  Print the results
@@ -56,8 +59,8 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
         for m in arr[1:]:
             content += f"  & {m}"
         print(content)
-    '''
-    for key in results_grids_025.keys():
+
+    for key in results_grids_05.keys():
         if key.startswith(metric_to_plot):
             to_plots = [np.array(res[key]).mean(axis=0) for res in all_res]
             stds = [np.array(res[key]).std(axis=0) for res in all_res]
@@ -65,7 +68,7 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
             if key.endswith("_all_lags_and_radius"):
                 plot_2d = True
                 legend = "All lags and radius merged"
-                title_2d = f"average r2 for the tilesets - {type_set} set"
+                title_2d = f"average {metric_to_plot} for the tilesets - {type_set} set"
                 name = key[:-len("_all_lags_and_radius")]
             else:
                 plot_2d = False
@@ -75,24 +78,24 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
             hf = plt.figure()  # traditional 2d plot
             ha = hf.add_subplot(111, projection='3d')
             plt.title(name + " - " + legend)
-            ha.set_xlabel("lag [h]")
-            ha.set_ylabel("radius [degree]")
+            ha.set_xlabel("number of lags predicted")
+            ha.set_ylabel("tile size")
             if plot_2d:
                 ax_2d = plt.figure().gca()
                 # plt.title(name + " - " + legend_2d)
                 plt.title(title_2d)
                 ax_2d.set_xlabel("radius [degree]")
-                ax_2d.set_ylabel("R2")
+                ax_2d.set_ylabel(key)
 
             ha.set_zlabel(name)
             fake2Dlines = []
-            for i, to_plot in enumerate(to_plots):
+            for i, to_plot in enumerate(to_plots[1:2]):
                 x, y = range(to_plot.shape[0]), np.arange(0, to_plot.shape[1] / 12, 1 / 12)
                 X, Y = np.meshgrid(range(to_plot.shape[0]),
                                    np.arange(0, to_plot.shape[1] / 12,
                                              1 / 12))  # `plot_surface` expects `x` and `y` data to be 2D
                 ha.plot_surface(X.T, Y.T, to_plot, color=colors[i])
-                fake2Dlines.append(mpl.lines.Line2D([0], [0], linestyle="none", c=colors[i], marker='o'))
+                fake2Dlines.append(matplotlib.lines.Line2D([0], [0], linestyle="none", c=colors[i], marker='o'))
                 if plot_2d:
                     ci = 1.96 * stds[i][-1] / np.sqrt(len_objs)
                     ax_2d.plot(y, to_plot[-1], c=colors[i])
@@ -101,6 +104,30 @@ with open(file_025, 'rb') as handle_025, open(file_05, 'rb') as handle_05, open(
             ha.legend(fake2Dlines, names, numpoints=1)
             if plot_2d:
                 ax_2d.legend(fake2Dlines, names)
-                
-    '''
+
     print("over")
+
+# Plot 0.5 validation vs testing
+
+path_val = f"ablation_study/export_all_results_validation_set/"
+path_test = f"ablation_study/export_all_results_testing_set/"
+file_05_val = path_val + "config_GP_05_12_fixed_export_4.pickle"
+
+file_05_testing = path_test + "config_GP_05_12_export_4.pickle"
+
+with open(file_05_val, 'rb') as handle_val, open(file_05, 'rb') as handle_test:
+    results_grids_05_val = pickle.load(handle_val)
+    results_grids_05_test = pickle.load(handle_test)
+    val_means = np.stack(results_grids_05_val['r2_all_lags_and_radius']).mean(axis=0)
+    test_means = np.stack(results_grids_05_test['r2_all_lags_and_radius']).mean(axis=0)
+    val_means_per_radius = val_means[-1]
+    test_means_per_radius = test_means[-1]
+    ax_2d = plt.figure().gca()
+    # plt.title(name + " - " + legend_2d)
+    plt.title("R2 validation vs testing")
+    ax_2d.set_xlabel("radius [degree]")
+    ax_2d.set_ylabel("r2")
+    range_x = np.arange(0, val_means_per_radius.shape[0] / 12, 1 / 12)
+    l1, = ax_2d.plot(range_x, val_means_per_radius, label="Validation set")
+    l2, = ax_2d.plot(range_x, test_means_per_radius, label="Testing set")
+    ax_2d.legend(handles=[l1, l2])

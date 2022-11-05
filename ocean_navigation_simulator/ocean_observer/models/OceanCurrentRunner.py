@@ -293,6 +293,7 @@ def get_model(model_type, cfg_neural_network, device):
     else:
         raise Exception("invalid model type provided.")
     if path is not None:
+        print(f"loading model parameter from {path}")
         model.load_state_dict(torch.load(path, map_location=device))
         model.eval()
 

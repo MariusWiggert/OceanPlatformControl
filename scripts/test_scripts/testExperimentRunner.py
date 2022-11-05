@@ -357,7 +357,7 @@ def run_experiments_and_visualize_area(number_forecasts_in_days=20, yaml_file_co
     # idle position
     # position = ((-86.20, 29.04, datetime.datetime(2022, 4, 19)), (-84, 28.04))
     p = -85.659, 27.15
-    d = datetime.datetime(2022, 4, 2, 21, 30, tzinfo=datetime.timezone.utc)
+    d = datetime.datetime(2022, 4, 10, 13, 30, tzinfo=datetime.timezone.utc)
     position = ((*p, d), (-90, 30))
     if folder_config_file is not None:
         exp = ExperimentRunner(yaml_file_config, filename_problems="all_problems_3", position=position,
@@ -637,8 +637,9 @@ if __name__ == "__main__":
         parser.add_argument('--visualize-results-NN', action='store_true', help='visualize results of the NN.')
         parser.add_argument('--config-file', type=str, help='file name')
         parser.add_argument('--config-folder', type=str, help='folder where the yaml file is located')
+        parser.add_argument('--number-days', type=int, default=5)
         args = parser.parse_args()
-        run_experiments_and_visualize_area(number_forecasts_in_days=1, yaml_file_config=args.config_file,
+        run_experiments_and_visualize_area(number_forecasts_in_days=args.number_days, yaml_file_config=args.config_file,
                                            folder_config_file=args.config_folder, use_NN=True)
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
