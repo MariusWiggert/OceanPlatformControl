@@ -43,7 +43,6 @@ class CachedNavigationProblem(NavigationProblem):
                 lat=units.Distance(deg=mission["x_T_lat"]),
             ),
             target_radius=mission["target_radius"],
-            timeout=datetime.timedelta(hours=mission["timeout_in_h"]),
             extra_info={k: mutate_read(k, v) for k, v in mission.to_dict().items()},
         )
 
@@ -59,6 +58,29 @@ class CachedNavigationProblem(NavigationProblem):
             "x_T_lat": self.end_region.lat.deg,
             "target_radius": self.target_radius,
         }
+
+    def to_c3_mission_config(self):
+        """To easily populate c3 database with missions."""
+        prob_dict = self.to_dict()
+        x_0 = {
+            "lon": prob_dict['x_0_lon'],
+            "lat": prob_dict['x_0_lat'],
+            "date_time": prob_dict['t_0'],
+        }
+
+        x_T = {"lon": prob_dict['x_T_lon'], "lat": prob_dict['x_T_lat']}
+
+        mission_config = {
+            "x_0": [x_0], # Evaluation runner assumes it is a list (for multi-agent)
+            "x_T": x_T,
+            "target_radius": prob_dict['target_radius'],
+            "seed": prob_dict.get('factory_seed', None),
+            "feasible": prob_dict.get('feasible', None),
+            'ttr_in_h': prob_dict.get('ttr_in_h', None)
+        }
+
+        return mission_config
+
 
     def get_cached_forecast_planner(self, base_path, arena=None, pickle=False):
         if pickle:
