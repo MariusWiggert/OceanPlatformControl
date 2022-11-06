@@ -156,6 +156,7 @@ class ArenaFactory:
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
+                            c3=c3
                         )
 
                     logger.debug(f"Hindcast Files: {files}")
@@ -198,6 +199,7 @@ class ArenaFactory:
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
+                            c3=c3
                         )
 
                     logger.debug(f"Forecast Files: {files}")
