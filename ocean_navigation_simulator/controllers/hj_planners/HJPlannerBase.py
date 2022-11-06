@@ -74,7 +74,19 @@ class HJPlannerBase(Controller):
                     If False then the coordinate system and speeds of the agent are in m/s.
         """
         super().__init__(problem)
-        self.specific_settings = specific_settings
+        self.specific_settings = {
+            "replan_on_new_fmrc": True,
+            "replan_every_X_seconds": None,
+            "n_time_vector": 199,
+            "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
+            "accuracy": "high",
+            "artificial_dissipation_scheme": "local_local",
+            "use_geographic_coordinate_system": True,
+            "progress_bar": False,
+            # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+            "d_max": 0.0,
+            "platform_dict": problem.platform_dict,
+        } | specific_settings
 
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None

@@ -58,7 +58,6 @@ class CachedNavigationProblem(NavigationProblem):
             "x_T_lon": self.end_region.lon.deg,
             "x_T_lat": self.end_region.lat.deg,
             "target_radius": self.target_radius,
-            "timeout_in_h": self.timeout.total_seconds() / 3600,
         }
 
     def get_cached_forecast_planner(self, base_path, arena=None, pickle=False):
@@ -93,12 +92,11 @@ class CachedNavigationProblem(NavigationProblem):
         return planner
 
     def __repr__(self):
-        return "Problem [start: {start}, end: {end}, target_radius: {r:.2f}, ttr: {opt:.0f}h, timeout: {t:.0f}h] (I{i}, G{gr} B{b} FI{fi})".format(
+        return "Problem [start: {start}, end: {end}, target_radius: {r:.2f}, ttr: {opt:.0f}h] (I{i}, G{gr} B{b} FI{fi})".format(
             start=self.start_state.to_spatio_temporal_point(),
             end=self.end_region,
             r=self.target_radius,
             opt=self.extra_info.get("ttr_in_h", float("Inf")),
-            t=self.timeout.total_seconds() / 3600,
             i=self.extra_info.get("index", "None"),
             gr=self.extra_info.get("group", "None"),
             b=self.extra_info.get("batch", "None"),

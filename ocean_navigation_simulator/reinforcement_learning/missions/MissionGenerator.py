@@ -178,7 +178,6 @@ class MissionGenerator:
                     ),
                     end_region=target.to_spatial_point(),
                     target_radius=self.config["problem_target_radius"],
-                    timeout=(target.date_time - start.date_time),
                     platform_dict=self.arena.platform.platform_dict,
                     extra_info={
                         "timeout_datetime": target.date_time.isoformat(),

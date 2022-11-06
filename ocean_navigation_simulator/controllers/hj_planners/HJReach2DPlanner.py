@@ -35,7 +35,7 @@ class HJReach2DPlanner(HJPlannerBase):
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         return Platform2dForSim(
-            u_max=self.problem.platform_dict["u_max_in_mps"],
+            u_max=self.specific_settings['platform_dict']["u_max_in_mps"],
             d_max=self.specific_settings["d_max"],
             use_geographic_coordinate_system=self.specific_settings[
                 "use_geographic_coordinate_system"

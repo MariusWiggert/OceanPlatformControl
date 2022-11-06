@@ -20,17 +20,17 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: "data/hindcast_test_download/"
-            local: True
+            folder: "data/miss_gen_hindcast/"
+            local: False
             source: "HYCOM"
             type: "hindcast"
             currents: 'total'
-    forecast: null
-#        field: 'OceanCurrents'
-#        source: 'forecast_files'
-#        source_settings:
-#            folder: "/tmp/copernicus_forecast/"
-#            local: False
-#            source: "Copernicus"
-#            type: "forecast"
-#            currents: 'total'
+    forecast:
+        field: 'OceanCurrents'
+        source: 'forecast_files'
+        source_settings:
+            folder: "data/miss_gen_forecast/"
+            local: False
+            source: "Copernicus"
+            type: "forecast"
+            currents: 'total'

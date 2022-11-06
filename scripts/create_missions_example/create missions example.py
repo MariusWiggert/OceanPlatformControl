@@ -38,8 +38,8 @@ config = {
     "y_range": [units.Distance(deg=20.22), units.Distance(deg=27.9)],
     "t_range": [
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
-        datetime.datetime(year=2022, month=8, day=20, tzinfo=datetime.timezone.utc),
-        datetime.datetime(year=2022, month=8, day=28, tzinfo=datetime.timezone.utc),
+        datetime.datetime(year=2022, month=8, day=1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(year=2022, month=8, day=30, tzinfo=datetime.timezone.utc),
     ],
     "problem_timeout": datetime.timedelta(hours=20),
     "target_distance_from_land": 0.5,
@@ -54,12 +54,7 @@ config = {
         "artificial_dissipation_scheme": "local_local",
         "run_without_x_T": True,
         "progress_bar": False,
-        "use_geographic_coordinate_system": True,
-        "d_max": 0,
-        # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-        "replan_every_X_seconds": False,
-        "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
-        "T_goal_in_seconds": 3600 * 24 * 4,
+        "T_goal_in_seconds": 3600 * 24 * 5,
     },
     "hj_planner_box": 2.0,
     ##### Start Sampling #####
@@ -67,7 +62,7 @@ config = {
     "random_missions_per_target": 8,
     "min_distance_from_hj_frame": 0.5,
     "min_distance_from_land": 0.5,
-    "feasible_mission_time": [datetime.timedelta(hours=5), datetime.timedelta(hours=24)],
+    "feasible_mission_time": [datetime.timedelta(hours=100), datetime.timedelta(hours=24)],
     "random_min_distance_from_target": 0.5,
     ##### Actions #####
     "plot_batch": False,
