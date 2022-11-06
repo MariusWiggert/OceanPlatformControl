@@ -51,8 +51,10 @@ class MissionGenerator:
     def __init__(
         self,
         config: Optional[dict] = {},
+        c3 = None
     ):
         self.config = config
+        self.c3 = c3
 
         self.random = np.random.default_rng(self.config["seed"])
 
@@ -251,6 +253,7 @@ class MissionGenerator:
                     fake_target.date_time + datetime.timedelta(days=1, hours=1),
                 ],
                 throw_exceptions=True,
+                c3=self.c3
             )
             self.arena.reset(fake_start)
         except (MissingOceanFileException, CorruptedOceanFileException) as e:
@@ -556,6 +559,7 @@ class MissionGenerator:
             scenario_file=self.config["scenario_file"],
             problem=problem,
             throw_exceptions=True,
+            c3=self.c3
         )
 
         # Run Arena until Timeout (reset position to no leave arena)
