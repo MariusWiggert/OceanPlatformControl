@@ -312,16 +312,8 @@ def train_without_tune(filename_problem, filename_config, num_samples=500, probl
 def run_ray_tune_GP_grid(filename_problem, filename_config, num_samples=500, problems_per_sample=120, research_state=1,
                          bayes=False,
                          random_search_space=40, load=True):
-    # import ray
-    # ray.init(dashboard_host="0.0.0.0", dashboard_port=6379)
-    # res = tune.run(train, config=search_space, num_samples=num_samples)
-    # return res.get_best_config(metric="r2_avg", mode="max")
-    # return res.get_best_config(metric="avg", mode="min")
-    # path_file_save_checkpoint = f"ablation_study/checkpoints/GP_grid_{num_samples}_{problems_per_sample}_{research_state}.pkl"
     path_file_save_checkpoint = f"ablation_study/checkpoints/{filename_config}.pkl"
-    # path_file_save_checkpoint = f"ablation_study/checkpoints/GP_grid_1_12.pkl"
-    # path_file_save_checkpoint = f"ablation_study/checkpoints/GP_grid_2000_100_{research_state}.pkl"
-    res = None
+    None
     if bayes:
         search_space["max_problems"] = problems_per_sample
         search_space["filename_problems"] = filename_problem

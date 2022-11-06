@@ -1,9 +1,4 @@
 experiment_runner:
-  #  plots:
-  #    visualize_currents: True
-  #    plot_3d:
-  #      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
-  #    visualize_metrics: True
   metrics:
     - "rmse"
     - "r2"

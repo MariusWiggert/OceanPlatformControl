@@ -65,7 +65,7 @@ observer:
       model_error: false
       type: 'cnn'
       parameters:
-        path_parameters: "ablation_study/models_saved/medium_tile_big_ds.h5"
+        path_parameters: "ablation_study/CNN_models_saved/medium_tile_big_ds.h5"
         ch_sz: [ 6,24,48,96,192 ]
         downsizing_method: "avgpool"
         dropout_encoder: 0.24299222476871712

@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 from DateTime import DateTime
 from matplotlib import pyplot as plt, patches
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider
 
 from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import get_metrics, check_nans
@@ -294,23 +294,6 @@ class PredictionsAndGroundTruthOverArea:
         lag_time_slider.on_changed(update)
         forecast_slider.on_changed(update)
 
-        # Create a `matplotlib.widgets.Button` to reset the sliders to initial values.
-        resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
-        button = Button(resetax, 'next', hovercolor='0.975')
-
-        def reset(event):
-            ax_lag_time.reset()
-            forecast_slider.reset()
-
-        lag_time_slider._j = 0
-
-        def increment(_):
-            print("increment", lag_time_slider._j)
-            lag_time_slider._j += 2
-            forecast_slider.set_val(lag_time_slider._j)
-
-        button.on_clicked(increment)
-        forecast_slider._button_test = button
         update_maps(0, 0, ax1, ax2, ax3, ax4)
         plt.show()
 
