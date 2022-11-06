@@ -11,11 +11,17 @@ from npy_append_array import NpyAppendArray
 
 # In[7]:
 
-# dims: problem, #channels, time, lag, lon, lat
-# sample 3 samples per day and we have 4 days -> 96
+# File used to sample the output of the missions such that it can be used as NN input without having to much
+# correlation between the elements
 
-def remove_borders_GP_predictions_lon_lat(x, radius_to_keep, channels_to_0=[0, 1, 2, 3], channels_to_dest=[6, 7],
-                                          dest_channels=[4, 5]):
+
+def remove_borders_GP_predictions_lon_lat(
+        x,
+        radius_to_keep,
+        channels_to_0=[0, 1, 2, 3],
+        channels_to_dest=[6, 7],
+        dest_channels=[4, 5],
+):
     middle = x.shape[-1] // 2
     radius_to_remove = (x.shape[-1] - radius_to_keep * 2) / 2
     assert middle == int(middle) and radius_to_remove == int(radius_to_remove)
@@ -33,14 +39,13 @@ def remove_borders_GP_predictions_lon_lat(x, radius_to_keep, channels_to_0=[0, 1
 
 def main():
     print("start main")
-    parser = argparse.ArgumentParser(description='yaml config file path')
-    parser.add_argument('--folder', type=str)
-    parser.add_argument('--folder-output', type=str)
-    parser.add_argument('--filename', type=str)
-    parser.add_argument('--index', type=int)
-    parser.add_argument('--training', action=argparse.BooleanOptionalAction, default=True)
+    parser = argparse.ArgumentParser(description="yaml config file path")
+    parser.add_argument("--folder", type=str)
+    parser.add_argument("--folder-output", type=str)
+    parser.add_argument("--filename", type=str)
+    parser.add_argument("--index", type=int)
+    parser.add_argument("--training", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
-    validation = not args.training
     i = args.index
     if args.training:
         folder = args.folder
@@ -50,9 +55,9 @@ def main():
         print(f"step: {i}")
         folder = f"/home/killian2k/seaweed/OceanPlatformControl/data_NN_DA/validation/copy_{i}/"
         output_folder = f"/home/killian2k/seaweed/OceanPlatformControl/data_NN_DA/GP_all_files_validation/copy_{i}/"
-    x = np.load(f"{folder}{args.filename}_x.npy", mmap_mode='r')
+    x = np.load(f"{folder}{args.filename}_x.npy", mmap_mode="r")
     out_x = f"{output_folder}{args.filename}_{i}_x.npy"
-    y = np.load(f"{folder}{args.filename}_y.npy", mmap_mode='r')
+    y = np.load(f"{folder}{args.filename}_y.npy", mmap_mode="r")
     out_y = f"{output_folder}{args.filename}_{i}_y.npy"
 
     # error = np.load("/datadrive/files_copy_1/error.csv", mmap_mode='r')
@@ -69,8 +74,12 @@ def main():
     # x_reshaped = np.swapaxes(x_reshaped, 1, 2)
     # y_reshaped = np.swapaxes(y_reshaped, 1, 2)
     print("shapes: ", x_reshaped_2.shape, y_reshaped_2.shape)
-    print("zero:", x_reshaped_2[0, 0, :, 0, 0], x_reshaped_2[0, 0, 0, 0, 0] - x_reshaped_2[0, 0, 4, 0, 0],
-          -x_reshaped_2[0, 0, 6, 0, 0])
+    print(
+        "zero:",
+        x_reshaped_2[0, 0, :, 0, 0],
+        x_reshaped_2[0, 0, 0, 0, 0] - x_reshaped_2[0, 0, 4, 0, 0],
+        -x_reshaped_2[0, 0, 6, 0, 0],
+    )
     # print("shapes: ", x_reshaped.shape, y_reshaped.shape)
     # In[8]:
 
@@ -84,7 +93,6 @@ def main():
     num_samples_per_period = 3
     num_hours_between_period = 12
     num_hours_total = 96
-    num_samples_in_total = num_samples_per_period * num_hours_total // num_hours_between_period
     i = 0
     with NpyAppendArray(out_x) as npaa_x:
         with NpyAppendArray(out_y) as npaa_y:
@@ -95,7 +103,13 @@ def main():
                 samples = []
                 for k in range(0, num_hours_total, num_hours_between_period):
                     samples += list(
-                        k + np.random.choice(num_hours_between_period, size=num_samples_per_period, replace=False))
+                        k
+                        + np.random.choice(
+                            num_hours_between_period,
+                            size=num_samples_per_period,
+                            replace=False,
+                        )
+                    )
                 samples = np.array(samples)
                 # print(problem[:,j, c])ws
                 # print(y_reshaped[i,:,j,c])

@@ -8,8 +8,9 @@ import yaml
 from dateutil import parser as dateParser
 
 from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
-from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import \
-    CustomOceanCurrentsDatasetSubgrid
+from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import (
+    CustomOceanCurrentsDatasetSubgrid,
+)
 
 
 def collate_fn(batch):
@@ -25,7 +26,7 @@ BYTES_IN_FLOAT = 4
 def main():
     print("script to generate the data files (.npy) used as input source for the neural networks.")
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch model')
+    parser = argparse.ArgumentParser(description="PyTorch model")
     # parser.add_argument('--yaml-file-datasets', type=str, default='',
     #                     help='filname of the yaml file to use to download the data in the folder scenarios/neural_networks')
     # parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -33,29 +34,32 @@ def main():
     # parser.add_argument('--model-type', type=str, default='mlp')
     # args = parser.parse_args()
 
-    parser.add_argument('--file-configs', type=str, help='name file config to run (without the extension)')
-    parser.add_argument('--train', action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument('--validation', action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--file-configs",
+        type=str,
+        help="name file config to run (without the extension)",
+    )
+    parser.add_argument("--train", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--validation", action=argparse.BooleanOptionalAction, default=True)
 
-    all_cfgs = yaml.load(open(parser.parse_args().file_configs + ".yaml", 'r'),
-                         Loader=yaml.FullLoader)
+    all_cfgs = yaml.load(
+        open(parser.parse_args().file_configs + ".yaml", "r"), Loader=yaml.FullLoader
+    )
     args = all_cfgs.get("arguments_script_convert_data", {})
     args.setdefault("yaml_file_datasets", "")
     args.setdefault("model_type", "mlp")
     args = DotDict(args)
 
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
-    train_kwargs = {'batch_size': 1}
-    test_kwargs = {'batch_size': 1}
+    train_kwargs = {"batch_size": 1}
+    test_kwargs = {"batch_size": 1}
 
     dtype = torch.float32
-    transform = None
     parsed = parser.parse_args()
 
     compute_training = parsed.train
     compute_validation = parsed.validation
 
-    cfgs = yaml.load(open(parsed.file_configs + ".yaml", 'r'), Loader=yaml.FullLoader)
+    cfgs = yaml.load(open(parsed.file_configs + ".yaml", "r"), Loader=yaml.FullLoader)
     cfg_model = cfgs.get("model", {})
     cfg_dataset = cfg_model.get("cfg_dataset", {})
 
@@ -75,25 +79,46 @@ def main():
     duration_validation = datetime.timedelta(hours=cfg_parameters_input["duration_validation_in_h"])
 
     array_input = cfg_parameters_input["input_tile_dims"]
-    input_tile_dims = (array_input[0], array_input[1], datetime.timedelta(hours=array_input[2]))
+    input_tile_dims = (
+        array_input[0],
+        array_input[1],
+        datetime.timedelta(hours=array_input[2]),
+    )
     array_output = cfg_parameters_input["output_tile_dims"]
-    output_tile_dims = (array_output[0], array_output[1], datetime.timedelta(hours=array_output[2]))
+    output_tile_dims = (
+        array_output[0],
+        array_output[1],
+        datetime.timedelta(hours=array_output[2]),
+    )
     list_loaders = list()
     if compute_training:
-        dataset_training = CustomOceanCurrentsDatasetSubgrid(config_datasets["training"], start_training,
-                                                             start_training + duration_training,
-                                                             input_tile_dims, output_tile_dims, cfg_dataset,
-                                                             dtype=dtype)
-        train_loader = torch.utils.data.DataLoader(dataset_training, collate_fn=collate_fn, **train_kwargs)
+        dataset_training = CustomOceanCurrentsDatasetSubgrid(
+            config_datasets["training"],
+            start_training,
+            start_training + duration_training,
+            input_tile_dims,
+            output_tile_dims,
+            cfg_dataset,
+            dtype=dtype,
+        )
+        train_loader = torch.utils.data.DataLoader(
+            dataset_training, collate_fn=collate_fn, **train_kwargs
+        )
         list_loaders.append((train_loader, cfg_parameters_input["folder_training"]))
 
     if compute_validation:
-        dataset_validation = CustomOceanCurrentsDatasetSubgrid(config_datasets["validation"],
-                                                               start_validation,
-                                                               start_validation + duration_validation,
-                                                               input_tile_dims, output_tile_dims, cfg_dataset,
-                                                               dtype=dtype)
-        validation_loader = torch.utils.data.DataLoader(dataset_validation, collate_fn=collate_fn, **test_kwargs)
+        dataset_validation = CustomOceanCurrentsDatasetSubgrid(
+            config_datasets["validation"],
+            start_validation,
+            start_validation + duration_validation,
+            input_tile_dims,
+            output_tile_dims,
+            cfg_dataset,
+            dtype=dtype,
+        )
+        validation_loader = torch.utils.data.DataLoader(
+            dataset_validation, collate_fn=collate_fn, **test_kwargs
+        )
         list_loaders.append((validation_loader, cfg_parameters_input["folder_validation"]))
 
     t = datetime.datetime.now()
@@ -108,13 +133,16 @@ def main():
         for batch_idx, (data, target) in enumerate(loader):
             if not batch_idx % number_elements_between_update:
                 t2 = datetime.datetime.now()
-                interval = (t2 - t)
-                remaining_time = ((len(loader) - batch_idx) / number_elements_between_update * interval).seconds
+                interval = t2 - t
+                remaining_time = (
+                    (len(loader) - batch_idx) / number_elements_between_update * interval
+                ).seconds
                 if batch_idx > 0:
                     print(
                         f"progress: {batch_idx}/{len(loader)}, {batch_idx / len(loader) * 100:.2f}%, nans: {total_nans} , time for batch: {interval},"
                         f" estimated time remaining: {remaining_time // 60 // 60}h"
-                        f"{(remaining_time // 60) % 60}m{remaining_time % 60}")
+                        f"{(remaining_time // 60) % 60}m{remaining_time % 60}"
+                    )
                 t = t2
             if (data, target) == (None, None):
                 # print(f"batch {batch_idx} empty. skipped!")
@@ -149,5 +177,5 @@ def save_list_to_file(index, ls, extension_name, folder) -> None:
     print(f"created file: {path}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

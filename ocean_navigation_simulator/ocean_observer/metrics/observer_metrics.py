@@ -9,14 +9,20 @@ from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_ov
 
 
 def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float, Any]]]:
-    """ Get a dictionary where each key-value pair corresponds to the metric name and the corresponding function that
+    """Get a dictionary where each key-value pair corresponds to the metric name and the corresponding function that
     computes the metrics with the same signature for each of the function
 
     Returns:
         That dictionary
     """
-    return {"r2": r2, "r2official": r2official, "vector_correlation": vector_correlation, "rmse": rmse, "vme": vme,
-            "ratio_per_tile": ratio_per_tile}
+    return {
+        "r2": r2,
+        "r2official": r2official,
+        "vector_correlation": vector_correlation,
+        "rmse": rmse,
+        "vme": vme,
+        "ratio_per_tile": ratio_per_tile,
+    }
 
 
 def __get_axis_current(current) -> Tuple[list[int], str]:
@@ -27,8 +33,14 @@ def __get_axis_current(current) -> Tuple[list[int], str]:
     return [0, 1], ""
 
 
-def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, per_hour: bool = False,
-       sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
+def r2(
+    ground_truth: ndarray,
+    improved_predictions: ndarray,
+    initial_predictions: ndarray,
+    per_hour: bool = False,
+    sigma_square_division: float = 1e-6,
+    current=["uv"],
+) -> Dict[str, float]:
     """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
        the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
        initial forecast.
@@ -43,18 +55,29 @@ def r2(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions
     """
     axis = (1, 2) if per_hour else None
     axis_current, extension_name = __get_axis_current(current)
-    res = 1 - np.nansum((ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2,
-                        axis=axis) / \
-          (np.nansum(((initial_predictions[..., axis_current] - ground_truth[..., axis_current]) ** 2),
-                     axis=axis) + sigma_square_division)
+    res = 1 - np.nansum(
+        (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2,
+        axis=axis,
+    ) / (
+        np.nansum(
+            ((initial_predictions[..., axis_current] - ground_truth[..., axis_current]) ** 2),
+            axis=axis,
+        )
+        + sigma_square_division
+    )
     if res > 1:
         print("results r2 is bigger than 1")
     return {("r2_per_h" if per_hour else "r2") + extension_name: res}
 
 
-def r2official(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
-               per_hour: bool = False,
-               sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
+def r2official(
+    ground_truth: ndarray,
+    improved_predictions: ndarray,
+    initial_predictions: ndarray,
+    per_hour: bool = False,
+    sigma_square_division: float = 1e-6,
+    current=["uv"],
+) -> Dict[str, float]:
     """Compute the r2 coefficient where the numerator is the sum of the squared difference between the ground truth and
        the improved forecast. The denominator is the sum of the squared difference between the ground truth and the
        initial forecast.
@@ -69,22 +92,34 @@ def r2official(ground_truth: ndarray, improved_predictions: ndarray, initial_pre
     """
     axis = (1, 2) if per_hour else None
     axis_current, extension_name = __get_axis_current(current)
-    return {("r2official_per_h" if per_hour else "r2official") + extension_name: 1 - np.nansum(
-        (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2, axis=axis) / (
-                                                                                         np.nansum(
-                                                                                             (ground_truth[
-                                                                                                  ..., axis_current] -
-                                                                                              np.nanmean(ground_truth[
-                                                                                                             ..., axis_current],
-                                                                                                         keepdims=True,
-                                                                                                         axis=(
-                                                                                                             -3,
-                                                                                                             -2))) ** 2,
-                                                                                             axis=axis) + sigma_square_division)}
+    return {
+        ("r2official_per_h" if per_hour else "r2official")
+        + extension_name: 1
+        - np.nansum(
+            (ground_truth[..., axis_current] - improved_predictions[..., axis_current]) ** 2,
+            axis=axis,
+        )
+        / (
+            np.nansum(
+                (
+                    ground_truth[..., axis_current]
+                    - np.nanmean(ground_truth[..., axis_current], keepdims=True, axis=(-3, -2))
+                )
+                ** 2,
+                axis=axis,
+            )
+            + sigma_square_division
+        )
+    }
 
 
-def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
-                       sigma_ratio=0.00001, per_hour: bool = False) -> Dict[str, float]:
+def vector_correlation(
+    ground_truth: ndarray,
+    improved_predictions: ndarray,
+    initial_predictions: ndarray,
+    sigma_ratio=0.00001,
+    per_hour: bool = False,
+) -> Dict[str, float]:
     """Compute the vector correlation between 1) ground_truth and improved_predictions, 2) ground_truth and
     initial_predictions and also the ratio between these two values
 
@@ -101,18 +136,26 @@ def vector_correlation(ground_truth: ndarray, improved_predictions: ndarray, ini
         print("vector correlation per hour is not implemented")
         return {}
     correlations = dict()
-    correlations["vector_correlation_improved"] = calc_vector_corr_over_time(improved_predictions, ground_truth,
-                                                                             sigma_diag=0, remove_nans=True).mean()
-    correlations["vector_correlation_initial"] = calc_vector_corr_over_time(initial_predictions, ground_truth,
-                                                                            sigma_diag=0, remove_nans=True).mean()
-    correlations["vector_correlation_ratio"] = correlations["vector_correlation_improved"] / (correlations[
-                                                                                                  "vector_correlation_initial"] + sigma_ratio)
+    correlations["vector_correlation_improved"] = calc_vector_corr_over_time(
+        improved_predictions, ground_truth, sigma_diag=0, remove_nans=True
+    ).mean()
+    correlations["vector_correlation_initial"] = calc_vector_corr_over_time(
+        initial_predictions, ground_truth, sigma_diag=0, remove_nans=True
+    ).mean()
+    correlations["vector_correlation_ratio"] = correlations["vector_correlation_improved"] / (
+        correlations["vector_correlation_initial"] + sigma_ratio
+    )
     return correlations
 
 
-def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, sigma_ratio=0.00001,
-         per_hour: bool = False, current=["uv"]) -> \
-        Dict[str, float]:
+def rmse(
+    ground_truth: ndarray,
+    improved_predictions: ndarray,
+    initial_predictions: ndarray,
+    sigma_ratio=0.00001,
+    per_hour: bool = False,
+    current=["uv"],
+) -> Dict[str, float]:
     """Compute the rmse between 1) ground_truth and improved_predictions, 2) ground_truth and initial_predictions and
     also the ratio between these two values
 
@@ -131,19 +174,31 @@ def rmse(ground_truth: ndarray, improved_predictions: ndarray, initial_predictio
     axis_current, extension_str_2 = __get_axis_current(current)
     extension_str += extension_str_2
 
-    rmses["rmse_improved" + extension_str] = __rmse(ground_truth[..., axis_current],
-                                                    improved_predictions[..., axis_current], axis=axis)
-    rmses["rmse_initial" + extension_str] = __rmse(ground_truth[..., axis_current],
-                                                   initial_predictions[..., axis_current], axis=axis)
+    rmses["rmse_improved" + extension_str] = __rmse(
+        ground_truth[..., axis_current],
+        improved_predictions[..., axis_current],
+        axis=axis,
+    )
+    rmses["rmse_initial" + extension_str] = __rmse(
+        ground_truth[..., axis_current],
+        initial_predictions[..., axis_current],
+        axis=axis,
+    )
     rmses["rmse_ratio" + extension_str] = rmses["rmse_improved" + extension_str] / (
-            rmses["rmse_initial" + extension_str] + sigma_ratio)
+        rmses["rmse_initial" + extension_str] + sigma_ratio
+    )
 
     return rmses
 
 
-def vme(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray, sigma_ratio=0.00001,
-        per_hour: bool = False, current=["uv"]) -> \
-        Dict[str, float]:
+def vme(
+    ground_truth: ndarray,
+    improved_predictions: ndarray,
+    initial_predictions: ndarray,
+    sigma_ratio=0.00001,
+    per_hour: bool = False,
+    current=["uv"],
+) -> Dict[str, float]:
     """Compute the vme between 1) ground_truth and improved_predictions, 2) ground_truth and initial_predictions and
     also the ratio between these two values
 
@@ -162,42 +217,56 @@ def vme(ground_truth: ndarray, improved_predictions: ndarray, initial_prediction
     axis_current, extension_str_2 = __get_axis_current(current)
     extension_str += extension_str_2
 
-    vmes["vme_improved" + extension_str] = __vector_magnitude_error(ground_truth[..., axis_current],
-                                                                    improved_predictions[..., axis_current],
-                                                                    axis=axis)
-    vmes["vme_initial" + extension_str] = __vector_magnitude_error(ground_truth[..., axis_current],
-                                                                   initial_predictions[..., axis_current], axis=axis)
+    vmes["vme_improved" + extension_str] = __vector_magnitude_error(
+        ground_truth[..., axis_current],
+        improved_predictions[..., axis_current],
+        axis=axis,
+    )
+    vmes["vme_initial" + extension_str] = __vector_magnitude_error(
+        ground_truth[..., axis_current],
+        initial_predictions[..., axis_current],
+        axis=axis,
+    )
     vmes["vme_ratio" + extension_str] = vmes["vme_improved" + extension_str] / (
-            vmes["vme_initial" + extension_str] + sigma_ratio)
+        vmes["vme_initial" + extension_str] + sigma_ratio
+    )
 
     return vmes
 
 
-def ratio_per_tile(ground_truth: ndarray, improved_predictions: ndarray, initial_predictions: ndarray,
-                   per_hour: bool = False,
-                   sigma_square_division: float = 1e-6, current=['uv']) -> Dict[str, float]:
+def ratio_per_tile(
+    ground_truth: ndarray,
+    improved_predictions: ndarray,
+    initial_predictions: ndarray,
+    per_hour: bool = False,
+    sigma_square_division: float = 1e-6,
+    current=["uv"],
+) -> Dict[str, float]:
     """Internal function to compute the vme
 
-        Args:
-            v1: vector 1, dim: time x lon*lat x 2
-            v2: vector 2, dim: time x lon*lat x 2
-            axis:
+    Args:
+        v1: vector 1, dim: time x lon*lat x 2
+        v2: vector 2, dim: time x lon*lat x 2
+        axis:
 
-        Returns:
-            ratio per tile between the two matrices v1 and v2
-        """
+    Returns:
+        ratio per tile between the two matrices v1 and v2
+    """
     if per_hour:
         UserWarning("Per hour not implemented by ratio per tile.")
     axis_current = 2
     axis_space = 1
-    ratios = np.nansum(((ground_truth - improved_predictions) ** 2), axis=(axis_current, axis_space)) / \
-             (np.nansum(((ground_truth - initial_predictions) ** 2),
-                        axis=(axis_current, axis_space)) + sigma_square_division)
+    ratios = np.nansum(
+        ((ground_truth - improved_predictions) ** 2), axis=(axis_current, axis_space)
+    ) / (
+        np.nansum(((ground_truth - initial_predictions) ** 2), axis=(axis_current, axis_space))
+        + sigma_square_division
+    )
     return {"ratio_per_tile": np.nanmean(ratios)}
 
 
 def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
-    """ Internal function to compute the rmse
+    """Internal function to compute the rmse
 
     Args:
         v1: vector 1
@@ -209,7 +278,9 @@ def __rmse(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = Non
     return np.sqrt(np.nanmean((v1 - v2) ** 2, axis=axis))
 
 
-def __vector_magnitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None) -> float:
+def __vector_magnitude_error(
+    v1: ndarray, v2: ndarray, axis: Optional[int | Tuple[int, ...]] = None
+) -> float:
     """Internal function to compute the vme
 
     Args:
@@ -225,7 +296,7 @@ def __vector_magnitude_error(v1: ndarray, v2: ndarray, axis: Optional[int | Tupl
 
 
 def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["uv"]) -> bool:
-    '''
+    """
 
     Args:
         ground_truth:
@@ -237,19 +308,16 @@ def check_nans(ground_truth: ndarray, improved_predictions: ndarray, current=["u
 
     Returns: True if the all the hours are full of nans
 
-    '''
+    """
     axis_current, extension_str_2 = __get_axis_current(current)
     if np.any(np.isnan(ground_truth[..., axis_current] - improved_predictions[..., axis_current])):
+
         def percent_nan(A):
             A = np.nan_to_num(A, 0)
             return 1.0 - ((A != 0).sum() / float(A.size))
 
-        percents = np.array([percent_nan(ground_truth[i, ..., axis_current]) for i in range(len(ground_truth))])
-        size = improved_predictions[..., axis_current].size
-        # if current == "uv":
-        #     print(
-        #         f"contain NaNs ({current}): "
-        #         f"ground_truth:{(np.isnan(ground_truth[..., axis_current]).sum() / size):.2f}%",
-        #         f"\tforecast:{(np.isnan(improved_predictions[..., axis_current]).sum() / size):.2f}%")
+        percents = np.array(
+            [percent_nan(ground_truth[i, ..., axis_current]) for i in range(len(ground_truth))]
+        )
         return (percents == 1).all()
     return False

@@ -7,8 +7,14 @@ from torch.utils.data import Dataset
 
 
 class CustomOceanCurrentsFromFiles(Dataset):
-    def __init__(self, folders: List[str] = None, max_items: int = None, tile_size=None,
-                 filename_with_path: str = None, return_GP_FC_IMP_FC: bool = False):
+    def __init__(
+        self,
+        folders: List[str] = None,
+        max_items: int = None,
+        tile_size=None,
+        filename_with_path: str = None,
+        return_GP_FC_IMP_FC: bool = False,
+    ):
         self.return_GP_FC_IMP_FC = return_GP_FC_IMP_FC
         if max_items is not None and max_items < 0:
             max_items = None
@@ -34,8 +40,12 @@ class CustomOceanCurrentsFromFiles(Dataset):
         # TODO: remove the slicing
         # self.X = np.concatenate([np.load(fname) for fname in Xs])
         # self.y = np.concatenate([np.load(fname) for fname in ys])
-        self.X = [np.load(fname, mmap_mode="r") for fname in Xs]  # [np.load(fname, mmap_mode="r") for fname in Xs]
-        self.y = [np.load(fname, mmap_mode="r") for fname in ys]  # [np.load(fname, mmap_mode="r") for fname in ys]
+        self.X = [
+            np.load(fname, mmap_mode="r") for fname in Xs
+        ]  # [np.load(fname, mmap_mode="r") for fname in Xs]
+        self.y = [
+            np.load(fname, mmap_mode="r") for fname in ys
+        ]  # [np.load(fname, mmap_mode="r") for fname in ys]
         self.lens = np.array([len(x) for x in self.X])
         self.len = self.lens.sum()
 
@@ -70,8 +80,8 @@ class CustomOceanCurrentsFromFiles(Dataset):
 
         if self.tile_size is not None:
             d = self.diffs
-            x = x[..., d[0][0]:d[0][1], d[1][0]:d[1][1], d[2][0]:d[2][1]]
-            y = y[..., d[0][0]:d[0][1], d[1][0]:d[1][1], d[2][0]:d[2][1]]
+            x = x[..., d[0][0] : d[0][1], d[1][0] : d[1][1], d[2][0] : d[2][1]]
+            y = y[..., d[0][0] : d[0][1], d[1][0] : d[1][1], d[2][0] : d[2][1]]
 
         if np.isnan(x).any() or np.isnan(y).any():
             if self.return_GP_FC_IMP_FC:

@@ -4,7 +4,15 @@ import torch.nn as nn
 
 
 class OceanCurrentMLP(nn.Module):
-    def __init__(self, input_dim, output_layers_dims, batch_norm_layers, dropout_layers, output_shape, device="cpu"):
+    def __init__(
+        self,
+        input_dim,
+        output_layers_dims,
+        batch_norm_layers,
+        dropout_layers,
+        output_shape,
+        device="cpu",
+    ):
         super(OceanCurrentMLP, self).__init__()
 
         layers = [nn.Flatten()]
@@ -28,7 +36,7 @@ class OceanCurrentMLP(nn.Module):
 
     def forward(self, x):
         # Dims input: [Batch_size, 2 (= dimensions currents), time, lat, lon]
-        for l in self.layers:
-            x = l(x)
+        for layer in self.layers:
+            x = layer(x)
 
         return x
