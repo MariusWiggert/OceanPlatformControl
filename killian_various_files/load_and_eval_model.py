@@ -16,5 +16,5 @@ for size_ds in ["small", "medium", "big"]:
                                json_model=f"ablation_study/CNN_models_saved/{type_tile_ds}.json", enable_wandb=False,
                                testing_folder="./data_ablation_study/GP_sampled/testing/")
             all_res[type_tile_ds] = all_metrics
-with open('./ablation_study/saved_dictionary_testing.pkl', 'wb') as f:
+with open('./ablation_study/all_results_testing_set_ablation_study.pkl', 'wb') as f:
     pickle.dump(all_res, f)

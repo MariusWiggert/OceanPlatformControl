@@ -13,11 +13,13 @@ radius_in_degree = 0.5
 plot_pressure = False
 
 if plot_pressure:
+    # NC_file of the pressure
     file = "data_NN/hindcast_pressure_2.nc4"
     field = 'surf_el'
     legend = 'Pressure'
     data = xr.open_dataset(file)
 else:
+    # NC_file of a  forecast
     file = 'data_ablation_study/fc/august/cmems_mod_glo_phy_anfc_merged-uv_PT1H-i-2022-08-06T12:30:00Z-2022-08-06T12:30:00Z-2022-08-15T23:30:00Z.nc'
     field = 'utotal'
     legend = f"Longitude current - Tile radius {radius_in_degree}°"
