@@ -1,7 +1,9 @@
 # from ray.tune.suggest.bayesopt import BayesOptSearch
 from ray.tune.search.bayesopt import BayesOptSearch
 
-path_file_save_checkpoint = "/Users/fedosha/Desktop/output_test/backup_full_4/checkpoints/GP_grid_025_12.pkl"
+path_file_save_checkpoint = (
+    "/Users/fedosha/Desktop/output_test/backup_full_4/checkpoints/GP_grid_025_12.pkl"
+)
 
 search_space_bayes = {
     "sigma_exp": (0.00001, 10),

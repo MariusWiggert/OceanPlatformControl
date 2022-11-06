@@ -6,19 +6,19 @@ import torch
 from torch.utils.data import Dataset
 
 
+# Used as the dataset when we have already generated .npy files for the input (_x.npy) and output (_y.npy)
 class CustomOceanCurrentsFromFiles(Dataset):
     def __init__(
-        self,
-        folders: List[str] = None,
-        max_items: int = None,
-        tile_size=None,
-        filename_with_path: str = None,
-        return_GP_FC_IMP_FC: bool = False,
+            self,
+            folders: List[str] = None,
+            max_items: int = None,
+            tile_size=None,
+            filename_with_path: str = None,
+            return_GP_FC_IMP_FC: bool = False,
     ):
         self.return_GP_FC_IMP_FC = return_GP_FC_IMP_FC
         if max_items is not None and max_items < 0:
             max_items = None
-        # folder = "data_exported"
         Xs, ys = list(), list()
 
         if folders is None:
@@ -37,23 +37,21 @@ class CustomOceanCurrentsFromFiles(Dataset):
                         if path.lower().endswith("_y.npy"):
                             ys.append(full_path)
         print("loading files:", Xs, ys)
-        # TODO: remove the slicing
-        # self.X = np.concatenate([np.load(fname) for fname in Xs])
-        # self.y = np.concatenate([np.load(fname) for fname in ys])
         self.X = [
             np.load(fname, mmap_mode="r") for fname in Xs
-        ]  # [np.load(fname, mmap_mode="r") for fname in Xs]
+        ]
         self.y = [
             np.load(fname, mmap_mode="r") for fname in ys
-        ]  # [np.load(fname, mmap_mode="r") for fname in ys]
+        ]
         self.lens = np.array([len(x) for x in self.X])
         self.len = self.lens.sum()
 
         self.tile_size = tile_size
+        N_DIMS_TILE_SIZE = 3
         if self.tile_size is not None:
-            self.tile_size = np.array(self.tile_size[-3:])
+            self.tile_size = np.array(self.tile_size[-N_DIMS_TILE_SIZE:])
             first_elem = self.X[0][0]
-            self.diffs = (np.array(first_elem.shape[-3:]) - self.tile_size) // 2
+            self.diffs = (np.array(first_elem.shape[-N_DIMS_TILE_SIZE:]) - self.tile_size) // 2
             self.diffs = [(d, -d if d else None) for d in self.diffs]
         assert self.len == np.array([len(y) for y in self.y]).sum()
         print(f"shapes X: {len(self.X), self.X[0].shape}, y: {len(self.y), self.y[0].shape}")
@@ -80,8 +78,8 @@ class CustomOceanCurrentsFromFiles(Dataset):
 
         if self.tile_size is not None:
             d = self.diffs
-            x = x[..., d[0][0] : d[0][1], d[1][0] : d[1][1], d[2][0] : d[2][1]]
-            y = y[..., d[0][0] : d[0][1], d[1][0] : d[1][1], d[2][0] : d[2][1]]
+            x = x[..., d[0][0]: d[0][1], d[1][0]: d[1][1], d[2][0]: d[2][1]]
+            y = y[..., d[0][0]: d[0][1], d[1][0]: d[1][1], d[2][0]: d[2][1]]
 
         if np.isnan(x).any() or np.isnan(y).any():
             if self.return_GP_FC_IMP_FC:

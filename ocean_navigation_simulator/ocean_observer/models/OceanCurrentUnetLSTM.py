@@ -10,17 +10,18 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsRNN import (
 )
 
 
+# Class of the 2D U-net LSTM models.
 class OceanCurrentUnetLSTM(nn.Module):
     dim_currents, dim_time = 1, 2
 
     def __init__(
-        self,
-        ch_sz: List[int],
-        device: str = "cpu",
-        init_weights_value: float = 0.01,
-        activation="relu",
-        downsizing_method="conv",
-        lstm_hidden=24,
+            self,
+            ch_sz: List[int],
+            device: str = "cpu",
+            init_weights_value: float = 0.01,
+            activation="relu",
+            downsizing_method="conv",
+            lstm_hidden=24,
     ):
         super(OceanCurrentUnetLSTM, self).__init__()
         self.init_weights_value = init_weights_value
@@ -132,13 +133,13 @@ class OceanCurrentUnetLSTM(nn.Module):
             nn.init.xavier_uniform(m.weight)
 
     def __get_bloc_unet(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size,
-        stride,
-        padding,
-        include_instance_norm: bool = False,
+            self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size,
+            stride,
+            padding,
+            include_instance_norm: bool = False,
     ):
         layers = [
             nn.Conv2d(

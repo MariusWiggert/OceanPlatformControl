@@ -14,6 +14,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 
 
+# Abstract class used as model of the OceanCurrentGP
 class OceanCurrentModel(ABC):
     """Abstract class that describe what the OceanCurrentModel used by the observer to predict current should be able to
     do"""
@@ -23,7 +24,7 @@ class OceanCurrentModel(ABC):
         self.reset()
 
     def get_prediction(
-        self, lon: float, lat: float, time: datetime.datetime
+            self, lon: float, lat: float, time: datetime.datetime
     ) -> Union[OceanCurrentVector, Tuple[OceanCurrentVector, OceanCurrentVector]]:
         """Compute the predictions for a given point
 
@@ -62,7 +63,7 @@ class OceanCurrentModel(ABC):
         self.measured_current_errors = list()
 
     def observe(
-        self, measurement_location: SpatioTemporalPoint, measured_current_error: OceanCurrentVector
+            self, measurement_location: SpatioTemporalPoint, measured_current_error: OceanCurrentVector
     ) -> None:
         """Add an observation at the position measurement that will be used when fitting the model.
 

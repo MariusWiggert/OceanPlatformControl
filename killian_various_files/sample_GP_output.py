@@ -16,11 +16,11 @@ from npy_append_array import NpyAppendArray
 
 
 def remove_borders_GP_predictions_lon_lat(
-        x,
-        radius_to_keep,
-        channels_to_0=[0, 1, 2, 3],
-        channels_to_dest=[6, 7],
-        dest_channels=[4, 5],
+    x,
+    radius_to_keep,
+    channels_to_0=[0, 1, 2, 3],
+    channels_to_dest=[6, 7],
+    dest_channels=[4, 5],
 ):
     middle = x.shape[-1] // 2
     radius_to_remove = (x.shape[-1] - radius_to_keep * 2) / 2

@@ -185,10 +185,7 @@ a1, a2, a3, a4, a5, a6, = (
     [10, 10],
     [10, 10],
 )
-pred = torch.moveaxis(torch.tensor([[[a1, a2, a3], [a4, a5, a6]]], dtype=torch.double), -1, 1)[
-       :, :, None
-       ]
+pred = torch.moveaxis(torch.tensor([[[a1, a2, a3], [a4, a5, a6]]], dtype=torch.double), -1, 1)[:, :, None]
 print(pred.shape)
-_, all = compute_conservation_mass_loss(pred, get_all_cells=True)
-all
+compute_conservation_mass_loss(pred, get_all_cells=True)
 #

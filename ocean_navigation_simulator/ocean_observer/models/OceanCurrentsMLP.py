@@ -3,15 +3,16 @@ from __future__ import print_function
 import torch.nn as nn
 
 
+# Class of the MLP model which was the baseline
 class OceanCurrentMLP(nn.Module):
     def __init__(
-        self,
-        input_dim,
-        output_layers_dims,
-        batch_norm_layers,
-        dropout_layers,
-        output_shape,
-        device="cpu",
+            self,
+            input_dim,
+            output_layers_dims,
+            batch_norm_layers,
+            dropout_layers,
+            output_shape,
+            device="cpu",
     ):
         super(OceanCurrentMLP, self).__init__()
 

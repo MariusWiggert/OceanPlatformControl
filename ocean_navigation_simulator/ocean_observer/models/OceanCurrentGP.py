@@ -13,6 +13,7 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
 )
 
 
+# Class of the Gaussian Process model
 class OceanCurrentGP(OceanCurrentModel):
     """Wrapper around a Gaussian Process that handles ocean currents.
     This object models deviations from the forecast ("errors") using a Gaussian
@@ -110,10 +111,8 @@ class OceanCurrentGP(OceanCurrentModel):
 
         if not np.all(measurement_locations[:, -1] == measurement_locations[0, -1]):
             most_recent_time = measurement_locations[:, -1].max()
-            fresh_observations = (
-                np.abs(measurement_locations[:, -1] - most_recent_time)
-                < self.life_span_observations_in_sec
-            )
+            fresh_observations = np.abs(
+                measurement_locations[:, -1] - most_recent_time) < self.life_span_observations_in_sec
 
             measurement_locations = measurement_locations[fresh_observations]
             errors = errors[fresh_observations]
@@ -153,5 +152,5 @@ class OceanCurrentGP(OceanCurrentModel):
         # TODO: Check what the actual lower bound is supposed to
         # be. We can't have a 0 std.dev. due to noise. Currently it's something
         # like 0.07 from the GP, but that doesn't seem to match the Loon code.
-        deviations = deviations**2 / self.config_dict.get("sigma_exp_squared", 1)
+        deviations = deviations ** 2 / self.config_dict.get("sigma_exp_squared", 1)
         return means, deviations

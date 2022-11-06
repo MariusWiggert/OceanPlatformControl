@@ -8,23 +8,24 @@ import torch.nn as nn
 from torch import autograd
 
 
+# Class of the RNN models. Support LSTM, GRU and RNN cells
 class OceanCurrentRNN(nn.Module):
-    DIMENSION_TIME_LSTM = 1
 
     def __init__(
-        self,
-        input_shape,
-        hidden_size,
-        output_shape,
-        type_cell: str,
-        size_layers_after_rnn: List[int] = [],
-        num_layers: int = 1,
-        bidirectional: bool = False,
-        dropout: float = 0,
-        non_linearity: Optional[str] = "tanh",
-        init_weights_function: str = "randn",
-        index_time_dimension=2,
-        device="cpu",
+            self,
+            input_shape,
+            hidden_size,
+            output_shape,
+            type_cell: str,
+            size_layers_after_rnn: List[int] = [],
+            num_layers: int = 1,
+            bidirectional: bool = False,
+            dropout: float = 0,
+            non_linearity: Optional[str] = "tanh",
+            init_weights_function: str = "randn",
+            index_time_dimension=2,
+            device="cpu",
+            index_time_dimension_lstm=1
     ):
         # input shape [batch_size, #currents_dims(2), time, lon, lat]
         super(OceanCurrentRNN, self).__init__()
@@ -33,6 +34,7 @@ class OceanCurrentRNN(nn.Module):
         self.num_layers = num_layers
         self.index_time_dimension = index_time_dimension
         self.INDEX_BATCH_DIMENSION = 0
+        self.index_time_dimension_lstm = index_time_dimension_lstm
         self.device = device
         if init_weights_function == "randn":
             self.init_weights_function = torch.randn
@@ -76,9 +78,6 @@ class OceanCurrentRNN(nn.Module):
             )
 
         layers_after_RNN = list()
-        # layers_after_RNN.append(
-        # nn.Conv1d(2 if self.bidirectional else 1, 1, padding=0, kernel_size=hidden_size, stride=hidden_size,
-        #          dilation=False))
 
         # Linear case
         self.final_size = output_size
@@ -86,16 +85,6 @@ class OceanCurrentRNN(nn.Module):
         layers_after_RNN.append(
             nn.Linear(hidden_size * (2 if self.bidirectional else 1), self.final_size)
         )
-        # Not supported yet
-        # layers_after_RNN.append(nn.ReLU())
-        # size_layers_after_rnn = [hidden_size] + size_layers_after_rnn
-        # for i in range(len(size_layers_after_rnn) - 1):
-        #     layers_after_RNN.append(
-        #         nn.Linear(in_features=size_layers_after_rnn[i], out_features=size_layers_after_rnn[i + 1]))
-        #     layers_after_RNN.append(nn.ReLU())
-        #
-        # layers_after_RNN.append(nn.Linear(in_features=size_layers_after_rnn[-1], out_features=output_size))
-        #
         self.layers_after_RNN = nn.Sequential(*layers_after_RNN)
         print(f"model:\n{self.flatten_layer}\n{self.rnn_layer}\n{self.layers_after_RNN}\n\n")
 
@@ -116,7 +105,7 @@ class OceanCurrentRNN(nn.Module):
             x.shape[self.index_time_dimension],
         )
         # x becomes shape [batch time, #currents_dim(2),lon,lat]
-        x = torch.moveaxis(x, self.index_time_dimension, self.DIMENSION_TIME_LSTM)
+        x = torch.moveaxis(x, self.index_time_dimension, self.index_time_dimension_lstm)
         h_0, c_0 = self.init_hidden(batch_size)
         if self.type_cell == "lstm":
             hidden_0 = h_0, c_0
@@ -124,10 +113,6 @@ class OceanCurrentRNN(nn.Module):
             hidden_0 = h_0
         x = self.flatten_layer(x)
         output, hidden = self.rnn_layer(x, hidden_0)
-        # if self.type_cell == "lstm":
-        #     hn, cn = hidden
-        # else:
-        #     hn = hidden
 
         # Only consider the last layer of h
         x = output
@@ -149,6 +134,6 @@ class OceanCurrentRNN(nn.Module):
 
         return torch.moveaxis(
             x.reshape((batch_size, sequence_length, *self.output_shape)),
-            self.DIMENSION_TIME_LSTM,
+            self.index_time_dimension_lstm,
             self.index_time_dimension,
         )
