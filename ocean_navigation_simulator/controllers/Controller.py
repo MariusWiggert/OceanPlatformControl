@@ -1,14 +1,12 @@
 import abc
-import numpy as np
-from typing import Tuple, Optional, Dict
-import bisect
+import logging
+import os
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.environment.Platform import PlatformState
-
-# TODO: other methods needed?
 
 
 class Controller(abc.ABC):
@@ -16,55 +14,24 @@ class Controller(abc.ABC):
     Interface for controllers.
     """
 
-    def __init__(self, problem: Problem, specific_settings: Optional[Dict] = None):
+    gpus: float = 0.0
+
+    def __init__(self, problem: NavigationProblem):
         """
         Basic constructor logging the problem given at construction.
         Args:
             problem: the Problem the controller will run on
         """
         self.problem = problem
-        # Note: managing the forecast fieldsets is done in the simulator
-        # self.forecast_data_source = None
-        self.updated_forecast_source = True
-
-        # initialize vectors for open_loop control
-        self.times, self.x_traj, self.contr_seq = None, None, None
-
-        # saving the planned trajectories for inspection purposes
-        self.planned_trajs = []
-
-        self.specific_settings = specific_settings
+        # initialize logger
+        self.logger = logging.getLogger("arena.controller")
+        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:
-        """ Given an observation, outputs the controller's next action
+        """Given an observation, outputs the controller's next action
         Args:
           observation: observed state from simulator or other source (i.e. observer, other controller)
         Returns:
-          Controller's next action as a numpy array.
+          Controller's next action as a PlatformAction object.
         """
-
-    @abc.abstractmethod
-    def get_waypoints(self) -> list:
-        """
-        Output start and end waypoints for the planner.
-        Returns:
-            List of format [start, end], where both start and end are of format [lat, lon, time]
-        """
-
-    def get_open_loop_control_from_plan(self, state: PlatformState) -> PlatformAction:
-        """ Indexing into the planned open_loop control sequence using the time from state.
-        Args:
-            state    PlatformState containing [lat, lon, battery_level, date_time]
-        Returns:
-            PlatformAction object
-        """
-        # an easy way of finding for each time, which index of control signal to apply
-        idx = bisect.bisect_right(self.times, state.date_time.timestamp()) - 1
-        if idx == len(self.times) - 1:
-            idx = idx - 1
-            print("Controller Warning: continuing using last control although not planned as such")
-
-        # extract right element from ctrl vector
-        return PlatformAction(magnitude=self.contr_seq[0, idx], direction=self.contr_seq[1, idx])
-

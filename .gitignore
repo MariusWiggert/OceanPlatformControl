@@ -3,8 +3,22 @@
 __pycache__*
 *.png
 *.gif
+*.log
+*.egg-info
 optimized_dp/
 viz/
-data/
 .vscode/
-2D_reachability_animation.html
+.ipynb_checkpoints/
+generated_media/
+./hj_reachability/
+./data/
+./models/
+./results/
+# Setup file from Jerome
+setup/env*
+# New dir structure
+archive/
+tmp/
+data/
+models/
+results/

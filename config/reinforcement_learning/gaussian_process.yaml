@@ -1,0 +1,45 @@
+observer:
+    life_span_observations_in_sec: 43200 # 12 * 3600
+
+    model:
+
+        # V3
+        gaussian_process:
+            kernel:
+                type: 'matern'
+                sigma_exp_squared: 5.011571057964094
+                scaling:
+                    latitude: 0.5753005356364821
+                    longitude: 0.5967749664273109
+                    time: 42103.57591355196
+                parameters:
+                    length_scale_bounds: "fixed"
+                    nu: 1.5
+
+        # V2
+#        gaussian_process:
+#            sigma_noise_squared: 0.000005
+#            sigma_exp_squared: 4.6322963514022275
+#            kernel:
+#                type: "matern"
+#                scaling:
+#                    latitude: 0.4876354640492018
+#                    longitude: 1.1573453785002743
+#                    time: 41406.72876743276
+#                parameters:
+#                    length_scale_bounds: "fixed"
+#                    nu: 1.5
+
+        # V1
+#        gaussian_process:
+#            sigma_noise_squared: 0.000005
+#            sigma_exp_squared: 3.4904
+#            kernel:
+#                type: "matern"
+#                scaling:
+#                    latitude: 0.48426081412300614
+#                    longitude: 0.6580229922153629
+#                    time: 31553.807459317766
+#                parameters:
+#                    length_scale_bounds: "fixed"
+#                    nu: 1.5
