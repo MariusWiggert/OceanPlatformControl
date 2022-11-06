@@ -245,7 +245,8 @@ class MissionGenerator:
         ##### Step 2: Reject if files are missing or corrupted #####
         try:
             self.arena = ArenaFactory.create(
-                scenario_file=self.config["scenario_file"],
+                scenario_file=self.config.get("scenario_file",None),
+                scenario_config=self.config.get("scenario_config",None),
                 x_interval=self.config["x_range"],
                 y_interval=self.config["y_range"],
                 t_interval=[
