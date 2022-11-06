@@ -50,7 +50,7 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 10,
-        c3: Optional = None
+        c3: Optional = None,
     ) -> Arena:
         """
         If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files.
@@ -105,8 +105,14 @@ class ArenaFactory:
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
                 with timing("ArenaFactory: Download Hindcast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_files(config=config, type="hindcast",
-                                                t_interval=t_interval, points=points, verbose=verbose, c3=c3)
+                    ArenaFactory.download_files(
+                        config=config,
+                        type="hindcast",
+                        t_interval=t_interval,
+                        points=points,
+                        verbose=verbose,
+                        c3=c3,
+                    )
 
             # Step 6: Download Forecast
             if (
@@ -115,8 +121,14 @@ class ArenaFactory:
                 and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
                 with timing("ArenaFactory: Download Forecast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_files(config=config, type="forecast",
-                                                t_interval=t_interval, points=points, verbose=verbose, c3=c3)
+                    ArenaFactory.download_files(
+                        config=config,
+                        type="forecast",
+                        t_interval=t_interval,
+                        points=points,
+                        verbose=verbose,
+                        c3=c3,
+                    )
 
             # Step 7: Create Arena
             return Arena(
@@ -133,19 +145,15 @@ class ArenaFactory:
     def download_files(config, type, t_interval, points, verbose, c3=None):
         """Helper method to be run in C3 context manager."""
         ArenaFactory.download_required_files(
-            archive_source=config["ocean_dict"][type]["source_settings"][
-                "source"
-            ],
+            archive_source=config["ocean_dict"][type]["source_settings"]["source"],
             archive_type=config["ocean_dict"][type]["source_settings"]["type"],
-            download_folder=config["ocean_dict"][type]["source_settings"][
-                "folder"
-            ],
+            download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
             t_interval=t_interval,
             region=config["ocean_dict"]["area"],
             throw_exceptions=True,
             points=points,
             verbose=verbose,
-            c3=c3
+            c3=c3,
         )
 
     # TODO: automatically select best region depending on given points
@@ -190,7 +198,7 @@ class ArenaFactory:
             region=region,
             t_interval=t_interval,
             verbose=verbose,
-            c3=c3
+            c3=c3,
         )
 
         # Step 2: Check File Count
@@ -234,7 +242,7 @@ class ArenaFactory:
             download_folder=download_folder,
             throw_exceptions=throw_exceptions,
             verbose=verbose,
-            c3=c3
+            c3=c3,
         )
 
         return files.count
@@ -246,7 +254,7 @@ class ArenaFactory:
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
         verbose: Optional[int] = 10,
-        c3: Optional = None
+        c3: Optional = None,
     ):
         """
         helper function to get a list of available files from c3
@@ -312,7 +320,9 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10, c3: Optional = None):
+    def _download_filelist(
+        files, download_folder, throw_exceptions, verbose: Optional[int] = 10, c3: Optional = None
+    ):
         """thread-safe download with corruption and file size check"""
         if c3 is None:
             c3 = get_c3(verbose - 1)

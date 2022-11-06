@@ -166,6 +166,7 @@ class OceanCurrentSource(DataSource):
 
         x_idx = (np.abs(self.grid_dict["x_grid"] - point.lon.deg)).argmin()
         y_idx = (np.abs(self.grid_dict["y_grid"] - point.lat.deg)).argmin()
+        print("Ocean_current_cource: is_on_land")
         return self.grid_dict["spatial_land_mask"][y_idx, x_idx]
 
     # TODO: probably we could do this with geopy for better accuracy
@@ -176,7 +177,7 @@ class OceanCurrentSource(DataSource):
         Args:
             point:    SpatialPoint object where to calculate distance to land
         Returns:
-            bool:     True if on land and false otherwise
+            units.Distance:     Distance to closest land
         """
         if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
             raise ValueError(
@@ -195,6 +196,8 @@ class OceanCurrentSource(DataSource):
 
         distances = np.vectorize(units.haversine_rad_from_deg)(lon1, lat1, lon2, lat2)
         land_distances = np.where(self.grid_dict["spatial_land_mask"], distances, np.inf)
+
+        print("Ocean_current_cource: distance_to_land")
 
         return units.Distance(rad=land_distances.min())
 
