@@ -11,13 +11,17 @@ import numpy as np
 
 
 class OceanCurrentNoiseField(GenerativeModel):
-    """Uses noise model to construct a field of noise values."""
+    """Uses noise model to construct a field of noise values.
+
+    Note: 'time_origin' is set when the first noise interval is queried, to ensure temporal
+    smoothness of subsequent queries."""
 
     def __init__(self, harmonic_params: Dict[str, Any], detrend_statistics: np.ndarray):
         u_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["U_COMP"]]
         v_comp_harmonics = [HarmonicParameters(*harmonic) for harmonic in harmonic_params["V_COMP"]]
         self.model = SimplexNoiseModel(u_comp_harmonics, v_comp_harmonics)
         self.detrend_statistics = detrend_statistics
+        self.time_origin = None
 
     @staticmethod
     def load_config_from_file(parameter_path):
@@ -30,8 +34,10 @@ class OceanCurrentNoiseField(GenerativeModel):
         return OceanCurrentNoiseField(harmonic_params, detrend_stats)
 
     def reset(self, rng: np.random.default_rng) -> None:
-        """Initializes the simplex noise with a new random number generator."""
+        """Initializes the simplex noise with a new random number generator and
+        sets the time origin to None."""
         self.model.reset(rng)
+        self.time_origin = None
 
     def get_noise_from_ranges(self,
                               x_interval: List[float],
@@ -64,9 +70,14 @@ class OceanCurrentNoiseField(GenerativeModel):
         # Create axis locations. Time is taken relative to first timestamp, spatial axis are global.
         lon_locs = np.arange(lon_range[0], lon_range[1] + lon_res, lon_res)
         lat_locs = np.arange(lat_range[0], lat_range[1] + lat_res, lat_res)
-        t_locs = np.array(timedelta_range_hours(datetime.timedelta(hours=0),
-                                                t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
-                                                t_res))
+        if self.time_origin is None:
+            t_locs = np.array(timedelta_range_hours(datetime.timedelta(hours=0),
+                                                    t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
+                                                    t_res))
+        else:
+            t_locs = np.array(timedelta_range_hours(t_range[0] - self.time_origin,
+                                                    t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
+                                                    t_res))
         t_locs = np.array([np.timedelta64(timedelta) for timedelta in t_locs])
 
         return self.get_noise(lon_locs, lat_locs, t_locs, t_range[0])
@@ -77,7 +88,10 @@ class OceanCurrentNoiseField(GenerativeModel):
         """Uses the SimplexNoiseModel to produce a noise field over the specified axes arrays."""
 
         # make time relative to first time step.
-        t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis])
+        if self.time_origin is None:
+            t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis])
+        else:
+            t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis - self.time_origin])
 
         return self.get_noise(lon_axis, lat_axis, t_locs, t_axis[0])
 

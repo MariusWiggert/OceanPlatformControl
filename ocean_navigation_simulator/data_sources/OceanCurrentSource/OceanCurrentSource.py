@@ -475,6 +475,49 @@ class GroundTruthFromNoise(OceanCurrentSource):
         # Step 3: return dataframe with added noise
         return ds + additive_noise
 
+    def plot_noise_at_time_over_area(
+        self,
+        time: Union[datetime.datetime, float],
+        x_interval: List[float],
+        y_interval: List[float],
+        spatial_resolution: Optional[float] = None,
+        return_ax: Optional[bool] = False,
+        **kwargs,
+    ):
+        """Plotting method to easily compare FC/HC with FC/HC + noise."""
+
+        # get HC area data
+        area_xarray_hc = self.hindcast_data_source.get_data_over_area(
+            x_interval,
+            y_interval,
+            [time, time + datetime.timedelta(seconds=1)],
+            spatial_resolution=spatial_resolution
+        )
+
+        # interpolate HC to specific time
+        at_time_xarray_hc = area_xarray_hc.interp(time=time.replace(tzinfo=None))
+
+        # get HC + noise area data
+        area_xarray_hc_noise = self.get_data_over_area(
+            x_interval,
+            y_interval,
+            [time, time + datetime.timedelta(seconds=1)],
+            spatial_resolution=spatial_resolution)
+
+        # interpolate HC+noise to specific time
+        at_time_xarray_hc_noise = area_xarray_hc_noise.interp(time=time.replace(tzinfo=None))
+
+        # plot hc and hc+noise
+        fig, axs = plt.subplots(1, 2, figsize=(15, 6))
+        self.hindcast_data_source.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc, ax=axs[0], **kwargs)
+        self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc_noise, ax=axs[1], **kwargs)
+        plt.tight_layout()
+
+        if return_ax:
+            return axs
+        else:
+            plt.show()
+
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):

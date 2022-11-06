@@ -1,6 +1,5 @@
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     GroundTruthFromNoise,
-    ForecastFromHindcastSource,
     HindcastFileSource,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
@@ -12,7 +11,6 @@ lat_interval = [20, 30]
 t_interval = [datetime.datetime(2022, 10, 1, 12, 30, 0), datetime.datetime(2022, 10, 8, 12, 30, 0)]
 target_folder = "data/hycom_hindcast_gen_noise_test/"
 
-# TODO: discuss with Jonas: formatting of longitude in [-180, + 180] or [0, 360] as in xarray, what is simplex noise assuming?
 # TODO: Maybe implement a couple of new plotting functions to plot/animate purely the noise for a specific area?
 # TODO: Go over this example, with noise it looks quite a lot different, maybe too much? Not sure...
 # TODO: ultimately we want an ocean field to be as easy to instantiate as the others, directly from one dict, build the constructors to do that.
@@ -40,6 +38,8 @@ gt = GroundTruthFromNoise(
                 + "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy",
     hindcast_data_source=hindcast_data,
 )
+
+gt.plot_noise_at_time_over_area(time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval)
 #%% plot comparison
 # without noise
 hindcast_data.plot_data_at_time_over_area(time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval)
