@@ -79,6 +79,7 @@ class DatasetWriter:
         df.to_csv(os.path.join(self.output_path, file_name), index=False)
 
     def write_all_files(self) -> None:
+        index_file_update = True
         for file_idx in range(len(self.files_dicts)):
             # write correct time string to dict
             time_string = self._build_time_string(file_idx)
@@ -95,7 +96,13 @@ class DatasetWriter:
             if os.path.exists(os.path.join(self.output_path, file_name)):
                 print(f"file already exists: {file_name}")
                 continue
-            forecast_error = self.get_error(file_idx)
+            if index_file_update and self.config["dataset_writer"]["source"] == "copernicus":
+                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_file"] = index_file_update
+                forecast_error = self.get_error(file_idx)
+                index_file_update = False
+                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_file"] = False
+            else:
+                forecast_error = self.get_error(file_idx)
             self.write_error_csv(forecast_error, file_name)
             print(f"written: {file_name}")
 

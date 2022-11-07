@@ -151,21 +151,21 @@ class BuoyDataCopernicus(BuoyDataSource):
         creates a pandas.DataFrame
         """
         column_names = ["time", "lon", "lat", "u", "v", "buoy"]
-        df = pd.DataFrame(columns = column_names)
+        df = pd.DataFrame(columns=column_names)
 
         for file_path in file_list:
             ds, valid_file = self._read_NC_file(file_path)
 
             # catch corrupted files
-            if valid_file == False:
+            if valid_file is False:
                 continue
 
             # select specific data
             time = ds["TIME"].values
             lon = ds["LONGITUDE"].values
             lat = ds["LATITUDE"].values
-            u = ds["NSCT"].isel(DEPTH=-1).values # problem here since deepest depth can be NaN
-            v = ds["EWCT"].isel(DEPTH=-1).values
+            u = ds["EWCT"].isel(DEPTH=-1).values  # problem here since deepest depth can be NaN
+            v = ds["NSCT"].isel(DEPTH=-1).values
             file_name = [file_path.split("/")[-1].split(".")[0] for i in range(len(time))]
             buoy = [ds.attrs["platform_code"] for i in range(len(time))]
             df_temp = pd.DataFrame({"file_name": file_name, "buoy":buoy, "time":time, "lon":lon, "lat":lat, "u":u, "v":v})
