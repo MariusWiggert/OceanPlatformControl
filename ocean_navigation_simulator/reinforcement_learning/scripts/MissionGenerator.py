@@ -418,5 +418,5 @@ class MissionGenerator:
         observation = arena.reset(problem.start_state)
         while problem.is_done(observation.platform_state) != -1:
             observation = arena.step(forecast_planner.get_action(observation))
-            arena.platform.state.lon = problem.start_state.lon
-            arena.platform.state.lat = problem.start_state.lat
+            arena.platform.state_set.lon = problem.start_state.lon
+            arena.platform.state_set.lat = problem.start_state.lat

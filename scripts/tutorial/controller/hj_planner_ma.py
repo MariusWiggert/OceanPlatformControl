@@ -4,8 +4,8 @@ import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJReach2DPlanner,
+from ocean_navigation_simulator.controllers.multi_agent_planner import (
+   MultiAgentPlanner,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -49,15 +49,15 @@ problem = NavigationProblem(
     platform_dict=arena.platform.platform_dict,
 )
 
-# %% Plot the problem on the map
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_start=x_set, x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
-)
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
+# # %% Plot the problem on the map
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_start=x_set.to_spatio_temporal_point_set(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+# )
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
 # %% Instantiate the HJ Planner
 specific_settings = {
@@ -83,4 +83,14 @@ specific_settings = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     "platform_dict": arena.platform.platform_dict,
 }
-planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
+multi_agent_setting = {
+    "planner": "hj_planner"
+}
+planner_set = MultiAgentPlanner(problem=problem, multi_agent_setting = multi_agent_setting, 
+                                  specific_settings= specific_settings)
+
+observation = arena.reset(platform_set=x_set)
+action = planner_set.get_action(observation=observation)
+
+# %%
+new_observation = arena.step(action)

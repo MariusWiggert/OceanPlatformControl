@@ -159,7 +159,7 @@ class Arena:
 
         return ArenaObservation(
             platform_state=platform_state,
-            true_current_at_state=self.ocean_field.get_ground_truth(self.platform.state.to_spatio_temporal_point()),
+            true_current_at_state=self.ocean_field.get_ground_truth(self.platform.state_set.to_spatio_temporal_point()),
             forecast_data_source=self.ocean_field.forecast_data_source
         )
 
@@ -186,9 +186,9 @@ class Arena:
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""
         if self.spatial_boundary is not None:
-            inside_x = self.spatial_boundary['x'][0].deg + margin < self.platform.state.lon.deg < \
+            inside_x = self.spatial_boundary['x'][0].deg + margin < self.platform.state_set.lon.deg < \
                        self.spatial_boundary['x'][1].deg - margin
-            inside_y = self.spatial_boundary['y'][0].deg + margin < self.platform.state.lat.deg < \
+            inside_y = self.spatial_boundary['y'][0].deg + margin < self.platform.state_set.lat.deg < \
                        self.spatial_boundary['y'][1].deg - margin
             return inside_x and inside_y
         return True
@@ -196,7 +196,7 @@ class Arena:
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
         if point is None:
-            point = self.platform.state
+            point = self.platform.state_set
         return self.ocean_field.hindcast_data_source.is_on_land(point)
 
     def problem_status(self, problem: Problem, check_inside: Optional[bool] = True,
@@ -207,7 +207,7 @@ class Arena:
         elif check_inside and not self.is_inside_arena(margin):
             return -3
         else:
-            return problem.is_done(self.platform.state)
+            return problem.is_done(self.platform.state_set)
 
     ### Various Plotting Functions for the Arena Object ###
 

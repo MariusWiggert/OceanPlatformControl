@@ -14,7 +14,7 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 import casadi as ca
 import numpy as np
@@ -75,7 +75,7 @@ class Platform:
     ocean_source: OceanCurrentSource = None
     solar_source: SolarIrradianceSource = None
     seaweed_source: SeaweedGrowthSource = None
-    state: PlatformStateSet = None
+    state_set: PlatformStateSet = None
 
     def __init__(
         self,
@@ -113,13 +113,14 @@ class Platform:
         else:
             self.battery_capacity = units.Energy(watt_hours=platform_dict["battery_cap_in_wh"])
 
-        self.state, self.F_x_next = [None] * 2
+        self.state_set, self.F_x_next = [None] * 2
 
-    def set_state(self, state: PlatformState):
+    def set_state(self, states: PlatformStateSet):
         """Helper function to set the state directly."""
-        self.state = state
+        self.state_set = states
+        self.nb_platforms = len(states)
 
-    def simulate_step(self, action: PlatformAction) -> PlatformState:
+    def simulate_step(self, action: List[PlatformAction]) -> PlatformStateSet:
         """Steps forward the simulation.
         This moves the platforms's state forward according to the dynamics of motion
         Args:
@@ -129,18 +130,22 @@ class Platform:
         """
 
         # check if the cached dynamics need to be updated
-        self.update_dynamics(self.state)
+        self.update_dynamics(self.state_set)
         # step forward with F_x_next and convert from casadi to numpy array
+        # state_numpy = (
+        #     np.array(self.F_x_next(np.array(self.state_set), np.array(action), self.dt_in_s))
+        #     .astype("float64")
+        #     .flatten()
+        # )
         state_numpy = (
-            np.array(self.F_x_next(np.array(self.state), np.array(action), self.dt_in_s))
+            np.array(self.F_x_next(np.array(self.state_set), np.array(action), self.dt_in_s))
             .astype("float64")
-            .flatten()
         )
-        self.state = PlatformState.from_numpy(state_numpy)
+        self.state_set = PlatformStateSet.from_numpy(state_numpy)
 
-        return self.state
+        return self.state_set
 
-    def initialize_dynamics(self, state: PlatformState):
+    def initialize_dynamics(self, state: PlatformStateSet):
         """Run at arena.reset() to load data and cache in casadi functions to run fast during simultion.
         Args:
             state: PlatformState for which to load the data for caching in space and time
@@ -184,20 +189,22 @@ class Platform:
         # Note: lat, lon depend on battery if used
         ##### Symbolic Variables #####
         start = time.time()
-        sym_lon_degree = ca.MX.sym("lon")  # in deg or m
-        sym_lat_degree = ca.MX.sym("lat")  # in deg or m
-        sym_time = ca.MX.sym("time")  # in posix
-        sym_battery = ca.MX.sym("battery")  # in Joule
-        sym_seaweed_mass = ca.MX.sym("battery")  # in Kg
+        sym_lon_degree = ca.MX.sym("lon", self.nb_platforms, 1)  # in deg or m
+        sym_lat_degree = ca.MX.sym("lat", self.nb_platforms, 1)  # in deg or m
+        sym_time = ca.MX.sym("time", self.nb_platforms, 1)  # in posix
+        sym_battery = ca.MX.sym("battery",self.nb_platforms, 1)  # in Joule
+        sym_seaweed_mass = ca.MX.sym("seaweed_mass", self.nb_platforms, 1)  # in Kg
         sym_dt = ca.MX.sym("dt")  # in s
-        sym_u_thrust = ca.MX.sym("u_thrust")  # in % of u_max
-        sym_u_angle = ca.MX.sym("u_angle")  # in radians
+        sym_u_thrust = ca.MX.sym("u_thrust", self.nb_platforms, 1)  # in % of u_max
+        sym_u_angle = ca.MX.sym("u_angle", self.nb_platforms, 1)  # in radians
 
         # Model Battery: Intermediate Variables for capping thrust so that battery never goes below 0
         if self.model_battery:
+            # sym_solar_charging = self.solar_charge_factor * self.solar_source.solar_rad_casadi(
+            #     ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)
+            # )
             sym_solar_charging = self.solar_charge_factor * self.solar_source.solar_rad_casadi(
-                ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)
-            )
+                                ca.horzcat(sym_time,sym_lat_degree, sym_lon_degree).T).T 
             energy_available_in_J = sym_battery + sym_solar_charging * sym_dt
             energy_required_for_u_max = self.drag_factor * self.u_max.mps**3
             sym_u_thrust_capped = ca.fmin(
@@ -210,8 +217,11 @@ class Platform:
             sym_power_consumption = 0
 
         # Equations for m/s in latitude and longitude direction
-        u_curr = self.ocean_source.u_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
-        v_curr = self.ocean_source.v_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        # For interpolation: need to pass a matrix (time, lat,lon) x nb_platforms (i.e. platforms as columns and not as rows)
+        # u_curr = self.ocean_source.u_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        # v_curr = self.ocean_source.v_curr_func(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        u_curr = self.ocean_source.u_curr_func(ca.horzcat(sym_time,sym_lat_degree, sym_lon_degree).T).T # retranspose it back to a vector where platforms are rows
+        v_curr = self.ocean_source.v_curr_func(ca.horzcat(sym_time, sym_lat_degree, sym_lon_degree).T).T
         sym_lon_delta_meters_per_s = (
             ca.cos(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + u_curr
         )
@@ -236,9 +246,12 @@ class Platform:
 
         # Model Seaweed Growth
         if self.model_seaweed:
-            sym_growth_factor = self.seaweed_source.F_NGR_per_second(
-                ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)
-            )
+            # sym_growth_factor = self.seaweed_source.F_NGR_per_second(
+            #     ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)
+            # )
+             sym_growth_factor = self.seaweed_source.F_NGR_per_second(
+                ca.horzcat(sym_time, sym_lat_degree, sym_lon_degree).T
+            ).T
         else:
             sym_growth_factor = 0
 
@@ -252,23 +265,26 @@ class Platform:
         sym_time_next = sym_time + sym_dt
         sym_seaweed_mass_next = sym_seaweed_mass + sym_dt * sym_growth_factor * sym_seaweed_mass
 
-        F_next = ca.Function(
-            "F_x_next",
-            [
-                ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass),
-                ca.vertcat(sym_u_thrust, sym_u_angle),
-                sym_dt,
-            ],
-            [
-                ca.vertcat(
-                    sym_lon_next,
-                    sym_lat_next,
-                    sym_time_next,
-                    sym_battery_next,
-                    sym_seaweed_mass_next,
-                )
-            ],
-        )
+        # F_next = ca.Function(
+        #     "F_x_next",
+        #     [
+        #         ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass),
+        #         ca.vertcat(sym_u_thrust, sym_u_angle),
+        #         sym_dt,
+        #     ],
+        #     [
+        #         ca.vertcat(
+        #             sym_lon_next,
+        #             sym_lat_next,
+        #             sym_time_next,
+        #             sym_battery_next,
+        #             sym_seaweed_mass_next,
+        #         )
+        #     ],
+        # )
+        F_next = ca.Function('F_x_next', [ca.horzcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass), ca.horzcat(sym_u_thrust, sym_u_angle), sym_dt],
+                        [ca.horzcat(sym_lon_next, sym_lat_next, sym_time_next, sym_battery_next, sym_seaweed_mass_next)])
+
         self.logger.info(f"Platform: Set Dynamics F_x_next Function ({time.time() - start:.1f}s)")
         return F_next
 

@@ -421,25 +421,25 @@ class ExperimentRunner:
         self.observer.reset()
 
         list_forecast_hindcast = []
-        list_datetime_when_new_forecast_files = [self.arena.platform.state.date_time]
+        list_datetime_when_new_forecast_files = [self.arena.platform.state_set.date_time]
         list_gp_output = []
         self.__step_simulation(controller, fit_model=True)
         for i in range(number_days_forecasts * 24):
-            print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state.date_time)
+            print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state_set.date_time)
             intervals_lon_lat_time = (
                 interval_lon,
                 interval_lat,
                 [
-                    self.arena.platform.state.date_time + datetime.timedelta(hours=1),
-                    self.arena.platform.state.date_time + datetime.timedelta(hours=25),
+                    self.arena.platform.state_set.date_time + datetime.timedelta(hours=1),
+                    self.arena.platform.state_set.date_time + datetime.timedelta(hours=25),
                 ],
             )
             intervals_lon_lat_time_with_margin = (
                 [interval_lon[0] - 1, interval_lon[1] + 1],
                 [interval_lat[0] - 1, interval_lat[1] + 1],
                 [
-                    self.arena.platform.state.date_time - datetime.timedelta(hours=1),
-                    self.arena.platform.state.date_time + datetime.timedelta(hours=25),
+                    self.arena.platform.state_set.date_time - datetime.timedelta(hours=1),
+                    self.arena.platform.state_set.date_time + datetime.timedelta(hours=25),
                 ],
             )
 
@@ -456,7 +456,7 @@ class ExperimentRunner:
             print(file == self.last_file_used, file, self.last_file_used)
             if file != self.last_file_used:
                 self.print_errors()
-                list_datetime_when_new_forecast_files.append(self.arena.platform.state.date_time)
+                list_datetime_when_new_forecast_files.append(self.arena.platform.state_set.date_time)
                 print("file added to list:", list_datetime_when_new_forecast_files)
 
             list_gp_output.append(

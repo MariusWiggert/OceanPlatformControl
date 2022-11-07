@@ -186,25 +186,25 @@ class PlatformState:
 
 @dataclasses.dataclass
 class PlatformStateSet:
-    states: List[PlatformState]
+    platform_list: List[PlatformState]
 
     def __array__(self):
-        return np.array(self.states)  # rows are the number of platforms
+        return np.array(self.platform_list)  # rows are the number of platforms
 
     def __len__(self):
-        return len(self.states)
+        return len(self.platform_list)
 
     def __getitem__(self, platform_id):
         #     return np.array(self.states[platform_id])
-        return self.states[platform_id]
+        return self.platform_list[platform_id]
 
     def __post_init__(self):
-        self.lon = units.Distance(deg=np.array(self.states)[:, 0])
-        self.lat = units.Distance(deg=np.array(self.states)[:, 1])
+        self.lon = units.Distance(deg=np.array(self.platform_list)[:, 0])
+        self.lat = units.Distance(deg=np.array(self.platform_list)[:, 1])
         # datetime does not support array, whilst np.datetime64 has no timestamps....
-        self.date_time = np.array([platform.date_time for platform in self.states])
-        self.battery_charge = units.Energy(joule=np.array(self.states)[:, 3])
-        self.seaweed_masse = units.Mass(kg=np.array(self.states)[:, 4])
+        self.date_time = np.array([platform.date_time for platform in self.platform_list])
+        self.battery_charge = units.Energy(joule=np.array(self.platform_list)[:, 3])
+        self.seaweed_masse = units.Mass(kg=np.array(self.platform_list)[:, 4])
 
     def to_spatial_point_set(self) -> SpatialPointSet:
         """Helper function to just extract the spatial point."""
@@ -213,3 +213,11 @@ class PlatformStateSet:
     def to_spatio_temporal_point_set(self) -> SpatioTemporalPoint:
         """Helper function to just extract the spatial point."""
         return SpatioTemporalPointSet(lon=self.lon, lat=self.lat, date_time=self.date_time)
+
+    @staticmethod
+    def from_numpy(np_array):
+        platform_list = [PlatformState.from_numpy(np_array[k,:]) for k in range(np_array.shape[0])]
+        return PlatformStateSet(platform_list=platform_list)
+        
+
+

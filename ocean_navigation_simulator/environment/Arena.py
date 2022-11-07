@@ -40,6 +40,7 @@ from ocean_navigation_simulator.environment.Platform import (
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
     SpatialPoint,
     SpatioTemporalPoint,
 )
@@ -60,7 +61,7 @@ class ArenaObservation:
     environment.
     """
 
-    platform_state: PlatformState  # position, time, battery
+    platform_state: PlatformState # position, time, battery
     true_current_at_state: OceanCurrentVector  # measured current at platform_state
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
@@ -208,30 +209,55 @@ class Arena:
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
-    def reset(self, platform_state: PlatformState) -> ArenaObservation:
+    # def reset(self, platform_state: PlatformState) -> ArenaObservation:
+    #     """Resets the arena.
+    #     Args:
+    #         platform_state
+    #     Returns:
+    #       The first observation from the newly reset simulator
+    #     """
+    #     self.initial_state = platform_state
+    #     self.platform.set_state(self.initial_state)
+    #     self.platform.initialize_dynamics(self.initial_state)
+    #     self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_state)
+
+    #     self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
+    #     self.action_trajectory = np.zeros(shape=(0, 2))
+
+    #     return ArenaObservation(
+    #         platform_state=platform_state,
+    #         true_current_at_state=self.ocean_field.get_ground_truth(
+    #             self.platform.state.to_spatio_temporal_point()
+    #         ),
+    #         forecast_data_source=self.ocean_field.forecast_data_source,
+    #     )
+
+
+    def reset(self, platform_set: PlatformStateSet) -> List[ArenaObservation]:
         """Resets the arena.
         Args:
             platform_state
         Returns:
           The first observation from the newly reset simulator
         """
-        self.initial_state = platform_state
-        self.platform.set_state(self.initial_state)
-        self.platform.initialize_dynamics(self.initial_state)
-        self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_state)
+        self.initial_states = platform_set
+        self.platform.set_state(self.initial_states)
+        self.platform.initialize_dynamics(self.initial_states)
+        self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
 
-        self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
+        self.state_trajectory = np.expand_dims(np.array(platform_set).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
 
-        return ArenaObservation(
-            platform_state=platform_state,
-            true_current_at_state=self.ocean_field.get_ground_truth(
-                self.platform.state.to_spatio_temporal_point()
-            ),
-            forecast_data_source=self.ocean_field.forecast_data_source,
-        )
+        observation_list = [ArenaObservation(
+                            platform_state=platform,
+                            true_current_at_state=self.ocean_field.get_ground_truth(
+                            platform.to_spatio_temporal_point()
+                            ),
+                            forecast_data_source=self.ocean_field.forecast_data_source,
+                            )for platform in platform_set.platform_list]
+        return observation_list
 
-    def step(self, action: PlatformAction) -> ArenaObservation:
+    def step(self, action: List[PlatformAction]) -> List[ArenaObservation]:
         """Simulates the effects of choosing the given action in the system.
         Args:
             action: The action to take in the simulator.
@@ -261,12 +287,12 @@ class Arena:
         if self.spatial_boundary is not None:
             inside_x = (
                 self.spatial_boundary["x"][0].deg + margin
-                < self.platform.state.lon.deg
+                < self.platform.state_set.lon.deg
                 < self.spatial_boundary["x"][1].deg - margin
             )
             inside_y = (
                 self.spatial_boundary["y"][0].deg + margin
-                < self.platform.state.lat.deg
+                < self.platform.state_set.lat.deg
                 < self.spatial_boundary["y"][1].deg - margin
             )
             return inside_x and inside_y
@@ -275,7 +301,7 @@ class Arena:
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
         if point is None:
-            point = self.platform.state
+            point = self.platform.state_set
         return self.ocean_field.hindcast_data_source.is_on_land(point)
 
     def problem_status(
@@ -295,7 +321,7 @@ class Arena:
         elif check_inside and not self.is_inside_arena(margin):
             return -3
         else:
-            return problem.is_done(self.platform.state)
+            return problem.is_done(self.platform.state_set)
 
     def problem_status_text(self, problem_status):
         """

@@ -22,11 +22,13 @@ class NavigationProblem(Problem):
     start_state: PlatformStateSet
     end_region: SpatialPoint
     target_radius: float
+    nb_platforms: int = 1
     timeout: datetime.timedelta = None
     platform_dict: dict = None
     x_range: List = None
     y_range: List = None
     extra_info: dict = None
+
 
     def passed_seconds(self, state: PlatformState) -> float:
         return (state.date_time - self.start_state.date_time).total_seconds()

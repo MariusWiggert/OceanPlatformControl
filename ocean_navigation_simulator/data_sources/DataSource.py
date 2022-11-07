@@ -79,7 +79,7 @@ class DataSource(abc.ABC):
             return True
         return False
 
-    def update_casadi_dynamics(self, state: PlatformState) -> None:
+    def update_casadi_dynamics(self, states: PlatformStateSet) -> None:
         """Function to update casadi_dynamics which means we fit an interpolant to grid data.
         Note: this can be overwritten in child-classes e.g. when an analytical function is available.
         Args:
@@ -88,8 +88,8 @@ class DataSource(abc.ABC):
 
         # Step 1: Create the intervals to query data for
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
-            x_0=state.to_spatio_temporal_point(),
-            x_T=state.to_spatial_point(),
+            x_0=states.to_spatio_temporal_point_set(),
+            x_T=states[0].to_spatial_point(), # no terminal set here so can give any state, won't change bounds
             deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"]["deg_around_x_t"],
             temp_horizon_in_s=self.source_config_dict["casadi_cache_settings"]["time_around_x_t"],
         )
@@ -141,7 +141,7 @@ class DataSource(abc.ABC):
 
     @staticmethod
     def convert_to_x_y_time_bounds(
-        x_start: SpatioTemporalPointSet,
+        x_0: Union[SpatioTemporalPoint, SpatioTemporalPointSet],
         x_T: SpatialPoint,
         deg_around_x0_xT_box: float,
         temp_horizon_in_s: float,
@@ -159,18 +159,23 @@ class DataSource(abc.ABC):
             lat_bnds: [y_lower, y_upper] in degrees
             lon_bnds: [x_lower, x_upper] in degrees
         """
-
+        if type(x_0) == SpatioTemporalPoint: # only one platform state
+            datetime_min = x_0.date_time
+            datetime_max = x_0.date_time
+        else:
+            datetime_min = np.min(x_0.date_time)
+            datetime_max = np.min(x_0.date_time)
         t_interval = [
-            min(x_start.date_time),
-            max(x_start.date_time) + datetime.timedelta(seconds=temp_horizon_in_s),
+            datetime_min,
+            datetime_max + datetime.timedelta(seconds=temp_horizon_in_s),
         ]
         lon_bnds = [
-            min(min(x_start.lon.deg), x_T.lon.deg) - deg_around_x0_xT_box,
-            max(max(x_start.lon.deg), x_T.lon.deg) + deg_around_x0_xT_box,
+            min(np.min(x_0.lon.deg), x_T.lon.deg) - deg_around_x0_xT_box,
+            max(np.max(x_0.lon.deg), x_T.lon.deg) + deg_around_x0_xT_box,
         ]
         lat_bnds = [
-            min(min(x_start.lat.deg), x_T.lat.deg) - deg_around_x0_xT_box,
-            max(max(x_start.lat.deg), x_T.lat.deg) + deg_around_x0_xT_box,
+            min(np.min(x_0.lat.deg), x_T.lat.deg) - deg_around_x0_xT_box,
+            max(np.max(x_0.lat.deg), x_T.lat.deg) + deg_around_x0_xT_box,
         ]
 
         return t_interval, lat_bnds, lon_bnds
@@ -752,7 +757,7 @@ class AnalyticalSource(abc.ABC):
 
     @abc.abstractmethod
     def map_analytical_function_over_area(self, grids_dict: dict):
-        """Function to map the analytical function over an area with the spatial x_start and grid_dict times.
+        """Function to map the analytical function over an area with the spatial x_0 and grid_dict times.
         Args:
           grids_dict: containing grids of x, y, t dimension
         Returns:
