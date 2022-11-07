@@ -1,5 +1,3 @@
-from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
-
 from abc import ABC, abstractmethod
 from typing import Optional, List
 import xarray as xr
@@ -19,9 +17,9 @@ class GenerativeModel(ABC):
 
     @abstractmethod
     def get_noise(self,
-                  x_interval: List[float],
-                  y_interval: List[float],
+                  lon_locs: List[float],
+                  lat_locs: List[float],
                   t_interval: List[datetime.datetime],
-                  spatial_resolution: Optional[float],
-                  temporal_resolution: Optional[float]) -> xr.Dataset:
+                  t_origin: datetime.datetime
+                  ) -> xr.Dataset:
         """Returns the noise field given a specific rng."""

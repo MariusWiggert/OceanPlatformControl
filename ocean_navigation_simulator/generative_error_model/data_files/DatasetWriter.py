@@ -61,8 +61,8 @@ class DatasetWriter:
         buoy_data.interpolate_forecast(self.ocean_field)
 
         # compute the error
-        buoy_data.data["u_error"] = buoy_data.data["u_forecast"] - buoy_data.data["u"]
-        buoy_data.data["v_error"] = buoy_data.data["v_forecast"] - buoy_data.data["v"]
+        buoy_data.data["u_error"] = buoy_data.data["u"] - buoy_data.data["u_forecast"]
+        buoy_data.data["v_error"] = buoy_data.data["v"] - buoy_data.data["v_forecast"]
 
         return buoy_data.data
 
@@ -100,7 +100,7 @@ class DatasetWriter:
                 self.config["buoy_config"]["copernicus"]["dataset"]["download_index_file"] = index_file_update
                 forecast_error = self.get_error(file_idx)
                 index_file_update = False
-                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_file"] = False
+                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_files"] = False
             else:
                 forecast_error = self.get_error(file_idx)
             self.write_error_csv(forecast_error, file_name)

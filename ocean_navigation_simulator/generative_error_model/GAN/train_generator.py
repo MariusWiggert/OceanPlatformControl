@@ -33,12 +33,7 @@ now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 def get_model(model_type: str, model_configs: Dict, device: str) -> Callable:
     """Handles which model to use which is specified in config file."""
 
-    if model_type == "unet":
-        model = UNet(in_channels=model_configs["in_channels"],
-                     out_channels=model_configs["out_channels"],
-                     features=model_configs["features"],
-                     dropout=model_configs["dropout"])
-    elif model_type == "generator":
+    if model_type == "generator":
         model = Generator(in_channels=model_configs["in_channels"],
                           out_channels=model_configs["out_channels"],
                           features=model_configs["features"],
@@ -80,7 +75,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     can be either random or non-random."""
 
     if test:
-        dataset_configs["len"] = None
+        dataset_configs["len"] = "None"
 
     rng = np.random.default_rng(12345)
     area_lens = dataset.area_lens
@@ -327,7 +322,7 @@ def clean_up_training(model, optimizer, dataloader, base_path: str, device: str)
     wandb.finish()
 
 
-def initialize(sweep: bool, test: bool = False):
+def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="specify the file config for model and training")
     config_file = parser.parse_args().config_file
@@ -431,6 +426,7 @@ def main(sweep: Optional[bool] = False):
 
 
 def test():
+    # TODO: add option to save all outputs -> use for variogram
     all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -449,11 +445,11 @@ def test():
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
 
-    print()
     cfgs_train["epoch"] = 1
-    _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
+    _, metrics, _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
+    print(metrics)
 
 
 if __name__ == "__main__":
-    main()
-    # test()
+    # main()
+    test()

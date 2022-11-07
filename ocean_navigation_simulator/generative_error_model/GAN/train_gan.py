@@ -79,7 +79,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     can be either random or non-random."""
 
     if test:
-        dataset_configs["len"] = None
+        dataset_configs["len"] = "None"
 
     rng = np.random.default_rng(12345)
     area_lens = dataset.area_lens
@@ -373,23 +373,24 @@ def initialize(sweep: bool, test: bool = False):
     parser.add_argument("config_file", type=str, help="specify the file config for model and training")
     config_file = parser.parse_args().config_file
     all_cfgs = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
-    wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
-    # add model saving name to cfgs
-    all_cfgs["model_save_name"] = f"{now_str}.pth"
-    wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
-               entity="ocean-platform-control",
-               tags=f"test={test}",
-               **wandb_cfgs)
-    # update wandb configs
-    if sweep:
-        all_cfgs |= sweep_set_parameter(all_cfgs)
-        wandb.config.update(all_cfgs)
-    wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
-                     f"_{all_cfgs['dataset']['area']}" + \
-                     f"_{all_cfgs['dataset']['len']}" + \
-                     f"_{all_cfgs['dataset']['random_subsets']}" + \
-                     f"_{all_cfgs['dataset']['concat_len']}"
-    wandb.save(config_file)
+    if not test:
+        wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
+        # add model saving name to cfgs
+        all_cfgs["model_save_name"] = f"{now_str}.pth"
+        wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
+                   entity="ocean-platform-control",
+                   tags=f"test={test}",
+                   **wandb_cfgs)
+        # update wandb configs
+        if sweep:
+            all_cfgs |= sweep_set_parameter(all_cfgs)
+            wandb.config.update(all_cfgs)
+        wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
+                         f"_{all_cfgs['dataset']['area']}" + \
+                         f"_{all_cfgs['dataset']['len']}" + \
+                         f"_{all_cfgs['dataset']['random_subsets']}" + \
+                         f"_{all_cfgs['dataset']['concat_len']}"
+        wandb.save(config_file)
     return all_cfgs
 
 
@@ -523,10 +524,9 @@ def test():
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
 
-    print()
     cfgs_train["epoch"] = 1
-    _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
-
+    _, metrics, _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
+    print(metrics)
 
 if __name__ == "__main__":
     main()
