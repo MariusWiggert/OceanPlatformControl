@@ -16,6 +16,24 @@ from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 
 # set_arena_loggers(logging.INFO)
+arena_config = {'casadi_cache_dict': {'deg_around_x_t': 2.0, 'time_around_x_t': 432000},
+                'platform_dict': {'battery_cap_in_wh': 400.0,
+                                  'u_max_in_mps': 0.1,
+                                  'motor_efficiency': 1.0,
+                                  'solar_panel_size': 0.5,
+                                  'solar_efficiency': 0.2,
+                                  'drag_factor': 675.0,
+                                  'dt_in_s': 600.0},
+                'use_geographic_coordinate_system': True,
+                'spatial_boundary': None,
+                'ocean_dict': {
+                    'hindcast': {
+                        'field': 'OceanCurrents',
+                        'source': 'hindcast_files',
+                        'source_settings': {'folder': 'data/miss_gen_hindcast/', 'local': True, 'source': 'HYCOM', 'type': 'hindcast', 'currents': 'total'}},
+                    'forecast': {'field': 'OceanCurrents',
+                                 'source': 'forecast_files',
+                                 'source_settings': {'folder': 'data/miss_gen_forecast/', 'local': True, 'source': 'Copernicus', 'type': 'forecast', 'currents': 'total'}}}}
 
 # change to this if basic setup works
 set_arena_loggers(logging.DEBUG)
@@ -29,19 +47,19 @@ logging.getLogger("MissionGenerator").setLevel(logging.DEBUG)
 # TODO: write C3 batch job for it, should be very light, probably just feeding in a json into the job.
 
 config = {
-    "scenario_file": "scripts/create_missions_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
+    "scenario_config": arena_config,
     ##### Target Sampling #####
     # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
     # Copernicus FC: lon: [-98.0, -76.416664], lat: [18.083334, 30.0]
     # Combined: [-98.0, -76.416664], [18.1200008392334, 30.0]
-    "x_range": [units.Distance(deg=-95.9), units.Distance(deg=-78.52)],
-    "y_range": [units.Distance(deg=20.22), units.Distance(deg=27.9)],
-    "t_range": [
+    "x_range": [-95.9, -78.52],
+    "y_range": [20.22, 27.9],
+    "t_range": [#['2022-08-01T00:00:00+00:00', '2022-08-30T00:00:00+00:00'],
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
         datetime.datetime(year=2022, month=8, day=1, tzinfo=datetime.timezone.utc),
         datetime.datetime(year=2022, month=8, day=30, tzinfo=datetime.timezone.utc),
     ],
-    "problem_timeout": datetime.timedelta(hours=20),
+    "problem_timeout_in_h": 140,
     "target_distance_from_land": 0.5,
     "problem_target_radius": 0.1,
     ##### HJ Planner #####
@@ -62,7 +80,7 @@ config = {
     "random_missions_per_target": 8,
     "min_distance_from_hj_frame": 0.5,
     "min_distance_from_land": 0.5,
-    "feasible_mission_time": [datetime.timedelta(hours=100), datetime.timedelta(hours=24)],
+    "feasible_mission_time_in_h": [100, 120],
     "random_min_distance_from_target": 0.5,
     ##### Actions #####
     "plot_batch": False,
@@ -92,7 +110,8 @@ df.to_csv(results_folder + "problems.csv")
 df.to_csv("problems.csv")
 # GenerationRunner.plot_starts_and_targets(
 #     results_folder,
-#     scenario_file="scripts/create_missions_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
+#     scenario_file="scripts/create_missixons_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
 # )
 # GenerationRunner.plot_target_dates_histogram(results_folder)
 # GenerationRunner.plot_ttr_histogram(results_folder)
+

@@ -53,6 +53,9 @@ class MissionGenerator:
         config: Optional[dict] = {},
         c3 = None
     ):
+        # update the config to be in proper units
+        if type(config['t_range'][0]) == str:
+            config['t_range'] = [datetime.datetime.fromisoformat(t) for t in config['t_range']]
         self.config = config
         self.c3 = c3
 
@@ -169,7 +172,7 @@ class MissionGenerator:
         # Step 2: Create Problems
         for random, start, distance_to_shore in starts:
             ttr = self.hindcast_planner.interpolate_value_function_in_hours(point=start).item()
-            feasible = ttr < self.config["problem_timeout"].total_seconds() / 3600
+            feasible = ttr < self.config["problem_timeout_in_h"]
 
             self.problems.append(
                 CachedNavigationProblem(
@@ -219,18 +222,18 @@ class MissionGenerator:
         fake_target = SpatioTemporalPoint(
             lon=units.Distance(
                 deg=self.random.uniform(
-                    self.config["x_range"][0].deg, self.config["x_range"][1].deg
+                    self.config["x_range"][0], self.config["x_range"][1]
                 )
             ),
             lat=units.Distance(
                 deg=self.random.uniform(
-                    self.config["y_range"][0].deg, self.config["y_range"][1].deg
+                    self.config["y_range"][0], self.config["y_range"][1]
                 )
             ),
             # only sample goal times s.t. all missions will start and timeout in t_interval
             date_time=datetime.datetime.fromtimestamp(
                 self.random.uniform(
-                    (self.config["t_range"][0] + self.config["problem_timeout"]).timestamp(),
+                    (self.config["t_range"][0] + datetime.timedelta(hours=self.config["problem_timeout_in_h"])).timestamp(),
                     self.config["t_range"][1].timestamp(),
                 ),
                 tz=datetime.timezone.utc,
@@ -239,7 +242,7 @@ class MissionGenerator:
         fake_start = PlatformState(
             lon=fake_target.lon,
             lat=fake_target.lat,
-            date_time=fake_target.date_time - self.config["problem_timeout"],
+            date_time=fake_target.date_time - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
         )
 
         ##### Step 2: Reject if files are missing or corrupted #####
@@ -247,8 +250,8 @@ class MissionGenerator:
             self.arena = ArenaFactory.create(
                 scenario_file=self.config.get("scenario_file",None),
                 scenario_config=self.config.get("scenario_config",None),
-                x_interval=self.config["x_range"],
-                y_interval=self.config["y_range"],
+                x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
+                y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
                 t_interval=[
                     fake_start.date_time - datetime.timedelta(hours=1),
                     fake_target.date_time + datetime.timedelta(days=1, hours=1),
@@ -359,8 +362,8 @@ class MissionGenerator:
             ],
         }
         mission_time = [
-            int(self.config["feasible_mission_time"][0].total_seconds()),
-            int(self.config["feasible_mission_time"][1].total_seconds()),
+            int(self.config["feasible_mission_time"][0] * 3600),
+            int(self.config["feasible_mission_time"][1] * 3600),
         ]
         feasible_points = self.sample_feasible_points(sampling_frame, mission_time)
         random_points = self.sample_random_points(sampling_frame)
