@@ -13,10 +13,14 @@ class Node:
 
 @dataclass
 class Edge:
-    source: Node | str
-    destination: Node | str
+    source: Node
+    destination: Node
     weight: float = 3
     bidirectional: bool = True
+
+    def reverse(self):
+        edge = Edge(self.destination, self.source, self.weight, self.bidirectional)
+        return edge
 
 
 class Graph:
@@ -46,7 +50,7 @@ class Graph:
             if self.contains_node(edge.source) and self.contains_node(edge.destination):
                 self.adjacency_dict[edge.source].append(edge)
                 if edge.bidirectional:
-                    self.adjacency_dict[edge.destination].append(edge)
+                    self.adjacency_dict[edge.destination].append(edge.reverse())
             else:
                 # TODO: error handling for edges that have nodes that are not defined.
                 # Problem because edges can also be created with only references (name: str)
@@ -70,3 +74,41 @@ class Graph:
                 edges.append(value)
         flat_list = [item for sublist in edges for item in sublist]
         return flat_list
+
+
+if __name__ == "__main__":
+    ports = [
+        ["Vancouver", 49.290, -123.11],
+        ["Oakland", 37.804, -122.27],
+        ["Los Angeles", 33.740, -118.28],
+        ["Lazaro Cardenas", 17.927, -102.269],
+        ["Honolulu", 21.309, -157.87],
+        ["Tokyo", 35.619, 139.796],
+        ["Shanghai", 31.220, 121.487],
+        ["Singapore", 1.274, 103.802],
+    ]
+    lanes = [
+        ["Oakland", "Los Angeles"],
+        ["Oakland", "Vancouver"],
+        ["Los Angeles", "Honolulu", 2],
+        ["Oakland", "Honolulu", 1],
+        ["Tokyo", "Honolulu"],
+        ["Los Angeles", "Singapore"],
+        ["Oakland", "Shanghai"],
+        ["Vancouver", "Shanghai"],
+        ["Lazaro Cardenas", "Shanghai"],
+    ]
+    graph = Graph()
+    for port in ports:
+        graph.add_node(Node(*port))
+    for lane in lanes:
+        graph.add_edge(Edge(*lane))
+
+    # Test
+    for e in graph.get_edges():
+        print(
+            [graph.nodes_dict[e.source].name],
+            [graph.nodes_dict[e.source].lat, graph.nodes_dict[e.source].lon],
+            [graph.nodes_dict[e.destination].name],
+            [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.destination].lon],
+        )
