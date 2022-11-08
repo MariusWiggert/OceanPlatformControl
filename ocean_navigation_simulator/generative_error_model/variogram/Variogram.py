@@ -16,6 +16,8 @@ class Variogram:
 
     def __init__(self, data: pd.DataFrame=None, variables: Tuple[str, str] = ("u_error", "v_error")):
         self.data = data
+        if data is not None:
+            self.data.dropna(inplace=True)
         self.variables = variables
         self.bins = None
         self.bins_count = None
