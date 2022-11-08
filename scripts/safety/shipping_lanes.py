@@ -1,5 +1,10 @@
 from dataclasses import dataclass
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.pyplot as plt
+from sklearn.metrics.pairwise import haversine_distances
+
 
 class Node:
     def __init__(self, name: str, lat: float, lon: float):
@@ -76,6 +81,30 @@ class Graph:
         return flat_list
 
 
+# TODO: remove and use the dataclass version
+def set_up_geographic_ax() -> plt.axes:
+    """Helper function to set up a geographic ax object to plot on."""
+
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+    grid_lines.top_labels = False
+    grid_lines.right_labels = False
+    ax.add_feature(cfeature.LAND, zorder=-1000, edgecolor="black")
+    return ax
+
+
+def plot_graph(graph, ax):
+    for e in graph.get_edges():
+        ax.plot(
+            [graph.nodes_dict[e.destination].lon, graph.nodes_dict[e.source].lon],
+            [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.source].lat],
+            c="r",
+            lw=e.weight,
+            transform=ccrs.Geodetic(),  # ccrs.PlateCarree()
+        )
+    plt.show()
+
+
 if __name__ == "__main__":
     ports = [
         ["Vancouver", 49.290, -123.11],
@@ -112,3 +141,7 @@ if __name__ == "__main__":
             [graph.nodes_dict[e.destination].name],
             [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.destination].lon],
         )
+    # Test plotting
+    ax = set_up_geographic_ax()
+    ax.set_extent([-175, -100, 15, 55], ccrs.PlateCarree())
+    plot_graph(graph, ax)
