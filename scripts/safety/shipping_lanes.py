@@ -50,6 +50,12 @@ class Graph:
             del self.adjacency_dict[node]
             del self.nodes_dict[node]
 
+    def remove_edge(self, edge: Edge, both_directions: bool = False) -> None:
+        if self.contains_edge(edge):
+            self.adjacency_dict[edge.source].remove(edge)
+        if both_directions and self.contains_edge(edge.reverse()):
+            self.adjacency_dict[edge.destination].remove(edge.reverse())
+
     def add_edge(self, edge: Edge) -> None:
         if not self.contains_edge(edge):
             if self.contains_node(edge.source) and self.contains_node(edge.destination):
@@ -72,13 +78,18 @@ class Graph:
         else:
             return False
 
-    def get_edges(self) -> list:
+    def get_edges(self, both_directions: bool = True) -> list:
         edges = []
         for key, value in self.adjacency_dict.items():
-            if value not in edges:
-                edges.append(value)
-        flat_list = [item for sublist in edges for item in sublist]
-        return flat_list
+            for e in value:
+                if both_directions:
+                    if e not in edges:
+                        edges.append(e)
+                else:
+                    # To have bidirectional edges only once in list
+                    if e not in edges and e.reverse() not in edges:
+                        edges.append(e)
+        return edges
 
 
 # TODO: remove and use the dataclass version
@@ -93,8 +104,8 @@ def set_up_geographic_ax() -> plt.axes:
     return ax
 
 
-def plot_graph(graph, ax):
-    for e in graph.get_edges():
+def plot_graph(graph, ax, both_directions=False):
+    for e in graph.get_edges(both_directions=both_directions):
         ax.plot(
             [graph.nodes_dict[e.destination].lon, graph.nodes_dict[e.source].lon],
             [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.source].lat],
@@ -141,6 +152,18 @@ if __name__ == "__main__":
             [graph.nodes_dict[e.destination].name],
             [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.destination].lon],
         )
+
+    # Remove all the duplicate edges (bidirectional ones from other side)
+    # To avoid plotting the edges twice
+    print(50 * "#")
+    for e in graph.get_edges(both_directions=False):
+        print(
+            [graph.nodes_dict[e.source].name],
+            [graph.nodes_dict[e.source].lat, graph.nodes_dict[e.source].lon],
+            [graph.nodes_dict[e.destination].name],
+            [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.destination].lon],
+        )
+
     # Test plotting
     ax = set_up_geographic_ax()
     ax.set_extent([-175, -100, 15, 55], ccrs.PlateCarree())
