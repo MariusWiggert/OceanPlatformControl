@@ -246,7 +246,8 @@ class Arena:
         self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
 
         self.state_trajectory = np.expand_dims(np.array(platform_set).squeeze(), axis=0)
-        self.action_trajectory = np.zeros(shape=(0, 2))
+        # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
+        self.action_trajectory = np.zeros(shape=(0, len(platform_set), 2))
 
         observation_list = [ArenaObservation(
                             platform_state=platform,
@@ -264,23 +265,32 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-        state = self.platform.simulate_step(action)
+
+
+        platform_set = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
             self.state_trajectory = np.append(
-                self.state_trajectory, np.expand_dims(np.array(state).squeeze(), axis=0), axis=0
+                self.state_trajectory, np.expand_dims(np.array(platform_set).squeeze(), axis=0), axis=0
             )
             self.action_trajectory = np.append(
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
-
-        return ArenaObservation(
-            platform_state=state,
-            true_current_at_state=self.ocean_field.get_ground_truth(
-                state.to_spatio_temporal_point()
-            ),
-            forecast_data_source=self.ocean_field.forecast_data_source,
-        )
+        observation_list = [ArenaObservation(
+                            platform_state=platform,
+                            true_current_at_state=self.ocean_field.get_ground_truth(
+                            platform.to_spatio_temporal_point()
+                            ),
+                            forecast_data_source=self.ocean_field.forecast_data_source,
+                            )for platform in platform_set.platform_list]
+        return observation_list
+        # return ArenaObservation(
+        #     platform_state=state,
+        #     true_current_at_state=self.ocean_field.get_ground_truth(
+        #         state.to_spatio_temporal_point()
+        #     ),
+        #     forecast_data_source=self.ocean_field.forecast_data_source,
+        # )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""
@@ -371,18 +381,19 @@ class Arena:
         if ax is None:
             fig, ax = plt.subplots()
 
-        u_vec = self.action_trajectory[::stride, 0] * np.cos(self.action_trajectory[::stride, 1])
-        v_vec = self.action_trajectory[::stride, 0] * np.sin(self.action_trajectory[::stride, 1])
-        ax.quiver(
-            self.state_trajectory[:-1:stride, 0],
-            self.state_trajectory[:-1:stride, 1],
-            u_vec,
-            v_vec,
-            color=color,
-            scale=control_vec_scale,
-            angles="xy",
-            label="Control Inputs",
-        )
+        for k in range(self.state_trajectory.shape[1]):
+            u_vec = self.action_trajectory[::stride, k, 0] * np.cos(self.action_trajectory[::stride, k, 1])
+            v_vec = self.action_trajectory[::stride,k, 0] * np.sin(self.action_trajectory[::stride,k, 1])
+            ax.quiver(
+                self.state_trajectory[:-1:stride, k, 0],
+                self.state_trajectory[:-1:stride, k, 1],
+                u_vec,
+                v_vec,
+                color=color,
+                scale=control_vec_scale,
+                angles="xy",
+                label= f"Control Inputs of platform {k}",
+            )
 
         return ax
 
@@ -412,8 +423,8 @@ class Arena:
         """
         # shallow wrapper to plotting utils function
         animate_trajectory(
-            state_trajectory=self.state_trajectory.T,
-            ctrl_trajectory=self.action_trajectory.T,
+            state_trajectory=self.state_trajectory,
+            ctrl_trajectory=self.action_trajectory,
             data_source=self.ocean_field.hindcast_data_source,
             problem=problem,
             margin=margin,
@@ -441,17 +452,17 @@ class Arena:
         """
         if ax is None:
             fig, ax = plt.subplots()
-
-        ax.plot(
-            self.state_trajectory[::stride, 0],
-            self.state_trajectory[::stride, 1],
-            "-",
-            marker=".",
-            markersize=1,
-            color=color,
-            linewidth=1,
-            label="State Trajectory",
-        )
+        for k in range(self.state_trajectory.shape[1]):
+            ax.plot(
+                self.state_trajectory[::stride, k, 0],
+                self.state_trajectory[::stride, k, 1],
+                "-",
+                marker=".",
+                markersize=1,
+                color=color,
+                linewidth=1,
+                label=f"State Trajectory of platform {k}",
+            )
 
         return ax
 
@@ -496,13 +507,13 @@ class Arena:
         """Helper Function to plot everything together on a map."""
         if x_interval is None or y_interval is None:
             x_interval, y_interval, _ = get_lon_lat_time_interval_from_trajectory(
-                state_trajectory=self.state_trajectory.T, margin=margin
+                state_trajectory=self.state_trajectory, margin=margin
             )
 
         # Background: Data Sources
         if "current" in background:
             ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 2],
+                time=self.state_trajectory[index, 0, 2], #end time for platform 0
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
@@ -531,14 +542,15 @@ class Arena:
         if show_control_trajectory:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
         if show_current_position:
-            ax.scatter(
-                self.state_trajectory[index, 0],
-                self.state_trajectory[index, 1],
-                c=current_position_color,
-                marker=".",
-                s=100,
-                label="current position",
-            )
+            for k in range(self.state_trajectory.shape[1]):
+                ax.scatter(
+                    self.state_trajectory[index, k, 0],
+                    self.state_trajectory[index, k, 1],
+                    c=current_position_color,
+                    marker=".",
+                    s=100,
+                    label= f"current position platform {k}",
+                )
         if problem is not None:
             problem.plot(ax=ax)
 

@@ -64,6 +64,14 @@ class PlatformAction:
         heading = np.arctan2(y_propulsion, x_propulsion)  # Finds heading angle from input u
         return PlatformAction(magnitude=thrust, direction=heading)
 
+@dataclass
+class PlatformActionSet:
+    action_set: List[PlatformAction]
+
+    def __array__(self):
+        return np.array(self.action_set) # rows are platforms and columns: [mag, dir]
+
+
 
 class Platform:
     """A simulation of a seaweed platform.
@@ -120,7 +128,7 @@ class Platform:
         self.state_set = states
         self.nb_platforms = len(states)
 
-    def simulate_step(self, action: List[PlatformAction]) -> PlatformStateSet:
+    def simulate_step(self, action: PlatformActionSet) -> PlatformStateSet:
         """Steps forward the simulation.
         This moves the platforms's state forward according to the dynamics of motion
         Args:

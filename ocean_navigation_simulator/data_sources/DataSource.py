@@ -39,26 +39,34 @@ class DataSource(abc.ABC):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-    def check_for_casadi_dynamics_update(self, state: PlatformState) -> bool:
+    def check_for_casadi_dynamics_update(self, state: Union[PlatformState, PlatformStateSet]) -> bool:
         """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
         Args:
             state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
             logger: logging object
         """
         out_x_range = not (
-            self.casadi_grid_dict["x_range"][0]
-            < state.lon.deg
-            < self.casadi_grid_dict["x_range"][1]
+            (self.casadi_grid_dict["x_range"][0]
+            < np.min(state.lon.deg)) and
+            (np.max(state.lon.deg)
+            < self.casadi_grid_dict["x_range"][1])
         )
         out_y_range = not (
-            self.casadi_grid_dict["y_range"][0]
-            < state.lat.deg
-            < self.casadi_grid_dict["y_range"][1]
+            (self.casadi_grid_dict["y_range"][0]
+            < np.min(state.lat.deg)) and
+            (np.max(state.lat.deg) < self.casadi_grid_dict["y_range"][1])
         )
+        if type(state) == PlatformState: # only one platform state
+            datetime_min = state.date_time
+            datetime_max = state.date_time
+        else:
+            datetime_min = np.min(state.date_time)
+            datetime_max = np.min(state.date_time)
+
         out_t_range = not (
-            self.casadi_grid_dict["t_range"][0]
-            <= state.date_time
-            < self.casadi_grid_dict["t_range"][1]
+            (self.casadi_grid_dict["t_range"][0]
+            <= datetime_min) and 
+            (datetime_max < self.casadi_grid_dict["t_range"][1])
         )
 
         if out_x_range or out_y_range or out_t_range:

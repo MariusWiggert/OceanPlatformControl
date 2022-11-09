@@ -3,7 +3,11 @@ import datetime
 
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import os
+import numpy as np
 
+#os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
+os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
 from ocean_navigation_simulator.controllers.multi_agent_planner import (
    MultiAgentPlanner,
 )
@@ -14,10 +18,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformState, PlatformStateSet
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
-import os
-import numpy as np
 
-os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 #%%
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local")
@@ -31,14 +32,14 @@ x_0 = PlatformState(
 x_1 = PlatformState(
     lon=units.Distance(deg=-82.25),
     lat=units.Distance(deg=23.7),
-    date_time=datetime.datetime(2021, 11, 25, 12, 0, tzinfo=datetime.timezone.utc),
+    date_time=datetime.datetime(2021, 11, 24, 14, 0, tzinfo=datetime.timezone.utc),
 )
 # create a platformSet object
 x_set = PlatformStateSet([x_0, x_1])
 # try if methods returns are correct
 print("lon array: ", x_set.lon, ", lat array: ", x_set.lat)
 # target region is the same for now
-x_T = SpatialPoint(lon=units.Distance(deg=-80.3), lat=units.Distance(deg=24.6))
+x_T = SpatialPoint(lon=units.Distance(deg=-81.3), lat=units.Distance(deg=24.6))
 
 #%% create a navigation problem
 problem = NavigationProblem(
@@ -90,7 +91,21 @@ planner_set = MultiAgentPlanner(problem=problem, multi_agent_setting = multi_age
                                   specific_settings= specific_settings)
 
 observation = arena.reset(platform_set=x_set)
-action = planner_set.get_action(observation=observation)
+# action = planner_set.get_action(observation=observation)
 
-# %%
-new_observation = arena.step(action)
+# # %%
+# observation = arena.step(action)
+
+update_rate_s = 60*120 #60 mins 
+day_sim = 3
+for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
+    action = planner_set.get_action(observation=observation)
+    observation = arena.step(action)
+
+ #%% Plot the arena trajectory on the map
+ax = arena.plot_all_on_map(problem=problem, return_ax=True)
+ax = problem.plot(ax=ax)
+ax.legend(loc=0, prop={'size': 4})
+plt.savefig('ma3.png', dpi=300)
+# #%% Animate the trajectory
+arena.animate_trajectory(problem=problem, temporal_resolution=7200)   

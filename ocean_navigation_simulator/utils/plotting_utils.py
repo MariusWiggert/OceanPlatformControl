@@ -8,6 +8,10 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 
+idx_state = {"lon":0,
+             "lat":1,
+             "time":2,
+}
 
 def get_lon_lat_time_interval_from_trajectory(
     state_trajectory: np.ndarray,
@@ -24,15 +28,15 @@ def get_lon_lat_time_interval_from_trajectory(
         lat_interval:  [y_lower, y_upper] in degrees
         time_interval: [t_lower, t_upper] in posix time
     """
-    lon_min = np.min(state_trajectory[0, :])
-    lon_max = np.max(state_trajectory[0, :])
-    lat_min = np.min(state_trajectory[1, :])
-    lat_max = np.max(state_trajectory[1, :])
+    lon_min = np.min(state_trajectory[:, :, idx_state["lon"]])
+    lon_max = np.max(state_trajectory[:, :, idx_state["lon"] ])
+    lat_min = np.min(state_trajectory[:, :, idx_state["lat"]])
+    lat_max = np.max(state_trajectory[:, :, idx_state["lat"]])
 
     return (
         [lon_min - margin, lon_max + margin],
         [lat_min - margin, lat_max + margin],
-        [state_trajectory[2, 0], state_trajectory[2, -1]],
+        [np.min(state_trajectory[0,:,idx_state["time"]]), np.max(state_trajectory[-1,:,idx_state["time"]])],
     )
 
 
@@ -85,26 +89,27 @@ def animate_trajectory(
         if add_ax_func_ext is not None:
             add_ax_func_ext(ax, time)
         # plot start position
-        ax.scatter(
-            state_trajectory[0, 0], state_trajectory[1, 0], c="r", marker="o", s=200, label="Start"
-        )
-        ax.scatter(
-            state_trajectory[0, -1],
-            state_trajectory[1, -1],
-            c="orange",
-            marker="*",
-            s=200,
-            label="Traj_end",
-        )
-        # add the trajectory to it
-        ax.plot(
-            state_trajectory[0, :],
-            state_trajectory[1, :],
-            color="black",
-            linewidth=2,
-            linestyle="--",
-            label="State Trajectory",
-        )
+        for k in range(state_trajectory.shape[1]):
+            ax.scatter(
+                state_trajectory[0, k, 0], state_trajectory[0, k, 1], c="r", marker="o", s=200, label="Start"
+            )
+            ax.scatter(
+                state_trajectory[-1,k, 0],
+                state_trajectory[-1,k, 1],
+                c="orange",
+                marker="*",
+                s=200,
+                label= f"Traj_end of platform {k}",
+            )
+            # add the trajectory to it
+            ax.plot(
+                state_trajectory[:, k, 0],
+                state_trajectory[:, k, 1],
+                color="black",
+                linewidth=2,
+                linestyle="--",
+                label= f"State Trajectory of platform {k}",
+            )
         # plot the goal
         if problem is not None:
             goal_circle = plt.Circle(
@@ -116,20 +121,25 @@ def animate_trajectory(
                 label="goal",
             )
             ax.add_patch(goal_circle)
-        # get the planned idx of current time
-        idx = np.searchsorted(a=state_trajectory[2, :], v=time)
+       
         # plot the control arrow for the specific time
-        ax.scatter(state_trajectory[0, idx], state_trajectory[1, idx], c="m", marker="o", s=20)
-        ax.quiver(
-            state_trajectory[0, idx],
-            state_trajectory[1, idx],
-            ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
-            ctrl_trajectory[0, idx] * np.sin(ctrl_trajectory[1, idx]),  # v_vector
-            color="magenta",
-            scale=10,
-            label="Control",
-        )
-        ax.legend(loc="upper right")
+        for k in range(state_trajectory.shape[1]):
+            # get the planned idx of current time
+            idx = np.searchsorted(a=state_trajectory[:, k ,2], v=time)
+            if idx < state_trajectory.shape[0]: # if platforms did not start at the same time, some trajectories might finish sooner and there is no more control input
+                ax.scatter(state_trajectory[idx,k,0], state_trajectory[idx,k,1], c="m", marker="o", s=20)
+                ax.quiver(
+                    state_trajectory[idx,k,0],
+                    state_trajectory[idx,k,1],
+                    ctrl_trajectory[idx,k,0] * np.cos(ctrl_trajectory[idx,k,1]),  # u_vector
+                    ctrl_trajectory[idx,k,0] * np.sin(ctrl_trajectory[idx,k,1]),  # v_vector
+                    color="magenta",
+                    scale=10,
+                    label= f"Control for platform {k}",
+                )
+            else:
+                continue
+        ax.legend(loc="upper right", prop={'size': 6})
 
     # Step 2: Get the bounds for the data_source
     x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
