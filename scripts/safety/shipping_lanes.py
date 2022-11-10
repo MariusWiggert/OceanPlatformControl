@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from math import radians
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -91,6 +92,24 @@ class Graph:
                         edges.append(e)
         return edges
 
+    def get_distance(self, edge: Edge, unit="km") -> float:
+        dist = haversine_distances(
+            [
+                [
+                    radians(self.nodes_dict[edge.source].lat),
+                    radians(self.nodes_dict[edge.source].lon),
+                ],
+                [
+                    radians(self.nodes_dict[edge.destination].lat),
+                    radians(self.nodes_dict[edge.destination].lon),
+                ],
+            ]
+        )
+        if unit == "km":
+            return dist[0][1] * 6371000 / 1000  # Multiply by Earth radius to get kilometers
+        else:
+            return dist[0][1]
+
 
 # TODO: remove and use the dataclass version
 def set_up_geographic_ax() -> plt.axes:
@@ -163,6 +182,11 @@ if __name__ == "__main__":
             [graph.nodes_dict[e.destination].name],
             [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.destination].lon],
         )
+
+    dist = graph.get_distance(Edge(*["Oakland", "Los Angeles"]))
+    print(f"Oakland and LA are {dist:.3f} km apart")
+    dist = graph.get_distance(Edge(*["Oakland", "Honolulu"]))
+    print(f"Oakland and Honolulu are {dist:.3f} km apart")
 
     # Test plotting
     ax = set_up_geographic_ax()
