@@ -362,8 +362,8 @@ class MissionGenerator:
             ],
         }
         mission_time = [
-            int(self.config["feasible_mission_time"][0] * 3600),
-            int(self.config["feasible_mission_time"][1] * 3600),
+            int(self.config["feasible_mission_time_in_h"][0] * 3600),
+            int(self.config["feasible_mission_time_in_h"][1] * 3600),
         ]
         feasible_points = self.sample_feasible_points(sampling_frame, mission_time)
         random_points = self.sample_random_points(sampling_frame)
