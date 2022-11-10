@@ -50,7 +50,7 @@ from ocean_navigation_simulator.utils.plotting_utils import (
     get_lon_lat_time_interval_from_trajectory,
 )
 from ocean_navigation_simulator.utils.units import format_datetime_x_axis
-
+from ocean_navigation_simulator.utils.misc import get_markers
 
 @dataclasses.dataclass
 class ArenaObservation:
@@ -392,7 +392,7 @@ class Arena:
                 color=color,
                 scale=control_vec_scale,
                 angles="xy",
-                label= f"Control Inputs of platform {k}",
+                label= "Control Input of platform" if k==0 else "",
             )
 
         return ax
@@ -461,7 +461,7 @@ class Arena:
                 markersize=1,
                 color=color,
                 linewidth=1,
-                label=f"State Trajectory of platform {k}",
+                label="State Trajectory" if k==0 else "",
             )
 
         return ax
@@ -520,14 +520,14 @@ class Arena:
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 2],
+                time=self.state_trajectory[index, 0, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
             )
         elif "seaweed" in background or "growth" in background:
             ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 2],
+                time=self.state_trajectory[index, 0, 2],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
@@ -542,20 +542,22 @@ class Arena:
         if show_control_trajectory:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
         if show_current_position:
+            markers = get_markers()
             for k in range(self.state_trajectory.shape[1]):
                 ax.scatter(
                     self.state_trajectory[index, k, 0],
                     self.state_trajectory[index, k, 1],
                     c=current_position_color,
-                    marker=".",
+                    marker=next(markers),
                     s=100,
-                    label= f"current position platform {k}",
+                    label= "current position" if k==0 else "",
                 )
         if problem is not None:
             problem.plot(ax=ax)
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
+        ax.legend(loc=4, prop={'size': 4})
         ax.legend()
 
         if return_ax:

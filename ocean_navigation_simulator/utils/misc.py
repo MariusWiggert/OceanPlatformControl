@@ -9,6 +9,7 @@ import psutil
 import pynvml
 import requests
 from c3python import C3Python
+import itertools
 
 ## How to get c3 Keyfile set up
 # Step 1:   generate the public and private keys locally on your computer
@@ -102,3 +103,8 @@ class bcolors:
     ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
+
+
+def get_markers():
+    return itertools.cycle(('.','+', 's', '*', 'x', 'o', \
+                                'p', 'h', 'd', '1', 'P', 'H'))

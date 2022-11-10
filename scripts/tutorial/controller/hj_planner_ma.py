@@ -96,7 +96,7 @@ observation = arena.reset(platform_set=x_set)
 # # %%
 # observation = arena.step(action)
 
-update_rate_s = 60*120 #60 mins 
+update_rate_s = 60*180 #180 mins 
 day_sim = 3
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
     action = planner_set.get_action(observation=observation)
@@ -105,7 +105,6 @@ for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
  #%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
-ax.legend(loc=0, prop={'size': 4})
-plt.savefig('ma3.png', dpi=300)
+plt.savefig('ma4.png', dpi=300)
 # #%% Animate the trajectory
 arena.animate_trajectory(problem=problem, temporal_resolution=7200)   

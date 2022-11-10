@@ -7,6 +7,7 @@ from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
+from ocean_navigation_simulator.utils.misc import get_markers
 
 idx_state = {"lon":0,
              "lat":1,
@@ -88,27 +89,30 @@ def animate_trajectory(
         # if there's a func plot it
         if add_ax_func_ext is not None:
             add_ax_func_ext(ax, time)
+        markers = get_markers()
         # plot start position
         for k in range(state_trajectory.shape[1]):
+            marker = next(markers)
             ax.scatter(
-                state_trajectory[0, k, 0], state_trajectory[0, k, 1], c="r", marker="o", s=200, label="Start"
+                state_trajectory[0, k, 0], state_trajectory[0, k, 1],
+                 c="r", marker=marker, s=200, label= f"Start for platform {k}"
             )
             ax.scatter(
                 state_trajectory[-1,k, 0],
                 state_trajectory[-1,k, 1],
                 c="orange",
-                marker="*",
+                marker= marker,
                 s=200,
-                label= f"Traj_end of platform {k}",
+                label= "Trajectory end" if k==0 else "",
             )
             # add the trajectory to it
             ax.plot(
                 state_trajectory[:, k, 0],
                 state_trajectory[:, k, 1],
                 color="black",
-                linewidth=2,
+                linewidth=3,
                 linestyle="--",
-                label= f"State Trajectory of platform {k}",
+                label= "State Trajectory" if k==0 else "",
             )
         # plot the goal
         if problem is not None:
@@ -135,11 +139,11 @@ def animate_trajectory(
                     ctrl_trajectory[idx,k,0] * np.sin(ctrl_trajectory[idx,k,1]),  # v_vector
                     color="magenta",
                     scale=10,
-                    label= f"Control for platform {k}",
+                    label= "Control" if k==0 else "",
                 )
             else:
                 continue
-        ax.legend(loc="upper right", prop={'size': 6})
+        ax.legend(loc="lower right", prop={'size': 7})
 
     # Step 2: Get the bounds for the data_source
     x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(

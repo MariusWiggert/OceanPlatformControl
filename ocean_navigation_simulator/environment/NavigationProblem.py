@@ -1,6 +1,6 @@
 import dataclasses
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import matplotlib
 from matplotlib import pyplot as plt
@@ -12,6 +12,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils.misc import get_markers
 
 # TODO: add minimal docstrings and comments for others to build on it!
 
@@ -19,7 +20,7 @@ from ocean_navigation_simulator.utils import units
 @dataclasses.dataclass
 class NavigationProblem(Problem):
     # start_state: PlatformStateSet
-    start_state: PlatformStateSet
+    start_state: Union[PlatformState, PlatformStateSet]
     end_region: SpatialPoint
     target_radius: float
     nb_platforms: int = 1
@@ -29,6 +30,9 @@ class NavigationProblem(Problem):
     y_range: List = None
     extra_info: dict = None
 
+    def __post_init__(self):
+        if type(self.start_state) == PlatformStateSet:
+            self.nb_platforms = len(self.start_state) 
 
     def passed_seconds(self, state: PlatformState) -> float:
         return (state.date_time - self.start_state.date_time).total_seconds()
@@ -52,13 +56,11 @@ class NavigationProblem(Problem):
         problem_start_color: Optional[str] = "red",
         problem_target_color: Optional[str] = "green",
     ) -> matplotlib.axes.Axes:
-        ax.scatter(
-            self.start_state.lon.deg,
-            self.start_state.lat.deg,
-            c=problem_start_color,
-            marker="o",
-            label="start",
-        )
+
+        markers = get_markers()
+        for lon,lat, id in zip(self.start_state.lon.deg, self.start_state.lat.deg, range(self.nb_platforms)):
+            ax.scatter(lon,lat,c=problem_start_color, marker= next(markers), label=f"start platform {id}")
+
         ax.add_patch(
             plt.Circle(
                 (self.end_region.lon.deg, self.end_region.lat.deg),
