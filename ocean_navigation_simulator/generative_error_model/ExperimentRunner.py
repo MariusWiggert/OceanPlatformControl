@@ -3,10 +3,10 @@ import copy
 from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
 from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.data_files.BuoyData import TargetedTimeRange
-from ocean_navigation_simulator.generative_error_model.models.Problem import Problem
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
-from utils import load_config, timer, get_path_to_project
+from utils import load_config, timer
 
+from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -17,6 +17,13 @@ import datetime
 import os
 
 
+@dataclass
+class Problem:
+    lon_range: List[float]
+    lat_range: List[float]
+    t_range: List[datetime.datetime]
+
+
 class ExperimentRunner:
     """Takes a GenerativeModel, runs experiments and saved a synthetic dataset. The
     synthetic dataset is then used to construct a Variogram which is used for validation."""
@@ -24,7 +31,6 @@ class ExperimentRunner:
     def __init__(self, yaml_file_config: str, logger=None):
         self.config = load_config(yaml_file_config)
         self.variables = self.config["experiment_runner"]
-        self.project_path = get_path_to_project(os.getcwd())
         self.data_dir = self.config["data_dir"]
         self.dataset_type = self.config["dataset_type"]
         self.dataset_name = self.variables["dataset"]
@@ -35,20 +41,17 @@ class ExperimentRunner:
         if model_config["type"] == "simplex_noise":
             self.model_config = model_config["simplex_noise"]
             parameters = model_config["simplex_noise"][self.dataset_name]
-            parameters = np.load(os.path.join(self.project_path, self.data_dir, parameters), allow_pickle=True)
-            harmonic_params = {"U_COMP": parameters.item().get("U_COMP"),
-                               "V_COMP": parameters.item().get("V_COMP")}
-            detrend_stats = parameters.item().get("detrend_metrics")
-            self.model = OceanCurrentNoiseField(harmonic_params, np.array(detrend_stats))
+            params_path = os.path.join(self.data_dir, parameters)
+            self.model = OceanCurrentNoiseField.load_config_from_file(params_path)
             self.rng = np.random.default_rng(12345678)
             print(f"Using {model_config['type']} model.")
         if model_config["type"] == "gan":
-            raise Exception("GAN model has not been implemented yet!")
+            raise NotImplementedError("GAN model has not been implemented yet!")
 
         # read in problems and create problems list
         self.problem = self.get_problems()
         # quick way to create more problems for same area
-        self.problems = [increment_time(self.problem[0], days) for days in range(40)]
+        self.problems = [increment_time(self.problem[0], days) for days in range(20)]
         self.dataset = Dataset(self.data_dir, self.dataset_type, self.dataset_name)
         self.data = pd.DataFrame(columns={"time", "lon", "lat", "u_error", "v_error"})
 
@@ -62,15 +65,13 @@ class ExperimentRunner:
     def run_all_problems(self, error_only: bool = True):
         # save first noise field
         self.reset()
-        self.model.get_noise_vec(self.problems[0]).to_netcdf(os.path.join(self.project_path, self.data_dir, "sampled_noise.nc"))
         for problem in self.problems:
             self.reset()
             print(f"Running: {problem}")
             self.run_problem(problem, error_only=error_only, sampling_method="real")
 
     def run_problem(self, problem: Problem, error_only: bool, sampling_method: str = "real") -> Optional[pd.DataFrame]:
-        noise_field = self.model.get_noise_vec(problem)
-        # folder_name = self.dataset_name
+        noise_field = self.model.get_noise_from_ranges(problem.lon_range, problem.lat_range, problem.t_range)
         folder_name = self.dataset_name
         self.save_noise_field(noise_field, problem, folder_name)
 
@@ -166,8 +167,7 @@ class ExperimentRunner:
     def save_data(self, synthetic_error_samples: pd.DataFrame, problem: Problem, folder_name: str) -> None:
         """Save synthetic samples for computing the variogram.
         """
-        synthetic_error_dir = os.path.join(self.project_path,
-                                           self.data_dir,
+        synthetic_error_dir = os.path.join(self.data_dir,
                                            "dataset_synthetic_error",
                                            folder_name)
         if not os.path.exists(synthetic_error_dir):
@@ -185,7 +185,7 @@ class ExperimentRunner:
     def save_noise_field(self, noise_field: xr.Dataset, problem: Problem, folder_name: str):
         """Save the noise fields create by OceanCurrentNoiseField.
         """
-        noise_field_dir = os.path.join(self.project_path, self.data_dir, "synthetic_error", folder_name)
+        noise_field_dir = os.path.join(self.data_dir, "synthetic_error", folder_name)
         if not os.path.exists(noise_field_dir):
             os.makedirs(noise_field_dir)
 
@@ -222,7 +222,7 @@ def increment_time(problem: Problem, days: int):
 @timer
 def main():
     ex_runner = ExperimentRunner(yaml_file_config="config_buoy_data.yaml")
-    ex_runner.run_all_problems(error_only=False)
+    ex_runner.run_all_problems(error_only=True)
 
 
 if __name__ == "__main__":

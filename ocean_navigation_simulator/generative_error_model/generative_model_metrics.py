@@ -54,8 +54,8 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> 
     # rename forecast variables and slice forecast to size of error
     forecast = forecast.rename({"longitude": "lon",
                                 "latitude": "lat",
-                                "utotal": "u_error",
-                                "vtotal": "v_error"})
+                                "utotal": "water_u",
+                                "vtotal": "water_v"})
 
     # need to slice forecast to match size of error
     lon_range = [error["lon"].values.min(), error["lon"].values.max()]
@@ -68,8 +68,8 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> 
     # convert error to float32
     error["lon"] = error["lon"].astype(np.float32)
     error["lat"] = error["lat"].astype(np.float32)
-    error["u_error"] = error["u_error"].astype(np.float32)
-    error["v_error"] = error["v_error"].astype(np.float32)
+    error["water_u"] = error["water_u"].astype(np.float32)
+    error["water_v"] = error["water_v"].astype(np.float32)
     # Note: addition isnot cummutative in this case as axis will be different order
     # and thus a slice at a specific time would be differently ordered.
     ground_truth = forecast + error
@@ -77,10 +77,10 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> 
     # compute vector correlation for each hour
     vector_correlation_per_hour = []
     for time in ground_truth["time"]:
-        gt_u_error = ground_truth["u_error"].sel(time=time).values
-        gt_v_error = ground_truth["v_error"].sel(time=time).values
-        fc_u_error = forecast["u_error"].sel(time=time).values
-        fc_v_error = forecast["v_error"].sel(time=time).values
+        gt_u_error = ground_truth["water_u"].sel(time=time).values
+        gt_v_error = ground_truth["water_v"].sel(time=time).values
+        fc_u_error = forecast["water_u"].sel(time=time).values
+        fc_v_error = forecast["water_v"].sel(time=time).values
         vector_correlation_per_hour.append(vector_correlation(gt_u_error, gt_v_error, fc_u_error, fc_v_error))
     return np.array(vector_correlation_per_hour)
 

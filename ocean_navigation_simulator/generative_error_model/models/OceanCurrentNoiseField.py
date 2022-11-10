@@ -170,10 +170,11 @@ def timedelta_to_hours(timedelta: datetime.timedelta):
 
 @timer
 def main():
-    params_path = "data/drifter_data/variogram_params/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+    # params_path = "data/drifter_data/variogram_params/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+    params_path = "data/drifter_data/variogram_params/tuned_2d_forecast_variogram_area1_edited.npy"
 
     noise_field = OceanCurrentNoiseField.load_config_from_file(params_path)
-    rng = np.random.default_rng(21)  # try different seeds to see if deterministic
+    rng = np.random.default_rng(123)  # change seed to get different universe of noise
     noise_field.reset(rng)
 
     # define the problem
@@ -183,7 +184,9 @@ def main():
                datetime.datetime(2022, 6, 2, 12, 30, 0)]
 
     # get the noise
-    print(noise_field.get_noise_from_ranges(lon_range, lat_range, t_range))
+    noise = noise_field.get_noise_from_ranges(lon_range, lat_range, t_range)
+    print(noise)
+    # noise.to_netcdf("/home/jonas/Downloads/test_noise.nc")
 
 
 if __name__ == "__main__":

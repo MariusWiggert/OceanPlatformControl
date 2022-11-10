@@ -87,19 +87,19 @@ class VariogramFitting:
                 else:
                     params.add(f"{component.prefix}s", value=1/self.num_components, max=1, min=0)
                 for range_var in self.range_vars:
-                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 500, max=2000, min=10)
+                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 200, max=1000, min=10)
                 weights_list.append(f"{component.prefix}s")
             else:
                 # no contraints
                 params.add(f"{component.prefix}s", value=1/self.num_components, max=1, min=0)
                 for range_var in self.range_vars:
-                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 500, max=2000, min=10)
+                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 200, max=1000, min=10)
         return params
 
     def plot_all_dims(self, save_path: str = None, plot_empirical: bool = True):
         """Plot the sliced fitted function over all lag variables.
         """
-        figure, axs = plt.subplots(len(self.lag_vars), figsize=(20, 20))
+        figure, axs = plt.subplots(1, len(self.lag_vars), figsize=(15, 6))
         for idx, var in enumerate(self.lag_vars):
             self._plot_sliced_variogram(var, axs[idx], plot_empirical=plot_empirical)
         plt.tight_layout()
