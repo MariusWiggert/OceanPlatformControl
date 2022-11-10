@@ -5,14 +5,8 @@ save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation", "ssim"]
 
 load_from_chkpt:
-  value: False
-  file_name: "2022-10-19_16:40:48.pth"
-
-#unet:
-#  in_channels: 2
-#  out_channels: 2
-#  features: [64, 128, 256, 512]
-#  dropout: False
+  value: True
+  file_name: "2022-10-29_00:45:23.pth"
 
 generator:
   in_channels: 2
@@ -55,7 +49,7 @@ dataset:
   sparse_type: "forecast"
   area: ["area1"]
   shuffle: True
-  len: 12000   # None
+  len: 1000   # None
   split: [0.95, 0.025, 0.025]
   random_subsets: False  # if len < len(dataset) how to choose subsets?
   concat_len: 1
