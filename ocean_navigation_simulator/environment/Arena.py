@@ -543,22 +543,24 @@ class Arena:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
         if show_current_position:
             markers = get_markers()
+            #handles = []
             for k in range(self.state_trajectory.shape[1]):
                 ax.scatter(
-                    self.state_trajectory[index, k, 0],
-                    self.state_trajectory[index, k, 1],
-                    c=current_position_color,
-                    marker=next(markers),
-                    s=100,
-                    label= "current position" if k==0 else "",
+                self.state_trajectory[index, k, 0],
+                self.state_trajectory[index, k, 1],
+                c=current_position_color,
+                marker=next(markers),
+                s=100,
+                label= f"current position platform {k}",
                 )
+                #handles.append(p)
+            #ax.legend(tuple(handles), 'current position', handler_map={tuple: matplotlib.legend_handler.HandlerTuple(ndivide=None)})
         if problem is not None:
             problem.plot(ax=ax)
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend(loc=4, prop={'size': 4})
-        ax.legend()
+        ax.legend(loc=4, prop={'size': 4}, numpoints=1)
 
         if return_ax:
             return ax

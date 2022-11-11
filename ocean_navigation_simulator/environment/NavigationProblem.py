@@ -19,8 +19,7 @@ from ocean_navigation_simulator.utils.misc import get_markers
 
 @dataclasses.dataclass
 class NavigationProblem(Problem):
-    # start_state: PlatformStateSet
-    start_state: Union[PlatformState, PlatformStateSet]
+    start_state: Union[PlatformState, PlatformStateSet] 
     end_region: SpatialPoint
     target_radius: float
     nb_platforms: int = 1
@@ -34,11 +33,14 @@ class NavigationProblem(Problem):
         if type(self.start_state) == PlatformStateSet:
             self.nb_platforms = len(self.start_state) 
 
-    def passed_seconds(self, state: PlatformState) -> float:
-        return (state.date_time - self.start_state.date_time).total_seconds()
+    def passed_seconds(self, state: PlatformState, id_to_comp: Optional[int]=0) -> float:
+        if self.nb_platforms==1:
+            return (state.date_time - self.start_state.date_time).total_seconds()
+        else:
+            return (state.date_time - self.start_state[id_to_comp].date_time).total_seconds()
 
     def distance(self, state: PlatformState) -> float:
-        return self.end_region.distance(state.to_spatial_point())
+            return self.end_region.distance(state.to_spatial_point())
 
     def angle(self, state: PlatformState) -> float:
         return self.end_region.angle(state.to_spatial_point())
@@ -102,10 +104,10 @@ class NavigationProblem(Problem):
             extra_info=mission.to_dict() | {"index": mission.name},
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self, pltf_id_for_timeref: Optional[int]=0) -> dict:
         return (
             {
-                "t_0": self.start_state.date_time.isoformat(),
+                "t_0": self.start_state.date_time.isoformat() if self.nb_platforms==1 else self.start_state[pltf_id_for_timeref].date_time.isoformat(),
                 "x_0_lon": self.start_state.lon.deg,
                 "x_0_lat": self.start_state.lat.deg,
                 "x_T_lon": self.end_region.lon.deg,

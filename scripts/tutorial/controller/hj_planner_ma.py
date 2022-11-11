@@ -31,8 +31,8 @@ x_0 = PlatformState(
 )
 x_1 = PlatformState(
     lon=units.Distance(deg=-82.25),
-    lat=units.Distance(deg=23.7),
-    date_time=datetime.datetime(2021, 11, 24, 14, 0, tzinfo=datetime.timezone.utc),
+    lat=units.Distance(deg=23.5),
+    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 # create a platformSet object
 x_set = PlatformStateSet([x_0, x_1])
@@ -49,7 +49,7 @@ problem = NavigationProblem(
     timeout=datetime.timedelta(days=2),
     platform_dict=arena.platform.platform_dict,
 )
-
+problem.passed_seconds(x_0)
 # # %% Plot the problem on the map
 # t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
 #     x_start=x_set.to_spatio_temporal_point_set(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
@@ -105,6 +105,6 @@ for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
  #%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
-plt.savefig('ma4.png', dpi=300)
+plt.savefig('ma5.png', dpi=300)
 # #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200)   
+arena.animate_trajectory(problem=problem, temporal_resolution=7200,output="traj2_anim.mp4" )   

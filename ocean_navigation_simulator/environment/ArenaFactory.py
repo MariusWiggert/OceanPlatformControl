@@ -81,7 +81,7 @@ class ArenaFactory:
 
             # Step 4: Add point to check for coverage
             if problem is not None:
-                points = [problem.start_state.to_spatial_point(), problem.end_region]
+                points = [problem.start_state.to_spatial_point_set(), problem.end_region]
                 nb_platforms = len(problem.start_states)
                 if t_interval is None:
                     t_interval = [

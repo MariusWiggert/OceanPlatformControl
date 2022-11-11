@@ -49,7 +49,7 @@ class Distance:
             + deg
             + (180 * rad / np.pi)
         )
-        self._is_array = type(self._distance) != float
+        self.is_array = type(self._distance) != float
 
     @property
     def m(self) -> float:
@@ -148,7 +148,7 @@ class Distance:
         return self.m >= other.m
 
     def __repr__(self) -> str:
-        if self._is_array:
+        if self.is_array:
             return f"{np.array2string(self.deg, formatter={'float': lambda x: f'{x:.2f}°'})}"
         else:
             return f"{self.deg:.2f}°"

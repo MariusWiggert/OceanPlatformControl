@@ -138,12 +138,12 @@ def animate_trajectory(
                     ctrl_trajectory[idx,k,0] * np.cos(ctrl_trajectory[idx,k,1]),  # u_vector
                     ctrl_trajectory[idx,k,0] * np.sin(ctrl_trajectory[idx,k,1]),  # v_vector
                     color="magenta",
-                    scale=10,
+                    scale=5,
                     label= "Control" if k==0 else "",
                 )
             else:
                 continue
-        ax.legend(loc="lower right", prop={'size': 7})
+        ax.legend(loc="lower right", prop={'size': 8})
 
     # Step 2: Get the bounds for the data_source
     x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(

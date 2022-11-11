@@ -54,8 +54,8 @@ class MultiAgentPlanner(Controller):
         action_list = []
         action = self.planners[0].get_action(observation[0])
         for k in range(len(observation)):
-            #action_list.append(self.planners[k].get_action(observation[k]))
-            action_list.append(action)
+            action_list.append(self.planners[k].get_action(observation[k]))
+            #action_list.append(action)
         return PlatformActionSet(action_list)
     
 
