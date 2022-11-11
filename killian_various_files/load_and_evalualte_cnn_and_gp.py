@@ -10,10 +10,11 @@ for size_ds in ["small", "medium", "big"]:
         for gp_enabled in ["", "_without_gp"]:
             # Gather config from sweep.
             type_tile_ds = f"{size_tile}_tile_{size_ds}_ds{gp_enabled}"
-            sys.argv = ("load_and_eval_model.py"
-                        + " "
-                        + f"--file-configs=ablation_study/configs_NN/CNN_GP/CNN_ablation_study_{type_tile_ds}"
-                        ).split()
+            sys.argv = (
+                "load_and_eval_model.py"
+                + " "
+                + f"--file-configs=ablation_study/configs_NN/CNN_GP/CNN_ablation_study_{type_tile_ds}"
+            ).split()
             all_metrics = main(
                 setup_wandb_parameters_sweep=False,
                 evaluate_only=True,

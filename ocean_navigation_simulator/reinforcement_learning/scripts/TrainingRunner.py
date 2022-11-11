@@ -35,11 +35,11 @@ class TrainingRunner:
     """
 
     def __init__(
-        self,
-        name: str,
-        config: dict,
-        tags: Optional[List] = [],
-        verbose: Optional[int] = 0,
+            self,
+            name: str,
+            config: dict,
+            tags: Optional[List] = [],
+            verbose: Optional[int] = 0,
     ):
         self.name = name
         self.config = config
@@ -109,13 +109,13 @@ class TrainingRunner:
                 self.episodes_sampled = 0
 
             def on_episode_end(
-                self,
-                *,
-                worker: RolloutWorker,
-                base_env: BaseEnv,
-                policies: Dict[str, Policy],
-                episode: Episode,
-                env_index: int,
+                    self,
+                    *,
+                    worker: RolloutWorker,
+                    base_env: BaseEnv,
+                    policies: Dict[str, Policy],
+                    episode: Episode,
+                    env_index: int,
             ):
                 info = episode.last_info_for()
                 if info["problem_status"] != 0:
@@ -131,12 +131,12 @@ class TrainingRunner:
                 self.episodes_sampled += 1
 
             def on_train_result(
-                self,
-                *,
-                result: dict,
-                algorithm: Optional[Algorithm] = None,
-                trainer=None,
-                **kwargs,
+                    self,
+                    *,
+                    result: dict,
+                    algorithm: Optional[Algorithm] = None,
+                    trainer=None,
+                    **kwargs,
             ):
                 for k, v in result["custom_metrics"].copy().items():
                     if len(v) > 0:
@@ -222,7 +222,7 @@ class TrainingRunner:
             self.model, input_data=self.dummy_input, depth=10, verbose=1
         )
         with open(
-            f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log", "wt"
+                f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log", "wt"
         ) as f:
             f.write(model_summary.__repr__())
         wandb.save(f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/model.log")
@@ -289,12 +289,12 @@ class TrainingRunner:
         print(" ")
 
         episodes_this_iteration = result["hist_stats"]["episode_lengths"][
-            -result["episodes_this_iter"] :
-        ]
+                                  -result["episodes_this_iter"]:
+                                  ]
         print(
             f'-- Reported Episode Length [Min: {min(episodes_this_iteration):.0f}, Mean: {result["episode_len_mean"]:.1f}, Max: {max(episodes_this_iteration):.0f}] --'
         )
-        print(result["hist_stats"]["episode_lengths"][-min(50, result["episodes_this_iter"]) :])
+        print(result["hist_stats"]["episode_lengths"][-min(50, result["episodes_this_iter"]):])
         print(
             f'Episodes Sampled: {result["episodes_this_iter"]:,} (Total: {result["episodes_total"]:,}, custom: {result["custom_metrics"]["episodes_sampled"]:,})'
         )
@@ -318,17 +318,17 @@ class TrainingRunner:
 
         print("-- Timing --")
         print(
-            f"Iteration Time: {self.train_times[-1]/60:.2f}min ({(epochs * (self.train_times[-1])) // 3600}h {((epochs * (self.train_times[-1])) % 3600) / 60:.1f}min for {epochs} epochs, {(epochs - epoch) * (self.train_times[-1]) / 60:.1f}min to go)"
+            f"Iteration Time: {self.train_times[-1] / 60:.2f}min ({(epochs * (self.train_times[-1])) // 3600}h {((epochs * (self.train_times[-1])) % 3600) / 60:.1f}min for {epochs} epochs, {(epochs - epoch) * (self.train_times[-1]) / 60:.1f}min to go)"
         )
 
     @staticmethod
     def clean_results(
-        folder: str = "~/ray_results",
-        filter: str = "",
-        iteration_limit: Optional[int] = 10,
-        delete: Optional[bool] = False,
-        ignore_most_recent: Optional[int] = 1,
-        verbose: Optional[int] = 0,
+            folder: str = "~/ray_results",
+            filter: str = "",
+            iteration_limit: Optional[int] = 10,
+            delete: Optional[bool] = False,
+            ignore_most_recent: Optional[int] = 1,
+            verbose: Optional[int] = 0,
     ):
         """
         Ray clogs up the ~/ray_results directory by creating folders for every training start, even when
@@ -344,7 +344,7 @@ class TrainingRunner:
         experiments.sort(key=lambda x: os.path.getmtime(x))
 
         for experiment in (
-            experiments[:-ignore_most_recent] if ignore_most_recent > 0 else experiments
+                experiments[:-ignore_most_recent] if ignore_most_recent > 0 else experiments
         ):
             csv_file = experiment + "/progress.csv"
             if os.path.isfile(csv_file):

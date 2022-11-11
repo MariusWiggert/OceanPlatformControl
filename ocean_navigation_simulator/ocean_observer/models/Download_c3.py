@@ -35,11 +35,11 @@ class C3Downloader:
         self.data_dir_hc = os.path.join(get_path_to_project(os.getcwd()), "data_ablation_study/hc")
 
     def get_files_list(
-            self,
-            source: str,
-            type_of_data: str,
-            region: str,
-            time_interval: List[datetime.datetime],
+        self,
+        source: str,
+        type_of_data: str,
+        region: str,
+        time_interval: List[datetime.datetime],
     ):
         """
         Args:
@@ -103,8 +103,8 @@ class C3Downloader:
             url = file.file.url
             filesize = file.file.contentLength
             if (
-                    not os.path.exists(os.path.join(download_root, filename))
-                    or os.path.getsize(os.path.join(download_root, filename)) != filesize
+                not os.path.exists(os.path.join(download_root, filename))
+                or os.path.getsize(os.path.join(download_root, filename)) != filesize
             ):
                 self.c3.Client.copyFilesToLocalClient(url, download_root)
                 print(f"Downloaded {filename}")
@@ -119,19 +119,28 @@ class C3Downloader:
 
 if __name__ == "__main__":
     c3_downloader = C3Downloader()
-    april_time_interval = [datetime.datetime(2022, 3, 28, 12, 0, 0), datetime.datetime(2022, 4, 29, 12, 0, 0)]
+    april_time_interval = [
+        datetime.datetime(2022, 3, 28, 12, 0, 0),
+        datetime.datetime(2022, 4, 29, 12, 0, 0),
+    ]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", april_time_interval)
     c3_downloader.download_files(files, "april", False)
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", april_time_interval)
     c3_downloader.download_files(files, "april", True)
 
-    may_time_interval = [datetime.datetime(2022, 5, 1, 0, 0, 0), datetime.datetime(2022, 6, 1, 0, 0, 0)]
+    may_time_interval = [
+        datetime.datetime(2022, 5, 1, 0, 0, 0),
+        datetime.datetime(2022, 6, 1, 0, 0, 0),
+    ]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", may_time_interval)
     c3_downloader.download_files(files, "may", False)
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", may_time_interval)
     c3_downloader.download_files(files, "may", True)
 
-    june_time_interval = [datetime.datetime(2022, 6, 1, 0, 0, 0), datetime.datetime(2022, 7, 1, 0, 0, 0)]
+    june_time_interval = [
+        datetime.datetime(2022, 6, 1, 0, 0, 0),
+        datetime.datetime(2022, 7, 1, 0, 0, 0),
+    ]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", june_time_interval)
     c3_downloader.download_files(files, "june", False)
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", june_time_interval)
@@ -152,7 +161,10 @@ if __name__ == "__main__":
     c3_downloader.download_files(files, m, True)
 
     m = "september"
-    time_interval = [datetime.datetime(2022, 9, 1, 0, 0, 0), datetime.datetime(2022, 9, 16, 0, 0, 0)]
+    time_interval = [
+        datetime.datetime(2022, 9, 1, 0, 0, 0),
+        datetime.datetime(2022, 9, 16, 0, 0, 0),
+    ]
     files = c3_downloader.get_files_list("Hycom", "hindcast", "GoM", time_interval)
     c3_downloader.download_files(files, m, False)
     files = c3_downloader.get_files_list("Copernicus", "forecast", "GoM", time_interval)

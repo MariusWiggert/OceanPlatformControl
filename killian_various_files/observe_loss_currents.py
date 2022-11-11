@@ -76,9 +76,9 @@ xr_loss = xr.DataArray(res, coords=xr_hindcast.coords).to_dataset(name="conserva
 
 # %%
 def visualize_initial_error(
-        xr_1,
-        xr_2,
-        radius_area: float = None,
+    xr_1,
+    xr_2,
+    radius_area: float = None,
 ):
     # fig, ax = plt.subplots(2, 2)
     # ax1, ax2, ax3, ax4 = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
@@ -185,7 +185,9 @@ a1, a2, a3, a4, a5, a6, = (
     [10, 10],
     [10, 10],
 )
-pred = torch.moveaxis(torch.tensor([[[a1, a2, a3], [a4, a5, a6]]], dtype=torch.double), -1, 1)[:, :, None]
+pred = torch.moveaxis(torch.tensor([[[a1, a2, a3], [a4, a5, a6]]], dtype=torch.double), -1, 1)[
+    :, :, None
+]
 print(pred.shape)
 compute_conservation_mass_loss(pred, get_all_cells=True)
 #

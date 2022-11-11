@@ -10,22 +10,21 @@ from torch import autograd
 
 # Class of the RNN models. Support LSTM, GRU and RNN cells
 class OceanCurrentRNN(nn.Module):
-
     def __init__(
-            self,
-            input_shape,
-            hidden_size,
-            output_shape,
-            type_cell: str,
-            size_layers_after_rnn: List[int] = [],
-            num_layers: int = 1,
-            bidirectional: bool = False,
-            dropout: float = 0,
-            non_linearity: Optional[str] = "tanh",
-            init_weights_function: str = "randn",
-            index_time_dimension=2,
-            device="cpu",
-            index_time_dimension_lstm=1
+        self,
+        input_shape,
+        hidden_size,
+        output_shape,
+        type_cell: str,
+        size_layers_after_rnn: List[int] = [],
+        num_layers: int = 1,
+        bidirectional: bool = False,
+        dropout: float = 0,
+        non_linearity: Optional[str] = "tanh",
+        init_weights_function: str = "randn",
+        index_time_dimension=2,
+        device="cpu",
+        index_time_dimension_lstm=1,
     ):
         # input shape [batch_size, #currents_dims(2), time, lon, lat]
         super(OceanCurrentRNN, self).__init__()

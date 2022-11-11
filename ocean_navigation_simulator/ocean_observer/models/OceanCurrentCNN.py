@@ -9,22 +9,22 @@ import torch.nn as nn
 # Class of the 3D-Unet used with the GP
 class OceanCurrentCNNSubgrid(nn.Module):
     def __init__(
-            self,
-            ch_sz: List[int],
-            device: str = "cpu",
-            init_weights_value: float = 0.01,
-            activation="relu",
-            downsizing_method="conv",
-            dropout_encoder=0,
-            dropout_decoder=0,
-            dropout_bottom=0,
-            final_number_channels=2,
-            initial_channels: List = None,
-            output_paddings=[(0, 1, 1), (0, 1, 1), 1],
-            instance_norm=False,
-            print_dims=False,
-            slope_leaky_relu=None,
-            alpha_elu=None,
+        self,
+        ch_sz: List[int],
+        device: str = "cpu",
+        init_weights_value: float = 0.01,
+        activation="relu",
+        downsizing_method="conv",
+        dropout_encoder=0,
+        dropout_decoder=0,
+        dropout_bottom=0,
+        final_number_channels=2,
+        initial_channels: List = None,
+        output_paddings=[(0, 1, 1), (0, 1, 1), 1],
+        instance_norm=False,
+        print_dims=False,
+        slope_leaky_relu=None,
+        alpha_elu=None,
     ):
         super(OceanCurrentCNNSubgrid, self).__init__()
         self.init_weights_value = init_weights_value
@@ -135,13 +135,13 @@ class OceanCurrentCNNSubgrid(nn.Module):
             nn.init.xavier_uniform(m.weight)
 
     def __get_bloc_unet(
-            self,
-            in_channels: int,
-            out_channels: int,
-            kernel_size,
-            stride,
-            padding,
-            include_instance_norm: bool = False,
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size,
+        stride,
+        padding,
+        include_instance_norm: bool = False,
     ):
         layers = [
             nn.Conv3d(
@@ -170,7 +170,7 @@ class OceanCurrentCNNSubgrid(nn.Module):
             return nn.ELU(alpha=self.alpha_elu if self.alpha_elu is not None else 1)
 
     def __get_same_dims_bloc(
-            self, in_channels: int, out_channels: int, include_instance_norm: bool = False
+        self, in_channels: int, out_channels: int, include_instance_norm: bool = False
     ):
         return self.__get_bloc_unet(
             in_channels,

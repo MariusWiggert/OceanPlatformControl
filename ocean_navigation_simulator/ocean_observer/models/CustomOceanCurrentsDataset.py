@@ -15,6 +15,7 @@ from ocean_navigation_simulator.data_sources.OceanCurrentField import (
 # Class used to convert the Forecast/Hindcast files into input/target for the NN
 # Used when the GP is not is not used
 
+
 class CustomOceanCurrentsDatasetSubgrid(Dataset):
     IDX_LON, IDX_LAT, IDX_TIME = 0, 1, 2
     MARGIN = 0.09
@@ -23,18 +24,18 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
     GULF_MEXICO = [[-95.362841, -85.766062], [22.666666666666657, 26.333333333333343]]
 
     def __init__(
-            self,
-            ocean_dict: Dict[str, Any],
-            start_date: DateTime,
-            end_date: DateTime,
-            input_cell_size: Tuple[int, int, int],
-            output_cell_size: Tuple[int, int, int],
-            cfg_dataset: dict,
-            spatial_resolution_forecast: Optional[float] = None,
-            temporal_resolution_forecast: Optional[float] = None,
-            spatial_resolution_hindcast: Optional[float] = None,
-            temporal_resolution_hindcast: Optional[float] = None,
-            dtype=torch.float64,
+        self,
+        ocean_dict: Dict[str, Any],
+        start_date: DateTime,
+        end_date: DateTime,
+        input_cell_size: Tuple[int, int, int],
+        output_cell_size: Tuple[int, int, int],
+        cfg_dataset: dict,
+        spatial_resolution_forecast: Optional[float] = None,
+        temporal_resolution_forecast: Optional[float] = None,
+        spatial_resolution_hindcast: Optional[float] = None,
+        temporal_resolution_hindcast: Optional[float] = None,
+        dtype=torch.float64,
     ):
         self.ocean_field = OceanCurrentField(
             sim_cache_dict=None,
@@ -59,8 +60,8 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
             hours=cfg_dataset.get("time_horizon_output_h", 1)
         )
         if (
-                self.time_horizon_input.seconds / 3600 > 24
-                or self.time_horizon_output.seconds / 3600 > 24
+            self.time_horizon_input.seconds / 3600 > 24
+            or self.time_horizon_output.seconds / 3600 > 24
         ):
             raise Exception(
                 "NOT supported time horizon input and output should be <= 24 hours or adapt dataset algorithm!!!!"
@@ -83,8 +84,10 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         )
         sizes_of_lon_lat_time = [0, 0, 0]
         datetime_fc_start = self.start_date
-        start_forecast = (datetime.datetime.combine(datetime_fc_start, self.time_restart)
-                          - self.duration_per_forecast_file)
+        start_forecast = (
+            datetime.datetime.combine(datetime_fc_start, self.time_restart)
+            - self.duration_per_forecast_file
+        )
         self.whole_grid_fc = self.ocean_field.forecast_data_source.get_data_over_area(
             *self.GULF_MEXICO,
             [start_forecast, start_forecast + self.duration_per_forecast_file],
@@ -115,8 +118,10 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
             sizes_of_lon_lat_time[2] += 1
         print("putting all inputs in memory")
 
-        start_interval_dt = datetime.datetime.combine(datetime_fc_start,
-                                                      self.time_restart) - self.duration_per_forecast_file
+        start_interval_dt = (
+            datetime.datetime.combine(datetime_fc_start, self.time_restart)
+            - self.duration_per_forecast_file
+        )
         self.__update_forecast_grid(start_interval_dt)
         self.whole_grid_fc = self.whole_grid_fc.drop("depth")
         self.whole_grid_hc = self.ocean_field.hindcast_data_source.get_data_over_area(
@@ -187,18 +192,18 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
         j = 1 if xy.shape[-1] == lon + 2 else 0
         assert xy.shape[-2] <= lat + i + 1 and xy.shape[-1] <= lon + j + 1
 
-        X = xy[0:2, 0:t_input, i: lat + i, j: lon + j]
-        y = xy[2:4, 0:t_ouput, i: lat + i, j: lon + j]
+        X = xy[0:2, 0:t_input, i : lat + i, j : lon + j]
+        y = xy[2:4, 0:t_ouput, i : lat + i, j : lon + j]
 
         # reShape as Current x time x lon x lat
         X = np.swapaxes(np.array(X), -1, -2)
         y = np.swapaxes(np.array(y), -1, -2)
 
         if (
-                list(X.shape) != self.input_shape
-                or list(y.shape) != self.output_shape
-                or np.isnan(X).any()
-                or np.isnan(y).any()
+            list(X.shape) != self.input_shape
+            or list(y.shape) != self.output_shape
+            or np.isnan(X).any()
+            or np.isnan(y).any()
         ):
             return None
         return X, y
@@ -221,25 +226,31 @@ class CustomOceanCurrentsDatasetSubgrid(Dataset):
     def __add_forecasts_to_xarray_if_necessary(self, datetime_fc_start):
         # Add the forecasts to the merged xarray every 24 hours to get only the most recent forecast
         if (
-                datetime_fc_start
-                <= datetime.datetime.combine(datetime_fc_start, self.time_restart)
-                < (datetime_fc_start + self.stride_time_dataset)
+            datetime_fc_start
+            <= datetime.datetime.combine(datetime_fc_start, self.time_restart)
+            < (datetime_fc_start + self.stride_time_dataset)
         ):
             try:
-                start_interval_dt = datetime.datetime.combine(datetime_fc_start,
-                                                              self.time_restart) - self.duration_per_forecast_file
+                start_interval_dt = (
+                    datetime.datetime.combine(datetime_fc_start, self.time_restart)
+                    - self.duration_per_forecast_file
+                )
 
                 self.__update_forecast_grid(start_interval_dt)
             except ValueError as e:
                 print(e)
 
     def __update_forecast_grid(self, start_interval_dt):
-        self.whole_grid_fc = self.ocean_field.forecast_data_source.get_data_over_area(
-            *self.GULF_MEXICO,
-            [
-                start_interval_dt,
-                start_interval_dt + self.duration_per_forecast_file,
-            ],
-            spatial_resolution=self.spatial_resolution_forecast,
-            temporal_resolution=self.temporal_resolution_forecast
-        ).isel(time=slice(0, self.duration_per_forecast_file.days * 24)).combine_first(self.whole_grid_fc)
+        self.whole_grid_fc = (
+            self.ocean_field.forecast_data_source.get_data_over_area(
+                *self.GULF_MEXICO,
+                [
+                    start_interval_dt,
+                    start_interval_dt + self.duration_per_forecast_file,
+                ],
+                spatial_resolution=self.spatial_resolution_forecast,
+                temporal_resolution=self.temporal_resolution_forecast
+            )
+            .isel(time=slice(0, self.duration_per_forecast_file.days * 24))
+            .combine_first(self.whole_grid_fc)
+        )
