@@ -76,10 +76,14 @@ class SpatioTemporalPoint:
 
     @staticmethod
     def from_dict(point_dict: dict):
+        try:
+            dt = datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(point_dict['date_time'])
         return SpatioTemporalPoint(
             lon=units.Distance(deg=point_dict["lon"]),
             lat=units.Distance(deg=point_dict["lat"]),
-            date_time = datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z")
+            date_time=dt
         )
 
     def __array__(self):
@@ -149,10 +153,15 @@ class PlatformState:
 
     @staticmethod
     def from_dict(point_dict: dict):
+        # get date_time
+        try:
+            dt = datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(point_dict['date_time'])
         return PlatformState(
             lon=units.Distance(deg=point_dict["lon"]),
             lat=units.Distance(deg=point_dict["lat"]),
-            date_time=datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z"),
+            date_time=dt,
             battery_charge=units.Energy(joule=point_dict.get('battery_charge', None)),
             seaweed_mass=units.Mass(kg=point_dict.get('seaweed_mass', None)),
         )
