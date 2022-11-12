@@ -30,7 +30,7 @@ def timing(string, verbose: Optional[int] = 0):
 
 class Distance:
     """A compact distance unit."""
-
+     # TODO: rewrite typing as Union[float, ndarray]
     def __init__(
         self,
         *,

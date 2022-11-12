@@ -61,7 +61,7 @@ class NavigationProblem(Problem):
 
         markers = get_markers()
         for lon,lat, id in zip(self.start_state.lon.deg, self.start_state.lat.deg, range(self.nb_platforms)):
-            ax.scatter(lon,lat,c=problem_start_color, marker= next(markers), label=f"start platform {id}")
+            ax.scatter(lon,lat,c=problem_start_color, marker= next(markers), label=f"start platform {id}", s=100)
 
         ax.add_patch(
             plt.Circle(

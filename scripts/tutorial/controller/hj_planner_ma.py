@@ -50,15 +50,14 @@ problem = NavigationProblem(
     platform_dict=arena.platform.platform_dict,
 )
 problem.passed_seconds(x_0)
-# # %% Plot the problem on the map
+# %% Plot the problem on the map
 # t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-#     x_start=x_set.to_spatio_temporal_point_set(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+#     x_0=x_set.to_spatio_temporal_point_set(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
 # )
 # ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 #     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 # )
 # problem.plot(ax=ax)
-# plt.show()
 
 # %% Instantiate the HJ Planner
 specific_settings = {
@@ -93,7 +92,7 @@ planner_set = MultiAgentPlanner(problem=problem, multi_agent_setting = multi_age
 observation = arena.reset(platform_set=x_set)
 # action = planner_set.get_action(observation=observation)
 
-# # %%
+# # # %%
 # observation = arena.step(action)
 
 update_rate_s = 60*180 #180 mins 
@@ -105,6 +104,6 @@ for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
  #%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
-plt.savefig('ma5.png', dpi=300)
+plt.savefig('ma6.png', dpi=300)
 # #%% Animate the trajectory
 arena.animate_trajectory(problem=problem, temporal_resolution=7200,output="traj2_anim.mp4" )   

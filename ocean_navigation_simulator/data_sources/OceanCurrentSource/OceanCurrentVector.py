@@ -32,9 +32,13 @@ class OceanCurrentVector(NamedTuple):
     def __str__(self) -> str:
         return f"({self.u}, {self.v})"
 
+    def __get_item__(self, item):
+        return OceanCurrentVector(u=self.u[item], v=self.v[item])
+
     @staticmethod
     def from_numpy(arr):
         """
         Helper function to initialize a OceanCurrentVector based on numpy arraay.
         """
+        #TODO change this for multi-agent
         return OceanCurrentVector(u=units.Velocity(mps=arr[0]), v=units.Velocity(mps=arr[1]))

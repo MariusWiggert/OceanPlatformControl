@@ -1,7 +1,7 @@
 import dataclasses
 import datetime
 import math
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import numpy as np
 
@@ -93,6 +93,7 @@ class SpatioTemporalPoint:
     def __post_init__(self):
         self.vect_timestamp = np.vectorize(datetime.datetime.timestamp)
         self.vect_strftime = np.vectorize(datetime.datetime.strftime)
+        self.rmv_tzinfo = np.vectorize(datetime.datetime.replace)
         self._is_multi_agent = type(self.date_time)==np.ndarray
 
     def __array__(self):
@@ -112,6 +113,16 @@ class SpatioTemporalPoint:
             return self.__array__()[:, item] # extract the state corresponding to index item (for all platforms)
         else:
             return self.__array__()[item]
+
+    def get_datetime_bounds(self) -> Tuple[datetime.datetime, datetime.datetime]:
+        if self._is_multi_agent:
+            return np.min(self.date_time), np.max(self.date_time)
+        else:
+            return self.date_time, self.date_time 
+
+    def date_time_to_datetime64(self):
+        date_time_no_tz = self.rmv_tzinfo(self.date_time, tzinfo = None)
+        return date_time_no_tz.astype('datetime64[s]')
 
     def distance(self, other) -> units.Distance:
         return self.to_spatial_point().distance(other)
@@ -264,7 +275,7 @@ class PlatformStateSet:
         """Helper function to just extract the spatial point."""
         return SpatialPoint(lon=self.lon, lat=self.lat)
 
-    def to_spatio_temporal_point_set(self) -> SpatioTemporalPoint:
+    def to_spatio_temporal_point(self) -> SpatioTemporalPoint:
         """Helper function to just extract the spatial point."""
         return SpatioTemporalPoint(lon=self.lon, lat=self.lat, date_time=self.date_time)
 

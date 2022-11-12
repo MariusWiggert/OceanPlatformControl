@@ -96,7 +96,7 @@ class DataSource(abc.ABC):
 
         # Step 1: Create the intervals to query data for
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
-            x_0=states.to_spatio_temporal_point_set(),
+            x_0=states.to_spatio_temporal_point(),
             x_T=states[0].to_spatial_point(), # no terminal set here so can give any state, won't change bounds
             deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"]["deg_around_x_t"],
             temp_horizon_in_s=self.source_config_dict["casadi_cache_settings"]["time_around_x_t"],
@@ -167,12 +167,7 @@ class DataSource(abc.ABC):
             lat_bnds: [y_lower, y_upper] in degrees
             lon_bnds: [x_lower, x_upper] in degrees
         """
-        if type(x_0) == SpatioTemporalPoint: # only one platform state
-            datetime_min = x_0.date_time
-            datetime_max = x_0.date_time
-        else:
-            datetime_min = np.min(x_0.date_time)
-            datetime_max = np.min(x_0.date_time)
+        datetime_min, datetime_max = x_0.get_datetime_bounds()
         t_interval = [
             datetime_min,
             datetime_max + datetime.timedelta(seconds=temp_horizon_in_s),
@@ -609,12 +604,15 @@ class XarraySource(abc.ABC):
         Returns:
           xr object that is then processed by the respective data source for its purpose
         """
-
+        # need vectorized indexing when lon, lat, time are arrays. Otherwise .interp does orthogonal 
+        # interpolation (grid interpolation)
+        # https://stackoverflow.com/a/56148114
         return self.DataArray.interp(
-            time=np.datetime64(spatio_temporal_point.date_time),
-            lon=spatio_temporal_point.lon.deg,
-            lat=spatio_temporal_point.lat.deg,
-            method="linear",
+        #time=np.datetime64(spatio_temporal_point.date_time),
+        time = ('z', spatio_temporal_point.date_time_to_datetime64()),
+        lon=('z', spatio_temporal_point.lon.deg),
+        lat=('z', spatio_temporal_point.lat.deg),
+        method="linear",
         )
 
     def get_data_over_area(

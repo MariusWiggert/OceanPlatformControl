@@ -124,8 +124,13 @@ class Platform:
         self.state_set, self.F_x_next = [None] * 2
 
     def set_state(self, states: PlatformStateSet):
-        """Helper function to set the state directly."""
+        """Helper function to set the state directly.
+         Args:
+            platform_state_set: has to be a set of platforms otherwise nb_platforms is not well initialized
+        """
         self.state_set = states
+        if not type(states) is PlatformStateSet:
+            raise TypeError("The simulator works with PlatformStateSet objects")
         self.nb_platforms = len(states)
 
     def simulate_step(self, action: PlatformActionSet) -> PlatformStateSet:
@@ -153,16 +158,16 @@ class Platform:
 
         return self.state_set
 
-    def initialize_dynamics(self, state: PlatformStateSet):
+    def initialize_dynamics(self, states: PlatformStateSet):
         """Run at arena.reset() to load data and cache in casadi functions to run fast during simultion.
         Args:
             state: PlatformState for which to load the data for caching in space and time
         """
         start = time.time()
         if self.ocean_source is not None:
-            self.ocean_source.update_casadi_dynamics(state)
+            self.ocean_source.update_casadi_dynamics(states)
         if self.solar_source is not None:
-            self.solar_source.update_casadi_dynamics(state)
+            self.solar_source.update_casadi_dynamics(states)
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
         self.F_x_next = self.get_casadi_dynamics()

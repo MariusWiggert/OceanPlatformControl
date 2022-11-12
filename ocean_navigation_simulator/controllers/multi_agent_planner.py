@@ -23,6 +23,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformAction, PlatformActionSet
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
     SpatialPoint,
     SpatioTemporalPoint,
 )
@@ -41,9 +42,12 @@ class MultiAgentPlanner(Controller):
         super().__init__(problem)
 
         if multi_agent_setting["planner"] == "hj_planner":
-            self.individual_problems_list = [dataclasses.replace(problem, start_state= x) for x in problem.start_state]
-            self.planners = [HJReach2DPlanner(problem,specific_settings=specific_settings) for problem in self.individual_problems_list]
-
+            if not type(problem.start_state) is PlatformStateSet:
+                raise Exception("Mutli-Agent Planner does not support single platform control for now")
+            else:
+                self.individual_problems_list = [dataclasses.replace(problem, start_state= x) for x in problem.start_state]
+                self.planners = [HJReach2DPlanner(problem,specific_settings=specific_settings) for problem in self.individual_problems_list]
+    
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
 
@@ -52,10 +56,11 @@ class MultiAgentPlanner(Controller):
 
     def get_action(self, observation: List[ArenaObservation]) -> PlatformActionSet:
         action_list = []
-        action = self.planners[0].get_action(observation[0])
         for k in range(len(observation)):
-            action_list.append(self.planners[k].get_action(observation[k]))
-            #action_list.append(action)
+            single_obs = dataclasses.replace(observation, platform_state=observation.platform_state[k],
+                                                true_current_at_state = observation.true_current_at_state[k])
+            action_list.append(self.planners[k].get_action(single_obs))
+
         return PlatformActionSet(action_list)
     
 

@@ -61,11 +61,18 @@ class ArenaObservation:
     environment.
     """
 
-    platform_state: PlatformState # position, time, battery
+    platform_state: Union[PlatformState, PlatformStateSet] # position, time, battery
     true_current_at_state: OceanCurrentVector  # measured current at platform_state
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
+
+
+    def __len__(self):
+        if type(self.platform_state) is PlatformStateSet:
+            return len(self.platform_state)
+        else:
+            return 1
 
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
         """
@@ -187,7 +194,7 @@ class Arena:
 
         self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
 
-        # Step 2: Generate Platform
+        # Step 2: Generate Platforms simulator 
         start = time.time()
         self.platform = Platform(
             platform_dict=platform_dict,
@@ -209,34 +216,11 @@ class Arena:
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
-    # def reset(self, platform_state: PlatformState) -> ArenaObservation:
-    #     """Resets the arena.
-    #     Args:
-    #         platform_state
-    #     Returns:
-    #       The first observation from the newly reset simulator
-    #     """
-    #     self.initial_state = platform_state
-    #     self.platform.set_state(self.initial_state)
-    #     self.platform.initialize_dynamics(self.initial_state)
-    #     self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_state)
-
-    #     self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
-    #     self.action_trajectory = np.zeros(shape=(0, 2))
-
-    #     return ArenaObservation(
-    #         platform_state=platform_state,
-    #         true_current_at_state=self.ocean_field.get_ground_truth(
-    #             self.platform.state.to_spatio_temporal_point()
-    #         ),
-    #         forecast_data_source=self.ocean_field.forecast_data_source,
-    #     )
-
 
     def reset(self, platform_set: PlatformStateSet) -> List[ArenaObservation]:
         """Resets the arena.
         Args:
-            platform_state
+            platform_state_set
         Returns:
           The first observation from the newly reset simulator
         """
@@ -249,14 +233,21 @@ class Arena:
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(0, len(platform_set), 2))
 
-        observation_list = [ArenaObservation(
-                            platform_state=platform,
+        observation = ArenaObservation(
+                            platform_state=platform_set,
                             true_current_at_state=self.ocean_field.get_ground_truth(
-                            platform.to_spatio_temporal_point()
+                            platform_set.to_spatio_temporal_point()
                             ),
-                            forecast_data_source=self.ocean_field.forecast_data_source,
-                            )for platform in platform_set.platform_list]
-        return observation_list
+                            forecast_data_source=self.ocean_field.forecast_data_source)
+
+        # observation_list = [ArenaObservation(
+        #                     platform_state=platform,
+        #                     true_current_at_state=self.ocean_field.get_ground_truth(
+        #                     platform.to_spatio_temporal_point()
+        #                     ),
+        #                     forecast_data_source=self.ocean_field.forecast_data_source,
+        #                     )for platform in platform_set.platform_list]
+        return observation
 
     def step(self, action: List[PlatformAction]) -> List[ArenaObservation]:
         """Simulates the effects of choosing the given action in the system.
@@ -276,21 +267,21 @@ class Arena:
             self.action_trajectory = np.append(
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
-        observation_list = [ArenaObservation(
-                            platform_state=platform,
-                            true_current_at_state=self.ocean_field.get_ground_truth(
-                            platform.to_spatio_temporal_point()
-                            ),
-                            forecast_data_source=self.ocean_field.forecast_data_source,
-                            )for platform in platform_set.platform_list]
-        return observation_list
-        # return ArenaObservation(
-        #     platform_state=state,
-        #     true_current_at_state=self.ocean_field.get_ground_truth(
-        #         state.to_spatio_temporal_point()
-        #     ),
-        #     forecast_data_source=self.ocean_field.forecast_data_source,
-        # )
+        # observation_list = [ArenaObservation(
+        #                     platform_state=platform,
+        #                     true_current_at_state=self.ocean_field.get_ground_truth(
+        #                     platform.to_spatio_temporal_point()
+        #                     ),
+        #                     forecast_data_source=self.ocean_field.forecast_data_source,
+        #                     )for platform in platform_set.platform_list]
+        # return observation_list
+        return ArenaObservation(
+            platform_state=platform_set,
+            true_current_at_state=self.ocean_field.get_ground_truth(
+                platform_set.to_spatio_temporal_point()
+            ),
+            forecast_data_source=self.ocean_field.forecast_data_source,
+        )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""
