@@ -9,10 +9,12 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.utils.misc import get_markers
 
-idx_state = {"lon":0,
-             "lat":1,
-             "time":2,
+idx_state = {
+    "lon": 0,
+    "lat": 1,
+    "time": 2,
 }
+
 
 def get_lon_lat_time_interval_from_trajectory(
     state_trajectory: np.ndarray,
@@ -30,14 +32,17 @@ def get_lon_lat_time_interval_from_trajectory(
         time_interval: [t_lower, t_upper] in posix time
     """
     lon_min = np.min(state_trajectory[:, :, idx_state["lon"]])
-    lon_max = np.max(state_trajectory[:, :, idx_state["lon"] ])
+    lon_max = np.max(state_trajectory[:, :, idx_state["lon"]])
     lat_min = np.min(state_trajectory[:, :, idx_state["lat"]])
     lat_max = np.max(state_trajectory[:, :, idx_state["lat"]])
 
     return (
         [lon_min - margin, lon_max + margin],
         [lat_min - margin, lat_max + margin],
-        [np.min(state_trajectory[0,:,idx_state["time"]]), np.max(state_trajectory[-1,:,idx_state["time"]])],
+        [
+            np.min(state_trajectory[0, :, idx_state["time"]]),
+            np.max(state_trajectory[-1, :, idx_state["time"]]),
+        ],
     )
 
 
@@ -62,7 +67,7 @@ def animate_trajectory(
     temporal_resolution: Optional[float] = None,
     add_ax_func_ext: Optional[Callable] = None,
     output: Optional[AnyStr] = "traj_animation.mp4",
-    **kwargs
+    **kwargs,
 ):
     """Plotting functions to animate a trajectory including the controls over a data_source.
     Args:
@@ -94,16 +99,20 @@ def animate_trajectory(
         for k in range(state_trajectory.shape[1]):
             marker = next(markers)
             ax.scatter(
-                state_trajectory[0, k, 0], state_trajectory[0, k, 1],
-                 c="r", marker=marker, s=200, label= f"Start for platform {k}"
+                state_trajectory[0, k, 0],
+                state_trajectory[0, k, 1],
+                c="r",
+                marker=marker,
+                s=200,
+                label=f"Start for platform {k}",
             )
             ax.scatter(
-                state_trajectory[-1,k, 0],
-                state_trajectory[-1,k, 1],
+                state_trajectory[-1, k, 0],
+                state_trajectory[-1, k, 1],
                 c="orange",
-                marker= marker,
+                marker=marker,
                 s=200,
-                label= "Trajectory end" if k==0 else "",
+                label="Trajectory end" if k == 0 else "",
             )
             # add the trajectory to it
             ax.plot(
@@ -112,7 +121,7 @@ def animate_trajectory(
                 color="black",
                 linewidth=3,
                 linestyle="--",
-                label= "State Trajectory" if k==0 else "",
+                label="State Trajectory" if k == 0 else "",
             )
         # plot the goal
         if problem is not None:
@@ -125,25 +134,33 @@ def animate_trajectory(
                 label="goal",
             )
             ax.add_patch(goal_circle)
-       
+
         # plot the control arrow for the specific time
         for k in range(state_trajectory.shape[1]):
             # get the planned idx of current time
-            idx = np.searchsorted(a=state_trajectory[:, k ,2], v=time)
-            if idx < state_trajectory.shape[0]: # if platforms did not start at the same time, some trajectories might finish sooner and there is no more control input
-                ax.scatter(state_trajectory[idx,k,0], state_trajectory[idx,k,1], c="m", marker="o", s=20)
+            idx = np.searchsorted(a=state_trajectory[:, k, 2], v=time)
+            if (
+                idx < state_trajectory.shape[0]
+            ):  # if platforms did not start at the same time, some trajectories might finish sooner and there is no more control input
+                ax.scatter(
+                    state_trajectory[idx, k, 0],
+                    state_trajectory[idx, k, 1],
+                    c="m",
+                    marker="o",
+                    s=20,
+                )
                 ax.quiver(
-                    state_trajectory[idx,k,0],
-                    state_trajectory[idx,k,1],
-                    ctrl_trajectory[idx,k,0] * np.cos(ctrl_trajectory[idx,k,1]),  # u_vector
-                    ctrl_trajectory[idx,k,0] * np.sin(ctrl_trajectory[idx,k,1]),  # v_vector
+                    state_trajectory[idx, k, 0],
+                    state_trajectory[idx, k, 1],
+                    ctrl_trajectory[idx, k, 0] * np.cos(ctrl_trajectory[idx, k, 1]),  # u_vector
+                    ctrl_trajectory[idx, k, 0] * np.sin(ctrl_trajectory[idx, k, 1]),  # v_vector
                     color="magenta",
                     scale=5,
-                    label= "Control" if k==0 else "",
+                    label="Control" if k == 0 else "",
                 )
             else:
                 continue
-        ax.legend(loc="lower right", prop={'size': 8})
+        ax.legend(loc="lower right", prop={"size": 8})
 
     # Step 2: Get the bounds for the data_source
     x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
@@ -158,5 +175,5 @@ def animate_trajectory(
         temporal_resolution=temporal_resolution,
         add_ax_func=add_traj_and_ctrl_at_time,
         output=output,
-        **kwargs
+        **kwargs,
     )

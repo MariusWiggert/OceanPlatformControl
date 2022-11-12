@@ -40,5 +40,5 @@ class OceanCurrentVector(NamedTuple):
         """
         Helper function to initialize a OceanCurrentVector based on numpy arraay.
         """
-        #TODO change this for multi-agent
+        # TODO change this for multi-agent
         return OceanCurrentVector(u=units.Velocity(mps=arr[0]), v=units.Velocity(mps=arr[1]))

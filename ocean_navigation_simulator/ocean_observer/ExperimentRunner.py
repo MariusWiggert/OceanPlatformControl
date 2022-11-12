@@ -456,7 +456,9 @@ class ExperimentRunner:
             print(file == self.last_file_used, file, self.last_file_used)
             if file != self.last_file_used:
                 self.print_errors()
-                list_datetime_when_new_forecast_files.append(self.arena.platform.state_set.date_time)
+                list_datetime_when_new_forecast_files.append(
+                    self.arena.platform.state_set.date_time
+                )
                 print("file added to list:", list_datetime_when_new_forecast_files)
 
             list_gp_output.append(

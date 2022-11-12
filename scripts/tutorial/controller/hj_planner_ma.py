@@ -1,21 +1,24 @@
 #%%
 import datetime
+import os
 
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-import os
 import numpy as np
+from tqdm import tqdm
 
-#os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
+# os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
 from ocean_navigation_simulator.controllers.multi_agent_planner import (
-   MultiAgentPlanner,
+    MultiAgentPlanner,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.Platform import PlatformState, PlatformStateSet
+from ocean_navigation_simulator.environment.Platform import (
+    PlatformState,
+    PlatformStateSet,
+)
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
@@ -77,17 +80,16 @@ specific_settings = {
         0.1,
     ],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
     # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-    "grid_res": 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    "grid_res": 0.2,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     "platform_dict": arena.platform.platform_dict,
 }
-multi_agent_setting = {
-    "planner": "hj_planner"
-}
-planner_set = MultiAgentPlanner(problem=problem, multi_agent_setting = multi_agent_setting, 
-                                  specific_settings= specific_settings)
+multi_agent_setting = {"planner": "hj_planner"}
+planner_set = MultiAgentPlanner(
+    problem=problem, multi_agent_setting=multi_agent_setting, specific_settings=specific_settings
+)
 
 observation = arena.reset(platform_set=x_set)
 # action = planner_set.get_action(observation=observation)
@@ -95,15 +97,17 @@ observation = arena.reset(platform_set=x_set)
 # # # %%
 # observation = arena.step(action)
 
-update_rate_s = 60*180 #180 mins 
-day_sim = 3
+update_rate_s = 60 * 180  # 180 mins
+day_sim = 1
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
     action = planner_set.get_action(observation=observation)
     observation = arena.step(action)
 
- #%% Plot the arena trajectory on the map
+#%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
-plt.savefig('ma6.png', dpi=300)
+plt.savefig("ma6.png", dpi=300)
 # #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200,output="traj2_anim.mp4" )   
+arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj2_anim.mp4")
+ax = arena.plot_distance_evolution_between_neighbors(figsize=(9, 6))
+plt.savefig("distance_evolution", dpi=300)

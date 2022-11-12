@@ -7,7 +7,16 @@ import datetime as dt
 import logging
 import os
 import time
-from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
+from typing import (
+    AnyStr,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import matplotlib
 import numpy as np
@@ -37,6 +46,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import (
     Platform,
     PlatformAction,
+    PlatformActionSet,
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
@@ -45,12 +55,17 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.utils.misc import get_markers
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
 )
-from ocean_navigation_simulator.utils.units import format_datetime_x_axis
-from ocean_navigation_simulator.utils.misc import get_markers
+from ocean_navigation_simulator.utils.units import (
+    Distance,
+    format_datetime_x_axis,
+    haversine_rad_from_deg,
+)
+
 
 @dataclasses.dataclass
 class ArenaObservation:
@@ -61,12 +76,11 @@ class ArenaObservation:
     environment.
     """
 
-    platform_state: Union[PlatformState, PlatformStateSet] # position, time, battery
+    platform_state: Union[PlatformState, PlatformStateSet]  # position, time, battery
     true_current_at_state: OceanCurrentVector  # measured current at platform_state
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
-
 
     def __len__(self):
         if type(self.platform_state) is PlatformStateSet:
@@ -194,7 +208,7 @@ class Arena:
 
         self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
 
-        # Step 2: Generate Platforms simulator 
+        # Step 2: Generate Platforms simulator
         start = time.time()
         self.platform = Platform(
             platform_dict=platform_dict,
@@ -216,8 +230,7 @@ class Arena:
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
-
-    def reset(self, platform_set: PlatformStateSet) -> List[ArenaObservation]:
+    def reset(self, platform_set: PlatformStateSet) -> ArenaObservation:
         """Resets the arena.
         Args:
             platform_state_set
@@ -234,47 +247,32 @@ class Arena:
         self.action_trajectory = np.zeros(shape=(0, len(platform_set), 2))
 
         observation = ArenaObservation(
-                            platform_state=platform_set,
-                            true_current_at_state=self.ocean_field.get_ground_truth(
-                            platform_set.to_spatio_temporal_point()
-                            ),
-                            forecast_data_source=self.ocean_field.forecast_data_source)
-
-        # observation_list = [ArenaObservation(
-        #                     platform_state=platform,
-        #                     true_current_at_state=self.ocean_field.get_ground_truth(
-        #                     platform.to_spatio_temporal_point()
-        #                     ),
-        #                     forecast_data_source=self.ocean_field.forecast_data_source,
-        #                     )for platform in platform_set.platform_list]
+            platform_state=platform_set,
+            true_current_at_state=self.ocean_field.get_ground_truth(
+                platform_set.to_spatio_temporal_point()
+            ),
+            forecast_data_source=self.ocean_field.forecast_data_source,
+        )
         return observation
 
-    def step(self, action: List[PlatformAction]) -> List[ArenaObservation]:
+    def step(self, action: PlatformActionSet) -> ArenaObservation:
         """Simulates the effects of choosing the given action in the system.
         Args:
             action: The action to take in the simulator.
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-
-
         platform_set = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
             self.state_trajectory = np.append(
-                self.state_trajectory, np.expand_dims(np.array(platform_set).squeeze(), axis=0), axis=0
+                self.state_trajectory,
+                np.expand_dims(np.array(platform_set).squeeze(), axis=0),
+                axis=0,
             )
             self.action_trajectory = np.append(
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
-        # observation_list = [ArenaObservation(
-        #                     platform_state=platform,
-        #                     true_current_at_state=self.ocean_field.get_ground_truth(
-        #                     platform.to_spatio_temporal_point()
-        #                     ),
-        #                     forecast_data_source=self.ocean_field.forecast_data_source,
-        #                     )for platform in platform_set.platform_list]
-        # return observation_list
         return ArenaObservation(
             platform_state=platform_set,
             true_current_at_state=self.ocean_field.get_ground_truth(
@@ -373,8 +371,12 @@ class Arena:
             fig, ax = plt.subplots()
 
         for k in range(self.state_trajectory.shape[1]):
-            u_vec = self.action_trajectory[::stride, k, 0] * np.cos(self.action_trajectory[::stride, k, 1])
-            v_vec = self.action_trajectory[::stride,k, 0] * np.sin(self.action_trajectory[::stride,k, 1])
+            u_vec = self.action_trajectory[::stride, k, 0] * np.cos(
+                self.action_trajectory[::stride, k, 1]
+            )
+            v_vec = self.action_trajectory[::stride, k, 0] * np.sin(
+                self.action_trajectory[::stride, k, 1]
+            )
             ax.quiver(
                 self.state_trajectory[:-1:stride, k, 0],
                 self.state_trajectory[:-1:stride, k, 1],
@@ -383,7 +385,7 @@ class Arena:
                 color=color,
                 scale=control_vec_scale,
                 angles="xy",
-                label= "Control Input of platform" if k==0 else "",
+                label="Control Input of platform" if k == 0 else "",
             )
 
         return ax
@@ -452,7 +454,7 @@ class Arena:
                 markersize=1,
                 color=color,
                 linewidth=1,
-                label="State Trajectory" if k==0 else "",
+                label="State Trajectory" if k == 0 else "",
             )
 
         return ax
@@ -504,7 +506,7 @@ class Arena:
         # Background: Data Sources
         if "current" in background:
             ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 0, 2], #end time for platform 0
+                time=self.state_trajectory[index, 0, 2],  # end time for platform 0
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
@@ -534,24 +536,21 @@ class Arena:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
         if show_current_position:
             markers = get_markers()
-            #handles = []
             for k in range(self.state_trajectory.shape[1]):
                 ax.scatter(
-                self.state_trajectory[index, k, 0],
-                self.state_trajectory[index, k, 1],
-                c=current_position_color,
-                marker=next(markers),
-                s=100,
-                label= f"current position platform {k}",
+                    self.state_trajectory[index, k, 0],
+                    self.state_trajectory[index, k, 1],
+                    c=current_position_color,
+                    marker=next(markers),
+                    s=100,
+                    label=f"current position platform {k}",
                 )
-                #handles.append(p)
-            #ax.legend(tuple(handles), 'current position', handler_map={tuple: matplotlib.legend_handler.HandlerTuple(ndivide=None)})
         if problem is not None:
             problem.plot(ax=ax)
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend(loc=4, prop={'size': 4}, numpoints=1)
+        ax.legend(loc=4, prop={"size": 4}, numpoints=1)
 
         if return_ax:
             return ax
@@ -658,3 +657,37 @@ class Arena:
         plt.xlabel("time")
 
         return ax
+
+    def plot_distance_evolution_between_neighbors(
+        self, figsize: Tuple[int] = (8, 6)
+    ) -> matplotlib.axes.Axes:
+        """
+        Function to compute distance evolution between neighbors over their trajectories
+        For now just handle two platforms
+        """
+        idx_state = {
+            "lon": 0,
+            "lat": 1,
+            "time": 2,
+        }
+        d = Distance(
+            rad=haversine_rad_from_deg(
+                self.state_trajectory[:, 0, idx_state["lon"]],
+                self.state_trajectory[:, 0, idx_state["lat"]],
+                self.state_trajectory[:, 1, idx_state["lon"]],
+                self.state_trajectory[:, 1, idx_state["lat"]],
+            )
+        )
+        plt.figure(figsize=figsize)
+        ax = plt.axes()
+        t0 = dt.datetime.fromtimestamp(self.state_trajectory[0, 0, 2], tz=dt.timezone.utc)
+        dates = [
+            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            for posix in self.state_trajectory[::1, 0, 2]
+        ]
+        vect_strftime = np.vectorize(dt.datetime.strftime)
+        dates = vect_strftime(dates, "%H:%M")
+        ax.plot(dates, d.km, "--x")
+        plt.ylabel("distance in km")
+        plt.title("Distance evolution between platforms over time [h]")
+        plt.xlabel("time")

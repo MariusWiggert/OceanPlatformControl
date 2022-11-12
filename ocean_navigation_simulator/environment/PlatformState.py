@@ -1,7 +1,7 @@
 import dataclasses
 import datetime
 import math
-from typing import List, Union, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 
@@ -41,7 +41,7 @@ class SpatialPoint:
         )
 
     def __array__(self):
-        return np.array([self.lon.deg, self.lat.deg]).T # states as columns if multiagent
+        return np.array([self.lon.deg, self.lat.deg]).T  # states as columns if multiagent
 
     def __len__(self):
         return self.__array__().shape[0]
@@ -69,11 +69,10 @@ class SpatialPointSet:
         return self.__array__().shape[0]
 
     def __getitem__(self, item):
-        return self.__array__()[:,item]
+        return self.__array__()[:, item]
 
     def __repr__(self):
         return f"{np.array2string(self.__array__(), formatter={'float': lambda x: f'{x:.5f}°'})}"
-    
 
 
 @dataclasses.dataclass
@@ -94,23 +93,27 @@ class SpatioTemporalPoint:
         self.vect_timestamp = np.vectorize(datetime.datetime.timestamp)
         self.vect_strftime = np.vectorize(datetime.datetime.strftime)
         self.rmv_tzinfo = np.vectorize(datetime.datetime.replace)
-        self._is_multi_agent = type(self.date_time)==np.ndarray
+        self._is_multi_agent = type(self.date_time) == np.ndarray
 
     def __array__(self):
         if self._is_multi_agent:
-            return np.array([self.lon.deg, self.lat.deg, self.vect_timestamp(self.date_time)]).T # states as columns  
+            return np.array(
+                [self.lon.deg, self.lat.deg, self.vect_timestamp(self.date_time)]
+            ).T  # states as columns
         else:
             return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp()])
-           
+
     def __len__(self):
         if self._is_multi_agent:
-            return self.__array__().shape[1] #matrix where number of states are on the columns
+            return self.__array__().shape[1]  # matrix where number of states are on the columns
         else:
-            return self.__array__().shape[0] # vector of lon,lat,date_time
+            return self.__array__().shape[0]  # vector of lon,lat,date_time
 
     def __getitem__(self, item):
         if self._is_multi_agent:
-            return self.__array__()[:, item] # extract the state corresponding to index item (for all platforms)
+            return self.__array__()[
+                :, item
+            ]  # extract the state corresponding to index item (for all platforms)
         else:
             return self.__array__()[item]
 
@@ -118,11 +121,11 @@ class SpatioTemporalPoint:
         if self._is_multi_agent:
             return np.min(self.date_time), np.max(self.date_time)
         else:
-            return self.date_time, self.date_time 
+            return self.date_time, self.date_time
 
     def date_time_to_datetime64(self):
-        date_time_no_tz = self.rmv_tzinfo(self.date_time, tzinfo = None)
-        return date_time_no_tz.astype('datetime64[s]')
+        date_time_no_tz = self.rmv_tzinfo(self.date_time, tzinfo=None)
+        return date_time_no_tz.astype("datetime64[s]")
 
     def distance(self, other) -> units.Distance:
         return self.to_spatial_point().distance(other)
@@ -157,13 +160,18 @@ class SpatioTemporalPointSet:
     date_time: np.array(datetime.datetime)
 
     def __array__(self):
-        return np.array([SpatioTemporalPoint(lon=lon, lat=lat, date_time=date_time) for lon,lat,date_time in zip(self.lon, self.lat, self.date_time)])
+        return np.array(
+            [
+                SpatioTemporalPoint(lon=lon, lat=lat, date_time=date_time)
+                for lon, lat, date_time in zip(self.lon, self.lat, self.date_time)
+            ]
+        )
 
     def __len__(self):
         return self.__array__().shape[0]
 
     def __getitem__(self, item):
-        return self.__array__()[:,item]
+        return self.__array__()[:, item]
 
     def __repr__(self):
         return f"{np.array2string(self.__array__(), formatter={'float': lambda x: f'{x:.5f}°'})}"
@@ -281,8 +289,5 @@ class PlatformStateSet:
 
     @staticmethod
     def from_numpy(np_array):
-        platform_list = [PlatformState.from_numpy(np_array[k,:]) for k in range(np_array.shape[0])]
+        platform_list = [PlatformState.from_numpy(np_array[k, :]) for k in range(np_array.shape[0])]
         return PlatformStateSet(platform_list=platform_list)
-        
-
-

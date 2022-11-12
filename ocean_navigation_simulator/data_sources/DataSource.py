@@ -19,9 +19,9 @@ from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     PlatformStateSet,
     SpatialPoint,
+    SpatialPointSet,
     SpatioTemporalPoint,
     SpatioTemporalPointSet,
-    SpatialPointSet,
 )
 from ocean_navigation_simulator.utils import units
 
@@ -39,24 +39,24 @@ class DataSource(abc.ABC):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-    def check_for_casadi_dynamics_update(self, state: Union[PlatformState, PlatformStateSet]) -> bool:
+    def check_for_casadi_dynamics_update(
+        self, state: Union[PlatformState, PlatformStateSet]
+    ) -> bool:
         """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
         Args:
             state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
             logger: logging object
         """
+        # TODO Here could we not just pass a spatiotemporalpoint ? Avoids to check for datetime if we are in the multi-agent or single-agent setting
         out_x_range = not (
-            (self.casadi_grid_dict["x_range"][0]
-            < np.min(state.lon.deg)) and
-            (np.max(state.lon.deg)
-            < self.casadi_grid_dict["x_range"][1])
+            (self.casadi_grid_dict["x_range"][0] < np.min(state.lon.deg))
+            and (np.max(state.lon.deg) < self.casadi_grid_dict["x_range"][1])
         )
         out_y_range = not (
-            (self.casadi_grid_dict["y_range"][0]
-            < np.min(state.lat.deg)) and
-            (np.max(state.lat.deg) < self.casadi_grid_dict["y_range"][1])
+            (self.casadi_grid_dict["y_range"][0] < np.min(state.lat.deg))
+            and (np.max(state.lat.deg) < self.casadi_grid_dict["y_range"][1])
         )
-        if type(state) == PlatformState: # only one platform state
+        if type(state) is PlatformState:  # only one platform state
             datetime_min = state.date_time
             datetime_max = state.date_time
         else:
@@ -64,9 +64,8 @@ class DataSource(abc.ABC):
             datetime_max = np.min(state.date_time)
 
         out_t_range = not (
-            (self.casadi_grid_dict["t_range"][0]
-            <= datetime_min) and 
-            (datetime_max < self.casadi_grid_dict["t_range"][1])
+            (self.casadi_grid_dict["t_range"][0] <= datetime_min)
+            and (datetime_max < self.casadi_grid_dict["t_range"][1])
         )
 
         if out_x_range or out_y_range or out_t_range:
@@ -97,7 +96,9 @@ class DataSource(abc.ABC):
         # Step 1: Create the intervals to query data for
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
             x_0=states.to_spatio_temporal_point(),
-            x_T=states[0].to_spatial_point(), # no terminal set here so can give any state, won't change bounds
+            x_T=states[
+                0
+            ].to_spatial_point(),  # no terminal set here so can give any state, won't change bounds
             deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"]["deg_around_x_t"],
             temp_horizon_in_s=self.source_config_dict["casadi_cache_settings"]["time_around_x_t"],
         )
@@ -604,15 +605,15 @@ class XarraySource(abc.ABC):
         Returns:
           xr object that is then processed by the respective data source for its purpose
         """
-        # need vectorized indexing when lon, lat, time are arrays. Otherwise .interp does orthogonal 
+        # need vectorized indexing when lon, lat, time are arrays. Otherwise .interp does orthogonal
         # interpolation (grid interpolation)
         # https://stackoverflow.com/a/56148114
         return self.DataArray.interp(
-        #time=np.datetime64(spatio_temporal_point.date_time),
-        time = ('z', spatio_temporal_point.date_time_to_datetime64()),
-        lon=('z', spatio_temporal_point.lon.deg),
-        lat=('z', spatio_temporal_point.lat.deg),
-        method="linear",
+            # time=np.datetime64(spatio_temporal_point.date_time),
+            time=("z", spatio_temporal_point.date_time_to_datetime64()),
+            lon=("z", spatio_temporal_point.lon.deg),
+            lat=("z", spatio_temporal_point.lat.deg),
+            method="linear",
         )
 
     def get_data_over_area(
