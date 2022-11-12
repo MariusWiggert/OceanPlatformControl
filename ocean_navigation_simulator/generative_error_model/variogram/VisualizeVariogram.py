@@ -223,20 +223,28 @@ class VisualizeVariogram:
         ax.set_ylabel("Frequency")
         ax.set_xlim(left=0)
 
-    def plot_variograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int] = None, error_variable: AnyStr = "u") -> None:
+    def plot_variograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int] = None,
+                        error_variable: str = "u", label: str = "", axs_external=None) -> plt.axes:
         """Plots the sliced variogram for each axis [lon, lat, time] in 3d or [space, time] in 2d.
 
         tol -        the slicing tolerance when plotting over one dimension. If the variogram was
                      infinitely dense, ideally this would be one.
         view_range - three dim list which defines the index per axis used as a cut-off when
                      visualizing the sliced plots.
+        axs_external-matplotlib axis
         """
-        figure, axs = plt.subplots(1, len(self.vars), figsize=(25, 10))
-        for idx, var in enumerate(self.vars):
-            self._plot_sliced_variogram(var, idx, tol, view_range, axs[idx], error_variable)
-        # plt.show()
 
-    def _plot_sliced_variogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis, error_variable: AnyStr) -> plt.axis:
+        if axs_external is not None:
+            axs = axs_external
+        else:
+            figure, axs = plt.subplots(1, len(self.vars), figsize=(25, 10))
+
+        for idx, var in enumerate(self.vars):
+            self._plot_sliced_variogram(var, idx, tol, view_range, axs[idx], error_variable, label)
+        return axs
+
+    def _plot_sliced_variogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis,
+                               error_variable: str, label: str) -> None:
         tol, view_range = self._plot_input_checker(idx, tol, view_range)
         view_index = self._get_view_index(idx, view_range)
         bin_sizes = self.variogram.bins.shape[:-1]
@@ -260,8 +268,11 @@ class VisualizeVariogram:
             var_y_denom = tol[other_indices[0]]
 
         ax.scatter(
-            self.variogram.res_tuple[idx] * (np.arange(bin_sizes[idx])[:view_index]) + self.variogram.res_tuple[idx], \
-            np.divide(var_y_num, var_y_denom, out=np.zeros_like(var_y_num), where=var_y_denom != 0), marker="x")
+            self.variogram.res_tuple[idx] * (np.arange(bin_sizes[idx])[:view_index]) + self.variogram.res_tuple[idx],
+            np.divide(var_y_num, var_y_denom, out=np.zeros_like(var_y_num), where=var_y_denom != 0),
+            marker="x",
+            label=label
+        )
         units = self.units
         if var == "t_lag":
             units = "hrs"
@@ -269,6 +280,7 @@ class VisualizeVariogram:
         ax.set_ylabel("Semivariance")
         ax.set_xlim(left=0)
         ax.set_ylim([0, 1.5])
+        ax.legend()
 
     def _plot_input_checker(self, idx: int, tol: Tuple[int] = None, view_range: Tuple[int] = None):
         if self.variogram.bins is None:

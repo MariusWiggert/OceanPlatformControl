@@ -100,12 +100,13 @@ class VariogramFitting:
         """Plot the sliced fitted function over all lag variables.
         """
         figure, axs = plt.subplots(1, len(self.lag_vars), figsize=(15, 6))
+        units_map = {"space_lag": "km", "t_lag": "hrs", "lon_lag": "km", "lat_lag": "km"}
         for idx, var in enumerate(self.lag_vars):
-            self._plot_sliced_variogram(var, axs[idx], plot_empirical=plot_empirical)
+            self._plot_sliced_variogram(var, units_map[var], axs[idx], plot_empirical=plot_empirical)
         plt.tight_layout()
         if save_path:
             plt.savefig(save_path, pad_inches=0, facecolor="white")
-        return figure
+        return figure, axs
 
     def load_params(self, input_path: str) -> None:
         """Load previously exported parameters from file.
@@ -172,7 +173,7 @@ class VariogramFitting:
         np.save(output_path, params_dict)
         print(f"Saved {params_dict}")
 
-    def _plot_sliced_variogram(self, var: str, ax: plt.axis, plot_empirical: bool = True) -> plt.axis:
+    def _plot_sliced_variogram(self, var: str, units: str, ax: plt.axis, plot_empirical: bool = True) -> plt.axis:
         """Plots the fitted function vs the empirical data points.
         """
         if var not in self.lag_vars:
@@ -185,12 +186,12 @@ class VariogramFitting:
         if plot_empirical:
             # get data for empirical points scatter plot
             empirical_lags, empirical_semivariance = self._get_sliced_empirical_data(var)
-            ax.scatter(empirical_lags, empirical_semivariance, label="empirical points")
+            ax.scatter(empirical_lags, empirical_semivariance, marker="x", label="empirical points")
 
         ax.legend()
         ax.set_xlim(left=0)
         ax.set_ylim([0, 1.5])
-        ax.set_xlabel(f"{var}")
+        ax.set_xlabel(f"{var} [{units}]")
         ax.set_ylabel("semivariance")
         return ax
 
