@@ -36,6 +36,7 @@ gt = GroundTruthFromNoise(
     seed=123,
     params_path="ocean_navigation_simulator/generative_error_model/models/"
                 + "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy",
+                # + "tuned_2d_forecast_variogram_area1_edited.npy",
     hindcast_data_source=hindcast_data,
 )
 
