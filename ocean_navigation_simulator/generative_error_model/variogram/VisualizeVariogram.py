@@ -280,7 +280,8 @@ class VisualizeVariogram:
         ax.set_ylabel("Semivariance")
         ax.set_xlim(left=0)
         ax.set_ylim([0, 1.5])
-        ax.legend()
+        if label != "":
+            ax.legend()
 
     def _plot_input_checker(self, idx: int, tol: Tuple[int] = None, view_range: Tuple[int] = None):
         if self.variogram.bins is None:

@@ -59,9 +59,9 @@ class VariogramFitting:
         print(f"Type of model: {model_type.__name__}")
 
         params = self.initialise_parameters(constrain_weighting=constrain_weighting)
-        # TODO: try weights (need to be same shape as data)
-        weights_1d = list(np.logspace(0.1, 1, self.lags.shape[0]))[::-1]
-        weights = weights_1d
+        # weights_1d = np.array(list(np.logspace(0.1, 100, self.lags.shape[0]))[::-1])
+        # weights = weights_1d
+        weights = list(np.ones(self.lags.shape[0]))
         # fit model: data points, parameters, lags for the data points (dependent variables)
         result = self.model.fit(self.data[self.error_var],
                                 params=params,
@@ -87,13 +87,13 @@ class VariogramFitting:
                 else:
                     params.add(f"{component.prefix}s", value=1/self.num_components, max=1, min=0)
                 for range_var in self.range_vars:
-                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 200, max=1000, min=10)
+                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 300, max=1000, min=20)
                 weights_list.append(f"{component.prefix}s")
             else:
                 # no contraints
                 params.add(f"{component.prefix}s", value=1/self.num_components, max=1, min=0)
                 for range_var in self.range_vars:
-                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 200, max=1000, min=10)
+                    params.add(f"{component.prefix}{range_var}", value=np.random.rand() * 300, max=1000, min=20)
         return params
 
     def plot_all_dims(self, save_path: str = None, plot_empirical: bool = True):
