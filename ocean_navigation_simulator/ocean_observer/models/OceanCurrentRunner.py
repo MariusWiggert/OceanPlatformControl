@@ -287,7 +287,7 @@ def get_scheduler(cfg_scheduler, optimizer) -> Tuple[optim.lr_scheduler._LRSched
 
 
 def get_model(model_type, cfg_neural_network, device):
-    path = cfg_neural_network.pop("path_parameters", None)
+    path_weights = cfg_neural_network.pop("path_weights", None)
 
     if model_type == "mlp":
         model = OceanCurrentMLP(**cfg_neural_network)
@@ -303,9 +303,9 @@ def get_model(model_type, cfg_neural_network, device):
         raise Exception("invalid model type provided.")
 
     # Loading the parameters
-    if path is not None:
-        print(f"loading model parameter from {path}")
-        model.load_state_dict(torch.load(path, map_location=device))
+    if path_weights is not None:
+        print(f"loading model parameter from {path_weights}")
+        model.load_state_dict(torch.load(path_weights, map_location=device))
         model.eval()
 
     return model.to(device)

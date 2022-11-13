@@ -92,10 +92,17 @@ search_space = {
 }
 
 
-def __add_line_to_csv(to_add, folder_destination: Optional[str] = None, file_name: Optional[str] = None,
-                      full_path: Optional[str] = None):
-    with open(os.path.join(folder_destination, f"{file_name}.csv") if full_path is None else full_path,
-              "a+", newline="") as f_object:
+def __add_line_to_csv(
+        to_add,
+        folder_destination: Optional[str] = None,
+        file_name: Optional[str] = None,
+        full_path: Optional[str] = None,
+):
+    with open(
+            os.path.join(folder_destination, f"{file_name}.csv") if full_path is None else full_path,
+            "a+",
+            newline="",
+    ) as f_object:
         writer_object = writer(f_object)
         writer_object.writerow(to_add)
         f_object.close()
@@ -117,7 +124,9 @@ def train(config_from_bayes=None):
     max_problems = full_dict.pop("max_problems", None)
     folder_problems = full_dict.pop("folder_problems", "scenarios/ocean_observer/")
     folder_config = full_dict.pop("folder_config", "scenarios/ocean_observer/")
-    file_csv = os.path.join("./ablation_study/results_grids/", f"results_{filename}_{filename_problems}.csv")
+    file_csv = os.path.join(
+        "./ablation_study/results_grids/", f"results_{filename}_{filename_problems}.csv"
+    )
     print("path file:", file_csv)
 
     os.chdir(current_dir)
@@ -189,9 +198,12 @@ def train(config_from_bayes=None):
             if k != "time":
                 merged_mean["mean_" + str(k)] = np.nanmean(merged[k])
         merged_mean |= merged
-        merged_mean = {"kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
-                       "kernel_2": str(config_yaml["observer"]["model"]["gaussian_process"].get("kernel_2", None))
-                       } | merged_mean
+        merged_mean = {
+                          "kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
+                          "kernel_2": str(
+                              config_yaml["observer"]["model"]["gaussian_process"].get("kernel_2", None)
+                          ),
+                      } | merged_mean
         if not os.path.exists(file_csv):
             __add_line_to_csv(merged_mean.keys(), full_path=file_csv)
         __add_line_to_csv(merged_mean.values(), full_path=file_csv)
@@ -214,11 +226,7 @@ def train(config_from_bayes=None):
     gc.collect()
 
 
-def train_without_tune(
-        filename_problem,
-        filename_config,
-        problems_per_sample=120
-):
+def train_without_tune(filename_problem, filename_config, problems_per_sample=120):
     search_space["max_problems"] = problems_per_sample
     search_space["filename_problems"] = filename_problem
     search_space["filename_config"] = filename_config
@@ -233,7 +241,7 @@ def run_ray_tune_GP_grid(
         research_state: int = 1,
         bayes: bool = False,
         random_search_space: int = 40,
-        load: bool = True
+        load: bool = True,
 ):
     """
     Run the ray tune grid to find the best hyper-parameters for the GP
@@ -265,8 +273,9 @@ def run_ray_tune_GP_grid(
         )
         if load:
             bayesopt.restore(path_file_save_checkpoint)
-        tuner = tune.Tuner(train,
-                           tune_config=tune.TuneConfig(search_alg=bayesopt, num_samples=num_samples))
+        tuner = tune.Tuner(
+            train, tune_config=tune.TuneConfig(search_alg=bayesopt, num_samples=num_samples)
+        )
         try:
             res = tuner.fit()
         finally:
@@ -280,9 +289,12 @@ def run_ray_tune_GP_grid(
 
 def run_experiments_and_visualize_area(
         number_forecasts_in_days: int = 20,
+        file_problems: Optional[str] = None,
+        folder_problems: Optional[str] = "scenarios/ocean_observer/",
         yaml_file_config: Optional[str] = "config_test_GP",
-        folder_config_file: Optional[str] = None,
-        use_NN: bool = False,
+        folder_config_file: Optional[str] = "scenarios/ocean_observer/",
+        use_NN: Optional[bool] = False,
+        display_forecast: Optional[bool] = True
 ) -> None:
     """
     Run an experiment and visualize the results
@@ -295,30 +307,35 @@ def run_experiments_and_visualize_area(
     Returns:
         None
     """
-    # idle position
-    # position = ((-86.20, 29.04, datetime.datetime(2022, 4, 19)), (-84, 28.04))
-    p = -85.659, 27.15
-    d = datetime.datetime(2022, 4, 10, 13, 30, tzinfo=datetime.timezone.utc)
-    position = ((*p, d), (-90, 30))
     if folder_config_file is not None:
+        # idle position
+        # position = ((-86.20, 29.04, datetime.datetime(2022, 4, 19)), (-84, 28.04))
+        # p = -85.659, 27.15
+        d = datetime.datetime(2022, 6, 10, 13, 30, tzinfo=datetime.timezone.utc)
+        # position = ((*p, d), (-90, 30))
+
         exp = ExperimentRunner(
             yaml_file_config,
-            filename_problems="all_problems_3",
-            position=position,
+            filename_problems=file_problems,
+            # position=position,
             folder_config_file=folder_config_file,
+            folder_problems=folder_problems
         )
     else:
         exp = ExperimentRunner(
-            yaml_file_config, filename_problems="all_problems_3", position=position
+            yaml_file_config, filename_problems="all_problems_3"
         )
     # coordinates to visualize
+
     x, y, t = (
         [-88 + 1 / 12, -82],
         [24, 30],
         [d, d + datetime.timedelta(days=1, hours=1)],
     )
 
-    exp.visualize_area(x, y, t[0], number_days_forecasts=number_forecasts_in_days, use_NN=use_NN)
+    # exp.visualize_area(x, y, t[0], number_days_forecasts=number_forecasts_in_days, use_NN=use_NN)
+    exp.visualize_area(number_days_forecasts=number_forecasts_in_days, use_NN=use_NN,
+                       display_forecast=display_forecast)
 
 
 def run_experiments_and_visualize_noise(number_forecasts=30):
@@ -465,8 +482,9 @@ def run_experiments_and_plot(
             list_dates_when_new_files,
             results_grids,
         ) = all_results
-        path_export = os.path.join("ablation_study/export_all_results_validation_set/",
-                                   name_config_yaml_file + "_export_")
+        path_export = os.path.join(
+            "ablation_study/export_all_results_validation_set/", name_config_yaml_file + "_export_"
+        )
         print(f"exporting all the objects to: {path_export}")
         for j, obj in enumerate(
                 [results, results_per_h, merged, list_dates_when_new_files, results_grids]
@@ -583,6 +601,7 @@ def run_experiments_and_plot(
 if __name__ == "__main__":
     print("arguments: ", sys.argv)
     parser = argparse.ArgumentParser(description="Process the arguments.")
+    # Run ray tune
     if not {"-R", "--run-grid"}.isdisjoint(sys.argv):
         file_log = "ablation_study/results_grids/logs_best_models.log"
 
@@ -627,6 +646,7 @@ if __name__ == "__main__":
                 )
             else:
                 ray.shutdown()
+    # Run the train method used by ray tune (mainly for debugging purposes)
     elif not {"-D", "--debug"}.isdisjoint(sys.argv):
         parser.add_argument("-D", "--debug", action="store_true", help="run the grid.")
         parser.add_argument("--num-samples", type=int)
@@ -645,24 +665,21 @@ if __name__ == "__main__":
             bayes=True,
             random_search_space=args.random_search_space,
         )
+    # Visualize one forecast
     elif not {"-V", "--visualize"}.isdisjoint(sys.argv):
         run_experiments_and_visualize_area(1)
+    # Visualize the noise from one experiment
     elif not {"-N", "--noise"}.isdisjoint(sys.argv):
         run_experiments_and_visualize_noise(number_forecasts=20)
+    # Run experiments and collect the tiles. Used to create datasets for the NN
     elif not {"-T", "--collect-tiles"}.isdisjoint(sys.argv):
         parser.add_argument("-T", "--collect-tiles", action="store_true", help="collect tiles")
         parser.add_argument("-f", type=str, help="file name")
-        parser.add_argument("-folder-destination", type=str)
         parser.add_argument("--config-file", type=str, help="file name")
-        parser.add_argument(
-            "--config-folder", type=str, help="folder where the yaml file is located"
-        )
-        parser.add_argument(
-            "--problem-folder",
-            type=str,
-            help="folder where the problem file is located",
-        )
+        parser.add_argument("--config-folder", type=str, help="folder where the yaml file is located")
+        parser.add_argument("--problem-folder", type=str, help="folder where the problem file is located", )
         parser.add_argument("--filename-destination", type=str, help="filename destination")
+        parser.add_argument("--folder-destination", type=str)
         parser.add_argument("--max-problems", type=int, default=-1)
         args = parser.parse_args()
         run_experiments_and_collect_tiles(
@@ -674,26 +691,33 @@ if __name__ == "__main__":
             number_max_problems=args.max_problems,
             filename_output_X_y=args.filename_destination,
         )
+    # Visualize results including the GP and the NN
     elif not {"--visualize-results-NN"}.isdisjoint(sys.argv):
         parser.add_argument(
             "--visualize-results-NN",
             action="store_true",
             help="visualize results of the NN.",
         )
+        parser.add_argument("--problems-file", type=str, help="file name")
         parser.add_argument("--config-file", type=str, help="file name")
-        parser.add_argument(
-            "--config-folder", type=str, help="folder where the yaml file is located"
-        )
+        parser.add_argument("--config-folder", type=str, help="folder where the yaml config file is located")
+        parser.add_argument("--problems-folder", type=str, help="folder where the yaml problems file is located")
         parser.add_argument("--number-days", type=int, default=5)
+        parser.add_argument("--display-forecast", default=True, action=argparse.BooleanOptionalAction)
         args = parser.parse_args()
         run_experiments_and_visualize_area(
             number_forecasts_in_days=args.number_days,
             yaml_file_config=args.config_file,
             folder_config_file=args.config_folder,
+            file_problems=args.problems_file,
+            folder_problems=args.problems_folder,
             use_NN=True,
+            display_forecast=args.display_forecast
         )
+    # Run experiments with only the GP
     elif not {"-VR", "--vanilla-run"}.isdisjoint(sys.argv):
         run_experiments_on_kernel()
+    # Run experiments and visualize 3d plots
     elif not {"-3d"}.isdisjoint(sys.argv):
         parser.add_argument("-3d", action="store_true")
         parser.add_argument("--filename-problem", type=str)
@@ -708,5 +732,6 @@ if __name__ == "__main__":
             folder_problems="ablation_study/problems/",
             folder_config_file="ablation_study/configs_GP/",
         )
+    # Run some experiments and plot the results
     else:
         run_experiments_and_plot(max_number_problems_to_run=2)

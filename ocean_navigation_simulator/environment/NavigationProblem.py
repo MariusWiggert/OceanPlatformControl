@@ -12,6 +12,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils import units
 
+
 # TODO: add minimal docstrings and comments for others to build on it!
 
 
@@ -24,7 +25,7 @@ class NavigationProblem(Problem):
     platform_dict: dict = None
     x_range: List = None
     y_range: List = None
-    extra_info: dict = None
+    extra_info: dict = dataclasses.field(default_factory=dict)
 
     def passed_seconds(self, state: PlatformState) -> float:
         return (state.date_time - self.start_state.date_time).total_seconds()
@@ -43,10 +44,10 @@ class NavigationProblem(Problem):
         return 0
 
     def plot(
-        self,
-        ax: matplotlib.axes.Axes,
-        problem_start_color: Optional[str] = "red",
-        problem_target_color: Optional[str] = "green",
+            self,
+            ax: matplotlib.axes.Axes,
+            problem_start_color: Optional[str] = "red",
+            problem_target_color: Optional[str] = "green",
     ) -> matplotlib.axes.Axes:
         ax.scatter(
             self.start_state.lon.deg,
@@ -98,32 +99,32 @@ class NavigationProblem(Problem):
 
     def to_dict(self) -> dict:
         return (
-            {
-                "t_0": self.start_state.date_time.isoformat(),
-                "x_0_lon": self.start_state.lon.deg,
-                "x_0_lat": self.start_state.lat.deg,
-                "x_T_lon": self.end_region.lon.deg,
-                "x_T_lat": self.end_region.lat.deg,
-                "target_radius": self.target_radius,
-                "timeout_in_h": self.timeout.total_seconds() / 3600,
-            }
-            | (
                 {
-                    "x_range_l": self.x_range[0].deg,
-                    "x_range_h": self.x_range[1].deg,
+                    "t_0": self.start_state.date_time.isoformat(),
+                    "x_0_lon": self.start_state.lon.deg,
+                    "x_0_lat": self.start_state.lat.deg,
+                    "x_T_lon": self.end_region.lon.deg,
+                    "x_T_lat": self.end_region.lat.deg,
+                    "target_radius": self.target_radius,
+                    "timeout_in_h": self.timeout.total_seconds() / 3600,
                 }
-                if self.x_range is not None
-                else {}
-            )
-            | (
-                {
-                    "x_range_l": self.y_range[0].deg,
-                    "x_range_h": self.y_range[1].deg,
-                }
-                if self.y_range is not None
-                else {}
-            )
-            | (self.extra_info if self.extra_info is not None else {})
+                | (
+                    {
+                        "x_range_l": self.x_range[0].deg,
+                        "x_range_h": self.x_range[1].deg,
+                    }
+                    if self.x_range is not None
+                    else {}
+                )
+                | (
+                    {
+                        "x_range_l": self.y_range[0].deg,
+                        "x_range_h": self.y_range[1].deg,
+                    }
+                    if self.y_range is not None
+                    else {}
+                )
+                | (self.extra_info if self.extra_info is not None else {})
         )
 
     def __repr__(self):

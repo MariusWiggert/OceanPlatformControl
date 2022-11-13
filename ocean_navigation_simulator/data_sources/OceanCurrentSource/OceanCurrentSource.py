@@ -30,6 +30,7 @@ from ocean_navigation_simulator.utils.units import (
     get_posix_time_from_np64,
 )
 
+
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
 # The fill with 0 could also be done in the HJ Planner, then we don't need to save the land grid anywhere.
 # => Land checking speed test with the mask in the data vs. with polygon checking
@@ -66,16 +67,17 @@ class OceanCurrentSource(DataSource):
     # Plotting Functions for OceanCurrents specifically
     @staticmethod
     def plot_data_from_xarray(
-        time_idx: int,
-        xarray: xr,
-        vmin: Optional[float] = 0,
-        vmax: Optional[float] = None,
-        alpha: Optional[float] = 0.5,
-        plot_type: Optional[AnyStr] = "quiver",
-        colorbar: Optional[bool] = True,
-        ax: Optional[matplotlib.pyplot.axes] = None,
-        fill_nan: Optional[bool] = True,
-        return_cbar: Optional[bool] = False,
+            time_idx: int,
+            xarray: xr,
+            vmin: Optional[float] = 0,
+            vmax: Optional[float] = None,
+            alpha: Optional[float] = 0.5,
+            plot_type: Optional[AnyStr] = "quiver",
+            colorbar: Optional[bool] = True,
+            ax: Optional[matplotlib.pyplot.axes] = None,
+            fill_nan: Optional[bool] = True,
+            return_cbar: Optional[bool] = False,
+            set_title: Optional[bool] = True
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
@@ -102,13 +104,14 @@ class OceanCurrentSource(DataSource):
             xarray = xarray.isel(time=time_idx)
         # calculate magnitude if not in there yet
         if "magnitude" not in xarray.keys():
-            xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
+            xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
         time = get_datetime_from_np64(xarray["time"].data)
 
         # Step 2: Create ax object
         if ax is None:
             ax = plt.axes()
-        ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC"))
+        if set_title:
+            ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC"))
 
         # underly with current magnitude
         if vmax is None:
@@ -157,11 +160,11 @@ class OceanCurrentSource(DataSource):
         """
         if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
             raise ValueError(
-                f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}'
+                f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0, -1]]}'
             )
         if not self.grid_dict["y_grid"].min() < point.lat.deg < self.grid_dict["y_grid"].max():
             raise ValueError(
-                f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}'
+                f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0, -1]]}'
             )
 
         x_idx = (np.abs(self.grid_dict["x_grid"] - point.lon.deg)).argmin()
@@ -180,11 +183,11 @@ class OceanCurrentSource(DataSource):
         """
         if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
             raise ValueError(
-                f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}'
+                f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0, -1]]}'
             )
         if not self.grid_dict["y_grid"].min() < point.lat.deg < self.grid_dict["y_grid"].max():
             raise ValueError(
-                f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}'
+                f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0, -1]]}'
             )
 
         lon1, lat1 = np.meshgrid(
@@ -220,12 +223,12 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         self.dask_array = None
 
     def get_data_over_area(
-        self,
-        x_interval: List[float],
-        y_interval: List[float],
-        t_interval: List[datetime.datetime],
-        spatial_resolution: Optional[float] = None,
-        temporal_resolution: Optional[float] = None,
+            self,
+            x_interval: List[float],
+            y_interval: List[float],
+            t_interval: List[datetime.datetime],
+            spatial_resolution: Optional[float] = None,
+            temporal_resolution: Optional[float] = None,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -283,13 +286,13 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         self.load_ocean_current_from_idx()
 
     def get_data_over_area(
-        self,
-        x_interval: List[float],
-        y_interval: List[float],
-        t_interval: List[Union[datetime.datetime, int]],
-        spatial_resolution: Optional[float] = None,
-        temporal_resolution: Optional[float] = None,
-        most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
+            self,
+            x_interval: List[float],
+            y_interval: List[float],
+            t_interval: List[Union[datetime.datetime, int]],
+            spatial_resolution: Optional[float] = None,
+            temporal_resolution: Optional[float] = None,
+            most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
     ) -> xr:
         # format to datetime object
         if not isinstance(t_interval[0], datetime.datetime):
@@ -326,8 +329,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """
         # check if rec_file_idx is already the last one and time is larger than its start time
         if (
-            self.rec_file_idx + 1 == len(self.files_dicts)
-            and self.files_dicts[self.rec_file_idx]["t_range"][0] <= time
+                self.rec_file_idx + 1 == len(self.files_dicts)
+                and self.files_dicts[self.rec_file_idx]["t_range"][0] <= time
         ):
             if time > self.files_dicts[self.rec_file_idx]["t_range"][1]:
                 raise ValueError("No current data in the last file for requested time.")
@@ -335,9 +338,9 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                 return self.files_dicts[self.rec_file_idx]["t_range"][0]
         # otherwise check if a more recent one is available or we need to use an older one
         elif not (
-            self.files_dicts[self.rec_file_idx]["t_range"][0]
-            <= time
-            < self.files_dicts[self.rec_file_idx + 1]["t_range"][0]
+                self.files_dicts[self.rec_file_idx]["t_range"][0]
+                <= time
+                < self.files_dicts[self.rec_file_idx + 1]["t_range"][0]
         ):
             # Filter on the list to get all files where t_0 is contained.
             dics_containing_t_0 = list(
@@ -422,14 +425,17 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 
 # Helper functions across the OceanCurrentSource objects
-def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
+def get_file_dicts(folders: Union[AnyStr, List[str]], currents="normal") -> List[dict]:
     """Creates an list of dicts ordered according to time available, one for each nc file available in folder.
     The dicts for each file contains:
     {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
     """
     # get a list of files from the folder
+    if type(folders) == str:
+        folders = [folders]
     files_list = [
         folder + f
+        for folder in folders
         for f in os.listdir(folder)
         if (os.path.isfile(os.path.join(folder, f)) and f != ".DS_Store")
     ]

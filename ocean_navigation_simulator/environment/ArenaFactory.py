@@ -16,6 +16,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import get_c3, timing
 
+
 # TODO: change to use loggers
 
 
@@ -41,30 +42,31 @@ class ArenaFactory:
 
     @staticmethod
     def create(
-        scenario_name: str = None,
-        scenario_file: str = None,
-        scenario_config: Optional[dict] = {},
-        problem: Optional[NavigationProblem] = None,
-        points: Optional[List[SpatialPoint]] = None,
-        x_interval: Optional[List[units.Distance]] = None,
-        y_interval: Optional[List[units.Distance]] = None,
-        t_interval: Optional[List[datetime.datetime]] = None,
-        verbose: Optional[int] = 10,
-        c3: Optional = None,
+            scenario_name: str = None,
+            scenario_file: str = None,
+            folder_scenario: str = "config/arena/",
+            scenario_config: Optional[dict] = {},
+            problem: Optional[NavigationProblem] = None,
+            points: Optional[List[SpatialPoint]] = None,
+            x_interval: Optional[List[units.Distance]] = None,
+            y_interval: Optional[List[units.Distance]] = None,
+            t_interval: Optional[List[datetime.datetime]] = None,
+            verbose: Optional[int] = 10,
+            c3: Optional = None,
     ) -> Arena:
         """
         If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files.
         """
         with timing(
-            f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{:.1f}}s)",
-            verbose,
+                f"ArenaFactory: Creating Arena for {scenario_name or scenario_file} ({{:.1f}}s)",
+                verbose,
         ):
             # Step 1: Load Configuration from file
             if scenario_file is not None:
                 with open(scenario_file) as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
             elif scenario_name is not None:
-                with open(f"config/arena/{scenario_name}.yaml") as f:
+                with open(os.path.join(folder_scenario, f"{scenario_name}.yaml")) as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
             else:
                 config = {}
@@ -100,9 +102,9 @@ class ArenaFactory:
 
             # Step 5: Download Hindcast
             if (
-                t_interval is not None
-                and config["ocean_dict"]["hindcast"] is not None
-                and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
+                    t_interval is not None
+                    and config["ocean_dict"]["hindcast"] is not None
+                    and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
                 with timing("ArenaFactory: Download Hindcast Files ({:.1f}s)", verbose):
                     ArenaFactory.download_files(
@@ -116,9 +118,9 @@ class ArenaFactory:
 
             # Step 6: Download Forecast
             if (
-                t_interval is not None
-                and config["ocean_dict"]["forecast"] is not None
-                and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
+                    t_interval is not None
+                    and config["ocean_dict"]["forecast"] is not None
+                    and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
                 with timing("ArenaFactory: Download Forecast Files ({:.1f}s)", verbose):
                     ArenaFactory.download_files(
@@ -132,13 +134,13 @@ class ArenaFactory:
 
             # Step 7: Create Arena
             return Arena(
-                casadi_cache_dict=config["casadi_cache_dict"],
+                casadi_cache_dict=config.get("casadi_cache_dict", {}),
                 platform_dict=config["platform_dict"],
                 ocean_dict=config["ocean_dict"],
                 use_geographic_coordinate_system=config["use_geographic_coordinate_system"],
                 solar_dict=config["solar_dict"],
                 seaweed_dict=config["seaweed_dict"],
-                spatial_boundary=config["spatial_boundary"],
+                spatial_boundary=config.get("spatial_boundary", {}),
             )
 
     @staticmethod
@@ -159,15 +161,15 @@ class ArenaFactory:
     # TODO: automatically select best region depending on given points
     @staticmethod
     def download_required_files(
-        archive_source: str,
-        archive_type: str,
-        download_folder: str,
-        t_interval: List[datetime.datetime],
-        region: str = "GOM",
-        points: Optional[List[SpatialPoint]] = None,
-        throw_exceptions: bool = False,
-        verbose: Optional[int] = 10,
-        c3: Optional = None,
+            archive_source: str,
+            archive_type: str,
+            download_folder: str,
+            t_interval: List[datetime.datetime],
+            region: str = "GOM",
+            points: Optional[List[SpatialPoint]] = None,
+            throw_exceptions: bool = False,
+            verbose: Optional[int] = 10,
+            c3: Optional = None,
     ) -> int:
         """
         helper function for thread-safe download of available current files from c3
@@ -249,12 +251,12 @@ class ArenaFactory:
 
     @staticmethod
     def get_filelist(
-        archive_source: str,
-        archive_type: str,
-        region: Optional[str] = "GOM",
-        t_interval: List[datetime.datetime] = None,
-        verbose: Optional[int] = 10,
-        c3: Optional = None,
+            archive_source: str,
+            archive_type: str,
+            region: Optional[str] = "GOM",
+            t_interval: List[datetime.datetime] = None,
+            verbose: Optional[int] = 10,
+            c3: Optional = None,
     ):
         """
         helper function to get a list of available files from c3
@@ -321,7 +323,7 @@ class ArenaFactory:
 
     @staticmethod
     def _download_filelist(
-        files, download_folder, throw_exceptions, verbose: Optional[int] = 10, c3: Optional = None
+            files, download_folder, throw_exceptions, verbose: Optional[int] = 10, c3: Optional = None
     ):
         """thread-safe download with corruption and file size check"""
         if c3 is None:
@@ -340,8 +342,8 @@ class ArenaFactory:
                 url = file.file.url
                 filesize = file.file.contentLength
                 if (
-                    not os.path.exists(download_folder + filename)
-                    or os.path.getsize(download_folder + filename) != filesize
+                        not os.path.exists(download_folder + filename)
+                        or os.path.getsize(download_folder + filename) != filesize
                 ):
                     c3.Client.copyFilesToLocalClient(url, temp_folder)
 
@@ -403,14 +405,14 @@ class ArenaFactory:
                 spacial_coverage = file.subsetOptions.geospatialCoverage
                 for point in points:
                     lon_covered = (
-                        spacial_coverage.start.longitude
-                        <= point.lon.deg
-                        <= spacial_coverage.end.longitude
+                            spacial_coverage.start.longitude
+                            <= point.lon.deg
+                            <= spacial_coverage.end.longitude
                     )
                     lat_covered = (
-                        spacial_coverage.start.latitude
-                        <= point.lat.deg
-                        <= spacial_coverage.end.latitude
+                            spacial_coverage.start.latitude
+                            <= point.lat.deg
+                            <= spacial_coverage.end.latitude
                     )
 
                     if not lon_covered or not lat_covered:

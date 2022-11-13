@@ -63,6 +63,52 @@ class Observer:
         )
 
     @staticmethod
+    def get_grid_coordinates_around_platform(platform_position: SpatioTemporalPoint,
+                                             radius_space: float,
+                                             duration_tileset_in_seconds: Optional[int] = 43200,
+                                             spatial_resolution: Optional[float] = None,
+                                             temporal_resolution: Optional[float] = None,
+                                             margin_space: Optional[float] = 1 / 20):
+        if spatial_resolution is None:
+            spatial_resolution = 1 / 12
+        if temporal_resolution is None:
+            temporal_resolution = 3600
+
+        # Compute the grid centered around the platform and interpolate the forecast based on that
+
+        l1_lon = np.arange(
+            platform_position.lon.deg,
+            platform_position.lon.deg - radius_space - margin_space,
+            -spatial_resolution,
+        )
+        l2_lon = np.arange(
+            platform_position.lon.deg,
+            platform_position.lon.deg + radius_space + margin_space,
+            spatial_resolution,
+        )
+        l1_lat = np.arange(
+            platform_position.lat.deg,
+            platform_position.lat.deg - radius_space - margin_space,
+            -spatial_resolution,
+        )
+        l2_lat = np.arange(
+            platform_position.lat.deg,
+            platform_position.lat.deg + radius_space + margin_space,
+            spatial_resolution,
+        )
+        lon, lat = np.concatenate((l1_lon[::-1], l2_lon[1:])), np.concatenate(
+            (l1_lat[::-1], l2_lat[1:])
+        )
+        time = np.array(
+            [
+                platform_position.date_time + datetime.timedelta(seconds=s)
+                for s in range(0, duration_tileset_in_seconds, temporal_resolution)
+            ]
+        )
+        time_in_np_format = np.array([np.datetime64(t) for t in time])
+        return lon, lat, time, time_in_np_format
+
+    @staticmethod
     def _convert_prediction_model_output(
             data: np.ndarray, reference_xr: xr, names_variables: Tuple[str, str]
     ) -> xr:
@@ -105,6 +151,8 @@ class Observer:
         )
 
     def evaluate_neural_net(self, data):
+        if self.NN is None:
+            raise ValueError("The Neural Network is not specified correctly in the yaml file.")
         data_array = np.expand_dims(data.to_array().to_numpy(), 0)
         torch_data = torch.tensor(data_array, dtype=torch.float)
         # Only take the center of the tile to evaluate on the NN
@@ -116,22 +164,37 @@ class Observer:
             data.lon[margin_lon: margin_lon + lon],
             data.lat[margin_lat: margin_lat + lat],
         )
-        torch_data = torch_data[:, :, :t, margin_lon: margin_lon + lon, margin_lat: margin_lat + lat]
+        torch_data = torch_data[
+                     :, :, :t, margin_lon: margin_lon + lon, margin_lat: margin_lat + lat
+                     ]
         output = self.NN(torch_data)[0].detach().numpy()
-        xr_output = xr.Dataset(
-            data_vars=dict(
+        if self.model_error:
+            dict_output = dict(
+                error_u=(["time", "lon", "lat"], output[0]),
+                error_v=(["time", "lon", "lat"], output[1]),
+            )
+            dict_assign = dict(
+                water_u=lambda x: x.initial_forecast_u - x.error_u,
+                water_v=lambda x: x.initial_forecast_v - x.error_v
+            )
+        else:
+            dict_output = dict(
                 water_u=(["time", "lon", "lat"], output[0]),
                 water_v=(["time", "lon", "lat"], output[1]),
-            ),
+            )
+            dict_assign = dict(
+                error_u=lambda x: x.initial_forecast_u - x.water_u,
+                error_v=lambda x: x.initial_forecast_v - x.water_v
+            )
+        xr_output = xr.Dataset(
+            data_vars=dict_output,
             coords=dict(time=t_xr, lat=lat_xr, lon=lon_xr),
         ).transpose("time", "lat", "lon")
+
+        xr_output = xr.merge([xr_output, data[["initial_forecast_u", "initial_forecast_v"]]], compat='override')
+        xr_output.assign(**dict_assign)
+
         return xr_output
-        # 1) Check the input size
-        # if len(data["time"]) > n_steps:
-        #     data = data.isel(time=slice(1, n_steps + 1))
-        # 2) Pad with 0's
-        # data_array = remove_borders_GP_predictions_lon_lat(data_array, radius_platform)
-        # 3) evaluate NN
 
     def _get_predictions_from_GP(self, forecasts) -> xr:
         # Get all the points that we will query to the model as a 2D array. Coord field act like np.meshgrid but is
@@ -199,60 +262,40 @@ class Observer:
             spatial_resolution: Optional[float] = None,
             temporal_resolution: Optional[float] = None,
     ) -> xarray:
-        if spatial_resolution is None:
-            spatial_resolution = 1 / 12
-        if temporal_resolution is None:
-            temporal_resolution = 3600
 
-        # Compute the grid centered around the platform and interpolate the forecast based on that
-        m = 1 / 20
+        lon, lat, time, time_in_np_format = Observer.get_grid_coordinates_around_platform(
+            platform_position=platform_position,
+            radius_space=radius_space,
+            duration_tileset_in_seconds=lags_in_second,
+            spatial_resolution=spatial_resolution,
+            temporal_resolution=temporal_resolution)
+        # margins
+        margin_space = np.array([-0.2, 0.2])
+        margin_time = np.array([-datetime.timedelta(hours=1), datetime.timedelta(hours=1)])
 
-        l1_lon = np.arange(
-            platform_position.lon.deg,
-            platform_position.lon.deg - radius_space - m,
-            -spatial_resolution,
-        )
-        l2_lon = np.arange(
-            platform_position.lon.deg,
-            platform_position.lon.deg + radius_space + m,
-            spatial_resolution,
-        )
-        l1_lat = np.arange(
-            platform_position.lat.deg,
-            platform_position.lat.deg - radius_space - m,
-            -spatial_resolution,
-        )
-        l2_lat = np.arange(
-            platform_position.lat.deg,
-            platform_position.lat.deg + radius_space + m,
-            spatial_resolution,
-        )
-        # margin
-        m = np.array([-0.2, 0.2])
-        lon, lat = np.concatenate((l1_lon[::-1], l2_lon[1:])), np.concatenate(
-            (l1_lat[::-1], l2_lat[1:])
-        )
-        time = np.array([platform_position.date_time + datetime.timedelta(seconds=s)
-                         for s in range(0, lags_in_second, temporal_resolution)])
-        m_t = np.array([-datetime.timedelta(hours=1), datetime.timedelta(hours=1)])
-        time_in_np_format = np.array([np.datetime64(t) for t in time])
         model_coordinates = xr.Dataset(coords=dict(lon=lon, lat=lat, time=time_in_np_format))
         forecasts = self.forecast_data_source.get_data_over_area(
-            lon[[0, -1]] + m,
-            lat[[0, -1]] + m,
-            time[[0, -1]] + m_t,
+            lon[[0, -1]] + margin_space,
+            lat[[0, -1]] + margin_space,
+            time[[0, -1]] + margin_time,
             spatial_resolution,
             temporal_resolution,
         )
         forecasts_around_platform = forecasts.interp_like(model_coordinates)
-        
-        improved_forecasts_around_platform = self._get_predictions_from_GP(forecasts_around_platform)
-        assert ((improved_forecasts_around_platform.lon == forecasts_around_platform.lon).all()
+
+        improved_forecasts_around_platform = self._get_predictions_from_GP(
+            forecasts_around_platform
+        )
+        assert (
+                (improved_forecasts_around_platform.lon == forecasts_around_platform.lon).all()
                 and (improved_forecasts_around_platform.lat == forecasts_around_platform.lat).all()
-                and (improved_forecasts_around_platform.time == forecasts_around_platform.time).all())
+                and (improved_forecasts_around_platform.time == forecasts_around_platform.time).all()
+        )
         return improved_forecasts_around_platform
 
-    def get_data_at_point(self, lon: float, lat: float, time: datetime.datetime) -> [np.ndarray, np.ndarray]:
+    def get_data_at_point(
+            self, lon: float, lat: float, time: datetime.datetime
+    ) -> [np.ndarray, np.ndarray]:
         coords = np.array([[lon, lat, time]])
 
         prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
@@ -274,15 +317,23 @@ class Observer:
         """
         if self.forecast_data_source is None:
             self.forecast_data_source = arena_observation.forecast_data_source
-            self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding["source"]
+            self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding[
+                "source"
+            ]
 
         observation_location = arena_observation.platform_state.to_spatio_temporal_point()
         measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
-            observation_location).subtract(arena_observation.true_current_at_state)
+            observation_location
+        ).subtract(arena_observation.true_current_at_state)
 
         # If the observer reads data from a new file --> Reset the observations
-        if self.last_forecast_file != arena_observation.forecast_data_source.DataArray.encoding["source"]:
-            self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding["source"]
+        if (
+                self.last_forecast_file
+                != arena_observation.forecast_data_source.DataArray.encoding["source"]
+        ):
+            self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding[
+                "source"
+            ]
             self.reset()
 
         self.prediction_model.observe(observation_location, measured_current_error)

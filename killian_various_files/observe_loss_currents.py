@@ -7,9 +7,6 @@ from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider, Button
 
 from ocean_navigation_simulator.data_sources import DataSource
-from ocean_navigation_simulator.data_sources.OceanCurrentSource import (
-    OceanCurrentSource,
-)
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import (
     compute_conservation_mass_loss,
     compute_burgers_loss,
@@ -76,9 +73,9 @@ xr_loss = xr.DataArray(res, coords=xr_hindcast.coords).to_dataset(name="conserva
 
 # %%
 def visualize_initial_error(
-    xr_1,
-    xr_2,
-    radius_area: float = None,
+        xr_1,
+        xr_2,
+        radius_area: float = None,
 ):
     # fig, ax = plt.subplots(2, 2)
     # ax1, ax2, ax3, ax4 = ax[0, 0], ax[0, 1], ax[1, 0], ax[1, 1]
@@ -87,7 +84,7 @@ def visualize_initial_error(
     ax1, ax2 = axes[0], axes[1]
 
     global cbar, cbar_2
-    ax1, cbar = OceanCurrentSource.plot_data_from_xarray(0, xr_1, ax=ax1, return_cbar=True)
+    ax1, cbar = DataSource.plot_data_from_xarray(0, xr_1, ax=ax1, return_cbar=True)
     ax2, cbar_2 = DataSource.plot_data_from_xarray(0, xr_2, ax=ax2, return_cbar=True)
 
     def update_maps(lag, index_prediction, ax1, ax2):
@@ -106,7 +103,7 @@ def visualize_initial_error(
             ),
             fontsize=14,
         )
-        _, cbar = OceanCurrentSource.plot_data_from_xarray(
+        _, cbar = DataSource.plot_data_from_xarray(
             lag,
             xr_1.isel(time=slice(index_prediction, index_prediction + 24)),
             ax=ax1,
@@ -186,8 +183,8 @@ a1, a2, a3, a4, a5, a6, = (
     [10, 10],
 )
 pred = torch.moveaxis(torch.tensor([[[a1, a2, a3], [a4, a5, a6]]], dtype=torch.double), -1, 1)[
-    :, :, None
-]
+       :, :, None
+       ]
 print(pred.shape)
 compute_conservation_mass_loss(pred, get_all_cells=True)
 #

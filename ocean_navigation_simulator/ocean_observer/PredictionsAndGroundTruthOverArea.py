@@ -7,10 +7,8 @@ import xarray as xr
 from DateTime import DateTime
 from matplotlib import pyplot as plt, patches
 from matplotlib.widgets import Slider
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentSource.OceanCurrentSource import (
-    OceanCurrentSource,
-)
 
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import (
     get_metrics,
     check_nans,
@@ -39,9 +37,7 @@ class PredictionsAndGroundTruthOverArea:
         # interpolate ground_truth to same grid as the predictions
         self.ground_truth = ground_truth.interp_like(predictions_over_area, method="linear")
         self.initial_forecast = np.moveaxis(
-            predictions_over_area[["initial_forecast_u", "initial_forecast_v"]]
-            .to_array()
-            .to_numpy(),
+            predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].to_array().to_numpy(),
             0,
             -1,
         ).reshape(reshape_dims)
@@ -54,10 +50,10 @@ class PredictionsAndGroundTruthOverArea:
 
     def get_subforecast_centered(self, matrix, middle_left, middle_right, index_time, index_radius):
         return matrix[
-            : (index_time + 1),
-            (middle_left - index_radius) : (middle_right + 1 + index_radius),
-            (middle_left - index_radius) : (middle_right + 1 + index_radius),
-        ]
+               : (index_time + 1),
+               (middle_left - index_radius): (middle_right + 1 + index_radius),
+               (middle_left - index_radius): (middle_right + 1 + index_radius),
+               ]
 
     def get_subforecast_borders(self, matrix, middle_left, middle_right, idx_time, index_radius):
         borders = self.get_subforecast_centered(
@@ -80,11 +76,11 @@ class PredictionsAndGroundTruthOverArea:
         return (borders - inside)[outside_mask].reshape(-1, 1, 2)
 
     def compute_metrics(
-        self,
-        metrics: Union[Set[str], str, None] = None,
-        directions: list[str] = ["uv"],
-        per_hour: bool = False,
-        compute_for_all_radius_and_lag=False,
+            self,
+            metrics: Union[Set[str], str, None] = None,
+            directions: list[str] = ["uv"],
+            per_hour: bool = False,
+            compute_for_all_radius_and_lag=False,
     ) -> Dict[str, any]:
         """Compute and return the metrics provided or all if none is provided.
 
@@ -101,9 +97,9 @@ class PredictionsAndGroundTruthOverArea:
             for d in directions:
                 if not check_nans(self.ground_truth_area, self.improved_forecast, current=d):
                     if (
-                        metrics is None
-                        or (isinstance(metrics, set) and s in metrics)
-                        or s == metrics
+                            metrics is None
+                            or (isinstance(metrics, set) and s in metrics)
+                            or s == metrics
                     ):
                         res |= f(
                             self.ground_truth_area,
@@ -133,8 +129,8 @@ class PredictionsAndGroundTruthOverArea:
                             gt = np.moveaxis(self.ground_truth.to_array().to_numpy(), 0, -1)
                             imp_fc = np.moveaxis(
                                 self.predictions_over_area[["water_u", "water_v"]]
-                                .to_array()
-                                .to_numpy(),
+                                    .to_array()
+                                    .to_numpy(),
                                 0,
                                 -1,
                             )
@@ -142,8 +138,8 @@ class PredictionsAndGroundTruthOverArea:
                                 self.predictions_over_area[
                                     ["initial_forecast_u", "initial_forecast_v"]
                                 ]
-                                .to_array()
-                                .to_numpy(),
+                                    .to_array()
+                                    .to_numpy(),
                                 0,
                                 -1,
                             )
@@ -184,8 +180,8 @@ class PredictionsAndGroundTruthOverArea:
                                             )
                                         res[name_with_suffix][i, j] = f_res
                                     for (
-                                        name,
-                                        f_res,
+                                            name,
+                                            f_res,
                                     ) in dict_metric_name_res_per_elem.items():
                                         name_with_suffix = name + "_per_lag_and_radius"
                                         if name_with_suffix not in res:
@@ -196,49 +192,49 @@ class PredictionsAndGroundTruthOverArea:
         return res
 
     def visualize_initial_error(
-        self,
-        list_predictions: List[Tuple["xr", "xr"]],
-        spatial_res=None,
-        tuple_trajectory_history_new_files: Optional[Tuple[np.array, List[DateTime]]] = None,
-        radius_area: float = None,
-        gp_outputs: Optional[List["xr"]] = None,
-        NN_outputs: Optional[List[np.array]] = None,
+            self,
+            list_predictions: List[Tuple["xr", "xr"]],
+            gp_outputs: List["xr"],
+            tuple_trajectory_history_new_files: Optional[Tuple[np.array, List[DateTime]]] = None,
+            radius_area: float = None,
+            NN_outputs: Optional[List[np.array]] = None,
+            display_forecast: Optional[bool] = True
     ):
         print("visualize initial error")
         use_NN = not (NN_outputs is None or not len(NN_outputs))
         # init_fc = self.predictions_over_area[["initial_forecast_u", "initial_forecast_v"]].rename(
-        #     {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
-        # error = init_fc - self.ground_truth
-        if gp_outputs is None:
-            errors_predicted = [
-                pred[0][["error_u", "error_v"]].rename({"error_u": "water_u", "error_v": "water_v"})
-                for pred in list_predictions
-            ]
-        else:
-            errors_predicted = [
-                pred[["error_u", "error_v"]].rename({"error_u": "water_u", "error_v": "water_v"})
-                for pred in gp_outputs
-            ]
-            std_output = [
-                pred[["std_error_u", "std_error_v"]].rename(
-                    {"std_error_u": "water_u", "std_error_v": "water_v"}
-                )
-                for pred in gp_outputs
-            ]
+
+        errors_GP_predicted = [
+            pred[["error_u", "error_v"]].rename({"error_u": "water_u", "error_v": "water_v"})
+            for pred in gp_outputs
+        ]
+        std_output = [
+            pred[["std_error_u", "std_error_v"]].rename(
+                {"std_error_u": "water_u", "std_error_v": "water_v"}
+            )
+            for pred in gp_outputs
+        ]
 
         initial_forecasts = [
-            pred[0][["initial_forecast_u", "initial_forecast_v"]]
-            .rename({"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"})
-            .assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
+            pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+                {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}).assign(
+                magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
             for pred in list_predictions
         ]
+
+        initial_hindcasts = [
+            pred[1][["water_u", "water_v"]].assign(
+                magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+            for pred in list_predictions
+        ]
+
         real_errors = [
             (
-                pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
-                    {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}
-                )
-                - pred[1]
-            ).assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
+                    pred[0][["initial_forecast_u", "initial_forecast_v"]].rename(
+                        {"initial_forecast_u": "water_u", "initial_forecast_v": "water_v"}
+                    )
+                    - pred[1]
+            ).assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
             for pred in list_predictions
         ]
 
@@ -249,30 +245,22 @@ class PredictionsAndGroundTruthOverArea:
             0, real_errors[0], ax=ax1, return_cbar=True
         )
         ax2 = OceanCurrentSource.plot_data_from_xarray(
-            0, initial_forecasts[0], ax=ax2, colorbar=False
+            0, (initial_forecasts if display_forecast else initial_hindcasts)[0], ax=ax2, colorbar=False
         )
         ax3 = OceanCurrentSource.plot_data_from_xarray(
-            0, errors_predicted[0], ax=ax3, return_cbar=False, colorbar=False
+            0, errors_GP_predicted[0], ax=ax3, return_cbar=False, colorbar=False
         )
 
-        if not use_NN:
-            ax4 = OceanCurrentSource.plot_data_from_xarray(
-                0,
-                (std_output[0] if gp_outputs is not None else errors_predicted[0]),
-                ax=ax4,
-                return_cbar=False,
-            )
-        else:
-            ls_NN_xr = [
-                output.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
-                for i, output in enumerate(NN_outputs)
-            ]
-            ax4 = OceanCurrentSource.plot_data_from_xarray(
-                0, ls_NN_xr[0], ax=ax4, colorbar=False, set_title=False
-            )
+        list_for_ax4 = [
+            output.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+            for output in NN_outputs
+        ] if use_NN else std_output
+        ax4 = OceanCurrentSource.plot_data_from_xarray(
+            0, list_for_ax4[0],
+            ax=ax4,
+            colorbar=True,  # False,
 
-        list_for_ax4 = (
-            ls_NN_xr if use_NN else (std_output if gp_outputs is not None else errors_predicted)
+            set_title=False
         )
 
         # x_lim, y_lim = ax1.get_xlim(), ax1.get_ylim()
@@ -316,10 +304,20 @@ class PredictionsAndGroundTruthOverArea:
             )
             OceanCurrentSource.plot_data_from_xarray(
                 lag,
-                errors_predicted[index_prediction],
+                errors_GP_predicted[index_prediction],
                 ax=ax3,
                 colorbar=False,
                 return_cbar=False,
+                vmin=vmin,
+                vmax=vmax,
+            )
+            OceanCurrentSource.plot_data_from_xarray(
+                lag,
+                list_for_ax4[index_prediction],
+                ax=ax4,
+                colorbar=False,
+                return_cbar=False,
+                set_title=False,
                 vmin=vmin,
                 vmax=vmax,
             )
@@ -349,26 +347,12 @@ class PredictionsAndGroundTruthOverArea:
                         break
                 if radius_area is not None:
                     x, y = latest_position[:2]
-                    error_small_window = errors_predicted[index_prediction].sel(
+                    error_small_window = errors_GP_predicted[index_prediction].sel(
                         lon=slice(x - radius_area / 2, x + radius_area),
                         lat=slice(y - radius_area / 2, y + radius_area),
                     )
                     # print("error:", error_small_window)
-                    if NN_outputs is None and gp_outputs is None:
-                        elem = error_small_window
-                        vmin, vmax = None, None
-                    else:
-                        elem = list_for_ax4[index_prediction]
-                    OceanCurrentSource.plot_data_from_xarray(
-                        lag,
-                        elem,
-                        ax=ax4,
-                        colorbar=False,
-                        return_cbar=False,
-                        set_title=False,
-                        vmin=vmin,
-                        vmax=vmax,
-                    )
+
                     for ax in [ax1, ax2, ax3, ax4]:
                         rect = patches.Rectangle(
                             (x - radius_area, y - radius_area),
@@ -394,10 +378,10 @@ class PredictionsAndGroundTruthOverArea:
                             ax.scatter(pt[0], pt[1], c=color)
 
             ax1.set_title("Error forecast vs hindcast [m/s]")
-            ax2.set_title("Forecast currents [m/s]")
+            ax2.set_title(("Forecast" if display_forecast else "Hindcast") + " currents [m/s]")
             ax3.set_title("Error currents predicted by the GP [m/s]")
             if use_NN:
-                ax4.set_title("Error predicted by the GP-3D-Unet [m/s]")
+                ax4.set_title("current predicted using the GP-3D-Unet [m/s]")
             else:
                 ax4.set_title("std of the error from the GP [m/s]")
 
@@ -446,7 +430,7 @@ class PredictionsAndGroundTruthOverArea:
             keyboardClick = plt.waitforbuttonpress()
 
     def visualize_improvement_forecasts(
-        self, state_trajectory: Optional[np.ndarray] = None, spatial_res=None
+            self, state_trajectory: Optional[np.ndarray] = None, spatial_res=None
     ) -> None:
         """Display 3 figures representing the initial forecast current map, the improved forecast current map and the
          ground truth current map
@@ -502,13 +486,13 @@ class PredictionsAndGroundTruthOverArea:
 
         # multiplied by -1 to get error + forecast = hindcast -> Better visually
         error_reformated = (
-            self.predictions_over_area[["error_u", "error_v"]].rename(
-                error_u="water_u", error_v="water_v"
-            )
-            * -1
+                self.predictions_over_area[["error_u", "error_v"]].rename(
+                    error_u="water_u", error_v="water_v"
+                )
+                * -1
         )
         magnitude = error_reformated.isel(time=0).assign(
-            magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5
+            magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5
         )["magnitude"]
         ax4 = OceanCurrentSource.plot_data_from_xarray(
             0,

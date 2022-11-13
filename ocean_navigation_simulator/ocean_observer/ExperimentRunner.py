@@ -11,7 +11,6 @@ import pandas as pd
 import statsmodels.api as sm
 import xarray
 import yaml
-
 # from fitter import Fitter
 from scipy.stats import norm
 
@@ -22,11 +21,11 @@ from ocean_navigation_simulator.controllers.NaiveController import (
 )
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
-from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import (
     PredictionsAndGroundTruthOverArea,
@@ -88,15 +87,15 @@ class ExperimentRunner:
     """Class to run the experiments using a config yaml file to set up the experiment and the environment and load the ."""
 
     def __init__(
-        self,
-        yaml_file_config: Union[str, Dict[str, any]],
-        filename_problems=None,
-        position: Optional[
-            Tuple[Tuple[float, float, datetime.datetime], Tuple[float, float]]
-        ] = None,
-        dict_field_yaml_to_update: Dict[str, any] = {},
-        folder_problems="scenarios/ocean_observer/",
-        folder_config_file="scenarios/ocean_observer/",
+            self,
+            yaml_file_config: Union[str, Dict[str, any]],
+            filename_problems=None,
+            position: Optional[
+                Tuple[Tuple[float, float, datetime.datetime], Tuple[float, float]]
+            ] = None,
+            dict_field_yaml_to_update: Dict[str, any] = {},
+            folder_problems: Optional[str] = "scenarios/ocean_observer/",
+            folder_config_file: Optional[str] = "scenarios/ocean_observer/",
     ):
         """Create the ExperimentRunner object using a yaml file referenced by yaml_file_config. Used to run problems and
         get results represented by metrics
@@ -155,8 +154,9 @@ class ExperimentRunner:
                     x_0.date_time = position[0][-1]
                     x_t.lon, x_t.lat = [Distance(deg=p) for p in position[1]]
                 problems.append(
-                    Problem(
-                        start_state=x_0, end_region=x_t, target_radius=target_point["radius_in_m"]
+                    NavigationProblem(
+                        start_state=x_0, end_region=x_t, target_radius=target_point["radius_in_m"],
+                        timeout=datetime.timedelta(days=5)
                     )
                 )
             self.problem_factory = NaiveProblemFactory(problems)
@@ -176,7 +176,7 @@ class ExperimentRunner:
             folder_scenario=self.variables.get("folder_scenario", None),
         )
         self.last_observation, self.last_prediction_ground_truth = None, None
-        self.last_file_used = None
+        self.last_file_id_used = None
         self.list_dates_when_new_files = []
 
     @staticmethod
@@ -200,10 +200,10 @@ class ExperimentRunner:
         ax.set_title(title)
 
     def visualize_all_noise(
-        self,
-        longitude_interval: Tuple[float, float],
-        latitude_interval: Tuple[float, float],
-        number_days_forecasts: int = 30,
+            self,
+            longitude_interval: Tuple[float, float],
+            latitude_interval: Tuple[float, float],
+            number_days_forecasts: int = 30,
     ) -> None:
         """
         Method used to visualize the general noise between the forecast and the hindcast
@@ -274,12 +274,12 @@ class ExperimentRunner:
                 np.array(
                     [
                         list_day.isel(time=t)
-                        .assign(
-                            magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5,
+                            .assign(
+                            magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5,
                             angle=lambda x: np.arctan2(x.water_v, x.water_u),
                         )
-                        .to_array()
-                        .to_numpy()
+                            .to_array()
+                            .to_numpy()
                         for list_day in list_error
                     ]
                 )
@@ -288,9 +288,9 @@ class ExperimentRunner:
                 np.array(
                     [
                         list_day.isel(time=t)
-                        .assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
-                        .to_array()
-                        .to_numpy()
+                            .assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+                            .to_array()
+                            .to_numpy()
                         for list_day in list_forecast
                     ]
                 )
@@ -432,12 +432,10 @@ class ExperimentRunner:
         print("Over.")
 
     def visualize_area(
-        self,
-        interval_lon: Tuple[float, float],
-        interval_lat: Tuple[float, float],
-        starting_time: datetime,
-        number_days_forecasts: int = 50,
-        use_NN: bool = False,
+            self,
+            number_days_forecasts: Optional[int] = 50,
+            use_NN: Optional[bool] = False,
+            display_forecast: Optional[bool] = True
     ) -> None:
         """
 
@@ -454,7 +452,7 @@ class ExperimentRunner:
 
         # Set up the problem
         problem = self.problem_factory.next_problem()
-        problem.start_state.date_time = starting_time[0] - datetime.timedelta(days=1)
+        # problem.start_state.date_time = starting_time - datetime.timedelta(days=1)
         controller = NaiveController(problem)
         self.last_observation = self.arena.reset(problem.start_state)
         self.observer.reset()
@@ -467,36 +465,26 @@ class ExperimentRunner:
         lags_in_sec = self.variables.get("number_steps_to_predict", 12) * 3600
         self.__step_simulation(controller, use_GP=True)
         for i in range(number_days_forecasts * 24):
-            print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state.date_time)
-            intervals_lon_lat_time = (
-                interval_lon,
-                interval_lat,
-                [
-                    self.arena.platform.state.date_time + datetime.timedelta(hours=1),
-                    self.arena.platform.state.date_time + datetime.timedelta(hours=25),
-                ],
-            )
-            intervals_lon_lat_time_with_margin = (
-                [interval_lon[0] - 1, interval_lon[1] + 1],
-                [interval_lat[0] - 1, interval_lat[1] + 1],
-                [
-                    self.arena.platform.state.date_time - datetime.timedelta(hours=1),
-                    self.arena.platform.state.date_time + datetime.timedelta(hours=25),
-                ],
-            )
+            # intervals_lon_lat_time_with_margin = (
+            #     [interval_lon[0] - 1, interval_lon[1] + 1],
+            #     [interval_lat[0] - 1, interval_lat[1] + 1],
+            #     [
+            #         self.arena.platform.state.date_time - datetime.timedelta(hours=1),
+            #         self.arena.platform.state.date_time + datetime.timedelta(hours=25),
+            #     ],
+            # )
 
-            file = self.last_file_used
             fc = self.__step_simulation(
                 controller,
                 use_GP=True,
-                dim_lon_lat=24 if use_NN else None,
-                lon_lat_time_intervals_to_get=intervals_lon_lat_time,
                 use_NN=use_NN,
             )
             if use_NN:
                 fc, fc_NN = fc
                 list_NN_output.append(fc_NN)
-            if file != self.last_file_used:
+            file = self.arena.ocean_field.forecast_data_source.rec_file_idx
+            if file != self.last_file_id_used:
+                self.last_file_id_used = file
                 list_datetime_when_new_forecast_files.append(self.arena.platform.state.date_time)
 
             list_gp_output.append(
@@ -504,14 +492,30 @@ class ExperimentRunner:
                     self.last_observation.platform_state, radius, lags_in_sec
                 )
             )
+            lon, lat, time, _ = Observer.get_grid_coordinates_around_platform(
+                platform_position=self.last_observation.platform_state.to_spatio_temporal_point(),
+                radius_space=radius,
+                duration_tileset_in_seconds=12 * 60 * 60,
+            )
+            margin_space = np.array([-1 / 12, 1 / 12])
+            margin_time = np.array([-datetime.timedelta(hours=1), datetime.timedelta(hours=1)])
+
             hc = self.arena.ocean_field.hindcast_data_source.get_data_over_area(
-                *intervals_lon_lat_time_with_margin,
+                lon[[0, -1]] + margin_space,
+                lat[[0, -1]] + margin_space,
+                time[[0, -1]] + margin_time,
                 temporal_resolution=self.variables.get("delta_between_predictions_in_sec", None),
             )
             hc = hc.assign_coords(depth=fc.depth.to_numpy().tolist())
-            obj = PredictionsAndGroundTruthOverArea(fc, hc)
-            list_forecast_hindcast.append((obj.predictions_over_area, obj.ground_truth))
-        obj.visualize_initial_error(
+            predictions_GP_and_GT = PredictionsAndGroundTruthOverArea(fc, hc)
+            predictions_NN_and_GT = PredictionsAndGroundTruthOverArea(fc_NN, hc)
+            list_forecast_hindcast.append(
+                (predictions_GP_and_GT.predictions_over_area, predictions_GP_and_GT.ground_truth))
+            r2_gp = predictions_GP_and_GT.compute_metrics(metrics="r2")["r2"]
+            r2_NN = predictions_NN_and_GT.compute_metrics(metrics="r2")["r2"]
+            print(i + 1, "/", number_days_forecasts * 24, self.arena.platform.state.date_time,
+                  f"r2 GP: {r2_gp}, r2_NN: {r2_NN}")
+        predictions_GP_and_GT.visualize_initial_error(
             list_forecast_hindcast,
             tuple_trajectory_history_new_files=(
                 self.arena.state_trajectory[:, :3],
@@ -523,13 +527,14 @@ class ExperimentRunner:
             ),
             gp_outputs=list_gp_output,
             NN_outputs=list_NN_output,
+            display_forecast=display_forecast
         )
 
     def run_all_problems(
-        self,
-        max_number_problems_to_run=math.inf,
-        compute_for_all_radius_and_lag=False,
-        create_plots=False,
+            self,
+            max_number_problems_to_run=math.inf,
+            compute_for_all_radius_and_lag=False,
+            create_plots=False,
     ) -> Tuple[List[Dict[str, any]], List[Dict[str, any]], Dict[str, any], Dict[str, list]]:
         """Run all the problems that were specified when then ExperimentRunner object was created consecutively and
         provide the metrics computed for each problem
@@ -605,10 +610,10 @@ class ExperimentRunner:
         return self.problem_factory.has_problems_remaining()
 
     def run_next_problem(
-        self,
-        compute_metrics_per_h=False,
-        get_inputs_and_outputs=False,
-        compute_for_all_radius_and_lag: Optional[bool] = False,
+            self,
+            compute_metrics_per_h=False,
+            get_inputs_and_outputs=False,
+            compute_for_all_radius_and_lag: Optional[bool] = False,
     ) -> Union[
         Dict[str, Any],
         Tuple[Dict[str, Any], Dict[str, Any]],
@@ -660,7 +665,7 @@ class ExperimentRunner:
         if get_inputs_and_outputs or compute_for_all_radius_and_lag:
             if "radius_area_around_platform" in self.variables:
                 dim_lon_lat = (
-                    self.variables["radius_area_around_platform"] * 2 * POINTS_PER_DEGREE + 1
+                        self.variables["radius_area_around_platform"] * 2 * POINTS_PER_DEGREE + 1
                 )
             else:
                 dim_lon_lat = 25
@@ -720,10 +725,10 @@ class ExperimentRunner:
                         [
                             timestamp,
                             (
-                                np.array(
-                                    self.last_prediction_ground_truth.initial_forecast**2
-                                ).sum(axis=-1)
-                                ** 0.5
+                                    np.array(
+                                        self.last_prediction_ground_truth.initial_forecast ** 2
+                                    ).sum(axis=-1)
+                                    ** 0.5
                             ).mean(),
                         ]
                     )
@@ -736,7 +741,7 @@ class ExperimentRunner:
                         metric_grid = dict()
                         for key in list(metric.keys()):
                             if key.endswith("_all_lags_and_radius") or key.endswith(
-                                "_per_lag_and_radius"
+                                    "_per_lag_and_radius"
                             ):
                                 metric_grid[key] = metric[key]
                                 del metric[key]
@@ -811,9 +816,9 @@ class ExperimentRunner:
                     return dict_metrics_to_return, dict_metrics_to_return_per_hour
 
     def __create_plots(
-        self,
-        last_metrics: Optional[np.ndarray] = None,
-        last_metrics_per_h: Optional[np.ndarray] = None,
+            self,
+            last_metrics: Optional[np.ndarray] = None,
+            last_metrics_per_h: Optional[np.ndarray] = None,
     ):
         """Create the different plots based on the yaml file to know which one to display
         Args:
@@ -837,10 +842,10 @@ class ExperimentRunner:
             self.last_prediction_ground_truth.plot_3d(variable)
 
     def __step_simulation(
-        self,
-        controller: Controller,
-        use_GP: bool = True,
-        use_NN: bool = False,
+            self,
+            controller: Controller,
+            use_GP: bool = True,
+            use_NN: bool = False,
     ) -> Union["xarray", None, Tuple["xarray", "xarray"]]:
         """Run one step of the simulation. Will return the predictions and ground truth as an xarray if we fit the
          model. We save the last observation.
@@ -885,7 +890,7 @@ class ExperimentRunner:
         return predictions
 
     def __get_lon_lat_time_intervals(
-        self, ground_truth: bool = False
+            self, ground_truth: bool = False
     ) -> Tuple[List[float], List[float], Union[List[float], List[datetime.datetime]]]:
         """Internal method to get the area centered around the platform
         Args:
