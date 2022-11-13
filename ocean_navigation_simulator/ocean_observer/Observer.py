@@ -63,12 +63,14 @@ class Observer:
         )
 
     @staticmethod
-    def get_grid_coordinates_around_platform(platform_position: SpatioTemporalPoint,
-                                             radius_space: float,
-                                             duration_tileset_in_seconds: Optional[int] = 43200,
-                                             spatial_resolution: Optional[float] = None,
-                                             temporal_resolution: Optional[float] = None,
-                                             margin_space: Optional[float] = 1 / 20):
+    def get_grid_coordinates_around_platform(
+        platform_position: SpatioTemporalPoint,
+        radius_space: float,
+        duration_tileset_in_seconds: Optional[int] = 43200,
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        margin_space: Optional[float] = 1 / 20,
+    ):
         if spatial_resolution is None:
             spatial_resolution = 1 / 12
         if temporal_resolution is None:
@@ -110,7 +112,7 @@ class Observer:
 
     @staticmethod
     def _convert_prediction_model_output(
-            data: np.ndarray, reference_xr: xr, names_variables: Tuple[str, str]
+        data: np.ndarray, reference_xr: xr, names_variables: Tuple[str, str]
     ) -> xr:
         """Helper function to build a dataset given data in a numpy format and a xarray object as a reference for the
         dimensions and a tuple containing the name of the two variables that we include in the dataset.
@@ -161,12 +163,12 @@ class Observer:
         margin_lat = (torch_data.shape[-1] - lat) // 2
         t_xr, lon_xr, lat_xr = (
             data.time[:t],
-            data.lon[margin_lon: margin_lon + lon],
-            data.lat[margin_lat: margin_lat + lat],
+            data.lon[margin_lon : margin_lon + lon],
+            data.lat[margin_lat : margin_lat + lat],
         )
         torch_data = torch_data[
-                     :, :, :t, margin_lon: margin_lon + lon, margin_lat: margin_lat + lat
-                     ]
+            :, :, :t, margin_lon : margin_lon + lon, margin_lat : margin_lat + lat
+        ]
         output = self.NN(torch_data)[0].detach().numpy()
         if self.model_error:
             dict_output = dict(
@@ -175,7 +177,7 @@ class Observer:
             )
             dict_assign = dict(
                 water_u=lambda x: x.initial_forecast_u - x.error_u,
-                water_v=lambda x: x.initial_forecast_v - x.error_v
+                water_v=lambda x: x.initial_forecast_v - x.error_v,
             )
         else:
             dict_output = dict(
@@ -184,14 +186,16 @@ class Observer:
             )
             dict_assign = dict(
                 error_u=lambda x: x.initial_forecast_u - x.water_u,
-                error_v=lambda x: x.initial_forecast_v - x.water_v
+                error_v=lambda x: x.initial_forecast_v - x.water_v,
             )
         xr_output = xr.Dataset(
             data_vars=dict_output,
             coords=dict(time=t_xr, lat=lat_xr, lon=lon_xr),
         ).transpose("time", "lat", "lon")
 
-        xr_output = xr.merge([xr_output, data[["initial_forecast_u", "initial_forecast_v"]]], compat='override')
+        xr_output = xr.merge(
+            [xr_output, data[["initial_forecast_u", "initial_forecast_v"]]], compat="override"
+        )
         xr_output.assign(**dict_assign)
 
         return xr_output
@@ -229,12 +233,12 @@ class Observer:
         return predictions_dataset
 
     def get_data_over_area(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[Union[datetime.datetime, int]],
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, int]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
     ) -> xarray:
         """Computes the xarray dataset that contains the prediction errors, the new forecasts (water_u & water_v), the
         old forecasts (renamed: initial_forecast_u & initial_forecast_v) and also std_error_u & std_error_v for the u
@@ -255,12 +259,12 @@ class Observer:
         return self._get_predictions_from_GP(forecasts)
 
     def get_data_around_platform(
-            self,
-            platform_position: SpatioTemporalPoint,
-            radius_space: float,
-            lags_in_second: Optional[int] = 43200,
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
+        self,
+        platform_position: SpatioTemporalPoint,
+        radius_space: float,
+        lags_in_second: Optional[int] = 43200,
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
     ) -> xarray:
 
         lon, lat, time, time_in_np_format = Observer.get_grid_coordinates_around_platform(
@@ -268,7 +272,8 @@ class Observer:
             radius_space=radius_space,
             duration_tileset_in_seconds=lags_in_second,
             spatial_resolution=spatial_resolution,
-            temporal_resolution=temporal_resolution)
+            temporal_resolution=temporal_resolution,
+        )
         # margins
         margin_space = np.array([-0.2, 0.2])
         margin_time = np.array([-datetime.timedelta(hours=1), datetime.timedelta(hours=1)])
@@ -287,14 +292,14 @@ class Observer:
             forecasts_around_platform
         )
         assert (
-                (improved_forecasts_around_platform.lon == forecasts_around_platform.lon).all()
-                and (improved_forecasts_around_platform.lat == forecasts_around_platform.lat).all()
-                and (improved_forecasts_around_platform.time == forecasts_around_platform.time).all()
+            (improved_forecasts_around_platform.lon == forecasts_around_platform.lon).all()
+            and (improved_forecasts_around_platform.lat == forecasts_around_platform.lat).all()
+            and (improved_forecasts_around_platform.time == forecasts_around_platform.time).all()
         )
         return improved_forecasts_around_platform
 
     def get_data_at_point(
-            self, lon: float, lat: float, time: datetime.datetime
+        self, lon: float, lat: float, time: datetime.datetime
     ) -> [np.ndarray, np.ndarray]:
         coords = np.array([[lon, lat, time]])
 
@@ -328,8 +333,8 @@ class Observer:
 
         # If the observer reads data from a new file --> Reset the observations
         if (
-                self.last_forecast_file
-                != arena_observation.forecast_data_source.DataArray.encoding["source"]
+            self.last_forecast_file
+            != arena_observation.forecast_data_source.DataArray.encoding["source"]
         ):
             self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding[
                 "source"

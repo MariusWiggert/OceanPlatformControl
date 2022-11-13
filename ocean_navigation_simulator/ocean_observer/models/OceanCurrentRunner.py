@@ -104,8 +104,8 @@ def compute_conservation_mass_loss(pred, get_all_cells=False):
     nans = torch.isnan(all_losses)
     all_losses[nans] = 0
     res = 0.5 * (
-            F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction="sum")
-            / (total_size - num_nans)
+        F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction="sum")
+        / (total_size - num_nans)
     )
     if get_all_cells:
         all_losses[nans] = math.nan
@@ -152,7 +152,7 @@ def compute_burgers_loss(prediction, Re=math.pi / 0.01, get_all_cells=True):
     l2 = dt + u * dx + v * dy - 1 / Re * (dxx + dyy)
 
     # set nan to 0
-    all_losses = (l1 ** 2 + l2 ** 2).sum(axis=1)
+    all_losses = (l1**2 + l2**2).sum(axis=1)
     total_size = all_losses.nelement()
     num_nans = torch.isnan(all_losses).sum().item()
     nans = torch.isnan(all_losses)
@@ -177,40 +177,40 @@ def get_metrics(improved_fc, hc, initial_fc):
     )
     metrics["rmse_ratio"] = (
         (
-                torch.sqrt(magn_squared_improved.mean(axis=(-1, -2, -3)))
-                / (torch.sqrt(magn_sq_init.mean(axis=(-1, -2, -3))) + 1e-6)
+            torch.sqrt(magn_squared_improved.mean(axis=(-1, -2, -3)))
+            / (torch.sqrt(magn_sq_init.mean(axis=(-1, -2, -3))) + 1e-6)
         )
-            .mean()
-            .item()
+        .mean()
+        .item()
     )
 
     metrics["evm_initial"] = torch.sqrt(magn_sq_init).mean().item()
     metrics["evm_improved"] = torch.sqrt(magn_squared_improved).mean().item()
     metrics["evm_ratio"] = (
         (
-                torch.sqrt(magn_squared_improved).mean(axis=(-1, -2, -3))
-                / (torch.sqrt(magn_sq_init).mean(axis=(-1, -2, -3)) + 1e-6)
+            torch.sqrt(magn_squared_improved).mean(axis=(-1, -2, -3))
+            / (torch.sqrt(magn_sq_init).mean(axis=(-1, -2, -3)) + 1e-6)
         )
-            .mean()
-            .item()
+        .mean()
+        .item()
     )
 
     metrics["r2"] = (
         (
-                1
-                - (
-                        (magn_squared_improved.sum(axis=(-1, -2, -3)))
-                        / (magn_sq_init.sum(axis=(-1, -2, -3)))
-                )
+            1
+            - (
+                (magn_squared_improved.sum(axis=(-1, -2, -3)))
+                / (magn_sq_init.sum(axis=(-1, -2, -3)))
+            )
         )
-            .mean()
-            .item()
+        .mean()
+        .item()
     )
 
     metrics["ratio_per_tile"] = (
         (magn_squared_improved.sum(axis=(-1, -2)) / magn_sq_init.sum(axis=(-1, -2)))
-            .mean(axis=(0, 1))
-            .item()
+        .mean(axis=(0, 1))
+        .item()
     )
 
     return metrics
@@ -342,17 +342,17 @@ def __create_histogram(list_ratios: List[float], epoch, args, is_training, n_bin
 
 
 def loop_train_validation(
-        training_mode: bool,
-        args,
-        model,
-        device,
-        create_histogram_plots,
-        data_loader: torch.utils.data.DataLoader,
-        epoch: int,
-        model_error: bool,
-        cfg_dataset: dict[str, any],
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        suffix="",
+    training_mode: bool,
+    args,
+    model,
+    device,
+    create_histogram_plots,
+    data_loader: torch.utils.data.DataLoader,
+    epoch: int,
+    model_error: bool,
+    cfg_dataset: dict[str, any],
+    optimizer: Optional[torch.optim.Optimizer] = None,
+    suffix="",
 ):
     legend = ("_training" if training_mode else "_validation") + suffix
     if training_mode:
@@ -391,7 +391,7 @@ def loop_train_validation(
                 shift_input = cfg_dataset.get("shift_window_input", 0)
                 data_same_time = torch.moveaxis(
                     torch.moveaxis(data, axis_time, 0)[
-                    shift_input: shift_input + target.shape[axis_time]
+                        shift_input : shift_input + target.shape[axis_time]
                     ],
                     0,
                     axis_time,
@@ -474,14 +474,14 @@ def loop_train_validation(
 
 
 def end_training(
-        model,
-        args,
-        train_losses_no_pinn,
-        train_losses_pinn,
-        validation_losses_no_pinn,
-        validation_losses_pinn,
-        train_ratios,
-        validation_ratios,
+    model,
+    args,
+    train_losses_no_pinn,
+    train_losses_pinn,
+    validation_losses_no_pinn,
+    validation_losses_pinn,
+    train_ratios,
+    validation_ratios,
 ):
     train_losses_no_pinn = np.array(train_losses_no_pinn)
     train_losses_pinn = np.array(train_losses_pinn)
@@ -538,13 +538,13 @@ def get_args(all_cfgs):
 
 
 def main(
-        setup_wandb_parameters_sweep: Optional[bool] = False,
-        evaluate_only: Optional[bool] = False,
-        enable_wandb: Optional[bool] = True,
-        model_to_load: Optional[str] = None,
-        json_model_from_wandb: Optional[str] = None,
-        testing_folder: Optional[str] = None,
-        create_histogram_plots: Optional[bool] = False,
+    setup_wandb_parameters_sweep: Optional[bool] = False,
+    evaluate_only: Optional[bool] = False,
+    enable_wandb: Optional[bool] = True,
+    model_to_load: Optional[str] = None,
+    json_model_from_wandb: Optional[str] = None,
+    testing_folder: Optional[str] = None,
+    create_histogram_plots: Optional[bool] = False,
 ):
     np.set_printoptions(precision=2)
 
@@ -679,14 +679,14 @@ def save_model(enable_wandb, epoch, model):
 
 
 def add_metrics_to_all_metrics(
-        all_metrics,
-        loss_no_pinn,
-        loss_pinn,
-        merged_metrics,
-        optimizer,
-        overall_loss,
-        ratio,
-        validation_loaders,
+    all_metrics,
+    loss_no_pinn,
+    loss_pinn,
+    merged_metrics,
+    optimizer,
+    overall_loss,
+    ratio,
+    validation_loaders,
 ):
     all_metrics |= {"learning rate": optimizer.param_groups[0]["lr"]}
     if len(overall_loss) > 1:
@@ -723,18 +723,18 @@ def scheduler_step(optimizer, overall_loss, scheduler, scheduler_step_takes_argu
 
 
 def run_validation_epoch(
-        args,
-        cfg_dataset,
-        create_histogram_plots,
-        device,
-        epoch,
-        model,
-        model_error,
-        validation_loaders,
-        validation_losses_no_pinn,
-        validation_losses_overall,
-        validation_losses_pinn,
-        validation_ratios,
+    args,
+    cfg_dataset,
+    create_histogram_plots,
+    device,
+    epoch,
+    model,
+    model_error,
+    validation_loaders,
+    validation_losses_no_pinn,
+    validation_losses_overall,
+    validation_losses_pinn,
+    validation_ratios,
 ):
     print(f"starting Testing epoch {epoch}/{args.epochs}.")
     time.sleep(0.2)
@@ -773,20 +773,20 @@ def run_validation_epoch(
 
 
 def run_training_epoch(
-        all_metrics,
-        args,
-        cfg_dataset,
-        create_histogram_plots,
-        device,
-        epoch,
-        model,
-        model_error,
-        optimizer,
-        train_loader,
-        train_losses_no_pinn,
-        train_losses_overall,
-        train_losses_pinn,
-        train_ratios,
+    all_metrics,
+    args,
+    cfg_dataset,
+    create_histogram_plots,
+    device,
+    epoch,
+    model,
+    model_error,
+    optimizer,
+    train_loader,
+    train_losses_no_pinn,
+    train_losses_overall,
+    train_losses_pinn,
+    train_ratios,
 ):
     print(f"starting Training epoch {epoch}/{args.epochs}.")
     time.sleep(0.1)
@@ -817,7 +817,7 @@ def run_training_epoch(
 
 
 def load_datasets_training_and_validation(
-        args, cfg_data_generation, evaluate_only, testing_folder, use_cuda
+    args, cfg_data_generation, evaluate_only, testing_folder, use_cuda
 ):
     folder_training = cfg_data_generation["parameters_input"]["folder_training"]
     if isinstance(folder_training, str):

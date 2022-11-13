@@ -67,17 +67,17 @@ class OceanCurrentSource(DataSource):
     # Plotting Functions for OceanCurrents specifically
     @staticmethod
     def plot_data_from_xarray(
-            time_idx: int,
-            xarray: xr,
-            vmin: Optional[float] = 0,
-            vmax: Optional[float] = None,
-            alpha: Optional[float] = 0.5,
-            plot_type: Optional[AnyStr] = "quiver",
-            colorbar: Optional[bool] = True,
-            ax: Optional[matplotlib.pyplot.axes] = None,
-            fill_nan: Optional[bool] = True,
-            return_cbar: Optional[bool] = False,
-            set_title: Optional[bool] = True
+        time_idx: int,
+        xarray: xr,
+        vmin: Optional[float] = 0,
+        vmax: Optional[float] = None,
+        alpha: Optional[float] = 0.5,
+        plot_type: Optional[AnyStr] = "quiver",
+        colorbar: Optional[bool] = True,
+        ax: Optional[matplotlib.pyplot.axes] = None,
+        fill_nan: Optional[bool] = True,
+        return_cbar: Optional[bool] = False,
+        set_title: Optional[bool] = True,
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
@@ -104,7 +104,7 @@ class OceanCurrentSource(DataSource):
             xarray = xarray.isel(time=time_idx)
         # calculate magnitude if not in there yet
         if "magnitude" not in xarray.keys():
-            xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+            xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
         time = get_datetime_from_np64(xarray["time"].data)
 
         # Step 2: Create ax object
@@ -223,12 +223,12 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         self.dask_array = None
 
     def get_data_over_area(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[datetime.datetime],
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[datetime.datetime],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -286,13 +286,13 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         self.load_ocean_current_from_idx()
 
     def get_data_over_area(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[Union[datetime.datetime, int]],
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
-            most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, int]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
     ) -> xr:
         # format to datetime object
         if not isinstance(t_interval[0], datetime.datetime):
@@ -329,8 +329,8 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """
         # check if rec_file_idx is already the last one and time is larger than its start time
         if (
-                self.rec_file_idx + 1 == len(self.files_dicts)
-                and self.files_dicts[self.rec_file_idx]["t_range"][0] <= time
+            self.rec_file_idx + 1 == len(self.files_dicts)
+            and self.files_dicts[self.rec_file_idx]["t_range"][0] <= time
         ):
             if time > self.files_dicts[self.rec_file_idx]["t_range"][1]:
                 raise ValueError("No current data in the last file for requested time.")
@@ -338,9 +338,9 @@ class ForecastFileSource(OceanCurrentSourceXarray):
                 return self.files_dicts[self.rec_file_idx]["t_range"][0]
         # otherwise check if a more recent one is available or we need to use an older one
         elif not (
-                self.files_dicts[self.rec_file_idx]["t_range"][0]
-                <= time
-                < self.files_dicts[self.rec_file_idx + 1]["t_range"][0]
+            self.files_dicts[self.rec_file_idx]["t_range"][0]
+            <= time
+            < self.files_dicts[self.rec_file_idx + 1]["t_range"][0]
         ):
             # Filter on the list to get all files where t_0 is contained.
             dics_containing_t_0 = list(
