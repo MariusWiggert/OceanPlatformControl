@@ -162,8 +162,8 @@ class PlatformState:
             lon=units.Distance(deg=point_dict["lon"]),
             lat=units.Distance(deg=point_dict["lat"]),
             date_time=dt,
-            battery_charge=units.Energy(joule=point_dict.get('battery_charge', None)),
-            seaweed_mass=units.Mass(kg=point_dict.get('seaweed_mass', None)),
+            battery_charge=units.Energy(joule=point_dict.get('battery_charge', 100)),
+            seaweed_mass=units.Mass(kg=point_dict.get('seaweed_mass', 100)),
         )
 
     def distance(self, other) -> units.Distance:
