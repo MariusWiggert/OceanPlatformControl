@@ -83,20 +83,11 @@ class Constructor:
             raise TypeError("mission_conf[x_0] needs to be a list of state dicts!, not a dict itself.")
 
         for x in self.mission_conf["x_0"]:
-            X_0.append(
-                PlatformState(
-                    lon=units.Distance(deg=x["lon"]),
-                    lat=units.Distance(deg=x["lat"]),
-                    date_time=datetime.datetime.strptime(x["date_time"], "%Y-%m-%d %H:%M:%S.%f %z"),
-                )
-            )
+            X_0.append(PlatformState.from_dict(x))
 
         # TODO: Test!
         # Create SpatialPoint objects from mission config and save it back to mission_conf
-        x_T = SpatialPoint(
-            lon=units.Distance(deg=self.mission_conf["x_T"]["lon"]),
-            lat=units.Distance(deg=self.mission_conf["x_T"]["lat"]),
-        )
+        x_T = SpatialPoint.from_dict(self.mission_conf["x_T"])
 
         if self.objective_conf['type'] == "nav":
             return NavigationProblem(
