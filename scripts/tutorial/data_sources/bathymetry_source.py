@@ -1,13 +1,16 @@
 import datetime
 
-from ocean_navigation_simulator.environment.Platform import PlatformState
-from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils.units import Distance
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
 
 from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import BathymetrySource
 
 # Initialize bathymetry source
 # TODO: check if time_around_x_t is needed
-casadi_cache_dict = {"deg_around_x_t": 1, "time_around_x_t": 3600 * 24 * 1}
+casadi_cache_dict = {"deg_around_x_t": 20, "time_around_x_t": 3600 * 24 * 1}
 bathymetry_source_dict = {
     "field": "Bathymetry",
     "source": "gebco",
@@ -19,10 +22,29 @@ bathymetry_field = BathymetrySource(
     source_dict=bathymetry_source_dict,
 )
 
+
+#%% Check if degree around work and if get_data_at_point_work
+# Expect inaccuracies due to resolution of bathymetry map
+t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
+# Define Mariannas Trench
+lat = 11.326344
+lon = 142.187248
+mariannas_trench = SpatialPoint(Distance(deg=lat), Distance(deg=lon))
+x_0 = PlatformState(lon=Distance(deg=lon - 10), lat=Distance(deg=lat + 10), date_time=t_0)
+bathymetry_field.update_casadi_dynamics(x_0)
+print(f"Elevation at {mariannas_trench} is {bathymetry_field.get_data_at_point(mariannas_trench)}")
+
+# Define Mount Everest
+lat = 27.9881
+lon = 86.9250
+everest = SpatialPoint(Distance(deg=lat), Distance(deg=lon))
+x_0 = PlatformState(lon=Distance(deg=lon - 10), lat=Distance(deg=lat + 10), date_time=t_0)
+bathymetry_field.update_casadi_dynamics(x_0)
+print(f"Elevation at {everest} is {bathymetry_field.get_data_at_point(everest)}")
+
 #%% Plot bathymetry over full field
 # TODO: possibly need time as required by higher level function
 # bathymetry_field.data_source.plot_bathymetry()
-
 # plot_data_at_time_over_area : static no platform, only e.g. currenty
 
 print("Hurray")

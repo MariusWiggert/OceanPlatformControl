@@ -1,14 +1,16 @@
 import logging
 import os
-from typing import Dict, List, Optional, AnyStr
-
 import time
+from typing import AnyStr, Dict, List, Optional
 
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint, PlatformState
-
-import xarray as xr
-import numpy as np
 import casadi as ca
+import numpy as np
+import xarray as xr
+
+from ocean_navigation_simulator.environment.PlatformState import (
+    PlatformState,
+    SpatialPoint,
+)
 from ocean_navigation_simulator.utils import units
 
 
@@ -39,7 +41,7 @@ class BathymetrySource:
         start = time.time()
         self.source_dict["casadi_cache_settings"] = casadi_cache_dict
         self.source_dict["use_geographic_coordinate_system"] = use_geographic_coordinate_system
-        self.source_dict = self.instantiate_source_from_dict(source_dict)
+        self.instantiate_source_from_dict(source_dict)
         self.logger.info(f"BathymetrySource: Create source({time.time() - start:.1f}s)")
 
     # Realizing that Datasource is highly time dependent and doesn't make any sense for static data :/
@@ -48,7 +50,7 @@ class BathymetrySource:
         if source_dict["source"] == "gebco":
             self.DataArray = self.get_bathymetry_from_file()
             self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
-
+            print("instantiated source")
         else:
             raise NotImplementedError(
                 f"Selected source {source_dict['source']} in the BathymetrySource dict is not implemented."
@@ -90,8 +92,8 @@ class BathymetrySource:
         y_interval, x_interval, = self.convert_to_x_y_bounds(
             x_0=state.to_spatial_point(),
             x_T=state.to_spatial_point(),
-            deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"]["deg_around_x_t"],
-            # temp_horizon_in_s=self.source_config_dict["casadi_cache_settings"]["time_around_x_t"],
+            deg_around_x0_xT_box=self.source_dict["casadi_cache_settings"]["deg_around_x_t"],
+            # temp_horizon_in_s=self.source_dict["casadi_cache_settings"]["time_around_x_t"],
         )
 
         # Step 2: Get the data from itself and update casadi_grid_dict
