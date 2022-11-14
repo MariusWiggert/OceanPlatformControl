@@ -271,7 +271,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         # Step 1: get the dictionary of all files from the specific folder
         self.files_dicts = get_file_dicts(
             source_config_dict["source_settings"]["folder"],
-            currents=source_config_dict["source_settings"].get("currents", "normal"),
+            currents=source_config_dict["source_settings"].get("currents", "total"),
         )
 
         # Step 2: derive the time coverage and grid_dict for from the first file
@@ -385,7 +385,7 @@ class HindcastFileSource(OceanCurrentSourceXarray):
         # Step 2: open the respective file as multi dataset
         self.DataArray = format_xarray(
             data_frame=xr.open_mfdataset([h_dict["file"] for h_dict in self.files_dicts]),
-            currents=source_config_dict["source_settings"].get("currents", "normal"),
+            currents=source_config_dict["source_settings"].get("currents", "total"),
         )
 
         # Step 3: Check if multi-file (then dask) or not
@@ -418,7 +418,7 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
             )
             self.DataArray = format_xarray(
                 self.DataArray,
-                currents=source_config_dict["source_settings"].get("currents", "normal"),
+                currents=source_config_dict["source_settings"].get("currents", "total"),
             )
         else:
             raise ValueError("Only opendap Copernicus implemented for now, HYCOM also has opendap.")
@@ -436,7 +436,7 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 
 # Helper functions across the OceanCurrentSource objects
-def get_file_dicts(folder: AnyStr, currents="normal") -> List[dict]:
+def get_file_dicts(folder: AnyStr, currents="total") -> List[dict]:
     """
     Creates an list of dicts ordered according to time available, one for each nc file available in folder.
     The dicts for each file contains:
