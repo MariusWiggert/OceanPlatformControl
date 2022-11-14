@@ -44,13 +44,10 @@ class BathymetrySource:
         self.instantiate_source_from_dict(source_dict)
         self.logger.info(f"BathymetrySource: Create source({time.time() - start:.1f}s)")
 
-    # Realizing that Datasource is highly time dependent and doesn't make any sense for static data :/
-
     def instantiate_source_from_dict(self, source_dict: dict):
         if source_dict["source"] == "gebco":
             self.DataArray = self.get_bathymetry_from_file()
             self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
-            print("instantiated source")
         else:
             raise NotImplementedError(
                 f"Selected source {source_dict['source']} in the BathymetrySource dict is not implemented."
@@ -62,9 +59,8 @@ class BathymetrySource:
         return DataArray
 
     def get_data_at_point(self, spatial_point: SpatialPoint) -> float:
-        # TODO Watch out for mixin in DataSource (not used atm), compared to ocean datasource
-        # TODO: Watch for order lon, lat
-        return self.elevation_func(spatial_point.__array__())
+        # TODO: Watch for order lon, lat!
+        return self.elevation_func(spatial_point.__array__()[::-1])
 
     # TODO: why in comment y_grid, x_grid? Because the spatial point is lon, lat?
     # But spatiotemporal is [t, lat, lon] and
@@ -80,7 +76,6 @@ class BathymetrySource:
             "elevation", "linear", grid, array["elevation"].values.ravel(order="F")
         )
 
-    # TODO: adapt
     def update_casadi_dynamics(self, state: PlatformState) -> None:
         """Function to update casadi_dynamics which means we fit an interpolant to grid data.
         Note: this can be overwritten in child-classes e.g. when an analytical function is available.
@@ -249,28 +244,34 @@ class BathymetrySource:
     # def plot_data_over_area(self):
     #     pass
 
-    # # TODO: probably we could do this with geopy for better accuracy
-    # def is_on_land(self, point: SpatialPoint):
-    #     """Helper function to check if a SpatialPoint is on the land indicated in the
-    #         nc files as NaN (only approximate land boundaries).
-    #         Accuracy is limited by the resolution of self.grid_dict.
-    #     Args:
-    #         point:    SpatialPoint object where to check if it is on land
-    #     Returns:
-    #         bool:     True if on land and false otherwise
-    #     """
-    #     if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
-    #         raise ValueError(
-    #             f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}'
-    #         )
-    #     if not self.grid_dict["y_grid"].min() < point.lat.deg < self.grid_dict["y_grid"].max():
-    #         raise ValueError(
-    #             f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}'
-    #         )
+    def is_higher_than(self, point: SpatialPoint, elevation: float = 0):
+        """Helper function to check if a SpatialPoint is on the land.
+            Accuracy is limited by the resolution of self.grid_dict.
+        Args:
+            point:    SpatialPoint object where to check if it is on land
+        Returns:
+            bool:     True if on land and false otherwise
+        """
 
-    #     x_idx = (np.abs(self.grid_dict["x_grid"] - point.lon.deg)).argmin()
-    #     y_idx = (np.abs(self.grid_dict["y_grid"] - point.lat.deg)).argmin()
-    #     return self.grid_dict["spatial_land_mask"][y_idx, x_idx]
+        if not (
+            self.casadi_grid_dict["x_range"][0]
+            < point.lon.deg
+            < self.casadi_grid_dict["x_range"][1]
+        ):
+            raise ValueError(
+                f"Point {point} is not in casadi_grid_dict lon range{self.casadi_grid_dict['x_range']}"
+            )
+
+        if not (
+            self.casadi_grid_dict["y_range"][0]
+            < point.lat.deg
+            < self.casadi_grid_dict["y_range"][1]
+        ):
+            raise ValueError(
+                f"Point {point} is not in casadi_grid_dict lat range {self.casadi_grid_dict['y_range']}"
+            )
+
+        return self.get_data_at_point(point) > elevation
 
     # # TODO: probably we could do this with geopy for better accuracy
     # def distance_to_land(self, point: SpatialPoint) -> units.Distance:

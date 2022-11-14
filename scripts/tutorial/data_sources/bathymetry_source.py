@@ -29,7 +29,7 @@ t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 # Define Mariannas Trench
 lat = 11.326344
 lon = 142.187248
-mariannas_trench = SpatialPoint(Distance(deg=lat), Distance(deg=lon))
+mariannas_trench = SpatialPoint(lat=Distance(deg=lat), lon=Distance(deg=lon))
 x_0 = PlatformState(lon=Distance(deg=lon - 10), lat=Distance(deg=lat + 10), date_time=t_0)
 bathymetry_field.update_casadi_dynamics(x_0)
 print(f"Elevation at {mariannas_trench} is {bathymetry_field.get_data_at_point(mariannas_trench)}")
@@ -37,10 +37,16 @@ print(f"Elevation at {mariannas_trench} is {bathymetry_field.get_data_at_point(m
 # Define Mount Everest
 lat = 27.9881
 lon = 86.9250
-everest = SpatialPoint(Distance(deg=lat), Distance(deg=lon))
+everest = SpatialPoint(lat=Distance(deg=lat), lon=Distance(deg=lon))
 x_0 = PlatformState(lon=Distance(deg=lon - 10), lat=Distance(deg=lat + 10), date_time=t_0)
 bathymetry_field.update_casadi_dynamics(x_0)
 print(f"Elevation at {everest} is {bathymetry_field.get_data_at_point(everest)}")
+
+print(f"Everest is higher than 8000m: {bathymetry_field.is_higher_than(everest, 8000)}")
+# We can also check if casadi loaded this area (This should fail)
+# print(
+#     f"Mariannas Trench is higher than -9000m: {bathymetry_field.is_higher_than(mariannas_trench, -9000)}"
+# )
 
 #%% Plot bathymetry over full field
 # TODO: possibly need time as required by higher level function
