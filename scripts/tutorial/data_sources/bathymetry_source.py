@@ -7,6 +7,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 
 from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import BathymetrySource
+import matplotlib.pyplot as plt
 
 # Initialize bathymetry source
 # TODO: check if time_around_x_t is needed
@@ -50,7 +51,8 @@ print(f"Everest is higher than 8000m: {bathymetry_field.is_higher_than(everest, 
 
 #%% Plot bathymetry over full field
 # TODO: possibly need time as required by higher level function
-# bathymetry_field.data_source.plot_bathymetry()
-# plot_data_at_time_over_area : static no platform, only e.g. currenty
-
+ax = bathymetry_field.plot_data_at_time_over_area(
+    0, bathymetry_field.grid_dict["x_range"], bathymetry_field.grid_dict["y_range"]
+)
+plt.show()
 print("Hurray")

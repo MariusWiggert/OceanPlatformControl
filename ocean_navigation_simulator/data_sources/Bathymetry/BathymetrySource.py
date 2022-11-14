@@ -1,9 +1,12 @@
 import logging
 import os
 import time
-from typing import AnyStr, Dict, List, Optional
+from typing import AnyStr, Dict, List, Optional, Union, Tuple
+import datetime
 
 import casadi as ca
+import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
@@ -12,6 +15,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
 )
 from ocean_navigation_simulator.utils import units
+import cmocean
 
 
 class BathymetrySource:
@@ -273,35 +277,278 @@ class BathymetrySource:
 
         return self.get_data_at_point(point) > elevation
 
-    # # TODO: probably we could do this with geopy for better accuracy
     # def distance_to_land(self, point: SpatialPoint) -> units.Distance:
     #     """
     #         Helper function to get the distance of a SpatialPoint to land.
-    #         Accuracy is limited by the resolution of self.grid_dict.
+    #         Accuracy is limited by the resolution of the downsampled gebco netCDF
     #     Args:
     #         point:    SpatialPoint object where to calculate distance to land
     #     Returns:
     #         units.Distance:     Distance to closest land
     #     """
-    #     if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
+    #     if not (
+    #         self.casadi_grid_dict["x_range"][0]
+    #         < point.lon.deg
+    #         < self.casadi_grid_dict["x_range"][1]
+    #     ):
     #         raise ValueError(
-    #             f'Point {point} is not inside x_dict {self.grid_dict["x_grid"][[0,-1]]}'
-    #         )
-    #     if not self.grid_dict["y_grid"].min() < point.lat.deg < self.grid_dict["y_grid"].max():
-    #         raise ValueError(
-    #             f'Point {point} is not inside y_grid {self.grid_dict["y_grid"][[0,-1]]}'
+    #             f"Point {point} is not in casadi_grid_dict lon range{self.casadi_grid_dict['x_range']}"
     #         )
 
+    #     if not (
+    #         self.casadi_grid_dict["y_range"][0]
+    #         < point.lat.deg
+    #         < self.casadi_grid_dict["y_range"][1]
+    #     ):
+    #         raise ValueError(
+    #             f"Point {point} is not in casadi_grid_dict lat range {self.casadi_grid_dict['y_range']}"
+    #         )
+
+    #     # TODO
+    #     from sklearn.metrics.pairwise import haversine_distances
+    #     from sklearn.neighbors import DistanceMetric
+
+    #     dist = DistanceMetric.
+
+    #     haversine_distances(np.deg2rad())
+
+    #     test_data = np.array([[[0, 0], [10, 20]], [[20, 30], [50, 50]]])
+
+    #     # TODO, this is where we left off
+    #     # different spacing with spatial resolution
     #     lon1, lat1 = np.meshgrid(
-    #         point.lon.deg * np.ones_like(self.grid_dict["x_grid"]),
-    #         point.lat.deg * np.ones_like(self.grid_dict["y_grid"]),
+    #         point.lon.deg * np.ones_like(self.casadi_grid_dict["x_grid"]),
+    #         point.lat.deg * np.ones_like(self.casadi_grid_dict["y_grid"]),
     #     )
-    #     lon2, lat2 = np.meshgrid(self.grid_dict["x_grid"], self.grid_dict["y_grid"])
+    #     lon2, lat2 = np.meshgrid(self.casadi_grid_dict["x_grid"], self.casadi_grid_dict["y_grid"])
 
     #     distances = np.vectorize(units.haversine_rad_from_deg)(lon1, lat1, lon2, lat2)
-    #     land_distances = np.where(self.grid_dict["spatial_land_mask"], distances, np.inf)
+    #     land_distances = np.where(self.casadi_grid_dict["spatial_land_mask"], distances, np.inf)
 
     #     return units.Distance(rad=land_distances.min())
+
+    # # Plotting Functions for Bathymetry specifically
+    # @staticmethod
+    # def plot_data_from_xarray(
+    #     time_idx: int,
+    #     xarray: xr,
+    #     vmin: Optional[float] = 0,
+    #     vmax: Optional[float] = None,
+    #     alpha: Optional[float] = 0.5,
+    #     plot_type: Optional[AnyStr] = "quiver",
+    #     colorbar: Optional[bool] = True,
+    #     ax: Optional[matplotlib.pyplot.axes] = None,
+    #     fill_nan: Optional[bool] = True,
+    #     return_cbar: Optional[bool] = False,
+    # ) -> matplotlib.pyplot.axes:
+    #     """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
+    #     if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
+    #     All other functions build on top of it, it creates the ax object and returns it.
+    #     Args:
+    #         time_idx:          time-idx to select from the xarray (only if it has time dimension)
+    #         xarray:            xarray object containing the grids and data
+    #         plot_type:         a string specifying the plot type: streamline or quiver
+    #         vmin:              minimum current magnitude used for colorbar (float)
+    #         vmax:              maximum current magnitude used for colorbar (float)
+    #         alpha:             alpha of the current magnitude color visualization
+    #         colorbar:          if to plot the colorbar or not
+    #         ax:                Optional for feeding in an axis object to plot the figure on.
+    #         fill_nan:          If True NaN will be filled with 0, otherwise left as NaN
+    #         return_cbar:       if True the colorbar object is returned
+    #     Returns:
+    #         ax                 matplotlib.pyplot.axes object
+    #     """
+    #     if fill_nan:
+    #         xarray = xarray.fillna(0)
+    #     # Step 1: Make the data ready for plotting
+    #     # check if time-dimension already collapsed or not yet
+    #     if xarray["time"].size != 1:
+    #         xarray = xarray.isel(time=time_idx)
+    #     # calculate magnitude if not in there yet
+    #     if "magnitude" not in xarray.keys():
+    #         xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
+    #     time = get_datetime_from_np64(xarray["time"].data)
+
+    #     # Step 2: Create ax object
+    #     if ax is None:
+    #         ax = plt.axes()
+    #     ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC"))
+
+    #     # underly with current magnitude
+    #     if vmax is None:
+    #         vmax = np.max(xarray["magnitude"].max()).item()
+    #     im = xarray["magnitude"].plot(
+    #         cmap="jet", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+    #     )
+    #     # set and format colorbar
+    #     if colorbar:
+    #         divider = make_axes_locatable(ax)
+    #         cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
+    #         cbar = plt.colorbar(im, orientation="vertical", cax=cax)
+    #         cbar.ax.set_ylabel("current velocity in m/s")
+    #         cbar.set_ticks(cbar.get_ticks())
+    #         precision = 1
+    #         if int(vmin * 10) == int(vmax * 10):
+    #             precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
+    #         cbar.set_ticklabels(
+    #             ["{:.{prec}f}".format(t, prec=precision) for t in cbar.get_ticks().tolist()]
+    #         )
+    #     # Plot on ax object
+    #     if plot_type == "streamline":
+    #         # Needed because the data needs to be perfectly equally spaced
+    #         time_2D_array = format_to_equally_spaced_xy_grid(xarray).fillna(0)
+    #         time_2D_array.plot.streamplot(
+    #             x="lon", y="lat", u="water_u", v="water_v", color="black", ax=ax
+    #         )
+    #         ax.set_ylim([time_2D_array["lat"].data.min(), time_2D_array["lat"].data.max()])
+    #         ax.set_xlim([time_2D_array["lon"].data.min(), time_2D_array["lon"].data.max()])
+    #     elif plot_type == "quiver":
+    #         xarray.plot.quiver(x="lon", y="lat", u="water_u", v="water_v", ax=ax, add_guide=False)
+
+    #     if return_cbar:
+    #         return ax, cbar
+    #     return ax
+
+    def plot_data_at_time_over_area(
+        self,
+        time: Union[datetime.datetime, float],
+        x_interval: List[float],
+        y_interval: List[float],
+        spatial_resolution: Optional[float] = None,
+        return_ax: Optional[bool] = False,
+        ax: Optional[matplotlib.pyplot.axes] = None,
+        **kwargs,
+    ):
+        """Plot the data at a specific time over an area defined by the x and y intervals.
+        Args:
+          time:             time for which to plot the data either posix or datetime.datetime object
+          x_interval:       List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval:       List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          spatial_resolution:Per default (None) the data_source resolution is used otherwise the selected one.
+          return_ax:        if True returns ax, otherwise renders plots with plt.show()
+          ax:               input axis object to plot on top of
+          **kwargs:         Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
+        """
+
+        # format to datetime object
+        if not isinstance(time, datetime.datetime):
+            time = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+
+        # Step 1: get the area data
+        area_xarray = self.get_data_over_area(
+            x_interval,
+            y_interval,
+            spatial_resolution=spatial_resolution,
+        )
+
+        # interpolate to specific time
+        # atTimeArray = area_xarray.interp(time=time.replace(tzinfo=None))
+
+        # Plot the current field
+        ax = self.plot_xarray_for_animation(time_idx=0, xarray=area_xarray, ax=ax, **kwargs)
+        if return_ax:
+            return ax
+        else:
+            plt.show()
+
+    def plot_xarray_for_animation(
+        self,
+        time_idx: int,
+        xarray: xr,
+        reset_plot: Optional[bool] = False,
+        figsize: Tuple[int] = (6, 6),
+        ax: matplotlib.pyplot.axes = None,
+        **kwargs,
+    ) -> matplotlib.pyplot.axes:
+        """Helper function for animations adding plot resets, figure size and automatically generating the axis.
+        See plot_data_from_xarray for other optional keyword arguments.
+        Args:
+            time_idx:          time-idx to select from the xarray (only if it has time dimension)
+            xarray:            xarray object containing the grids and data
+            reset_plot:        if True the current figure is re-setted otherwise a new figure created (used for animation)
+            figsize:           figure size
+            ax:                Optional an axis object as input to plot on top of.
+        Returns:
+            ax                 matplotlib.pyplot.axes object
+        """
+
+        # reset plot this is needed for matplotlib.animation
+        if reset_plot:
+            plt.clf()
+        else:  # create a new figure object where this is plotted
+            plt.figure(figsize=figsize)
+
+        # Step 2: Create ax object
+        if ax is None:
+            if self.source_dict["use_geographic_coordinate_system"]:
+                # TODO: fix later
+                # ax = self.set_up_geographic_ax()
+                ax = plt.axes()
+            else:
+                ax = plt.axes()
+
+        return self.plot_data_from_xarray(time_idx=time_idx, xarray=xarray, ax=ax, **kwargs)
+
+    @staticmethod
+    def plot_data_from_xarray(
+        time_idx: int,
+        xarray: xr,
+        var_to_plot: AnyStr = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        alpha: Optional[float] = 1.0,
+        ax: plt.axes = None,
+        fill_nan: bool = True,
+    ) -> matplotlib.pyplot.axes:
+        """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
+        if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
+        All other functions build on top of it, it creates the ax object and returns it.
+        Args:
+            time_idx:          time-idx to select from the xarray (only if it has time dimension)
+            xarray:            xarray object containing the grids and data
+            var_to_plot:       a string of the variable to plot
+            vmin:              minimum current magnitude used for colorbar (float)
+            vmax:              maximum current magnitude used for colorbar (float)
+            alpha:             alpha of the current magnitude color visualization
+            ax:                Optional for feeding in an axis object to plot the figure on.
+            fill_nan:          Optional if True we fill nan values with 0 otherwise leave them as nans.
+        Returns:
+            ax                 matplotlib.pyplot.axes object
+        """
+        if fill_nan:
+            xarray = xarray.fillna(0)
+        # Get data variable if not provided
+        # TODO: fix
+        if var_to_plot is None:
+            var_to_plot = "elevation"
+        # TODO: remove
+        # # Step 1: Make the data ready for plotting
+        # # check if time-dimension already collapsed or not yet
+        # if xarray["time"].size != 1:
+        #     xarray = xarray.isel(time=time_idx)
+        # time = units.get_datetime_from_np64(xarray["time"].data)
+
+        if ax is None:
+            ax = plt.axes()
+
+        # TODO: adapt
+        # plot data for the specific variable
+        if vmax is None:
+            vmax = xarray[var_to_plot].max()
+        if vmin is None:
+            vmin = xarray[var_to_plot].min()
+        # TODO: figure out how to use vcenter here (vcenter=0)
+        # Currently we get an error that QuadMesh object has no property "vcenter"
+        xarray[var_to_plot].plot(cmap="cmo.topo", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+
+        # Label the plot
+        ax.set_title(
+            "Variable: {var} \n at Time: {t}".format(
+                var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+            )
+        )
+
+        return ax
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
