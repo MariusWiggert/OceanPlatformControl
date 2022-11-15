@@ -15,6 +15,10 @@ exclude = '''
     | build
     | dist
     | casadi        # Folder used by Mac m1 computers
+    | archive
+    | data
+    | results
+
   )/
 '''
 

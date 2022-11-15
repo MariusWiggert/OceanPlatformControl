@@ -29,8 +29,6 @@ problem = NavigationProblem(
     start_state=x_0,
     end_region=x_T,
     target_radius=0.1,
-    timeout=datetime.timedelta(days=2),
-    platform_dict=arena.platform.platform_dict,
 )
 
 # %% Plot the problem on the map
@@ -53,7 +51,7 @@ specific_settings = {
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 2,
+    "T_goal_in_seconds": 3600 * 24 * 5,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
@@ -95,7 +93,7 @@ planner.plot_reachability_snapshot(
 # loaded_planner._update_current_data(observation=observation)
 # planner = loaded_planner
 # %% Let the controller run closed-loop within the arena (the simulation loop)
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
+for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 3 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 

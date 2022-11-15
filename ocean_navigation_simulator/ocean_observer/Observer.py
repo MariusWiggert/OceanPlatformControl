@@ -20,13 +20,15 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import 
     get_model,
 )
 
+# TODO: change to use loggers
+
 
 class Observer:
     """Class that represent the observer. It will receive observations and is then responsible to return predictions for
     the given areas.
     """
 
-    def __init__(self, config: Dict[str, Any], device="cpu"):
+    def __init__(self, config: Dict[str, Any], device: str = "cpu", verbose: Optional[int] = 0):
         """Create the observer object
         Args:
             config: dictionary from the yaml file used to specify the parameters of the prediction model.
@@ -70,7 +72,21 @@ class Observer:
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
         margin_space: Optional[float] = 1 / 20,
-    ):
+    ) -> Tuple[np.array, np.array, np.array, np.array]:
+        """
+
+        Args:
+            platform_position: Position of the platform
+            radius_space: Radius of the square around the platform
+            duration_tileset_in_seconds: defines the number of lags to consider
+            spatial_resolution: Resolution in space
+            temporal_resolution: Resolution in time
+            margin_space: margin to add to the radius. Can be used for interpolation
+
+        Returns:
+            Four np arrays for the lon, lat, time and time in datetime64 format where each
+            point in the array correspond to a coordinate.
+        """
         if spatial_resolution is None:
             spatial_resolution = 1 / 12
         if temporal_resolution is None:
@@ -153,6 +169,15 @@ class Observer:
         )
 
     def evaluate_neural_net(self, data):
+        """
+        Evaluate the Neural Network
+        Args:
+            data: The input that is centered around the platform. It is then reshaped to fit
+            the NN shape
+
+        Returns:
+            The xarray containing the improved forecast from the NN.
+        """
         if self.NN is None:
             raise ValueError("The Neural Network is not specified correctly in the yaml file.")
         data_array = np.expand_dims(data.to_array().to_numpy(), 0)
@@ -201,6 +226,15 @@ class Observer:
         return xr_output
 
     def _get_predictions_from_GP(self, forecasts) -> xr:
+        """
+
+        Args:
+            forecasts: The input used to get the coordinates. also used to compute the improved forecast
+
+        Returns:
+            the xarray containing the forecast, the std predicted by the GP but also the initial forecast
+             and also the improved forecast (field water_u/v)
+        """
         # Get all the points that we will query to the model as a 2D array. Coord field act like np.meshgrid but is
         # flattened
         coords = forecasts.stack(coord=["lon", "lat", "time"])["coord"].to_numpy()
@@ -239,6 +273,7 @@ class Observer:
         t_interval: List[Union[datetime.datetime, int]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xarray:
         """Computes the xarray dataset that contains the prediction errors, the new forecasts (water_u & water_v), the
         old forecasts (renamed: initial_forecast_u & initial_forecast_v) and also std_error_u & std_error_v for the u
@@ -253,7 +288,12 @@ class Observer:
             the computed xarray
         """
         forecasts = self.forecast_data_source.get_data_over_area(
-            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution,
+            temporal_resolution,
+            throw_exceptions=throw_exceptions,
         )
 
         return self._get_predictions_from_GP(forecasts)
@@ -266,7 +306,18 @@ class Observer:
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
     ) -> xarray:
+        """
 
+        Args:
+            platform_position:
+            radius_space:
+            lags_in_second:
+            spatial_resolution:
+            temporal_resolution:
+
+        Returns:
+
+        """
         lon, lat, time, time_in_np_format = Observer.get_grid_coordinates_around_platform(
             platform_position=platform_position,
             radius_space=radius_space,
@@ -301,6 +352,16 @@ class Observer:
     def get_data_at_point(
         self, lon: float, lat: float, time: datetime.datetime
     ) -> [np.ndarray, np.ndarray]:
+        """
+        Evaluate the GP at a specific point.
+        Args:
+            lon: longitude of the point
+            lat: latitude of the point
+            time: datetime of the point
+
+        Returns:
+            error and std of the GP output
+        """
         coords = np.array([[lon, lat, time]])
 
         prediction_errors, prediction_std = self.prediction_model.get_predictions(coords)
