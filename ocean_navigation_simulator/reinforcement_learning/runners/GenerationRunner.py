@@ -290,7 +290,7 @@ class GenerationRunner:
         print(f"Batch Time Max:  {time_numerical.max():.1f}s")
 
     @staticmethod
-    def plot_starts_and_targets(results_folder: str, scenario_file: str):
+    def plot_starts_and_targets(results_folder: str, scenario_file: str = None, scenario_config: dir = None, c3=None):
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
@@ -305,8 +305,10 @@ class GenerationRunner:
         arena = ArenaFactory.create(
             # only use hindcast
             scenario_file=scenario_file,
+            scenario_config=scenario_config,
             problem=problem,
             throw_exceptions=False,
+            c3=c3
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -358,16 +360,20 @@ class GenerationRunner:
     #     )
 
     @staticmethod
-    def plot_target_dates_histogram(results_folder):
+    def plot_target_dates_histogram(results_folder = None, problems_df = None):
         # Step 1: Load Data
-        if results_folder.startswith("/seaweed-storage/"):
-            cluster_utils.ensure_storage_connection()
-        problems_df = pd.read_csv(f"{results_folder}problems.csv")
-        analysis_folder = f"{results_folder}analysis/"
-        os.makedirs(analysis_folder, exist_ok=True)
+        if results_folder:
+            if results_folder.startswith("/seaweed-storage/"):
+                cluster_utils.ensure_storage_connection()
+            problems_df = pd.read_csv(f"{results_folder}problems.csv")
+            analysis_folder = f"{results_folder}analysis/"
+            os.makedirs(analysis_folder, exist_ok=True)
 
         # Step 2: Prepare Data
-        target_df = problems_df[problems_df["factory_index"] == 0]
+        if 'factory_index' in list(problems_df.columns.values):
+            target_df = problems_df[problems_df["factory_index"] == 0]
+        else:
+            target_df = problems_df
         target_df.insert(2, "t_0_pd", pd.to_datetime(target_df.loc[:, "t_0"]))
         target_df.insert(3, "t_0_ymd", target_df["t_0_pd"].map(lambda x: x.strftime("%Y-%m-%d")))
         df = target_df
@@ -394,7 +400,7 @@ class GenerationRunner:
         unique_days = len(df["t_0_ymd"].unique())
         fig.suptitle(f"Target Day Histogram (Days: {unique_days})")
 
-        fig.savefig(f"{analysis_folder}target_day_histogram.png")
+        # fig.savefig(f"{analysis_folder}target_day_histogram.png")
         fig.show()
 
     @staticmethod

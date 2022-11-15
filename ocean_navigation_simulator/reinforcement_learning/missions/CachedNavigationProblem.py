@@ -81,6 +81,21 @@ class CachedNavigationProblem(NavigationProblem):
 
         return mission_config
 
+    @staticmethod
+    def from_c3_mission_config(missionConfig):
+        return CachedNavigationProblem(
+            start_state=PlatformState(
+                lon=units.Distance(deg=missionConfig["x_0"][0]['lon']),
+                lat=units.Distance(deg=missionConfig["x_0"][0]['lat']),
+                date_time=datetime.datetime.fromisoformat(missionConfig["x_0"][0]['date_time']),
+            ),
+            end_region=SpatialPoint(
+                lon=units.Distance(deg=missionConfig["x_T"]['lon']),
+                lat=units.Distance(deg=missionConfig["x_T"]['lat']),
+            ),
+            target_radius=missionConfig["target_radius"],
+            extra_info={'feasible': missionConfig.get("feasible", None), 'ttr_in_h': missionConfig.get("ttr_in_h", None)},
+        )
 
     def get_cached_forecast_planner(self, base_path, arena=None, pickle=False):
         if pickle:
