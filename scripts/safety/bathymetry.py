@@ -1,4 +1,5 @@
 import cartopy.crs as ccrs
+import cmocean
 import dask
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,6 +38,8 @@ def coarsen(
             coarsened = ds.coarsen(lat=lat_coarsening, lon=lon_coarsening, boundary="exact").mean()
         elif op == "max":
             coarsened = ds.coarsen(lat=lat_coarsening, lon=lon_coarsening, boundary="exact").max()
+        elif op == "min":
+            coarsened = ds.coarsen(lat=lat_coarsening, lon=lon_coarsening, boundary="exact").min()
         else:
             raise NotImplementedError("Unknown operation")
     coarsened = coarsened.compute()
@@ -57,6 +60,19 @@ def generate_global_bathymetry_maps(
     low_res = coarsen(filename, res_lat, res_lon, op)
     low_res.to_netcdf(f"data/bathymetry/bathymetry_global_res_{res_lat:.3f}_{res_lon:.3f}_{op}.nc")
     print("Saved global bathymetry map with lower resolution")
+
+
+# def generate_shortest_distance_maps(map: xr, elevation: float) -> xr:
+
+#     x_range =
+#     y_range =
+#     if point is > elevation:
+#         set value to 0
+#     else:
+#         val = min( value of neighbor + distance(neighbor, me))
+
+
+#     pass
 
 
 def format_spatial_resolution(xarray: xr.Dataset(), res_lat=1 / 12, res_lon=1 / 12) -> xr.Dataset():
@@ -131,7 +147,13 @@ def plot_bathymetry_3d(xarray: xr.Dataset(), plot_sealevel: bool = False):
     x = xarray.variables["lon"]
     y = xarray.variables["lat"]
     z = xarray.variables["elevation"]
-    # TODO: colorscale can be improved
+    colorscale = "Earth"
+    # TODO: Cmocean colorscale seems to break something,
+    # this is why we use the not so great "Earth" one
+    # Here is docu for an older plotly version
+    #  https://plotly.com/python/v3/cmocean-colorscales/
+    # elem_len = [len(x), len(y), len(z)]
+    # colorscale = cmocean_to_plotly(cmocean.cm.delta, max(elem_len))
     if plot_sealevel:
         sea_level = np.zeros_like(z)
 
@@ -139,7 +161,7 @@ def plot_bathymetry_3d(xarray: xr.Dataset(), plot_sealevel: bool = False):
             data=[go.Surface(z=z, x=x, y=y), go.Surface(z=sea_level, x=x, y=y, opacity=0.9)]
         )
     else:
-        fig = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale="Earth")])
+        fig = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale=colorscale)])
     fig.update_traces(
         contours_z=dict(show=True, usecolormap=True, highlightcolor="limegreen", project_z=True)
     )
@@ -177,6 +199,20 @@ def plot_bathymetry_3d(xarray: xr.Dataset(), plot_sealevel: bool = False):
         )
     )
     fig.show()
+
+
+def cmocean_to_plotly(cmap: cmocean.cm, pl_entries: int):
+    """Helper function to adapt cmocean colorbar for plotly.
+    Seems to break plotly surface at the moment
+    """
+    h = 1.0 / (pl_entries - 1)
+    pl_colorscale = []
+
+    for k in range(pl_entries):
+        C = [*map(np.uint8, np.array(cmap(k * h)[:3]) * 255)]
+        pl_colorscale.append([k * h, "rgb" + str((C[0], C[1], C[2]))])
+
+    return pl_colorscale
 
 
 if __name__ == "__main__":
