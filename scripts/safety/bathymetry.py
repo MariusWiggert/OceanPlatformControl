@@ -147,13 +147,7 @@ def plot_bathymetry_3d(xarray: xr.Dataset(), plot_sealevel: bool = False):
     x = xarray.variables["lon"]
     y = xarray.variables["lat"]
     z = xarray.variables["elevation"]
-    colorscale = "Earth"
-    # TODO: Cmocean colorscale seems to break something,
-    # this is why we use the not so great "Earth" one
-    # Here is docu for an older plotly version
-    #  https://plotly.com/python/v3/cmocean-colorscales/
-    # elem_len = [len(x), len(y), len(z)]
-    # colorscale = cmocean_to_plotly(cmocean.cm.delta, max(elem_len))
+    colorscale = mpl_to_plotly(cmocean.cm.delta)
     if plot_sealevel:
         sea_level = np.zeros_like(z)
 
@@ -161,7 +155,7 @@ def plot_bathymetry_3d(xarray: xr.Dataset(), plot_sealevel: bool = False):
             data=[go.Surface(z=z, x=x, y=y), go.Surface(z=sea_level, x=x, y=y, opacity=0.9)]
         )
     else:
-        fig = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale=colorscale)])
+        fig = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale=colorscale, cmid=0)])
     fig.update_traces(
         contours_z=dict(show=True, usecolormap=True, highlightcolor="limegreen", project_z=True)
     )
@@ -201,17 +195,20 @@ def plot_bathymetry_3d(xarray: xr.Dataset(), plot_sealevel: bool = False):
     fig.show()
 
 
-def cmocean_to_plotly(cmap: cmocean.cm, pl_entries: int):
-    """Helper function to adapt cmocean colorbar for plotly.
-    Seems to break plotly surface at the moment
+def mpl_to_plotly(cmap: plt.cm, pl_entries: int = 11, rdigits: int = 2):
+    """Convert matplotlib colorscale to plotly
+
+    Args:
+        cmap (plt.cm): Matplotlib colormap
+        pl_entries (int, optional): Number of Plotly colorscale entries. Defaults to 11.
+        rdigits (int, optional): Number of digits for rounding scale values. Defaults to 2.
+
+    Returns:
+        _type_: _description_
     """
-    h = 1.0 / (pl_entries - 1)
-    pl_colorscale = []
-
-    for k in range(pl_entries):
-        C = [*map(np.uint8, np.array(cmap(k * h)[:3]) * 255)]
-        pl_colorscale.append([k * h, "rgb" + str((C[0], C[1], C[2]))])
-
+    scale = np.linspace(0, 1, pl_entries)
+    colors = (cmap(scale)[:, :3] * 255).astype(np.uint8)
+    pl_colorscale = [[round(s, rdigits), f"rgb{tuple(color)}"] for s, color in zip(scale, colors)]
     return pl_colorscale
 
 
