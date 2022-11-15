@@ -326,7 +326,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         """Helper Function to load an OceanCurrent object."""
         self.DataArray = format_xarray(
             data_frame=xr.open_dataset(self.files_dicts[self.rec_file_idx]["file"]),
-            currents=self.source_config_dict["source_settings"].get("currents", "normal"),
+            currents=self.source_config_dict["source_settings"].get("currents", "total"),
         )
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
@@ -396,6 +396,12 @@ class HindcastFileSource(OceanCurrentSourceXarray):
 
         # Step 4: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        return OceanCurrentVector(
+            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+        )
 
 
 class ForecastFromHindcastSource(HindcastFileSource):
@@ -541,6 +547,12 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
         # Step 2: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(
             self.DataArray, self.source_config_dict["source"]
+        )
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        return OceanCurrentVector(
+            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
         )
 
 
