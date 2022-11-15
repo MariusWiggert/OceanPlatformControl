@@ -1,0 +1,28 @@
+observer:
+  life_span_observations_in_sec: 100000
+
+  model:
+    NN:
+      dimension_input: [ 12,13,13 ]
+      model_error: false
+      type: 'cnn'
+      parameters:
+        path_weights: "ocean_navigation_simulator/forecast_improvement/CNN_models_saved/medium_tile_big_ds.h5"
+        ch_sz: [ 6,24,48,96,192 ]
+        downsizing_method: "avgpool"
+        dropout_encoder: 0.24299222476871712
+        dropout_decoder: 0.13587898683659105
+        dropout_bottom: 0.7479602916555403
+        initial_channels: [ 0,1,2,3,6,7 ]
+        output_paddings: [ [ 0,1,1 ],[ 1,0,0 ],[ 1,0,0 ] ]
+    gaussian_process:
+      kernel:
+        type: 'matern'
+        sigma_exp_squared: 5.011571057964094
+        scaling:
+          latitude: 0.5753005356364821
+          longitude: 0.5967749664273109
+          time: 42103.57591355196
+        parameters:
+          length_scale_bounds: "fixed"
+          nu: 1.5

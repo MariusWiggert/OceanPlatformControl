@@ -384,9 +384,7 @@ class Observer:
         """
         if self.forecast_data_source is None:
             self.forecast_data_source = arena_observation.forecast_data_source
-            self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding[
-                "source"
-            ]
+            self.last_forecast_file = arena_observation.forecast_data_source.rec_file_idx
 
         observation_location = arena_observation.platform_state.to_spatio_temporal_point()
         measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
@@ -396,11 +394,9 @@ class Observer:
         # If the observer reads data from a new file --> Reset the observations
         if (
                 self.last_forecast_file
-                != arena_observation.forecast_data_source.DataArray.encoding["source"]
+                != arena_observation.forecast_data_source.rec_file_idx
         ):
-            self.last_forecast_file = arena_observation.forecast_data_source.DataArray.encoding[
-                "source"
-            ]
+            self.last_forecast_file = arena_observation.forecast_data_source.rec_file_idx
             self.reset()
 
         self.prediction_model.observe(observation_location, measured_current_error)
