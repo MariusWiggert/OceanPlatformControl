@@ -33,8 +33,8 @@ x_0 = PlatformState(
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_1 = PlatformState(
-    lon=units.Distance(deg=-82.25),
-    lat=units.Distance(deg=23.5),
+    lon=units.Distance(deg=-82.4),
+    lat=units.Distance(deg=23.6),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 # create a platformSet object
@@ -97,8 +97,8 @@ observation = arena.reset(platform_set=x_set)
 # # # %%
 # observation = arena.step(action)
 
-update_rate_s = 60 * 180  # 180 mins
-day_sim = 1
+update_rate_s = 60 * 10  # 10 mins
+day_sim = 3
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
     action = planner_set.get_action(observation=observation)
     observation = arena.step(action)
@@ -108,6 +108,6 @@ ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
 plt.savefig("ma6.png", dpi=300)
 # #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj2_anim.mp4")
+arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_2days_anim.mp4")
 ax = arena.plot_distance_evolution_between_neighbors(figsize=(9, 6))
-plt.savefig("distance_evolution", dpi=300)
+plt.savefig("distance_evolution_2days", dpi=300)

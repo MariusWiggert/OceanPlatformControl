@@ -52,6 +52,9 @@ class PlatformAction:
     def __getitem__(self, item):
         return self.__array__()[item]
 
+    def to_platform_action_set(self):
+        return PlatformActionSet(action_set=[self])
+
     @staticmethod
     def from_xy_propulsion(x_propulsion: float, y_propulsion: float):
         """Helper function to initialize a PlatformAction based on xy actuation.

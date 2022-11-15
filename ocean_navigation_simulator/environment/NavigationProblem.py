@@ -22,7 +22,6 @@ class NavigationProblem(Problem):
     start_state: Union[PlatformState, PlatformStateSet]
     end_region: SpatialPoint
     target_radius: float
-    nb_platforms: int = 1
     timeout: datetime.timedelta = None
     platform_dict: dict = None
     x_range: List = None
@@ -30,8 +29,10 @@ class NavigationProblem(Problem):
     extra_info: dict = None
 
     def __post_init__(self):
-        if type(self.start_state) == PlatformStateSet:
+        if type(self.start_state) is PlatformStateSet:
             self.nb_platforms = len(self.start_state)
+        else:
+            self.nb_platforms = 1
 
     def passed_seconds(self, state: PlatformState, id_to_comp: Optional[int] = 0) -> float:
         if self.nb_platforms == 1:
@@ -60,15 +61,26 @@ class NavigationProblem(Problem):
     ) -> matplotlib.axes.Axes:
 
         markers = get_markers()
-        for lon, lat, id in zip(
-            self.start_state.lon.deg, self.start_state.lat.deg, range(self.nb_platforms)
-        ):
+
+        if self.nb_platforms > 1:
+            for lon, lat, id in zip(
+                self.start_state.lon.deg, self.start_state.lat.deg, range(self.nb_platforms)
+            ):
+                ax.scatter(
+                    lon,
+                    lat,
+                    c=problem_start_color,
+                    marker=next(markers),
+                    label=f"start platform {id}",
+                    s=100,
+                )
+        else:
             ax.scatter(
-                lon,
-                lat,
+                self.start_state.lon.deg,
+                self.start_state.lat.deg,
                 c=problem_start_color,
-                marker=next(markers),
-                label=f"start platform {id}",
+                marker="o",
+                label="start platform",
                 s=100,
             )
 

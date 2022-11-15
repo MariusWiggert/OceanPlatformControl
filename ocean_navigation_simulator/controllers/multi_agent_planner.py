@@ -35,9 +35,6 @@ from ocean_navigation_simulator.utils import units
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 
 
-
-
-
 class MultiAgentPlanner(Controller):
     def __init__(
         self,

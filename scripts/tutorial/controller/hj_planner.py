@@ -10,7 +10,10 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.Platform import PlatformState
+from ocean_navigation_simulator.environment.Platform import (
+    PlatformState,
+    PlatformStateSet,
+)
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
@@ -24,6 +27,9 @@ x_0 = PlatformState(
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_T = SpatialPoint(lon=units.Distance(deg=-80.3), lat=units.Distance(deg=24.6))
+
+# create set (for consistency with the arena functions)
+x_set = PlatformStateSet([x_0])
 
 problem = NavigationProblem(
     start_state=x_0,
@@ -61,7 +67,7 @@ specific_settings = {
         0.1,
     ],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
     # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-    "grid_res": 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    "grid_res": 0.2,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
@@ -70,17 +76,17 @@ specific_settings = {
 planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 
 # % Run reachability planner
-observation = arena.reset(platform_state=x_0)
-action = planner.get_action(observation=observation)
+observation = arena.reset(platform_set=x_set)
+# action = planner.get_action(observation=observation.get_single_observation())
 # %% Various plotting of the reachability computations
-planner.plot_reachability_snapshot(
-    rel_time_in_seconds=0,
-    granularity_in_h=5,
-    alpha_color=1,
-    time_to_reach=False,
-    fig_size_inches=(12, 12),
-    plot_in_h=True,
-)
+# planner.plot_reachability_snapshot(
+#     rel_time_in_seconds=0,
+#     granularity_in_h=5,
+#     alpha_color=1,
+#     time_to_reach=False,
+#     fig_size_inches=(12, 12),
+#     plot_in_h=True,
+# )
 # planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=0, granularity_in_h=5, time_to_reach=False)
 # planner.plot_reachability_animation(time_to_reach=False, granularity_in_h=5, filename="test_reach_animation.mp4")
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with_opt_ctrl=True,
@@ -94,12 +100,16 @@ planner.plot_reachability_snapshot(
 # observation = arena.reset(platform_state=x_0)
 # loaded_planner._update_current_data(observation=observation)
 # planner = loaded_planner
+update_rate_s = 60 * 240  # 180 mins
+day_sim = 1
 # %% Let the controller run closed-loop within the arena (the simulation loop)
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
-    action = planner.get_action(observation=observation)
-    observation = arena.step(action)
+for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
+    action = planner.get_action(observation=observation.get_single_observation())
+    observation = arena.step(action.to_platform_action_set())
 
 #%% Plot the arena trajectory on the map
-arena.plot_all_on_map(problem=problem)
+ax = arena.plot_all_on_map(problem=problem, return_ax=True)
+ax = problem.plot(ax=ax)
+plt.savefig("sa.png", dpi=300)
 #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200)
+arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_solo_anim.mp4")

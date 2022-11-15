@@ -88,6 +88,16 @@ class ArenaObservation:
         else:
             return 1
 
+    def get_single_observation(self, id: Optional[int] = 0):
+        if type(self.platform_state) is PlatformState:
+            return self
+        else:
+            return ArenaObservation(
+                self.platform_state[id],
+                true_current_at_state=self.true_current_at_state,
+                forecast_data_source=self.forecast_data_source,
+            )
+
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
         """
         this function is required to use the hindcast planner
@@ -242,9 +252,10 @@ class Arena:
         self.platform.initialize_dynamics(self.initial_states)
         self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
 
-        self.state_trajectory = np.expand_dims(np.array(platform_set).squeeze(), axis=0)
+        # self.state_trajectory = np.expand_dims(np.array(platform_set).squeeze(), axis=0)
+        self.state_trajectory = np.atleast_3d(np.array(platform_set))
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
-        self.action_trajectory = np.zeros(shape=(0, len(platform_set), 2))
+        self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
 
         observation = ArenaObservation(
             platform_state=platform_set,
@@ -265,13 +276,19 @@ class Arena:
         platform_set = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
+            # self.state_trajectory = np.append(
+            #     self.state_trajectory,
+            #     np.expand_dims(np.array(platform_set).squeeze(), axis=0),
+            #     axis=0,
+            # )
             self.state_trajectory = np.append(
-                self.state_trajectory,
-                np.expand_dims(np.array(platform_set).squeeze(), axis=0),
-                axis=0,
+                self.state_trajectory, np.atleast_3d(np.array(platform_set)), axis=2
             )
+            # self.action_trajectory = np.append(
+            #     self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
+            # )
             self.action_trajectory = np.append(
-                self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
+                self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
         return ArenaObservation(
             platform_state=platform_set,
@@ -348,12 +365,15 @@ class Arena:
 
     ### Various Plotting Functions for the Arena Object ###
 
+    # general form of state trajectory array:
+    # [nb_platforms, nb_states, time]
+    # action_trajectory: [#nb_platforms, 2, time]
     def plot_control_trajectory_on_map(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = "magenta",
         stride: Optional[int] = 1,
-        control_vec_scale: Optional[int] = 15,
+        control_vec_scale: Optional[int] = 10,
     ) -> matplotlib.axes.Axes:
         """
         Plots the control trajectory (as arrows) on a spatial map. Passing in an axis is optional.
@@ -370,16 +390,16 @@ class Arena:
         if ax is None:
             fig, ax = plt.subplots()
 
-        for k in range(self.state_trajectory.shape[1]):
-            u_vec = self.action_trajectory[::stride, k, 0] * np.cos(
-                self.action_trajectory[::stride, k, 1]
+        for k in range(self.state_trajectory.shape[0]):
+            u_vec = self.action_trajectory[k, 0, ::stride] * np.cos(
+                self.action_trajectory[k, 1, ::stride]
             )
-            v_vec = self.action_trajectory[::stride, k, 0] * np.sin(
-                self.action_trajectory[::stride, k, 1]
+            v_vec = self.action_trajectory[k, 0, ::stride] * np.sin(
+                self.action_trajectory[k, 1, ::stride]
             )
             ax.quiver(
-                self.state_trajectory[:-1:stride, k, 0],
-                self.state_trajectory[:-1:stride, k, 1],
+                self.state_trajectory[k, 0, :-1:stride],
+                self.state_trajectory[k, 1, :-1:stride],
                 u_vec,
                 v_vec,
                 color=color,
@@ -445,10 +465,10 @@ class Arena:
         """
         if ax is None:
             fig, ax = plt.subplots()
-        for k in range(self.state_trajectory.shape[1]):
+        for k in range(self.state_trajectory.shape[0]):
             ax.plot(
-                self.state_trajectory[::stride, k, 0],
-                self.state_trajectory[::stride, k, 1],
+                self.state_trajectory[k, 0, ::stride],
+                self.state_trajectory[k, 1, ::stride],
                 "-",
                 marker=".",
                 markersize=1,
@@ -506,21 +526,21 @@ class Arena:
         # Background: Data Sources
         if "current" in background:
             ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 0, 2],  # end time for platform 0
+                time=self.state_trajectory[0, 2, index],  # end time for platform 0
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 0, 2],
+                time=self.state_trajectory[0, 2, index],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
             )
         elif "seaweed" in background or "growth" in background:
             ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-                time=self.state_trajectory[index, 0, 2],
+                time=self.state_trajectory[0, 2, index],
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
@@ -536,10 +556,10 @@ class Arena:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
         if show_current_position:
             markers = get_markers()
-            for k in range(self.state_trajectory.shape[1]):
+            for k in range(self.state_trajectory.shape[0]):
                 ax.scatter(
-                    self.state_trajectory[index, k, 0],
-                    self.state_trajectory[index, k, 1],
+                    self.state_trajectory[k, 0, index],
+                    self.state_trajectory[k, 1, index],
                     c=current_position_color,
                     marker=next(markers),
                     s=100,
@@ -672,18 +692,18 @@ class Arena:
         }
         d = Distance(
             rad=haversine_rad_from_deg(
-                self.state_trajectory[:, 0, idx_state["lon"]],
-                self.state_trajectory[:, 0, idx_state["lat"]],
-                self.state_trajectory[:, 1, idx_state["lon"]],
-                self.state_trajectory[:, 1, idx_state["lat"]],
+                self.state_trajectory[0, idx_state["lon"], :],
+                self.state_trajectory[0, idx_state["lat"], :],
+                self.state_trajectory[1, idx_state["lon"], :],
+                self.state_trajectory[1, idx_state["lat"], :],
             )
         )
         plt.figure(figsize=figsize)
         ax = plt.axes()
-        t0 = dt.datetime.fromtimestamp(self.state_trajectory[0, 0, 2], tz=dt.timezone.utc)
+        t0 = dt.datetime.fromtimestamp(self.state_trajectory[0, 2, 0], tz=dt.timezone.utc)
         dates = [
             dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
-            for posix in self.state_trajectory[::1, 0, 2]
+            for posix in self.state_trajectory[0, 2, ::1]
         ]
         vect_strftime = np.vectorize(dt.datetime.strftime)
         dates = vect_strftime(dates, "%H:%M")
