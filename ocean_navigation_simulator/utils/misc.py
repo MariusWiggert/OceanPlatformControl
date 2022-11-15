@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import os
 import socket
 import time
@@ -20,14 +21,22 @@ from c3python import C3Python
 #               usr.publicKey = "<public key from file>"
 #               usr.merge()
 
+c3_logger = logging.getLogger("c3")
+
 
 ### Getting C3 Object for data downloading ###
-def get_c3(verbose: Optional[int] = 0):
-    """Helper function to get C3 object and locally access to the C3 Database"""
+def get_c3():
+    """Helper function to get C3 object for access to the C3 Database"""
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
     USERNAME = "mariuswiggert@berkeley.edu"
-    if not hasattr(get_c3, "c3"):
-        with timing("Utils: Connect to c3 ({:.1f}s)", verbose):
+
+    # reload after 10min to prevent c3 timeout
+    if not hasattr(get_c3, "c3") or (
+        not hasattr(get_c3, "timestamp") and (time.time() - get_c3.timestamp) > 600
+    ):
+        logging.getLogger("c3python.c3python").setLevel(logging.WARN)
+        print("Starting to connect to c3")
+        with timing_logger("Utils: Connect to c3 ({})", c3_logger, logging.INFO):
             get_c3.c3 = C3Python(
                 # Old Tag: url='https://dev01-seaweed-control.c3dti.ai', tag='dev01',
                 url="https://devseaweedrc1-seaweed-control.devrc01.c3aids.cloud",
@@ -36,23 +45,104 @@ def get_c3(verbose: Optional[int] = 0):
                 keyfile=KEYFILE,
                 username=USERNAME,
             ).get_c3()
+            get_c3.timestamp = time.time()
     return get_c3.c3
 
 
 @contextlib.contextmanager
 def timing(string, verbose: Optional[int] = 1):
+    """Simple tool to check how long a specific code-part takes."""
+    start = time.time()
+    yield
+    exec_time = time.time() - start
+    if exec_time > 1:
+        text = f"{exec_time:.2f}s"
+    else:
+        text = f"{1000*exec_time:.2f}ms"
+    if verbose > 0:
+        print(string.format(text))
+
+
+@contextlib.contextmanager
+def timing_logger(string, logger: logging.Logger, level=logging.INFO):
     """
     Simple tool to check how long a specific code-part takes.
     :arg
         string:
         verbose:
     """
-    if verbose > 0:
-        start = time.time()
-        yield
-        print(string.format(time.time() - start))
+    start = time.time()
+    yield
+    exec_time = time.time() - start
+    if exec_time > 1:
+        text = f"{exec_time:.2f}s"
     else:
-        yield
+        text = f"{1000*exec_time:.2f}ms"
+    logger.log(level, string.format(text))
+
+
+@contextlib.contextmanager
+def timing_dict(dict, field, string=None, logger: logging.Logger = None, level=logging.INFO):
+    """
+    Simple tool to check how long a specific code-part takes.
+    :arg
+        string:
+        verbose:
+    """
+    start = time.time()
+    yield
+    exec_time = time.time() - start
+    dict[field] += exec_time
+    if None not in [string, logger]:
+        if exec_time > 1:
+            text = f"{exec_time:.2f}s"
+        else:
+            text = f"{1000*exec_time:.2f}ms"
+        logger.log(level, string.format(text))
+
+
+def set_arena_loggers(level):
+    """helper function to set all relevant logger levels"""
+    logging.getLogger("c3").setLevel(level)
+    logging.getLogger("arena").setLevel(level)
+    logging.getLogger("arena.factory").setLevel(level)
+    logging.getLogger("arena.platform").setLevel(level)
+    logging.getLogger("arena.controller").setLevel(level)
+
+    logging.getLogger("data_source").setLevel(level)
+
+    logging.getLogger("arena.ocean_field").setLevel(level)
+    logging.getLogger("arena.ocean_field.ocean_source").setLevel(level)
+
+    logging.getLogger("arena.ocean_field.seaweed_growth_source").setLevel(level)
+    logging.getLogger("arena.seaweed_growth_field").setLevel(level)
+
+    logging.getLogger("arena.solar_field").setLevel(level)
+    logging.getLogger("arena.solar_field.analytical_source").setLevel(level)
+
+    logging.getLogger("OceanEnv").setLevel(level)
+    logging.getLogger("MissionGenerator").setLevel(level)
+
+
+def silence_ray_and_tf():
+    # 0 = all messages are logged (default behavior)
+    # 1 = INFO messages are not printed
+    # 2 = INFO and WARNING messages are not printed
+    # 3 = INFO, WARNING, and ERROR messages are not printed
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+    logging.getLogger("tensorflow").setLevel(logging.FATAL)
+    logging.getLogger("absl").setLevel(logging.FATAL)
+    logging.getLogger("external").setLevel(logging.FATAL)
+    logging.getLogger(
+        "external/org_tensorflow/tensorflow/compiler/xla/stream_executor/cuda"
+    ).setLevel(logging.FATAL)
+    import warnings
+
+    warnings.simplefilter("ignore", UserWarning)
+
+    logging.getLogger("ray").setLevel(logging.WARN)
+    logging.getLogger("rllib").setLevel(logging.WARN)
+    logging.getLogger("policy").setLevel(logging.WARN)
 
 
 def get_process_information_dict() -> dict:
@@ -101,3 +191,15 @@ class bcolors:
     ENDC = "\033[0m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
+
+    @staticmethod
+    def green(string: str) -> str:
+        return f"{bcolors.OKGREEN}{string}{bcolors.ENDC}"
+
+    @staticmethod
+    def orange(string: str) -> str:
+        return f"{bcolors.WARNING}{string}{bcolors.ENDC}"
+
+    @staticmethod
+    def red(string: str) -> str:
+        return f"{bcolors.FAIL}{str(string)}{bcolors.ENDC}"

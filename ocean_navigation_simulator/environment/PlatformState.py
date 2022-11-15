@@ -37,6 +37,16 @@ class SpatialPoint:
             )
         )
 
+    @staticmethod
+    def from_dict(point_dict: dict):
+        return SpatialPoint(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+        )
+
+    def bearing(self, other) -> float:
+        return math.atan2(self.lon.deg - other.lon.deg, self.lat.deg - other.lat.deg)
+
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])
 
@@ -47,7 +57,7 @@ class SpatialPoint:
         return self.__array__()[item]
 
     def __repr__(self):
-        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°]"
+        return f"[{self.lon.deg:.2f}°,{self.lat.deg:.2f}°]"
 
 
 @dataclasses.dataclass
@@ -64,6 +74,18 @@ class SpatioTemporalPoint:
     lat: units.Distance
     date_time: datetime.datetime
 
+    @staticmethod
+    def from_dict(point_dict: dict):
+        try:
+            dt = datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(point_dict['date_time'])
+        return SpatioTemporalPoint(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+            date_time=dt
+        )
+
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp()])
 
@@ -79,6 +101,9 @@ class SpatioTemporalPoint:
     def haversine(self, other) -> units.Distance:
         return self.to_spatial_point().haversine(other)
 
+    def bearing(self, other) -> float:
+        return self.to_spatial_point().bearing(other)
+
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
         return SpatialPoint(lon=self.lon, lat=self.lat)
@@ -88,7 +113,7 @@ class SpatioTemporalPoint:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
+        return f"[{self.lon.deg:.2f}°,{self.lat.deg:.2f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
 
 
 @dataclasses.dataclass
@@ -127,6 +152,30 @@ class PlatformState:
         return self.__array__()[item]
 
     @staticmethod
+    def from_dict(point_dict: dict):
+        # get date_time
+        try:
+            dt = datetime.datetime.strptime(point_dict['date_time'], "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(point_dict['date_time'])
+        return PlatformState(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+            date_time=dt,
+            battery_charge=units.Energy(joule=point_dict.get('battery_charge', 100)),
+            seaweed_mass=units.Mass(kg=point_dict.get('seaweed_mass', 100)),
+        )
+
+    def distance(self, other) -> units.Distance:
+        return self.to_spatial_point().distance(other)
+
+    def haversine(self, other) -> units.Distance:
+        return self.to_spatial_point().haversine(other)
+
+    def bearing(self, other) -> float:
+        return self.to_spatial_point().bearing(other)
+
+    @staticmethod
     def from_numpy(numpy_array):
         """Helper function to initialize a PlatformState based on numpy arraay.
         Args:
@@ -159,13 +208,10 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return "Platform State[lon: {x} deg, lat: {y} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]".format(
+        return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]".format(
             x=self.lon.deg,
             y=self.lat.deg,
+            t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
             b=self.battery_charge.joule,
             m=self.seaweed_mass.kg,
-            t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
         )
-
-    def distance(self, other) -> float:
-        return self.to_spatial_point().distance(other)

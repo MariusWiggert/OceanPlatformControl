@@ -16,10 +16,8 @@ class RewardFunction(abc.ABC):
     @abc.abstractmethod
     def get_reward(
         self,
-        prev_fc_obs: ArenaObservation,
-        curr_fc_obs: ArenaObservation,
-        prev_hc_obs: ArenaObservation,
-        curr_hc_obs: ArenaObservation,
+        prev_obs: ArenaObservation,
+        curr_obs: ArenaObservation,
         problem: NavigationProblem,
         problem_status: int,
     ) -> float:
