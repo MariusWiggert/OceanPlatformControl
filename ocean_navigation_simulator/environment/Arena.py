@@ -262,19 +262,33 @@ class Arena:
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""
-        if self.spatial_boundary is not None:
-            inside_x = (
-                self.spatial_boundary["x"][0].deg + margin
-                < self.platform.state.lon.deg
-                < self.spatial_boundary["x"][1].deg - margin
-            )
-            inside_y = (
-                self.spatial_boundary["y"][0].deg + margin
-                < self.platform.state.lat.deg
-                < self.spatial_boundary["y"][1].deg - margin
-            )
-            return inside_x and inside_y
-        return True
+        if self.spatial_boundary is None:
+            try:
+                x_boundary = [
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][0],
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1]]
+                y_boundary = [
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][0],
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1]]
+            except BaseException:
+                self.logger.warning(f"Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside.")
+                return True
+        else:
+            x_boundary = [x.deg for x in self.spatial_boundary["x"]]
+            y_boundary = [y.deg for y in self.spatial_boundary["y"]]
+
+        # calculate if inside or outside
+        inside_x = (
+            x_boundary[0] + margin
+            < self.platform.state.lon.deg
+            < x_boundary[1] - margin
+        )
+        inside_y = (
+            y_boundary[0] + margin
+            < self.platform.state.lat.deg
+            < y_boundary[1] - margin
+        )
+        return inside_x and inside_y
 
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
