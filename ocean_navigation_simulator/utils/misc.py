@@ -27,7 +27,6 @@ c3_logger = logging.getLogger("c3")
 ### Getting C3 Object for data downloading ###
 def get_c3():
     """Helper function to get C3 object for access to the C3 Database"""
-
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
     USERNAME = "mariuswiggert@berkeley.edu"
 
