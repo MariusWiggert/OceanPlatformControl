@@ -23,7 +23,7 @@ from c3python import C3Python
 
 ### Getting C3 Object for data downloading ###
 def get_c3(verbose: Optional[int] = 0):
-    """Helper function to get C3 object both on C3 cluster and locally access to the C3 Database"""
+    """Helper function to get C3 object and locally access to the C3 Database"""
     KEYFILE = "setup/keys/c3-rsa-marius.pem"
     USERNAME = "mariuswiggert@berkeley.edu"
     if not hasattr(get_c3, "c3"):

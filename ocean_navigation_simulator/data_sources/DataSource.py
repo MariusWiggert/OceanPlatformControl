@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from IPython.display import HTML
+import pytz
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
@@ -103,6 +104,16 @@ class DataSource(abc.ABC):
         ]
 
         self.initialize_casadi_functions(grid, xarray)
+
+    @staticmethod
+    def enforce_utc_datetime_object(time: Union[datetime.datetime, int]):
+        """Takes a datetime object or posix timestamp and makes it timezone-aware by setting it to be in UTC."""
+        # format to datetime object
+        if not isinstance(time, datetime.datetime):
+            return datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+        elif time.tzinfo is None:
+            return time.replace(tzinfo=datetime.timezone.utc)
+        return time
 
     @staticmethod
     def convert_to_x_y_time_bounds(
@@ -224,8 +235,7 @@ class DataSource(abc.ABC):
         """
 
         # format to datetime object
-        if not isinstance(time, datetime.datetime):
-            time = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc)
+        time = self.enforce_utc_datetime_object(time=time)
 
         # Step 1: get the area data
         area_xarray = self.get_data_over_area(
