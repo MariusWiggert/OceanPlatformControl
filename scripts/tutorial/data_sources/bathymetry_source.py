@@ -50,9 +50,13 @@ print(f"Everest is higher than 8000m: {bathymetry_field.is_higher_than(everest, 
 # )
 
 #%% Plot bathymetry over full field
-# TODO: possibly need time as required by higher level function
+# TODO: possibly need time as required by higher level function?
+# World
 ax = bathymetry_field.plot_data_at_time_over_area(
     0, bathymetry_field.grid_dict["x_range"], bathymetry_field.grid_dict["y_range"]
 )
+plt.show()
+# Region 1
+ax = bathymetry_field.plot_data_at_time_over_area(0, [-160, -105], [15, 40])
 plt.show()
 print("Hurray")
