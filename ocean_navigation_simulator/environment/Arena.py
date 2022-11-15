@@ -337,10 +337,10 @@ class Arena:
         """
         if self.is_timeout():
             return -1
+        if check_inside and not self.is_inside_arena(margin):
+            return -3
         if self.is_on_land():
             return -2
-        elif check_inside and not self.is_inside_arena(margin):
-            return -3
         else:
             return problem.is_done(self.platform.state)
 
