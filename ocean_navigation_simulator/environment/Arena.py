@@ -292,9 +292,13 @@ class Arena:
 
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        if point is None:
-            point = self.platform.state
-        return self.ocean_field.hindcast_data_source.is_on_land(point)
+        # Check if x_grid exists (not for all data sources)
+        if self.ocean_field.hindcast_data_source.grid_dict.get('x_grid', None) is not None:
+            if point is None:
+                point = self.platform.state
+            return self.ocean_field.hindcast_data_source.is_on_land(point)
+        else:
+            return False
 
     def is_timeout(self) -> bool:
         # calculate passed_seconds
@@ -337,10 +341,10 @@ class Arena:
         """
         if self.is_timeout():
             return -1
+        if check_inside and not self.is_inside_arena(margin):
+            return -3
         if self.is_on_land():
             return -2
-        elif check_inside and not self.is_inside_arena(margin):
-            return -3
         else:
             return problem.is_done(self.platform.state)
 
