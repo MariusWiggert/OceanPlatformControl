@@ -93,7 +93,7 @@ class SpatioTemporalPoint:
         self.vect_timestamp = np.vectorize(datetime.datetime.timestamp)
         self.vect_strftime = np.vectorize(datetime.datetime.strftime)
         self.rmv_tzinfo = np.vectorize(datetime.datetime.replace)
-        self._is_multi_agent = type(self.date_time) == np.ndarray
+        self._is_multi_agent = self.lon.is_array
 
     def __array__(self):
         if self._is_multi_agent:

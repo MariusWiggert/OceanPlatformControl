@@ -8,7 +8,7 @@ import datetime as datetime
 import time
 import typing
 from math import floor, log10
-from typing import Optional
+from typing import Optional, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -35,13 +35,13 @@ class Distance:
     def __init__(
         self,
         *,
-        m: float = 0.0,
-        meters: float = 0.0,
-        km: float = 0.0,
-        kilometers: float = 0.0,
-        feet: float = 0.0,
-        deg: float = 0.0,
-        rad: float = 0.0,
+        m: Union[float, np.ndarray] = 0.0,
+        meters: Union[float, np.ndarray] = 0.0,
+        km: Union[float, np.ndarray] = 0.0,
+        kilometers: Union[float, np.ndarray] = 0.0,
+        feet: Union[float, np.ndarray] = 0.0,
+        deg: Union[float, np.ndarray] = 0.0,
+        rad: Union[float, np.ndarray] = 0.0,
     ):
         # Note: distance is stored as degree (because that's how it is used almost always)
         self._distance = (
@@ -50,40 +50,40 @@ class Distance:
             + deg
             + (180 * rad / np.pi)
         )
-        self.is_array = type(self._distance) != float
+        self.is_array = type(self._distance) is np.ndarray
 
     @property
-    def m(self) -> float:
+    def m(self) -> Union[float, np.ndarray]:
         """Gets distance in meters."""
         return self._distance * _METERS_PER_DEG_LAT_LON
 
     @property
-    def meters(self) -> float:
+    def meters(self) -> Union[float, np.ndarray]:
         """Gets distance in meters."""
         return self.m * _METERS_PER_DEG_LAT_LON
 
     @property
-    def deg(self) -> float:
+    def deg(self) -> Union[float, np.ndarray]:
         """Gets distance in degree."""
         return self._distance
 
     @property
-    def rad(self) -> float:
+    def rad(self) -> Union[float, np.ndarray]:
         """Gets distance in radians."""
         return np.pi * self._distance / 180
 
     @property
-    def km(self) -> float:
+    def km(self) -> Union[float, np.ndarray]:
         """Gets distance in kilometers."""
         return self._distance * _METERS_PER_DEG_LAT_LON / 1000.0
 
     @property
-    def kilometers(self) -> float:
+    def kilometers(self) -> Union[float, np.ndarray]:
         """Gets distance in kilometers."""
         return self.km
 
     @property
-    def feet(self) -> float:
+    def feet(self) -> Union[float, np.ndarray]:
         return self._distance * _METERS_PER_DEG_LAT_LON / _METERS_PER_FOOT
 
     def __add__(self, other: "Distance") -> "Distance":
@@ -130,22 +130,22 @@ class Distance:
     def __rmul__(self, other: float) -> "Distance":
         return self.__mul__(other)
 
-    def __eq__(self, other: "Distance") -> bool:
+    def __eq__(self, other: "Distance") -> Union[bool, np.ndarray]:
         return abs(self.m - other.m) < 1e-9
 
-    def __neq__(self, other: "Distance") -> bool:
+    def __neq__(self, other: "Distance") -> Union[bool, np.ndarray]:
         return not self.__eq__(other)
 
-    def __lt__(self, other: "Distance") -> bool:
+    def __lt__(self, other: "Distance") -> Union[bool, np.ndarray]:
         return self.m < other.m
 
-    def __le__(self, other: "Distance") -> bool:
+    def __le__(self, other: "Distance") -> Union[bool, np.ndarray]:
         return self.m <= other.m
 
-    def __gt__(self, other: "Distance") -> bool:
+    def __gt__(self, other: "Distance") -> Union[bool, np.ndarray]:
         return self.m > other.m
 
-    def __ge__(self, other: "Distance") -> bool:
+    def __ge__(self, other: "Distance") -> Union[bool, np.ndarray]:
         return self.m >= other.m
 
     def __repr__(self) -> str:
@@ -161,31 +161,32 @@ class Velocity:
     def __init__(
         self,
         *,
-        mps: float = 0.0,
-        meters_per_second: float = 0.0,
-        kmph: float = 0.0,
-        kilometers_per_hour: float = 0.0,
+        mps: Union[float, np.ndarray] = 0.0,
+        meters_per_second: Union[float, np.ndarray] = 0.0,
+        kmph: Union[float, np.ndarray] = 0.0,
+        kilometers_per_hour: Union[float, np.ndarray] = 0.0,
     ):
         # Note: distance is stored as meters per second.
         self._velocity = mps + meters_per_second + (kmph + kilometers_per_hour) * 1000 / 3600
+        self.is_array = type(self._velocity) is np.ndarray
 
     @property
-    def mps(self) -> float:
+    def mps(self) -> Union[float, np.ndarray]:
         """Gets velocity in meters per second."""
         return self._velocity
 
     @property
-    def meters_per_second(self) -> float:
+    def meters_per_second(self) -> Union[float, np.ndarray]:
         """Gets velocity in meters per second."""
         return self.mps
 
     @property
-    def kmph(self) -> float:
+    def kmph(self) -> Union[float, np.ndarray]:
         """Gets velocity in kilometers per hour."""
         return self._velocity * 3600 / 1000
 
     @property
-    def kilometers_per_hour(self) -> float:
+    def kilometers_per_hour(self) -> Union[float, np.ndarray]:
         """Gets velocity in kilometers per hour."""
         return self.kmph
 
@@ -211,7 +212,7 @@ class Velocity:
     def __rmul__(self, other: datetime.timedelta) -> Distance:
         return self.__mul__(other)
 
-    def __eq__(self, other: "Velocity") -> bool:
+    def __eq__(self, other: "Velocity") -> Union[float, np.ndarray]:
         if isinstance(other, Velocity):
             # Note: we consider very similar velocities to be equal.
             return abs(self.mps - other.mps) < 1e-9

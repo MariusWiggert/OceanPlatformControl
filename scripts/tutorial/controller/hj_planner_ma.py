@@ -86,28 +86,28 @@ specific_settings = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     "platform_dict": arena.platform.platform_dict,
 }
-multi_agent_setting = {"planner": "hj_planner"}
+multi_agent_settings = {"planner": "hj_planner"}
 planner_set = MultiAgentPlanner(
-    problem=problem, multi_agent_setting=multi_agent_setting, specific_settings=specific_settings
+    problem=problem, multi_agent_settings=multi_agent_settings, specific_settings=specific_settings
 )
 
 observation = arena.reset(platform_set=x_set)
-# action = planner_set.get_action(observation=observation)
+action = planner_set.get_action_set(observation=observation)
 
 # # # %%
 # observation = arena.step(action)
 
-update_rate_s = 60 * 10  # 10 mins
-day_sim = 3
-for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 3 days
-    action = planner_set.get_action(observation=observation)
+update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
+day_sim = 1
+for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 1 day
+    action = planner_set.get_action_set(observation=observation)
     observation = arena.step(action)
 
 #%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
-plt.savefig("ma6.png", dpi=300)
-# #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_2days_anim.mp4")
-ax = arena.plot_distance_evolution_between_neighbors(figsize=(9, 6))
-plt.savefig("distance_evolution_2days", dpi=300)
+plt.savefig("one_day.png", dpi=300)
+# # #%% Animate the trajectory
+arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_1days_anim.mp4")
+ax = arena.plot_distance_evolution_between_neighbors(figsize=(9, 6), stride_xticks=24)
+plt.savefig("distance_evolution_1days", dpi=300)

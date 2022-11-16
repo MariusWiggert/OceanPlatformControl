@@ -88,15 +88,18 @@ class ArenaObservation:
         else:
             return 1
 
-    def get_single_observation(self, id: Optional[int] = 0):
+    def get_single_observation(self, item: Optional[int] = 0):
         if type(self.platform_state) is PlatformState:
             return self
         else:
             return ArenaObservation(
-                self.platform_state[id],
-                true_current_at_state=self.true_current_at_state,
+                self.platform_state[item],
+                true_current_at_state=self.true_current_at_state[item],
                 forecast_data_source=self.forecast_data_source,
             )
+
+    def __getitem__(self, item):
+        return self.get_single_observation(item)
 
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
         """
@@ -276,17 +279,9 @@ class Arena:
         platform_set = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
-            # self.state_trajectory = np.append(
-            #     self.state_trajectory,
-            #     np.expand_dims(np.array(platform_set).squeeze(), axis=0),
-            #     axis=0,
-            # )
             self.state_trajectory = np.append(
                 self.state_trajectory, np.atleast_3d(np.array(platform_set)), axis=2
             )
-            # self.action_trajectory = np.append(
-            #     self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
-            # )
             self.action_trajectory = np.append(
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
@@ -679,7 +674,9 @@ class Arena:
         return ax
 
     def plot_distance_evolution_between_neighbors(
-        self, figsize: Tuple[int] = (8, 6)
+        self,
+        figsize: Tuple[int] = (8, 6),
+        stride_xticks: Optional[int] = 12,  # 10 mins update-> 6*10mins = 1h, 12 is 2h ticks
     ) -> matplotlib.axes.Axes:
         """
         Function to compute distance evolution between neighbors over their trajectories
@@ -705,9 +702,12 @@ class Arena:
             dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
             for posix in self.state_trajectory[0, 2, ::1]
         ]
-        vect_strftime = np.vectorize(dt.datetime.strftime)
-        dates = vect_strftime(dates, "%H:%M")
         ax.plot(dates, d.km, "--x")
-        plt.ylabel("distance in km")
-        plt.title("Distance evolution between platforms over time [h]")
-        plt.xlabel("time")
+        dates_xticks = dates[::stride_xticks]
+        vect_strftime = np.vectorize(dt.datetime.strftime)
+        dates_xticks_str = vect_strftime(dates_xticks, "%d-%H:%M")
+        ax.set_xticks(dates_xticks)
+        ax.set_xticklabels(dates_xticks_str)
+        ax.set_ylabel("distance in km")
+        ax.set_title("Distance evolution between platforms over time")
+        ax.set_xlabel("time")

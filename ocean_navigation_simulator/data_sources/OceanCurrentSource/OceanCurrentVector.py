@@ -16,6 +16,9 @@ class OceanCurrentVector(NamedTuple):
     u: units.Velocity
     v: units.Velocity
 
+    def __post_init__(self):
+        self._is_multi_agent = self.u.is_array
+
     def add(self, other: "OceanCurrentVector") -> "OceanCurrentVector":
         if not isinstance(other, OceanCurrentVector):
             raise NotImplementedError(f"Cannot add OceanCurrentVector with {type(other)}")
@@ -27,6 +30,7 @@ class OceanCurrentVector(NamedTuple):
         return OceanCurrentVector(self.u - other.u, self.v - other.v)
 
     def __array__(self) -> np.ndarray:
+        # for multi_agent: outputs -> first row = u velocities, second row = v velocities
         return np.array([self.u, self.v]).squeeze()
 
     def __str__(self) -> str:
@@ -40,5 +44,5 @@ class OceanCurrentVector(NamedTuple):
         """
         Helper function to initialize a OceanCurrentVector based on numpy arraay.
         """
-        # TODO change this for multi-agent
+        #  for multi_agent first row -> u vectors, second row -> v vectors
         return OceanCurrentVector(u=units.Velocity(mps=arr[0]), v=units.Velocity(mps=arr[1]))

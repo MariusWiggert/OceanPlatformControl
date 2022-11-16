@@ -254,6 +254,13 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         return dataframe
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        # if caching function exists, use that for faster point data access
+        if self.u_curr_func is not None:
+            return OceanCurrentVector(
+                u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+                v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            )
+        # otherwise use the general xarray interpolation function (slower)
         data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
         return OceanCurrentVector(u=data_xarray["water_u"].values, v=data_xarray["water_v"].values)
 
