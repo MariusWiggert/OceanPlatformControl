@@ -225,26 +225,28 @@ class ArenaFactory:
     @contextlib.contextmanager
     def download_files(config, type, t_interval, points, c3=None, throw_exceptions=True):
         """Helper method to be run in C3 context manager."""
-        folder = config["ocean_dict"][type]["source_settings"]["folder"]
         try:
-            ArenaFactory.download_required_files(
-                archive_source=config["ocean_dict"][type]["source_settings"][
-                    "source"
-                ],
-                archive_type=config["ocean_dict"][type]["source_settings"]["type"],
-                download_folder=folder,
-                t_interval=t_interval,
-                region=config["ocean_dict"]["area"],
-                throw_exceptions=throw_exceptions,
-                points=points,
-                c3=c3
-            )
-            yield True
+            if 'files' in config["ocean_dict"][type]['source']:
+                ArenaFactory.download_required_files(
+                    archive_source=config["ocean_dict"][type]["source_settings"][
+                        "source"
+                    ],
+                    archive_type=config["ocean_dict"][type]["source_settings"]["type"],
+                    download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
+                    t_interval=t_interval,
+                    region=config["ocean_dict"]["area"],
+                    throw_exceptions=throw_exceptions,
+                    points=points,
+                    c3=c3
+                )
+            else:
+                yield True
         finally:
-            try:
-                shutil.rmtree(folder)
-            except BaseException:
-                pass
+            if 'files' in config["ocean_dict"][type]['source']:
+                try:
+                    shutil.rmtree(config["ocean_dict"][type]["source_settings"]["folder"])
+                except BaseException:
+                    pass
 
     @staticmethod
     def find_hycom_files(path, t_interval):
