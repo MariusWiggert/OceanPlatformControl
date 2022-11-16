@@ -298,7 +298,7 @@ class Arena:
                 point = self.platform.state
             return self.ocean_field.hindcast_data_source.is_on_land(point)
         else:
-            return True
+            return False
 
     def is_timeout(self) -> bool:
         # calculate passed_seconds
