@@ -1,19 +1,19 @@
 import abc
 import logging
 import time
+from typing import AnyStr, Dict, List, Optional, Tuple
+
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.pyplot
+import matplotlib.pyplot as plt
+import numpy as np
 import xarray as xr
-from typing import AnyStr, List, Optional, Tuple, Union, Dict
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
-import matplotlib.pyplot
-import matplotlib.pyplot as plt
-import numpy as np
-
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
 
 class DataSource2d(abc.ABC):

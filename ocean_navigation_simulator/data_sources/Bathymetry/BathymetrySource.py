@@ -117,7 +117,8 @@ class BathymetrySource2d(DataSource2d):
         # TODO: think of smart structure
         # Fix colorbar limits, as land will be covered by platecarree land map
         # if we use geographic coordinate system and we don't need it for land
-        xarray[var_to_plot].plot(cmap="cmo.topo", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        cmap = cmocean.cm.topo
+        xarray[var_to_plot].plot(cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
         # Label the plot
         ax.set_title(
             "Variable: {var} \n at Time: {t}".format(

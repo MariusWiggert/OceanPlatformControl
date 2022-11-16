@@ -1,16 +1,17 @@
 import datetime
 
-from ocean_navigation_simulator.utils.units import Distance
+import matplotlib.pyplot as plt
+
+from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
+    BathymetrySource2d,
+)
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
-
-from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import BathymetrySource2d
-import matplotlib.pyplot as plt
+from ocean_navigation_simulator.utils.units import Distance
 
 # Initialize bathymetry source
-# TODO: check if time_around_x_t is needed
 # casadi_cache_dict = {"deg_around_x_t": 20, "time_around_x_t": 3600 * 24 * 1}
 bathymetry_source_dict = {
     "field": "Bathymetry",
@@ -50,7 +51,6 @@ print(f"Everest is higher than 8000m: {bathymetry_field.is_higher_than(everest, 
 # )
 
 #%% Plot bathymetry over full field
-# TODO: possibly need time as required by higher level function?
 # World
 ax = bathymetry_field.plot_data_over_area(
     bathymetry_field.grid_dict["x_range"], bathymetry_field.grid_dict["y_range"]
