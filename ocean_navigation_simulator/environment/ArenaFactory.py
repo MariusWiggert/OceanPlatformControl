@@ -239,14 +239,14 @@ class ArenaFactory:
                     points=points,
                     c3=c3
                 )
-            else:
-                yield True
+            yield True
         finally:
             if 'files' in config["ocean_dict"][type]['source']:
                 try:
                     shutil.rmtree(config["ocean_dict"][type]["source_settings"]["folder"])
                 except BaseException:
                     pass
+            pass
 
     @staticmethod
     def find_hycom_files(path, t_interval):
