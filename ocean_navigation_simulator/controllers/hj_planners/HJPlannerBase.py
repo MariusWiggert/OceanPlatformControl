@@ -172,9 +172,6 @@ class HJPlannerBase(Controller):
                 # log x_t and data_source for plotting and easier access later
                 self.x_t = observation.platform_state
                 self.last_data_source = observation.forecast_data_source
-                # If the data_source is an observer, fit the model with the most recent data
-                if isinstance(self.last_data_source, Observer):
-                    self.last_data_source.fit()
                 # Update the data used in the HJ Reachability Planning
                 self._update_current_data(observation=observation)
                 self._plan(observation.platform_state)

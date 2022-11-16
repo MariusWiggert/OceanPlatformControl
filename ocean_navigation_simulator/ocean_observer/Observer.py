@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import xarray
 import xarray as xr
+import logging
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
@@ -41,11 +42,15 @@ class Observer:
             self.model_error = NN_dict["model_error"]
             self.model_input = NN_dict["dimension_input"]
             self.NN = get_model(NN_dict["type"], NN_dict["parameters"], device)
+            self.NN_radius_space = NN_dict["NN_radius_space"]
+            self.NN_lags_in_second = NN_dict["NN_lags_in_second"]
         else:
             self.NN = None
 
         self.forecast_data_source = None
         self.last_forecast_file = None
+        self.last_observation_location = None
+        self.logger = logging.getLogger("observer")
 
     @staticmethod
     def instantiate_model_from_dict(source_dict: Dict[str, Any]) -> OceanCurrentModel:
@@ -275,6 +280,7 @@ class Observer:
             spatial_resolution: Optional[float] = None,
             temporal_resolution: Optional[float] = None,
             throw_exceptions: Optional[bool] = True,
+            output: Optional[str] = 'full',
     ) -> xarray:
         """Computes the xarray dataset that contains the prediction errors, the new forecasts (water_u & water_v), the
         old forecasts (renamed: initial_forecast_u & initial_forecast_v) and also std_error_u & std_error_v for the u
@@ -285,9 +291,14 @@ class Observer:
             t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
             spatial_resolution: spatial resolution in the same units as x and y interval
             temporal_resolution: temporal resolution in seconds
+            output:             if none, returns full model output, if 'GP' only the GP, 'fc' only forecast.
         Returns:
             the computed xarray
         """
+        # Fit model with most recent observations before outputting data
+        self.fit()
+
+        # Get forecast data
         forecasts = self.forecast_data_source.get_data_over_area(
             x_interval,
             y_interval,
@@ -296,8 +307,28 @@ class Observer:
             temporal_resolution,
             throw_exceptions=throw_exceptions,
         )
+        if output == 'fc':
+            return forecasts
+        # When only GP model, return GP output directly
+        elif self.NN is None or output == 'GP':
+            return self._get_predictions_from_GP(forecasts)
+        # When NN + GP model combine all data for final output
+        else:
+            # Step 1: get the GP predictions around the last state as input for NN
+            predictions_around_last_state = self.evaluate_GP_centered_around_platform(
+                platform_position=self.last_observation_location.to_spatio_temporal_point(),
+                radius_space=self.NN_radius_space,
+                duration_tileset=self.NN_lags_in_second
+            )
+            # Step 2: get the NN predictions around the last state
+            NN_pred_around_last_state = self.evaluate_neural_net(predictions_around_last_state)
+            NN_pred_around_last_state = NN_pred_around_last_state.drop_vars(['initial_forecast_u', 'initial_forecast_v'])
 
-        return self._get_predictions_from_GP(forecasts)
+            # Step 3: Merge it with forecast data
+            NN_aligned = NN_pred_around_last_state.interp_like(forecasts)
+            NN_aligned['water_u'][0, :, :] = NN_aligned['water_u'][1, :, :]
+            NN_aligned['water_v'][0, :, :] = NN_aligned['water_v'][1, :, :]
+            return NN_aligned.combine_first(forecasts)
 
     def evaluate_GP_centered_around_platform(
             self,
@@ -387,6 +418,7 @@ class Observer:
             self.last_forecast_file = arena_observation.forecast_data_source.rec_file_idx
 
         observation_location = arena_observation.platform_state.to_spatio_temporal_point()
+        self.last_observation_location = arena_observation.platform_state
         measured_current_error = arena_observation.forecast_data_source.get_data_at_point(
             observation_location
         ).subtract(arena_observation.true_current_at_state)
@@ -401,10 +433,10 @@ class Observer:
 
         self.prediction_model.observe(observation_location, measured_current_error)
 
-        if len(self.prediction_model.measurement_locations) > 24:
-            raise UserWarning(
-                f"Error: forecast file missing. Problem stopped: {arena_observation.platform_state.to_spatio_temporal_point().date_time}"
-            )
+        # check age of observations
+        obs_time_interval_in_s = self.prediction_model.measurement_locations[-1][-1] - self.prediction_model.measurement_locations[0][-1]
+        if obs_time_interval_in_s > self.prediction_model.life_span_observations_in_sec:
+            self.logger.warning(f"Error: forecast file missing. Problem stopped: {arena_observation.platform_state.to_spatio_temporal_point().date_time}")
 
     # Forwarding functions as it replaces the forecast_data_source
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
