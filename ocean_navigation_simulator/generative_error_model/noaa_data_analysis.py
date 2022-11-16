@@ -6,7 +6,7 @@ import numpy as np
 def plot_monthly_means(data, lon_range, lat_range, save_path: str = ""):
     res = [*data["U"].T.shape]
     lon_res = np.linspace(-180, 180, res[1])
-    lat_res = np.linspace(-90, 90, res[0])
+    lat_res = np.linspace(-75, 85, res[0])
 
     pix_idx_lon = [min(range(len(lon_res)), key=lambda i: abs(lon_res[i] - lon_range[0])),
                    min(range(len(lon_res)), key=lambda i: abs(lon_res[i] - lon_range[1]))]
@@ -45,7 +45,7 @@ def plot_monthly_means(data, lon_range, lat_range, save_path: str = ""):
         axis.set_xticklabels(x_tick_labels)
         axis.set_yticklabels(y_tick_labels)
         plt.colorbar(frame, ax=axis)
-    plt.suptitle("Monthly average current magnitude for GoM", size=30, va="top")
+    # plt.suptitle("Monthly average current magnitude for GoM", size=30, va="top")
     plt.tight_layout(pad=1.8)
     plt.show()
 
@@ -54,7 +54,11 @@ def plot_monthly_means(data, lon_range, lat_range, save_path: str = ""):
 
 
 if __name__ == "__main__":
+    # data from: https://www.aoml.noaa.gov/phod/gdp/mean_velocity.php
     data = xr.open_dataset("/home/jonas/Downloads/drifter_monthlymeans.nc", decode_times=False)
+    # data_total = data["U"].values[0]
+    # plt.pcolormesh(data_total.T)
+    # plt.show()
 
     # # My Region 1
     # lon_range = np.array([-146.25, -125])
@@ -62,11 +66,11 @@ if __name__ == "__main__":
 
     # # Region 1
     # lon_range = np.array([-160, -105])
-    # lat_range = np.array([15, 40])
+    # lat_range = np.array([10, 65])
 
     # GoM
-    lon_range = np.array([-100, -80])
-    lat_range = np.array([14, 30])
+    lon_range = np.array([-98, -80])
+    lat_range = np.array([16, 33])
 
     # # Region 6
     # lon_range = np.array([-36, 16])
