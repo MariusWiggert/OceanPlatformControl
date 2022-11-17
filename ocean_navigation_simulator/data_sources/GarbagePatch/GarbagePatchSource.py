@@ -14,20 +14,20 @@ from ocean_navigation_simulator.data_sources.DataSource2d import DataSource2d
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 
 
-class BathymetrySource2d(DataSource2d):
+class GarbagePatchSource2d(DataSource2d):
     def __init__(self, source_dict: Dict):
-        self.elevation_func = None  # Casadi function
+        self.garbage_patch_func = None  # Casadi function
         super().__init__(source_dict)
-        self.logger = logging.getLogger("areana.bathymetry_source_2d")
+        self.logger = logging.getLogger("areana.garbage_patch_source_2d")
         self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
     def instantiate_source_from_dict(self) -> None:
-        if self.source_dict["source"] == "gebco":
+        if self.source_dict["source"] == "Lebreton":
             self.DataArray = self.get_DataArray_from_file()
             self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
         else:
             raise NotImplementedError(
-                f"Selected source {self.source_dict['source']} in the BathymetrySource dict is not implemented."
+                f"Selected source {self.source_dict['source']} in the GarbagePatchDict dict is not implemented."
             )
 
     def get_DataArray_from_file(self) -> xr:
@@ -37,7 +37,7 @@ class BathymetrySource2d(DataSource2d):
 
     def get_data_at_point(self, spatial_point: SpatialPoint) -> float:
         # Invert spatial point order to (lat, lon)
-        return self.elevation_func(spatial_point.__array__()[::-1])
+        return self.garbage_patch_func(spatial_point.__array__()[::-1])
 
     def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
@@ -47,50 +47,21 @@ class BathymetrySource2d(DataSource2d):
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-        self.elevation_func = ca.interpolant(
-            "elevation", "linear", grid, array["elevation"].values.ravel(order="F")
+        self.garbage_patch_func = ca.interpolant(
+            "garbage", "linear", grid, array["garbage"].values.ravel(order="F")
         )
-
-    def is_higher_than(self, point: SpatialPoint, elevation: float = 0):
-        """Helper function to check if a SpatialPoint is on the land.
-            Accuracy is limited by the resolution of self.grid_dict.
-        Args:
-            point:    SpatialPoint object where to check if it is on land
-        Returns:
-            bool:     True if on land and false otherwise
-        """
-
-        if not (
-            self.casadi_grid_dict["x_range"][0]
-            < point.lon.deg
-            < self.casadi_grid_dict["x_range"][1]
-        ):
-            raise ValueError(
-                f"Point {point} is not in casadi_grid_dict lon range{self.casadi_grid_dict['x_range']}"
-            )
-
-        if not (
-            self.casadi_grid_dict["y_range"][0]
-            < point.lat.deg
-            < self.casadi_grid_dict["y_range"][1]
-        ):
-            raise ValueError(
-                f"Point {point} is not in casadi_grid_dict lat range {self.casadi_grid_dict['y_range']}"
-            )
-
-        return self.get_data_at_point(point) > elevation
 
     @staticmethod
     def plot_data_from_xarray(
         xarray: xr,
-        var_to_plot: AnyStr = "elevation",
-        vmin: Optional[float] = -6000,
-        vmax: Optional[float] = 6000,
+        var_to_plot: AnyStr = "garbage",
+        vmin: Optional[float] = 1,
+        vmax: Optional[float] = 0,
         alpha: Optional[float] = 1.0,
         ax: plt.axes = None,
         fill_nan: bool = True,
     ) -> matplotlib.pyplot.axes:
-        """Bathymetry specific plotting function to plot the x_array.
+        """Garbage patch specific plotting function to plot the x_array.
         All other functions build on top of it, it creates the ax object and returns it.
         Args:
             xarray:            xarray object containing the grids and data
@@ -107,17 +78,9 @@ class BathymetrySource2d(DataSource2d):
             xarray = xarray.fillna(0)
         if ax is None:
             ax = plt.axes()
-
-        # plot data for the specific variable
-        # if vmax is None:
-        #     vmax = xarray[var_to_plot].max()
-        # if vmin is None:
-        #     vmin = xarray[var_to_plot].min()
-        # TODO: think of smart structure
-        # Fix colorbar limits, as land will be covered by platecarree land map
-        # if we use geographic coordinate system and we don't need it for land
-        cmap = cmocean.cm.topo
-        xarray[var_to_plot].plot(cmap=cmap, vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        # TODO: only plot garbage patch, not background.
+        # TODO: plot garbage in a good color
+        xarray[var_to_plot].plot(cmap="viridis", ax=ax, alpha=alpha, vmin=vmin, vmax=vmax)
         # Label the plot
         ax.set_title(
             "Variable: {var} \n at Time: {t}".format(
@@ -128,5 +91,5 @@ class BathymetrySource2d(DataSource2d):
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
-        del self.elevation_func
+        del self.garbage_patch_func
         pass
