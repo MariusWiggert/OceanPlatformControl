@@ -305,7 +305,13 @@ def get_model(model_type, cfg_neural_network, device):
     # Loading the parameters
     if path_weights is not None:
         print(f"loading model parameter from {path_weights}")
-        model.load_state_dict(torch.load(path_weights, map_location=device))
+        try:
+            model.load_state_dict(torch.load(path_weights, map_location=device))
+        except FileNotFoundError:
+            # get it from the package distribution
+            import ocean_navigation_simulator
+            package_path = os.path.dirname(os.path.abspath(ocean_navigation_simulator.__file__))
+            model.load_state_dict(torch.load(package_path + path_weights, map_location=device))
         model.eval()
 
     return model.to(device)
