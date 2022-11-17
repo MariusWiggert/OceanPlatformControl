@@ -38,6 +38,9 @@ setuptools.setup(
         "dev": style_packages + test_packages,
         "test": test_packages,
     },
+    # Include data
+    include_package_data=True,
+    package_data={'': ['package_data/*']},
     # Included core requirements: https://packaging.python.org/discussions/install-requires-vs-requirements/
     # please install requirements manually from .txt
     # install_requires=['jupyterlab', 'numpy', 'tqdm', 'pandas', 'seaborn',
