@@ -1,5 +1,8 @@
+from typing import AnyStr, List, Optional
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import matplotlib.path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -84,25 +87,104 @@ def plot_convex_hull(points, ax):
     plt.show()
 
 
-if __name__ == "__main__":
-    # TODO: see if this is indeed best dataset
-    df = pd.read_csv("data/lebreton/Lebreton2018_HistoricalDataset.csv")
-    df["lat"] = df["Latitude (degrees)"]
-    df["lon"] = df["Longitude (degrees)"]
+def plot_alpha_complex(points, ax, alpha):
+    edges = alpha_complex(points, alpha=alpha)
+    plt.plot(points[:, 0], points[:, 1], ".")
+    for i, j in edges:
+        plt.plot(points[[i, j], 0], points[[i, j], 1])
+    plt.text(270.5, 459, "alpha=1", size=18)
+    plt.show()
+
+
+def create_xarray_from_csv(
+    filename: str = "data/lebreton/Lebreton2018_HistoricalDataset.csv",
+) -> xr:
+    df = pd.read_csv(filename)
+    df = df.rename(columns={"Latitude (degrees)": "lat", "Longitude (degrees)": "lon"})
     df = df[df["Inside GPGP?"] == 1]
     ds = xr.Dataset.from_dataframe(df)
+    return ds
 
-    # Plot a convex hull around garbage patch
-    ax = set_up_geographic_ax()
+
+def create_xarray_map(
+    xarray: xr,
+    x_range: List[float],
+    y_range: List[float],
+    res_lat: float = 1 / 12,
+    res_lon: float = 1 / 12,
+) -> xr:
+
+    # # TODO: WIP
+    # points = np.column_stack((ds["lon"], ds["lat"]))
+
+    # # Select algorithm
+    # # Get vertices and edges
+    # if algorithm == "convex_hull":
+    #     edges = ConvexHull(points).simplices
+    #     vertices =
+    # elif algorithm == "alpha_complex":
+    #     alpha_complex(points, alpha)
+    #     pass
+
     points = np.column_stack((ds["lon"], ds["lat"]))
-    plot_convex_hull(points, ax)
 
-    # Plot an alpha complex around points
-    for idx in range(1, 4):
-        ax = set_up_geographic_ax()
-        edges = alpha_complex(points, alpha=idx * 3)
-        plt.plot(points[:, 0], points[:, 1], ".")
-        for i, j in edges:
-            plt.plot(points[[i, j], 0], points[[i, j], 1])
-        plt.text(270.5, 459, "alpha=1", size=18)
-        plt.show()
+    #####   Problem: vertices in edges need to be in the correct order :(
+    alpha = 1  # TODO: remove hardcode
+    # Probably every point is in here twice, as we are extracting them one by one
+    # TODO: implement for alpha complexes first
+    # edges = alpha_complex(points, alpha)
+    # vertices_indexes = []
+    # for i, j in edges:
+    #     vertices_indexes.append(i)
+    # # vertices_indexes = [idx[0] for idxs in alpha_complex(points, alpha)]
+    # # vertices_indexes = [idx for idxs in alpha_complex(points, alpha) for idx in idxs]
+    # vertices = points[vertices_indexes]
+
+    hull = ConvexHull(points)
+    vertices = points[hull.vertices]
+
+    polygon = np.array(vertices)
+    path = matplotlib.path.Path(polygon)
+
+    # Create all points of area
+    new_lon = np.arange(x_range[0], x_range[1], res_lon)
+    new_lat = np.arange(y_range[0], y_range[1], res_lat)
+    xv, yv = np.meshgrid(new_lon, new_lat, indexing="xy")
+    points_in_area = np.hstack((xv.reshape((-1, 1)), yv.reshape(-1, 1)))
+    mask = path.contains_points(points_in_area)
+    mask.shape = xv.shape
+    plt.imshow(mask, origin="lower")  # ,  # interpolation="nearest")
+    # Need to do remapping from mask values to lat, lon
+
+    # Either take range of vertices + padding or take user defined ranges for where to plot
+
+    # TODO: only GPGP region or global (both with only GPGP data)?
+    # TODO: figure out why alpha complex with alpha value zero does not return the complex hull
+
+    # Create map from stuff inside area
+
+    # Convert to XR
+
+    plt.show()
+
+
+def save_xarray(
+    xarray: xr, res_lat: float = 1 / 12, res_lon: float = 1 / 12, filename: Optional[AnyStr] = None
+) -> None:
+    if filename is None:
+        filename = f"data/garbage_patch/garbage_patch_res_{res_lat:.3f}_{res_lon:.3f}.nc"
+    xarray.to_netcdf(filename)
+    print("Saved garbage patch map")
+
+
+if __name__ == "__main__":
+    ds = create_xarray_from_csv()
+    ds_map = create_xarray_map(ds, [-160, -105], [15, 40])
+    # save_xarray(ds_map)
+
+    # # # Plot a convex hull around garbage patch
+    # ax = set_up_geographic_ax()
+    # points = np.column_stack((ds["lon"], ds["lat"]))
+    # plot_convex_hull(points, ax)
+    # ax = set_up_geographic_ax()
+    # plot_alpha_complex(points, ax, alpha=2)
