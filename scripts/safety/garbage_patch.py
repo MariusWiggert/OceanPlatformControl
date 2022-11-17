@@ -106,66 +106,43 @@ def create_xarray_from_csv(
     return ds
 
 
-def create_xarray_map(
+# Either take range of vertices + padding or take user defined ranges for where to plot
+# TODO: only GPGP region or global (both with only GPGP data)?
+# TODO: figure out why alpha complex with alpha value zero does not return the complex hull
+# TODO: there will be errors in areas where the convex hull should wrap around, hence at +-180°
+
+
+def create_xarray_mask(
     xarray: xr,
     x_range: List[float],
     y_range: List[float],
     res_lat: float = 1 / 12,
     res_lon: float = 1 / 12,
 ) -> xr:
-
-    # # TODO: WIP
-    # points = np.column_stack((ds["lon"], ds["lat"]))
-
-    # # Select algorithm
-    # # Get vertices and edges
-    # if algorithm == "convex_hull":
-    #     edges = ConvexHull(points).simplices
-    #     vertices =
-    # elif algorithm == "alpha_complex":
-    #     alpha_complex(points, alpha)
-    #     pass
-
     points = np.column_stack((ds["lon"], ds["lat"]))
-
-    #####   Problem: vertices in edges need to be in the correct order :(
-    alpha = 1  # TODO: remove hardcode
-    # Probably every point is in here twice, as we are extracting them one by one
-    # TODO: implement for alpha complexes first
-    # edges = alpha_complex(points, alpha)
-    # vertices_indexes = []
-    # for i, j in edges:
-    #     vertices_indexes.append(i)
-    # # vertices_indexes = [idx[0] for idxs in alpha_complex(points, alpha)]
-    # # vertices_indexes = [idx for idxs in alpha_complex(points, alpha) for idx in idxs]
-    # vertices = points[vertices_indexes]
-
     hull = ConvexHull(points)
     vertices = points[hull.vertices]
-
     polygon = np.array(vertices)
     path = matplotlib.path.Path(polygon)
 
-    # Create all points of area
+    # Create all points within area
     new_lon = np.arange(x_range[0], x_range[1], res_lon)
     new_lat = np.arange(y_range[0], y_range[1], res_lat)
     xv, yv = np.meshgrid(new_lon, new_lat, indexing="xy")
     points_in_area = np.hstack((xv.reshape((-1, 1)), yv.reshape(-1, 1)))
-    mask = path.contains_points(points_in_area)
-    mask.shape = xv.shape
-    plt.imshow(mask, origin="lower")  # ,  # interpolation="nearest")
-    # Need to do remapping from mask values to lat, lon
+    garbage_mask = path.contains_points(points_in_area)
+    garbage_mask.shape = xv.shape
+    # plt.imshow(garbage_mask, origin="lower")  # ,  # interpolation="nearest")
 
-    # Either take range of vertices + padding or take user defined ranges for where to plot
+    # Remapping from mask values to lat, lon
+    xarray_masked = xr.Dataset(
+        dict(garbage=(["lat", "lon"], garbage_mask)), coords=dict(lon=new_lon, lat=new_lat)
+    )
 
-    # TODO: only GPGP region or global (both with only GPGP data)?
-    # TODO: figure out why alpha complex with alpha value zero does not return the complex hull
+    # Test:
+    # xarray_masked["garbage"].plot()
 
-    # Create map from stuff inside area
-
-    # Convert to XR
-
-    plt.show()
+    return xarray_masked
 
 
 def save_xarray(
@@ -179,7 +156,8 @@ def save_xarray(
 
 if __name__ == "__main__":
     ds = create_xarray_from_csv()
-    ds_map = create_xarray_map(ds, [-160, -105], [15, 40])
+    ds_map = create_xarray_mask(ds, [-175, -100], [15, 45])
+    ds_map["garbage"].plot()
     # save_xarray(ds_map)
 
     # # # Plot a convex hull around garbage patch
