@@ -13,6 +13,9 @@ import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
 
+from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
+    BathymetrySource2d,
+)
 from ocean_navigation_simulator.data_sources.OceanCurrentField import (
     OceanCurrentField,
 )
@@ -103,6 +106,7 @@ class ArenaObservation:
 class Arena:
     """A OceanPlatformArena in which an ocean platform moves through a current field."""
 
+    # TODO: we never need this if it is none. why do we have it?
     ocean_field: OceanCurrentField = None
     solar_field: SolarIrradianceField = None
     seaweed_field: SeaweedGrowthField = None
@@ -117,9 +121,10 @@ class Arena:
         use_geographic_coordinate_system: bool,
         solar_dict: Optional[Dict] = None,
         seaweed_dict: Optional[Dict] = None,
+        bathymetry_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
         collect_trajectory: Optional[bool] = True,
-        timeout: Union[datetime.timedelta, int] = None
+        timeout: Union[datetime.timedelta, int] = None,
     ):
         """OceanPlatformArena constructor.
         Args:
@@ -139,6 +144,7 @@ class Arena:
                                              specify the solar irradiance data source. Details see SolarIrradianceField.
             seaweed_dict:                    Dictionary containing dicts for "hindcast" and optinally "forecast" which
                                              specify the seaweed growth data source. Details see SeaweedGrowthField.
+            bathymetry_dict:                 Directory containing source, source_settings, casadi_cache_settings and
             spatial_boundary:                dictionary containing the "x" and "y" spatial boundaries as list of [min, max]
             collect_trajectory:              boolean if True trajectory of states and actions is logged, otherwise not.
             timeout:                         integer (in seconds) or timedelta object for max sim run (None sets no limit)
@@ -184,6 +190,12 @@ class Arena:
             )
         else:
             self.seaweed_field = None
+        # Step 1.4 Bathymetry Field
+        # TODO: figure out if API of BathymetrySource2d should be like of the other sources
+        if bathymetry_dict is not None:
+            self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
+        else:
+            self.bathymetry_source = None
 
         self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
 
@@ -239,6 +251,7 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
+        # TODO: add garbage patch accumulation
         with timing_logger("Platform Step ({})", self.logger, logging.DEBUG):
             state = self.platform.simulate_step(action)
 
@@ -266,51 +279,58 @@ class Arena:
             try:
                 x_boundary = [
                     self.ocean_field.hindcast_data_source.grid_dict["x_grid"][0],
-                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1]]
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1],
+                ]
                 y_boundary = [
                     self.ocean_field.hindcast_data_source.grid_dict["y_grid"][0],
-                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1]]
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1],
+                ]
             except BaseException:
-                self.logger.warning(f"Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside.")
+                self.logger.warning(
+                    f"Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside."
+                )
                 return True
         else:
             x_boundary = [x.deg for x in self.spatial_boundary["x"]]
             y_boundary = [y.deg for y in self.spatial_boundary["y"]]
 
         # calculate if inside or outside
-        inside_x = (
-            x_boundary[0] + margin
-            < self.platform.state.lon.deg
-            < x_boundary[1] - margin
-        )
-        inside_y = (
-            y_boundary[0] + margin
-            < self.platform.state.lat.deg
-            < y_boundary[1] - margin
-        )
+        inside_x = x_boundary[0] + margin < self.platform.state.lon.deg < x_boundary[1] - margin
+        inside_y = y_boundary[0] + margin < self.platform.state.lat.deg < y_boundary[1] - margin
         return inside_x and inside_y
 
-    def is_on_land(self, point: SpatialPoint = None) -> bool:
+    # TODO modify this
+    def is_on_land(self, point: SpatialPoint = None, elevation: float = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        # Check if x_grid exists (not for all data sources)
-        if self.ocean_field.hindcast_data_source.grid_dict.get('x_grid', None) is not None:
+
+        if self.bathymetry_source:
             if point is None:
                 point = self.platform.state
-            return self.ocean_field.hindcast_data_source.is_on_land(point)
+            return self.bathymetry_source.is_higher_than(point, elevation)
         else:
-            return False
+            # Check if x_grid exists (not for all data sources)
+            if self.ocean_field.hindcast_data_source.grid_dict.get("x_grid", None) is not None:
+                if point is None:
+                    point = self.platform.state
+                return self.ocean_field.hindcast_data_source.is_on_land(point)
+            else:
+                return False
 
     def is_timeout(self) -> bool:
         # calculate passed_seconds
         if self.timeout is not None:
-            total_seconds = (self.platform.state.date_time - self.initial_state.date_time).total_seconds()
+            total_seconds = (
+                self.platform.state.date_time - self.initial_state.date_time
+            ).total_seconds()
             return total_seconds >= self.timeout.total_seconds()
         else:
             return False
 
     def final_distance_to_target(self, problem: NavigationProblem) -> float:
         # Step 1: calculate min distance
-        total_distance = problem.distance(PlatformState.from_numpy(self.state_trajectory[-1, :])).deg
+        total_distance = problem.distance(
+            PlatformState.from_numpy(self.state_trajectory[-1, :])
+        ).deg
         min_distance_to_target = total_distance - problem.target_radius
         # Step 2: Set 0 when inside and the distance when outside
         if min_distance_to_target <= 0:
