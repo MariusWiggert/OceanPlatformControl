@@ -37,8 +37,18 @@ x_1 = PlatformState(
     lat=units.Distance(deg=23.6),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
+x_2 = PlatformState(
+    lon=units.Distance(deg=-85.4),
+    lat=units.Distance(deg=23.6),
+    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+)
+x_3 = PlatformState(
+    lon=units.Distance(deg=-82.4),
+    lat=units.Distance(deg=24.6),
+    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+)
 # create a platformSet object
-x_set = PlatformStateSet([x_0, x_1])
+x_set = PlatformStateSet([x_0, x_1, x_2, x_3])
 # try if methods returns are correct
 print("lon array: ", x_set.lon, ", lat array: ", x_set.lat)
 # target region is the same for now
@@ -91,7 +101,7 @@ planner_set = MultiAgentPlanner(
     problem=problem, multi_agent_settings=multi_agent_settings, specific_settings=specific_settings
 )
 
-observation = arena.reset(platform_set=x_set)
+observation = arena.reset(platform_set=x_set, graph_edges=[(0, 1), (0, 2), (1, 3)])
 action = planner_set.get_action_set(observation=observation)
 
 # # # %%

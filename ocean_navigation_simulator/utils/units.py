@@ -86,6 +86,9 @@ class Distance:
     def feet(self) -> Union[float, np.ndarray]:
         return self._distance * _METERS_PER_DEG_LAT_LON / _METERS_PER_FOOT
 
+    def __getitem__(self, item):
+        return Distance(deg=self._distance[item])
+
     def __add__(self, other: "Distance") -> "Distance":
         if isinstance(other, Distance):
             return Distance(deg=self.deg + other.deg)

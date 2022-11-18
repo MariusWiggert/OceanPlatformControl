@@ -8,6 +8,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 from ocean_navigation_simulator.utils.misc import get_markers
+import networkx as nx
 
 idx_state = {
     "lon": 0,
@@ -58,6 +59,22 @@ def get_index_from_posix_time(state_trajectory: np.ndarray, posix_time: float) -
         index: float
     """
     return np.searchsorted(a=state_trajectory[2, :], v=posix_time)
+
+
+def plot_graph(G, pos):
+    scaling = 1.05  # smaller numbers leads to larger distance representation when plotting
+    weight_edges = nx.get_edge_attributes(G, "weight")
+    weight_edges_for_scaling = {key: 1 / (value.km) for key, value in weight_edges.items()}
+    edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
+    Gplot = G  # create a copy from G
+    nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
+    pos = nx.spring_layout(
+        Gplot, seed=10, pos=pos, weight="weight"
+    )  # edge length inversely prop to distance repr. on the graph
+    ax = plt.axes()
+    nx.draw_networkx(Gplot, pos=pos, with_labels=True)
+    nx.draw_networkx_edge_labels(Gplot, pos, edge_labels=edge_labels)
+    return ax
 
 
 def animate_trajectory(

@@ -287,6 +287,15 @@ class PlatformStateSet:
         """Helper function to just extract the spatial point."""
         return SpatioTemporalPoint(lon=self.lon, lat=self.lat, date_time=self.date_time)
 
+    def get_nodes_list(self):
+        return list(range(len(self.platform_list)))
+
+    def get_distance_btw_platforms(self, from_nodes, to_nodes):
+        lon_from, lat_from = self.lon[from_nodes], self.lat[from_nodes]
+        lon_to, lat_to = self.lon[to_nodes], self.lat[to_nodes]
+        from_spatial_point = SpatialPoint(lon=lon_from, lat=lat_from)
+        return from_spatial_point.distance(SpatialPoint(lon=lon_to, lat=lat_to))
+
     @staticmethod
     def from_numpy(np_array):
         platform_list = [PlatformState.from_numpy(np_array[k, :]) for k in range(np_array.shape[0])]

@@ -7,6 +7,7 @@ import datetime as dt
 import logging
 import os
 import time
+import networkx as nx
 from typing import (
     AnyStr,
     Callable,
@@ -59,6 +60,7 @@ from ocean_navigation_simulator.utils.misc import get_markers
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
+    plot_graph,
 )
 from ocean_navigation_simulator.utils.units import (
     Distance,
@@ -81,6 +83,7 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
+    graph: nx = None
 
     def __len__(self):
         if type(self.platform_state) is PlatformStateSet:
@@ -242,8 +245,9 @@ class Arena:
         self.collect_trajectory = collect_trajectory
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
+        self.G_list = None
 
-    def reset(self, platform_set: PlatformStateSet) -> ArenaObservation:
+    def reset(self, platform_set: PlatformStateSet, graph_edges: None) -> ArenaObservation:
         """Resets the arena.
         Args:
             platform_state_set
@@ -251,6 +255,19 @@ class Arena:
           The first observation from the newly reset simulator
         """
         self.initial_states = platform_set
+        if graph_edges:
+            G = nx.Graph()
+            G.add_nodes_from(platform_set.get_nodes_list())
+            # graph edges should be passed as list of tuples [(node1, node2), (node2, node4)] etc.
+            G.add_edges_from(graph_edges)
+            from_nodes, to_nodes = list(map(lambda x: x[0], graph_edges)), list(
+                map(lambda x: x[1], graph_edges)
+            )
+            weights = platform_set.get_distance_btw_platforms(
+                from_nodes=from_nodes, to_nodes=to_nodes
+            )
+            nx.set_edge_attributes(G, values=dict(zip(graph_edges, weights)), name="weight")
+        self.plot_graph_nodes_edges(G, platform_set=platform_set)
         self.platform.set_state(self.initial_states)
         self.platform.initialize_dynamics(self.initial_states)
         self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
@@ -711,3 +728,24 @@ class Arena:
         ax.set_ylabel("distance in km")
         ax.set_title("Distance evolution between platforms over time")
         ax.set_xlabel("time")
+
+    def plot_graph_nodes_edges(
+        self,
+        G,
+        platform_set: PlatformStateSet,
+        margin: Optional[int] = 1,
+    ):
+        pos = {}
+        x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
+            state_trajectory=np.atleast_3d(np.array(platform_set)), margin=margin
+        )
+        var_x, var_y = (x_interval[1] - x_interval[0]), (y_interval[1] - y_interval[0])
+        keys = platform_set.get_nodes_list()
+        for lon, lat, key in zip(platform_set.lon.deg, platform_set.lat.deg, keys):
+            pos[key] = (
+                (lon - x_interval[0]) / var_x,
+                (lat - y_interval[0]) / var_y,
+            )  # normalize positions
+        t = dt.datetime.fromtimestamp(t_interval[0], tz=dt.timezone.utc)
+        ax = plot_graph(G, pos=pos)
+        ax.set_title(f"Network graph at t= {dt.datetime.strftime(t, '%Y-%m-%d %H:%M:%S')}")
