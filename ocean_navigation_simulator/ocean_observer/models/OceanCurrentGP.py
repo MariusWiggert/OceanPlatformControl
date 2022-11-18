@@ -122,6 +122,9 @@ class OceanCurrentGP(OceanCurrentModel):
         #           np.array(((measurement_locations[1:] - measurement_locations[:-1]) ** 2)[:, :2].sum(
         #               axis=1) ** .5) * 111000, "meters")
 
+        # Hack for the moment: otherwise receive NaN's near to shore
+        errors = np.nan_to_num(errors, 0)
+
         self.model.fit(measurement_locations, errors)
 
     def reset(self) -> None:

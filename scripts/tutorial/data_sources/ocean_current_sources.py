@@ -48,6 +48,9 @@ ocean_field = OceanCurrentField(
     forecast_source_dict=forecast_source_dict,
     casadi_cache_dict=casadi_cache_dict,
 )
+#%%
+import pytz
+t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 #%% Use it by defining a spatial and temporal interval and points
 t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=2)]

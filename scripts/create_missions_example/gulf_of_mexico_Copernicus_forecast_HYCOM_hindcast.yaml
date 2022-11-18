@@ -1,8 +1,6 @@
 casadi_cache_dict:
-    deg_around_x_t: 0.5
-    time_around_x_t: 36000. # 3600 * 24 * 5
-
-timeout: 172800 # in seconds, here 3600 * 24 * 5
+    deg_around_x_t: 2.0
+    time_around_x_t: 432000 # 3600 * 24
 
 platform_dict:
     battery_cap_in_wh: 400.0
@@ -18,21 +16,21 @@ use_geographic_coordinate_system: True
 spatial_boundary: null
 
 ocean_dict:
-    area: "GOM"
     hindcast:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
+            folder: "data/miss_gen_hindcast/"
+            local: False
             source: "HYCOM"
-            local: True
             type: "hindcast"
-            folder: "data/hindcast_test_download/"
-    forecast: null
-
-solar_dict:
-    hindcast: null
-    forecast: null
-
-seaweed_dict:
-    hindcast: null
-    forecast: null
+            currents: 'total'
+    forecast:
+        field: 'OceanCurrents'
+        source: 'forecast_files'
+        source_settings:
+            folder: "data/miss_gen_forecast/"
+            local: False
+            source: "Copernicus"
+            type: "forecast"
+            currents: 'total'
