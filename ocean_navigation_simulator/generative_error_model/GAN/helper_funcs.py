@@ -15,6 +15,7 @@ import datetime
 import yaml
 import wandb
 import argparse
+import os
 
 
 def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
@@ -66,7 +67,9 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
                           out_channels=model_configs["out_channels"],
                           features=model_configs["features"],
                           norm=model_configs["norm_type"],
-                          dropout=model_configs["dropout"])
+                          dropout_all=model_configs["dropout_all"],
+                          dropout=model_configs["dropout"],
+                          dropout_val=model_configs["dropout_val"])
     elif model_type == "discriminator":
         model = Discriminator(in_channels=model_configs["in_channels"],
                               features=model_configs["features"],
@@ -202,3 +205,22 @@ def get_scheduler(optimizer, scheduler_configs: Dict):
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', scheduler_configs["scheduler_type"])
     return scheduler
+
+
+def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: dict, idx: int) -> None:
+    save_dir = os.path.join(all_cfgs["save_samples_path"], all_cfgs["model_save_name"].split(".")[0])
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # pad idx
+    idx = str(idx+1).zfill(4)
+
+    save_file_path = os.path.join(save_dir, f"input_{idx}.npy")
+    _save_data(data, save_file_path)
+    save_file_path = os.path.join(save_dir, f"output_{idx}.npy")
+    _save_data(output, save_file_path)
+
+
+def _save_data(data: torch.tensor, save_file_path: str) -> None:
+    data = data.cpu().detach().numpy()
+    np.save(save_file_path, data)

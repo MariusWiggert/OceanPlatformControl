@@ -4,7 +4,8 @@ from utils import get_norm_layer
 
 
 class Block(nn.Module):
-    def __init__(self, in_channels, out_channels, down=True, act="relu", norm_layer=nn.BatchNorm2d, use_dropout=False):
+    def __init__(self, in_channels, out_channels, down=True, act="relu", norm_layer=nn.BatchNorm2d, use_dropout=False,
+                 dropout_val=0.5):
         super(Block, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 4, 2, 1, bias=False, padding_mode="reflect")
@@ -15,7 +16,7 @@ class Block(nn.Module):
         )
 
         self.use_dropout = use_dropout
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout_val)
         self.down = down
 
     def forward(self, x):
@@ -24,20 +25,34 @@ class Block(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout=True):
+    def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
+                 dropout_val=0.5):
+        """
+        Parameters:
+            dropout_all - set dropout on all layers
+            dropout - dropout like in pix2pix, first 3 layers of decoder
+        """
         super().__init__()
         norm_layer = get_norm_layer(norm_type=norm)
+        dropout = dropout_all
+        # print(f"dropout values: {dropout_val}")
 
         self.initial_down = nn.Sequential(
             nn.Conv2d(in_channels, features, 4, 2, 1, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
         )
-        self.down1 = Block(features, features * 2, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
-        self.down2 = Block(features * 2, features * 4, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
-        self.down3 = Block(features * 4, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
-        self.down4 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
-        self.down5 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
-        self.down6 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer, use_dropout=False)
+        self.down1 = Block(features, features * 2, down=True, act="leaky", norm_layer=norm_layer, use_dropout=dropout,
+                           dropout_val=dropout_val)
+        self.down2 = Block(features * 2, features * 4, down=True, act="leaky", norm_layer=norm_layer,
+                           use_dropout=dropout, dropout_val=dropout_val)
+        self.down3 = Block(features * 4, features * 8, down=True, act="leaky", norm_layer=norm_layer,
+                           use_dropout=dropout, dropout_val=dropout_val)
+        self.down4 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer,
+                           use_dropout=dropout, dropout_val=dropout_val)
+        self.down5 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer,
+                           use_dropout=dropout, dropout_val=dropout_val)
+        self.down6 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer,
+                           use_dropout=dropout, dropout_val=dropout_val)
 
         self.bottleneck = nn.Sequential(nn.Conv2d(features * 8, features * 8, 4, 2, 1), nn.ReLU())
 
@@ -46,13 +61,20 @@ class Generator(nn.Module):
             self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
             self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
         else:
-            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
-            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
-            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
-        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
-        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
-        self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
-        self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer, use_dropout=False)
+            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout, dropout_val=dropout_val)
+        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout, dropout_val=dropout_val)
+        self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout, dropout_val=dropout_val)
+        self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout, dropout_val=dropout_val)
         self.final_up = nn.Sequential(
             nn.ConvTranspose2d(features * 2, out_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh(),

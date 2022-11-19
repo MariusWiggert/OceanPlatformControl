@@ -1,15 +1,13 @@
-from BuoyForecastDataset import BuoyForecastErrorNpy
-from ForecastHindcastDataset import ForecastHindcastDatasetNpy
-from Generator import Generator
-from Discriminator import Discriminator
 from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
     init_weights, save_checkpoint, load_checkpoint
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ssim import ssim
-from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, initialize
+from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, initialize, save_input_output_pairs
 
 import wandb
 import os
+import yaml
+import sys
 
 import torch
 import torch.nn as nn
@@ -126,18 +124,22 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
     return avg_loss
 
 
-def validation(model, dataloader, device, cfgs_train, metrics_names):
+def validation(model, dataloader, device: str, all_cfgs: dict, save_data=False):
     total_loss = 0
     model.eval()
+    cfgs_train = all_cfgs["train"]
+    metrics_names = all_cfgs["metrics"]
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
             metrics = {metric: 0 for metric in metrics_names}
             metrics_ratio = {metric: 0 for metric in metrics_names}
-            for data, target in tepoch:
+            for idx, (data, target) in enumerate(tepoch):
                 data, target = data.to(device), target.to(device)
 
                 output = model(data)
+                if save_data:
+                    save_input_output_pairs(data, output, all_cfgs, idx)
                 val_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
                 total_loss += val_loss.item()
 
@@ -169,7 +171,7 @@ def clean_up_training(model, optimizer, dataloader, all_cfgs: dict, device: str)
     wandb.finish()
 
 
-def main(sweep: Optional[bool] = False):
+def train_main(sweep: Optional[bool] = False):
     all_cfgs = initialize(sweep=sweep)
     print("####### Start Training #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -217,7 +219,7 @@ def main(sweep: Optional[bool] = False):
             to_log |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio = validation(model, val_loader, device, cfgs_train, all_cfgs["metrics"])
+                val_loss, metrics, metrics_ratio = validation(model, val_loader, device, all_cfgs, save_data=False)
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
@@ -235,7 +237,7 @@ def main(sweep: Optional[bool] = False):
         clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs, device)
 
 
-def test():
+def test_main():
     # TODO: add option to save input-output pairs -> use for variogram
     all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
@@ -247,7 +249,7 @@ def test():
     cfgs_train = all_cfgs["train"]
 
     # load training data
-    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
+    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], device, cfgs_dataset, cfgs_train, test=True)
 
     # load model
     model = get_model(all_cfgs["model"], cfgs_model, device)
@@ -256,10 +258,18 @@ def test():
     model.load_state_dict(checkpoint["state_dict"])
 
     cfgs_train["epoch"] = 1
-    _, metrics, _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
+    _, metrics, _ = validation(model, test_loader, device, all_cfgs, save_data=True)
     print(metrics)
+
+
+def main():
+    config_file = sys.argv[1]
+    all_cfgs = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
+    if all_cfgs["run_train"]:
+        train_main()
+    else:
+        test_main()
 
 
 if __name__ == "__main__":
     main()
-    # test()
