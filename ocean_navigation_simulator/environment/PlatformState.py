@@ -140,7 +140,7 @@ class SpatioTemporalPoint:
     def to_spatio_temporal_casadi_input(self) -> List[float]:
         """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
         if self._is_multi_agent:
-            return [self.vect_timestamp(self.date_time), self.lat.deg, self.lon.deg]
+            return np.array(self)[:,[2,1,0]].T # [t, lat,lon] x [nb_platforms]
         else:
             return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 

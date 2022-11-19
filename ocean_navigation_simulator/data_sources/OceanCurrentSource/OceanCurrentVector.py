@@ -36,7 +36,7 @@ class OceanCurrentVector(NamedTuple):
     def __str__(self) -> str:
         return f"({self.u}, {self.v})"
 
-    def __get_item__(self, item):
+    def __getitem__(self, item):
         return OceanCurrentVector(u=self.u[item], v=self.v[item])
 
     @staticmethod

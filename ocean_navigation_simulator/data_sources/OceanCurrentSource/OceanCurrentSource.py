@@ -261,8 +261,9 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
                 v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
             )
         # otherwise use the general xarray interpolation function (slower)
-        data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
-        return OceanCurrentVector(u=data_xarray["water_u"].values, v=data_xarray["water_v"].values)
+        else:
+            data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
+            return OceanCurrentVector(u=data_xarray["water_u"].values, v=data_xarray["water_v"].values)
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):

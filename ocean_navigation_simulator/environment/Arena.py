@@ -59,6 +59,7 @@ from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils.misc import get_markers
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
+    animate_graph_net_trajectory,
     get_lon_lat_time_interval_from_trajectory,
     plot_graph,
 )
@@ -83,7 +84,7 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
-    graph: nx = None
+    multi_agent_graph: nx = None
 
     def __len__(self):
         if type(self.platform_state) is PlatformStateSet:
@@ -245,7 +246,8 @@ class Arena:
         self.collect_trajectory = collect_trajectory
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
-        self.G_list = None
+        self.multi_agent_G_list = [None]
+        self.graph_edges, self.from_nodes, self.to_nodes = None, None, None
 
     def reset(self, platform_set: PlatformStateSet, graph_edges: None) -> ArenaObservation:
         """Resets the arena.
@@ -255,27 +257,28 @@ class Arena:
           The first observation from the newly reset simulator
         """
         self.initial_states = platform_set
+        self.platform.set_state(self.initial_states)
+        self.platform.initialize_dynamics(self.initial_states)
+        self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
+
+        self.state_trajectory = np.atleast_3d(np.array(platform_set))
+        # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
+        self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
+        self.graph_edges = graph_edges
         if graph_edges:
             G = nx.Graph()
             G.add_nodes_from(platform_set.get_nodes_list())
             # graph edges should be passed as list of tuples [(node1, node2), (node2, node4)] etc.
             G.add_edges_from(graph_edges)
-            from_nodes, to_nodes = list(map(lambda x: x[0], graph_edges)), list(
+            self.from_nodes, self.to_nodes = list(map(lambda x: x[0], graph_edges)), list(
                 map(lambda x: x[1], graph_edges)
             )
             weights = platform_set.get_distance_btw_platforms(
-                from_nodes=from_nodes, to_nodes=to_nodes
+                from_nodes=self.from_nodes, to_nodes=self.to_nodes
             )
             nx.set_edge_attributes(G, values=dict(zip(graph_edges, weights)), name="weight")
-        self.plot_graph_nodes_edges(G, platform_set=platform_set)
-        self.platform.set_state(self.initial_states)
-        self.platform.initialize_dynamics(self.initial_states)
-        self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
-
-        # self.state_trajectory = np.expand_dims(np.array(platform_set).squeeze(), axis=0)
-        self.state_trajectory = np.atleast_3d(np.array(platform_set))
-        # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
-        self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
+        #self.plot_graph_nodes_edges(G, platform_set=platform_set)
+            self.multi_agent_G_list[0]=G
 
         observation = ArenaObservation(
             platform_state=platform_set,
@@ -283,6 +286,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
+            multi_agent_graph = G
         )
         return observation
 
@@ -302,12 +306,22 @@ class Arena:
             self.action_trajectory = np.append(
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
+        if self.graph_edges:
+            G = nx.Graph()
+            G.add_edges_from(self.graph_edges)
+            weights = platform_set.get_distance_btw_platforms(
+                from_nodes=self.from_nodes, to_nodes=self.to_nodes
+            )
+            nx.set_edge_attributes(G, values=dict(zip(self.graph_edges, weights)), name="weight")  
+            self.multi_agent_G_list.append(G)
+
         return ArenaObservation(
             platform_state=platform_set,
             true_current_at_state=self.ocean_field.get_ground_truth(
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
+            multi_agent_graph = G
         )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
@@ -729,7 +743,7 @@ class Arena:
         ax.set_title("Distance evolution between platforms over time")
         ax.set_xlabel("time")
 
-    def plot_graph_nodes_edges(
+    def plot_graph_for_platform_state(
         self,
         G,
         platform_set: PlatformStateSet,
@@ -747,5 +761,17 @@ class Arena:
                 (lat - y_interval[0]) / var_y,
             )  # normalize positions
         t = dt.datetime.fromtimestamp(t_interval[0], tz=dt.timezone.utc)
-        ax = plot_graph(G, pos=pos)
-        ax.set_title(f"Network graph at t= {dt.datetime.strftime(t, '%Y-%m-%d %H:%M:%S')}")
+        ax = plot_graph(G, pos=pos, t_datetime=t)
+        
+    def animate_graph_net_trajectory(
+        self,
+        margin: Optional[float] = 1,
+        output: Optional[AnyStr] = "traj_graph_anim.mp4",
+    ):   
+        # shallow wrapper to plotting utils function
+        animate_graph_net_trajectory(
+            state_trajectory=self.state_trajectory,
+            multi_agent_graph_seq=self.multi_agent_G_list,
+            margin=margin,
+            output=output,
+        )

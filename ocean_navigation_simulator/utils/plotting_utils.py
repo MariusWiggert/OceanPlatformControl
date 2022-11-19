@@ -2,12 +2,15 @@ from typing import AnyStr, Callable, List, Optional, Tuple
 
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.animation as animation
+import datetime as dt
 
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 from ocean_navigation_simulator.utils.misc import get_markers
+from functools import partial
 import networkx as nx
 
 idx_state = {
@@ -59,23 +62,6 @@ def get_index_from_posix_time(state_trajectory: np.ndarray, posix_time: float) -
         index: float
     """
     return np.searchsorted(a=state_trajectory[2, :], v=posix_time)
-
-
-def plot_graph(G, pos):
-    scaling = 1.05  # smaller numbers leads to larger distance representation when plotting
-    weight_edges = nx.get_edge_attributes(G, "weight")
-    weight_edges_for_scaling = {key: 1 / (value.km) for key, value in weight_edges.items()}
-    edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
-    Gplot = G  # create a copy from G
-    nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
-    pos = nx.spring_layout(
-        Gplot, seed=10, pos=pos, weight="weight"
-    )  # edge length inversely prop to distance repr. on the graph
-    ax = plt.axes()
-    nx.draw_networkx(Gplot, pos=pos, with_labels=True)
-    nx.draw_networkx_edge_labels(Gplot, pos, edge_labels=edge_labels)
-    return ax
-
 
 def animate_trajectory(
     state_trajectory: np.ndarray,
@@ -196,3 +182,59 @@ def animate_trajectory(
         output=output,
         **kwargs,
     )
+
+
+
+def plot_graph(G, pos, t_datetime, reset_plot: bool=False):
+    scaling = 1.05  # smaller numbers leads to larger distance representation when plotting
+    weight_edges = nx.get_edge_attributes(G, "weight")
+    weight_edges_for_scaling = {key: 1 / (value.km) for key, value in weight_edges.items()}
+    edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
+    Gplot = nx.Graph()
+    Gplot.add_edges_from(G.edges()) # create a copy from G
+    nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
+    pos = nx.spring_layout(
+        Gplot, seed=10, pos=pos, weight="weight"
+    )  # edge length inversely prop to distance repr. on the graph
+    # reset plot this is needed for matplotlib.animation
+    if reset_plot:
+            plt.clf()
+    ax = plt.axes()
+    ax.set_title(f"Network graph at t= {dt.datetime.strftime(t_datetime, '%Y-%m-%d %H:%M:%S')}")
+    nx.draw_networkx(Gplot, pos=pos, with_labels=True)
+    nx.draw_networkx_edge_labels(Gplot, pos, edge_labels=edge_labels)
+    return ax
+
+def animate_graph_net_trajectory(
+    state_trajectory,
+    multi_agent_graph_seq,
+    margin: Optional[float] = 1,
+    forward_time: bool = True,
+    output: Optional[AnyStr] = "traj_graph_anim.mp4",
+    temporal_resolution = None, #TODO code a temporal resolution interpolation-> see DataSource-> interpolate_in_space_and_time
+):
+    def full_graph_plot_fcn(time_idx):
+        t_from_idx = dt.datetime.fromtimestamp(state_trajectory[0, 2, time_idx], tz=dt.timezone.utc)
+        G = multi_agent_graph_seq[time_idx]
+        pos = {}
+        x_interval, y_interval, _ = get_lon_lat_time_interval_from_trajectory(
+        state_trajectory= np.atleast_3d(state_trajectory[:, :, time_idx]) , margin=margin
+        )
+        var_x, var_y = (x_interval[1] - x_interval[0]), (y_interval[1] - y_interval[0])
+        keys = list(G.nodes)
+        for node_idx in range(len(keys)):
+            pos[keys[node_idx]] = (
+                    (state_trajectory[node_idx, idx_state["lon"], time_idx]- x_interval[0]) / var_x, 
+                    (state_trajectory[node_idx, idx_state["lat"], time_idx]- y_interval[0]) / var_y, 
+            )
+        ax = plot_graph(G, pos=pos, t_datetime=t_from_idx, reset_plot=True)
+    render_frame = partial(full_graph_plot_fcn)
+        # set time direction of the animation
+    frames_vector_ = np.where(
+        forward_time, np.arange(state_trajectory.shape[2]), np.flip(state_trajectory.shape[2])
+    )
+    frames_vector = frames_vector_[::10] # speed up animation by skiping frames
+    fig = plt.figure(figsize=(12, 12))
+    fps = int(10)
+    ani = animation.FuncAnimation(fig, func=render_frame, frames=frames_vector, repeat=False)
+    DataSource.render_animation(animation_object=ani, output=output, fps=fps)

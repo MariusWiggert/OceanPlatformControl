@@ -108,11 +108,12 @@ action = planner_set.get_action_set(observation=observation)
 # observation = arena.step(action)
 
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
-day_sim = 1
+day_sim = 0.5
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 1 day
     action = planner_set.get_action_set(observation=observation)
     observation = arena.step(action)
 
+arena.animate_graph_net_trajectory()
 #%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
