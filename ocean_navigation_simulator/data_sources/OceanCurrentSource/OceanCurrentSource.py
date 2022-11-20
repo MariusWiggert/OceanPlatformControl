@@ -363,7 +363,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         ):
             # Filter on the list to get all files where t_0 is contained.
             dics_containing_t_0 = list(
-                filter(lambda dic: dic["t_range"][0] < time < dic["t_range"][1], self.files_dicts)
+                filter(lambda dic: dic["t_range"][0] <= time < dic["t_range"][1], self.files_dicts)
             )
             # Basic Sanity Check if this list is empty no file contains t_0
             if len(dics_containing_t_0) == 0:
@@ -493,7 +493,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
         additive_noise = self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
 
         # Step 3: return dataframe with added noise
-        return ds + additive_noise
+        return ds + additive_noise/2
 
     def plot_noise_at_time_over_area(
         self,
