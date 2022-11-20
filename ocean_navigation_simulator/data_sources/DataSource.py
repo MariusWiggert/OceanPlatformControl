@@ -221,9 +221,9 @@ class DataSource(abc.ABC):
             or array.coords["lon"].data[-1] <= x_interval[1]
         ):
             spatial_error = f"Part of the x requested area is outside of file (requested: [{x_interval[0]}, {x_interval[1]}])."
-        if units.get_datetime_from_np64(array.coords["time"].data[0]) >= t_interval[0]:
+        if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
             temporal_error = f"The starting time is not in the array (requested: [{t_interval[0]}, {t_interval[1]}])."
-        if units.get_datetime_from_np64(array.coords["time"].data[-1]) <= t_interval[1]:
+        if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
             temporal_error = f"The requested final time is not part of the subset (requested: [{t_interval[0]}, {t_interval[1]}])."
 
         if temporal_error or spatial_error:
@@ -592,7 +592,7 @@ class DataSource(abc.ABC):
         # render the animation with the keyword arguments
         self.render_animation(animation_object=ani, output=output, fps=fps)
 
-    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> datetime:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.
         Args:
