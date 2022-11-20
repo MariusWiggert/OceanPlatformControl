@@ -643,7 +643,7 @@ class XarraySource(abc.ABC):
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
           throw_exceptions:    if True an exception is thrown when requesting data not available otherwise warning
-          spatial_tolerance:   how much the spatial interval is extended to make sure the requested interval is inside
+          spatial_tolerance:   how much spatial grid sizes the interval is extended to make sure it is inside
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
