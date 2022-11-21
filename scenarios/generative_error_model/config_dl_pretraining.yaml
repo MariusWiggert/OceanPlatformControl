@@ -8,7 +8,7 @@ run_train: True
 
 load_from_chkpt:
   value: False
-  file_name: "2022-11-17_17:59:56.pth"
+  file_name: "2022-11-18_21:21:42.pth"
 
 generator:
   in_channels: 2
@@ -19,7 +19,7 @@ generator:
   dropout_val: 0.3
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "instance"
+  norm_type: "batch"
 
 train:
   batch_size: 32

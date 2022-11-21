@@ -249,7 +249,7 @@ def test_main():
     cfgs_train = all_cfgs["train"]
 
     # load training data
-    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], device, cfgs_dataset, cfgs_train, test=True)
+    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
 
     # load model
     model = get_model(all_cfgs["model"], cfgs_model, device)
