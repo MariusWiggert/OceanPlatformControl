@@ -48,7 +48,7 @@ from ocean_navigation_simulator.utils.units import (
 class OceanCurrentSource(DataSource):
     """Base class for various data sources of ocean currents to handle different current sources."""
 
-    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
+    def set_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
         # Note: the input to the casadi function needs to be an array of the form np.array([posix time, lat, lon])
         Args:
@@ -62,6 +62,52 @@ class OceanCurrentSource(DataSource):
         self.v_curr_func = ca.interpolant(
             "v_curr", "linear", grid, array["water_v"].values.ravel(order="F")
         )
+
+        # Delete Dynamic Casadi Maps
+        for d in self.__dict__:
+            if d.startswith("u_curr_func_"):
+                delattr(self, d)
+            if d.startswith("v_curr_func_"):
+                delattr(self, d)
+
+    def interpolate_with_casadi(
+        self,
+        x_grid: np.ndarray,
+        y_grid: np.ndarray,
+        t_grid: np.ndarray,
+    ) -> np.ndarray:
+        """DataSource specific function to interpolate using casadi functions.
+        Args:
+            x_grid: 1-D numpy array of x location
+            y_grid: 1-D numpy array of y location
+            t_grid: 1-D numpy array of t location
+        Returns:
+            4-D numpy array with (x_grid, y_grid, t_grid, (u_current, v_current))
+        """
+        mx, my, mt = np.meshgrid(x_grid, y_grid, t_grid)
+
+        u_map_function_name = f"u_curr_func_{int(mx.size)}"
+        if not hasattr(self, u_map_function_name):
+            setattr(self, u_map_function_name, self.u_curr_func.map(mx.size))
+        u = np.array(
+            getattr(self, u_map_function_name)(
+                np.stack((mt.ravel(), my.ravel(), mx.ravel()), axis=0)
+            )
+        ).reshape(mx.shape)
+
+        v_map_function_name = f"val_func_{int(mx.size)}"
+        if not hasattr(self, v_map_function_name):
+            setattr(self, v_map_function_name, self.v_curr_func.map(mx.size))
+        v = np.array(
+            getattr(self, v_map_function_name)(
+                np.stack((mt.ravel(), my.ravel(), mx.ravel()), axis=0)
+            )
+        ).reshape(mx.shape)
+
+        uv = np.stack((u, v), axis=3)
+        uv = np.moveaxis(uv, [0, 1, 2, 3], [2, 1, 0, 3])
+
+        return uv
 
     # Plotting Functions for OceanCurrents specifically
     @staticmethod

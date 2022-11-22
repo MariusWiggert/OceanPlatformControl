@@ -53,10 +53,10 @@ class TrainingRunner:
         cluster_utils.ensure_storage_connection()
         TrainingRunner.clean_results(
             self.config["experiments_folder"],
-            verbose=0,
+            verbose=1,
             iteration_limit=10,
             ignore_most_recent=5,
-            delete=True,
+            delete=False,
         )
         self.timestring = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
             "%Y_%m_%d_%H_%M_%S"
@@ -147,9 +147,9 @@ class TrainingRunner:
         )
 
         # Step 6: Model & Config Data
-        wandb.config.update({"algorithm_final": self.trainer.config})
+        wandb.config.update({"algorithm_final": self.trainer.config.to_dict()})
         with open(f"{self.config['folders']['config']}agent_config_final.json", "wt") as f:
-            pprint.pprint(self.trainer.config, stream=f)
+            pprint.pprint(self.trainer.config.to_dict(), stream=f)
 
         self.analyze_model()
 
@@ -181,9 +181,10 @@ class TrainingRunner:
         wandb.run.summary.update(reduce_dict({"Model Variables": model_variables}))
 
         # Model Informations
-        if isinstance(self.model.obs_space, gym.spaces.Tuple):
-            shape = [o.shape for o in self.model.obs_space]
-            self.dummy_input = [torch.randn((32,) + s) for s in shape]
+        if isinstance(self.model.obs_space, gym.spaces.Dict):
+            self.dummy_input = {
+                k: torch.randn((32,) + o.shape).cuda() for k, o in self.model.obs_space.items()
+            }
         else:
             shape = self.model.obs_space.shape
             self.dummy_input = torch.randn((32,) + shape)
@@ -213,22 +214,13 @@ class TrainingRunner:
         os.makedirs(folder, exist_ok=True)
 
         torch.save(self.model, folder + "model.pt")
-        if isinstance(self.dummy_input, list):
-            torch.onnx.export(
-                self.model,
-                args=tuple(i.cuda() for i in self.dummy_input),
-                f=folder + "model.onnx",
-                export_params=True,
-                opset_version=15,
-            )
-        else:
-            torch.onnx.export(
-                self.model,
-                self.dummy_input.cuda(),
-                f=folder + "model.onnx",
-                export_params=True,
-                opset_version=15,
-            )
+        torch.onnx.export(
+            self.model,
+            self.dummy_input,
+            f=folder + "model.onnx",
+            export_params=True,
+            opset_version=15,
+        )
 
     def run(self, epochs=100, silent=False, checkpoint_freq=1):
         print(
@@ -379,38 +371,39 @@ class TrainingRunner:
         finding the important trainings in tensorboard. It however ignores the very last experiment,
         since it could be still ongoing.
         """
-        experiments = [
-            os.path.join(folder, file)
-            for file in os.listdir(folder)
-            if not file.startswith(".") and file.startswith(filter)
-        ]
+        experiments = [os.path.join(folder, file) for file in os.listdir(folder)]
         experiments.sort(key=lambda x: os.path.getmtime(x))
 
         for experiment in (
             experiments[:-ignore_most_recent] if ignore_most_recent > 0 else experiments
         ):
-            csv_file = experiment + "/progress.csv"
-            if os.path.isfile(csv_file):
-                with open(csv_file) as file:
-                    row_count = sum(1 for line in file)
-                    if row_count < iteration_limit:
-                        if delete:
-                            shutil.rmtree(experiment, ignore_errors=True)
-                        if verbose > 0:
-                            print(
-                                f"RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} with {row_count} rows {bcolors.ENDC}"
+            checkpoints = experiment + "/checkpoints/"
+            if os.path.isdir(checkpoints):
+                num_checkpoints = len(os.listdir(checkpoints))
+                if num_checkpoints < iteration_limit:
+                    if delete:
+                        shutil.rmtree(experiment, ignore_errors=True)
+                    if verbose > 0:
+                        print(
+                            bcolors.orange(
+                                f"RayUtils.clean_ray_results: Delete {experiment} with {num_checkpoints} checkpoints"
                             )
-                    else:
-                        if verbose > 0:
-                            print(
-                                f"RayUtils.clean_ray_results: Keep   {bcolors.OKGREEN}{experiment} with {row_count} rows {bcolors.ENDC}"
+                        )
+                else:
+                    if verbose > 0:
+                        print(
+                            bcolors.green(
+                                f"RayUtils.clean_ray_results: Keep   {experiment} with {num_checkpoints} checkpoints"
                             )
+                        )
             else:
                 if delete:
                     shutil.rmtree(experiment, ignore_errors=True)
                 if verbose > 0:
                     print(
-                        f"RayUtils.clean_ray_results: Delete {bcolors.FAIL}{experiment} without progress.csv file {bcolors.ENDC}"
+                        bcolors.red(
+                            f"RayUtils.clean_ray_results: Delete {experiment} without checkpoint folder."
+                        )
                     )
 
 

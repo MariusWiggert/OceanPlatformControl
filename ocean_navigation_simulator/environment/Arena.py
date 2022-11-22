@@ -183,7 +183,7 @@ class Arena:
         else:
             self.seaweed_field = None
 
-        self.logger.info(f" Generate Sources ({time.time() - start:.1f}s)")
+        self.logger.info(f"Generate Sources ({time.time() - start:.1f}s)")
 
         # Step 2: Generate Platform
         start = time.time()
@@ -199,7 +199,7 @@ class Arena:
             else None,
         )
 
-        self.logger.info(f" Generate Platform ({time.time() - start:.1f}s)")
+        self.logger.info(f"Generate Platform ({time.time() - start:.1f}s)")
 
         # Step 3: Initialize Variables
         self.spatial_boundary = spatial_boundary
@@ -323,8 +323,18 @@ class Arena:
         else:
             return "Invalid"
 
-    ### Various Plotting Functions for the Arena Object ###
+    def minimal_distance(self, problem: Problem):
+        if not self.collect_trajectory:
+            raise "Cannot calculate minimal distance with collect_trajectory=False"
+        else:
+            x_distance = self.state_trajectory[:, 0] - problem.end_region.lon.deg
+            y_distance = self.state_trajectory[:, 1] - problem.end_region.lat.deg
 
+            distance_to_target = np.sqrt(np.square(x_distance) + np.square(y_distance))
+
+            return max(0, distance_to_target.min() - problem.target_radius)
+
+    ### Various Plotting Functions for the Arena Object ###
     def plot_control_trajectory_on_map(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,

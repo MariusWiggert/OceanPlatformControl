@@ -58,7 +58,7 @@ with timing("Script running for {}"):
     observation = arena.reset(problem.start_state)
 
     with timing("Arena running for {}"):
-        while problem.is_done(observation.platform_state) == 0:
+        while arena.problem_status(observation.platform_state) == 0:
             observation = arena.step(controller.get_action(observation))
 
     print(

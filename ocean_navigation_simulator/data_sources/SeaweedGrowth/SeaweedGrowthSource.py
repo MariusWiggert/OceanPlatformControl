@@ -36,7 +36,7 @@ class SeaweedGrowthSource(DataSource):
     Note: It requires input from the Solar Source in W/m^2 and
     """
 
-    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
+    def set_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
         Args:
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data

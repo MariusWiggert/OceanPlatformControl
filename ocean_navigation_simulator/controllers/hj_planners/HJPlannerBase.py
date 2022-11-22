@@ -7,6 +7,7 @@ from bisect import bisect
 from datetime import datetime, timezone
 from functools import partial
 from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
+import casadi as ca
 
 # Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
@@ -100,6 +101,8 @@ class HJPlannerBase(Controller):
 
         # initialize vectors for open_loop control
         self.times, self.x_traj, self.contr_seq = None, None, None
+
+        self.interpolator_method = "scipy"  # one of 'casadi', 'scipy'
 
         # saving the planned trajectories for inspection purposes
         self.planned_trajs = []
@@ -199,7 +202,7 @@ class HJPlannerBase(Controller):
                     )
                     self.planner_cache_index += 1
 
-                self.logger.info(
+                self.logger.error(
                     f"HJPlannerBase: Re-planning finished ({time.time() - start:.1f}s)"
                 )
             return True
@@ -1048,17 +1051,31 @@ class HJPlannerBase(Controller):
         )
 
         # Set Interpolator for quicker interpolation
-        self.interpolator = scipy.interpolate.RegularGridInterpolator(
-            points=(
-                self.current_data_t_0 + self.reach_times,
-                self.grid.coordinate_vectors[0],
-                self.grid.coordinate_vectors[1],
-            ),
-            values=ttr_values,
-            method="linear",
-            bounds_error=False,
-            fill_value=None,
-        )
+        # Use Scipy
+        if self.interpolator_method == "scipy":
+            self.interpolator = scipy.interpolate.RegularGridInterpolator(
+                points=(
+                    np.array(self.grid.coordinate_vectors[0]),
+                    np.array(self.grid.coordinate_vectors[1]),
+                    np.array(self.current_data_t_0 + self.reach_times),
+                ),
+                values=np.moveaxis(np.array(ttr_values), [0, 1, 2], [2, 0, 1]),
+                method="linear",
+                bounds_error=False,
+                fill_value=None,
+            )
+        # Use Casadi Interpolant
+        elif self.interpolator_method == "casadi":
+            self.val_func = ca.interpolant(
+                "val_func",
+                "linear",
+                [
+                    np.array(self.grid.coordinate_vectors[0]),
+                    np.array(self.grid.coordinate_vectors[1]),
+                    np.array(self.current_data_t_0 + self.reach_times),
+                ],
+                np.moveaxis(np.array(ttr_values, [0, 1, 2], [2, 0, 1])),
+            )
 
     def interpolate_value_function_in_hours(
         self,
@@ -1066,6 +1083,9 @@ class HJPlannerBase(Controller):
         point: SpatioTemporalPoint = None,
         width_deg: Optional[float] = 0,
         width: Optional[int] = 1,
+        embedding_n: Optional[List] = None,
+        embedding_radius: Optional[List] = None,
+        h_grid: Optional[List] = [0],
         allow_spacial_extrapolation: Optional[bool] = False,
         allow_temporal_extrapolation: Optional[bool] = False,
     ) -> np.ndarray:
@@ -1086,47 +1106,73 @@ class HJPlannerBase(Controller):
                 "Either ArenaObservation or SpatioTemporalPoint has to be given for interpolation."
             )
 
-        out_x = np.linspace(point.lon.deg - width_deg / 2, point.lon.deg + width_deg / 2, width)
-        out_y = np.linspace(point.lat.deg - width_deg / 2, point.lat.deg + width_deg / 2, width)
-        out_t = point.date_time.timestamp()
+        if embedding_n is None:
+            out_x = np.linspace(point.lon.deg - width_deg / 2, point.lon.deg + width_deg / 2, width)
+            out_y = np.linspace(point.lat.deg - width_deg / 2, point.lat.deg + width_deg / 2, width)
+            out_t = np.array([point.date_time.timestamp() + 3600 * h for h in h_grid])
+            mx, my, mt = np.meshgrid(out_x, out_y, out_t)
+        else:
+            out_x = np.array([])
+            out_y = np.array([])
+            out_t = np.array([point.date_time.timestamp() + 3600 * h for h in h_grid])
 
-        # Sanitize Inputs:
+            for i in range(len(embedding_n)):
+                for angle in np.linspace(0, 2 * np.pi, embedding_n[i], endpoint=False):
+                    out_x = np.append(out_x, point.lon.deg + np.sin(angle) * embedding_radius[i])
+                    out_y = np.append(out_y, point.lat.deg + np.cos(angle) * embedding_radius[i])
+
+            mx, mt = np.meshgrid(out_x, out_t)
+            my, mt = np.meshgrid(out_y, out_t)
+
+        # Sanitize Inputs
         extrapolate_x = (
-            out_x[0] <= self.grid.coordinate_vectors[0][0]
-            or self.grid.coordinate_vectors[0][-1] <= out_x[-1]
+                out_x.min() < self.grid.coordinate_vectors[0][0]
+                or self.grid.coordinate_vectors[0][-1] < out_x.max()
         )
         extrapolate_y = (
-            out_y[0] <= self.grid.coordinate_vectors[1][0]
-            or self.grid.coordinate_vectors[1][-1] <= out_y[-1]
+                out_y.min() < self.grid.coordinate_vectors[1][0]
+                or self.grid.coordinate_vectors[1][-1] < out_y.max()
         )
-        extrapolate_t = not (
-            self.current_data_t_0 + self.reach_times[0]
-            <= out_t
-            <= self.current_data_t_0 + self.reach_times[-1]
+        extrapolate_t = (
+            out_t.min() < self.current_data_t_0 + self.reach_times[0]
+            or self.current_data_t_0 + self.reach_times[-1] < out_t.max()
         )
+
         if extrapolate_x or extrapolate_y or extrapolate_t:
             message = (
                 f"Extrapolating in {'x' if extrapolate_x else 'y' if extrapolate_y else 't'}. "
-                + f"Requested: out_t: {out_t:.0f} out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}] out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]. "
+                + f"Requested: out_t: [{out_t[0]:.0f}, {out_t[-1]:.0f}] out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}] out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]. "
                 + "Available:"
                 + f" in_t: [{self.current_data_t_0+self.reach_times[0]:.0f}, {self.current_data_t_0+self.reach_times[-1]:.0f}]"
                 + f" in_x: [{self.grid.coordinate_vectors[0][0]:.2f}, {self.grid.coordinate_vectors[0][-1]:.2f}]"
                 + f" in_y: [{self.grid.coordinate_vectors[1][0]:.2f}, {self.grid.coordinate_vectors[1][-1]:.2f}]"
             )
-            if (allow_spacial_extrapolation and not extrapolate_t) or (
-                allow_temporal_extrapolation and not (extrapolate_x or extrapolate_y)
+            if (not allow_spacial_extrapolation and extrapolate_t) or (
+                not allow_temporal_extrapolation and (extrapolate_x or extrapolate_y)
             ):
-                self.logger.warning(message)
-            else:
                 raise ValueError(message)
+            else:
+                self.logger.warning(message)
 
-        mx, my = np.meshgrid(out_x, out_y)
-
-        return (
-            self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel()))
-            .reshape((width, width))
-            .squeeze()
-        )
+        # Use Scipy
+        if self.interpolator_method == "scipy":
+            interpolated = self.interpolator((mx.ravel(), my.ravel(), mt.ravel()))
+            if embedding_n is None:
+                interpolated = interpolated.reshape((width, width, -1))
+            return interpolated.squeeze()
+        # Dynamically use Casadi Map Functions: https://web.casadi.org/docs/#for-loop-equivalents
+        elif self.interpolator_method == "casadi":
+            map_function_name = f"val_func_{int(mx.size)}"
+            if not hasattr(self, map_function_name):
+                setattr(self, map_function_name, self.val_func.map(mx.size))
+            interpolated = np.array(
+                getattr(self, map_function_name)(
+                    np.stack((mx.ravel(), my.ravel(), mt.ravel()), axis=0)
+                )
+            )
+            if embedding_n is None:
+                interpolated = interpolated.reshape((width, width, -1))
+            return interpolated.squeeze()
 
     ## Saving & Loading Planner State
     def save_planner_state(self, folder):

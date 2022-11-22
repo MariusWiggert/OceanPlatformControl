@@ -20,7 +20,7 @@ observer:
 #        gaussian_process:
 #            sigma_noise_squared: 0.000005
 #            sigma_exp_squared: 4.6322963514022275
-#            kernel:
+#            kernels:
 #                type: "matern"
 #                scaling:
 #                    latitude: 0.4876354640492018
@@ -34,7 +34,7 @@ observer:
 #        gaussian_process:
 #            sigma_noise_squared: 0.000005
 #            sigma_exp_squared: 3.4904
-#            kernel:
+#            kernels:
 #                type: "matern"
 #                scaling:
 #                    latitude: 0.48426081412300614

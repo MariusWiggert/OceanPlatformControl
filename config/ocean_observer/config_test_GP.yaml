@@ -68,7 +68,7 @@ observer:
 
 
     #    gaussian_process:
-    #      kernel:
+    #      kernels:
     #        type: "matern"
     #        sigma_exp_squared: 2.3561
     #        scaling:
@@ -83,7 +83,7 @@ observer:
     #{'type': 'matern', 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849}, 'sigma_exp_squared': 2.3561, 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
     #    gaussian_process:
     #      #sigma_noise_squared: 0.000005
-    #      kernel:
+    #      kernels:
     #        #type: "RBF"
     #        type: "matern"
     #        # 3.6 ** 2 = 12.96
@@ -101,7 +101,7 @@ observer:
     #
     # 915 results bayes
     #    gaussian_process:
-    #      kernel:
+    #      kernels:
     #        #type: "RBF"
     #        type: "matern"
     #        # 3.6 ** 2 = 12.96
@@ -118,7 +118,7 @@ observer:
     #        #type: "constantkernel"
     #    gaussian_process:
     #      #sigma_noise_squared: 0.000005
-    #      kernel:
+    #      kernels:
     #        #type: "RBF"
     #        type: "matern"
     #        sigma_exp_squared: 1.4976 #12.96
@@ -134,7 +134,7 @@ observer:
     #        #type: "constantkernel"
     #    gaussian_process:
     #      #sigma_noise_squared: 0.000005
-    #      kernel:
+    #      kernels:
     #        #type: "RBF"
     #        type: "matern"
     #        sigma_exp_squared: 0.4274 #12.96
@@ -150,7 +150,7 @@ observer:
     #        #type: "constantkernel"
     #
     #    gaussian_process:
-    #      kernel:
+    #      kernels:
     #        type: "matern"
     #        sigma_exp_squared: 1.4976
     #        scaling:
@@ -168,7 +168,7 @@ observer:
     #{'type': 'matern', 'scaling': {'latitude': 226.6619894999933, 'longitude': 2171.4892169111454, 'time': 386865.14099893917}, 'sigma_exp_squared': 1.4976, 'parameters': {'nu': 0.0018000000000000002, 'length_scale_bounds': 'fixed', 'length_scale': array([2.17148922e+03, 2.26661989e+02, 3.86865141e+05])}}
 
     #    gaussian_process:
-    #      kernel:
+    #      kernels:
     #        type: "matern"
     #        sigma_exp_squared: 10
     #          #        scaling:
@@ -180,7 +180,7 @@ observer:
     #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
     #nu: 0.0019
 
-    #      kernel:
+    #      kernels:
     #        type: "matern"
     #        sigma_exp_squared: 0.171200000
     #        scaling:
@@ -195,7 +195,7 @@ observer:
 
 
     #    gaussian_process:
-    #      kernel:
+    #      kernels:
     #        type: "RationalQuadratic"
     #        sigma_exp_squared: 0.2339000000
     #        parameters:

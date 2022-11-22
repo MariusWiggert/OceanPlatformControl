@@ -103,7 +103,13 @@ def run_command_on_all_nodes(command, resource_group, verbose=10):
         command: the console command to run, can be concatenated with a ;
         resource-group: the resource group where the machines should be found
     """
-    vm_list = get_vm_list(resource_group)
+    if isinstance(resource_group, list):
+        vm_list = []
+        for rg in resource_group:
+            vm_list += get_vm_list(rg)
+    else:
+        vm_list = get_vm_list(resource_group)
+
     print_vm_table(vm_list)
 
     ray.init()

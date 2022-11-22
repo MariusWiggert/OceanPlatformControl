@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from typing import Optional
+from pathlib import Path
 
 import pandas as pd
 import pytz
@@ -37,6 +38,7 @@ class EvaluationRunner:
 
     def __init__(
         self,
+        name,
         config: dict,
         verbose: Optional[int] = 0,
     ):
@@ -88,9 +90,10 @@ class EvaluationRunner:
             "/seaweed-storage/evaluation/" + config["controller"]["name"] + "/",
         )
         os.makedirs(results_folder, exist_ok=True)
-        csv_file = results_folder + f"evaluation_{time_string}.csv"
+        csv_file = results_folder + f"eval_{name}_{len(problems)}m_{time_string}.csv"
         results_df.to_csv(csv_file)
 
+        print(results_folder)
         self.print_results(csv_file)
 
         # Step 3: Weights & Biases
@@ -152,8 +155,17 @@ class EvaluationRunner:
         if indexes is not None:
             df = df[df["index"].isin(indexes)]
 
-        print("success:", df["success"].mean())
-        print("running_time:", df["running_time"].mean())
+        if indexes is None or df.shape[0] == len(indexes):
+            print(f"Indexes: {df.shape[0]} / {len(indexes) if indexes is not None else 0}")
+            print(f"Success Mean: {df['success'].mean():.2%}")
+            print(f"Success Std: {df['success'].std():.2%}")
+            print(f"Running_time: {df['running_time'].mean()} h")
+
+            # folder = os.path.dirname(csv_file)
+            # with open(folder + "/evaluation.txt", "at") as f:
+            #     f.write(
+            #         f"File: {csv_file}, Indexes: [Min: {min(indexes)}, Max: {max(indexes)}, Length: {len(indexes)}]\n"
+            #     )
 
     @staticmethod
     @ray.remote(max_calls=1)
@@ -187,7 +199,12 @@ class EvaluationRunner:
 
             # Step 1: Create Arena
             with timing("EvaluationRunner: Created Controller ({})", verbose - 1):
-                arena = ArenaFactory.create(scenario_file=config["scenario_file"], problem=problem)
+                arena = ArenaFactory.create(
+                    scenario_file=config["scenario_file"],
+                    problem=problem,
+                    x_interval=problem.extra_info["x_cache"],
+                    y_interval=problem.extra_info["y_cache"],
+                )
                 observation = arena.reset(platform_state=problem.start_state)
                 problem_status = arena.problem_status(problem=problem)
 
@@ -196,15 +213,21 @@ class EvaluationRunner:
                 problem.platform_dict = arena.platform.platform_dict
 
                 if config["controller"]["name"] == "CachedHJReach2DPlannerForecast":
-                    controller = problem.get_cached_forecast_planner(config["missions"]["folder"])
+                    controller = problem.get_cached_forecast_planner(
+                        base_path=config["missions"]["folder"], arena=arena
+                    )
                 elif config["controller"]["name"] == "CachedHJReach2DPlannerHindcast":
-                    controller = problem.get_cached_hindcast_planner(config["missions"]["folder"])
+                    controller = problem.get_cached_hindcast_planner(
+                        base_path=config["missions"]["folder"], arena=arena
+                    )
                 elif config["controller"]["type"].__name__ == "RLController":
                     controller = config["controller"]["type"](
                         config=config, problem=problem, arena=arena
                     )
                 else:
-                    controller = config["controller"]["type"](problem=problem)
+                    controller = config["controller"]["type"](
+                        problem=problem, **config["controller"].get("kwargs", {})
+                    )
 
             # Step 3: Run Arena
             performance = {"arena": 0, "controller": 0}
@@ -237,6 +260,7 @@ class EvaluationRunner:
                     "problem_status": problem_status,
                     "steps": steps,
                     "running_time": problem.passed_seconds(observation.platform_state),
+                    "minimal_distance": problem.distance(observation.platform_state).deg,
                     "final_distance": problem.distance(observation.platform_state).deg,
                 }
                 | {

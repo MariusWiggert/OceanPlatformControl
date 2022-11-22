@@ -25,39 +25,62 @@ algorithm:
             map:
                 normalize: False
 
-                units: [ 512, 512, 256 ]
-                activation: [ 'tanh', 'tanh', 'tanh' ] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer: [ 1, 1, 0.01 ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+                units:  []
+                activations: []
+                initializers: []
+                dropouts: []
 
-#                channels: [ 4, 16 ]
-#                kernel: [ [5,5], [5,5] ]
-#                stride: []
-#                padding: []
-#                activation: [ 'relu' ]
+#                units: [ 512, 512, 256 ]
+#                activations: [ 'tanh', 'tanh', 'tanh' ] # Supported values: "tanh", "relu", "swish", "linear".
+#                initializers: [ 1, 1, 0.01 ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+#                dropouts: [0, 0, 0]
+
+#                channels: [ 60, 60, 60 ]
+#                kernels: [ 3, 3, 3 ]
+#                strides: [ 1, 1, 1]
+#                paddings: [ 1, 1, 1]
+#                poolings: [ null, null, ['max', 3]]
+#                groups: [3, 3, 3]
+#                dropouts: [0, 0, 0]
 
             meta:
-                input_activation: False #'tanh'
+                input_activation: 'tanh'
+
                 units: []
-                activation: [] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer: [] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+                activations: [] # Supported values: "tanh", "relu", "swish", "linear".
+                initializers: [] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+                dropouts: []
 
             joined:
                 input_activation: False #'tanh'
-                units: []
-                activation: [ 'tanh', 'relu' ] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer: [ 0.01, 'xavier_uniform' ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+#
+#                units: []
+#                activations: [] # Supported values: "tanh", "relu", "swish", "linear".
+#                initializers: [] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+
+#                units: [ 256, 256 ]
+#                activations: [ 'tanh', 'tanh' ] # Supported values: "tanh", "relu", "swish", "linear".
+#                initializers: [ 1, 0.01 ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+#                dropouts: [0, 0]
+
+                units: [ 512, 512, 256 ]
+                activations: [ 'tanh', 'tanh', 'tanh' ] # Supported values: "tanh", "relu", "swish", "linear".
+                initializers: [ 1, 1, 0.01 ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+                dropouts: [0, 0, 0]
 
             dueling_heads:
                 residual: False
                 units: [ 128, 128 ]
-                activation: [ 'relu', 'relu', 'linear' ] # Supported values: "tanh", "relu", "swish", "linear".
-                initializer: [ 'xavier_uniform', 'xavier_uniform', 'xavier_uniform' ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+                activations: [ 'relu', 'relu', 'linear' ] # Supported values: "tanh", "relu", "swish", "linear".
+                initializers: [ 'xavier_uniform', 'xavier_uniform', 'xavier_uniform' ] # Supported values: 'xavier_uniform' or float (std of normc_initializer)
+                dropouts: [0, 0, 0]
 
     _disable_preprocessor_api: True
     ##### Episodes #####
 #    batch_mode: 'truncate_episodes'
 #    soft_horizon: False
 #    rollout_fragment_length: 50
+    rollout_fragment_length: 20
     ##### Training #####
     replay_buffer_config:
         capacity: 2000000
@@ -70,7 +93,10 @@ algorithm:
 #        replay_sequence_length: 1
 #        type: 'MultiAgentReplayBuffer'
 #    train_batch_size: 512
-#    store_buffer_in_checkpoints: True
+    train_batch_size: 256
+    #    store_buffer_in_checkpoints: True
+
+#    gamma: 0.95 # Loon: 0.93
 
     min_sample_timesteps_per_iteration: 100000 # 300 steps / epoch * 200 machines = 60000
     target_network_update_freq: 100000
@@ -85,8 +111,8 @@ algorithm:
 #    exploration_config: {"type": "SoftQ"}
         # worker_side_prioritization: True,
     ##### Evaluation #####
-    evaluation_interval: 10
-    evaluation_duration: 204
+    evaluation_interval: 50
+    evaluation_duration: 1020
     evaluation_duration_unit: "episodes"
     evaluation_num_workers: 102
     evaluation_sample_timeout_s: 2400
@@ -126,7 +152,7 @@ environment:
             start: 70000
             stop: 204
 
-    arena_steps_per_env_step: 3
+    arena_steps_per_env_step: 6
     actions: 8
     fake: False #one of: False, 'random', 'naive, 'hj_planner_forecast', 'hj_planner_hindcast', 'residual'
     render: False
@@ -135,27 +161,27 @@ feature_constructor:
     flatten: False
     measurements: False
     local_map:
-        embedding_n: [8, 8, 8, 8]
-        embedding_radius: [0.1, 0.2, 0.4, 0.8]
-#        xy_width_degree: 0.2
-#        xy_width_points: 5
+        embedding_n: [1, 8, 8]
+        embedding_radius: [0, 0.05, 0.1]
+#        xy_width_degree: 0.5
+#        xy_width_points: 12
+        hours: [0] # [0, 4, 8]  # offsets in h
         flatten: False
         features:
             ttr_forecast: True
             ttr_hindcast: False
-            observer:
-                # list from: 'mag', 'dir', 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
-                variables: ['error_u', 'error_v', 'std_error_u', 'std_error_v']
-                time: [0]           # offsets in h
-            currents_hindcast: []   # offsets in h
-            currents_forecast: []   # offsets in h
-            true_error: []          # offsets in h
+            # list from: 'mag', 'dir', 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
+            observer_variables: [] #['error_u', 'error_v']
+            currents_hindcast: False
+            currents_forecast: False
+            true_error: False
+        major: 'time' # one of 'time', 'var'
     global_map: False
-    meta: False #['lon', 'lat'] #, 'time', 'target_distance', 'target_direction', 'episode_time_in_h']
+    meta: ['lon', 'lat', 'time', 'target_distance', 'target_direction', 'episode_time_in_h', 'hj_fc_direction'] #['lon', 'lat', 'time', 'target_distance', 'target_direction', 'episode_time_in_h', 'hj_fc_direction', 'hj_hc_direction'
 
 reward_function:
-    delta_ttr_forecast: 0
-    delta_ttr_hindcast: 1
-    step_punishment: 0 # 0.16
-    target_bonus: 0
-    fail_punishment: 0
+    delta_ttr_forecast: 0 # multiplier
+    delta_ttr_hindcast: 1 # multiplier
+    step_punishment: 0 # 0.16 # substracted flat each step
+    target_bonus: 0 # added flat at end if success
+    fail_punishment: 0 # substracted flat at end if failed

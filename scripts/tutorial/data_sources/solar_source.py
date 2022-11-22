@@ -75,6 +75,6 @@ plt.show()
 solar_field.hindcast_data_source.update_casadi_dynamics(x_0)
 #%% Further tests to check inside is working
 # solar_field.hindcast_data_source.casadi_grid_dict
-# solar_field.hindcast_data_source.check_for_casadi_dynamics_update(x_0)
+# solar_field.hindcast_data_source.check_and_update_casadi_dynamics_from_platform_state(x_0)
 # #% the casadi function for use in simulation
 # solar_field.hindcast_data_source.solar_rad_casadi

@@ -33,8 +33,8 @@ class CustomApexDQN(ApexDQN):
 
             # Define custom model interaction for policy
             def custom_compute_q_values(policy: Policy, model: ModelV2, input_dict, **kwargs):
-                if isinstance(input_dict["obs"], tuple):
-                    values = model(*input_dict["obs"])
+                if isinstance(input_dict["obs"], dict):
+                    values = model(**input_dict["obs"])
                 else:
                     values = model(input_dict["obs"])
                 logits = torch.unsqueeze(torch.ones_like(values), -1)

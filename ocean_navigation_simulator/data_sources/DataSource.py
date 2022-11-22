@@ -37,14 +37,14 @@ class DataSource(abc.ABC):
     logger: logging.Logger = logging.getLogger("data_source")
 
     @abc.abstractmethod
-    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
+    def set_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
         Args:
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
         """
 
-    def check_for_casadi_dynamics_update(self, state: PlatformState) -> bool:
+    def check_and_update_casadi_dynamics_from_platform_state(self, state: PlatformState) -> bool:
         """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
         Args:
             state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
@@ -110,7 +110,22 @@ class DataSource(abc.ABC):
             xarray.coords["lon"].values,
         ]
 
-        self.initialize_casadi_functions(grid, xarray)
+        self.set_casadi_functions(grid, xarray)
+
+    @abc.abstractmethod
+    def interpolate_with_casadi(
+        self,
+        x_grid: np.ndarray,
+        y_grid: np.ndarray,
+        t_grid: np.ndarray,
+    ) -> np.ndarray:
+        """DataSource specific function to interpolate using casadi functions.
+        Args:
+            x_grid: 1-D numpy array of x location
+            y_grid: 1-D numpy array of y location
+            t_grid: 1-D numpy array of t location
+        """
+        pass
 
     @staticmethod
     def convert_to_x_y_time_bounds(

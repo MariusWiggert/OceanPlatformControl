@@ -140,9 +140,9 @@ open_loop_actuation = pset.Kernel(kernels.open_loop_control)
 
 output_file = pset.ParticleFile(name="open_loop_control.nc", outputdt=timedelta(seconds=dt))
 pset.execute(
-    p.AdvectionRK4 + open_loop_actuation,  # the kernel (which defines how particles move)
+    p.AdvectionRK4 + open_loop_actuation,  # the kernels (which defines how particles move)
     runtime=timedelta(seconds=T),  # the total length of the run
-    dt=timedelta(seconds=dt),  # the timestep of the kernel
+    dt=timedelta(seconds=dt),  # the timestep of the kernels
     output_file=output_file,
     # moviedt=timedelta(seconds=T/20), # works but fieldset needs to be time-varying!
     # movie_background_field=fieldset.U

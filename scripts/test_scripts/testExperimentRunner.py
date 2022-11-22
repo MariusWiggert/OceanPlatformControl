@@ -28,8 +28,8 @@ def conditional_parameters(str_accepted: list[str], to_return, is_kernel_1: bool
 search_space = {
     "filename_problems": "all_problems_3",
     # product and sum are not supported yet
-    "kernel": "matern",  # tune.grid_search("matern"),
-    # "kernel": "expSineSquared",  # "matern"
+    "kernels": "matern",  # tune.grid_search("matern"),
+    # "kernels": "expSineSquared",  # "matern"
     "sigma_exp": tune.qrandn(2, 2, 0.0001),
     # if matern or rbf
     "scaling": conditional_parameters(
@@ -55,7 +55,7 @@ search_space = {
     # if expSineSquared
     "periodicity": conditional_parameters(["ExpSineSquared"], tune.loguniform(0.01, 10)),
     "periodicity_bounds": conditional_parameters(["ExpSineSquared"], "fixed"),
-    # Second kernel
+    # Second kernels
     "kernel_2": tune.choice(["RationalQuadratic", "ExpSineSquared", "rbf"]),
     "sigma_exp_2": tune.qrandn(1, 1, 0.0001),
     "scaling_2": conditional_parameters(
@@ -86,8 +86,8 @@ search_space = {
 # search_space = {
 #     "filename_problems": "all_problems_3",
 #     # product and sum are not supported yet
-#     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
-#     "kernel": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+#     # "kernels": tune.choice([{"product": ("matern", "rbf")}]),
+#     "kernels": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
 #     "sigma_exp": tune.qrandn(1, 1, 0.0001),
 #     # if matern or rbf
 #     "scaling": {
@@ -137,8 +137,8 @@ search_space = {
 #     "num_threads": 32,
 #     "filename_problems": "all_problems_3",
 #     # product and sum are not supported yet
-#     # "kernel": tune.choice([{"product": ("matern", "rbf")}]),
-#     "kernel": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
+#     # "kernels": tune.choice([{"product": ("matern", "rbf")}]),
+#     "kernels": "matern",  # tune.grid_search(["matern", "rbf", "ExpSineSquared", "RationalQuadratic"]),
 #     "sigma_exp": tune.uniform(0.0001, 10),
 #     # if matern or rbf
 #     "scaling": {
@@ -191,20 +191,20 @@ def train(config_init):
     # print("dir:", directory)
     with open(yaml_file_config) as f:
         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
-        type_kernel = config.pop("kernel")
-        type_kernel_2 = config_2.pop("kernel")
+        type_kernel = config.pop("kernels")
+        type_kernel_2 = config_2.pop("kernels")
         sigma_exp_squared = abs(config.pop("sigma_exp"))
         sigma_exp_squared_2 = abs(config_2.pop("sigma_exp"))
         # Not supported yet
         # if type in ["product", "sum"]:
-        #     config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
+        #     config_yaml["observer"]["model"]["gaussian_process"]["kernels"] = {
         #         "type": type,
         #         "kernel_1": ,
         #         "kernel_2":
         #     }
         scaling = config.pop("scaling", None)
         scaling_2 = config_2.pop("scaling", None)
-        config_yaml["observer"]["model"]["gaussian_process"]["kernel"] = {
+        config_yaml["observer"]["model"]["gaussian_process"]["kernels"] = {
             "type": type_kernel,
             "scaling": scaling,
             "sigma_exp_squared": sigma_exp_squared,
@@ -231,7 +231,7 @@ def train(config_init):
             "parameters_2": config_2,
         }
 
-        print("kernel:", config_yaml["observer"]["model"]["gaussian_process"]["kernel"])
+        print("kernels:", config_yaml["observer"]["model"]["gaussian_process"]["kernels"])
         print("kernel_2:", config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"])
 
         exp = ExperimentRunner(config_yaml, filename_problems=filename_problems)
@@ -244,7 +244,7 @@ def train(config_init):
                 merged_mean["mean_" + str(k)] = np.array(merged[k]).mean()
         merged_mean |= merged
         merged_mean = {
-            "kernel": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel"]),
+            "kernels": str(config_yaml["observer"]["model"]["gaussian_process"]["kernels"]),
             "kernel_2": str(config_yaml["observer"]["model"]["gaussian_process"]["kernel_2"]),
         } | merged_mean
         if not os.path.exists(file_csv):

@@ -20,7 +20,7 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: "/home/ubuntu/hycom_hindcast/"
+            folder: "~/hycom_hindcast/"
             local: True
             source: "HYCOM"
             type: "hindcast"
@@ -29,7 +29,7 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'forecast_files'
         source_settings:
-            folder: "/home/ubuntu/copernicus_forecast/"
+            folder: "~/copernicus_forecast/"
             local: True
             source: "Copernicus"
             type: "forecast"

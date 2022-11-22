@@ -9,7 +9,7 @@ class OceanCurrentCNNSubgrid(nn.Module):
         self.first_layers = nn.Sequential(
             nn.Conv3d(
                 in_channels=2, out_channels=32, kernel_size=(24, 4, 4), stride=(4, 2, 2)
-            ),  # , stride=(3,3,12))
+            ),  # , strides=(3,3,12))
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=(3, 3, 3), stride=(2, 2, 2)),
             nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(6, 4, 4), stride=(1, 2, 2)),

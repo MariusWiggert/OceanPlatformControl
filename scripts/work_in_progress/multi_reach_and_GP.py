@@ -104,7 +104,7 @@ observer_config = {
             "sigma_noise_squared": 0.000005,
             # 3.6 ** 2 = 12.96
             "sigma_exp_squared": 100,  # 12.96
-            "kernel": {
+            "kernels": {
                 "scaling": {"latitude": 1, "longitude": 1, "time": 10000},  # [m]  # [m]  # [s]
                 "type": "matern",
                 "parameters": {"length_scale_bounds": "fixed"},

@@ -64,9 +64,14 @@ script_start_time = time.time()
 
 # COMMAND = 'pip install chex==0.1.5'
 
+# cluster_utils.run_command_on_all_nodes(
+#     "ls -la hycom_hindcast | wc; ls -la copernicus_forecast | wc", resource_group="jerome-cluster-3"
+# )
+
 cluster_utils.run_command_on_all_nodes(
-    "ls -la hycom_hindcast | wc; ls -la copernicus_forecast | wc", resource_group="jerome-cluster-3"
-)
+    'pip install --upgrade pip; pip uninstall ray -y; pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/7d6b43b77047b25e79a062246d1bc07cef3e09be/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"',
+    resource_group=["jerome-cluster"],
+)  #'jerome-cluster', 'jerome-cluster-2',
 
 # cluster_utils.purge_download_temp_folders()
 

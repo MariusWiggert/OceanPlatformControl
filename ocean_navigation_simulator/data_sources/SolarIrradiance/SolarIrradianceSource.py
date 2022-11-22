@@ -24,7 +24,7 @@ class SolarIrradianceSource(DataSource):
     Note: the output is always in the units W/m^2
     """
 
-    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
+    def set_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
         """DataSource specific function to initialize the casadi functions needed.
         Note: the input to the casadi function needs to be an array of the form np.array([posix time, lat, lon])
         Args:

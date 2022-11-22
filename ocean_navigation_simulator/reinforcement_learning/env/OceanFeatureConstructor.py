@@ -12,6 +12,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
+from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 
@@ -33,79 +34,80 @@ class OceanFeatureConstructor:
             self.measurements = np.zeros(shape=(0, 4))
 
         # Step 2: Initialize Observer
-        if len(self.config["local_map"]["features"]["observer"]["variables"]) > 0:
+        if (
+            self.config["local_map"]
+            and len(self.config["local_map"]["features"]["observer_variables"]) > 0
+        ):
             with open("config/reinforcement_learning/gaussian_process.yaml") as f:
                 config = yaml.load(f, Loader=yaml.FullLoader)
             self.observer = Observer(config["observer"])
 
     @staticmethod
     def get_observation_space(config):
-        features = []
+        features = {}
 
         # # Step 1: Raw Measurements
         if config["measurements"]:
-            features += [
-                gym.spaces.Box(
-                    low=-float("inf"),
-                    high=float("inf"),
-                    shape=(config["measurements"], 4),
-                    dtype=np.float32,
-                )
-            ]
+            features["measurement"] = gym.spaces.Box(
+                low=-float("inf"),
+                high=float("inf"),
+                shape=(config["measurements"], 4),
+                dtype=np.float32,
+            )
 
         # Step 2: Local Map
         if config["local_map"]:
-            features += [
-                OceanFeatureConstructor.get_map_space_from_config(config=config["local_map"])
-            ]
+            features["local_map"] = OceanFeatureConstructor.get_map_space_from_config(
+                config=config["local_map"]
+            )
 
         # Step 3: Global Map
         if config["global_map"]:
-            features += [
-                OceanFeatureConstructor.get_map_space_from_config(config=config["global_map"])
-            ]
+            features["global_map"] = OceanFeatureConstructor.get_map_space_from_config(
+                config=config["global_map"]
+            )
 
         # Step 4: Meta Information
         if config["meta"]:
             meta_features = len(config["meta"])
-            features += [
-                gym.spaces.Box(
-                    low=-float("inf"),
-                    high=float("inf"),
-                    shape=(meta_features,),
-                    dtype=np.float32,
-                )
-            ]
+            features["meta"] = gym.spaces.Box(
+                low=-float("inf"),
+                high=float("inf"),
+                shape=(meta_features,),
+                dtype=np.float32,
+            )
 
         if config["flatten"]:
             return gym.spaces.Box(
                 low=-float("inf"),
                 high=float("inf"),
-                shape=(sum([int(np.prod(f.shape)) for f in features]),),
+                shape=(sum([int(np.prod(f.shape)) for f in features.values()]),),
                 dtype=np.float32,
             )
-        elif len(features) > 1:
-            return gym.spaces.Tuple([f for f in features])
         else:
-            return features[0]
+            return gym.spaces.Dict(spaces=features)
 
     @staticmethod
     def get_map_space_from_config(config):
-        map_features = (
+        map_features = len(config["hours"]) * (
             config["features"]["ttr_forecast"]
             + config["features"]["ttr_hindcast"]
-            + len(config["features"]["observer"]["variables"])
-            * len(config["features"]["observer"]["time"])
-            + 2 * len(config["features"]["currents_hindcast"])
-            + 2 * len(config["features"]["currents_forecast"])
-            + 2 * len(config["features"]["true_error"])
+            + len(config["features"]["observer_variables"])
+            + 2 * config["features"]["currents_hindcast"]
+            + 2 * config["features"]["currents_forecast"]
+            + 2 * config["features"]["true_error"]
         )
-        if config["flatten"]:
-            shape = (config["xy_width_points"] ** 2 * map_features,)
-        elif map_features > 1:
-            shape = (config["xy_width_points"], config["xy_width_points"], map_features)
+        if 'xy_width_degree' in config and 'xy_width_points' in config:
+            if config["flatten"]:
+                shape = (map_features * config["xy_width_points"]**2,)
+            else:
+                shape = (map_features, config["xy_width_points"], config["xy_width_points"])
         else:
-            shape = (config["xy_width_points"], config["xy_width_points"])
+            spatial_points = sum(config['embedding_n'])
+            if config["flatten"]:
+                shape = (map_features * spatial_points,)
+            else:
+                shape = (map_features, spatial_points)
         return gym.spaces.Box(
             low=-float("inf"),
             high=float("inf"),
@@ -116,32 +118,32 @@ class OceanFeatureConstructor:
     def get_features_from_state(
         self, obs: ArenaObservation, problem: NavigationProblem
     ) -> Union[np.ndarray, Tuple[np.ndarray]]:
-        features = ()
+        features = {}
 
         # # Step 1: Raw Measurements
         if self.config["measurements"]:
-            features += (
+            features["measurements"] = (
                 self.get_measurements_from_state(obs, problem, self.config["measurements"]),
             )
 
         # Step 2: Local Map
         if self.config["local_map"]:
-            features += (self.get_map_from_state(obs, problem, self.config["local_map"]),)
+            features["local_map"] = self.get_map_from_state(obs, problem, self.config["local_map"])
 
         # Step 3: Global Map
         if self.config["global_map"]:
-            features += (self.get_map_from_state(obs, problem, self.config["global_map"]),)
+            features["global_map"] = self.get_map_from_state(
+                obs, problem, self.config["global_map"]
+            )
 
         # Step 4: Meta Information
         if self.config["meta"]:
-            features += (self.get_meta_from_state(obs, problem, self.config["meta"]),)
+            features["meta"] = self.get_meta_from_state(obs, problem, self.config["meta"])
 
         if self.config["flatten"]:
-            return np.concatenate(tuple(f.flatten() for f in features))
-        elif len(features) > 1:
-            return features
+            return np.concatenate(tuple(f.flatten() for f in features.values()))
         else:
-            return features[0]
+            return features
 
     def get_measurements_from_state(self, obs, problem, config) -> np.ndarray:
         self.measurements = np.append(
@@ -169,50 +171,89 @@ class OceanFeatureConstructor:
         return np.append(measurements, repeats, axis=0)
 
     def get_map_from_state(self, obs, problem, config) -> np.ndarray:
-        x_interval = [
-            obs.platform_state.lon.deg - config["xy_width_degree"] / 2,
-            obs.platform_state.lon.deg + config["xy_width_degree"] / 2,
-        ]
-        y_interval = [
-            obs.platform_state.lat.deg - config["xy_width_degree"] / 2,
-            obs.platform_state.lat.deg + config["xy_width_degree"] / 2,
-        ]
-        map = np.zeros((config["xy_width_points"], config["xy_width_points"], 0), dtype="float32")
-
-        # Step 1: TTR Map
-        if config["features"]["ttr_forecast"]:
-            ttr_forecast = self.forecast_planner.interpolate_value_function_in_hours(
-                point=obs.platform_state.to_spatio_temporal_point(),
-                width_deg=config["xy_width_degree"],
-                width=config["xy_width_points"],
-                allow_spacial_extrapolation=True,
-            )
-            map = np.concatenate(
-                (map, np.expand_dims(ttr_forecast, axis=2)), axis=2, dtype="float32"
-            )
-        if config["features"]["ttr_hindcast"]:
-            ttr_hindcast = self.hindcast_planner.interpolate_value_function_in_hours(
-                point=obs.platform_state.to_spatio_temporal_point(),
-                width_deg=config["xy_width_degree"],
-                width=config["xy_width_points"],
-                allow_spacial_extrapolation=True,
-            )
-            map = np.concatenate(
-                (map, np.expand_dims(ttr_hindcast, axis=2)), axis=2, dtype="float32"
-            )
-
-        # Step 2: GP Observer
-        if len(config["features"]["observer"]["variables"]) > 0:
-            t_interval = [
-                obs.platform_state.date_time + datetime.timedelta(hours=h)
-                for h in config["features"]["observer"]["time"]
+        if 'xy_width_degree' in config and 'xy_width_points' in config:
+            x_interval = [
+                obs.platform_state.lon.deg - config["xy_width_degree"] / 2,
+                obs.platform_state.lon.deg + config["xy_width_degree"] / 2,
             ]
+            y_interval = [
+                obs.platform_state.lat.deg - config["xy_width_degree"] / 2,
+                obs.platform_state.lat.deg + config["xy_width_degree"] / 2,
+            ]
+        t_interval = [
+            obs.platform_state.date_time + datetime.timedelta(hours=h) for h in config["hours"]
+        ]
+        maps = []
+
+        # Step 1: TTR FC
+        if config["features"]["ttr_forecast"]:
+            if 'xy_width_degree' in config and 'xy_width_points' in config:
+                ttr = self.forecast_planner.interpolate_value_function_in_hours(
+                    point=obs.platform_state.to_spatio_temporal_point(),
+                    width_deg=config["xy_width_degree"],
+                    width=config["xy_width_points"],
+                    h_grid=config["hours"],
+                    allow_spacial_extrapolation=True,
+                    allow_temporal_extrapolation=True,
+                )
+                # Interpolator: x, y, t
+                # Need: 1, t, x, y
+                if len(ttr.shape) > 2:
+                    ttr = np.moveaxis(ttr, [0, 1, 2], [1, 2, 0])
+                else:
+                    ttr = np.expand_dims(ttr, axis=0)
+                ttr = np.expand_dims(ttr, axis=0)
+            else:
+                ttr = self.forecast_planner.interpolate_value_function_in_hours(
+                    point=obs.platform_state.to_spatio_temporal_point(),
+                    embedding_n=config["embedding_n"],
+                    embedding_radius=config["embedding_radius"],
+                    h_grid=config["hours"],
+                    allow_spacial_extrapolation=True,
+                    allow_temporal_extrapolation=True,
+                )
+            maps.append(ttr)
+        # Step 2: TTR HC
+        if config["features"]["ttr_hindcast"]:
+            if 'xy_width_degree' in config and 'xy_width_points' in config:
+                ttr = self.hindcast_planner.interpolate_value_function_in_hours(
+                    point=obs.platform_state.to_spatio_temporal_point(),
+                    width_deg=config["xy_width_degree"],
+                    width=config["xy_width_points"],
+                    h_grid=config["hours"],
+                    allow_spacial_extrapolation=True,
+                    allow_temporal_extrapolation=True,
+                )
+                # Interpolator: x, y, t
+                # Need: 1, t, x, y
+                if len(ttr.shape) > 2:
+                    ttr = np.moveaxis(ttr, [0, 1, 2], [1, 2, 0])
+                else:
+                    ttr = np.expand_dims(ttr, axis=0)
+                ttr = np.expand_dims(ttr, axis=0)
+            else:
+                ttr = self.hindcast_planner.interpolate_value_function_in_hours(
+                    point=obs.platform_state.to_spatio_temporal_point(),
+                    embedding_n=config["embedding_n"],
+                    embedding_radius=config["embedding_radius"],
+                    h_grid=config["hours"],
+                    allow_spacial_extrapolation=True,
+                    allow_temporal_extrapolation=True,
+                )
+            maps.append(ttr)
+        # Step 3: GP Observer
+        if len(config["features"]["observer_variables"]) > 0:
             self.observer.observe(obs)
             self.observer.fit()
-            if "mag" in config["features"]["observer"]["variables"]:
-                variables = ["error_u", "error_v"]
-            else:
-                variables = config["features"]["observer"]["variables"]
+            variables = config["features"]["observer_variables"]
+            if (
+                "mag" in config["features"]["observer_variables"]
+                and "dir" in config["features"]["observer_variables"]
+            ):
+                variables.remove("mag")
+                variables.remove("dir")
+                variables = ["error_u", "error_v"] + variables
+
             gp_map = (
                 self.observer.get_data_over_area(
                     x_interval=x_interval,
@@ -231,25 +272,19 @@ class OceanFeatureConstructor:
                 )[variables]
                 .to_array()
                 .to_numpy()
-                .astype("float32")
             )
-            gp_map = np.moveaxis(gp_map, [0, 1, 2, 3], [2, 3, 0, 1]).reshape(
-                (config["xy_width_points"], config["xy_width_points"], -1)
-            )
+            # Observer: var (0), t (1), x (2), y (3)
 
-            if "mag" in config["features"]["observer"]["variables"]:
-                dir = np.arctan2(gp_map[..., 0], gp_map[..., 1])
-                mag = np.linalg.norm(gp_map, axis=2)
-                gp_map = np.stack((mag, dir), axis=2)
+            if (
+                "mag" in config["features"]["observer_variables"]
+                and "dir" in config["features"]["observer_variables"]
+            ):
+                gp_map[0] = np.arctan2(gp_map[0], gp_map[1])
+                gp_map[1] = np.linalg.norm(gp_map[0:1], axis=0)
 
-            map = np.concatenate((map, gp_map), axis=2, dtype="float32")
-
-        # Step 3: Hindcast Currents
-        if len(config["features"]["currents_hindcast"]) > 0:
-            t_interval = [
-                obs.platform_state.date_time + datetime.timedelta(hours=h)
-                for h in config["features"]["currents_hindcast"]
-            ]
+            maps.append(gp_map)
+        # Step 4: C Currents
+        if config["features"]["currents_hindcast"]:
             current_map = (
                 obs.forecast_data_source.get_data_over_area(
                     x_interval=x_interval,
@@ -267,15 +302,11 @@ class OceanFeatureConstructor:
                 )["water_v", "water_u"]
                 .to_array()
                 .to_numpy()
-                .astype("float32")
             )
-            current_map = np.moveaxis(current_map, [0, 1, 2, 3], [2, 3, 0, 1]).reshape(
-                (config["xy_width_points"], config["xy_width_points"], -1)
-            )
-            map = np.concatenate((map, current_map.squeeze()), axis=2, dtype="float32")
-
-        # Step 4: Forecast Currents
-        if len(config["features"]["currents_forecast"]) > 0:
+            # XArray: var (0), t (1), x (2), y (3)
+            maps.append(current_map)
+        # Step 5: FC Currents
+        if config["features"]["currents_forecast"]:
             t_interval = [
                 obs.platform_state.date_time + datetime.timedelta(hours=h)
                 for h in config["features"]["currents_forecast"]
@@ -297,15 +328,11 @@ class OceanFeatureConstructor:
                 )["water_u", "water_v"]
                 .to_array()
                 .to_numpy()
-                .astype("float32")
             )
-            current_map = np.moveaxis(current_map, [0, 1, 2, 3], [2, 3, 0, 1]).reshape(
-                (config["xy_width_points"], config["xy_width_points"], -1)
-            )
-            map = np.concatenate((map, current_map.squeeze()), axis=2, dtype="float32")
-
-        # Step 5: True Error
-        if len(config["features"]["true_error"]) > 0:
+            # XArray: var (0), t (1), x (2), y (3)
+            maps.append(current_map)
+        # Step 6: True Error
+        if config["features"]["true_error"]:
             t_interval = [
                 obs.platform_state.date_time + datetime.timedelta(hours=h)
                 for h in config["features"]["true_error"]
@@ -327,10 +354,6 @@ class OceanFeatureConstructor:
                 )
                 .to_array()
                 .to_numpy()
-                .astype("float32")
-            )
-            current_fc = np.moveaxis(current_fc, [0, 1, 2, 3], [2, 3, 0, 1]).reshape(
-                (config["xy_width_points"], config["xy_width_points"], -1)
             )
             current_hc = (
                 obs.forecast_data_source.get_data_over_area(
@@ -349,20 +372,24 @@ class OceanFeatureConstructor:
                 )
                 .to_array()
                 .to_numpy()
-                .astype("float32")
             )
-            current_hc = np.moveaxis(current_hc, [0, 1, 2, 3], [2, 3, 0, 1]).reshape(
-                (config["xy_width_points"], config["xy_width_points"], -1)
-            )
+            # XArray: var (0), t (1), x (2), y (3)
             error_map = current_fc - current_hc
-            map = np.concatenate((map, error_map.squeeze()), axis=2, dtype="float32")
+            maps.append(error_map)
 
+        map = np.concatenate(maps, axis=0)
         map = np.clip(map, -10000, 10000)
         map = np.nan_to_num(map)
+        map = map.astype("float32")
+
+        if 'xy_width_degree' in config and 'xy_width_points' in config:
+            if config["major"] == "time":
+                map = np.moveaxis(map, [0, 1, 2, 3], [1, 0, 2, 3])
+            map = map.reshape(-1, *map.shape[-2:])
 
         return map.flatten() if config["flatten"] else map.squeeze()
 
-    def get_meta_from_state(self, obs, problem, config) -> np.ndarray:
+    def get_meta_from_state(self, obs: ArenaObservation, problem, config) -> np.ndarray:
         features = []
 
         if "lon" in config:
@@ -372,9 +399,17 @@ class OceanFeatureConstructor:
         if "time" in config:
             features += [obs.platform_state.date_time.timestamp()]
         if "target_distance" in config:
-            features += [problem.distance(obs.platform_state)]
+            features += [problem.distance(obs.platform_state).deg]
         if "target_direction" in config:
-            features += [problem.angle(obs.platform_state)]
+            features += [problem.bearing(obs.platform_state)]
+        if "hj_fc_direction" in config:
+            features += [
+                self.forecast_planner._get_action_from_plan(state=obs.platform_state).direction
+            ]
+        if "hj_hc_direction" in config:
+            features += [
+                self.hindcast_planner._get_action_from_plan(state=obs.platform_state).direction
+            ]
         if "episode_time_in_h" in config:
             features += [problem.passed_seconds(obs.platform_state) / 3600]
         if "ttr_center" in config:

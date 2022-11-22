@@ -131,6 +131,11 @@ class ArenaFactory:
                     ),
                     logger,
                 ):
+                    config["ocean_dict"]["hindcast"]["source_settings"][
+                        "folder"
+                    ] = os.path.expanduser(
+                        config["ocean_dict"]["hindcast"]["source_settings"]["folder"]
+                    )
 
                     if config["ocean_dict"]["hindcast"]["source_settings"].get("local", False):
                         files = ArenaFactory.find_hycom_files(
@@ -174,6 +179,12 @@ class ArenaFactory:
                     ),
                     logger,
                 ):
+                    config["ocean_dict"]["forecast"]["source_settings"][
+                        "folder"
+                    ] = os.path.expanduser(
+                        config["ocean_dict"]["forecast"]["source_settings"]["folder"]
+                    )
+
                     if config["ocean_dict"]["forecast"]["source_settings"].get("local", False):
                         files = ArenaFactory.find_copernicus_files(
                             config["ocean_dict"]["forecast"]["source_settings"]["folder"],

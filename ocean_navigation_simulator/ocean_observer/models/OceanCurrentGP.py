@@ -39,9 +39,9 @@ class OceanCurrentGP(OceanCurrentModel):
         # 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849},
         # 'sigma_exp_squared': 2.3561,
         # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
-        if "kernel" in self.config_dict:
-            parameters_model["kernel"] = self.__get_kernel(
-                self.config_dict["kernel"]) * (self.__get_kernel(self.config_dict["kernel_2"],
+        if "kernels" in self.config_dict:
+            parameters_model["kernels"] = self.__get_kernel(
+                self.config_dict["kernels"]) * (self.__get_kernel(self.config_dict["kernel_2"],
                                                                  False) if "kernel_2" in self.config_dict else 1)
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
@@ -54,12 +54,12 @@ class OceanCurrentGP(OceanCurrentModel):
             print(f"Gaussian Process created: {self.model}")
 
     def __get_kernel(self, dic_config: dict[str, Any], first_kernel: bool = True) -> Kernel:
-        """Get the GP kernel based on the dictionary generated based on the Yaml file.
+        """Get the GP kernels based on the dictionary generated based on the Yaml file.
         Args:
-            dic_config: Dictionary containing the hyper-parameters of the kernel that will be used by the GP.
+            dic_config: Dictionary containing the hyper-parameters of the kernels that will be used by the GP.
 
         Returns:
-            The created kernel. If the kernel specified is not supported, the constant kernel is returned
+            The created kernels. If the kernels specified is not supported, the constant kernels is returned
         """
         type_kernel = str(dic_config["type"])
         factor = dic_config.get("sigma_exp_squared", 1)
@@ -90,7 +90,7 @@ class OceanCurrentGP(OceanCurrentModel):
         # if type_kernel.lower() == "product":
         #     return self.__get_kernel(dic_config["kernel_1"]) + self.__get_kernel(dic_config["kernel_2"])
 
-        print("No kernel specified in the yaml file. The constant kernel is used")
+        print("No kernels specified in the yaml file. The constant kernels is used")
         return factor * gaussian_process.kernels.ConstantKernel()
 
     def fit(self) -> None:

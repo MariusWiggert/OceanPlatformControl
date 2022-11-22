@@ -13,8 +13,6 @@ class Controller(abc.ABC):
     Interface for controllers.
     """
 
-    gpus: float = 0.0
-
     def __init__(self, problem: NavigationProblem):
         """
         Basic constructor logging the problem given at construction.

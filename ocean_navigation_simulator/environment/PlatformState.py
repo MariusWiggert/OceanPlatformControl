@@ -104,9 +104,9 @@ class PlatformState:
     Attributes:
       lon: The latitude position in degree
       lat: The longitude position in degree
+      date_time: The current time.
       battery_charge: The amount of energy stored on the batteries.
       seaweed_mass: The amount of seaweed biomass on the system.
-      date_time: The current time.
     """
 
     lon: units.Distance

@@ -25,7 +25,7 @@ class OceanCurrentCNN(nn.Module):
         # margin_input = 6
         # width_input = (radius_output + margin_input) * 2
 
-        # self.conv1 = nn.Conv3d(in_channels=2, out_channels=32, kernel_size=(5, 5, 24))  # , stride=(3,3,12))
+        # self.conv1 = nn.Conv3d(in_channels=2, out_channels=32, kernel_size=(5, 5, 24))  # , strides=(3,3,12))
         # self.act1 = nn.ReLU()
         # self.pool1 = nn.MaxPool3d(kernel_size=(3, 3, 3))
         #
@@ -43,7 +43,7 @@ class OceanCurrentCNN(nn.Module):
         # self.dense4 = nn.Linear(500, 250)
         # self.dense4_act = nn.ReLU()
         self.first_layers = nn.Sequential(
-            nn.Conv3d(in_channels=2, out_channels=32, kernel_size=(5, 5, 24)),  # , stride=(3,3,12))
+            nn.Conv3d(in_channels=2, out_channels=32, kernel_size=(5, 5, 24)),  # , strides=(3,3,12))
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=(3, 3, 3)),
             nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(5, 5, 24)),

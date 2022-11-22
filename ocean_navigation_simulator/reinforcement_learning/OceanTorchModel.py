@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Tuple, Union, Any
 
 import gym
 import numpy as np
@@ -26,29 +26,46 @@ logger = logging.getLogger("ocean_torch_model")
 class OceanCNN(nn.Module):
     """helper model to build convolution networks"""
 
-    def __init__(self, name, input_size, channels, kernel, stride, padding):
+    def __init__(
+            self,
+            name,
+            input_shape,
+            channels,
+            kernels,
+            strides,
+            paddings,
+            poolings,
+            groups,
+            dropouts,
+    ):
         super().__init__()
         self.name = name
 
         layers = []
-
         for i in range(len(channels)):
-            layers.append(
-                SlimConv2d(
-                    in_channels=input_size[2] if i == 0 else channels[i - 1],
-                    out_channels=channels[i],
-                    kernel=kernel[i],
-                    stride=stride[i],
-                    padding=padding[i],
-                    # Defaulting these to nn.[..] will break soft torch import.
-                    # initializer: Any = "default",
-                    # activation_fn: Any = "default",
-                    # bias_init: float = 0,
-                )
+            if paddings[i]:
+                layers.append(nn.ZeroPad2d(paddings[i]))
+
+            conv = nn.Conv2d(
+                in_channels=input_shape[0] if i == 0 else channels[i - 1],
+                out_channels=channels[i],
+                kernel_size=kernels[i],
+                stride=strides[i],
+                groups=groups[i],
             )
-
-            layers.append(nn.Flatten())
-
+            nn.init.xavier_uniform_(conv.weight)
+            nn.init.constant_(conv.bias, 0)
+            layers.append(conv)
+            layers.append(nn.ReLU())
+            if dropouts[i] > 0:
+                layers.append(nn.Dropout2d(p=dropouts[i]))
+            if poolings[i] is None:
+                pass
+            elif poolings[i][0] == "max":
+                layers.append(torch.nn.MaxPool2d(kernel_size=poolings[i][1]))
+            elif poolings[i][0] == "avg":
+                layers.append(torch.nn.AvgPool2d(kernel_size=poolings[i][1]))
+        layers.append(nn.Flatten())
         self._model = nn.Sequential(*layers)
 
     def forward(self, x: TensorType) -> TensorType:
@@ -59,14 +76,15 @@ class OceanDenseNet(nn.Module):
     """helper model to build dense networks"""
 
     def __init__(
-        self,
-        name,
-        input_size,
-        units,
-        activation,
-        initializer,
-        input_activation=None,
-        residual=False,
+            self,
+            name,
+            input_shape,
+            units,
+            activations,
+            initializers,
+            dropouts,
+            input_activation=None,
+            residual=False,
     ):
         super().__init__()
         self.name = name
@@ -78,22 +96,29 @@ class OceanDenseNet(nn.Module):
 
         for i in range(len(units)):
             if residual and i == len(units) - 1:
-                _initializer = nn.init._no_grad_zero_
-            elif initializer[i] == "xavier_uniform":
-                _initializer = nn.init.xavier_uniform_
-            elif isinstance(initializer[i], (int, float)):
-                _initializer = normc_initializer(initializer[i])
+                initializer = nn.init._no_grad_zero_
+            elif initializers[i] == "xavier_uniform":
+                initializer = nn.init.xavier_uniform_
+            elif isinstance(initializers[i], (int, float)):
+                initializer = normc_initializer(initializers[i])
             else:
-                raise ValueError("Initalizer {initializer[i]} not valid.")
+                raise ValueError(f"Initializer {initializers[i]} not valid.")
 
-            layers.append(
-                SlimFC(
-                    in_size=int(np.product(input_size)) if i == 0 else units[i - 1],
-                    out_size=units[i],
-                    initializer=_initializer,
-                    activation_fn=activation[i],
-                )
+            linear = nn.Linear(
+                in_features=int(np.product(input_shape)) if i == 0 else units[i - 1],
+                out_features=units[i],
+                bias=True
             )
+            initializer(linear.weight)
+            nn.init.constant_(linear.bias, 0.0)
+            layers.append(linear)
+
+            activation_fn = get_activation_fn(activations[i], "torch")
+            if activation_fn is not None:
+                layers.append(activation_fn())
+
+            if dropouts[i] > 0:
+                layers.append(nn.Dropout(p=dropouts[i]))
 
             if residual and i == len(units) - 1:
                 linear = list(layers[-1].modules())[2]
@@ -104,6 +129,7 @@ class OceanDenseNet(nn.Module):
 
     def forward(self, x: TensorType) -> TensorType:
         return self._model(x)
+
 
 
 class OceanTorchModel(TorchModelV2, nn.Module):
@@ -131,43 +157,61 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         self.dueling_heads_config = dueling_heads
 
         # Map Network
-        self.map_in_shape = (
-            obs_space[0].shape if isinstance(obs_space, gym.spaces.Tuple) else obs_space.shape
-        )
-        if self.map_config.get("channels"):
-            self.map_model = OceanCNN(
-                name="Map Preprocessing",
-                input_size=self.map_in_shape,
-                channels=self.map_config["channels"],
-                kernel=self.map_config["kernel"],
-                stride=self.map_config["stride"],
-                padding=self.map_config["padding"],
+        if obs_space.get("local_map", False):
+            self.map_in_shape = obs_space.get("local_map").shape
+            self.map_norm_shape = (
+                self.map_in_shape[1] // self.map_config["groups"][0] if map["normalize"] else 0
             )
-            self.map_out_shape = 1
+
+            if self.map_config.get("channels", False):
+                self.map_model = OceanCNN(
+                    name="Map Preprocessing CNN",
+                    input_shape=self.map_in_shape,
+                    channels=self.map_config["channels"],
+                    kernels=self.map_config["kernels"],
+                    strides=self.map_config["strides"],
+                    paddings=self.map_config["paddings"],
+                    poolings=self.map_config["poolings"],
+                    groups=self.map_config["groups"],
+                    dropouts=self.map_config.get("dropouts", [0] * len(self.map_config["channels"])),
+                )
+                self.map_out_shape = (
+                    self.map_config["channels"][-1]
+                    * int(np.prod(self.map_in_shape[1:]))
+                    / self.map_config["poolings"][-1][1] ** 2
+                )
+            else:
+                self.map_model = OceanDenseNet(
+                    name="Map Preprocessing Dense",
+                    input_shape=self.map_in_shape,
+                    units=self.map_config["units"],
+                    activations=self.map_config["activations"],
+                    initializers=self.map_config["initializers"],
+                    dropouts=self.map_config.get("dropouts", [0] * len(self.map_config["units"])),
+                )
+                if len(self.map_config["units"]) > 0:
+                    self.map_out_shape = self.map_config["units"][-1]
+                else:
+                    self.map_out_shape = int(np.prod(self.map_in_shape))
         else:
-            self.map_model = OceanDenseNet(
-                name="Map Preprocessing",
-                input_size=self.map_in_shape,
-                units=self.map_config["units"],
-                activation=self.map_config["activation"],
-                initializer=self.map_config["initializer"],
-            )
-            self.map_out_shape = self.map_config["units"][-1]
+            self.map_out_shape = 0
+            self.map_norm_shape = 0
 
         # Meta Network
-        self.meta_in_shape = (1 if map["normalize"] else 0) + (
-            obs_space[1].shape[0] if isinstance(obs_space, gym.spaces.Tuple) else 0
+        self.meta_in_shape = self.map_norm_shape + (
+            obs_space.get("meta").shape[0] if obs_space.get("meta", False) else 0
         )
         if self.meta_in_shape > 0 and (
             len(self.meta_config["units"]) > 0 or self.meta_config["input_activation"]
         ):
             self.meta_model = OceanDenseNet(
                 name="Meta Preprocessing",
-                input_size=self.meta_in_shape,
+                input_shape=self.meta_in_shape,
                 units=self.meta_config["units"],
-                activation=self.meta_config["activation"],
-                initializer=self.meta_config["initializer"],
+                activations=self.meta_config["activations"],
+                initializers=self.meta_config["initializers"],
                 input_activation=self.meta_config["input_activation"],
+                dropouts=self.meta_config.get("dropouts", [0] * len(self.meta_config["units"])),
             )
             self.meta_out_shape = (
                 self.meta_config["units"][-1]
@@ -182,10 +226,11 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         if len(self.joined_config["units"]) > 0:
             self.joined_model = OceanDenseNet(
                 name="Meta Preprocessing",
-                input_size=self.joined_in_shape,
+                input_shape=self.joined_in_shape,
                 units=self.joined_config["units"],
-                activation=self.joined_config["activation"],
-                initializer=self.joined_config["initializer"],
+                activations=self.joined_config["activations"],
+                initializers=self.joined_config["initializers"],
+                dropouts=self.joined_config.get("dropouts", [0] * len(self.joined_config["units"])),
             )
             self.joined_out_shape = self.joined_config["units"][-1]
         else:
@@ -195,38 +240,41 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         self.dueling_in_shape = self.joined_out_shape
         self.advantage_head = OceanDenseNet(
             name="Advantage Head",
-            input_size=self.dueling_in_shape,
+            input_shape=self.dueling_in_shape,
             units=self.dueling_heads_config["units"] + [action_space.n],
-            activation=self.dueling_heads_config["activation"],
-            initializer=self.dueling_heads_config["initializer"],
+            activations=self.dueling_heads_config["activations"],
+            initializers=self.dueling_heads_config["initializers"],
             residual=self.dueling_heads_config["residual"],
+            dropouts=self.dueling_heads_config.get("dropouts", [0] * len(self.dueling_heads_config["units"] + [1])),
         )
         self.state_head = OceanDenseNet(
             name="State Head",
-            input_size=self.dueling_in_shape,
+            input_shape=self.dueling_in_shape,
             units=self.dueling_heads_config["units"] + [1],
-            activation=self.dueling_heads_config["activation"],
-            initializer=self.dueling_heads_config["initializer"],
+            activations=self.dueling_heads_config["activations"],
+            initializers=self.dueling_heads_config["initializers"],
+            dropouts=self.dueling_heads_config.get("dropouts", [0] * len(self.dueling_heads_config["units"] + [1])),
         )
 
-    def forward(self, map: TensorType, meta: TensorType = None):
+    def forward(self, local_map: TensorType = None, meta: TensorType = None):
         # Map Network
         if self.map_config["normalize"]:
-            ttr_center = map[
+            # batch, time*var, x, y
+            vars = torch.div(local_map.shape[1], self.map_config["groups"][0], rounding_mode="floor")
+            ttr_center = local_map[
                 :,
-                torch.div(map.shape[1] - 1, 2, rounding_mode="floor"),
-                torch.div(map.shape[2] - 1, 2, rounding_mode="floor"),
-                0,
+                :vars:,
+                torch.div(local_map.shape[2] - 1, 2, rounding_mode="floor"),
+                torch.div(local_map.shape[3] - 1, 2, rounding_mode="floor"),
             ]
-            map = map - ttr_center[:, None, None, None]
-        map_out = self.map_model(map)
+            local_map[:, :vars:, :, :] = local_map[:, :vars:, :, :] - ttr_center[:, :, None, None]
 
         # Meta Network
         if self.meta_in_shape > 0:
-            if self.map_config["normalize"] and meta:
-                meta_in = torch.concat((meta, ttr_center[:, None]), 1)
+            if self.map_config["normalize"] and meta is not None:
+                meta_in = torch.concat((meta, ttr_center), 1)
             elif self.map_config["normalize"]:
-                meta_in = ttr_center[:, None]
+                meta_in = ttr_center
             else:
                 meta_in = meta
 
@@ -235,9 +283,16 @@ class OceanTorchModel(TorchModelV2, nn.Module):
             else:
                 meta_out = meta_in
 
-            joined_in = torch.concat((map_out, meta_out), 1)
+        if local_map is not None:
+            map_out = self.map_model(local_map)
+
+            if self.meta_in_shape > 0:
+                joined_in = torch.concat((map_out, meta_out), 1)
+            else:
+                joined_in = map_out
+
         else:
-            joined_in = map_out
+            joined_in = meta_out
 
         # Joined Network
         if len(self.joined_config["units"]) > 0 or self.joined_config["input_activation"]:
@@ -263,9 +318,9 @@ class OceanTorchModel(TorchModelV2, nn.Module):
 
         return values
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
         with self.context():
-            return self.forward(*args)
+            return self.forward(*args, **kwargs)
 
 
 def reduce_mean_ignore_inf(x: TensorType, axis: Optional[int] = None) -> TensorType:

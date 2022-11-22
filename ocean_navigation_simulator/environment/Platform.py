@@ -4,9 +4,9 @@ Typical usage:
 
   current_field = ...
   platform = Platform()
-  for _ in range(horizon / stride):
+  for _ in range(horizon / strides):
     command = ...
-    platform.simulate_step(current_field, command, stride)
+    platform.simulate_step(current_field, command, strides)
     print(platform.x, platform.y)
 """
 import logging
@@ -163,11 +163,11 @@ class Platform:
         # Check and directly reload if data for the casadi function for ocean or solar simulation needs to be updated.
         ocean_change = (
             self.ocean_source is not None
-            and self.ocean_source.check_for_casadi_dynamics_update(state)
+            and self.ocean_source.check_and_update_casadi_dynamics_from_platform_state(state)
         )
         solar_change = (
             self.solar_source is not None
-            and self.solar_source.check_for_casadi_dynamics_update(state)
+            and self.solar_source.check_and_update_casadi_dynamics_from_platform_state(state)
         )
         # propagate the newly cached functions in the source objects to F_x_next and seaweed source.
         if ocean_change or solar_change:

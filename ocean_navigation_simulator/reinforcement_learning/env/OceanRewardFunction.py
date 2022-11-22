@@ -67,7 +67,7 @@ class OceanRewardFunction:
         if self.config["step_punishment"] > 0:
             reward -= self.config["step_punishment"]
 
-        if problem_status > 0 and self.config["fail_punishment"] > 0:
+        if problem_status < 0 and self.config["fail_punishment"] > 0:
             reward -= self.config["fail_punishment"]
 
         return reward

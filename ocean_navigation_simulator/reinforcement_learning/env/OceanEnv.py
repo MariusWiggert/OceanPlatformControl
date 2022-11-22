@@ -61,7 +61,7 @@ class OceanEnv(gym.Env):
         verbose: Optional[int] = 0,
     ):
         with timing(
-            f'OceanEnv[Worker {worker_index}, {"Evaluation" if evaluation else "Train"}]: Created with {"no" if indices is None else len(indices)} indices ({{:.1f}}s)',
+            f'OceanEnv[Worker {worker_index}, {"Evaluation" if evaluation else "Train"}]: Created with {"no" if indices is None else len(indices)} indices ({{}})',
             verbose,
         ):
             self.config = config
@@ -114,6 +114,7 @@ class OceanEnv(gym.Env):
             "reset": 0,
             "step": 0,
             "arena": 0,
+            "planners": 0,
             "features": 0,
             "reward": 0,
             "render": 0,
@@ -233,13 +234,16 @@ class OceanEnv(gym.Env):
                 problem_status = self.arena.problem_status(self.problem)
                 problem_status_text = self.arena.problem_status_text(problem_status)
                 done = problem_status != 0
+                minimal_distance = self.arena.minimal_distance(self.problem)
 
             # Step 2: Get Features & Rewards
-            if not done:
-                self.forecast_planner.replan_if_necessary(observation)
-                self.hindcast_planner.replan_if_necessary(
-                    observation.replace_datasource(self.arena.ocean_field.hindcast_data_source)
-                )
+            with timing_dict(self.performance, "planners"):
+                if not done:
+                    self.forecast_planner.replan_if_necessary(observation)
+                    if self.hindcast_planner.replan_if_necessary(
+                        observation.replace_datasource(self.arena.ocean_field.hindcast_data_source)
+                    ):
+                        logger.error("Replanning on Hindcast should not happen.")
 
             with timing_dict(self.performance, "features"):
                 features = self.feature_constructor.get_features_from_state(
@@ -303,11 +307,12 @@ class OceanEnv(gym.Env):
                         ),
                         rew=sum(self.rewards),
                     ),
-                    "(step Ø: {stt:.1f}ms, total: {t:.1f}s, reset: {res:.1f}s, arena: {ar:.1f}s, features: {fe:.1f}s, reward: {re:.1f}s, Mem: {mem:,.0f}MB) ".format(
+                    "(step Ø: {stt:.1f}ms, total: {t:.1f}s, reset: {res:.1f}s, arena: {ar:.1f}s, planners: {pl:.1f}s, features: {fe:.1f}s, reward: {re:.1f}s, Mem: {mem:,.0f}MB) ".format(
                         stt=1000 * self.performance["step_time_mean"],
                         t=self.performance["total"],
                         res=self.performance["reset"],
                         ar=self.performance["arena"],
+                        pl=self.performance["planners"],
                         fe=self.performance["features"],
                         re=self.performance["reward"],
                         mem=psutil.Process().memory_info().rss / 1e6,
@@ -344,6 +349,7 @@ class OceanEnv(gym.Env):
                 "problem_status": problem_status,
                 "success": problem_status > 0,
                 "arrival_time_in_h": self.problem.passed_seconds(observation.platform_state) / 3600,
+                "minimal_distance": minimal_distance,
                 "performance": self.performance,
                 "ram_usage_MB": int(psutil.Process().memory_info().rss / 1e6),
             },

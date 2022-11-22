@@ -448,9 +448,9 @@ class PredictionsAndGroundTruthOverArea:
             # Plot the trajectory of the boat:
             # Neet do recompute the magnitude using the hindcast at the platform past and present positions
             # magnitude_error = ...
-            # ax.plot(state_trajectory[::stride, 0], state_trajectory[::stride, 1],
+            # ax.plot(state_trajectory[::strides, 0], state_trajectory[::strides, 1],
             #         magnitude_error, c='black')
-            # ax.scatter(state_trajectory[::stride, 0], state_trajectory[::stride, 1],
+            # ax.scatter(state_trajectory[::strides, 0], state_trajectory[::strides, 1],
             #            magnitude_error,
             #            marker=".")
 
