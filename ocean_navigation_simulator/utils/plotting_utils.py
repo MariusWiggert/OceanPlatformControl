@@ -2,6 +2,7 @@ from typing import AnyStr, Callable, List, Optional, Tuple
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 import matplotlib.animation as animation
 import datetime as dt
 
@@ -62,6 +63,7 @@ def get_index_from_posix_time(state_trajectory: np.ndarray, posix_time: float) -
         index: float
     """
     return np.searchsorted(a=state_trajectory[2, :], v=posix_time)
+
 
 def animate_trajectory(
     state_trajectory: np.ndarray,
@@ -184,56 +186,129 @@ def animate_trajectory(
     )
 
 
+# https://stackoverflow.com/a/48136768
+def make_proxy(clr, mappable, **kwargs):
+    return Line2D([0, 1], [0, 1], color=clr, **kwargs)
 
-def plot_graph(G, pos, t_datetime, reset_plot: bool=False):
-    scaling = 1.05  # smaller numbers leads to larger distance representation when plotting
+
+def plot_network_graph(
+    G: nx,
+    pos: dict,
+    t_datetime: dt.datetime,
+    units_of_labels: Optional[str] = "km",
+    collision_communication_thrslds: Optional[Tuple] = None,
+    reset_plot: bool = False,
+):
     weight_edges = nx.get_edge_attributes(G, "weight")
-    weight_edges_for_scaling = {key: 1 / (value.km) for key, value in weight_edges.items()}
+    if units_of_labels == "km":
+        weight_edges_in_dist_unit = {key: value.km for key, value in weight_edges.items()}
+    else:
+        weight_edges_in_dist_unit = {key: value.deg for key, value in weight_edges.items()}
+    # smaller numbers leads to larger distance representation when plotting
+    weight_edges_for_scaling = {key: 1 / value for key, value in weight_edges_in_dist_unit.items()}
     edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
     Gplot = nx.Graph()
-    Gplot.add_edges_from(G.edges()) # create a copy from G
+    Gplot.add_edges_from(G.edges())  # create a copy from G
     nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
     pos = nx.spring_layout(
         Gplot, seed=10, pos=pos, weight="weight"
     )  # edge length inversely prop to distance repr. on the graph
     # reset plot this is needed for matplotlib.animation
     if reset_plot:
-            plt.clf()
+        plt.clf()
     ax = plt.axes()
     ax.set_title(f"Network graph at t= {dt.datetime.strftime(t_datetime, '%Y-%m-%d %H:%M:%S')}")
-    nx.draw_networkx(Gplot, pos=pos, with_labels=True)
+    ax.legend
+    nx.draw_networkx_nodes(
+        Gplot,
+        pos,
+        node_color="k",
+    )
+    nx.draw_networkx_edges(Gplot, pos, width=1.5)
+    nx.draw_networkx_labels(G, pos, font_color="white")
     nx.draw_networkx_edge_labels(Gplot, pos, edge_labels=edge_labels)
+
+    if collision_communication_thrslds is not None:
+        collision_thrsld, communication_thrsld = collision_communication_thrslds
+        edges_comm_broken = {
+            key: val
+            for (key, val) in weight_edges_in_dist_unit.items()
+            if val > communication_thrsld
+        }
+        edges_collision = {
+            key: val for (key, val) in weight_edges_in_dist_unit.items() if val < collision_thrsld
+        }
+        edges_remaining = {
+            key: val
+            for (key, val) in weight_edges_in_dist_unit.items()
+            if key not in (edges_collision | edges_comm_broken)
+        }
+        h1 = nx.draw_networkx_edges(
+            G, pos, edgelist=list(edges_comm_broken), width=8, edge_color="tab:red", alpha=0.5
+        )
+        h2 = nx.draw_networkx_edges(
+            G, pos, edgelist=list(edges_collision), width=8, edge_color="tab:purple", alpha=0.5
+        )
+        h3 = nx.draw_networkx_edges(
+            G, pos, edgelist=list(edges_remaining), width=8, edge_color="green", alpha=0.3
+        )
+        proxies = [make_proxy(clr, h) for clr, h in zip(["red", "purple", "green"], [h1, h2, h3])]
+        ax.legend(
+            proxies, ["communication loss risk", "collision risk", "within bounds"], loc="best"
+        )
     return ax
+
 
 def animate_graph_net_trajectory(
     state_trajectory,
     multi_agent_graph_seq,
+    units_of_labels: Optional[str] = "km",
+    collision_communication_thrslds: Optional[Tuple] = None,
     margin: Optional[float] = 1,
+    temporal_resolution: Optional[float] = None,
     forward_time: bool = True,
     output: Optional[AnyStr] = "traj_graph_anim.mp4",
-    temporal_resolution = None, #TODO code a temporal resolution interpolation-> see DataSource-> interpolate_in_space_and_time
 ):
-    def full_graph_plot_fcn(time_idx):
+
+    if temporal_resolution is not None:
+        time_grid = np.arange(
+            start=state_trajectory[0, 2, 0],
+            stop=state_trajectory[0, 2, -1],
+            step=temporal_resolution,
+        )
+    else:
+        time_grid = state_trajectory[0, 2, :]
+
+    def plot_network_render_fcn(frame_idx):
+        posix_time = time_grid[frame_idx]
+        time_idx = np.searchsorted(a=state_trajectory[0, 2, :], v=posix_time)
         t_from_idx = dt.datetime.fromtimestamp(state_trajectory[0, 2, time_idx], tz=dt.timezone.utc)
         G = multi_agent_graph_seq[time_idx]
         pos = {}
         x_interval, y_interval, _ = get_lon_lat_time_interval_from_trajectory(
-        state_trajectory= np.atleast_3d(state_trajectory[:, :, time_idx]) , margin=margin
+            state_trajectory=np.atleast_3d(state_trajectory[:, :, time_idx]), margin=margin
         )
         var_x, var_y = (x_interval[1] - x_interval[0]), (y_interval[1] - y_interval[0])
         keys = list(G.nodes)
         for node_idx in range(len(keys)):
             pos[keys[node_idx]] = (
-                    (state_trajectory[node_idx, idx_state["lon"], time_idx]- x_interval[0]) / var_x, 
-                    (state_trajectory[node_idx, idx_state["lat"], time_idx]- y_interval[0]) / var_y, 
+                (state_trajectory[node_idx, idx_state["lon"], time_idx] - x_interval[0]) / var_x,
+                (state_trajectory[node_idx, idx_state["lat"], time_idx] - y_interval[0]) / var_y,
             )
-        ax = plot_graph(G, pos=pos, t_datetime=t_from_idx, reset_plot=True)
-    render_frame = partial(full_graph_plot_fcn)
-        # set time direction of the animation
-    frames_vector_ = np.where(
-        forward_time, np.arange(state_trajectory.shape[2]), np.flip(state_trajectory.shape[2])
+        plot_network_graph(
+            G,
+            pos=pos,
+            t_datetime=t_from_idx,
+            units_of_labels=units_of_labels,
+            collision_communication_thrslds=collision_communication_thrslds,
+            reset_plot=True,
+        )
+
+    render_frame = partial(plot_network_render_fcn)
+    # set time direction of the animation
+    frames_vector = np.where(
+        forward_time, np.arange(time_grid.shape[0]), np.flip(time_grid.shape[0])
     )
-    frames_vector = frames_vector_[::10] # speed up animation by skiping frames
     fig = plt.figure(figsize=(12, 12))
     fps = int(10)
     ani = animation.FuncAnimation(fig, func=render_frame, frames=frames_vector, repeat=False)

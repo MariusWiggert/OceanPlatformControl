@@ -61,7 +61,7 @@ from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     animate_graph_net_trajectory,
     get_lon_lat_time_interval_from_trajectory,
-    plot_graph,
+    plot_network_graph,
 )
 from ocean_navigation_simulator.utils.units import (
     Distance,
@@ -277,8 +277,7 @@ class Arena:
                 from_nodes=self.from_nodes, to_nodes=self.to_nodes
             )
             nx.set_edge_attributes(G, values=dict(zip(graph_edges, weights)), name="weight")
-        #self.plot_graph_nodes_edges(G, platform_set=platform_set)
-            self.multi_agent_G_list[0]=G
+            self.multi_agent_G_list[0] = G
 
         observation = ArenaObservation(
             platform_state=platform_set,
@@ -286,7 +285,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            multi_agent_graph = G
+            multi_agent_graph=G,
         )
         return observation
 
@@ -312,7 +311,7 @@ class Arena:
             weights = platform_set.get_distance_btw_platforms(
                 from_nodes=self.from_nodes, to_nodes=self.to_nodes
             )
-            nx.set_edge_attributes(G, values=dict(zip(self.graph_edges, weights)), name="weight")  
+            nx.set_edge_attributes(G, values=dict(zip(self.graph_edges, weights)), name="weight")
             self.multi_agent_G_list.append(G)
 
         return ArenaObservation(
@@ -321,7 +320,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            multi_agent_graph = G
+            multi_agent_graph=G,
         )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
@@ -745,8 +744,10 @@ class Arena:
 
     def plot_graph_for_platform_state(
         self,
-        G,
+        G: nx,
         platform_set: PlatformStateSet,
+        units_of_labels: Optional[str] = "km",
+        collision_communication_thrsld: Optional[Tuple] = None,
         margin: Optional[int] = 1,
     ):
         pos = {}
@@ -761,17 +762,29 @@ class Arena:
                 (lat - y_interval[0]) / var_y,
             )  # normalize positions
         t = dt.datetime.fromtimestamp(t_interval[0], tz=dt.timezone.utc)
-        ax = plot_graph(G, pos=pos, t_datetime=t)
-        
+        ax = plot_network_graph(
+            G,
+            pos=pos,
+            t_datetime=t,
+            units_of_labels=units_of_labels,
+            collision_communication_thrslds=collision_communication_thrsld,
+        )
+
     def animate_graph_net_trajectory(
         self,
+        units_of_labels: Optional[str] = "km",
+        collision_communication_thrslds: Optional[Tuple] = None,
         margin: Optional[float] = 1,
-        output: Optional[AnyStr] = "traj_graph_anim.mp4",
-    ):   
+        temporal_resolution: Optional[float] = None,
+        output: Optional[AnyStr] = "network_graph_anim.mp4",
+    ):
         # shallow wrapper to plotting utils function
         animate_graph_net_trajectory(
             state_trajectory=self.state_trajectory,
             multi_agent_graph_seq=self.multi_agent_G_list,
+            units_of_labels=units_of_labels,
+            collision_communication_thrslds=collision_communication_thrslds,
             margin=margin,
+            temporal_resolution=temporal_resolution,
             output=output,
         )
