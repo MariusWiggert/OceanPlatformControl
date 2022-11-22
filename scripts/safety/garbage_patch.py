@@ -207,17 +207,18 @@ def save_xarray(xarray: xr, filename: str) -> None:
 
 
 if __name__ == "__main__":
-    region_1 = [[-175, -100], [15, 45]]
+    # region_1 = [[-175, -100], [15, 45]]
+    region_global = [[-180, 180], [-90, 90]]
     res_lat = 1 / 12
     res_lon = 1 / 12
     ds = create_xarray_from_csv()
-    xarray = create_xarray_mask(ds, *region_1, res_lat=res_lat, res_lon=res_lon)
+    xarray = create_xarray_mask(ds, *region_global, res_lat=res_lat, res_lon=res_lon)
     save_xarray(
-        xarray, f"data/garbage_patch/garbage_patch_region_1_res_{res_lat:.3f}_{res_lon:.3f}.nc"
+        xarray, f"data/garbage_patch/garbage_patch_global_res_{res_lat:.3f}_{res_lon:.3f}.nc"
     )
 
-    # xarray["garbage"].plot()
-    # plt.show()
+    xarray["garbage"].plot()
+    plt.show()
     # # # Plot a convex hull around garbage patch
     # ax = set_up_geographic_ax()
     # points = np.column_stack((ds["lon"], ds["lat"]))
