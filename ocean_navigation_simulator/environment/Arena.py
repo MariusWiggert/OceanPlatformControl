@@ -248,6 +248,7 @@ class Arena:
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
         self.multi_agent_G_list = [None]
         self.graph_edges, self.from_nodes, self.to_nodes = None, None, None
+        self.dt_in_s = platform_dict["dt_in_s"]
 
     def reset(self, platform_set: PlatformStateSet, graph_edges: None) -> ArenaObservation:
         """Resets the arena.
@@ -278,7 +279,7 @@ class Arena:
             )
             nx.set_edge_attributes(G, values=dict(zip(graph_edges, weights)), name="weight")
             self.multi_agent_G_list[0] = G
-
+        self.plot_graph_for_platform_state(G, platform_set=platform_set, collision_communication_thrsld=(20,200))
         observation = ArenaObservation(
             platform_state=platform_set,
             true_current_at_state=self.ocean_field.get_ground_truth(
@@ -705,26 +706,15 @@ class Arena:
 
     def plot_distance_evolution_between_neighbors(
         self,
+        neighbors_list_to_plot: List[Tuple],
         figsize: Tuple[int] = (8, 6),
-        stride_xticks: Optional[int] = 12,  # 10 mins update-> 6*10mins = 1h, 12 is 2h ticks
+        xticks_temporal_res: Optional[int] = 14400,  # ticks in seconds, defaut is 4h
     ) -> matplotlib.axes.Axes:
         """
         Function to compute distance evolution between neighbors over their trajectories
         For now just handle two platforms
         """
-        idx_state = {
-            "lon": 0,
-            "lat": 1,
-            "time": 2,
-        }
-        d = Distance(
-            rad=haversine_rad_from_deg(
-                self.state_trajectory[0, idx_state["lon"], :],
-                self.state_trajectory[0, idx_state["lat"], :],
-                self.state_trajectory[1, idx_state["lon"], :],
-                self.state_trajectory[1, idx_state["lat"], :],
-            )
-        )
+        stride_xticks = int(xticks_temporal_res/self.dt_in_s)
         plt.figure(figsize=figsize)
         ax = plt.axes()
         t0 = dt.datetime.fromtimestamp(self.state_trajectory[0, 2, 0], tz=dt.timezone.utc)
@@ -732,12 +722,16 @@ class Arena:
             dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
             for posix in self.state_trajectory[0, 2, ::1]
         ]
-        ax.plot(dates, d.km, "--x")
+        for neighb_tup in neighbors_list_to_plot:
+            node_from, node_to = neighb_tup
+            dist_list = list(map(lambda G: G[node_from][node_to]["weight"].km, self.multi_agent_G_list))
+            ax.plot(dates, dist_list, "--x", label= f"Pair {neighb_tup}")
         dates_xticks = dates[::stride_xticks]
         vect_strftime = np.vectorize(dt.datetime.strftime)
         dates_xticks_str = vect_strftime(dates_xticks, "%d-%H:%M")
         ax.set_xticks(dates_xticks)
         ax.set_xticklabels(dates_xticks_str)
+        ax.legend()
         ax.set_ylabel("distance in km")
         ax.set_title("Distance evolution between platforms over time")
         ax.set_xlabel("time")

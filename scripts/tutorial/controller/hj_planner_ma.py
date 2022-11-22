@@ -38,13 +38,13 @@ x_1 = PlatformState(
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_2 = PlatformState(
-    lon=units.Distance(deg=-85.4),
+    lon=units.Distance(deg=-82.7),
     lat=units.Distance(deg=23.6),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_3 = PlatformState(
     lon=units.Distance(deg=-82.4),
-    lat=units.Distance(deg=24.6),
+    lat=units.Distance(deg=24),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 # create a platformSet object
@@ -52,7 +52,7 @@ x_set = PlatformStateSet([x_0, x_1, x_2, x_3])
 # try if methods returns are correct
 print("lon array: ", x_set.lon, ", lat array: ", x_set.lat)
 # target region is the same for now
-x_T = SpatialPoint(lon=units.Distance(deg=-81.3), lat=units.Distance(deg=24.6))
+x_T = SpatialPoint(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=24))
 
 #%% create a navigation problem
 problem = NavigationProblem(
@@ -108,19 +108,19 @@ action = planner_set.get_action_set(observation=observation)
 # observation = arena.step(action)
 
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
-day_sim = 0.5
+day_sim = 3
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 1 day
     action = planner_set.get_action_set(observation=observation)
     observation = arena.step(action)
 
 arena.animate_graph_net_trajectory(
-    temporal_resolution=7200, collision_communication_thrslds=(20, 200)
+    temporal_resolution=7200, collision_communication_thrslds=(10, 50), output="network_graph_anim_3days.mp4"
 )
 #%% Plot the arena trajectory on the map
 ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 ax = problem.plot(ax=ax)
-plt.savefig("one_day.png", dpi=300)
+plt.savefig("traj_3_days.png", dpi=300)
 # # #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_1days_anim.mp4")
-ax = arena.plot_distance_evolution_between_neighbors(figsize=(9, 6), stride_xticks=24)
-plt.savefig("distance_evolution_1days", dpi=300)
+arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_3days_anim.mp4")
+ax = arena.plot_distance_evolution_between_neighbors(neighbors_list_to_plot= [(0, 1), (0, 2), (1, 3)], figsize=(9, 6))
+plt.savefig("distance_evolution_3days", dpi=300)

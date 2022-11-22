@@ -209,10 +209,10 @@ def plot_network_graph(
     edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
     Gplot = nx.Graph()
     Gplot.add_edges_from(G.edges())  # create a copy from G
-    nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
-    pos = nx.spring_layout(
-        Gplot, seed=10, pos=pos, weight="weight"
-    )  # edge length inversely prop to distance repr. on the graph
+    #nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
+    # pos = nx.spring_layout(
+    #     Gplot, seed=10, pos=pos, weight="weight"
+    # )  # edge length inversely prop to distance repr. on the graph
     # reset plot this is needed for matplotlib.animation
     if reset_plot:
         plt.clf()
