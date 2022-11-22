@@ -18,6 +18,7 @@ from typing import Dict, Optional
 import casadi as ca
 import numpy as np
 
+from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import BathymetrySource2d
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthSource,
@@ -83,6 +84,7 @@ class Platform:
         use_geographic_coordinate_system: bool,
         solar_source: Optional[SolarIrradianceSource] = None,
         seaweed_source: Optional[SeaweedGrowthSource] = None,
+        bathymetry_source: Optional[BathymetrySource2d] = None,
     ):
 
         # initialize platform logger
@@ -94,6 +96,7 @@ class Platform:
         self.ocean_source = ocean_source
         self.solar_source = solar_source
         self.seaweed_source = seaweed_source
+        self.bathymetry_source = bathymetry_source
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
         self.model_battery = self.solar_source is not None
@@ -150,6 +153,8 @@ class Platform:
             self.solar_source.update_casadi_dynamics(state)
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
+        if self.bathymetry_source is not None:
+            self.bathymetry_source.update_casadi_dynamics(state)
         self.F_x_next = self.get_casadi_dynamics()
 
         self.logger.info(f"Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)")
@@ -168,6 +173,10 @@ class Platform:
         solar_change = (
             self.solar_source is not None
             and self.solar_source.check_for_casadi_dynamics_update(state)
+        )
+        bathymetry_change = (
+            self.bathymetry_source is not None
+            and self.bathymetry_source.check_for_casadi_dynamics_update(state)
         )
         # propagate the newly cached functions in the source objects to F_x_next and seaweed source.
         if ocean_change or solar_change:

@@ -219,6 +219,7 @@ class ArenaFactory:
                 ),
                 solar_dict=config.get("solar_dict", None),
                 seaweed_dict=config.get("seaweed_dict", None),
+                bathymetry_dict=config.get("bathymetry_dict", None),
                 spatial_boundary=config.get("spatial_boundary", None),
                 timeout=config.get("timeout", None),
             )

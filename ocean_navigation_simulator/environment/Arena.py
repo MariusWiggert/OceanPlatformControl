@@ -211,6 +211,9 @@ class Arena:
             seaweed_source=self.seaweed_field.hindcast_data_source
             if self.seaweed_field is not None
             else None,
+            bathymetry_source=self.bathymetry_source
+            if self.bathymetry_source is not None
+            else None,
         )
 
         self.logger.info(f"Arena: Generate Platform ({time.time() - start:.1f}s)")
@@ -299,13 +302,12 @@ class Arena:
         inside_y = y_boundary[0] + margin < self.platform.state.lat.deg < y_boundary[1] - margin
         return inside_x and inside_y
 
-    # TODO modify this
     def is_on_land(self, point: SpatialPoint = None, elevation: float = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
 
         if self.bathymetry_source:
             if point is None:
-                point = self.platform.state
+                point = self.platform.state.to_spatial_point()
             return self.bathymetry_source.is_higher_than(point, elevation)
         else:
             # Check if x_grid exists (not for all data sources)

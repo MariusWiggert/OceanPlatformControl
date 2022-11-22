@@ -83,6 +83,35 @@ class DataSource2d(abc.ABC):
 
         self.initialize_casadi_functions(grid, xarray)
 
+    def check_for_casadi_dynamics_update(self, state: PlatformState) -> bool:
+        """Function to check if our cached casadi dynamics need an update because x_t is outside of the area.
+        Args:
+            state: Platform State to check if we have a working casadi function [x, y, battery, mass, posix_time]
+            logger: logging object
+        """
+        out_x_range = not (
+            self.casadi_grid_dict["x_range"][0]
+            < state.lon.deg
+            < self.casadi_grid_dict["x_range"][1]
+        )
+        out_y_range = not (
+            self.casadi_grid_dict["y_range"][0]
+            < state.lat.deg
+            < self.casadi_grid_dict["y_range"][1]
+        )
+        if out_x_range or out_y_range:
+            if out_x_range:
+                self.logger.debug(
+                    f'Updating Interpolation (X: {self.casadi_grid_dict["x_range"][0]}, {state.lon.deg}, {self.casadi_grid_dict["x_range"][1]}'
+                )
+            if out_y_range:
+                self.logger.debug(
+                    f'Updating Interpolation (Y: {self.casadi_grid_dict["y_range"][0]}, {state.lat.deg}, {self.casadi_grid_dict["y_range"][1]}'
+                )
+            self.update_casadi_dynamics(state)
+            return True
+        return False
+
     def get_data_over_area(
         self,
         x_interval: List[float],
