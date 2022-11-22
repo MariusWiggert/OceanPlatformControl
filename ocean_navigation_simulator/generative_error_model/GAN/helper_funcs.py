@@ -35,7 +35,6 @@ def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
     wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
-                     f"_{all_cfgs[all_cfgs['model']]['norm_type']}" + \
                      f"_{all_cfgs['dataset']['area']}" + \
                      f"_{all_cfgs['dataset']['len']}" + \
                      f"_{all_cfgs['dataset']['random_subsets']}" + \
@@ -91,7 +90,7 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     if dataset_type == "forecastbuoy":
         dataset = BuoyForecastErrorNpy(dataset_configs["forecasts"],
                                        dataset_configs["ground_truth"],
-                                       dataset_configs["sparse_type"],
+                                       dataset_configs["area"],
                                        dataset_configs["concat_len"])
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],

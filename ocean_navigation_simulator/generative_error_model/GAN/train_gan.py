@@ -1,7 +1,3 @@
-from BuoyForecastDataset import BuoyForecastErrorNpy
-from ForecastHindcastDataset import ForecastHindcastDatasetNpy
-from Generator import Generator
-from Discriminator import Discriminator
 from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
     init_weights, save_checkpoint, load_checkpoint
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
@@ -10,8 +6,6 @@ from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, init
 
 import wandb
 import os
-import argparse
-import yaml
 import torch
 import torch.nn as nn
 from torchvision.utils import make_grid
@@ -106,8 +100,9 @@ def gan_loss_disc(disc_real, disc_fake):
         disc_real - output of discriminator for real examples
         disc_fake - output of discriminaor for fake examples
     """
-    disc_real_loss = nn.BCEWithLogitsLoss(disc_real, torch.ones_like(disc_real))
-    disc_fake_loss = nn.BCEWithLogitsLoss(disc_fake, torch.zeros_like(disc_fake))
+    bce_loss = nn.BCEWithLogitsLoss()
+    disc_real_loss = bce_loss(disc_real, torch.ones_like(disc_real))
+    disc_fake_loss = bce_loss(disc_fake, torch.zeros_like(disc_fake))
     disc_loss = (disc_real_loss + disc_fake_loss) / 2  # division to make disc learn more slowly
     return disc_loss
 
@@ -119,7 +114,8 @@ def gan_loss_gen(disc_fake, target_fake, target, l1_scaling: Optional[float] = 1
         target_fake - output of generator
         target - ground truth data
     """
-    gen_fake_loss = nn.BCEWithLogitsLoss(disc_fake, torch.ones_like(disc_fake))
+    bce_loss = nn.BCEWithLogitsLoss()
+    gen_fake_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
     l1_val = l1(target_fake, target) * l1_scaling
     gen_loss = gen_fake_loss.item() + l1_val
     return gen_loss
@@ -148,7 +144,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 disc_loss_sum += disc_loss.item()
 
                 optimizers[1].zero_grad()
-                optimizers[1].backward()
+                disc_loss = torch.autograd.Variable(disc_loss, requires_grad=True)
+                disc_loss.backward()
                 optimizers[1].step()
 
                 # train generator
@@ -157,7 +154,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 gen_loss_sum += gen_loss.item()
 
                 optimizers[0].zero_grad()
-                optimizers[0].backward()
+                gen_loss = torch.autograd.Variable(gen_loss, requires_grad=True)
+                gen_loss.backward()
                 optimizers[0].step()
 
                 tepoch.set_postfix(loss=f"{round(gen_loss.item() / data.shape[0], 3)}")
@@ -168,9 +166,9 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
     return avg_gen_loss, avg_disc_loss
 
 
-def validation(model, dataloader, device, cfgs_train, metrics_names):
+def validation(models, dataloader, device, cfgs_train, metrics_names):
     total_loss = 0
-    model.eval()
+    [model.eval() for model in models]
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
@@ -179,12 +177,15 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
             for data, target in tepoch:
                 data, target = data.to(device), target.to(device)
 
-                output = model(data)
-                val_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
-                total_loss += val_loss.item()
+                target_fake = models[0](data)
+                mask = torch.where(target != 0, 1, 0)
+                target_fake = torch.mul(target_fake.detach(), mask).float()
+                disc_fake = models[1](data, target_fake)
+                gen_loss = gan_loss_gen(disc_fake, target_fake, target)
+                total_loss += gen_loss.item()
 
                 # get metrics and ratio of metrics for generated outputs
-                metric_values = get_metrics(metrics_names, target, output)
+                metric_values = get_metrics(metrics_names, target, target_fake)
                 metric_values_baseline = get_metrics(metrics_names, target, data)
                 if metric_values_baseline["rmse"] == 0:
                     print("RMSE of baseline is 0!")
@@ -194,7 +195,7 @@ def validation(model, dataloader, device, cfgs_train, metrics_names):
                     metrics[metric_name] += metric_values[metric_name]
                     metrics_ratio[metric_name] += metric_values[metric_name] / (metric_values_baseline[metric_name]+1e-8)
 
-                tepoch.set_postfix(loss=str(round(val_loss.item() / data.shape[0], 3)))
+                tepoch.set_postfix(loss=str(round(gen_loss.item() / data.shape[0], 3)))
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
     metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
@@ -251,19 +252,21 @@ def main(sweep: Optional[bool] = False):
     if cfgs_lr_scheduler["value"]:
         gen_lr_scheduler = get_scheduler(gen_optimizer, cfgs_lr_scheduler)
         disc_lr_scheduler = get_scheduler(disc_optimizer, cfgs_lr_scheduler)
-    if all_cfgs["load_from_chkpt"]["value"]:
-        gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                           all_cfgs["load_from_chkpt"]["generator_checkpoint"])
+
+    # load models/instantiate models
+    if cfgs_gen["load_from_chkpt"]:
+        gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
         load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
-        disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                            all_cfgs["load_from_chkpt"]["discriminator_checkpoint"])
-        load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
+    if cfgs_disc["load_from_chkpt"]:
+        disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["chkpt"])
+        load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
+    else:
         init_weights(discriminator, init_type=cfgs_disc["init_type"], init_gain=cfgs_disc["init_gain"])
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
-    train_losses, val_losses, lrs = list(), list(), list
+    train_losses, val_losses, lrs = list(), list(), list()
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
             print()
@@ -281,7 +284,7 @@ def main(sweep: Optional[bool] = False):
             to_log |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio = validation(generator,
+                val_loss, metrics, metrics_ratio = validation((generator, discriminator),
                                                               val_loader,
                                                               device,
                                                               cfgs_train,
@@ -295,9 +298,9 @@ def main(sweep: Optional[bool] = False):
                 disc_lr_scheduler.step(val_loss)
 
             if all_cfgs["save_model"] and epoch % 5 == 0:
-                gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{now_str}_gen.pth")
+                gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{all_cfgs['model_save_name']}_gen.pth")
                 save_checkpoint(generator, gen_optimizer, gen_checkpoint_path)
-                disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{now_str}_disc.pth")
+                disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{all_cfgs['model_save_name']}_disc.pth")
                 save_checkpoint(discriminator, disc_optimizer, disc_checkpoint_path)
 
             visualisations = predict_fixed_batch(generator, fixed_batch_loader, device)

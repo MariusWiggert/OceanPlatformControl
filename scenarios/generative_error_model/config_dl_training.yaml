@@ -5,25 +5,18 @@ wandb_mode: "offline"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 
-load_from_chkpt:
-  value: False
-  generator_checkpoint: ""
-  discriminator_checkpoint: ""
-
-#unet:
-#  in_channels: 2
-#  out_channels: 2
-#  features: [64, 128, 256, 512]
-#  dropout: False
-
 generator:
   in_channels: 2
   out_channels: 2
   features: 64
   dropout: True
+  dropout_all: True
+  dropout_val: 0.3
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
+  load_from_chkpt: False
+  chkpt: "2022-11-17_17:59:56.pth"
 
 gen_optimizer:
   name: "Adam"
@@ -39,6 +32,8 @@ discriminator:
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "batch"
+  load_from_chkpt: False
+  chkpt: ""
 
 disc_optimizer:
   name: "Adam"

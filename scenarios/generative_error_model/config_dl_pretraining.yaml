@@ -8,7 +8,7 @@ run_train: True
 
 load_from_chkpt:
   value: False
-  file_name: "2022-11-18_21:21:42.pth"
+  file_name: "2022-11-21_17:51:56.pth"
 
 generator:
   in_channels: 2
