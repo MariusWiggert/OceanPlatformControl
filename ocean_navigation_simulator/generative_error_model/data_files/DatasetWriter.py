@@ -97,7 +97,7 @@ class DatasetWriter:
                 print(f"file already exists: {file_name}")
                 continue
             if index_file_update and self.config["dataset_writer"]["source"] == "copernicus":
-                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_file"] = index_file_update
+                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_files"] = index_file_update
                 forecast_error = self.get_error(file_idx)
                 index_file_update = False
                 self.config["buoy_config"]["copernicus"]["dataset"]["download_index_files"] = False
