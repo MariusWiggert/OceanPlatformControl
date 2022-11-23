@@ -1,3 +1,6 @@
+from ocean_navigation_simulator.generative_error_model.utils import get_datetime_from_file_name,\
+    get_time_matched_file_lists
+
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -101,13 +104,19 @@ class BuoyForecastErrorNpy(Dataset):
             try:
                 fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
                 buoy_file_paths = sorted(glob.glob(f"{buoy_dir}/{area}/*.npy"))
-                if len(fc_file_paths) != len(buoy_file_paths):
-                    print("\nNumber of forecast and buoy files is different!\n")
-                self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
-                self.fc_file_paths.extend(fc_file_paths)
-                self.buoy_file_paths.extend(buoy_file_paths)
             except:
                 raise ValueError("Specified area does not exist!")
+
+            if len(fc_file_paths) != len(buoy_file_paths):
+                print("\nNumber of forecast and buoy files is different!\n")
+
+            # compare dates of files and make sure they match!
+            fc_file_paths, buoy_file_paths = get_time_matched_file_lists(fc_file_paths, buoy_file_paths)
+
+            self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
+            self.fc_file_paths.extend(fc_file_paths)
+            self.buoy_file_paths.extend(buoy_file_paths)
+            print(len(fc_file_paths), len(buoy_file_paths))
 
         self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
         self.buoy_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.buoy_file_paths]
@@ -120,6 +129,7 @@ class BuoyForecastErrorNpy(Dataset):
             file_idx = idx // self.hours_in_file
             time_step_idx = idx % self.hours_in_file
             fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
+            print(f"file idx: {file_idx}, time step: {time_step_idx}")
             buoy_data = self.buoy_data[file_idx][time_step_idx].squeeze()
         else:
             file_idx = (idx * self.concat_len + self.concat_len - 1) // self.hours_in_file
@@ -142,11 +152,6 @@ def main():
     dataset = BuoyForecastErrorNpy(fc_dir, gt_dir, areas=["area1"])
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
-
-    # import matplotlib.pyplot as plt
-    # plt.imshow(dataset_item[0][0, :, :], origin="lower")
-    # plt.imshow(dataset_item[1][1, :, :], origin="lower")
-    # plt.show()
 
 
 if __name__ == "__main__":

@@ -1,8 +1,12 @@
+from ocean_navigation_simulator.generative_error_model.utils import get_datetime_from_file_name,\
+    get_time_matched_file_lists
+
 from torch.utils.data import Dataset
 import os
 import xarray as xr
 import numpy as np
 import glob
+import datetime
 
 
 class ForecastHindcastDataset(Dataset):
@@ -69,15 +73,20 @@ class ForecastHindcastDatasetNpy(Dataset):
         for area in areas:
             try:
                 fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
-                # print(fc_file_paths[0].split("/")[-1])
                 hc_file_paths = sorted(glob.glob(f"{hc_dir}/{area}/*.npy"))
-                if len(fc_file_paths) != len(hc_file_paths):
-                    raise ValueError("Number of forecast and hindcast files is different!")
-                self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
-                self.fc_file_paths.extend(fc_file_paths)
-                self.hc_file_paths.extend(hc_file_paths)
             except:
                 raise ValueError("Specified area does not exist!")
+
+            if len(fc_file_paths) != len(hc_file_paths):
+                print("\nNumber of forecast and hindcast files is different!\n")
+
+            # compare dates of files and make sure they match!
+            fc_file_paths, hc_file_paths = get_time_matched_file_lists(fc_file_paths, hc_file_paths)
+
+            self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
+            self.fc_file_paths.extend(fc_file_paths)
+            self.hc_file_paths.extend(hc_file_paths)
+            print(len(fc_file_paths), len(hc_file_paths))
 
         self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
         self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.hc_file_paths]
@@ -104,27 +113,17 @@ class ForecastHindcastDatasetNpy(Dataset):
 
 def main_xr():
     data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
-    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area3")
-    hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts/area3")
+    fc_dir = os.path.join(data_dir, "data/drifter_data/forecasts/area1")
+    hc_dir = os.path.join(data_dir, "data/drifter_data/hindcasts/area1")
     dataset = ForecastHindcastDataset(fc_dir, hc_dir)
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 
-    # import matplotlib.pyplot as plt
-    # plt.imshow(dataset_item[0][0], origin="lower")
-    # plt.show()
-    # plt.imshow(dataset_item[1][0], origin="lower")
-    # plt.show()
-    # plt.imshow(dataset_item[1][0] - dataset_item[0][0], origin="lower")
-    # plt.show()
-
 
 def main_npy():
-    data_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl"
-    fc_dir = os.path.join("data/drifter_data/forecasts_preprocessed")
-    hc_dir = os.path.join("data/drifter_data/hindcasts_preprocessed")
+    fc_dir = "data/drifter_data/forecasts_preprocessed"
+    hc_dir = "data/drifter_data/hindcasts_preprocessed"
     dataset = ForecastHindcastDatasetNpy(fc_dir, hc_dir, areas=["area1"], concat_len=1)
-    print(f"Dataset length: {len(dataset)}")
     dataset_item = dataset.__getitem__(0)
     print(f"dataset item output shapes: {dataset_item[0].shape}, {dataset_item[1].shape}")
 

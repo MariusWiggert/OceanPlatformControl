@@ -8,6 +8,7 @@ import numpy as np
 import os
 import logging
 from typing import Dict, Tuple
+import datetime
 
 
 def get_path_to_project(static_path: str) -> str:
@@ -94,3 +95,51 @@ def convert_degree_to_km(lon: np.ndarray, lat: np.ndarray) -> Tuple[np.ndarray, 
     x = lon * 40075.2 * np.cos(lat * np.pi/360)/360
     y = lat * (39806.64/360)
     return x, y
+
+
+def hour_range_file_name(file_name: str):
+    idx_time1 = file_name.index("2022")
+    idx_time2 = file_name[idx_time1 + 19:].index("2022") + idx_time1 + 19
+    date1 = datetime.datetime.strptime(file_name[idx_time1: idx_time1 + 19], "%Y-%m-%dT%H:%M:%S")
+    date2 = datetime.datetime.strptime(file_name[idx_time2: idx_time2 + 19], "%Y-%m-%dT%H:%M:%S")
+    date_diff = date2 - date1
+    return date_diff.days*24 + date_diff.seconds // 3600
+
+
+def same_file_times(file_name1: str, file_name2: str):
+    start_date1 = file_name1.index("2022")
+    start_date2 = file_name2.index("2022")
+    time1 = file_name1[start_date1: start_date1 + 19]
+    time2 = file_name2[start_date2: start_date2 + 19]
+    if time1 == time2:
+        return True
+    else:
+        return False, time1, time2
+
+
+def get_datetime_from_file_name(file_name: str):
+    idx_time = file_name.index("2022")
+    try:
+        date = datetime.datetime.strptime(file_name[idx_time: idx_time + 19], "%Y-%m-%dT%H:%M:%S")
+    except:
+        date = datetime.datetime.strptime(file_name[idx_time: idx_time + 19], "%Y-%m-%d %H:%M:%S")
+    return date
+
+
+
+def get_time_matched_file_lists(list1, list2):
+    file_name_per_day = dict()
+    for item1 in list1:
+        item1_date = get_datetime_from_file_name(item1)
+        file_name_per_day |= {item1_date: [item1]}
+    for item2 in list2:
+        item2_date = get_datetime_from_file_name(item2)
+        if item2_date in list(file_name_per_day.keys()):
+            file_name_per_day[item2_date] = [*file_name_per_day[item2_date], item2]
+    out_list1 = []
+    out_list2 = []
+    for _, value in file_name_per_day.items():
+        if len(value) == 2:
+            out_list1.append(value[0])
+            out_list2.append(value[1])
+    return out_list1, out_list2
