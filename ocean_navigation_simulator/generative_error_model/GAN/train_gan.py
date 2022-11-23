@@ -117,7 +117,7 @@ def gan_loss_gen(disc_fake, target_fake, target, l1_scaling: Optional[float] = 1
     bce_loss = nn.BCEWithLogitsLoss()
     gen_fake_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
     l1_val = l1(target_fake, target) * l1_scaling
-    gen_loss = gen_fake_loss.item() + l1_val
+    gen_loss = gen_fake_loss + l1_val
     return gen_loss
 
 
@@ -134,7 +134,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 target_fake = models[0](data)
                 # mask the generator output to match target (buoy data)
                 mask = torch.where(target != 0, 1, 0)
-                target_fake = torch.mul(target_fake.detach(), mask).float()
+                target_fake = torch.mul(target_fake, mask).float()
                 # check whether same num of non-zero values in target and target_fake
                 assert mask.sum() == torch.where(target_fake != 0, 1, 0).sum()
                 # compute real and fake outputs of discriminator
@@ -144,8 +144,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 disc_loss_sum += disc_loss.item()
 
                 optimizers[1].zero_grad()
-                disc_loss = torch.autograd.Variable(disc_loss, requires_grad=True)
-                disc_loss.backward()
+                # disc_loss = torch.autograd.Variable(disc_loss, requires_grad=True)
+                disc_loss.backward(retain_graph=True)
                 optimizers[1].step()
 
                 # train generator
@@ -154,11 +154,11 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 gen_loss_sum += gen_loss.item()
 
                 optimizers[0].zero_grad()
-                gen_loss = torch.autograd.Variable(gen_loss, requires_grad=True)
+                # gen_loss = torch.autograd.Variable(gen_loss, requires_grad=True)
                 gen_loss.backward()
                 optimizers[0].step()
 
-                tepoch.set_postfix(loss=f"{round(gen_loss.item() / data.shape[0], 3)}")
+                tepoch.set_postfix(loss_gen=f"{round(gen_loss.item() / data.shape[0], 3)}")
 
     avg_disc_loss = disc_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     avg_gen_loss = gen_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
@@ -264,9 +264,19 @@ def main(sweep: Optional[bool] = False):
         load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
     else:
         init_weights(discriminator, init_type=cfgs_disc["init_type"], init_gain=cfgs_disc["init_gain"])
+
+    # freeze encoder of generator
+    if cfgs_gen["freeze_encoder"]:
+        for name, param in generator.named_parameters():
+            if name.find("down") != -1 or name.find("bottleneck") != -1:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+        print("-> frozen generator encoder")
+
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
-    train_losses, val_losses, lrs = list(), list(), list()
+    train_losses_gen, train_losses_disc, val_losses, lrs = list(), list(), list(), list()
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
             print()
@@ -275,13 +285,14 @@ def main(sweep: Optional[bool] = False):
                        "disc_lr": disc_optimizer.param_groups[0]["lr"]}
             cfgs_train["epoch"] = epoch
 
-            train_loss = train((generator, discriminator),
-                               (gen_optimizer, disc_optimizer),
-                               train_loader,
-                               device,
-                               cfgs_train)
-            train_losses.append(train_loss)
-            to_log |= {"train_loss": train_loss}
+            train_loss_gen, train_loss_disc = train((generator, discriminator),
+                                                    (gen_optimizer, disc_optimizer),
+                                                    train_loader,
+                                                    device,
+                                                    cfgs_train)
+            train_losses_gen.append(train_loss_gen)
+            train_losses_disc.append(train_loss_disc)
+            to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc}
 
             if len(val_loader) != 0:
                 val_loss, metrics, metrics_ratio = validation((generator, discriminator),
