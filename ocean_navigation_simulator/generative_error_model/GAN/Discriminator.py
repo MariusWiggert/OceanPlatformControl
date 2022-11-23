@@ -25,7 +25,6 @@ class Discriminator(nn.Module):
         self.initial = nn.Sequential(
             # in_channels*2 needed because the discriminator receives fake and real at the same time.
             nn.Conv2d(in_channels*2, features[0], kernel_size=4, stride=1, padding=2, padding_mode="reflect"),
-            nn.MaxPool2d(2),
             nn.LeakyReLU(0.2)
         )
         layers = []
@@ -40,7 +39,7 @@ class Discriminator(nn.Module):
             in_channels = feature
         layers.append(
             nn.Conv2d(
-                in_channels, 1, kernel_size=4, stride=1, padding=1, padding_mode="reflect"
+                in_channels, 1, kernel_size=4, stride=1, padding=2, padding_mode="reflect"
             )
         )
         self.model = nn.Sequential(*layers)
