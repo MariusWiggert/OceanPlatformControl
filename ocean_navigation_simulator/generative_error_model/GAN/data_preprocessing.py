@@ -1,3 +1,5 @@
+from ocean_navigation_simulator.generative_error_model.utils import hour_range_file_name, time_range_hrs, datetime2str
+
 import os
 import numpy as np
 import pandas as pd
@@ -39,17 +41,28 @@ def save_sparse_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_ran
         data = pd.read_csv(os.path.join(file_dir, file))
         data["hour"] = data["time"].apply(lambda x: x[:13])
         hours = sorted(list(set(data["hour"].tolist())))
-        # TODO: make sure number of hours matches the time specified in name of file!
-        output_data = np.zeros((len(hours), 2, len(list(np.arange(*lon_range, 1/12)))+1, len(list(np.arange(*lat_range, 1/12)))+1))
-        for time_step, hour in enumerate(hours):
-            data_time_step = data[data["hour"].values == hour]
-            # convert from sparse to dense
-            points = np.array([data_time_step["lon"], data_time_step["lat"]])
-            nearest_grid_points = round_to_multiple(points)
-            lon_idx = np.searchsorted(np.arange(*lon_range, 1/12), nearest_grid_points[0])
-            lat_idx = np.searchsorted(np.arange(*lat_range, 1/12), nearest_grid_points[1])
-            output_data[time_step, 0, lon_idx, lat_idx] = data_time_step["u"].values
-            output_data[time_step, 1, lon_idx, lat_idx] = data_time_step["v"].values
+        hours_according_file_name, start_date = hour_range_file_name(file)
+        if hours != hours_according_file_name:
+            print("No buoy data available for every hour")
+        # get time range in hours to iterate over and populate array
+        hour_range = time_range_hrs(start_date, hours_according_file_name)
+        output_data = np.zeros((hours_according_file_name,
+                                2,
+                                len(list(np.arange(*lon_range, 1/12)))+1,
+                                len(list(np.arange(*lat_range, 1/12)))+1))
+        # need to make sure that the hours of the buoy data match the dense fc/hc data
+        # if there is no buoy data for a particular hour, an empty frame is inserted
+        for time_step, hour in enumerate(hour_range):
+            hour = datetime2str(hour)[:13]
+            if hour in data["hour"].values:
+                data_time_step = data[data["hour"].values == hour]
+                # convert from sparse to dense
+                points = np.array([data_time_step["lon"], data_time_step["lat"]])
+                nearest_grid_points = round_to_multiple(points)
+                lon_idx = np.searchsorted(np.arange(*lon_range, 1/12), nearest_grid_points[0])
+                lat_idx = np.searchsorted(np.arange(*lat_range, 1/12), nearest_grid_points[1])
+                output_data[time_step, 0, lon_idx, lat_idx] = data_time_step["u"].values
+                output_data[time_step, 1, lon_idx, lat_idx] = data_time_step["v"].values
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         np.save(output_file_path, output_data)
@@ -67,13 +80,13 @@ def run(area: str, buoy=False):
     else:
         raise NotImplementedError("Not implemented for specified area!")
 
-    fc_dir = f"../../../data/drifter_data/forecasts/{area}"
-    hc_dir = f"../../../data/drifter_data/hindcasts/{area}"
-    sparse_dir = f"../../../data/drifter_data/dataset_forecast_error/{area}"
+    fc_dir = f"data/drifter_data/forecasts/{area}"
+    hc_dir = f"data/drifter_data/hindcasts/{area}"
+    sparse_dir = f"data/drifter_data/dataset_forecast_error/{area}"
 
-    fc_np_dir = f"../../../data/drifter_data/forecasts_preprocessed/{area}"
-    hc_np_dir = f"../../../data/drifter_data/hindcasts_preprocessed/{area}"
-    sparse_np_dir = f"../../../data/drifter_data/buoy_preprocessed/{area}"
+    fc_np_dir = f"data/drifter_data/forecasts_preprocessed/{area}"
+    hc_np_dir = f"data/drifter_data/hindcasts_preprocessed/{area}"
+    sparse_np_dir = f"data/drifter_data/buoy_preprocessed/{area}"
 
     save_nc_as_npy(fc_dir, fc_np_dir, lon_range, lat_range)
     save_nc_as_npy(hc_dir, hc_np_dir, lon_range, lat_range)

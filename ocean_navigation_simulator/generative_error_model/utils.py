@@ -103,7 +103,14 @@ def hour_range_file_name(file_name: str):
     date1 = datetime.datetime.strptime(file_name[idx_time1: idx_time1 + 19], "%Y-%m-%dT%H:%M:%S")
     date2 = datetime.datetime.strptime(file_name[idx_time2: idx_time2 + 19], "%Y-%m-%dT%H:%M:%S")
     date_diff = date2 - date1
-    return date_diff.days*24 + date_diff.seconds // 3600
+    return date_diff.days*24 + date_diff.seconds // 3600, date1
+
+
+def time_range_hrs(start_date: datetime.datetime, num_hrs: int):
+    out_list = []
+    for i in range(num_hrs):
+        out_list.append(start_date + datetime.timedelta(hours=i))
+    return out_list
 
 
 def same_file_times(file_name1: str, file_name2: str):
@@ -143,3 +150,7 @@ def get_time_matched_file_lists(list1, list2):
             out_list1.append(value[0])
             out_list2.append(value[1])
     return out_list1, out_list2
+
+
+def datetime2str(datetime_obj: datetime.datetime):
+    return datetime.datetime.strftime(datetime_obj, "%Y-%m-%dT%H:%M:%S")
