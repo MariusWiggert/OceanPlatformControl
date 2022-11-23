@@ -1,27 +1,29 @@
 from ocean_navigation_simulator.reinforcement_learning.missions.FileProblemFactory import (
     FileProblemFactory,
 )
+import pandas as pd
 from ocean_navigation_simulator.reinforcement_learning.runners.EvaluationRunner import (
     EvaluationRunner,
 )
 
 baseline = {
-    'random': "/seaweed-storage/evaluation/Random/feasible.csv",
-    'naive': "/seaweed-storage/evaluation/Naive/feasible.csv",
-    'hj fc': "/seaweed-storage/evaluation/CachedHJReach2DPlannerForecast/feasible.csv",
-    'hj hc': "/seaweed-storage/evaluation/CachedHJReach2DPlannerHindcast/eval_9461m_2022_11_14_03_22_58.csv",
+    # "random": "/seaweed-storage/evaluation/Random/feasible.csv",
+    # "naive": "/seaweed-storage/evaluation/Naive/feasible.csv",
+    "hj fc": "/seaweed-storage/evaluation/CachedHJReach2DPlannerForecast/feasible.csv",
+    # "hj hc": "/seaweed-storage/evaluation/CachedHJReach2DPlannerHindcast/eval_9461m_2022_11_14_03_22_58.csv",
 }
 
 experiments = [
-    '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/grouped_cnn second_fc_2022_11_20_03_54_18/eval_cp50_2000m_2022_11_21_10_48_17.csv',
-    '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/grouped_cnn second_fc_2022_11_20_03_54_18/eval_cp100_2000m_2022_11_21_08_40_24.csv',
-    '/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/grouped_cnn second_fc_2022_11_20_03_54_18/eval_cp150_2000m_2022_11_21_07_02_33.csv',
+    "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/grouped_cnn second_fc_2022_11_20_03_54_18/eval_cp50_2000m_2022_11_21_10_48_17.csv",
+    "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/grouped_cnn second_fc_2022_11_20_03_54_18/eval_cp100_2000m_2022_11_21_08_40_24.csv",
+    "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/grouped_cnn second_fc_2022_11_20_03_54_18/eval_cp150_2000m_2022_11_21_07_02_33.csv",
 ]
 
-for csv_file in experiments:
+for name, csv_file in baseline.items():
     print(csv_file)
 
-    for start, stop in [(70000, 204), (70204, 1000), (70204, 2000), (70204, 10000), (0, False)]:
+    # for start, stop in [(70000, 204), (70204, 1000), (70204, 2000), (70204, 10000), (0, False)]:
+    for start, stop in [(70000, 2000), (72000, 2000), (74000, 2000), (76000, 2000), (78000, 2000)]:
         indexes = FileProblemFactory(
             csv_file="/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/problems.csv",
             filter={
@@ -34,5 +36,8 @@ for csv_file in experiments:
             csv_file=csv_file,
             indexes=indexes,
         )
-        print('')
-    print('')
+        print("")
+    # df =  pd.read_csv(csv_file)
+    # EvaluationRunner.plot_mission_time_and_success(df, name)
+
+    print("")

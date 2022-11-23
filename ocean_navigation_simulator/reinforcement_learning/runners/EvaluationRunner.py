@@ -3,7 +3,6 @@ import logging
 import os
 import time
 from typing import Optional
-from pathlib import Path
 
 import pandas as pd
 import pytz
@@ -341,7 +340,7 @@ class EvaluationRunner:
         plt.show()
 
     @staticmethod
-    def plot_mission_time_and_success(df):
+    def plot_mission_time_and_success(df, name = '', file = None):
         if "random" in df:
             df = df[~df["random"]]
 
@@ -358,5 +357,7 @@ class EvaluationRunner:
         plt.figure()
         plt.hist(ttr_succ, bins=100, alpha=0.5, color="g", label="success")
         plt.hist(ttr_fail, bins=100, alpha=0.5, color="r", label="failed")
-        plt.title("Mission Time-To-Reach Histogram")
+        plt.title(f"Mission Time-To-Reach Histogram ({name})")
+        if file is not None:
+            plt.savefig(file, dpi=300)
         plt.show()

@@ -1,0 +1,36 @@
+casadi_cache_dict:
+    deg_around_x_t: 2.0
+    time_around_x_t: 432000 # 3600 * 24
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.1
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 600.0
+
+use_geographic_coordinate_system: True
+
+spatial_boundary: null
+
+ocean_dict:
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'hindcast_files'
+        source_settings:
+            folder: "~/copernicus_hindcast/"
+            local: True
+            source: "Copernicus"
+            type: "hindcast"
+            currents: 'total'
+    forecast:
+        field: 'OceanCurrents'
+        source: 'forecast_files'
+        source_settings:
+            folder: "~/hycom_forecast/"
+            local: True
+            source: "HYCOM"
+            type: "forecast"
+            currents: 'total'

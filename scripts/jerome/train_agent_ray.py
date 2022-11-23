@@ -7,7 +7,7 @@ import pytz
 import yaml
 
 os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
-sys.path.extend(["/home/ubuntu/OceanPlatformControl"])
+sys.path.extend([os.path.expanduser("~/OceanPlatformControl")])
 print("Python %s on %s" % (sys.version, sys.platform))
 print(sys.path)
 
@@ -24,7 +24,7 @@ script_start_time = time.time()
 cluster_utils.init_ray()
 
 runner = TrainingRunner(
-    name="circular_embedding",
+    name="test_cql",
     tags=[],
     config=yaml.load(open("config/reinforcement_learning/training.yaml"), Loader=yaml.FullLoader),
     verbose=2,

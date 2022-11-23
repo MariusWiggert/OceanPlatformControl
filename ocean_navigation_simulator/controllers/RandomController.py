@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 
 from ocean_navigation_simulator.controllers.Controller import Controller

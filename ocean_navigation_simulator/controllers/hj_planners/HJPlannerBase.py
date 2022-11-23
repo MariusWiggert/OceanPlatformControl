@@ -1126,12 +1126,12 @@ class HJPlannerBase(Controller):
 
         # Sanitize Inputs
         extrapolate_x = (
-                out_x.min() < self.grid.coordinate_vectors[0][0]
-                or self.grid.coordinate_vectors[0][-1] < out_x.max()
+            out_x.min() < self.grid.coordinate_vectors[0][0]
+            or self.grid.coordinate_vectors[0][-1] < out_x.max()
         )
         extrapolate_y = (
-                out_y.min() < self.grid.coordinate_vectors[1][0]
-                or self.grid.coordinate_vectors[1][-1] < out_y.max()
+            out_y.min() < self.grid.coordinate_vectors[1][0]
+            or self.grid.coordinate_vectors[1][-1] < out_y.max()
         )
         extrapolate_t = (
             out_t.min() < self.current_data_t_0 + self.reach_times[0]

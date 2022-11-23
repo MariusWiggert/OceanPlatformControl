@@ -1,3 +1,5 @@
+import os.path
+
 import pandas as pd
 
 # import wandb
@@ -46,23 +48,31 @@ from ocean_navigation_simulator.reinforcement_learning.runners.EvaluationRunner 
 #     'RLController',
 # )
 
-df_eval = pd.read_csv(
-    "/seaweed-storage/evaluation/CachedHJReach2DPlannerForecast/feasible.csv", index_col=0
-)
-df_prob = pd.read_csv(
-    "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/problems.csv",
-    index_col=0,
-)
-df = df_eval.merge(
-    df_prob,
-    how="inner",
-    left_on="index",
-    right_index=True,
-    suffixes=(None, "right"),
-)
-EvaluationRunner.plot_mission_time_and_success(
-    df,
-)
+baseline = {
+    "Random": "/seaweed-storage/evaluation/Random/feasible.csv",
+    "Naive": "/seaweed-storage/evaluation/Naive/feasible.csv",
+    "CachedHJReach2DPlannerForecast": "/seaweed-storage/evaluation/CachedHJReach2DPlannerForecast/feasible.csv",
+    "CachedHJReach2DPlannerHindcast": "/seaweed-storage/evaluation/CachedHJReach2DPlannerHindcast/eval_9461m_2022_11_14_03_22_58.csv",
+}
+
+for name, csv_file in baseline.items():
+    df_eval = pd.read_csv(
+        csv_file, index_col=0
+    )
+    df_missions = pd.read_csv(
+        "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/problems.csv",
+        index_col=0,
+    )
+    df = df_eval.merge(
+        df_missions,
+        how="inner",
+        left_on="index",
+        right_index=True,
+        suffixes=(None, "right"),
+    )
+    EvaluationRunner.plot_mission_time_and_success(
+        df, name, os.path.dirname(csv_file) + '/mission_time_success.png'
+    )
 #
 # EvaluationRunner.print_results('/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/half_hour_steps_2022_10_31_19_23_21/evaluation_2022_11_01_17_15_45.csv')
 

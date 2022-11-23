@@ -12,7 +12,6 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.PlatformState import SpatioTemporalPoint
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 
@@ -97,13 +96,13 @@ class OceanFeatureConstructor:
             + 2 * config["features"]["currents_forecast"]
             + 2 * config["features"]["true_error"]
         )
-        if 'xy_width_degree' in config and 'xy_width_points' in config:
+        if "xy_width_degree" in config and "xy_width_points" in config:
             if config["flatten"]:
-                shape = (map_features * config["xy_width_points"]**2,)
+                shape = (map_features * config["xy_width_points"] ** 2,)
             else:
                 shape = (map_features, config["xy_width_points"], config["xy_width_points"])
         else:
-            spatial_points = sum(config['embedding_n'])
+            spatial_points = sum(config["embedding_n"])
             if config["flatten"]:
                 shape = (map_features * spatial_points,)
             else:
@@ -171,7 +170,7 @@ class OceanFeatureConstructor:
         return np.append(measurements, repeats, axis=0)
 
     def get_map_from_state(self, obs, problem, config) -> np.ndarray:
-        if 'xy_width_degree' in config and 'xy_width_points' in config:
+        if "xy_width_degree" in config and "xy_width_points" in config:
             x_interval = [
                 obs.platform_state.lon.deg - config["xy_width_degree"] / 2,
                 obs.platform_state.lon.deg + config["xy_width_degree"] / 2,
@@ -187,7 +186,7 @@ class OceanFeatureConstructor:
 
         # Step 1: TTR FC
         if config["features"]["ttr_forecast"]:
-            if 'xy_width_degree' in config and 'xy_width_points' in config:
+            if "xy_width_degree" in config and "xy_width_points" in config:
                 ttr = self.forecast_planner.interpolate_value_function_in_hours(
                     point=obs.platform_state.to_spatio_temporal_point(),
                     width_deg=config["xy_width_degree"],
@@ -215,7 +214,7 @@ class OceanFeatureConstructor:
             maps.append(ttr)
         # Step 2: TTR HC
         if config["features"]["ttr_hindcast"]:
-            if 'xy_width_degree' in config and 'xy_width_points' in config:
+            if "xy_width_degree" in config and "xy_width_points" in config:
                 ttr = self.hindcast_planner.interpolate_value_function_in_hours(
                     point=obs.platform_state.to_spatio_temporal_point(),
                     width_deg=config["xy_width_degree"],
@@ -382,7 +381,7 @@ class OceanFeatureConstructor:
         map = np.nan_to_num(map)
         map = map.astype("float32")
 
-        if 'xy_width_degree' in config and 'xy_width_points' in config:
+        if "xy_width_degree" in config and "xy_width_points" in config:
             if config["major"] == "time":
                 map = np.moveaxis(map, [0, 1, 2, 3], [1, 0, 2, 3])
             map = map.reshape(-1, *map.shape[-2:])

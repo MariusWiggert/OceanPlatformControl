@@ -1,10 +1,10 @@
 import logging
-from typing import Optional, Tuple, Union, Any
+from typing import Optional
 
 import gym
 import numpy as np
 import torch
-from ray.rllib.models.torch.misc import SlimConv2d, SlimFC, normc_initializer
+from ray.rllib.models.torch.misc import normc_initializer
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models.utils import get_activation_fn
 from ray.rllib.utils.typing import ModelConfigDict, TensorType
@@ -27,16 +27,16 @@ class OceanCNN(nn.Module):
     """helper model to build convolution networks"""
 
     def __init__(
-            self,
-            name,
-            input_shape,
-            channels,
-            kernels,
-            strides,
-            paddings,
-            poolings,
-            groups,
-            dropouts,
+        self,
+        name,
+        input_shape,
+        channels,
+        kernels,
+        strides,
+        paddings,
+        poolings,
+        groups,
+        dropouts,
     ):
         super().__init__()
         self.name = name
@@ -76,15 +76,15 @@ class OceanDenseNet(nn.Module):
     """helper model to build dense networks"""
 
     def __init__(
-            self,
-            name,
-            input_shape,
-            units,
-            activations,
-            initializers,
-            dropouts,
-            input_activation=None,
-            residual=False,
+        self,
+        name,
+        input_shape,
+        units,
+        activations,
+        initializers,
+        dropouts,
+        input_activation=None,
+        residual=False,
     ):
         super().__init__()
         self.name = name
@@ -107,7 +107,7 @@ class OceanDenseNet(nn.Module):
             linear = nn.Linear(
                 in_features=int(np.product(input_shape)) if i == 0 else units[i - 1],
                 out_features=units[i],
-                bias=True
+                bias=True,
             )
             initializer(linear.weight)
             nn.init.constant_(linear.bias, 0.0)
@@ -131,7 +131,6 @@ class OceanDenseNet(nn.Module):
         return self._model(x)
 
 
-
 class OceanTorchModel(TorchModelV2, nn.Module):
     """flexible Torch model used by RL. It is customizable with the configuration"""
 
@@ -142,10 +141,17 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         num_outputs: int,
         model_config: ModelConfigDict,
         name: str,
+
         map: dict,
         meta: dict,
         joined: dict,
+        lstm: dict,
         dueling_heads: dict,
+
+        num_atoms: int = 1,
+        v_min: float = -10.0,
+        v_max: float = 10.0,
+
         **kwargs,
     ):
         nn.Module.__init__(self)
@@ -154,7 +160,12 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         self.map_config = map
         self.meta_config = meta
         self.joined_config = joined
+        self.lstm_config = lstm
         self.dueling_heads_config = dueling_heads
+
+        self.num_atoms = num_atoms
+        self.v_min = v_min
+        self.v_max = v_max
 
         # Map Network
         if obs_space.get("local_map", False):
@@ -173,7 +184,9 @@ class OceanTorchModel(TorchModelV2, nn.Module):
                     paddings=self.map_config["paddings"],
                     poolings=self.map_config["poolings"],
                     groups=self.map_config["groups"],
-                    dropouts=self.map_config.get("dropouts", [0] * len(self.map_config["channels"])),
+                    dropouts=self.map_config.get(
+                        "dropouts", [0] * len(self.map_config["channels"])
+                    ),
                 )
                 self.map_out_shape = (
                     self.map_config["channels"][-1]
@@ -236,31 +249,41 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         else:
             self.joined_out_shape = self.joined_in_shape
 
+        # LSTM
+
         # Dueling Heads
         self.dueling_in_shape = self.joined_out_shape
+        self.advantage_out_shape = action_space.n * self.num_atoms
         self.advantage_head = OceanDenseNet(
             name="Advantage Head",
             input_shape=self.dueling_in_shape,
-            units=self.dueling_heads_config["units"] + [action_space.n],
+            units=self.dueling_heads_config["units"] + [self.advantage_out_shape],
             activations=self.dueling_heads_config["activations"],
             initializers=self.dueling_heads_config["initializers"],
             residual=self.dueling_heads_config["residual"],
-            dropouts=self.dueling_heads_config.get("dropouts", [0] * len(self.dueling_heads_config["units"] + [1])),
+            dropouts=self.dueling_heads_config.get(
+                "dropouts", [0] * len(self.dueling_heads_config["units"] + [self.advantage_out_shape])
+            ),
         )
+        self.state_out_shape = self.num_atoms
         self.state_head = OceanDenseNet(
             name="State Head",
             input_shape=self.dueling_in_shape,
-            units=self.dueling_heads_config["units"] + [1],
+            units=self.dueling_heads_config["units"] + [self.state_out_shape],
             activations=self.dueling_heads_config["activations"],
             initializers=self.dueling_heads_config["initializers"],
-            dropouts=self.dueling_heads_config.get("dropouts", [0] * len(self.dueling_heads_config["units"] + [1])),
+            dropouts=self.dueling_heads_config.get(
+                "dropouts", [0] * len(self.dueling_heads_config["units"] + [self.state_out_shape])
+            ),
         )
 
     def forward(self, local_map: TensorType = None, meta: TensorType = None):
         # Map Network
         if self.map_config["normalize"]:
             # batch, time*var, x, y
-            vars = torch.div(local_map.shape[1], self.map_config["groups"][0], rounding_mode="floor")
+            vars = torch.div(
+                local_map.shape[1], self.map_config["groups"][0], rounding_mode="floor"
+            )
             ttr_center = local_map[
                 :,
                 :vars:,
@@ -300,23 +323,34 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         else:
             joined_out = joined_in
 
+        # LSTM
+        lstm_out = joined_out
+
         # Calculate Dueling Heads
-        advantage_out = self.advantage_head(joined_out)
-        state_out = self.state_head(joined_out)
+        action_scores = self.advantage_head(lstm_out)
+        state_scores = self.state_head(lstm_out)
 
-        # Reduce According to (9) in "Dueling Network Architectures for Deep Reinforcement Learning"
-        advantages_mean = reduce_mean_ignore_inf(advantage_out, 1)
-        values = state_out + advantage_out - advantages_mean[:, None]
-
-        if torch.any(torch.isnan(values)):
-            logger.error("Nan in torch model.")
-            logger.error(f" Inputs: map:{map}, meta:{meta}")
-            logger.error(
-                f" Models: map_out:{map_out}, joined_out:{joined_out}, advantage_out:{advantage_out}, state_out:{state_out}"
+        if self.num_atoms > 1:
+            # Distributional Q-learning uses a discrete support z
+            # to represent the action value distribution
+            z = torch.arange(0.0, self.num_atoms, dtype=torch.float32).to(
+                action_scores.device
             )
-            logger.error(f" Output: advantages_mean:{advantages_mean}, values:{values}")
+            z = self.v_min + z * (self.v_max - self.v_min) / float(self.num_atoms - 1)
 
-        return values
+            support_logits_per_action = torch.reshape(
+                action_scores, shape=(-1, self.action_space.n, self.num_atoms)
+            )
+            support_prob_per_action = nn.functional.softmax(
+                support_logits_per_action, dim=-1
+            )
+            action_scores = torch.sum(z * support_prob_per_action, dim=-1)
+            return action_scores, z, support_logits_per_action
+        else:
+            # Reduce According to (9) in "Dueling Network Architectures for Deep Reinforcement Learning"
+            advantages_mean = reduce_mean_ignore_inf(action_scores, 1)
+            values = state_scores + action_scores - advantages_mean[:, None]
+            return values
 
     def __call__(self, *args, **kwargs):
         with self.context():

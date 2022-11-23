@@ -51,13 +51,13 @@ class TrainingRunner:
 
         # Step 1: Prepare Paths & Folders
         cluster_utils.ensure_storage_connection()
-        TrainingRunner.clean_results(
-            self.config["experiments_folder"],
-            verbose=1,
-            iteration_limit=10,
-            ignore_most_recent=5,
-            delete=False,
-        )
+        # TrainingRunner.clean_results(
+        #     self.config["experiments_folder"],
+        #     verbose=1,
+        #     iteration_limit=10,
+        #     ignore_most_recent=5,
+        #     delete=False,
+        # )
         self.timestring = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
             "%Y_%m_%d_%H_%M_%S"
         )
@@ -86,7 +86,7 @@ class TrainingRunner:
             + tags,
             config=self.config,
         )
-        wandb.run.log_code(".")
+        # wandb.run.log_code(".")
         with open(f"{self.config['folders']['experiment']}wandb_run_id", "wt") as f:
             f.write(wandb.run.id)
 
