@@ -31,3 +31,9 @@ solar_dict:
 seaweed_dict:
     hindcast: null
     forecast: null
+
+network_graph_dict:
+    unit: "km"
+    communication_thrsld: 40
+    margin: 10
+    collision_thrsld: 10

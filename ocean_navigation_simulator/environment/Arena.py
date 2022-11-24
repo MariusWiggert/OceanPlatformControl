@@ -49,6 +49,7 @@ from ocean_navigation_simulator.environment.Platform import (
     PlatformAction,
     PlatformActionSet,
 )
+from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     PlatformStateSet,
@@ -156,7 +157,10 @@ class Arena:
         solar_dict: Optional[Dict] = None,
         seaweed_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
+        network_graph_dict: Optional[Dict] = None,
+        multi_agent_graph_edges: Optional[List] = None,
         collect_trajectory: Optional[bool] = True,
+        is_multi_agent: Optional[bool] = False,
         logging_level: Optional[AnyStr] = "INFO",
     ):
         """OceanPlatformArena constructor.
@@ -241,7 +245,17 @@ class Arena:
 
         self.logger.info(f"Arena: Generate Platform ({time.time() - start:.1f}s)")
 
-        # Step 3: Initialize Variables
+        # Step 3: Initialize graph network for multi-agent
+        if network_graph_dict is not None:
+            self.multi_agent_net = MultiAgent(
+                network_graph_dict=network_graph_dict,
+                graph_edges=multi_agent_graph_edges
+                if multi_agent_graph_edges is not None
+                else None,
+            )
+            self.is_multi_agent = True
+
+        # Step 4: Initialize Variables
         self.spatial_boundary = spatial_boundary
         self.collect_trajectory = collect_trajectory
         self.initial_state, self.state_trajectory, self.action_trajectory = [None] * 3
@@ -250,7 +264,7 @@ class Arena:
         self.graph_edges, self.from_nodes, self.to_nodes = None, None, None
         self.dt_in_s = platform_dict["dt_in_s"]
 
-    def reset(self, platform_set: PlatformStateSet, graph_edges: None) -> ArenaObservation:
+    def reset(self, platform_set: PlatformStateSet) -> ArenaObservation:
         """Resets the arena.
         Args:
             platform_state_set
@@ -265,28 +279,17 @@ class Arena:
         self.state_trajectory = np.atleast_3d(np.array(platform_set))
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
-        self.graph_edges = graph_edges
-        if graph_edges:
-            G = nx.Graph()
-            G.add_nodes_from(platform_set.get_nodes_list())
-            # graph edges should be passed as list of tuples [(node1, node2), (node2, node4)] etc.
-            G.add_edges_from(graph_edges)
-            self.from_nodes, self.to_nodes = list(map(lambda x: x[0], graph_edges)), list(
-                map(lambda x: x[1], graph_edges)
-            )
-            weights = platform_set.get_distance_btw_platforms(
-                from_nodes=self.from_nodes, to_nodes=self.to_nodes
-            )
-            nx.set_edge_attributes(G, values=dict(zip(graph_edges, weights)), name="weight")
-            self.multi_agent_G_list[0] = G
-        self.plot_graph_for_platform_state(G, platform_set=platform_set, collision_communication_thrsld=(20,200))
+        if self.is_multi_agent:
+            self.multi_agent_G_list[0] = self.multi_agent_net.set_graph(platform_set=platform_set)
+
+        # self.plot_graph_for_platform_state(self.multi_agent_G_list[0], platform_set=platform_set, collision_communication_thrsld=(20,200))
         observation = ArenaObservation(
             platform_state=platform_set,
             true_current_at_state=self.ocean_field.get_ground_truth(
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            multi_agent_graph=G,
+            multi_agent_graph=self.multi_agent_G_list[0],
         )
         return observation
 
@@ -306,14 +309,17 @@ class Arena:
             self.action_trajectory = np.append(
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
-        if self.graph_edges:
-            G = nx.Graph()
-            G.add_edges_from(self.graph_edges)
-            weights = platform_set.get_distance_btw_platforms(
-                from_nodes=self.from_nodes, to_nodes=self.to_nodes
+        if self.is_multi_agent:
+            # graph_previous_edges = list(self.multi_agent_G_list[-1].edge())
+            # G = nx.Graph()
+            # G.add_edges_from(self.graph_edges)
+            # weights = platform_set.get_distance_btw_platforms(
+            #     from_nodes=self.from_nodes, to_nodes=self.to_nodes
+            # )
+            # nx.set_edge_attributes(G, values=dict(zip(self.graph_edges, weights)), name="weight")
+            self.multi_agent_G_list.append(
+                self.multi_agent_net.update_graph(platform_set=platform_set)
             )
-            nx.set_edge_attributes(G, values=dict(zip(self.graph_edges, weights)), name="weight")
-            self.multi_agent_G_list.append(G)
 
         return ArenaObservation(
             platform_state=platform_set,
@@ -321,7 +327,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            multi_agent_graph=G,
+            multi_agent_graph=self.multi_agent_G_list[-1],
         )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
@@ -714,7 +720,7 @@ class Arena:
         Function to compute distance evolution between neighbors over their trajectories
         For now just handle two platforms
         """
-        stride_xticks = int(xticks_temporal_res/self.dt_in_s)
+        stride_xticks = int(xticks_temporal_res / self.dt_in_s)
         plt.figure(figsize=figsize)
         ax = plt.axes()
         t0 = dt.datetime.fromtimestamp(self.state_trajectory[0, 2, 0], tz=dt.timezone.utc)
@@ -724,8 +730,10 @@ class Arena:
         ]
         for neighb_tup in neighbors_list_to_plot:
             node_from, node_to = neighb_tup
-            dist_list = list(map(lambda G: G[node_from][node_to]["weight"].km, self.multi_agent_G_list))
-            ax.plot(dates, dist_list, "--x", label= f"Pair {neighb_tup}")
+            dist_list = list(
+                map(lambda G: G[node_from][node_to]["weight"].km, self.multi_agent_G_list)
+            )
+            ax.plot(dates, dist_list, "--x", label=f"Pair {neighb_tup}")
         dates_xticks = dates[::stride_xticks]
         vect_strftime = np.vectorize(dt.datetime.strftime)
         dates_xticks_str = vect_strftime(dates_xticks, "%d-%H:%M")
@@ -770,6 +778,7 @@ class Arena:
         collision_communication_thrslds: Optional[Tuple] = None,
         margin: Optional[float] = 1,
         temporal_resolution: Optional[float] = None,
+        plot_ax_ticks: bool = False,
         output: Optional[AnyStr] = "network_graph_anim.mp4",
     ):
         # shallow wrapper to plotting utils function
@@ -780,5 +789,6 @@ class Arena:
             collision_communication_thrslds=collision_communication_thrslds,
             margin=margin,
             temporal_resolution=temporal_resolution,
+            plot_ax_ticks=plot_ax_ticks,
             output=output,
         )

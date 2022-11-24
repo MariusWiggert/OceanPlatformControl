@@ -197,6 +197,7 @@ def plot_network_graph(
     t_datetime: dt.datetime,
     units_of_labels: Optional[str] = "km",
     collision_communication_thrslds: Optional[Tuple] = None,
+    plot_ax_ticks: bool = False,
     reset_plot: bool = False,
 ):
     weight_edges = nx.get_edge_attributes(G, "weight")
@@ -209,7 +210,7 @@ def plot_network_graph(
     edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
     Gplot = nx.Graph()
     Gplot.add_edges_from(G.edges())  # create a copy from G
-    #nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
+    # nx.set_edge_attributes(Gplot, values=weight_edges_for_scaling, name="weight")
     # pos = nx.spring_layout(
     #     Gplot, seed=10, pos=pos, weight="weight"
     # )  # edge length inversely prop to distance repr. on the graph
@@ -223,10 +224,11 @@ def plot_network_graph(
         Gplot,
         pos,
         node_color="k",
+        ax=ax,
     )
-    nx.draw_networkx_edges(Gplot, pos, width=1.5)
-    nx.draw_networkx_labels(G, pos, font_color="white")
-    nx.draw_networkx_edge_labels(Gplot, pos, edge_labels=edge_labels)
+    nx.draw_networkx_edges(Gplot, pos, width=1.5, ax=ax)
+    nx.draw_networkx_labels(G, pos, font_color="white", ax=ax)
+    nx.draw_networkx_edge_labels(Gplot, pos, edge_labels=edge_labels, ax=ax)
 
     if collision_communication_thrslds is not None:
         collision_thrsld, communication_thrsld = collision_communication_thrslds
@@ -256,6 +258,8 @@ def plot_network_graph(
         ax.legend(
             proxies, ["communication loss risk", "collision risk", "within bounds"], loc="best"
         )
+        if plot_ax_ticks:
+            ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
     return ax
 
 
@@ -267,6 +271,7 @@ def animate_graph_net_trajectory(
     margin: Optional[float] = 1,
     temporal_resolution: Optional[float] = None,
     forward_time: bool = True,
+    plot_ax_ticks: bool = False,
     output: Optional[AnyStr] = "traj_graph_anim.mp4",
 ):
 
@@ -291,16 +296,22 @@ def animate_graph_net_trajectory(
         var_x, var_y = (x_interval[1] - x_interval[0]), (y_interval[1] - y_interval[0])
         keys = list(G.nodes)
         for node_idx in range(len(keys)):
+            # pos[keys[node_idx]] = (
+            #     (state_trajectory[node_idx, idx_state["lon"], time_idx] - x_interval[0]) / var_x,
+            #     (state_trajectory[node_idx, idx_state["lat"], time_idx] - y_interval[0]) / var_y,
+            # )
             pos[keys[node_idx]] = (
-                (state_trajectory[node_idx, idx_state["lon"], time_idx] - x_interval[0]) / var_x,
-                (state_trajectory[node_idx, idx_state["lat"], time_idx] - y_interval[0]) / var_y,
+                state_trajectory[node_idx, idx_state["lon"], time_idx],
+                state_trajectory[node_idx, idx_state["lat"], time_idx],
             )
+
         plot_network_graph(
             G,
             pos=pos,
             t_datetime=t_from_idx,
             units_of_labels=units_of_labels,
             collision_communication_thrslds=collision_communication_thrslds,
+            plot_ax_ticks=plot_ax_ticks,
             reset_plot=True,
         )
 

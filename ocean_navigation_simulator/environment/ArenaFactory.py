@@ -50,6 +50,7 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 10,
+        multi_agent_graph_edges: Optional[List] = None,
     ) -> Arena:
         """
         If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files.
@@ -148,6 +149,10 @@ class ArenaFactory:
                 solar_dict=config["solar_dict"],
                 seaweed_dict=config["seaweed_dict"],
                 spatial_boundary=config["spatial_boundary"],
+                network_graph_dict=config["network_graph_dict"]
+                if "network_graph_dict" in config
+                else None,
+                multi_agent_graph_edges=multi_agent_graph_edges,
             )
 
     # TODO: automatically select best region depending on given points

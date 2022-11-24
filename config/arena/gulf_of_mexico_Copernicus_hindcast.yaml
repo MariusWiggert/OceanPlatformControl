@@ -9,7 +9,7 @@ platform_dict:
     solar_panel_size: 0.5
     solar_efficiency: 0.2
     drag_factor: 675.0
-    dt_in_s: 3600.0
+    dt_in_s: 600
 
 use_geographic_coordinate_system: True
 
