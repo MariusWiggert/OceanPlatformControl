@@ -98,7 +98,7 @@ def plot_alpha_complex(points, ax, alpha):
 def create_xarray_from_csv(
     filename: str = "data/lebreton/Lebreton2018_HistoricalDataset.csv",
 ) -> xr:
-    """_summary_
+    """Create an xarray from a csv with data
 
     Args:
         filename (str, optional): Csv file containing garbage patch data. Defaults to "data/lebreton/Lebreton2018_HistoricalDataset.csv".
@@ -109,6 +109,32 @@ def create_xarray_from_csv(
     df = pd.read_csv(filename)
     df = df.rename(columns={"Latitude (degrees)": "lat", "Longitude (degrees)": "lon"})
     df = df[df["Inside GPGP?"] == 1]
+    ds = xr.Dataset.from_dataframe(df)
+    return ds
+
+
+def create_xarray_around_points(
+    lat: List[float],
+    lon: List[float],
+    radius_around_points: float = 1,
+    num_points_per_circle: int = 20,
+) -> xr:
+    """Create xarray with fake points within a circle around all input coordinate pairs.
+
+    Args:
+        lat (List[float]): List of latitude coordinate centers of circles
+        lon (List[float]): List of longitude coordinate centers of circles
+        radius_around_points (float, optional): Radius around points to generate points in, in degree. Defaults to 1.
+        num_points_per_circle (int, optional): Amount of points per to generate per circle. Defaults to 20.
+
+    Returns:
+        xr: Xarray with points of garbage
+    """
+    lat *= num_points_per_circle
+    lon *= num_points_per_circle
+    lat += np.random.uniform(-radius_around_points, radius_around_points, len(lat))
+    lon += np.random.uniform(-radius_around_points, radius_around_points, len(lon))
+    df = pd.DataFrame({"lat": lat, "lon": lon})
     ds = xr.Dataset.from_dataframe(df)
     return ds
 
@@ -208,17 +234,35 @@ def save_xarray(xarray: xr, filename: str) -> None:
 
 if __name__ == "__main__":
     # region_1 = [[-175, -100], [15, 45]]
+
+    # region_global = [[-180, 180], [-90, 90]]
+    # res_lat = 1 / 12
+    # res_lon = 1 / 12
+    # ds = create_xarray_from_csv()
+    # xarray = create_xarray_mask(ds, *region_global, res_lat=res_lat, res_lon=res_lon)
+    # save_xarray(
+    #     xarray, f"data/garbage_patch/garbage_patch_global_res_{res_lat:.3f}_{res_lon:.3f}.nc"
+    # )
+
+    # xarray["garbage"].plot()
+    # plt.show()
+
+    # Global with fake garbage in gulf of mexico
     region_global = [[-180, 180], [-90, 90]]
     res_lat = 1 / 12
     res_lon = 1 / 12
-    ds = create_xarray_from_csv()
+    lat = [26, 26, 26]
+    lon = [-87, -86, -85]
+    ds = create_xarray_around_points(lat, lon)
     xarray = create_xarray_mask(ds, *region_global, res_lat=res_lat, res_lon=res_lon)
     save_xarray(
-        xarray, f"data/garbage_patch/garbage_patch_global_res_{res_lat:.3f}_{res_lon:.3f}.nc"
+        xarray,
+        f"data/garbage_patch/garbage_patch_fake_gulf_of_mexico_global_res_{res_lat:.3f}_{res_lon:.3f}.nc",
     )
 
     xarray["garbage"].plot()
     plt.show()
+
     # # # Plot a convex hull around garbage patch
     # ax = set_up_geographic_ax()
     # points = np.column_stack((ds["lon"], ds["lat"]))
