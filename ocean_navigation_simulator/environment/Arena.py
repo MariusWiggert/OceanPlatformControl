@@ -18,7 +18,7 @@ from typing import (
     Tuple,
     Union,
 )
-
+import math
 import matplotlib
 import numpy as np
 from matplotlib import patches
@@ -60,9 +60,7 @@ from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils.misc import get_markers
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
-    animate_graph_net_trajectory,
     get_lon_lat_time_interval_from_trajectory,
-    plot_network_graph,
 )
 from ocean_navigation_simulator.utils.units import (
     Distance,
@@ -282,7 +280,6 @@ class Arena:
         if self.is_multi_agent:
             self.multi_agent_G_list[0] = self.multi_agent_net.set_graph(platform_set=platform_set)
 
-        # self.plot_graph_for_platform_state(self.multi_agent_G_list[0], platform_set=platform_set, collision_communication_thrsld=(20,200))
         observation = ArenaObservation(
             platform_state=platform_set,
             true_current_at_state=self.ocean_field.get_ground_truth(
@@ -310,13 +307,6 @@ class Arena:
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
         if self.is_multi_agent:
-            # graph_previous_edges = list(self.multi_agent_G_list[-1].edge())
-            # G = nx.Graph()
-            # G.add_edges_from(self.graph_edges)
-            # weights = platform_set.get_distance_btw_platforms(
-            #     from_nodes=self.from_nodes, to_nodes=self.to_nodes
-            # )
-            # nx.set_edge_attributes(G, values=dict(zip(self.graph_edges, weights)), name="weight")
             self.multi_agent_G_list.append(
                 self.multi_agent_net.update_graph(platform_set=platform_set)
             )
@@ -712,14 +702,19 @@ class Arena:
 
     def plot_distance_evolution_between_neighbors(
         self,
-        neighbors_list_to_plot: List[Tuple],
+        neighbors_list_to_plot: List[
+            Tuple
+        ],  # TODO: when moving to MultiAgent: plot the neighbors by default
         figsize: Tuple[int] = (8, 6),
-        xticks_temporal_res: Optional[int] = 14400,  # ticks in seconds, defaut is 4h
+        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
     ) -> matplotlib.axes.Axes:
         """
         Function to compute distance evolution between neighbors over their trajectories
         For now just handle two platforms
         """
+        # TODO: Plot limits and move to MultiAgent: upper communication limit and collision constraint
+        stride_temporal_res = int(temporal_res / self.dt_in_s)
         stride_xticks = int(xticks_temporal_res / self.dt_in_s)
         plt.figure(figsize=figsize)
         ax = plt.axes()
@@ -731,64 +726,105 @@ class Arena:
         for neighb_tup in neighbors_list_to_plot:
             node_from, node_to = neighb_tup
             dist_list = list(
-                map(lambda G: G[node_from][node_to]["weight"].km, self.multi_agent_G_list)
+                map(
+                    lambda G: G[node_from][node_to]["weight"].km
+                    if neighb_tup in list(G.edges)
+                    else None,
+                    self.multi_agent_G_list[::stride_temporal_res],
+                )
             )
-            ax.plot(dates, dist_list, "--x", label=f"Pair {neighb_tup}")
-        dates_xticks = dates[::stride_xticks]
+            ax.plot(dates[::stride_temporal_res], dist_list, "--x", label=f"Pair {neighb_tup}")
+
         vect_strftime = np.vectorize(dt.datetime.strftime)
-        dates_xticks_str = vect_strftime(dates_xticks, "%d-%H:%M")
-        ax.set_xticks(dates_xticks)
+        dates_xticks_str = vect_strftime(dates[::stride_xticks], "%d-%H:%M")
+        ax.set_xticks(dates[::stride_xticks])
         ax.set_xticklabels(dates_xticks_str)
         ax.legend()
         ax.set_ylabel("distance in km")
-        ax.set_title("Distance evolution between platforms over time")
+        ax.set_title("Distance evolution between connected platforms over time")
         ax.set_xlabel("time")
 
     def plot_graph_for_platform_state(
         self,
         G: nx,
         platform_set: PlatformStateSet,
-        units_of_labels: Optional[str] = "km",
         collision_communication_thrsld: Optional[Tuple] = None,
+        plot_ax_ticks: Optional[bool] = False,
+        figsize: Optional[Tuple] = (10, 10),
+        normalize_positions: Optional[bool] = False,
         margin: Optional[int] = 1,
     ):
         pos = {}
         x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
             state_trajectory=np.atleast_3d(np.array(platform_set)), margin=margin
         )
-        var_x, var_y = (x_interval[1] - x_interval[0]), (y_interval[1] - y_interval[0])
         keys = platform_set.get_nodes_list()
+
         for lon, lat, key in zip(platform_set.lon.deg, platform_set.lat.deg, keys):
-            pos[key] = (
-                (lon - x_interval[0]) / var_x,
-                (lat - y_interval[0]) / var_y,
-            )  # normalize positions
+            if normalize_positions:  # if we want to have normalized node positions between 0 and 1
+                pos[key] = (
+                    (lon - x_interval[0]) / (x_interval[1] - x_interval[0]),
+                    (lat - y_interval[0]) / (y_interval[1] - y_interval[0]),
+                )  # normalize positions
+            else:
+                pos[key] = (lon, lat)
+
         t = dt.datetime.fromtimestamp(t_interval[0], tz=dt.timezone.utc)
-        ax = plot_network_graph(
+        fig = plt.figure(figsize=figsize)
+        ax = self.multi_agent_net.plot_network_graph(
             G,
             pos=pos,
             t_datetime=t,
-            units_of_labels=units_of_labels,
             collision_communication_thrslds=collision_communication_thrsld,
+            plot_ax_ticks=plot_ax_ticks,
         )
 
     def animate_graph_net_trajectory(
         self,
-        units_of_labels: Optional[str] = "km",
         collision_communication_thrslds: Optional[Tuple] = None,
-        margin: Optional[float] = 1,
         temporal_resolution: Optional[float] = None,
-        plot_ax_ticks: bool = False,
+        plot_ax_ticks: Optional[bool] = False,
         output: Optional[AnyStr] = "network_graph_anim.mp4",
+        **kwargs,
     ):
         # shallow wrapper to plotting utils function
-        animate_graph_net_trajectory(
+        self.multi_agent_net.animate_graph_net_trajectory(
             state_trajectory=self.state_trajectory,
             multi_agent_graph_seq=self.multi_agent_G_list,
-            units_of_labels=units_of_labels,
             collision_communication_thrslds=collision_communication_thrslds,
-            margin=margin,
             temporal_resolution=temporal_resolution,
             plot_ax_ticks=plot_ax_ticks,
             output=output,
+            **kwargs,
         )
+
+    def plot_graph_isolated_platforms(
+        self,
+        figsize: Optional[Tuple[int]] = (8, 6),
+        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+    ):
+        stride_temporal_res = int(temporal_res / self.dt_in_s)
+        stride_xticks = int(xticks_temporal_res / self.dt_in_s)
+        dates = [
+            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            for posix in self.state_trajectory[0, 2, ::1]
+        ]
+        isolated_nodes = list(
+            map(
+                lambda G: int(len(list(nx.isolates(G)))),
+                self.multi_agent_G_list[::stride_temporal_res],
+            )
+        )
+        plt.figure(figsize=figsize)
+        ax = plt.axes()
+        ax.step(dates[::stride_temporal_res], isolated_nodes, "--x")
+        yint = range(min(isolated_nodes), math.ceil(max(isolated_nodes)) + 1)
+        ax.set_yticks(yint)
+        vect_strftime = np.vectorize(dt.datetime.strftime)
+        dates_xticks_str = vect_strftime(dates[::stride_xticks], "%d-%H:%M")
+        ax.set_xticks(dates[::stride_xticks])
+        ax.set_xticklabels(dates_xticks_str)
+        ax.set_ylabel("Number of isolated platforms")
+        ax.set_title("Disconnected platforms")
+        ax.set_xlabel("time")
