@@ -133,22 +133,24 @@ def get_datetime_from_file_name(file_name: str):
     return date
 
 
-
 def get_time_matched_file_lists(list1, list2):
     file_name_per_day = dict()
+    # add forecast file names to dict
     for item1 in list1:
         item1_date = get_datetime_from_file_name(item1)
         file_name_per_day |= {item1_date: [item1]}
+    # add buoy file names to dict if forecast equivalent exists
     for item2 in list2:
         item2_date = get_datetime_from_file_name(item2)
         if item2_date in list(file_name_per_day.keys()):
             file_name_per_day[item2_date] = [*file_name_per_day[item2_date], item2]
     out_list1 = []
     out_list2 = []
-    for _, value in file_name_per_day.items():
-        if len(value) == 2:
-            out_list1.append(value[0])
-            out_list2.append(value[1])
+    dates = sorted(list(file_name_per_day.keys()))
+    for date in dates:
+        if len(file_name_per_day[date]) == 2:
+            out_list1.append(file_name_per_day[date][0])
+            out_list2.append(file_name_per_day[date][1])
     return out_list1, out_list2
 
 

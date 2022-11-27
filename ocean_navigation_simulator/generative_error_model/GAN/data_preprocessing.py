@@ -82,14 +82,14 @@ def run(area: str, buoy=False):
 
     fc_dir = f"data/drifter_data/forecasts/{area}"
     hc_dir = f"data/drifter_data/hindcasts/{area}"
-    sparse_dir = f"data/drifter_data/dataset_forecast_error/{area}"
+    sparse_dir = f"data/drifter_data/dataset_forecast_error/{area}_edited2"
 
     fc_np_dir = f"data/drifter_data/forecasts_preprocessed/{area}"
     hc_np_dir = f"data/drifter_data/hindcasts_preprocessed/{area}"
     sparse_np_dir = f"data/drifter_data/buoy_preprocessed/{area}"
 
-    save_nc_as_npy(fc_dir, fc_np_dir, lon_range, lat_range)
-    save_nc_as_npy(hc_dir, hc_np_dir, lon_range, lat_range)
+    # save_nc_as_npy(fc_dir, fc_np_dir, lon_range, lat_range)
+    # save_nc_as_npy(hc_dir, hc_np_dir, lon_range, lat_range)
     if buoy:
         save_sparse_as_npy(sparse_dir, sparse_np_dir, lon_range, lat_range)
     print("Finished.")
