@@ -34,7 +34,7 @@ def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
     if sweep:
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
-    wandb.run.name = f"{all_cfgs['train']['loss']['types']}" + \
+    wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
                      f"_{all_cfgs['dataset']['area']}" + \
                      f"_{all_cfgs['dataset']['len']}" + \
                      f"_{all_cfgs['dataset']['random_subsets']}" + \

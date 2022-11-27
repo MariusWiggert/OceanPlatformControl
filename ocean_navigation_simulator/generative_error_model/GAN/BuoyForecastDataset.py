@@ -116,7 +116,6 @@ class BuoyForecastErrorNpy(Dataset):
             self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
             self.fc_file_paths.extend(fc_file_paths)
             self.buoy_file_paths.extend(buoy_file_paths)
-            print(len(fc_file_paths), len(buoy_file_paths))
 
         self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
         self.buoy_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.buoy_file_paths]
@@ -129,7 +128,6 @@ class BuoyForecastErrorNpy(Dataset):
             file_idx = idx // self.hours_in_file
             time_step_idx = idx % self.hours_in_file
             fc_data = self.fc_data[file_idx][time_step_idx].squeeze()
-            print(f"file idx: {file_idx}, time step: {time_step_idx}")
             buoy_data = self.buoy_data[file_idx][time_step_idx].squeeze()
         else:
             file_idx = (idx * self.concat_len + self.concat_len - 1) // self.hours_in_file

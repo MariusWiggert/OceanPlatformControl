@@ -53,7 +53,7 @@ def save_sparse_as_npy(file_dir: str, output_dir: str, lon_range: Tuple, lat_ran
         # need to make sure that the hours of the buoy data match the dense fc/hc data
         # if there is no buoy data for a particular hour, an empty frame is inserted
         for time_step, hour in enumerate(hour_range):
-            hour = datetime2str(hour)[:13]
+            hour = datetime2str(hour)[:13].replace("T", " ")
             if hour in data["hour"].values:
                 data_time_step = data[data["hour"].values == hour]
                 # convert from sparse to dense
