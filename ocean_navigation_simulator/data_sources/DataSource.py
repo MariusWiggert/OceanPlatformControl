@@ -19,9 +19,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     PlatformStateSet,
     SpatialPoint,
-    SpatialPointSet,
     SpatioTemporalPoint,
-    SpatioTemporalPointSet,
 )
 from ocean_navigation_simulator.utils import units
 
@@ -150,7 +148,7 @@ class DataSource(abc.ABC):
 
     @staticmethod
     def convert_to_x_y_time_bounds(
-        x_0: Union[SpatioTemporalPoint, SpatioTemporalPointSet],
+        x_0: SpatioTemporalPoint,
         x_T: SpatialPoint,
         deg_around_x0_xT_box: float,
         temp_horizon_in_s: float,

@@ -36,4 +36,4 @@ network_graph_dict:
     unit: "km"
     communication_thrsld: 30
     margin: 1
-    collision_thrsld: 10
+    collision_thrsld: 15

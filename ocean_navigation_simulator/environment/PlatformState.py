@@ -58,24 +58,6 @@ class SpatialPoint:
 
 
 @dataclasses.dataclass
-class SpatialPointSet:
-    lon: units.Distance
-    lat: units.Distance
-
-    def __array__(self):
-        return np.array([self.lon.deg, self.lat.deg]).T
-
-    def __len__(self):
-        return self.__array__().shape[0]
-
-    def __getitem__(self, item):
-        return self.__array__()[:, item]
-
-    def __repr__(self):
-        return f"{np.array2string(self.__array__(), formatter={'float': lambda x: f'{x:.5f}°'})}"
-
-
-@dataclasses.dataclass
 class SpatioTemporalPoint:
     # TODO: implement nice way to transform a list of those to numpy and back: https://kplauritzen.dk/2021/08/11/convert-dataclasss-np-array.html
     """A dataclass containing SpatioTemporalPoint variables..
@@ -151,30 +133,6 @@ class SpatioTemporalPoint:
                       {np.array2string(self.vect_strftime(self.date_time, '%Y-%m-%d %H:%M:%S'))}]"
         else:
             return f"[{self.lon.deg:5f}°,{self.lat.deg:.5f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
-
-
-@dataclasses.dataclass
-class SpatioTemporalPointSet:
-    lon: np.array(units.Distance)
-    lat: np.array(units.Distance)
-    date_time: np.array(datetime.datetime)
-
-    def __array__(self):
-        return np.array(
-            [
-                SpatioTemporalPoint(lon=lon, lat=lat, date_time=date_time)
-                for lon, lat, date_time in zip(self.lon, self.lat, self.date_time)
-            ]
-        )
-
-    def __len__(self):
-        return self.__array__().shape[0]
-
-    def __getitem__(self, item):
-        return self.__array__()[:, item]
-
-    def __repr__(self):
-        return f"{np.array2string(self.__array__(), formatter={'float': lambda x: f'{x:.5f}°'})}"
 
 
 @dataclasses.dataclass

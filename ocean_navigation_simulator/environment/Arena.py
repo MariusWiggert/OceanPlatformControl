@@ -18,7 +18,6 @@ from typing import (
     Tuple,
     Union,
 )
-import math
 import matplotlib
 import numpy as np
 from matplotlib import patches
@@ -321,6 +320,7 @@ class Arena:
         )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
+        # TODO: adapt for MultiAgent
         """Check if the current platform state is within the arena spatial boundary."""
         if self.spatial_boundary is not None:
             inside_x = (
@@ -338,6 +338,7 @@ class Arena:
 
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
+        # TODO: adapt for MultiAgent
         if point is None:
             point = self.platform.state_set
         return self.ocean_field.hindcast_data_source.is_on_land(point)
@@ -354,6 +355,7 @@ class Arena:
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
         """
+        # TODO: adapt for MultiAgent
         if self.is_on_land():
             return -2
         elif check_inside and not self.is_inside_arena(margin):
@@ -384,6 +386,26 @@ class Arena:
             return "Outside Arena"
         else:
             return "Invalid"
+
+    def get_stride_for_xaxis_from_temp_res(self, temporal_res: int, xticks_temporal_res: int):
+        """
+        Function to get the stride to parse trajectories array given a certain temporal resolution
+        temporal_res: parse trajectories array to plot at fixed time samples defined by this variable
+        xticks_temporal_res: temporal resolution can be different to label xticks (generally smaller than temporal_res to avoid overlapping of dates)
+        """
+        stride_temporal_res = int(temporal_res / self.dt_in_s)
+        stride_xticks = int(xticks_temporal_res / self.dt_in_s)
+        return stride_temporal_res, stride_xticks
+
+    def get_datetime_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory, times at which the states of a set of platform was recorded
+        For now: assume all platforms are sampled at the same time, so it is sufficient to obtain the datatime of the first platform with index 0
+        """
+        return [
+            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            for posix in state_trajectory[0, 2, ::1]
+        ]
 
     ### Various Plotting Functions for the Arena Object ###
 
@@ -613,6 +635,7 @@ class Arena:
         Returns:
             ax:  matplotlib.axes.Axes
         """
+        # TODO: Adapt to MULTIAGENT
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -645,6 +668,7 @@ class Arena:
         Returns:
             ax:  matplotlib.axes.Axes
         """
+        # TODO: Adapt to MULTIAGENT
         if ax is None:
             fig, ax = plt.subplots()
         format_datetime_x_axis(ax)
@@ -683,7 +707,7 @@ class Arena:
             fig, ax = plt.subplots()
 
         format_datetime_x_axis(ax)
-
+        # TODO: Adapt to MULTIAGENT
         # plot
         dates = [
             dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
@@ -700,49 +724,31 @@ class Arena:
 
         return ax
 
-    def plot_distance_evolution_between_neighbors(
+    def plot_distance_evolution_between_platforms(
         self,
-        neighbors_list_to_plot: List[
-            Tuple
-        ],  # TODO: when moving to MultiAgent: plot the neighbors by default
-        figsize: Tuple[int] = (8, 6),
+        neighbors_list_to_plot: Optional[List[Tuple]] = None,
+        figsize: Optional[Tuple[int]] = (8, 6),
         temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
         xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+        plot_threshold: Optional[bool] = True,
     ) -> matplotlib.axes.Axes:
         """
-        Function to compute distance evolution between neighbors over their trajectories
-        For now just handle two platforms
+        Function to compute distance evolution between neighboring platforms over their trajectories
         """
-        # TODO: Plot limits and move to MultiAgent: upper communication limit and collision constraint
-        stride_temporal_res = int(temporal_res / self.dt_in_s)
-        stride_xticks = int(xticks_temporal_res / self.dt_in_s)
-        plt.figure(figsize=figsize)
-        ax = plt.axes()
-        t0 = dt.datetime.fromtimestamp(self.state_trajectory[0, 2, 0], tz=dt.timezone.utc)
-        dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
-            for posix in self.state_trajectory[0, 2, ::1]
-        ]
-        for neighb_tup in neighbors_list_to_plot:
-            node_from, node_to = neighb_tup
-            dist_list = list(
-                map(
-                    lambda G: G[node_from][node_to]["weight"].km
-                    if neighb_tup in list(G.edges)
-                    else None,
-                    self.multi_agent_G_list[::stride_temporal_res],
-                )
-            )
-            ax.plot(dates[::stride_temporal_res], dist_list, "--x", label=f"Pair {neighb_tup}")
+        stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
+            temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
+        )
+        dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
 
-        vect_strftime = np.vectorize(dt.datetime.strftime)
-        dates_xticks_str = vect_strftime(dates[::stride_xticks], "%d-%H:%M")
-        ax.set_xticks(dates[::stride_xticks])
-        ax.set_xticklabels(dates_xticks_str)
-        ax.legend()
-        ax.set_ylabel("distance in km")
-        ax.set_title("Distance evolution between connected platforms over time")
-        ax.set_xlabel("time")
+        self.multi_agent_net.plot_distance_evolution_between_neighbors(
+            list_of_graph=self.multi_agent_G_list,
+            dates=dates,
+            neighbors_list_to_plot=neighbors_list_to_plot,
+            stride_temporal_res=stride_temporal_res,
+            stride_xticks=stride_xticks,
+            figsize=figsize,
+            plot_threshold=plot_threshold,
+        )
 
     def plot_graph_for_platform_state(
         self,
@@ -804,27 +810,32 @@ class Arena:
         temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
         xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
     ):
-        stride_temporal_res = int(temporal_res / self.dt_in_s)
-        stride_xticks = int(xticks_temporal_res / self.dt_in_s)
-        dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
-            for posix in self.state_trajectory[0, 2, ::1]
-        ]
-        isolated_nodes = list(
-            map(
-                lambda G: int(len(list(nx.isolates(G)))),
-                self.multi_agent_G_list[::stride_temporal_res],
-            )
+        stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
+            temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
         )
-        plt.figure(figsize=figsize)
-        ax = plt.axes()
-        ax.step(dates[::stride_temporal_res], isolated_nodes, "--x")
-        yint = range(min(isolated_nodes), math.ceil(max(isolated_nodes)) + 1)
-        ax.set_yticks(yint)
-        vect_strftime = np.vectorize(dt.datetime.strftime)
-        dates_xticks_str = vect_strftime(dates[::stride_xticks], "%d-%H:%M")
-        ax.set_xticks(dates[::stride_xticks])
-        ax.set_xticklabels(dates_xticks_str)
-        ax.set_ylabel("Number of isolated platforms")
-        ax.set_title("Disconnected platforms")
-        ax.set_xlabel("time")
+        dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
+        ax = self.multi_agent_net.plot_isolated_vertices(
+            list_of_graph=self.multi_agent_G_list,
+            dates=dates,
+            stride_temporal_res=stride_temporal_res,
+            stride_xticks=stride_xticks,
+            figsize=figsize,
+        )
+
+    def plot_platform_nb_collisions(
+        self,
+        figsize: Optional[Tuple[int]] = (8, 6),
+        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+    ):
+        stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
+            temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
+        )
+        dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
+        self.multi_agent_net.plot_collision_nb_over_time(
+            list_of_graph=self.multi_agent_G_list,
+            dates=dates,
+            stride_temporal_res=stride_temporal_res,
+            stride_xticks=stride_xticks,
+            figsize=figsize,
+        )

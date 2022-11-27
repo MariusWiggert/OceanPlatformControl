@@ -115,10 +115,17 @@ for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 1 day
 
 arena.animate_graph_net_trajectory(
     temporal_resolution=7200,
-    collision_communication_thrslds=(10, 50),
+    # collision_communication_thrslds=(10, 50), (not specified take defaut one)
     plot_ax_ticks=True,
     output="network_graph_anim_1days_new.mp4",
 )
+arena.plot_graph_isolated_platforms()
+plt.savefig("isolatedPlatforms.png")
+arena.plot_distance_evolution_between_platforms()
+plt.savefig("distanceEvolution.png")
+
+arena.plot_platform_nb_collisions()
+plt.savefig("collisions.png")
 #%% Plot the arena trajectory on the map
 # ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 # ax = problem.plot(ax=ax)
