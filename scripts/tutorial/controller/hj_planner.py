@@ -22,8 +22,8 @@ arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local")
 # we can also download the respective files directly to a temp folder, then t_interval needs to be set
 # % Specify Navigation Problem
 x_0 = PlatformState(
-    lon=units.Distance(deg=-82.5),
-    lat=units.Distance(deg=23.7),
+    lon=units.Distance(deg=-80.5),
+    lat=units.Distance(deg=24.25),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_T = SpatialPoint(lon=units.Distance(deg=-80.3), lat=units.Distance(deg=24.6))
@@ -53,7 +53,7 @@ plt.show()
 specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
-    "direction": "backward",
+    "direction": "multi-time-reach-back",
     "n_time_vector": 200,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
@@ -77,17 +77,19 @@ planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 
 # % Run reachability planner
 observation = arena.reset(platform_set=x_set)
-# action = planner.get_action(observation=observation.get_single_observation())
+action = planner.get_action(observation=observation.get_single_observation())
 # %% Various plotting of the reachability computations
-# planner.plot_reachability_snapshot(
-#     rel_time_in_seconds=0,
-#     granularity_in_h=5,
-#     alpha_color=1,
-#     time_to_reach=False,
-#     fig_size_inches=(12, 12),
-#     plot_in_h=True,
-# )
-# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=0, granularity_in_h=5, time_to_reach=False)
+planner.plot_reachability_snapshot(
+    rel_time_in_seconds=0,
+    granularity_in_h=5,
+    alpha_color=1,
+    time_to_reach=True,
+    fig_size_inches=(12, 12),
+    plot_in_h=True,
+)
+
+# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=0, granularity_in_h=5, time_to_reach=True)
+plt.savefig("reachabilitySnap.png")
 # planner.plot_reachability_animation(time_to_reach=False, granularity_in_h=5, filename="test_reach_animation.mp4")
 # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with_opt_ctrl=True,
 #                                     filename="test_reach_animation_w_ctrl.mp4", forward_time=True)

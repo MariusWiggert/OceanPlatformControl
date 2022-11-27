@@ -28,23 +28,23 @@ arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local")
 
 # Initialize two platforms
 x_0 = PlatformState(
-    lon=units.Distance(deg=-82.5),
-    lat=units.Distance(deg=23.7),
+    lon=units.Distance(deg=-82.2),
+    lat=units.Distance(deg=24.2),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_1 = PlatformState(
-    lon=units.Distance(deg=-82.4),
-    lat=units.Distance(deg=23.6),
+    lon=units.Distance(deg=-82.2),
+    lat=units.Distance(deg=24.25),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_2 = PlatformState(
-    lon=units.Distance(deg=-82.7),
-    lat=units.Distance(deg=23.6),
+    lon=units.Distance(deg=-82.18),
+    lat=units.Distance(deg=24.25),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 x_3 = PlatformState(
-    lon=units.Distance(deg=-82.4),
-    lat=units.Distance(deg=24),
+    lon=units.Distance(deg=-82.18),
+    lat=units.Distance(deg=24.2),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
 # create a platformSet object
@@ -52,7 +52,7 @@ x_set = PlatformStateSet([x_0, x_1, x_2, x_3])
 # try if methods returns are correct
 print("lon array: ", x_set.lon, ", lat array: ", x_set.lat)
 # target region is the same for now
-x_T = SpatialPoint(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=24))
+x_T = SpatialPoint(lon=units.Distance(deg=-82), lat=units.Distance(deg=24.25))
 
 #%% create a navigation problem
 problem = NavigationProblem(
@@ -76,7 +76,7 @@ problem.passed_seconds(x_0)
 specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
-    "direction": "backward",
+    "direction": "multi-time-reach-back",
     "n_time_vector": 200,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
@@ -104,6 +104,15 @@ planner_set = MultiAgentPlanner(
 observation = arena.reset(platform_set=x_set)
 action = planner_set.get_action_set(observation=observation)
 
+planner_set.plot_reachability_snapshot(
+    rel_time_in_seconds=0,
+    granularity_in_h=5,
+    alpha_color=1,
+    time_to_reach=True,
+    fig_size_inches=(12, 12),
+    plot_in_h=True,
+)
+plt.savefig("reachabilitySnap3.png")
 # # # %%
 # observation = arena.step(action)
 
@@ -130,7 +139,9 @@ plt.savefig("collisions.png")
 # ax = arena.plot_all_on_map(problem=problem, return_ax=True)
 # ax = problem.plot(ax=ax)
 # plt.savefig("traj_3_days.png", dpi=300)
-# # # #%% Animate the trajectory
-# arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="traj_3days_anim.mp4")
+# # #%% Animate the trajectory
+arena.animate_trajectory(
+    problem=problem, temporal_resolution=7200, output="traj_1days_anim_new.mp4"
+)
 # ax = arena.plot_distance_evolution_between_neighbors(neighbors_list_to_plot= [(0, 1), (0, 2), (1, 3)], figsize=(9, 6))
 # plt.savefig("distance_evolution_3days", dpi=300)

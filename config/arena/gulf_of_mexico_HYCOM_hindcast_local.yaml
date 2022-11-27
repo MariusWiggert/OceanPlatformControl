@@ -34,6 +34,6 @@ seaweed_dict:
 
 network_graph_dict:
     unit: "km"
-    communication_thrsld: 30
+    communication_thrsld: 14
     margin: 1
-    collision_thrsld: 15
+    collision_thrsld: 1

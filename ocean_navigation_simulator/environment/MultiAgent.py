@@ -285,7 +285,7 @@ class MultiAgent:
                 map(
                     lambda G: G[node_from][node_to]["weight"].km
                     if neighb_tup in list(G.edges)
-                    else None,
+                    else np.nan,
                     list_of_graph[::stride_temporal_res],
                 )
             )
