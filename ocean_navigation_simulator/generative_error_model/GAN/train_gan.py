@@ -262,7 +262,7 @@ def main(sweep: Optional[bool] = False):
     cfgs_lr_scheduler = all_cfgs["train"]["lr_scheduler_configs"]
 
     # load training data
-    train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+    train_loader, val_loader, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
     print(f"-> Model: {model_types}.")
@@ -368,7 +368,6 @@ def test():
     cfgs_train = all_cfgs["train"]
 
     # load training data
-    # _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
     test_loader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # load generator
@@ -391,5 +390,5 @@ def test():
 
 
 if __name__ == "__main__":
-    # main()
-    test()
+    main()
+    # test()

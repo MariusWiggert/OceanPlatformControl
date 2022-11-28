@@ -37,7 +37,6 @@ def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
     wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
                      f"_{all_cfgs['dataset']['area']}" + \
                      f"_{all_cfgs['dataset']['len']}" + \
-                     f"_{all_cfgs['dataset']['random_subsets']}" + \
                      f"_{all_cfgs['dataset']['concat_len']}"
     wandb.config.update(all_cfgs)
     return all_cfgs
@@ -76,11 +75,11 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
     return model.to(device)
 
 
-def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict, test=False) -> Tuple:
+def get_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict) -> Tuple:
     """Convenience function. Selects dataset. Create dataloaders."""
 
     dataset = _get_dataset(dataset_type, dataset_configs)
-    return _get_dataloaders(dataset, dataset_configs, train_configs, test)
+    return _get_dataloaders(dataset, dataset_configs, train_configs)
 
 
 def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
@@ -101,64 +100,42 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     return dataset
 
 
-def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict, test=False) -> Tuple:
+def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dict) -> Tuple:
     """Creates Dataloaders according to yaml config.
     Dataset splits are determined on a per-area basis in order to guarantee an equal number of examples
     in each set from each specified area.
     If dataset len is specified to be smaller than the entire dataset (all areas added), then subsets
     can be either random or non-random."""
 
-    if test:
-        dataset_configs["len"] = "None"
-
     rng = np.random.default_rng(12345)
     area_lens = dataset.area_lens
     splits = np.array(dataset_configs["split"])
     prev_dataset_len = 0
     acc_target_len = 0
-    train_idx, val_idx, fixed_batch_idx, test_idx = [], [], [], []
+    train_idx, val_idx, fixed_batch_idx = [], [], []
     fixed_batch_size = int(4/len(area_lens.keys()))
     for area, length in area_lens.items():
         # get split sizes for the whole dataset.
         train_size = int(splits[0] * length)
-        val_size = int((splits[1]/splits[1:].sum())*(length - train_size))
-        test_size = length - train_size - val_size
+        val_size = length - train_size
 
         # target split sizes equal if using whole dataset, otherwise target split sizes are calculated.
         if dataset_configs["len"] == "None":
             target_len = int(length / len(area_lens.keys()))
             train_target_size = train_size
             val_target_size = val_size
-            test_target_size = test_size
         else:
             target_len = int(dataset_configs["len"] / len(area_lens.keys()))
             train_target_size = int(splits[0] * target_len)
-            val_target_size = int((splits[1]/splits[1:].sum())*(target_len - train_target_size))
-            test_target_size = target_len - train_target_size - val_target_size
+            val_target_size = target_len - train_target_size
 
-        # get indices for samples for each sub-dataset.
-        if dataset_configs["random_subsets"]:
-            # if random_subsets -> sample from all possible sub-dataset options.
-            train_idx.extend(rng.choice(np.array(range(prev_dataset_len, prev_dataset_len + train_size)),
-                             size=train_target_size,
-                             replace=False))
-            val_idx.extend(rng.choice(np.array(range(prev_dataset_len + train_size, prev_dataset_len + train_size+val_size)),
-                           size=val_target_size,
-                           replace=False))
-            remaining_idx = rng.choice(np.array(range(prev_dataset_len + train_size + val_size,
-                                                prev_dataset_len + train_size + val_size + test_size)),
-                                       size=test_target_size, replace=False)
-        else:
-            # if non-random choose adjacent blocks of data for sub-datasets.
-            train_idx.extend(np.array(range(acc_target_len, acc_target_len + train_target_size)))
-            val_idx.extend(np.array(range(acc_target_len + train_target_size,
-                                          acc_target_len + train_target_size + val_target_size)))
-            remaining_idx = np.array(range(acc_target_len + train_target_size + val_target_size,
-                                           acc_target_len + train_target_size + val_target_size + test_target_size))
+        train_idx.extend(np.array(range(acc_target_len, acc_target_len + train_target_size)))
+        remaining_idx = np.array(range(acc_target_len + train_target_size,
+                                       acc_target_len + train_target_size + val_target_size))
 
         # pick randomly which samples go in the fixed batch
         temp_idx = rng.choice(np.arange(0, len(remaining_idx)), fixed_batch_size, replace=False)
-        test_idx.extend(np.delete(remaining_idx, temp_idx))
+        val_idx.extend(np.delete(remaining_idx, temp_idx))
         fixed_batch_idx.extend(remaining_idx[temp_idx])
         prev_dataset_len += length
         acc_target_len += target_len
@@ -167,21 +144,15 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     train_set = torch.utils.data.Subset(dataset, train_idx)
     val_set = torch.utils.data.Subset(dataset, val_idx)
     fixed_batch_set = torch.utils.data.Subset(dataset, fixed_batch_idx)
-    test_set = torch.utils.data.Subset(dataset, test_idx)
 
-    if test:
-        print(f"-> Using {len(fixed_batch_set) + len(test_set)} of {len(dataset)} available samples.")
-        print(f"-> Data from {dataset_configs['area']}.")
-    else:
-        print(f"-> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set) + len(test_set)} " +
-              f"of {len(dataset)} available samples.")
-        print(f"-> Data from {dataset_configs['area']}.")
+    print(f"-> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set)} " +
+          f"of {len(dataset)} available samples.")
+    print(f"-> Data from {dataset_configs['area']}.")
 
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
-    test_loader = DataLoader(dataset=test_set, batch_size=train_configs["test_batch_size"], shuffle=False)
     fixed_batch = DataLoader(dataset=fixed_batch_set, batch_size=train_configs["batch_size"], shuffle=False)
-    return train_loader, val_loader, test_loader, fixed_batch
+    return train_loader, val_loader, fixed_batch
 
 
 def get_test_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict):

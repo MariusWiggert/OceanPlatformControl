@@ -61,12 +61,11 @@ def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_rang
                 lon_idx = np.searchsorted(np.arange(*lon_range, 1/12), nearest_grid_points[0])
                 lat_idx = np.searchsorted(np.arange(*lat_range, 1/12), nearest_grid_points[1])
                 if type == "buoy":
-                    # TODO: Figure out if these should be switched (lon, lat)
-                    output_data[time_step, 0, lon_idx, lat_idx] = data_time_step["u"].values
-                    output_data[time_step, 1, lon_idx, lat_idx] = data_time_step["v"].values
+                    output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u"].values
+                    output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v"].values
                 elif type == "forecast":
-                    output_data[time_step, 0, lon_idx, lat_idx] = data_time_step["u_forecast"].values
-                    output_data[time_step, 1, lon_idx, lat_idx] = data_time_step["v_forecast"].values
+                    output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u_forecast"].values
+                    output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v_forecast"].values
                 else:
                     raise ValueError("Specified type does not exist!")
         if not os.path.exists(output_dir):
@@ -89,7 +88,7 @@ def area_handler(area: str):
     return lon_range, lat_range
 
 
-def save_sparse_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_dir: str, area: str, type="forecast"):
+def save_sparse_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_dir: str, area: str, type="buoy"):
     lon_range, lat_range = area_handler(area)
     files = sorted(os.listdir(input_dir))
     len_train = int(0.9*len(files))
@@ -97,7 +96,7 @@ def save_sparse_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_
     test_files = files[len_train:]
 
     # save training/val files
-    # save_sparse_as_npy(input_dir, train_val_files, output_np_dir, lon_range, lat_range, type=type)
+    save_sparse_as_npy(input_dir, train_val_files, output_np_dir, lon_range, lat_range, type=type)
     # save test files
     save_sparse_as_npy(input_dir, test_files, output_np_test_dir, lon_range, lat_range, type=type)
 
