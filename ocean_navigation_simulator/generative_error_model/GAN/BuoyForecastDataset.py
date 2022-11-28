@@ -91,6 +91,7 @@ class BuoyForecastError(Dataset):
 
 class BuoyForecastErrorNpy(Dataset):
     def __init__(self, fc_dir, buoy_dir, areas=("area1"), concat_len=1, transform=None):
+        """Note: use 24*8 for length because not all files have full 9 days."""
         self.fc_dir = fc_dir
         self.buoy_dir = buoy_dir
         self.transform = transform

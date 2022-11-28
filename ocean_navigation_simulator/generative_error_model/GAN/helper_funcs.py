@@ -184,6 +184,13 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     return train_loader, val_loader, test_loader, fixed_batch
 
 
+def get_test_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict):
+    """Get specific part of data for test."""
+    dataset = _get_dataset(dataset_type, dataset_configs)
+    test_loader = DataLoader(dataset=dataset, batch_size=train_configs["test_batch_size"], shuffle=False)
+    return test_loader
+
+
 def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
     """Does what it says on the tin."""
     args_optimizer['lr'] = float(lr)

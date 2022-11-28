@@ -2,7 +2,8 @@ from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
     init_weights, save_checkpoint, load_checkpoint
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ssim import ssim
-from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, initialize
+from helper_funcs import get_model, get_data, get_test_data, get_optimizer, get_scheduler, initialize,\
+    save_input_output_pairs
 
 import wandb
 import os
@@ -68,7 +69,9 @@ def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Ten
     return metrics
 
 
-def loss_function(predictions, target, losses: List[str], loss_weightings: List[float]):
+def loss_function(losses: List[str], loss_weightings: List[float], target: Optional[torch.Tensor] = None,
+                  target_fake: Optional[torch.Tensor] = None, disc_real: Optional[torch.Tensor] = None,
+                  disc_fake: Optional[torch.Tensor] = None):
     """Handles which loss is to be used.
     """
     loss = 0
@@ -77,7 +80,9 @@ def loss_function(predictions, target, losses: List[str], loss_weightings: List[
         "l1": l1,
         "sparse_mse": sparse_mse,
         "total_variation": total_variation,
-        "mass_conservation": mass_conservation
+        "mass_conservation": mass_conservation,
+        "gan_gen": gan_loss_gen,
+        "gan_disc": gan_loss_disc
     }
 
     if len(losses) != len(loss_weightings):
@@ -85,9 +90,13 @@ def loss_function(predictions, target, losses: List[str], loss_weightings: List[
 
     for loss_type, weight in zip(losses, loss_weightings):
         if loss_type in ["mse", "l1", "sparse_mse"]:
-            loss += weight * loss_map[loss_type](predictions, target)
+            loss += weight * loss_map[loss_type](target_fake, target)
+        elif loss_type == "gan_gen":
+            loss += weight * loss_map[loss_type](disc_fake)
+        elif loss_type == "gan_disc":
+            loss += weight * loss_map[loss_type](disc_real, disc_fake)
         else:
-            loss += weight * loss_map[loss_type](predictions)
+            loss += weight * loss_map[loss_type](target_fake)
 
     if loss == 0:
         raise warn("Loss is zero!")
@@ -107,7 +116,7 @@ def gan_loss_disc(disc_real, disc_fake):
     return disc_loss
 
 
-def gan_loss_gen(disc_fake, target_fake, target, l1_scaling: Optional[float] = 100):
+def gan_loss_gen(disc_fake):
     """
     Parameters:
         disc_fake - output of discriminator for fake examples
@@ -115,9 +124,7 @@ def gan_loss_gen(disc_fake, target_fake, target, l1_scaling: Optional[float] = 1
         target - ground truth data
     """
     bce_loss = nn.BCEWithLogitsLoss()
-    gen_fake_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
-    l1_val = l1(target_fake, target) * l1_scaling
-    gen_loss = gen_fake_loss + l1_val
+    gen_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
     return gen_loss
 
 
@@ -132,15 +139,22 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
 
                 # train discriminator
                 target_fake = models[0](data)
+                # print(f"target nan values: {torch.isnan(target[0, 0]).sum()}")
+                # print(f"target num all zero frames: "
+                #       f"{[torch.where(target[0, i] != 0, 1, 0).sum()for i in range(target.shape[1])].count(0)}")
                 # mask the generator output to match target (buoy data)
                 mask = torch.where(target != 0, 1, 0)
                 target_fake = torch.mul(target_fake, mask).float()
                 # check whether same num of non-zero values in target and target_fake
                 assert mask.sum() == torch.where(target_fake != 0, 1, 0).sum()
+                # print(target_fake[0, 0])
                 # compute real and fake outputs of discriminator
                 disc_real = models[1](data, target)
                 disc_fake = models[1](data, target_fake)  # need to call detach to remove from comp graph
-                disc_loss = gan_loss_disc(disc_real, disc_fake)
+                disc_loss = loss_function(cfgs_train["loss"]["disc"],
+                                          cfgs_train["loss"]["disc_weighting"],
+                                          disc_real=disc_real,
+                                          disc_fake=disc_fake)
                 disc_loss_sum += disc_loss.item()
 
                 optimizers[1].zero_grad()
@@ -150,7 +164,11 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
 
                 # train generator
                 disc_fake = models[1](data, target_fake)
-                gen_loss = gan_loss_gen(disc_fake, target_fake, target)
+                gen_loss = loss_function(cfgs_train["loss"]["gen"],
+                                         cfgs_train["loss"]["gen_weighting"],
+                                         disc_fake=disc_fake,
+                                         target_fake=target_fake,
+                                         target=target)
                 gen_loss_sum += gen_loss.item()
 
                 optimizers[0].zero_grad()
@@ -166,22 +184,30 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
     return avg_gen_loss, avg_disc_loss
 
 
-def validation(models, dataloader, device, cfgs_train, metrics_names):
+def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False):
     total_loss = 0
     [model.eval() for model in models]
+    cfgs_train = all_cfgs["train"]
+    metrics_names = all_cfgs["metrics"]
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
             metrics = {metric: 0 for metric in metrics_names}
             metrics_ratio = {metric: 0 for metric in metrics_names}
-            for data, target in tepoch:
+            for idx, (data, target) in enumerate(tepoch):
                 data, target = data.to(device), target.to(device)
 
                 target_fake = models[0](data)
+                if save_data:
+                    save_input_output_pairs(data, target_fake, all_cfgs, idx)
                 mask = torch.where(target != 0, 1, 0)
                 target_fake = torch.mul(target_fake.detach(), mask).float()
                 disc_fake = models[1](data, target_fake)
-                gen_loss = gan_loss_gen(disc_fake, target_fake, target)
+                gen_loss = loss_function(cfgs_train["loss"]["gen"],
+                                         cfgs_train["loss"]["gen_weighting"],
+                                         disc_fake=disc_fake,
+                                         target_fake=target_fake,
+                                         target=target)
                 total_loss += gen_loss.item()
 
                 # get metrics and ratio of metrics for generated outputs
@@ -240,7 +266,9 @@ def main(sweep: Optional[bool] = False):
 
     # define model and optimizer and load from checkpoint if specified
     print(f"-> Model: {model_types}.")
-    print(f"-> Losses: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
+    print(f"-> Gen Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}.")
+    print(f"-> Gen Losses: {cfgs_train['loss']['disc']} with weightings {cfgs_train['loss']['disc_weighting']}.")
+
     generator = get_model(model_types[0], cfgs_gen, device)
     discriminator = get_model(model_types[1], cfgs_disc, device)
     gen_optimizer = get_optimizer(generator, cfgs_gen_optimizer["name"],
@@ -298,8 +326,7 @@ def main(sweep: Optional[bool] = False):
                 val_loss, metrics, metrics_ratio = validation((generator, discriminator),
                                                               val_loader,
                                                               device,
-                                                              cfgs_train,
-                                                              all_cfgs["metrics"])
+                                                              all_cfgs)
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
@@ -334,23 +361,35 @@ def test():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # simplify config access
-    cfgs_model = all_cfgs[all_cfgs["model"]]
-    cfgs_dataset = all_cfgs["dataset"]
+    model_types = all_cfgs["model"]
+    cfgs_gen = all_cfgs[model_types[0]]
+    cfgs_disc = all_cfgs[model_types[1]]
+    cfgs_dataset = all_cfgs["test_dataset"]
     cfgs_train = all_cfgs["train"]
 
     # load training data
-    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
+    # _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
+    test_loader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
-    # load model
-    model = get_model(all_cfgs["model"], cfgs_model, device)
-    checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
+    # load generator
+    gen = get_model(all_cfgs["model"][0], cfgs_gen, device)
+    checkpoint_path = os.path.join(all_cfgs["save_base_path"],
+                                   f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen.pth")
     checkpoint = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(checkpoint["state_dict"])
+    gen.load_state_dict(checkpoint["state_dict"])
+
+    # load discriminator
+    disc = get_model(all_cfgs["model"][1], cfgs_disc, device)
+    checkpoint_path = os.path.join(all_cfgs["save_base_path"],
+                                   f"{all_cfgs['test_load_chkpt'].split('.')[0]}_disc.pth")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    disc.load_state_dict(checkpoint["state_dict"])
 
     cfgs_train["epoch"] = 1
-    _, metrics, _ = validation(model, test_loader, device, cfgs_train, all_cfgs["metrics"])
+    _, metrics, _ = validation((gen, disc), test_loader, device, all_cfgs, save_data=True)
     print(metrics)
 
+
 if __name__ == "__main__":
-    main()
-    # test()
+    # main()
+    test()
