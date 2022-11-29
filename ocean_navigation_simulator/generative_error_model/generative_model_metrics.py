@@ -52,10 +52,12 @@ def vector_correlation_over_time(data: pd.DataFrame) -> np.ndarray:
 
 def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> np.ndarray:
     # rename forecast variables and slice forecast to size of error
-    forecast = forecast.rename({"longitude": "lon",
-                                "latitude": "lat",
-                                "utotal": "water_u",
-                                "vtotal": "water_v"})
+    renaming_map = {"longitude": "lon",
+                    "latitude": "lat",
+                    "utotal": "water_u",
+                    "vtotal": "water_v"}
+    if any(item in forecast.dims for item in renaming_map.keys()):
+        forecast = forecast.rename(renaming_map)
 
     # need to slice forecast to match size of error
     lon_range = [error["lon"].values.min(), error["lon"].values.max()]
@@ -66,10 +68,11 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> 
                             time=slice(*time_range))
 
     # convert error to float32
-    error["lon"] = error["lon"].astype(np.float32)
-    error["lat"] = error["lat"].astype(np.float32)
-    error["water_u"] = error["water_u"].astype(np.float32)
-    error["water_v"] = error["water_v"].astype(np.float32)
+    for data_source in [forecast, error]:
+        data_source["lon"] = data_source["lon"].astype(np.float32)
+        data_source["lat"] = data_source["lat"].astype(np.float32)
+        data_source["water_u"] = data_source["water_u"].astype(np.float32)
+        data_source["water_v"] = data_source["water_v"].astype(np.float32)
     # Note: addition isnot cummutative in this case as axis will be different order
     # and thus a slice at a specific time would be differently ordered.
     ground_truth = forecast + error

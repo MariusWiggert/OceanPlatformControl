@@ -21,9 +21,9 @@ model:
 
 dataset_writer:
   source: "copernicus"
-  dataset_type: "forecast"
+  dataset_type: "hindcast"
   input: "area1"
-  output: "area1_big"
+  output: "area1"
 
 buoy_config:
   copernicus:
@@ -41,10 +41,10 @@ buoy_config:
       # name: "argo"
       # index_files: ["index_latest.txt"]
     area_overlap_type: "intersects"
-#    lon_range: [ -146.25, -125 ]
-#    lat_range: [ 15, 36.25 ]
-    lon_range: [-140, -120]
-    lat_range: [20, 30]
+    lon_range: [ -146.25, -125 ]
+    lat_range: [ 15, 36.25 ]
+#    lon_range: [-140, -120]
+#    lat_range: [20, 30]
     time_range: "2022-05-02T12:30:00Z/2022-05-11T12:30:00Z"
     usr: "jdieker"
     pas: "AxxzVqCuC#!vS69"

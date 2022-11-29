@@ -1,22 +1,27 @@
 model: ["generator", "discriminator"]
-save_model: True
+save_model: False
 dataset_type: "forecastbuoy"
-wandb_mode: "offline"
+wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
+
+# testing and saving output
+save_samples_path: "data/drifter_data/GAN_samples"
+test_load_chkpt: "2022-11-27_22:48:44.pth"
 
 generator:
   in_channels: 2
   out_channels: 2
   features: 64
   dropout: True
-  dropout_all: True
+  dropout_all: False
   dropout_val: 0.3
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
-  load_from_chkpt: False
+  load_from_chkpt: True
   chkpt: "2022-11-17_17:59:56.pth"
+  freeze_encoder: True
 
 gen_optimizer:
   name: "Adam"
@@ -45,11 +50,13 @@ disc_optimizer:
 
 train:
   batch_size: 32
-  test_batch_size: 32
+  test_batch_size: 192
   epochs: 30
   loss:
-    types: [ "G_GAN", "G_L1", "D_real", "D_fake" ]
-    weighting: [ 1, 100, 1, 1 ]
+    gen: [ "gan_gen", "l1"]
+    gen_weighting: [ 1, 100 ]
+    disc: [ "gan_disc" ]
+    disc_weighting: [ 1 ]
   learning_rate: 0.0001
   lr_scheduler_configs:
     value: True
@@ -64,8 +71,14 @@ dataset:
   hindcasts: "data/drifter_data/hindcasts_preprocessed"
   ground_truth: "data/drifter_data/buoy_preprocessed"
   area: ["area1"]
-  shuffle: False
-  len: 100   # None
-  split: [0.8, 0.1, 0.1]
-  random_subsets: False  # if len < len(dataset) how to choose subsets?
+  shuffle: True
+  len: None
+  split: [0.9, 0.1]
   concat_len: 1
+
+test_dataset:
+    forecasts: "data/drifter_data/forecasts_preprocessed_test"
+    ground_truth: "data/drifter_data/buoy_preprocessed_test"
+    area: ["area1"]
+    concat_len: 1
+
