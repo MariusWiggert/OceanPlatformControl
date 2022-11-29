@@ -24,7 +24,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
 #%%  Import scenario and configurate folder to save plots (for analysis)
-multi_agent_scenario = "scenario_1"
+multi_agent_scenario = "scenario_2"
 with open(f"config/multi_agent_scenarios/{multi_agent_scenario}.yaml") as f:
     multi_ag_config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -111,7 +111,7 @@ multi_agent_settings = {"planner": "hj_planner"}
 planner_set = MultiAgentPlanner(
     problem=problem, multi_agent_settings=multi_agent_settings, specific_settings=specific_settings
 )
-# first observation of initial states
+# first observation of initial states   
 observation = arena.reset(platform_set=platform_set)
 action = planner_set.get_action_set(observation=observation)  # get first action to take
 
@@ -152,6 +152,7 @@ arena.animate_graph_net_trajectory(
 )
 # %% Plot useful metrics for multi-agent performance evaluation
 fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks
+plt.savefig(f"{folder_save_results}/graph_properties.png")
 # arena.plot_graph_isolated_platforms()
 # plt.savefig(f"{folder_save_results}/isolatedPlatforms.png")
 # arena.plot_distance_evolution_between_platforms()

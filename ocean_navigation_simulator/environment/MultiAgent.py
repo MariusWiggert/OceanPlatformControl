@@ -272,19 +272,19 @@ class MultiAgent:
         title: str = None,
         plot_legend: bool = False,
     ):
-        if xticks:
+        if xticks is not None:
             ax.set_xticks(xticks)
-        if yticks:
+        if yticks is not None:
             ax.set_yticks(yticks)
-        if xtick_label:
+        if xtick_label is not None:
             ax.set_xticklabels(xtick_label)
-        if ytick_label:
+        if ytick_label is not None:
             ax.set_yticklabels(ytick_label)
-        if xlabel:
+        if xlabel is not None:
             ax.set_xlabel(xlabel)
-        if ylabel:
+        if ylabel is not None:
             ax.set_ylabel(ylabel)
-        if title:
+        if title is not None:
             ax.set_title(title)
         return ax
 

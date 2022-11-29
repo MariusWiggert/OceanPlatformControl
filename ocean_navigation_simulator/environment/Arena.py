@@ -899,7 +899,7 @@ class Arena:
 
     def plot_all_network_analysis(
         self,
-        figsize: Optional[Tuple[int]] = (8, 6),
+        figsize: Optional[Tuple[int]] = (15, 15),
         temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
         xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
     ):
