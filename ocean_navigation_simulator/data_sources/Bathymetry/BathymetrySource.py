@@ -9,7 +9,6 @@ import matplotlib.pyplot
 import matplotlib.pyplot as plt
 import xarray as xr
 
-# from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.data_sources.DataSource2d import DataSource2d
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 
@@ -51,7 +50,7 @@ class BathymetrySource2d(DataSource2d):
             "elevation", "linear", grid, array["elevation"].values.ravel(order="F")
         )
 
-    def is_higher_than(self, point: SpatialPoint, elevation: float = 0):
+    def is_higher_than(self, point: SpatialPoint, elevation: float = 0) -> bool:
         """Helper function to check if a SpatialPoint is on the land.
             Accuracy is limited by the resolution of self.grid_dict.
         Args:

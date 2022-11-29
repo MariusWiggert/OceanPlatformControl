@@ -4,12 +4,10 @@ import time
 from typing import AnyStr, Dict, List, Optional
 
 import casadi as ca
-import cmocean
 import matplotlib.pyplot
 import matplotlib.pyplot as plt
 import xarray as xr
 
-# from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.data_sources.DataSource2d import DataSource2d
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 
@@ -50,6 +48,34 @@ class GarbagePatchSource2d(DataSource2d):
         self.garbage_patch_func = ca.interpolant(
             "garbage", "linear", grid, array["garbage"].values.ravel(order="F")
         )
+
+    def is_in_garbage_patch(self, point: SpatialPoint) -> bool:
+        """Helper function to check if a SpatialPoint is in garbage patch.
+            Accuracy is limited by the resolution of self.grid_dict.
+        Args:
+            point:    SpatialPoint object where to check if it is in garbage
+        Returns:
+            bool:     True if on land and false otherwise
+        """
+        if not (
+            self.casadi_grid_dict["x_range"][0]
+            < point.lon.deg
+            < self.casadi_grid_dict["x_range"][1]
+        ):
+            raise ValueError(
+                f"Point {point} is not in casadi_grid_dict lon range{self.casadi_grid_dict['x_range']}"
+            )
+
+        if not (
+            self.casadi_grid_dict["y_range"][0]
+            < point.lat.deg
+            < self.casadi_grid_dict["y_range"][1]
+        ):
+            raise ValueError(
+                f"Point {point} is not in casadi_grid_dict lat range {self.casadi_grid_dict['y_range']}"
+            )
+
+        return self.get_data_at_point(point)
 
     @staticmethod
     def plot_data_from_xarray(
