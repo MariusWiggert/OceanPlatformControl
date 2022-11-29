@@ -138,7 +138,10 @@ def get_time_matched_file_lists(list1, list2):
     # add forecast file names to dict
     for item1 in list1:
         item1_date = get_datetime_from_file_name(item1)
-        file_name_per_day |= {item1_date: [item1]}
+        if item1_date in list(file_name_per_day.keys()):
+            file_name_per_day[item1_date] = [*file_name_per_day[item1_date], item1]
+        else:
+            file_name_per_day[item1_date] = [item1]
     # add buoy file names to dict if forecast equivalent exists
     for item2 in list2:
         item2_date = get_datetime_from_file_name(item2)
@@ -151,6 +154,10 @@ def get_time_matched_file_lists(list1, list2):
         if len(file_name_per_day[date]) == 2:
             out_list1.append(file_name_per_day[date][0])
             out_list2.append(file_name_per_day[date][1])
+        if len(file_name_per_day[date]) > 2:
+            for i in range(int(len(file_name_per_day[date])/2)):
+                out_list1.append(file_name_per_day[date][2*i])
+                out_list2.append(file_name_per_day[date][2*i + 1])
     return out_list1, out_list2
 
 

@@ -8,14 +8,21 @@ from typing import Tuple
 import datetime
 
 
-def save_nc_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: Tuple, lat_range: Tuple):
+def save_nc_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: Tuple, lat_range: Tuple,
+                   duplicate: bool = False):
     """Takes a .nc file and saves it as a .npy file."""
 
     for file in file_list:
         output_file_path = os.path.join(output_dir, "".join(file.split(".")[:-1])) + ".npy"
         if os.path.exists(output_file_path):
             print(f"File {''.join(output_file_path.split('/')[-1])} already exists!")
-            continue
+            if duplicate:
+                index = 1
+                while os.path.exists(output_file_path):
+                    output_file_path = "".join(output_file_path.split(".")[:-1]) + str(index) + ".npy"
+                    index += 1
+            else:
+                continue
         data = xr.open_dataset(os.path.join(file_dir, file))
         if "longitude" in list(data.dims):
             data = data.sel(longitude=slice(*lon_range), latitude=slice(*lat_range))
@@ -30,13 +37,21 @@ def save_nc_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: T
         np.save(output_file_path, data)
 
 
-def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: Tuple, lat_range: Tuple, type="buoy"):
+def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: Tuple, lat_range: Tuple, type="buoy",
+                       duplicate: bool = False):
     """Takes sparse buoy data, turns it into a sparse matrix and saves it as an .npy file."""
+
     for file in file_list:
         output_file_path = os.path.join(output_dir, "".join(file.split(".")[:-1])) + ".npy"
         if os.path.exists(output_file_path):
             print(f"File {''.join(output_file_path.split('/')[-1])} already exists!")
-            continue
+            if duplicate:
+                index = 1
+                while os.path.exists(output_file_path):
+                    output_file_path = "".join(output_file_path.split(".")[:-1]) + str(index) + ".npy"
+                    index += 1
+            else:
+                continue
         data = pd.read_csv(os.path.join(file_dir, file))
         data["hour"] = data["time"].apply(lambda x: x[:13])
         hours_according_file_name, start_date = hour_range_file_name(file)
@@ -112,17 +127,33 @@ def save_dense_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_d
     save_nc_as_npy(input_dir, test_files, output_np_test_dir, lon_range, lat_range)
 
 
+def save_repeated_test_dataset(input_dir: str, output_np_dir: str, area: str, type="dense"):
+    """Produces repeated test data for testing variety in GAN output."""
+
+    lon_range, lat_range = area_handler(area)
+    files = sorted(os.listdir(input_dir))
+    len_train = int(0.9*len(files))
+    test_files = files[len_train:]
+    file_to_repeat = test_files[0]
+
+    repeated_test_files = [file_to_repeat for _ in range(10)]
+    if type == "dense":
+        save_nc_as_npy(input_dir, repeated_test_files, output_np_dir, lon_range, lat_range, duplicate=True)
+    elif type == "sparse":
+        save_sparse_as_npy(input_dir, repeated_test_files, output_np_dir, lon_range, lat_range, duplicate=True)
+
+
 def main():
     area = "area1"
 
-    # buoy data
+    # # buoy data
     sparse_dir = f"data/drifter_data/dataset_forecast_error/{area}_edited2"
-    sparse_np_dir = f"data/drifter_data/buoy_preprocessed/{area}"
-    sparse_np_test_dir = f"data/drifter_data/buoy_preprocessed_test/{area}"
-    save_sparse_npy_datasets(sparse_dir, sparse_np_dir, sparse_np_test_dir, area)
+    # sparse_np_dir = f"data/drifter_data/buoy_preprocessed/{area}"
+    # sparse_np_test_dir = f"data/drifter_data/buoy_preprocessed_test/{area}"
+    # save_sparse_npy_datasets(sparse_dir, sparse_np_dir, sparse_np_test_dir, area)
 
     # # forecast data
-    # fc_dir = f"data/drifter_data/forecasts/{area}"
+    fc_dir = f"data/drifter_data/forecasts/{area}"
     # fc_np_dir = f"data/drifter_data/forecasts_preprocessed/{area}"
     # fc_np_test_dir = f"data/drifter_data/forecasts_preprocessed_test/{area}"
     # save_dense_npy_datasets(fc_dir, fc_np_dir, fc_np_test_dir, area)
@@ -131,6 +162,12 @@ def main():
     # hc_np_dir = f"data/drifter_data/hindcasts_preprocessed/{area}"
     # hc_np_test_dir = f"data/drifter_data/hindcasts_preprocessed_test/{area}"
     # save_dense_npy_datasets(hc_dir, hc_np_dir, hc_np_test_dir, area)
+
+    # save repeated test dir
+    repeated_test_output_dir_fc = f"data/drifter_data/GAN_repeated_test/forecasts/{area}"
+    repeated_test_output_dir_buoy = f"data/drifter_data/GAN_repeated_test/buoy/{area}"
+    save_repeated_test_dataset(fc_dir, repeated_test_output_dir_fc, area, type="dense")
+    save_repeated_test_dataset(sparse_dir, repeated_test_output_dir_buoy, area, type="sparse")
 
 
 if __name__ == "__main__":

@@ -195,7 +195,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
             metrics = {metric: 0 for metric in metrics_names}
             metrics_ratio = {metric: 0 for metric in metrics_names}
             for idx, (data, target) in enumerate(tepoch):
-                data, target = data.to(device), target.to(device)
+                data, target = data.to(device).float(), target.to(device).float()
 
                 target_fake = models[0](data)
                 if save_data:
@@ -390,5 +390,5 @@ def test():
 
 
 if __name__ == "__main__":
-    main()
-    # test()
+    # main()
+    test()

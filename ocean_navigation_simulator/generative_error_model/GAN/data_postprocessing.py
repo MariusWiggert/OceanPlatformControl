@@ -58,7 +58,7 @@ class ConvertToError:
         t_axis, lat_axis, lon_axis = self.get_axes(start_datetime, hour_range, "area1")
         return self._create_xarray(final_data, lon_axis, lat_axis, t_axis)
 
-    def get_individual_as_nc(self, output_dir: str, type: str="error"):
+    def get_individual_as_nc(self, output_dir: str, type: str="error", duplicate: bool = False):
         """Take a single prediction/forecast file and converts it to an nc file."""
 
         gt_files = sorted(os.listdir(self.ground_truth_dir))
@@ -76,7 +76,13 @@ class ConvertToError:
             file_path = f"{output_dir}/{file_name}.nc"
             if os.path.exists(file_path):
                 print(f"File: {file_name} already exists!")
-                continue
+                if duplicate:
+                    index = 1
+                    while os.path.exists(file_path):
+                        file_path = ".".join(file_path.split(".")[:-1]) + str(index) + ".nc"
+                        index += 1
+                else:
+                    continue
 
             if type == "error":
                 data = self.predictions[i] - self.fc_data[i]
@@ -87,6 +93,12 @@ class ConvertToError:
             nc = self._create_xarray(data, lon_axis, lat_axis, t_axis)
             nc.to_netcdf(file_path)
 
+    def generate_data_for_evaluation(self):
+        """Formats data for both RMSE and Vector Correlation comparison, as well as for Variogram
+        computation."""
+
+        pass
+
     @staticmethod
     def get_axes(start_datetime: datetime.datetime, hour_range: int, area: str):
         """Returns axes needed for xarray object."""
@@ -96,12 +108,6 @@ class ConvertToError:
         lon_axis = np.linspace(lon_range[0], lon_range[1], 256, endpoint=True)
         lat_axis = np.linspace(lat_range[0], lat_range[1], 256, endpoint=True)
         return t_axis, lat_axis, lon_axis
-
-    def generate_data_for_evaluation(self):
-        """Formats data for both RMSE and Vector Correlation comparison, as well as for Variogram
-        computation."""
-
-        pass
 
     @staticmethod
     def _create_xarray(
