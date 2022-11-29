@@ -16,6 +16,10 @@ from matplotlib import pyplot as plt
 from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
     BathymetrySource2d,
 )
+
+from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
+    GarbagePatchSource2d,
+)
 from ocean_navigation_simulator.data_sources.OceanCurrentField import (
     OceanCurrentField,
 )
@@ -122,6 +126,7 @@ class Arena:
         solar_dict: Optional[Dict] = None,
         seaweed_dict: Optional[Dict] = None,
         bathymetry_dict: Optional[Dict] = None,
+        garbage_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
         collect_trajectory: Optional[bool] = True,
         timeout: Union[datetime.timedelta, int] = None,
@@ -145,6 +150,7 @@ class Arena:
             seaweed_dict:                    Dictionary containing dicts for "hindcast" and optinally "forecast" which
                                              specify the seaweed growth data source. Details see SeaweedGrowthField.
             bathymetry_dict:                 Directory containing source, source_settings, casadi_cache_settings and
+            garbage_dict:                 Directory containing source, source_settings, casadi_cache_settings and
             spatial_boundary:                dictionary containing the "x" and "y" spatial boundaries as list of [min, max]
             collect_trajectory:              boolean if True trajectory of states and actions is logged, otherwise not.
             timeout:                         integer (in seconds) or timedelta object for max sim run (None sets no limit)
@@ -196,6 +202,10 @@ class Arena:
             self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
         else:
             self.bathymetry_source = None
+        if garbage_dict is not None:
+            self.garbage_source = GarbagePatchSource2d(source_dict=garbage_dict)
+        else:
+            self.garbage_source = None
 
         self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
 
@@ -211,9 +221,8 @@ class Arena:
             seaweed_source=self.seaweed_field.hindcast_data_source
             if self.seaweed_field is not None
             else None,
-            bathymetry_source=self.bathymetry_source
-            if self.bathymetry_source is not None
-            else None,
+            bathymetry_source=self.bathymetry_source,
+            garbage_source=self.garbage_source,
         )
 
         self.logger.info(f"Arena: Generate Platform ({time.time() - start:.1f}s)")
@@ -318,6 +327,15 @@ class Arena:
             else:
                 return False
 
+    def is_in_garbage_patch(self, point: SpatioTemporalPoint = None) -> bool:
+        if self.garbage_source:
+            if point is None:
+                point = self.platform.state.to_spatial_point()
+            # TODO: Append to trajectory
+            return self.garbage_source.is_in_garbage_patch(point)
+        else:
+            raise Exception(f"Arena: garbage source is required to check is_in_garbage_patch!")
+
     def is_timeout(self) -> bool:
         # calculate passed_seconds
         if self.timeout is not None:
@@ -367,6 +385,8 @@ class Arena:
             return -3
         if self.is_on_land():
             return -2
+        if self.is_in_garbage_patch():
+            return -4
         else:
             return problem.is_done(self.platform.state)
 
@@ -391,6 +411,8 @@ class Arena:
             return "Stranded"
         elif problem_status == -3:
             return "Outside Arena"
+        elif problem_status == -4:
+            return "In garbage patch"
         else:
             return "Invalid"
 
