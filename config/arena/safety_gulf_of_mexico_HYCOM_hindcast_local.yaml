@@ -45,3 +45,12 @@ bathymetry_dict:
     casadi_cache_settings:
         deg_around_x_t: 20
     use_geographic_coordinate_system: True
+
+garbage_dict:
+    source: "Lebreton"
+    source_settings:
+        filepath: "data/garbage_patch/garbage_patch_fake_gulf_of_mexico_global_res_0.083_0.083.nc"
+    casadi_cache_settings:
+        deg_around_x_t: 10
+    use_geographic_coordinate_system: True
+    
