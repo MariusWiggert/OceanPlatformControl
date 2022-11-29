@@ -72,7 +72,7 @@ class NavigationProblem(Problem):
                     c=problem_start_color,
                     marker=next(markers),
                     label=f"start platform {id}",
-                    s=100,
+                    s=150,
                 )
         else:
             ax.scatter(
@@ -81,7 +81,7 @@ class NavigationProblem(Problem):
                 c=problem_start_color,
                 marker="o",
                 label="start platform",
-                s=100,
+                s=150,
             )
 
         ax.add_patch(

@@ -248,6 +248,10 @@ class PlatformStateSet:
     def get_nodes_list(self):
         return list(range(len(self.platform_list)))
 
+    def get_date_time(self):
+        # for now we assume that all platforms have the same date_time
+        return self.platform_list[0].date_time
+
     def get_distance_btw_platforms(self, from_nodes, to_nodes):
         lon_from, lat_from = self.lon[from_nodes], self.lat[from_nodes]
         lon_to, lat_to = self.lon[to_nodes], self.lat[to_nodes]

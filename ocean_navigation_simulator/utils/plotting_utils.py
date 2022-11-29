@@ -105,7 +105,7 @@ def animate_trajectory(
                 state_trajectory[k, 1, 0],
                 c="r",
                 marker=marker,
-                s=200,
+                s=150,
                 label=f"Start for platform {k}",
             )
             ax.scatter(
@@ -113,7 +113,7 @@ def animate_trajectory(
                 state_trajectory[k, 1, -1],
                 c="orange",
                 marker=marker,
-                s=200,
+                s=150,
                 label="Trajectory end" if k == 0 else "",
             )
             # add the trajectory to it

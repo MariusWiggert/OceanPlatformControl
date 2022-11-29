@@ -804,8 +804,57 @@ class Arena:
             **kwargs,
         )
 
-    def plot_graph_isolated_platforms(
+    # def plot_graph_isolated_platforms(
+    #     self,
+    #     ax: Optional[plt.axes] = None,
+    #     figsize: Optional[Tuple[int]] = (8, 6),
+    #     temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+    #     xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+    # ):
+    #     stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
+    #         temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
+    #     )
+    #     if ax is None:
+    #         plt.figure(figsize=figsize)
+    #         ax = plt.axes()
+
+    #     dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
+    #     ax = self.multi_agent_net.plot_isolated_vertices(
+    #         ax=ax,
+    #         list_of_graph=self.multi_agent_G_list,
+    #         dates=dates,
+    #         stride_temporal_res=stride_temporal_res,
+    #         stride_xticks=stride_xticks,
+    #     )
+    #     return ax
+
+    # def plot_platform_nb_collisions(
+    #     self,
+    #     ax: Optional[plt.axes] = None,
+    #     figsize: Optional[Tuple[int]] = (8, 6),
+    #     temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+    #     xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+    # ):
+    #     stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
+    #         temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
+    #     )
+    #     if ax is None:
+    #         plt.figure(figsize=figsize)
+    #         ax = plt.axes()
+    #     dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
+    #     self.multi_agent_net.plot_collision_nb_over_time(
+    #         ax=ax,
+    #         list_of_graph=self.multi_agent_G_list,
+    #         dates=dates,
+    #         stride_temporal_res=stride_temporal_res,
+    #         stride_xticks=stride_xticks,
+    #     )
+    #     return ax
+
+    def plot_network_graph_properties(
         self,
+        func_used: Callable,
+        ax: Optional[plt.axes] = None,
         figsize: Optional[Tuple[int]] = (8, 6),
         temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
         xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
@@ -813,29 +862,76 @@ class Arena:
         stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
             temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
         )
+        if ax is None:
+            plt.figure(figsize=figsize)
+            ax = plt.axes()
         dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
-        ax = self.multi_agent_net.plot_isolated_vertices(
+        func_used(
+            ax=ax,
             list_of_graph=self.multi_agent_G_list,
             dates=dates,
             stride_temporal_res=stride_temporal_res,
             stride_xticks=stride_xticks,
-            figsize=figsize,
+        )
+        return ax
+
+    # def plot_network_connected_components(
+    #     self,
+    #     ax: Optional[plt.axes] = None,
+    #     figsize: Optional[Tuple[int]] = (8, 6),
+    #     temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+    #     xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+    # ):
+    #     stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
+    #         temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
+    #     )
+    #     if ax is None:
+    #         plt.figure(figsize=figsize)
+    #         ax = plt.axes()
+    #     dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
+    #     self.multi_agent_net.plot_graph_nb_connected_components(
+    #         ax=ax,
+    #         list_of_graph=self.multi_agent_G_list,
+    #         dates=dates,
+    #         stride_temporal_res=stride_temporal_res,
+    #         stride_xticks=stride_xticks,
+    #     )
+
+    def plot_all_network_analysis(
+        self,
+        figsize: Optional[Tuple[int]] = (8, 6),
+        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
+        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+    ):
+
+        fig = plt.figure(figsize=figsize)
+        ax1 = fig.add_subplot(2, 2, 1)
+        ax2 = fig.add_subplot(2, 2, 2)
+        ax3 = fig.add_subplot(2, 2, 3)
+        ax4 = fig.add_subplot(2, 2, 4)
+        ax1 = self.plot_network_graph_properties(
+            func_used=self.multi_agent_net.plot_isolated_vertices,
+            ax=ax1,
+            temporal_res=temporal_res,
+            xticks_temporal_res=xticks_temporal_res,
         )
 
-    def plot_platform_nb_collisions(
-        self,
-        figsize: Optional[Tuple[int]] = (8, 6),
-        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
-    ):
-        stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
-            temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
+        ax2 = self.plot_network_graph_properties(
+            func_used=self.multi_agent_net.plot_collision_nb_over_time,
+            ax=ax2,
+            temporal_res=temporal_res,
+            xticks_temporal_res=xticks_temporal_res,
         )
-        dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
-        self.multi_agent_net.plot_collision_nb_over_time(
-            list_of_graph=self.multi_agent_G_list,
-            dates=dates,
-            stride_temporal_res=stride_temporal_res,
-            stride_xticks=stride_xticks,
-            figsize=figsize,
+        ax3 = self.plot_network_graph_properties(
+            func_used=self.multi_agent_net.plot_graph_nb_connected_components,
+            ax=ax3,
+            temporal_res=temporal_res,
+            xticks_temporal_res=xticks_temporal_res,
         )
+        ax4 = self.plot_network_graph_properties(
+            func_used=self.multi_agent_net.plot_graph_degree,
+            ax=ax4,
+            temporal_res=temporal_res,
+            xticks_temporal_res=xticks_temporal_res,
+        )
+        return fig

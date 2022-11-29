@@ -106,4 +106,4 @@ class bcolors:
 
 
 def get_markers():
-    return itertools.cycle((".", "+", "s", "*", "x", "o", "p", "h", "d", "1", "P", "H"))
+    return itertools.cycle((".", "+", "*", "x", "p", "h", "d", "1", "P", "H"))

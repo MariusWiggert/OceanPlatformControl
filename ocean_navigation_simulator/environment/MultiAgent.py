@@ -71,15 +71,12 @@ class MultiAgent:
         weights = platform_set.get_distance_btw_platforms(
             from_nodes=self.from_nodes, to_nodes=self.to_nodes
         )
-        edges_to_add = [
+        edges_to_update = [
             (node_from, node_to, weight)
             for node_from, node_to, weight in zip(self.from_nodes, self.to_nodes, weights)
-            if self.in_unit(value=weight, unit=self.unit_weight_edges)
-            <= self.network_prop["communication_thrsld"] + self.network_prop["margin"]
         ]
-
-        # update existing edges with new weigths for this timestep (and add new edges that are within communication range)
-        self.G.add_weighted_edges_from(edges_to_add, weight="weight")
+        # update existing edges with new weigths for this timestep (still a complete graph)
+        self.G.add_weighted_edges_from(edges_to_update, weight="weight")
         # check if some edges need to be removed based on the new weights
         edges_to_remove = [
             (node_from, node_to)
@@ -87,7 +84,9 @@ class MultiAgent:
             if self.in_unit(value=weight, unit=self.unit_weight_edges)
             > self.network_prop["communication_thrsld"] + self.network_prop["margin"]
         ]
-        if edges_to_remove:
+        if (
+            edges_to_remove
+        ):  # filter out the edges for which the distance between nodes is above communication threshold
             self.G.remove_edges_from(edges_to_remove)
         return copy.deepcopy(
             self.G
@@ -198,7 +197,7 @@ class MultiAgent:
         margin: float = 1,
         forward_time: bool = True,
         figsize: tuple = (10, 10),
-        fps: Optional[int] = 10,
+        fps: Optional[int] = 5,
         normalize_positions: Optional[bool] = False,
     ):
 
@@ -261,6 +260,34 @@ class MultiAgent:
         ani = animation.FuncAnimation(fig, func=render_frame, frames=frames_vector, repeat=False)
         DataSource.render_animation(animation_object=ani, output=output, fps=fps)
 
+    @staticmethod
+    def set_ax_description(
+        ax,
+        xticks=None,
+        yticks=None,
+        xtick_label=None,
+        ytick_label=None,
+        xlabel: str = None,
+        ylabel: str = None,
+        title: str = None,
+        plot_legend: bool = False,
+    ):
+        if xticks:
+            ax.set_xticks(xticks)
+        if yticks:
+            ax.set_yticks(yticks)
+        if xtick_label:
+            ax.set_xticklabels(xtick_label)
+        if ytick_label:
+            ax.set_yticklabels(ytick_label)
+        if xlabel:
+            ax.set_xlabel(xlabel)
+        if ylabel:
+            ax.set_ylabel(ylabel)
+        if title:
+            ax.set_title(title)
+        return ax
+
     def plot_distance_evolution_between_neighbors(
         self,
         list_of_graph: List[nx.Graph],
@@ -306,32 +333,31 @@ class MultiAgent:
                 label="collision risk",
             )
 
-        dates_xticks_str = self.vect_strftime(dates[::stride_xticks], "%d-%H:%M")
-        ax.set_xticks(dates[::stride_xticks])
-        ax.set_xticklabels(dates_xticks_str)
-        ax.legend()
+        ax = self.set_ax_description(
+            ax=ax,
+            xticks=dates[::stride_xticks],
+            xtick_label=self.vect_strftime(dates[::stride_xticks], "%d-%H:%M"),
+            ylabel="Distance in km",
+            xlabel="time",
+            title="Distance Evolution between connected platforms over time",
+            plot_legend=True,
+        )
         ax.grid()
-        ax.set_ylabel("distance in km")
-        ax.set_title("Distance evolution between connected platforms over time")
-        ax.set_xlabel("time")
         return ax
 
     def plot_isolated_vertices(
         self,
+        ax: plt.axes,
         list_of_graph: List[nx.Graph],
         dates: List[dt.datetime],
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
-        figsize: Optional[Tuple[int]] = (8, 6),
     ) -> matplotlib.axes.Axes:
 
         """
         Function that plots the number of nodes that are isolated i.e. of degree zero over time. These nodes correspond to platforms that are disconnected from the rest of the flock
 
         """
-
-        plt.figure(figsize=figsize)
-        ax = plt.axes()
         isolated_nodes = list(
             map(
                 lambda G: int(len(list(nx.isolates(G)))),
@@ -340,26 +366,27 @@ class MultiAgent:
         )
 
         ax.step(dates[::stride_temporal_res], isolated_nodes, "--x")
-        ax.set_yticks(self.get_integer_yticks(isolated_nodes))
-        dates_xticks_str = self.vect_strftime(dates[::stride_xticks], "%d-%H:%M")
-        ax.set_xticks(dates[::stride_xticks])
-        ax.set_xticklabels(dates_xticks_str)
-        ax.set_ylabel("Number of isolated platforms")
-        ax.set_title("Disconnected platforms")
-        ax.set_xlabel("time")
+        ax = self.set_ax_description(
+            ax=ax,
+            xticks=dates[::stride_xticks],
+            xtick_label=self.vect_strftime(dates[::stride_xticks], "%d-%H:%M"),
+            yticks=self.get_integer_yticks(isolated_nodes),
+            ylabel="Number of isolated platforms",
+            xlabel="time",
+            title="Disconnected platforms",
+            plot_legend=False,
+        )
         return ax
 
     def plot_collision_nb_over_time(
         self,
+        ax: plt.axes,
         list_of_graph: List[nx.Graph],
         dates: List[dt.datetime],
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
-        figsize: Optional[Tuple[int]] = (8, 6),
     ) -> matplotlib.axes.Axes:
 
-        plt.figure(figsize=figsize)
-        ax = plt.axes()
         collision_nb_list = []
         for G in list_of_graph[::stride_temporal_res]:
             # count the number of collisions for each graph at datetime
@@ -373,13 +400,80 @@ class MultiAgent:
                     ]
                 )
             )
-
         ax.step(dates[::stride_temporal_res], collision_nb_list, "--x")
-        ax.set_yticks(self.get_integer_yticks(collision_nb_list))
-        dates_xticks_str = self.vect_strftime(dates[::stride_xticks], "%d-%H:%M")
-        ax.set_xticks(dates[::stride_xticks])
-        ax.set_xticklabels(dates_xticks_str)
-        ax.set_ylabel("Number of collisions")
-        ax.set_title("Collisions versus time")
-        ax.set_xlabel("time")
+        ax = self.set_ax_description(
+            ax=ax,
+            xticks=dates[::stride_xticks],
+            xtick_label=self.vect_strftime(dates[::stride_xticks], "%d-%H:%M"),
+            yticks=self.get_integer_yticks(collision_nb_list),
+            ylabel="Number of collisions",
+            xlabel="time",
+            title="Collisions versus time",
+            plot_legend=False,
+        )
+        return ax
+
+    def plot_graph_degree(
+        self,
+        ax: plt.axes,
+        list_of_graph: List[nx.Graph],
+        dates: List[dt.datetime],
+        stride_temporal_res: Optional[int] = 1,
+        stride_xticks: Optional[int] = 1,
+    ) -> matplotlib.axes.Axes:
+
+        max_degree_over_t = list(
+            map(
+                lambda G: max([deg for _, deg in G.degree]),
+                list_of_graph[::stride_temporal_res],
+            )
+        )
+        min_degree_over_t = list(
+            map(
+                lambda G: min([deg for _, deg in G.degree]),
+                list_of_graph[::stride_temporal_res],
+            )
+        )
+
+        ax.step(dates[::stride_temporal_res], max_degree_over_t, "--xr", label="max graph degree")
+        ax.step(dates[::stride_temporal_res], min_degree_over_t, "--xb", label="min graph degree")
+
+        ax = self.set_ax_description(
+            ax=ax,
+            xticks=dates[::stride_xticks],
+            xtick_label=self.vect_strftime(dates[::stride_xticks], "%d-%H:%M"),
+            yticks=self.get_integer_yticks(max_degree_over_t + min_degree_over_t),
+            ylabel="Graph degree",
+            xlabel="time",
+            title="Platform graph min and max degree",
+            plot_legend=True,
+        )
+        return ax
+
+    def plot_graph_nb_connected_components(
+        self,
+        ax: plt.axes,
+        list_of_graph: List[nx.Graph],
+        dates: List[dt.datetime],
+        stride_temporal_res: Optional[int] = 1,
+        stride_xticks: Optional[int] = 1,
+    ) -> matplotlib.axes.Axes:
+
+        nb_connected_comp = list(
+            map(
+                lambda G: nx.number_connected_components(G),
+                list_of_graph[::stride_temporal_res],
+            )
+        )
+        ax.step(dates[::stride_temporal_res], nb_connected_comp, "--x")
+        ax = self.set_ax_description(
+            ax=ax,
+            xticks=dates[::stride_xticks],
+            xtick_label=self.vect_strftime(dates[::stride_xticks], "%d-%H:%M"),
+            yticks=self.get_integer_yticks(nb_connected_comp),
+            ylabel="Connected components",
+            xlabel="time",
+            title="Graph number of connected components versus time",
+            plot_legend=False,
+        )
         return ax

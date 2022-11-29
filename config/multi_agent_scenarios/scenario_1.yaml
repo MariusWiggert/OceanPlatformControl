@@ -1,0 +1,23 @@
+# Easy scenario in the gulf of mexico
+
+data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
+
+folder_to_save: "scenario_1"
+
+days_sim: 1
+
+platforms_start:
+  nb_platforms: 4
+  lon: [-83.4, -83.4, -83.25, -83.25]
+  lat: [23.2, 23.25, 23.2, 23.25]
+  year: 2021
+  month: 11
+  day: 24
+  hours: 12
+  minutes: 0
+
+target_region:
+  lon: -82.3
+  lat: 24.35
+  radius: 0.12
+  timeout_days: 2
