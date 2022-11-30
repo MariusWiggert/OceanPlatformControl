@@ -137,11 +137,27 @@ class Platform:
         # check if the cached dynamics need to be updated
         self.update_dynamics(self.state)
         # step forward with F_x_next and convert from casadi to numpy array
-        state_numpy = (
-            np.array(self.F_x_next(np.array(self.state), np.array(action), self.dt_in_s))
+        f_state = (
+            np.array(
+                self.F_x_next(
+                    np.array(self.state),
+                    np.array(action),
+                    self.dt_in_s,
+                ),
+            )
             .astype("float64")
             .flatten()
         )
+        # Append if the platform is in garbage to the trajectory
+        garbage_state = (
+            np.array(self.garbage_source.is_in_garbage_patch(self.state.to_spatial_point()))
+            .astype("float64")
+            .flatten()
+            if self.garbage_source
+            else 0
+        )
+
+        state_numpy = np.concatenate([f_state, garbage_state])
         self.state = PlatformState.from_numpy(state_numpy)
 
         return self.state
@@ -210,6 +226,9 @@ class Platform:
         sym_dt = ca.MX.sym("dt")  # in s
         sym_u_thrust = ca.MX.sym("u_thrust")  # in % of u_max
         sym_u_angle = ca.MX.sym("u_angle")  # in radians
+        sym_is_in_garbage = ca.MX.sym(
+            "garbage"
+        )  # This is just a placeholder to account of garbage in the state
 
         # Model Battery: Intermediate Variables for capping thrust so that battery never goes below 0
         if self.model_battery:
@@ -273,7 +292,14 @@ class Platform:
         F_next = ca.Function(
             "F_x_next",
             [
-                ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass),
+                ca.vertcat(
+                    sym_lon_degree,
+                    sym_lat_degree,
+                    sym_time,
+                    sym_battery,
+                    sym_seaweed_mass,
+                    sym_is_in_garbage,
+                ),
                 ca.vertcat(sym_u_thrust, sym_u_angle),
                 sym_dt,
             ],

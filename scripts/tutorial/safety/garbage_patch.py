@@ -12,34 +12,34 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from tqdm import tqdm
 
 # Test using gulf of mexico with fake garbage data
-# %% Test 1a: start on garbage
-arena = ArenaFactory.create(scenario_name="safety_gulf_of_mexico_HYCOM_hindcast_local")
+# # %% Test 1a: start on garbage
+# arena = ArenaFactory.create(scenario_name="safety_gulf_of_mexico_HYCOM_hindcast_local")
 
-x_0 = PlatformState(
-    lon=units.Distance(deg=-86),
-    lat=units.Distance(deg=26),
-    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
-)
-x_T = SpatialPoint(lon=units.Distance(deg=-88), lat=units.Distance(deg=27))
+# x_0 = PlatformState(
+#     lon=units.Distance(deg=-86),
+#     lat=units.Distance(deg=26),
+#     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+# )
+# x_T = SpatialPoint(lon=units.Distance(deg=-88), lat=units.Distance(deg=27))
 
-problem = NavigationProblem(
-    start_state=x_0,
-    end_region=x_T,
-    target_radius=0.1,
-)
+# problem = NavigationProblem(
+#     start_state=x_0,
+#     end_region=x_T,
+#     target_radius=0.1,
+# )
 
-planner = NaiveController(problem)
-observation = arena.reset(platform_state=x_0)
+# planner = NaiveController(problem)
+# observation = arena.reset(platform_state=x_0)
 
-for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
-    action = planner.get_action(observation=observation)
-    observation = arena.step(action)
-    problem_status = arena.problem_status(problem=problem)
-    if problem_status != 0:
-        print(f"Problem status: {problem_status}")
-        break
+# for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
+#     action = planner.get_action(observation=observation)
+#     observation = arena.step(action)
+#     problem_status = arena.problem_status(problem=problem)
+#     if problem_status != 0:
+#         print(f"Problem status: {problem_status}")
+#         break
 
-assert problem_status == -4
+# assert problem_status == -4
 
 
 # %% Test 1b: no garbage
@@ -101,34 +101,43 @@ assert problem_status == -4
 
 # assert problem_status == -4
 
-# # %% Test 3: Start outside garbage, go in, check trajectory
-# arena = ArenaFactory.create(scenario_name="safety_gulf_of_mexico_HYCOM_hindcast_local")
+# %% Test 3: Start outside garbage, go in, check trajectory
+arena = ArenaFactory.create(scenario_name="safety_gulf_of_mexico_HYCOM_hindcast_local")
 
-# x_0 = PlatformState(
-#     lon=units.Distance(deg=-140),
-#     lat=units.Distance(deg=32.5),
-#     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
-# )
-# x_T = SpatialPoint(lon=units.Distance(deg=-150), lat=units.Distance(deg=20))
+x_0 = PlatformState(
+    lon=units.Distance(deg=-87),
+    lat=units.Distance(deg=24.9),
+    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+)
+x_T = SpatialPoint(lon=units.Distance(deg=-87), lat=units.Distance(deg=27))
 
-# problem = NavigationProblem(
-#     start_state=x_0,
-#     end_region=x_T,
-#     target_radius=0.1,
-# )
+problem = NavigationProblem(
+    start_state=x_0,
+    end_region=x_T,
+    target_radius=0.1,
+)
 
-# planner = NaiveController(problem)
-# observation = arena.reset(platform_state=x_0)
+planner = NaiveController(problem)
+observation = arena.reset(platform_state=x_0)
 
-# for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
-#     action = planner.get_action(observation=observation)
-#     observation = arena.step(action)
-#     problem_status = arena.problem_status(problem=problem)
-#     if problem_status != 0:
-#         # Stop when encountering garbage
-#         print(f"Problem status: {problem_status}")
-#         break
+amount_of_garbage = 0
+for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
+    action = planner.get_action(observation=observation)
+    observation = arena.step(action)
+    problem_status = arena.problem_status(problem=problem)
+    if problem_status != 0:
+        # Continue when encountering garbage, else break
+        if problem_status == -4:
+            amount_of_garbage += 1
+        print(f"Problem status: {problem_status}")
+        if amount_of_garbage > 20:
+            break
 
-# assert problem_status == -4
-# #%% Plot the arena trajectory on the map
-# arena.plot_all_on_map(problem=problem, show_control_trajectory=False)
+print(arena.state_trajectory)
+print(arena.state_trajectory[-1][-1])
+print(f"{arena.state_trajectory[-1][-1]:.64f}")
+assert arena.state_trajectory[-1][-1] != 0.0
+
+
+# TODO: plot with garbage and traj
+# TODO: make fault prove if no garbage is used, test

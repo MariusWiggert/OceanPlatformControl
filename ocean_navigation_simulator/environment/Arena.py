@@ -331,10 +331,9 @@ class Arena:
         if self.garbage_source:
             if point is None:
                 point = self.platform.state.to_spatial_point()
-            # TODO: Append to trajectory
             return self.garbage_source.is_in_garbage_patch(point)
         else:
-            raise Exception(f"Arena: garbage source is required to check is_in_garbage_patch!")
+            return 0
 
     def is_timeout(self) -> bool:
         # calculate passed_seconds
