@@ -48,7 +48,7 @@ from ocean_navigation_simulator.environment.Platform import (
     PlatformAction,
     PlatformActionSet,
 )
-from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
+from ocean_navigation_simulator.environment.MultiAgent import MultiAgent, GraphObservation
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     PlatformStateSet,
@@ -82,7 +82,7 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
-    multi_agent_graph: nx = None
+    graph_obs: Union[GraphObservation, None]
 
     def __len__(self):
         if type(self.platform_state) is PlatformStateSet:
@@ -98,6 +98,7 @@ class ArenaObservation:
                 self.platform_state[item],
                 true_current_at_state=self.true_current_at_state[item],
                 forecast_data_source=self.forecast_data_source,
+                graph_obs=self.graph_obs,
             )
 
     def __getitem__(self, item):
@@ -277,7 +278,11 @@ class Arena:
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
         if self.is_multi_agent:
-            self.multi_agent_G_list[0] = self.multi_agent_net.set_graph(platform_set=platform_set)
+            graph_observation = self.multi_agent_net.set_graph(platform_set=platform_set)
+            self.multi_agent_G_list[0], G_complete = (
+                graph_observation.G_communication,
+                graph_observation.G_complete,
+            )
 
         observation = ArenaObservation(
             platform_state=platform_set,
@@ -285,7 +290,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            multi_agent_graph=self.multi_agent_G_list[0],
+            graph_obs=graph_observation if self.is_multi_agent else None,
         )
         return observation
 
@@ -306,9 +311,8 @@ class Arena:
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
         if self.is_multi_agent:
-            self.multi_agent_G_list.append(
-                self.multi_agent_net.update_graph(platform_set=platform_set)
-            )
+            graph_observation = self.multi_agent_net.update_graph(platform_set=platform_set)
+            self.multi_agent_G_list.append(graph_observation.G_communication)
 
         return ArenaObservation(
             platform_state=platform_set,
@@ -316,7 +320,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            multi_agent_graph=self.multi_agent_G_list[-1],
+            graph_obs=graph_observation,
         )
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:

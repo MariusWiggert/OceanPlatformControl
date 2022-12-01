@@ -1,0 +1,32 @@
+# scenario west of the californian coast (achieves connectivity by itself)
+
+data_source_config: "cal_coast_Copernicus_hindcast_local"
+
+folder_to_save: "scenario_3"
+
+days_sim: 2
+
+platforms_start:
+  nb_platforms: 4
+  lon: [-128.2, -128.1, -128, -127.9]
+  lat: [33.27, 33.31, 33.3, 33.25]
+  year: 2022
+  month: 10
+  day: 02
+  hours: 12
+  minutes: 0
+
+target_region:
+  lon: -128
+  lat: 33
+  radius: 0.12
+  timeout_days: 2
+
+multi_agent_param:
+  network_graph_dict:
+    unit: "km"
+    communication_thrsld: 9
+    margin: 1
+    collision_thrsld: 1
+
+  initial_connections: Null

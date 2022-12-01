@@ -20,7 +20,8 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: "data/hindcast_test_gulf_of_mexico/"
+            folder: "data/hindcast_cal_coast/"
+            currents: 'total' # important for datasource dict extraction (defaut is set on "normal")
     forecast:
         null
 

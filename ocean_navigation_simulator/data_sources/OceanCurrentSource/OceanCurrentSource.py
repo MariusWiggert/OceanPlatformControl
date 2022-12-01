@@ -379,7 +379,10 @@ class HindcastFileSource(OceanCurrentSourceXarray):
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: get the dictionary of all files from the specific folder
-        self.files_dicts = get_file_dicts(source_config_dict["source_settings"]["folder"])
+        self.files_dicts = get_file_dicts(
+            source_config_dict["source_settings"]["folder"],
+            currents=source_config_dict["source_settings"].get("currents", "normal"),
+        )
 
         # Step 2: open the respective file as multi dataset
         self.DataArray = format_xarray(

@@ -44,13 +44,13 @@ class ArenaFactory:
         scenario_name: str = None,
         scenario_file: str = None,
         scenario_config: Optional[dict] = {},
+        scenario_config_multi_agent: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,
         points: Optional[List[SpatialPoint]] = None,
         x_interval: Optional[List[units.Distance]] = None,
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         verbose: Optional[int] = 10,
-        multi_agent_graph_edges: Optional[List] = None,
     ) -> Arena:
         """
         If problem or t_interval is fed in, data is downloaded from C3 directly. Otherwise local files.
@@ -71,7 +71,7 @@ class ArenaFactory:
 
             # Sep 2: Merge scenario_config so we can overwrite the file settings
             # https://mergedeep.readthedocs.io/en/latest/
-            mergedeep.merge(config, scenario_config)
+            mergedeep.merge(config, scenario_config, scenario_config_multi_agent)
 
             # Step 3: Add Spatial Boundary
             if x_interval is not None and y_interval is not None:
@@ -152,7 +152,9 @@ class ArenaFactory:
                 network_graph_dict=config["network_graph_dict"]
                 if "network_graph_dict" in config
                 else None,
-                multi_agent_graph_edges=multi_agent_graph_edges,
+                multi_agent_graph_edges=config["initial_connections"]
+                if "initial_connections" in config
+                else None,
             )
 
     # TODO: automatically select best region depending on given points

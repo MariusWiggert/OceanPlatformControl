@@ -21,3 +21,12 @@ target_region:
   lat: 24.35
   radius: 0.12
   timeout_days: 2
+
+multi_agent_param:
+  network_graph_dict:
+    unit: "km"
+    communication_thrsld: 9
+    margin: 1
+    collision_thrsld: 1
+
+  initial_connections: Null

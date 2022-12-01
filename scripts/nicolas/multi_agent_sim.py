@@ -36,7 +36,10 @@ platf_init_dict = multi_ag_config["platforms_start"]
 target_dict = multi_ag_config["target_region"]
 
 #%% Initialize the Arena, target region and the platform states
-arena = ArenaFactory.create(scenario_name=multi_ag_config["data_source_config"])
+arena = ArenaFactory.create(
+    scenario_name=multi_ag_config["data_source_config"],
+    scenario_config_multi_agent=multi_ag_config["multi_agent_param"],
+)
 x_T = SpatialPoint(
     lon=units.Distance(deg=target_dict["lon"]), lat=units.Distance(deg=target_dict["lat"])
 )
@@ -111,7 +114,7 @@ multi_agent_settings = {"planner": "hj_planner"}
 planner_set = MultiAgentPlanner(
     problem=problem, multi_agent_settings=multi_agent_settings, specific_settings=specific_settings
 )
-# first observation of initial states   
+# first observation of initial states
 observation = arena.reset(platform_set=platform_set)
 action = planner_set.get_action_set(observation=observation)  # get first action to take
 
@@ -153,9 +156,6 @@ arena.animate_graph_net_trajectory(
 # %% Plot useful metrics for multi-agent performance evaluation
 fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks
 plt.savefig(f"{folder_save_results}/graph_properties.png")
-# arena.plot_graph_isolated_platforms()
-# plt.savefig(f"{folder_save_results}/isolatedPlatforms.png")
-# arena.plot_distance_evolution_between_platforms()
-# plt.savefig(f"{folder_save_results}/distanceEvolution.png")
-# arena.plot_platform_nb_collisions()
-# plt.savefig(f"{folder_save_results}/collisions.png")
+plt.clf()
+arena.plot_distance_evolution_between_platforms()
+plt.savefig(f"{folder_save_results}/distanceEvolution.png")

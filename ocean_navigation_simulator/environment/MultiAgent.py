@@ -28,6 +28,18 @@ from ocean_navigation_simulator.utils.plotting_utils import (
     get_lon_lat_time_interval_from_trajectory,
     idx_state,
 )
+import dataclasses
+
+
+@dataclasses.dataclass
+class GraphObservation:
+    """
+    Class that contains a graph observation: a complete graph and a communication graph which only
+    contains edges with weights below a certain threshold (the platform communication threshold)
+    """
+
+    G_communication: nx.Graph
+    G_complete: nx.Graph
 
 
 class MultiAgent:
@@ -38,33 +50,44 @@ class MultiAgent:
         if graph_edges:
             self.graph_edges = graph_edges
         self.unit_weight_edges = self.network_prop["unit"]
-        self.G, self.nodes = None, None
+        self.G_communication, self.G_complete = None, None
         self.from_nodes, self.to_nodes = None, None
         self.vect_strftime = np.vectorize(dt.datetime.strftime)  # used in the plot functions
         self.list_all_edges_connections = None
 
     def set_graph(self, platform_set: PlatformStateSet):
-        self.nodes = platform_set.get_nodes_list()
-        complete_graph = nx.complete_graph(self.nodes)
-        self.list_all_edges_connections = list(complete_graph.edges())
-        self.from_nodes, self.to_nodes = self.split_edge_list(self.list_all_edges_connections)
+        nodes = platform_set.get_nodes_list()
+        # Build a complete graph retaining all distances between platforms
+        self.G_complete = nx.complete_graph(nodes)
+        self.from_nodes, self.to_nodes = self.split_edge_list(self.G_complete.edges())
         # get distance between platforms
         weights = platform_set.get_distance_btw_platforms(
             from_nodes=self.from_nodes, to_nodes=self.to_nodes
         )
+        # add weights (platform distances) for the complete graph
+        self.G_complete.add_weighted_edges_from(
+            [
+                (from_node, to_node, weight)
+                for from_node, to_node, weight in zip(self.from_nodes, self.to_nodes, weights)
+            ],
+            weight="weight",
+        )
 
+        # Build a communication threshoded graph (edges for which distance exceed communication threshold are discarded)
+        self.G_communication = nx.Graph()
+        self.G_communication.add_nodes_from(nodes)
         edges_remaining = [
             (node_from, node_to, weight)
             for node_from, node_to, weight in zip(self.from_nodes, self.to_nodes, weights)
             if self.in_unit(value=weight, unit=self.unit_weight_edges)
             <= self.network_prop["communication_thrsld"] + self.network_prop["margin"]
         ]
-        # Build graph
-        self.G = nx.Graph()
-        self.G.add_nodes_from(self.nodes)
-        self.G.add_weighted_edges_from(edges_remaining, weight="weight")
-        self.logger.info(f"Initial connections are {list(self.G.edges())}")
-        return copy.deepcopy(self.G)
+        self.G_communication.add_weighted_edges_from(edges_remaining, weight="weight")
+        self.logger.info(f"Initial connections are {list(self.G_communication.edges())}")
+        return GraphObservation(
+            G_communication=copy.deepcopy(self.G_communication),
+            G_complete=copy.deepcopy(self.G_complete),
+        )
 
     def update_graph(self, platform_set: PlatformStateSet):
         # get new distance between platforms
@@ -76,20 +99,23 @@ class MultiAgent:
             for node_from, node_to, weight in zip(self.from_nodes, self.to_nodes, weights)
         ]
         # update existing edges with new weigths for this timestep (still a complete graph)
-        self.G.add_weighted_edges_from(edges_to_update, weight="weight")
+        self.G_communication.add_weighted_edges_from(edges_to_update, weight="weight")
+        self.G_complete.add_weighted_edges_from(edges_to_update, weight="weight")
+
         # check if some edges need to be removed based on the new weights
         edges_to_remove = [
             (node_from, node_to)
-            for node_from, node_to, weight in list(self.G.edges.data("weight"))
+            for node_from, node_to, weight in list(self.G_communication.edges.data("weight"))
             if self.in_unit(value=weight, unit=self.unit_weight_edges)
             > self.network_prop["communication_thrsld"] + self.network_prop["margin"]
         ]
         if (
             edges_to_remove
         ):  # filter out the edges for which the distance between nodes is above communication threshold
-            self.G.remove_edges_from(edges_to_remove)
-        return copy.deepcopy(
-            self.G
+            self.G_communication.remove_edges_from(edges_to_remove)
+        return GraphObservation(
+            G_communication=copy.deepcopy(self.G_communication),
+            G_complete=copy.deepcopy(self.G_complete),
         )  # to save to arena: so that new elements do not change previous ones
 
     @staticmethod
@@ -286,6 +312,8 @@ class MultiAgent:
             ax.set_ylabel(ylabel)
         if title is not None:
             ax.set_title(title)
+        if plot_legend:
+            ax.legend()
         return ax
 
     def plot_distance_evolution_between_neighbors(
@@ -303,7 +331,7 @@ class MultiAgent:
 
         """
         if neighbors_list_to_plot is None:
-            neighbors_list_to_plot = self.list_all_edges_connections
+            neighbors_list_to_plot = list(self.G_complete.edges)
         plt.figure(figsize=figsize)
         ax = plt.axes()
         for neighb_tup in neighbors_list_to_plot:
