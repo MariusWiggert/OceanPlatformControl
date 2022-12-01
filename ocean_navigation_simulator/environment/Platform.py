@@ -154,7 +154,7 @@ class Platform:
             .astype("float64")
             .flatten()
             if self.garbage_source
-            else 0
+            else np.array([0])
         )
 
         state_numpy = np.concatenate([f_state, garbage_state])
