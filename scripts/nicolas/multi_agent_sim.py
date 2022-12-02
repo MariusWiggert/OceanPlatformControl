@@ -116,7 +116,7 @@ planner_set = MultiAgentPlanner(
 )
 # first observation of initial states
 observation = arena.reset(platform_set=platform_set)
-action = planner_set.get_action_set(observation=observation)  # get first action to take
+action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
 
 # %% Reachability snapshot plot
 plt.clf()

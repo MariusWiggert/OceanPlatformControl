@@ -43,6 +43,19 @@ class PlatformAction:
     magnitude: float
     direction: float
 
+    #TODO: define an __add method surcharge and multiplication by constant as well
+
+    def __add__(self, other):
+        # adding two polar vectors without transforming back and forth between polar & cartesian coordinates
+        # https://math.stackexchange.com/a/1365938
+        added_mag = np.sqrt(self.magnitude^2+ other.magnitude^2 + 2*self.magnitude*other.magnitude*np.cos(other.direction-self.direction))
+        added_angle = self.direction + np.arctan2(other.magnitude*np.sin(other.direction-self.direction),
+                      self.magnitude + other.magnitude*np.cos(other.direction-self.direction))
+        return PlatformAction(magnitude=added_mag, direction=added_angle)
+
+    def scaling(self, constant):
+        return PlatformAction(magnitude=self.magnitude*constant, direction=self.direction)
+
     def __array__(self):
         return np.array([self.magnitude, self.direction])
 

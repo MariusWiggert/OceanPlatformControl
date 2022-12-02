@@ -103,7 +103,7 @@ planner_set = MultiAgentPlanner(
 )
 
 observation = arena.reset(platform_set=x_set)
-action = planner_set.get_action_set(observation=observation)
+action = planner_set.get_action_set_HJ_naive(observation=observation)
 
 # %% Reachability snapshot plot
 plt.clf()
