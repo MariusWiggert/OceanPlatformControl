@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 import xarray as xr
+from sklearn.metrics.pairwise import haversine_distances
+from tqdm import tqdm
 
 
 def coarsen(
@@ -62,17 +64,125 @@ def generate_global_bathymetry_maps(
     print("Saved global bathymetry map with lower resolution")
 
 
-# def generate_shortest_distance_maps(map: xr, elevation: float) -> xr:
+def generate_shortest_distance_maps(xarray: xr, elevation: float = 0) -> xr:
 
-#     x_range =
-#     y_range =
-#     if point is > elevation:
-#         set value to 0
-#     else:
-#         val = min( value of neighbor + distance(neighbor, me))
+    # Will be converted from dataset to dataarray
+    # 0 land, 1 water
+    xarray_land = xr.where(xarray["elevation"] > elevation, 0, 10000)
+    data = xarray_land.data
+    lat = xarray_land.coords["lat"].values
+    lon = xarray_land.coords["lon"].values
+    lat = np.deg2rad(lat)
+    lon = np.deg2rad(lon)
+    min_d_map = bfs_min_distance(data, lat, lon)
+    print("hi")
 
 
-#     pass
+def naive_min_distance(data, lat, lon):
+
+    # Create
+    distance = np.full_like(data, 10000000)
+
+    # Prepare for haversine
+    lat = np.deg2rad(lat)
+    lon = np.deg2rad(lon)
+
+    land_lat_lon_list = []
+    # Construct (n,2) shaped array of [(lat, lon), ]
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            if data[i][j] == 0:
+                land_lat_lon_list.append([lat[i], lon[j]])
+    land_lat_lon = np.array(land_lat_lon_list)
+    land_lat_lon_rad = np.deg2rad(land_lat_lon)
+
+    # O(n^4, not parallel), very naive
+    for i in tqdm(range(data.shape[0])):
+        for j in tqdm(range(data.shape[1]), leave=False):
+            # d_min = 100000000
+            # Skip land
+            if data[i][j] == 0:
+                continue
+
+            # Would take > day...
+            # for ii in range(data.shape[0]):
+            #     for jj in range(data.shape[1]):
+            #         if data[ii][jj] != 0:
+            #             continue
+            #         # Skip self
+            #         if ii == i and jj == j:
+            #             continue
+            #         d_min = min(
+            #             d_min, haversine_distances([[lat[i], lon[j]]], [[lat[ii], lon[jj]]])
+            #         )
+            d_min = np.min(haversine_distances([[lat[i], lon[j]]], land_lat_lon_rad))
+            distance[i][j] = d_min
+
+    distance *= 6371000 / 1000  # Convert to kilometers
+    # TODO: plot
+
+    # Next one: do n2 to construct land lat, lon array, then do n2 of haversine to land. Haversine will be parallel
+
+
+def bfs_min_distance(data, lat, lon, connectivity=4):
+
+    if connectivity == 4:
+        dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    elif connectivity == 8:
+        dirs = [(1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1)]
+    else:
+        raise NotImplementedError()
+
+    min_d_map = data.astype(float)
+    visited = set()
+    from collections import deque
+
+    q = deque()
+    for i in tqdm(range(data.shape[0])):
+        for j in range(data.shape[1]):
+            if min_d_map[i][j] == 0:  # land
+                q.append((i, j))
+
+    while q:
+        # First iteration will do all land, next ones will do all coastline, then all coastline + 1 field away
+        for idx in tqdm(range(len(q))):
+            pos = q.popleft()
+            i, j = pos
+            visited.add(pos)
+
+            distances = []
+            for dir in dirs:
+                i_neighbor, j_neighbor = i + dir[0], j + dir[1]
+
+                # Add not visited neighboring sea cells to deque
+                # Add distance to nearest land
+                if (
+                    i_neighbor >= 0
+                    and i_neighbor < data.shape[0]
+                    and j_neighbor >= 0
+                    and j_neighbor < data.shape[1]
+                ):
+                    # Add sea neighbors
+                    if (i_neighbor, j_neighbor) not in visited and min_d_map[i_neighbor][
+                        j_neighbor
+                    ] != 0:
+                        # TODO: check if lookup in deque reduces speed by 80%
+                        if (i_neighbor, j_neighbor) not in q:
+                            q.append((i_neighbor, j_neighbor))
+
+                    # Skip finding land if we are on land
+                    if min_d_map[i][j] == 0:
+                        continue
+                    distances.append(
+                        haversine_distances(
+                            [[lat[i], lon[j]]], [[lat[i_neighbor], lon[j_neighbor]]]
+                        )[0][0]
+                        + min_d_map[i_neighbor][j_neighbor]
+                    )
+            if min_d_map[i][j] != 0:
+                min_d_map[i][j] = min(distances)
+    min_d_map *= 6371000 / 1000  # Convert to kilometers
+    return min_d_map
 
 
 def format_spatial_resolution(xarray: xr.Dataset(), res_lat=1 / 12, res_lon=1 / 12) -> xr.Dataset():
@@ -214,14 +324,18 @@ def mpl_to_plotly(cmap: plt.cm, pl_entries: int = 11, rdigits: int = 2):
 
 if __name__ == "__main__":
     # Generate global bathymetrymap and save to disk
-    gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
-    generate_global_bathymetry_maps(gebco_global_filename)
+    # gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
+    # generate_global_bathymetry_maps(gebco_global_filename)
 
     # Test all other functions
-    # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
+    low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
     # plot_bathymetry_orthographic(low_res_loaded)
     # plot_bathymetry_2d_levels(low_res_loaded)
     # plot_bathymetry_2d(low_res_loaded)
     # Low res is still too large for 3d interactive plot
-    # very_low_res = format_spatial_resolution(low_res_loaded, res_lat=1 / 4, res_lon=1 / 4)
+    very_low_res = format_spatial_resolution(low_res_loaded, res_lat=1, res_lon=1)
     # plot_bathymetry_3d(very_low_res)
+
+    # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
+    min_d_map = generate_shortest_distance_maps(very_low_res)
+    plt.imshow(min_d_map, origin="lower")
