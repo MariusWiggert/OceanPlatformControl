@@ -81,6 +81,9 @@ def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_rang
                 elif type == "forecast":
                     output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u_forecast"].values
                     output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v_forecast"].values
+                elif type == "error":
+                    output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u_error"].values
+                    output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v_error"].values
                 else:
                     raise ValueError("Specified type does not exist!")
         if not os.path.exists(output_dir):

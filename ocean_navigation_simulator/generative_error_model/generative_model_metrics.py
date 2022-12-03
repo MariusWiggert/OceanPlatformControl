@@ -120,3 +120,18 @@ def vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v_data
                 print("Could not compute vector correlation!")
                 break
     return vector_correlation
+
+
+def temporal_smoothness(data: np.ndarray) -> float:
+    """Assumes axis=0 is time and the other two are space."""
+
+    for i in range(data.shape[0] - 1):
+        temp = np.abs(data[i + 1] - data[i]).squeeze()
+        temp[np.where(np.isnan(temp))] = 0
+        if i == 0:
+            temp_smoothness = temp
+        else:
+            temp_smoothness += temp
+
+    return temp_smoothness.sum()/((data.shape[0]-1)*np.prod(temp_smoothness.shape))
+    # return (temp_smoothness / (data.shape[0] - 1)).mean()
