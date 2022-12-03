@@ -25,8 +25,23 @@ target_region:
 multi_agent_param:
   network_graph_dict:
     unit: "km"
-    communication_thrsld: 9
+    communication_thrsld: &comm 9
     margin: 1
     collision_thrsld: 1
+
+  hj_naive:
+    unit: "km"
+    communication_thrsld: *comm
+
+  reactive_control: 
+    type: "reactive_control"
+    unit: "m"
+    delta_3: 8000
+    delta_2: 2000
+    delta_1: 200
+    communication_thrsld: 9000
+    k_1: 0.33
+    k_2: 1
+
 
   initial_connections: Null

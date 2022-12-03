@@ -110,13 +110,19 @@ specific_settings = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     "platform_dict": arena.platform.platform_dict,
 }
-multi_agent_settings = {"planner": "hj_planner"}
+# multi_agent_planner_settings = {"planner": "hj_planner"
+#                         "": {"communication_thrld": multi_ag_config["multi_agent_param"]
+
+#                         }}
 planner_set = MultiAgentPlanner(
-    problem=problem, multi_agent_settings=multi_agent_settings, specific_settings=specific_settings
+    problem=problem,
+    multi_agent_settings=multi_ag_config["multi_agent_param"],
+    specific_settings=specific_settings,
 )
 # first observation of initial states
 observation = arena.reset(platform_set=platform_set)
-action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
+# action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
+action = planner_set.get_action_HJ_decentralized_reactive_control(observation=observation)
 
 # %% Reachability snapshot plot
 plt.clf()
@@ -135,7 +141,7 @@ plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 1 day
-    action = planner_set.get_action_set(observation=observation)
+    action = planner_set.get_action_HJ_decentralized_reactive_control(observation=observation)
     observation = arena.step(action)
 
 
