@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import xarray as xr
 from sklearn.metrics.pairwise import haversine_distances
 from tqdm import tqdm
+from collections import deque
 
 
 def coarsen(
@@ -75,7 +76,7 @@ def generate_shortest_distance_maps(xarray: xr, elevation: float = 0) -> xr:
     lat = np.deg2rad(lat)
     lon = np.deg2rad(lon)
     min_d_map = bfs_min_distance(data, lat, lon)
-    print("hi")
+    return min_d_map
 
 
 def naive_min_distance(data, lat, lon):
@@ -119,12 +120,54 @@ def naive_min_distance(data, lat, lon):
             distance[i][j] = d_min
 
     distance *= 6371000 / 1000  # Convert to kilometers
-    # TODO: plot
-
     # Next one: do n2 to construct land lat, lon array, then do n2 of haversine to land. Haversine will be parallel
 
 
-def bfs_min_distance(data, lat, lon, connectivity=4):
+class Buffer:
+    """Deque buffer with fast insert, popleft, remove and lookup.
+    Deque has very slow lookup (elem in deque) that gets slower with more elements.
+    """
+
+    def __init__(self):
+        self.queue = deque()
+        self.value_set = set()
+
+    def append(self, value):
+        if self.contains(value):
+            return
+        self.queue.append(value)
+        self.value_set.add(value)
+
+    def contains(self, value):
+        return value in self.value_set
+
+    def popleft(self):
+        value = self.queue.popleft()
+        self.value_set.remove(value)
+        return value
+
+    def __len__(self):
+        return len(self.value_set)
+
+
+def bfs_min_distance(data: np.ndarray, lat: np.ndarray, lon: np.ndarray, connectivity: int = 4):
+    """Breadth first search of minimum ditance to land. Uses geodetic distance.
+    --> Not optimal, as the nonuniform distance steps can lead to a large difference of neighboring cells
+    that are reached at the same step, but because they were visited from different directions,
+    their values may differ by a very large margin (2k vs. 2.9k km,).
+
+    Args:
+        data (np.ndarray): Elevation in km, nxm
+        lat (np.ndarray): Latitude, n
+        lon (np.ndarray): Longitude, m
+        connectivity (int, optional): 4-connectivity: lool up neighboring cells, 8 connectivity look up diagonal neighbors as well. Defaults to 4.
+
+    Raises:
+        NotImplementedError: Only 4 and 8 connectivity implemented.
+
+    Returns:
+        np.ndarray: Distance in km to closest land.
+    """
 
     if connectivity == 4:
         dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
@@ -135,9 +178,8 @@ def bfs_min_distance(data, lat, lon, connectivity=4):
 
     min_d_map = data.astype(float)
     visited = set()
-    from collections import deque
 
-    q = deque()
+    q = Buffer()
     for i in tqdm(range(data.shape[0])):
         for j in range(data.shape[1]):
             if min_d_map[i][j] == 0:  # land
@@ -167,7 +209,7 @@ def bfs_min_distance(data, lat, lon, connectivity=4):
                         j_neighbor
                     ] != 0:
                         # TODO: check if lookup in deque reduces speed by 80%
-                        if (i_neighbor, j_neighbor) not in q:
+                        if not q.contains((i_neighbor, j_neighbor)):
                             q.append((i_neighbor, j_neighbor))
 
                     # Skip finding land if we are on land
@@ -337,5 +379,6 @@ if __name__ == "__main__":
     # plot_bathymetry_3d(very_low_res)
 
     # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    min_d_map = generate_shortest_distance_maps(very_low_res)
+    min_d_map = generate_shortest_distance_maps(low_res_loaded)
     plt.imshow(min_d_map, origin="lower")
+    plt.show()
