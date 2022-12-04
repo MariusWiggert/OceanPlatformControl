@@ -147,12 +147,13 @@ class MultiAgentPlanner(HJReach2DPlanner):
         )
         for k in range(len(observation)):
             hj_navigation = super().get_action(observation[k])
+            #hj_navigation = PlatformAction(magnitude=0, direction=0)
             reactive_action = reactive_control.get_reactive_control(k, hj_navigation)
             action_list.append(self.to_platform_action_bounds(reactive_action))
         return PlatformActionSet(action_list)
 
     def to_platform_action_bounds(self, action: PlatformAction):
-        action.direction = action.direction % np.pi
+        action.direction = action.direction % (2*np.pi)
         if action.magnitude > 1:  # more than 100% of umax
             action.magnitude = 1
         return action

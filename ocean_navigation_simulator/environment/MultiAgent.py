@@ -29,7 +29,7 @@ from ocean_navigation_simulator.utils.plotting_utils import (
     idx_state,
 )
 import dataclasses
-
+from scipy.integrate import simpson
 
 @dataclasses.dataclass
 class GraphObservation:
@@ -92,7 +92,7 @@ class MultiAgent:
             (node_from, node_to, weight)
             for node_from, node_to, weight in zip(self.from_nodes, self.to_nodes, weights)
             if self.in_unit(value=weight, unit=self.unit_weight_edges)
-            <= self.network_prop["communication_thrsld"] + self.network_prop["margin"]
+            <= self.network_prop["communication_thrsld"]
         ]
         self.G_communication.add_weighted_edges_from(edges_remaining, weight="weight")
         self.logger.info(f"Initial connections are {list(self.G_communication.edges())}")
@@ -119,7 +119,7 @@ class MultiAgent:
             (node_from, node_to)
             for node_from, node_to, weight in list(self.G_communication.edges.data("weight"))
             if self.in_unit(value=weight, unit=self.unit_weight_edges)
-            > self.network_prop["communication_thrsld"] + self.network_prop["margin"]
+            > self.network_prop["communication_thrsld"]
         ]
         if (
             edges_to_remove
@@ -149,6 +149,29 @@ class MultiAgent:
     @staticmethod
     def get_integer_yticks(y_data):
         return range(min(y_data), math.ceil(max(y_data)) + 1)
+
+
+    @staticmethod
+    def LOG_insert(file, format, text, level):
+        #https://stackoverflow.com/a/62824910
+        infoLog = logging.FileHandler(file)
+        infoLog.setFormatter(format)
+        logger = logging.getLogger(file)
+        logger.setLevel(level)
+        
+        if not logger.handlers:
+            logger.addHandler(infoLog)
+            if (level == logging.INFO):
+                logger.info(text)
+            if (level == logging.ERROR):
+                logger.error(text)
+            if (level == logging.WARNING):
+                logger.warning(text)
+        
+        infoLog.close()
+        logger.removeHandler(infoLog)
+        
+        return
 
     def plot_network_graph(
         self,
@@ -187,7 +210,7 @@ class MultiAgent:
         if collision_communication_thrslds is None:
             collision_thrsld, communication_thrsld = (
                 self.network_prop["collision_thrsld"],
-                self.network_prop["communication_thrsld"],
+                self.network_prop["communication_thrsld"]-self.network_prop["plot_margin"],
             )
         else:
             collision_thrsld, communication_thrsld = collision_communication_thrslds
@@ -359,7 +382,7 @@ class MultiAgent:
             ax.plot(dates[::stride_temporal_res], dist_list, "--x", label=f"Pair {neighb_tup}")
         if plot_threshold:
             ax.axhline(
-                y=self.network_prop["communication_thrsld"] + self.network_prop["margin"],
+                y=self.network_prop["communication_thrsld"],
                 xmin=0,
                 xmax=1,
                 c="red",
@@ -517,3 +540,19 @@ class MultiAgent:
             plot_legend=False,
         )
         return ax
+
+    def log_metrics(self,
+        list_of_graph: List[nx.Graph],
+        dates: List[dt.datetime],
+        logfile: str = 'logmetrics.log', 
+        formatLog: Optional[logging.Formatter] = logging.Formatter('%(levelname)s %(message)s')):
+        
+        isolated_nodes = list(
+            map(
+                lambda G: int(len(list(nx.isolates(G)))),
+                list_of_graph,
+            )
+        )
+        integrated_communication = simpson(isolated_nodes, dates)
+        self.LOG_insert(logfile, formatLog, f"Integral metric of isolated platforms = {integrated_communication}",
+                logging.INFO)

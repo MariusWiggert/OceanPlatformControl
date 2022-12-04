@@ -1,0 +1,46 @@
+# scenario west of the californian coast to test reactive control
+
+data_source_config: "cal_coast_Copernicus_hindcast_local"
+
+folder_to_save: "scenario_reactive_no_hj_6days"
+
+days_sim: 6
+
+platforms_start:
+  nb_platforms: 4
+  lon: [-128.5, -128.25, -128, -127.75]
+  lat: [32.75, 32.75, 32.75, 32.75]
+  year: 2022
+  month: 10
+  day: 02
+  hours: 12
+  minutes: 0
+
+target_region:
+  lon: -128
+  lat: 33
+  radius: 0.12
+  timeout_days: 2
+
+multi_agent_param:
+  network_graph_dict:
+    unit: "km"
+    communication_thrsld: &comm 9
+    margin: 1
+    collision_thrsld: 1
+
+    hj_naive:
+    unit: "km"
+    communication_thrsld: *comm
+
+  reactive_control: 
+    type: "reactive_control"
+    unit: "m"
+    delta_3: 8000
+    delta_2: 2000
+    delta_1: 200
+    communication_thrsld: 9000
+    k_1: 0.33
+    k_2: 1
+
+  initial_connections: Null

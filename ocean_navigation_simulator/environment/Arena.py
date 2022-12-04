@@ -808,53 +808,6 @@ class Arena:
             **kwargs,
         )
 
-    # def plot_graph_isolated_platforms(
-    #     self,
-    #     ax: Optional[plt.axes] = None,
-    #     figsize: Optional[Tuple[int]] = (8, 6),
-    #     temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-    #     xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
-    # ):
-    #     stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
-    #         temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
-    #     )
-    #     if ax is None:
-    #         plt.figure(figsize=figsize)
-    #         ax = plt.axes()
-
-    #     dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
-    #     ax = self.multi_agent_net.plot_isolated_vertices(
-    #         ax=ax,
-    #         list_of_graph=self.multi_agent_G_list,
-    #         dates=dates,
-    #         stride_temporal_res=stride_temporal_res,
-    #         stride_xticks=stride_xticks,
-    #     )
-    #     return ax
-
-    # def plot_platform_nb_collisions(
-    #     self,
-    #     ax: Optional[plt.axes] = None,
-    #     figsize: Optional[Tuple[int]] = (8, 6),
-    #     temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-    #     xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
-    # ):
-    #     stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
-    #         temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
-    #     )
-    #     if ax is None:
-    #         plt.figure(figsize=figsize)
-    #         ax = plt.axes()
-    #     dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
-    #     self.multi_agent_net.plot_collision_nb_over_time(
-    #         ax=ax,
-    #         list_of_graph=self.multi_agent_G_list,
-    #         dates=dates,
-    #         stride_temporal_res=stride_temporal_res,
-    #         stride_xticks=stride_xticks,
-    #     )
-    #     return ax
-
     def plot_network_graph_properties(
         self,
         func_used: Callable,
@@ -879,27 +832,6 @@ class Arena:
         )
         return ax
 
-    # def plot_network_connected_components(
-    #     self,
-    #     ax: Optional[plt.axes] = None,
-    #     figsize: Optional[Tuple[int]] = (8, 6),
-    #     temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-    #     xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
-    # ):
-    #     stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
-    #         temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
-    #     )
-    #     if ax is None:
-    #         plt.figure(figsize=figsize)
-    #         ax = plt.axes()
-    #     dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
-    #     self.multi_agent_net.plot_graph_nb_connected_components(
-    #         ax=ax,
-    #         list_of_graph=self.multi_agent_G_list,
-    #         dates=dates,
-    #         stride_temporal_res=stride_temporal_res,
-    #         stride_xticks=stride_xticks,
-    #     )
 
     def plot_all_network_analysis(
         self,
@@ -939,3 +871,7 @@ class Arena:
             xticks_temporal_res=xticks_temporal_res,
         )
         return fig
+
+    def save_metrics_to_log(self, filename: str):
+        self.multi_agent_net.log_metrics(list_of_graph=self.multi_agent_G_list,
+            dates=self.state_trajectory[0, 2, ::1], logfile=filename)

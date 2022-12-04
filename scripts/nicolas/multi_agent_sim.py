@@ -35,6 +35,9 @@ if not os.path.isdir(folder_save_results):
 platf_init_dict = multi_ag_config["platforms_start"]
 target_dict = multi_ag_config["target_region"]
 
+# save yaml to result folder
+with open(f"{folder_save_results}/config.yaml", 'w') as fp:
+    yaml.dump(multi_ag_config, fp)
 #%% Initialize the Arena, target region and the platform states
 arena = ArenaFactory.create(
     scenario_name=multi_ag_config["data_source_config"],
@@ -122,25 +125,24 @@ planner_set = MultiAgentPlanner(
 # first observation of initial states
 observation = arena.reset(platform_set=platform_set)
 # action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
-action = planner_set.get_action_HJ_decentralized_reactive_control(observation=observation)
 
-# %% Reachability snapshot plot
-plt.clf()
-planner_set.plot_reachability_snapshot(
-    rel_time_in_seconds=0,
-    granularity_in_h=5,
-    alpha_color=1,
-    time_to_reach=True,
-    fig_size_inches=(12, 12),
-    plot_in_h=True,
-    return_ax=True,
-)
-plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
+# # %% Reachability snapshot plot
+# plt.clf()
+# planner_set.plot_reachability_snapshot(
+#     rel_time_in_seconds=0,
+#     granularity_in_h=5,
+#     alpha_color=1,
+#     time_to_reach=True,
+#     fig_size_inches=(12, 12),
+#     plot_in_h=True,
+#     return_ax=True,
+# )
+# plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
 
 # %% Simulate a trajectory:
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
-for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  # 1 day
+for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
     action = planner_set.get_action_HJ_decentralized_reactive_control(observation=observation)
     observation = arena.step(action)
 
@@ -151,6 +153,7 @@ arena.animate_trajectory(
     problem=problem,
     temporal_resolution=7200,
     output=f"{folder_save_results}/trajectory_anim.mp4",
+    fps=6
 )
 
 arena.animate_graph_net_trajectory(
@@ -158,6 +161,7 @@ arena.animate_graph_net_trajectory(
     # collision_communication_thrslds=(10, 50), (not specified take defaut one)
     plot_ax_ticks=True,
     output=f"{folder_save_results}/network_graph_anim.mp4",
+    fps=5
 )
 # %% Plot useful metrics for multi-agent performance evaluation
 fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks
@@ -165,3 +169,4 @@ plt.savefig(f"{folder_save_results}/graph_properties.png")
 plt.clf()
 arena.plot_distance_evolution_between_platforms()
 plt.savefig(f"{folder_save_results}/distanceEvolution.png")
+arena.save_metrics_to_log(filename=f"{folder_save_results}/metrics.log")
