@@ -16,6 +16,7 @@ import wandb
 from ray.rllib import BaseEnv, Policy, RolloutWorker
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation import Episode
+from ray.rllib.policy.sample_batch import SampleBatch
 from torchinfo import torchinfo
 
 from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import (
@@ -114,6 +115,30 @@ class TrainingRunner:
                 for k, v in reduce_dict(info).items():
                     episode.custom_metrics["hist_stats/" + k] = v
 
+            def on_learn_on_batch(
+                    self, *, policy: Policy, train_batch: SampleBatch, result: dict, **kwargs
+            ) -> None:
+                """Called at the beginning of Policy.learn_on_batch().
+
+                Note: This is called before 0-padding via
+                `pad_batch_to_sequences_of_same_size`.
+
+                Also note, SampleBatch.INFOS column will not be available on
+                train_batch within this callback if framework is tf1, due to
+                the fact that tf1 static graph would mistake it as part of the
+                input dict if present.
+                It is available though, for tf2 and torch frameworks.
+
+                Args:
+                    policy: Reference to the current Policy object.
+                    train_batch: SampleBatch to be trained on. You can
+                        mutate this object to modify the samples generated.
+                    result: A results dict to add custom metrics to.
+                    kwargs: Forward compatibility placeholder.
+                """
+                train_batch.zero_padded = True
+
+
             def on_train_result(
                 self,
                 *,
@@ -181,17 +206,24 @@ class TrainingRunner:
         wandb.run.summary.update(reduce_dict({"Model Variables": model_variables}))
 
         # Model Informations
-        if isinstance(self.model.obs_space, gym.spaces.Dict):
-            self.dummy_input = {
-                k: torch.randn((32,) + o.shape).cuda() for k, o in self.model.obs_space.items()
-            }
-        else:
-            shape = self.model.obs_space.shape
-            self.dummy_input = torch.randn((32,) + shape)
+        BATCH_SIZE = 32
+        self.dummy_input = {
+            "input_dict": {
+                "obs": {
+                    k: torch.randn((BATCH_SIZE,) + o.shape).cuda()
+                    for k, o in self.model.obs_space.items()
+                }
+            },
+            "state": [],
+            "seq_lens": [1] * BATCH_SIZE,
+        }
 
         # Export Model
         epoch = 0
-        self.export_model(epoch)
+        cluster_utils.ensure_storage_connection()
+        folder = f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/"
+        os.makedirs(folder, exist_ok=True)
+        # self.export_model(epoch)
 
         # Model Summary
         model_info = torchinfo.summary(
@@ -208,11 +240,7 @@ class TrainingRunner:
             f.write(model_info)
 
     def export_model(self, epoch):
-        cluster_utils.ensure_storage_connection()
         folder = f"{self.config['folders']['checkpoints']}checkpoint_{epoch:06d}/"
-
-        os.makedirs(folder, exist_ok=True)
-
         torch.save(self.model, folder + "model.pt")
         torch.onnx.export(
             self.model,
@@ -364,6 +392,7 @@ class TrainingRunner:
         delete: Optional[bool] = False,
         ignore_most_recent: Optional[int] = 5,
         verbose: Optional[int] = 0,
+        ignore_errors: Optional[bool] = True,
     ):
         """
         Ray clogs up the ~/ray_results directory by creating folders for every training start, even when
@@ -382,7 +411,7 @@ class TrainingRunner:
                 num_checkpoints = len(os.listdir(checkpoints))
                 if num_checkpoints < iteration_limit:
                     if delete:
-                        shutil.rmtree(experiment, ignore_errors=True)
+                        shutil.rmtree(experiment, ignore_errors=ignore_errors)
                     if verbose > 0:
                         print(
                             bcolors.orange(
@@ -398,7 +427,7 @@ class TrainingRunner:
                         )
             else:
                 if delete:
-                    shutil.rmtree(experiment, ignore_errors=True)
+                    shutil.rmtree(experiment, ignore_errors=ignore_errors)
                 if verbose > 0:
                     print(
                         bcolors.red(

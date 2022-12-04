@@ -253,27 +253,56 @@ class OceanFeatureConstructor:
                 variables.remove("dir")
                 variables = ["error_u", "error_v"] + variables
 
-            gp_map = (
-                self.observer.get_data_over_area(
-                    x_interval=x_interval,
-                    y_interval=y_interval,
-                    t_interval=[t_interval[0], t_interval[-1]],
-                    throw_exceptions=False,
+            if "xy_width_degree" in config and "xy_width_points" in config:
+                # Observer: var (0), t (1), x (2), y (3)
+                gp_map = (
+                    self.observer.get_data_over_area(
+                        x_interval=x_interval,
+                        y_interval=y_interval,
+                        t_interval=[t_interval[0], t_interval[-1]],
+                        throw_exceptions=False,
+                    )
+                    .interp(
+                        time=[np.datetime64(t.replace(tzinfo=None)) for t in t_interval],
+                        lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
+                        lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
+                        method="linear",
+                        kwargs={
+                            "fill_value": "extrapolate",
+                        },
+                    )[variables]
+                    .to_array()
+                    .to_numpy()
                 )
-                .interp(
-                    time=[np.datetime64(t.replace(tzinfo=None)) for t in t_interval],
-                    lon=np.linspace(x_interval[0], x_interval[1], config["xy_width_points"]),
-                    lat=np.linspace(y_interval[0], y_interval[1], config["xy_width_points"]),
-                    method="linear",
-                    kwargs={
-                        "fill_value": "extrapolate",
-                    },
-                )[variables]
-                .to_array()
-                .to_numpy()
-            )
-            # Observer: var (0), t (1), x (2), y (3)
-
+            else:
+                point = obs.platform_state.to_spatio_temporal_point()
+                gp_points = []
+                for i in range(len(config["embedding_n"])):
+                    for angle in np.linspace(0, 2 * np.pi, config["embedding_n"][i], endpoint=False):
+                        out_x = point.lon.deg + np.sin(angle) * config["embedding_radius"][i]
+                        out_y = point.lat.deg + np.cos(angle) * config["embedding_radius"][i]
+                        gp_points.append(
+                            self.observer.get_data_over_area(
+                                x_interval=out_x,
+                                y_interval=out_y,
+                                t_interval=[t_interval[0], t_interval[-1]],
+                                throw_exceptions=False,
+                            )
+                            .interp(
+                                time=[np.datetime64(t.replace(tzinfo=None)) for t in t_interval],
+                                lon=out_x,
+                                lat=out_y,
+                                method="linear",
+                                kwargs={
+                                    "fill_value": "extrapolate",
+                                },
+                            )[variables]
+                            .to_array()
+                            .to_numpy()
+                            .reshape((len(variables),len(t_interval),-1))
+                        )
+                # Observer: var (0), t (1), xy (2)
+                gp_map = np.concatenate(gp_points, axis=-1)
             if (
                 "mag" in config["features"]["observer_variables"]
                 and "dir" in config["features"]["observer_variables"]

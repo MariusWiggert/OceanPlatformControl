@@ -48,8 +48,8 @@ config = {
         "filter": {
             "no_random": True,
             # "starts_per_target": 1,
-            "start": 70204,
-            "limit": 2000,
+            "start": 70000,
+            "limit": 10000,
         },
         "seed": None,
     },
@@ -70,8 +70,8 @@ config = {
     },
 }
 
-for experiment in ["grouped_cnn second_fc_2022_11_20_03_54_18"]:
-    for checkpoint in [250, 200]:
+for experiment in ["dense cql_2022_11_28_10_17_23"]:
+    for checkpoint in [60, 100, 450, 650]:
         config["controller"]["checkpoint"] = checkpoint
         config["controller"]["experiment"] = (
             "/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/"

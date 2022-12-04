@@ -14,22 +14,25 @@ algorithm:
     framework: 'torch'
     ##### DQN #####
     n_step: 1
-    num_atoms: 10
-    v_min: 2
-    v_max: 2
-    categorical_distribution_temperature: 1.0
+    num_atoms: 1
+#    v_min: -100
+#    v_max: 100
+#    categorical_distribution_temperature: 1.0
     noisy: False
     dueling: True
     double_q: True
     ##### Model #####
+    cql:
+        use: True
+        alpha: 1.0
+        temperature: 1.0
+        min_q_weight: 5.0
+        lagrangian: False
+        lagrangian_thresh: 5.0
     model:
+#        max_seq_len: 1
         custom_model: 'OceanTorchModel'
         custom_model_config:
-            cql:
-                use: False
-                alpha: 1.0
-                temperature: 1.0
-
             map:
                 normalize: False
 
@@ -83,12 +86,10 @@ algorithm:
                 dropouts: [0, 0, 0]
 
             lstm:
-                use: False
-                max_seq_len: 20
-                cell_size: 256
+                hidden_size: 128
+                num_layers: 0
                 use_prev_action: False
                 use_prev_reward: False
-                time_major: False
 
             dueling_heads:
                 residual: False
@@ -120,9 +121,9 @@ algorithm:
 
 #    gamma: 0.95 # Loon: 0.93
 
-    min_sample_timesteps_per_iteration: 100 # 300 steps / epoch * 200 machines = 60000
+    min_sample_timesteps_per_iteration: 100000 # 300 steps / epoch * 200 machines = 60000
     target_network_update_freq: 100000
-    num_steps_sampled_before_learning_starts: 0
+    num_steps_sampled_before_learning_starts: 100000
 
 #    min_sample_timesteps_per_iteration: 100000 # 300 steps / epoch * 200 machines = 60000
 #    target_network_update_freq: 100000
@@ -147,7 +148,7 @@ algorithm:
         env_config:
             evaluation: True
     ##### Workers #####
-    num_gpus: 0
+    num_gpus: 1
     num_workers: 102
     num_cpus_per_worker: 0.5
     num_gpus_per_worker: 0
@@ -187,19 +188,25 @@ feature_constructor:
     flatten: False
     measurements: False
     local_map:
-        embedding_n: [1, 8, 16]
-        embedding_radius: [0, 0.05, 0.1]
-        hours: [0] # offsets in h
+#        embedding_n: [1, 8, 16]
+#        embedding_radius: [0, 0.05, 0.1]
+#        hours: [0] # offsets in h
+
 #        xy_width_degree: 0.5
 #        xy_width_points: 12
 #        hours: [0, 4, 8]  # offsets in h
+
+        xy_width_degree: 0.2
+        xy_width_points: 5
+        hours: [0]  # offsets in h
+
         flatten: False
         features:
             ttr_forecast: True
             ttr_hindcast: False
             # list from: 'mag', 'dir', 'error_u', 'error_v', 'std_error_u', 'std_error_v', 'initial_forecast_u', 'initial_forecast_v', 'water_u', 'water_v'
-#            observer_variables: ['error_u', 'error_v']
-            observer_variables: []
+            observer_variables: ['error_u', 'error_v']
+#            observer_variables: []
             currents_hindcast: False
             currents_forecast: False
             true_error: False

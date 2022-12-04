@@ -56,9 +56,7 @@ baseline = {
 }
 
 for name, csv_file in baseline.items():
-    df_eval = pd.read_csv(
-        csv_file, index_col=0
-    )
+    df_eval = pd.read_csv(csv_file, index_col=0)
     df_missions = pd.read_csv(
         "/seaweed-storage/generation/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/divers_training_improved_2022_10_23_05_10_12/problems.csv",
         index_col=0,
@@ -71,7 +69,7 @@ for name, csv_file in baseline.items():
         suffixes=(None, "right"),
     )
     EvaluationRunner.plot_mission_time_and_success(
-        df, name, os.path.dirname(csv_file) + '/mission_time_success.png'
+        df, name, os.path.dirname(csv_file) + "/mission_time_success.png"
     )
 #
 # EvaluationRunner.print_results('/seaweed-storage/experiments/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast/half_hour_steps_2022_10_31_19_23_21/evaluation_2022_11_01_17_15_45.csv')

@@ -92,7 +92,7 @@ class EvaluationRunner:
         csv_file = results_folder + f"eval_{name}_{len(problems)}m_{time_string}.csv"
         results_df.to_csv(csv_file)
 
-        print(results_folder)
+        print(csv_file)
         self.print_results(csv_file)
 
         # Step 3: Weights & Biases
@@ -160,11 +160,11 @@ class EvaluationRunner:
             print(f"Success Std: {df['success'].std():.2%}")
             print(f"Running_time: {df['running_time'].mean()} h")
 
-            # folder = os.path.dirname(csv_file)
-            # with open(folder + "/evaluation.txt", "at") as f:
-            #     f.write(
-            #         f"File: {csv_file}, Indexes: [Min: {min(indexes)}, Max: {max(indexes)}, Length: {len(indexes)}]\n"
-            #     )
+            folder = os.path.dirname(csv_file)
+            with open(folder + "/evaluation.txt", "at") as f:
+                f.write(
+                    f"File: {csv_file}, Success Mean: {df['success'].mean():.2%}, Success Std: {df['success'].std():.2%}, Running_time: {df['running_time'].mean()} h\n"
+                )
 
     @staticmethod
     @ray.remote(max_calls=1)
@@ -340,7 +340,7 @@ class EvaluationRunner:
         plt.show()
 
     @staticmethod
-    def plot_mission_time_and_success(df, name = '', file = None):
+    def plot_mission_time_and_success(df, name="", file=None):
         if "random" in df:
             df = df[~df["random"]]
 

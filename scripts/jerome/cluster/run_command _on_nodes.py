@@ -69,7 +69,8 @@ script_start_time = time.time()
 # )
 
 cluster_utils.run_command_on_all_nodes(
-    'pip install --upgrade pip; pip uninstall ray -y; pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/7d6b43b77047b25e79a062246d1bc07cef3e09be/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"',
+    # 'pip install --upgrade pip; pip uninstall ray -y; pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/7d6b43b77047b25e79a062246d1bc07cef3e09be/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"',
+    'pip install --upgrade pip; pip uninstall ray -y; pip install -U "ray[default,rllib] @ https://s3-us-west-2.amazonaws.com/ray-wheels/master/55e22e4e31e8eb86db9d9b1c3418179ff6d782b1/ray-3.0.0.dev0-cp39-cp39-manylinux2014_x86_64.whl"',
     resource_group=["jerome-cluster"],
 )
 #'jerome-cluster', 'jerome-cluster-2',

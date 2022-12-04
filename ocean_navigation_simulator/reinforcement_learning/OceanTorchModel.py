@@ -1,13 +1,18 @@
 import logging
-from typing import Optional
+from typing import Optional, Dict, List, Union, Any
 
 import gym
 import numpy as np
 import torch
+from ray.rllib import SampleBatch
+from ray.rllib.models.jax.misc import SlimFC
 from ray.rllib.models.torch.misc import normc_initializer
+from ray.rllib.models.torch.recurrent_net import RecurrentNetwork
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models.utils import get_activation_fn
-from ray.rllib.utils.typing import ModelConfigDict, TensorType
+from ray.rllib.policy.rnn_sequencing import add_time_dimension
+from ray.rllib.policy.view_requirement import ViewRequirement
+from ray.rllib.utils.typing import ModelConfigDict, TensorType, ModelInputDict
 from torch import nn
 
 # Documentation:
@@ -56,6 +61,7 @@ class OceanCNN(nn.Module):
             nn.init.xavier_uniform_(conv.weight)
             nn.init.constant_(conv.bias, 0)
             layers.append(conv)
+
             layers.append(nn.ReLU())
             if dropouts[i] > 0:
                 layers.append(nn.Dropout2d(p=dropouts[i]))
@@ -104,14 +110,15 @@ class OceanDenseNet(nn.Module):
             else:
                 raise ValueError(f"Initializer {initializers[i]} not valid.")
 
-            linear = nn.Linear(
+            self.linear = nn.Linear(
                 in_features=int(np.product(input_shape)) if i == 0 else units[i - 1],
                 out_features=units[i],
                 bias=True,
             )
-            initializer(linear.weight)
-            nn.init.constant_(linear.bias, 0.0)
-            layers.append(linear)
+            initializer(self.linear.weight)
+            nn.init.constant_(self.linear.bias, 0.0)
+
+            layers.append(self.linear)
 
             activation_fn = get_activation_fn(activations[i], "torch")
             if activation_fn is not None:
@@ -121,9 +128,8 @@ class OceanDenseNet(nn.Module):
                 layers.append(nn.Dropout(p=dropouts[i]))
 
             if residual and i == len(units) - 1:
-                linear = list(layers[-1].modules())[2]
                 with torch.no_grad():
-                    linear.bias.data[0] = torch.tensor([1])
+                    self.linear.bias.data[0] = torch.tensor([1])
 
         self._model = nn.Sequential(*layers)
 
@@ -131,7 +137,7 @@ class OceanDenseNet(nn.Module):
         return self._model(x)
 
 
-class OceanTorchModel(TorchModelV2, nn.Module):
+class OceanTorchModel(RecurrentNetwork, nn.Module):
     """flexible Torch model used by RL. It is customizable with the configuration"""
 
     def __init__(
@@ -141,17 +147,14 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         num_outputs: int,
         model_config: ModelConfigDict,
         name: str,
-
         map: dict,
         meta: dict,
         joined: dict,
-        lstm: dict,
         dueling_heads: dict,
-
         num_atoms: int = 1,
         v_min: float = -10.0,
         v_max: float = 10.0,
-
+        lstm: dict = False,
         **kwargs,
     ):
         nn.Module.__init__(self)
@@ -250,10 +253,31 @@ class OceanTorchModel(TorchModelV2, nn.Module):
             self.joined_out_shape = self.joined_in_shape
 
         # LSTM
+        if self.lstm_config and self.lstm_config.get("num_layers", 0) > 0:
+            self.lstm_in_shape = self.joined_out_shape
+            if self.lstm_config.get("use_prev_action", False):
+                self.view_requirements[SampleBatch.PREV_ACTIONS] = ViewRequirement(
+                    SampleBatch.ACTIONS, space=self.action_space, shift=-1
+                )
+                self.lstm_in_shape += action_space.n * self.num_atoms
+            if self.lstm_config.get("use_prev_reward", False):
+                self.view_requirements[SampleBatch.PREV_REWARDS] = ViewRequirement(
+                    SampleBatch.REWARDS, shift=-1
+                )
+                self.lstm_in_shape += 1
+            self.lstm_out_shape = self.lstm_config.get("hidden_size", 256)
+            self.lstm_model = nn.LSTM(
+                input_size=self.lstm_in_shape,
+                hidden_size=self.lstm_out_shape,
+                num_layers=self.lstm_config.get("num_layers", 1),
+                batch_first=True,
+            )
+        else:
+            self.lstm_out_shape = self.joined_out_shape
 
         # Dueling Heads
-        self.dueling_in_shape = self.joined_out_shape
-        self.advantage_out_shape = action_space.n * self.num_atoms
+        self.dueling_in_shape = self.lstm_out_shape
+        self.advantage_out_shape = self.action_space.n * self.num_atoms
         self.advantage_head = OceanDenseNet(
             name="Advantage Head",
             input_shape=self.dueling_in_shape,
@@ -262,7 +286,8 @@ class OceanTorchModel(TorchModelV2, nn.Module):
             initializers=self.dueling_heads_config["initializers"],
             residual=self.dueling_heads_config["residual"],
             dropouts=self.dueling_heads_config.get(
-                "dropouts", [0] * len(self.dueling_heads_config["units"] + [self.advantage_out_shape])
+                "dropouts",
+                [0] * len(self.dueling_heads_config["units"] + [self.advantage_out_shape]),
             ),
         )
         self.state_out_shape = self.num_atoms
@@ -277,7 +302,35 @@ class OceanTorchModel(TorchModelV2, nn.Module):
             ),
         )
 
-    def forward(self, local_map: TensorType = None, meta: TensorType = None):
+    def get_initial_state(self) -> Union[List[np.ndarray], List[TensorType]]:
+        if self.lstm_config and self.lstm_config.get("num_layers", 0) > 0:
+            # return [
+            #     torch.zeros(
+            #         # (self.model_config['max_seq_len'], self.lstm_config.get("hidden_size", 256)),
+            #         self.lstm_config.get("hidden_size", 256),
+            #         device=next(self.lstm_model.parameters()).device,
+            #     ),
+            #     torch.zeros(
+            #         self.lstm_config.get("hidden_size", 256),
+            #         device=next(self.lstm_model.parameters()).device,
+            #     ),
+            # ]
+            return [
+                self.joined_model.linear.weight.new(1, self.lstm_config.get("hidden_size", 256)).zero_().squeeze(0),
+                self.joined_model.linear.weight.new(1, self.lstm_config.get("hidden_size", 256)).zero_().squeeze(0),
+            ]
+        else:
+            return []
+
+    def forward(
+        self,
+        input_dict: Dict[str, TensorType],
+        state: List[TensorType],
+        seq_lens: TensorType,
+    ) -> (TensorType, List[TensorType]):
+        local_map = input_dict["obs"].get("local_map", None)
+        meta = input_dict["obs"].get("meta", None)
+
         # Map Network
         if self.map_config["normalize"]:
             # batch, time*var, x, y
@@ -313,7 +366,6 @@ class OceanTorchModel(TorchModelV2, nn.Module):
                 joined_in = torch.concat((map_out, meta_out), 1)
             else:
                 joined_in = map_out
-
         else:
             joined_in = meta_out
 
@@ -324,7 +376,39 @@ class OceanTorchModel(TorchModelV2, nn.Module):
             joined_out = joined_in
 
         # LSTM
-        lstm_out = joined_out
+        if self.lstm_config and self.lstm_config.get("num_layers", 0) > 0:
+            prev_a_r = []
+            if self.lstm_config.get("use_prev_action", False):
+                prev_a_r.append(
+                    torch.reshape(
+                        input_dict[SampleBatch.PREV_ACTIONS].float(),
+                        [-1, self.action_space.n * self.num_atoms],
+                    )
+                )
+            if self.lstm_config.get("use_prev_reward", False):
+                prev_a_r.append(
+                    torch.reshape(input_dict[SampleBatch.PREV_REWARDS].float(), [-1, 1])
+                )
+
+            lstm_in = joined_out
+
+            # Input: Batch x Sequence x Features
+            lstm_in = torch.unsqueeze(lstm_in, 1)
+            if len(state) > 0:
+                # State: Sequence x Batch x Features
+                lstm_state = [torch.unsqueeze(state[0], 0), torch.unsqueeze(state[1], 0)]
+                # lstm_state = [torch.moveaxis(state[0], 1, 0), torch.moveaxis(state[1], 1, 0)]
+                lstm_out, [h, c] = self.lstm_model(lstm_in, lstm_state)
+            else:
+                lstm_out, [h, c] = self.lstm_model(lstm_in)
+            lstm_out = torch.reshape(lstm_out, [-1, self.lstm_out_shape])
+            # State: Sequence x Batch x Features
+            state = [torch.squeeze(h, 0), torch.squeeze(c, 0)]
+            # state = [torch.moveaxis(h, 1, 0), torch.moveaxis(c, 1, 0)]
+            # state = [h, c]
+        else:
+            lstm_out = joined_out
+            state = []
 
         # Calculate Dueling Heads
         action_scores = self.advantage_head(lstm_out)
@@ -333,28 +417,30 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         if self.num_atoms > 1:
             # Distributional Q-learning uses a discrete support z
             # to represent the action value distribution
-            z = torch.arange(0.0, self.num_atoms, dtype=torch.float32).to(
-                action_scores.device
-            )
+            z = torch.arange(0.0, self.num_atoms, dtype=torch.float32, device=action_scores.device)
             z = self.v_min + z * (self.v_max - self.v_min) / float(self.num_atoms - 1)
 
             support_logits_per_action = torch.reshape(
                 action_scores, shape=(-1, self.action_space.n, self.num_atoms)
             )
-            support_prob_per_action = nn.functional.softmax(
-                support_logits_per_action, dim=-1
+
+            support_logits_per_action_mean = torch.mean(support_logits_per_action, dim=1)
+            support_logits_per_action_centered = support_logits_per_action - torch.unsqueeze(
+                support_logits_per_action_mean, dim=1
             )
-            action_scores = torch.sum(z * support_prob_per_action, dim=-1)
-            return action_scores, z, support_logits_per_action
+            support_logits_per_action = (
+                torch.unsqueeze(state_scores, dim=1) + support_logits_per_action_centered
+            )
+            support_prob_per_action = nn.functional.softmax(support_logits_per_action, dim=-1)
+            value = torch.sum(z * support_prob_per_action, dim=-1)
+
+            return (value, support_logits_per_action, support_prob_per_action), state
         else:
             # Reduce According to (9) in "Dueling Network Architectures for Deep Reinforcement Learning"
             advantages_mean = reduce_mean_ignore_inf(action_scores, 1)
             values = state_scores + action_scores - advantages_mean[:, None]
-            return values
-
-    def __call__(self, *args, **kwargs):
-        with self.context():
-            return self.forward(*args, **kwargs)
+            logits = torch.unsqueeze(torch.ones_like(values), -1)
+            return (values, logits, logits), state
 
 
 def reduce_mean_ignore_inf(x: TensorType, axis: Optional[int] = None) -> TensorType:

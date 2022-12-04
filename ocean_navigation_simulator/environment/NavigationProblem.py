@@ -68,7 +68,8 @@ class NavigationProblem(Problem):
                 self.target_radius,
                 facecolor=problem_target_color,
                 edgecolor=problem_target_color,
-                label="goal",
+                label="target area",
+                fill=False,
             )
         )
 

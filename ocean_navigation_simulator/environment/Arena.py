@@ -340,7 +340,7 @@ class Arena:
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = "magenta",
         stride: Optional[int] = 1,
-        control_vec_scale: Optional[int] = 15,
+        control_vec_scale: Optional[int] = 10,
     ) -> matplotlib.axes.Axes:
         """
         Plots the control trajectory (as arrows) on a spatial map. Passing in an axis is optional.
@@ -414,6 +414,7 @@ class Arena:
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = "black",
         stride: Optional[int] = 1,
+        label: Optional[str] = "State Trajectory",
     ) -> matplotlib.axes.Axes:
         """
         Plots the state trajectory on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
@@ -436,7 +437,7 @@ class Arena:
             markersize=1,
             color=color,
             linewidth=1,
-            label="State Trajectory",
+            label=label,
         )
 
         return ax
