@@ -605,7 +605,7 @@ class XarraySource(abc.ABC):
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
         throw_exceptions: Optional[bool] = True,
-        spatial_tolerance: Optional[float] = 2.0
+        spatial_tolerance: Optional[float] = 2.0,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -633,9 +633,15 @@ class XarraySource(abc.ABC):
             np.datetime64(t_interval[1].replace(tzinfo=None)) + dt,
         ]
         dlon = self.DataArray["lon"][1] - self.DataArray["lon"][0]
-        x_interval_extended = [x_interval[0] - spatial_tolerance * dlon.item(), x_interval[1] + spatial_tolerance * dlon.item()]
+        x_interval_extended = [
+            x_interval[0] - spatial_tolerance * dlon.item(),
+            x_interval[1] + spatial_tolerance * dlon.item(),
+        ]
         dlat = self.DataArray["lat"][1] - self.DataArray["lat"][0]
-        y_interval_extended = [y_interval[0] - spatial_tolerance * dlat.item(), y_interval[1] + spatial_tolerance * dlat.item()]
+        y_interval_extended = [
+            y_interval[0] - spatial_tolerance * dlat.item(),
+            y_interval[1] + spatial_tolerance * dlat.item(),
+        ]
         subset = self.DataArray.sel(
             time=slice(t_interval_extended[0], t_interval_extended[1]),
             lon=slice(x_interval_extended[0], x_interval_extended[1]),

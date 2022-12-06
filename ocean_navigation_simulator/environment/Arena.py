@@ -299,7 +299,7 @@ class Arena:
                 ]
             except BaseException:
                 self.logger.warning(
-                    f"Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside."
+                    "Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside."
                 )
                 return True
         else:

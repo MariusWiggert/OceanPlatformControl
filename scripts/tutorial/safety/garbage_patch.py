@@ -140,4 +140,3 @@ assert arena.state_trajectory[-1][-1] != 0.0
 
 
 # TODO: plot with garbage and traj
-# TODO: make fault prove if no garbage is used, test

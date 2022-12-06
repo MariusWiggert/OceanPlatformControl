@@ -211,6 +211,10 @@ class Platform:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
             self.logger.info(f"Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)")
+        if garbage_change or bathymetry_change:
+            self.logger.info(
+                f"Platform: Update Safety Casadi Dynamics ({time.time() - start:.1f}s)"
+            )
 
     def get_casadi_dynamics(self):
         """Function to construct the F_x_next symbolic casadi function to be used in simulation."""

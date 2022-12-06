@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import AnyStr, List, Optional
+from typing import List
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
