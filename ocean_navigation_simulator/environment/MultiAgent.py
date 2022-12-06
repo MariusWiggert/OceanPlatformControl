@@ -41,17 +41,15 @@ class GraphObservation:
     G_communication: nx.Graph
     G_complete: nx.Graph
 
-    def complete_adjacency_matrix_in_unit(self, unit):
-        if "m":
-            e = [(n1, n2, w.m) for n1, n2, w in list(self.G_complete.edges.data("weight"))]
-            G = nx.Graph()
-            G.add_weighted_edges_from(e)
-            return nx.to_numpy_array(G)
-        elif "km":
-            e = [(n1, n2, w.km) for n1, n2, w in list(self.G_complete.edges.data("weight"))]
-            G = nx.Graph()
-            G.add_weighted_edges_from(e)
-            return nx.to_numpy_array(G)
+    def adjacency_matrix_in_unit(self, unit: str, graph_type: str):
+        if graph_type=="complete":
+            e = [(n1, n2, w.m) if unit=="m" else (n1,n2, w.km) for n1, n2, w in list(self.G_complete.edges.data("weight"))]
+        else: #return communication graph adjacency matrix by defaut
+            e = [(n1, n2, w.m) if unit=="m" else (n1,n2, w.km) for n1, n2, w in list(self.G_communication.edges.data("weight"))]
+
+        G = nx.Graph()
+        G.add_weighted_edges_from(e)
+        return nx.to_numpy_array(G)
 
 
 class MultiAgent:

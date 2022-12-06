@@ -46,7 +46,7 @@ class DecentralizedReactiveControl:
         self.nb_max_neighbors = nb_max_neighbors
         self.param_dict = param_dict
         # perform computation in m:
-        self.adjacency_mat = observation.graph_obs.complete_adjacency_matrix_in_unit("m")
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(unit="m", graph_type="complete")
         # argspartition ensures that the all elements before nb_max_neighbors are the smallest elements
         self.g_a, self.g_b = None, None
         self.observation = observation
@@ -118,6 +118,68 @@ class DecentralizedReactiveControl:
             return 0
 
 
+class FlockingControl:
+    def __init__(
+        self,
+        observation: ArenaObservation,
+        param_dict: dict,
+        platform_dict: dict,
+    ):
+        self.param_dict = param_dict
+        self.G_proximity = observation.graph_obs.G_communication
+        self.observation = observation
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(unit="m", graph_type="communication")# get adjacency
+        self.platform_dict = platform_dict
+
+    def sigma_norm(self, z_norm):
+        val = self.param_dict["epsilon"]*(z_norm**2)
+        return 1/self.param_dict["epsilon"] * (np.sqrt(1 + val)-1)
+
+    def sigma_1(self,z):
+        return z/np.sqrt(1+z**2)
+
+    def bump_function(self, z):
+        if 0 <= z < self.param_dict["h"]:
+            return np.ones(z.shape)
+        elif self.param_dict["h"] <= z < 1:
+            arg = np.pi*(z-self.param_dict["h"])/(1-self.param_dict["h"])
+            return 0.5*(1+np.cos(arg))
+        else:
+            return np.zeros(z.shape)
+
+    def phi(self, z):
+        a, b = [self.param_dict[key] for key in ["a", "b"]]
+        c = np.abs(a-b)/np.sqrt(4*a*b)
+        return 0.5*((a+b)*self.sigma_1(z+c)+(a-b))
+
+    def phi_alpha(self, z):
+        r_alpha = self.sigma_norm(self.param_dict["interaction_range"])
+        d_alpha = self.sigma_norm(self.param_dict["ideal_distance"])
+        bump_h = self.bump_function(z/r_alpha)
+        phi = self.phi(z-d_alpha)
+        return bump_h*phi
+
+    def get_n_ij(self, i_node, j_neighbors, norm_q_ij):
+        q_ij = np.array([self.observation.platform_state.lon.m[j_neighbors]- self.observation.platform_state.lon.m[i_node],
+                    self.observation.platform_state.lat.m[j_neighbors]- self.observation.platform_state.lat.m[i_node]]).T
+        return q_ij/np.sqrt(1+self.param_dict["epsilon"]*norm_q_ij.T) # columns are per neighbor
+        #TODO check dimension mismatch: get a 3D array not expected
+    def get_u_i(self, node_i):
+        neighbors_idx = np.argwhere(self.adjacency_mat[node_i,:]>0)
+        n_ij = self.get_n_ij(i_node=node_i, j_neighbors=neighbors_idx, norm_q_ij=self.adjacency_mat[node_i, neighbors_idx])
+        gradient_term = np.sum(self.phi_alpha(z=self.adjacency_mat[node_i, neighbors_idx])*n_ij, axis=1)
+        return gradient_term*self.platform_dict["dt_in_s"]
+        # neighbors_iter = self.G_proximity.neighbors(node_i)
+        # while True:
+        #     try:
+        #         # get neighbor
+        #         node_j = next(neighbors_iter)
+        #         dist = self.G_proximity[node_i][node_j]["weight"].m
+        #         #phi_alpha_norm
+        #     except StopIteration:
+        #         # if StopIteration is raised, break from loop
+        #         break
+
 class MultiAgentPlanner(HJReach2DPlanner):
     def __init__(
         self,
@@ -151,6 +213,13 @@ class MultiAgentPlanner(HJReach2DPlanner):
             reactive_action = reactive_control.get_reactive_control(k, hj_navigation)
             action_list.append(self.to_platform_action_bounds(reactive_action))
         return PlatformActionSet(action_list)
+
+    def get_action_HJ_with_flocking(self, observation: ArenaObservation) -> PlatformActionSet:
+        action_list = []
+        flocking_control = FlockingControl(observation=observation, param_dict=self.multi_agent_settings["flocking"], platform_dict=self.platform_dict)
+        for k in range(len(observation)):
+            #hj_navigation = super().get_action(observation[k])
+            flocking_action = flocking_control.get_u_i(node_i=k)
 
     def to_platform_action_bounds(self, action: PlatformAction):
         action.direction = action.direction % (2*np.pi)

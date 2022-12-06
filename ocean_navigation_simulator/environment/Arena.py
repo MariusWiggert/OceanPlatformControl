@@ -731,7 +731,7 @@ class Arena:
     def plot_distance_evolution_between_platforms(
         self,
         neighbors_list_to_plot: Optional[List[Tuple]] = None,
-        figsize: Optional[Tuple[int]] = (8, 6),
+        figsize: Optional[Tuple[int]] = (12, 8),
         temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
         xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
         plot_threshold: Optional[bool] = True,

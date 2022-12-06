@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2"
+folder_to_save: "scenario_2_flocking"
 
 days_sim: 2
 
@@ -42,6 +42,15 @@ multi_agent_param:
     communication_thrsld: 9000
     k_1: 0.25
     k_2: 1
+
+  flocking:
+    epsilon: 0.1
+    h: 0.2
+    ideal_distance: 5000 # meters
+    a: 5
+    b: 5
+    interaction_range: 9000 # meters
+
 
 
   initial_connections: Null
