@@ -92,7 +92,7 @@ class MultiAgent:
             (node_from, node_to, weight)
             for node_from, node_to, weight in zip(self.from_nodes, self.to_nodes, weights)
             if self.in_unit(value=weight, unit=self.unit_weight_edges)
-            <= self.network_prop["communication_thrsld"]
+            < self.network_prop["communication_thrsld"]
         ]
         self.G_communication.add_weighted_edges_from(edges_remaining, weight="weight")
         self.logger.info(f"Initial connections are {list(self.G_communication.edges())}")
@@ -106,21 +106,25 @@ class MultiAgent:
         weights = platform_set.get_distance_btw_platforms(
             from_nodes=self.from_nodes, to_nodes=self.to_nodes
         )
-        edges_to_update = [
-            (node_from, node_to, weight)
-            for node_from, node_to, weight in zip(self.from_nodes, self.to_nodes, weights)
-        ]
-        # update existing edges with new weigths for this timestep (still a complete graph)
-        self.G_communication.add_weighted_edges_from(edges_to_update, weight="weight")
-        self.G_complete.add_weighted_edges_from(edges_to_update, weight="weight")
+        # get distances between all platforms
+        all_edges_and_weights = {key:val for key, val in zip(list(self.G_complete.edges), weights)}
+        # update interconnections for the complete graph (all edges & weights used)
+        self.G_complete.add_weighted_edges_from([(key[0], key[1], val) for key, val in all_edges_and_weights.items()], weight="weight")
+        # Hysteresis based adding and removing of edges
+        edges_to_remove = []
+        edges_to_add_or_update = []
+        for node_pair, weight in all_edges_and_weights.items():
+            if node_pair in list(self.G_communication.edges): # o(i,j)[t-] = 1
+                if self.in_unit(weight, unit=self.unit_weight_edges)  >= self.network_prop["communication_thrsld"]:
+                    edges_to_remove.append(node_pair) # o(i,j)[t] = 0 
+                else:
+                    edges_to_add_or_update.append((node_pair[0], node_pair[1], weight)) # o(i,j)[t] = 1
+            else: # o(i,j)[t-] = 0
+                if self.in_unit(weight, unit=self.unit_weight_edges) < self.network_prop["communication_thrsld"] - self.network_prop["epsilon_margin"]:
+                    edges_to_add_or_update.append((node_pair[0], node_pair[1], weight))  # o(i,j)[t] = 1
+              
+        self.G_communication.add_weighted_edges_from(edges_to_add_or_update, weight="weight")
 
-        # check if some edges need to be removed based on the new weights
-        edges_to_remove = [
-            (node_from, node_to)
-            for node_from, node_to, weight in list(self.G_communication.edges.data("weight"))
-            if self.in_unit(value=weight, unit=self.unit_weight_edges)
-            > self.network_prop["communication_thrsld"]
-        ]
         if (
             edges_to_remove
         ):  # filter out the edges for which the distance between nodes is above communication threshold
@@ -210,7 +214,7 @@ class MultiAgent:
         if collision_communication_thrslds is None:
             collision_thrsld, communication_thrsld = (
                 self.network_prop["collision_thrsld"],
-                self.network_prop["communication_thrsld"]-self.network_prop["plot_margin"],
+                self.network_prop["communication_thrsld"]-self.network_prop["epsilon_margin"],
             )
         else:
             collision_thrsld, communication_thrsld = collision_communication_thrslds
@@ -358,7 +362,7 @@ class MultiAgent:
         neighbors_list_to_plot: Optional[List[Tuple]] = None,  # can pass also list(G.edges)
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
-        figsize: Optional[Tuple[int]] = (8, 6),
+        figsize: Optional[Tuple[int]] = (10, 8),
         plot_threshold: Optional[bool] = True,
     ) -> matplotlib.axes.Axes:
         """
@@ -386,7 +390,14 @@ class MultiAgent:
                 xmin=0,
                 xmax=1,
                 c="red",
-                label="communication loss",
+                label="communication loss high threshold",
+            )
+            ax.axhline(
+                y=self.network_prop["communication_thrsld"]-self.network_prop["epsilon_margin"],
+                xmin=0,
+                xmax=1,
+                c="green",
+                label="communication loss low threshold",
             )
             ax.axhline(
                 y=self.network_prop["collision_thrsld"],

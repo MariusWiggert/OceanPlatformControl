@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2_with_reactive"
+folder_to_save: "scenario_2"
 
 days_sim: 2
 
@@ -26,7 +26,7 @@ multi_agent_param:
   network_graph_dict:
     unit: "km"
     communication_thrsld: &comm 9
-    plot_margin: 1 # when dist > comm-plot_margin plot dashed red in animation
+    epsilon_margin: 1 # when dist > comm-plot_margin plot dashed red in animation
     collision_thrsld: 0.2
 
   hj_naive:
