@@ -135,7 +135,7 @@ class HJPlannerBase(Controller):
             PlatformAction object
         """
         # an easy way of finding for each time, which index of control signal to apply
-        idx = bisect.bisect_right(self.times, state.date_time.timestamp()) - 1
+        idx = bisect(self.times, state.date_time.timestamp()) - 1
         if idx == len(self.times) - 1:
             idx = idx - 1
             self.logger.warning(
