@@ -1,3 +1,5 @@
+from collections import deque
+
 import cartopy.crs as ccrs
 import cmocean
 import dask
@@ -7,7 +9,6 @@ import plotly.graph_objects as go
 import xarray as xr
 from sklearn.metrics.pairwise import haversine_distances
 from tqdm import tqdm
-from collections import deque
 
 
 def coarsen(
@@ -65,18 +66,24 @@ def generate_global_bathymetry_maps(
     print("Saved global bathymetry map with lower resolution")
 
 
-def generate_shortest_distance_maps(xarray: xr, elevation: float = 0) -> xr:
+def generate_shortest_distance_maps(xarray: xr, elevation: float = 0, save_path=None) -> xr:
 
     # Will be converted from dataset to dataarray
     # 0 land, 1 water
     xarray_land = xr.where(xarray["elevation"] > elevation, 0, 10000)
+    # Convert to numpy
     data = xarray_land.data
     lat = xarray_land.coords["lat"].values
     lon = xarray_land.coords["lon"].values
-    lat = np.deg2rad(lat)
-    lon = np.deg2rad(lon)
-    min_d_map = bfs_min_distance(data, lat, lon)
-    return min_d_map
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    min_d_map = bfs_min_distance(data, lat_rad, lon_rad)
+    ds = convert_np_to_xr(min_d_map, lat, lon)
+
+    if save_path is not None:
+        ds.to_netcdf(save_path)
+    return ds
 
 
 def naive_min_distance(data, lat, lon):
@@ -150,7 +157,9 @@ class Buffer:
         return len(self.value_set)
 
 
-def bfs_min_distance(data: np.ndarray, lat: np.ndarray, lon: np.ndarray, connectivity: int = 4):
+def bfs_min_distance(
+    data: np.ndarray, lat: np.ndarray, lon: np.ndarray, connectivity: int = 4
+) -> np.ndarray:
     """Breadth first search of minimum ditance to land. Uses geodetic distance.
     --> Not optimal, as the nonuniform distance steps can lead to a large difference of neighboring cells
     that are reached at the same step, but because they were visited from different directions,
@@ -208,7 +217,6 @@ def bfs_min_distance(data: np.ndarray, lat: np.ndarray, lon: np.ndarray, connect
                     if (i_neighbor, j_neighbor) not in visited and min_d_map[i_neighbor][
                         j_neighbor
                     ] != 0:
-                        # TODO: check if lookup in deque reduces speed by 80%
                         if not q.contains((i_neighbor, j_neighbor)):
                             q.append((i_neighbor, j_neighbor))
 
@@ -223,8 +231,13 @@ def bfs_min_distance(data: np.ndarray, lat: np.ndarray, lon: np.ndarray, connect
                     )
             if min_d_map[i][j] != 0:
                 min_d_map[i][j] = min(distances)
-    min_d_map *= 6371000 / 1000  # Convert to kilometers
+    min_d_map *= 6371  # Convert to kilometers
     return min_d_map
+
+
+def convert_np_to_xr(data: np.array, lat: np.array, lon: np.array) -> xr.Dataset:
+    ds = xr.Dataset(dict(distance=(["lat", "lon"], data)), coords=dict(lon=lon, lat=lat))
+    return ds
 
 
 def format_spatial_resolution(xarray: xr.Dataset(), res_lat=1 / 12, res_lon=1 / 12) -> xr.Dataset():
@@ -370,15 +383,18 @@ if __name__ == "__main__":
     # generate_global_bathymetry_maps(gebco_global_filename)
 
     # Test all other functions
-    low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
+    # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
     # plot_bathymetry_orthographic(low_res_loaded)
     # plot_bathymetry_2d_levels(low_res_loaded)
     # plot_bathymetry_2d(low_res_loaded)
     # Low res is still too large for 3d interactive plot
-    very_low_res = format_spatial_resolution(low_res_loaded, res_lat=1, res_lon=1)
+    # very_low_res = format_spatial_resolution(low_res_loaded, res_lat=1, res_lon=1)
     # plot_bathymetry_3d(very_low_res)
 
-    # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    min_d_map = generate_shortest_distance_maps(low_res_loaded)
-    plt.imshow(min_d_map, origin="lower")
+    # Create min_distance to land map and test loading it
+    low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
+    min_d_map_name = "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc"
+    min_d_map = generate_shortest_distance_maps(low_res_loaded, save_path=min_d_map_name)
+    min_d_map_loaded = xr.open_dataset(min_d_map_name)
+    min_d_map_loaded["distance"].plot()
     plt.show()
