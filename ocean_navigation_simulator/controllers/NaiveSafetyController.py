@@ -34,7 +34,7 @@ class NaiveSafetyController(Controller):
         sampled_positions = [
             (
                 observation.platform_state.lon.deg + np.cos(b) * radius_in_deg,
-                observation.platform_state.lon.deg + np.sin(b) * radius_in_deg,
+                observation.platform_state.lat.deg + np.sin(b) * radius_in_deg,
             )
             for b in np.deg2rad(bearing)
         ]
