@@ -2,13 +2,13 @@
 
 data_source_config: "cal_coast_Copernicus_hindcast_local"
 
-folder_to_save: "scenario_flocking_no_hj_zero_currents_6days"
+folder_to_save: "scenario_flocking_no_hj_6days"
 
 days_sim: 6
 
 platforms_start:
   nb_platforms: 4
-  lon: [-128.3, -128.25, -128.2, -128.15]
+  lon: [-128.32, -128.25, -128.18, -128.10]
   lat: [32.75, 32.75, 32.75, 32.75]
   year: 2022
   month: 10

@@ -832,7 +832,6 @@ class Arena:
         )
         return ax
 
-
     def plot_all_network_analysis(
         self,
         figsize: Optional[Tuple[int]] = (15, 15),
@@ -873,5 +872,8 @@ class Arena:
         return fig
 
     def save_metrics_to_log(self, filename: str):
-        self.multi_agent_net.log_metrics(list_of_graph=self.multi_agent_G_list,
-            dates=self.state_trajectory[0, 2, ::1], logfile=filename)
+        self.multi_agent_net.log_metrics(
+            list_of_graph=self.multi_agent_G_list,
+            dates=self.state_trajectory[0, 2, ::1],
+            logfile=filename,
+        )

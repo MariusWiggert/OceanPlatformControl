@@ -35,6 +35,7 @@ from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
 import scipy.integrate as integrate
 
+
 class DecentralizedReactiveControl:
     def __init__(
         self,
@@ -46,7 +47,9 @@ class DecentralizedReactiveControl:
         self.nb_max_neighbors = nb_max_neighbors
         self.param_dict = param_dict
         # perform computation in m:
-        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(unit="m", graph_type="complete")
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
+            unit="m", graph_type="complete"
+        )
         # argspartition ensures that the all elements before nb_max_neighbors are the smallest elements
         self.g_a, self.g_b = None, None
         self.observation = observation
@@ -128,75 +131,89 @@ class FlockingControl:
         self.param_dict = param_dict
         self.G_proximity = observation.graph_obs.G_communication
         self.observation = observation
-        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(unit="m", graph_type="communication")# get adjacency
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
+            unit="m", graph_type="communication"
+        )  # get adjacency
         self.u_max_mps = platform_dict["u_max_in_mps"]
         self.dt_in_s = platform_dict["dt_in_s"]
         self.r_alpha = self.sigma_norm(self.param_dict["interaction_range"])
         self.d_alpha = self.sigma_norm(self.param_dict["ideal_distance"])
 
     def sigma_norm(self, z_norm):
-        val = self.param_dict["epsilon"]*(z_norm**2)
-        return 1/self.param_dict["epsilon"] * (np.sqrt(1 + val)-1)
+        val = self.param_dict["epsilon"] * (z_norm**2)
+        return 1 / self.param_dict["epsilon"] * (np.sqrt(1 + val) - 1)
 
-    def sigma_1(self,z):
-        return z/np.sqrt(1+z**2)
+    def sigma_1(self, z):
+        return z / np.sqrt(1 + z**2)
 
     def bump_function(self, z):
-        #maybe can vectorize it directly with np.where(condition, val if true, val if false) but we have 3 different vals to assign for 
-        #3 different conditions::
+        # maybe can vectorize it directly with np.where(condition, val if true, val if false) but we have 3 different vals to assign for
+        # 3 different conditions::
         # z = np.where(np.logical_and(z>=0, z < self.param_dict["h"]), 1, z)
         if 0 <= z < self.param_dict["h"]:
             return 1
         elif self.param_dict["h"] <= z < 1:
-            arg = np.pi*(z-self.param_dict["h"])/(1-self.param_dict["h"])
-            return 0.5*(1+np.cos(arg))
+            arg = np.pi * (z - self.param_dict["h"]) / (1 - self.param_dict["h"])
+            return 0.5 * (1 + np.cos(arg))
         else:
             return 0
-        
-    def plot_psi_and_phi_alpha(self, step:Optional[int] = 100, savefig: Optional[bool]=False):
-        z_range = np.arange(start= 0, stop= self.r_alpha, step=step)
+
+    def plot_psi_and_phi_alpha(self, step: Optional[int] = 100, savefig: Optional[bool] = False):
+        z_range = np.arange(start=0, stop=self.r_alpha, step=step)
         phi_alpha = [self.phi_alpha(z=z) for z in z_range]
         psi_alpha = [integrate.quad(self.phi_alpha, self.d_alpha, z)[0] for z in z_range]
         fig, (ax1, ax2) = plt.subplots(2, 1)
         ax1.plot(z_range, phi_alpha)
-        ax1.set_ylabel(r'$\phi_{\alpha}$')
+        ax1.set_ylabel(r"$\phi_{\alpha}$")
         ax1.set_xticks([self.d_alpha, self.r_alpha])
-        ax1.set_xticklabels([r'$d_{\alpha}$', r'$r_{\alpha}$'])
+        ax1.set_xticklabels([r"$d_{\alpha}$", r"$r_{\alpha}$"])
         ax2.plot(z_range, psi_alpha)
-        ax2.set_ylabel(r'$\psi_{\alpha}$')
-        ax2.set_xlabel(r'$\Vert z \Vert_{\sigma}$')
+        ax2.set_ylabel(r"$\psi_{\alpha}$")
+        ax2.set_xlabel(r"$\Vert z \Vert_{\sigma}$")
         if savefig:
             plt.savefig("plot_gradient_and_potential.png")
 
-
     def phi(self, z):
         a, b = [self.param_dict[key] for key in ["a", "b"]]
-        c = np.abs(a-b)/np.sqrt(4*a*b)
-        return 0.5*((a+b)*self.sigma_1(z+c)+(a-b))
+        c = np.abs(a - b) / np.sqrt(4 * a * b)
+        return 0.5 * ((a + b) * self.sigma_1(z + c) + (a - b))
 
     def phi_alpha(self, z):
-        vect_bump = np.vectorize(self.bump_function, otypes = [float])
-        bump_h = vect_bump(z/self.r_alpha)
-        phi = self.phi(z-self.d_alpha)
-        return bump_h*phi
+        vect_bump = np.vectorize(self.bump_function, otypes=[float])
+        bump_h = vect_bump(z / self.r_alpha)
+        phi = self.phi(z - self.d_alpha)
+        return bump_h * phi
 
     def get_n_ij(self, i_node, j_neighbors, norm_q_ij):
-        q_ij_lon = self.observation.platform_state.lon.m[j_neighbors]- self.observation.platform_state.lon.m[i_node]
-        q_ij_lat = self.observation.platform_state.lat.m[j_neighbors]- self.observation.platform_state.lat.m[i_node]
+        q_ij_lon = (
+            self.observation.platform_state.lon.m[j_neighbors]
+            - self.observation.platform_state.lon.m[i_node]
+        )
+        q_ij_lat = (
+            self.observation.platform_state.lat.m[j_neighbors]
+            - self.observation.platform_state.lat.m[i_node]
+        )
         q_ij = np.vstack((q_ij_lon, q_ij_lat))
-        return q_ij/np.sqrt(1+self.param_dict["epsilon"]*norm_q_ij.T) # columns are per neighbor
-        #TODO check dimension mismatch: get a 3D array not expected
+        return q_ij / np.sqrt(
+            1 + self.param_dict["epsilon"] * norm_q_ij.T
+        )  # columns are per neighbor
+        # TODO check dimension mismatch: get a 3D array not expected
 
     def get_u_i(self, node_i):
         # TODO: problem when platforms become disconnected: adjacency mat is 0
-        neighbors_idx = np.argwhere(self.adjacency_mat[node_i,:]>0).flatten()
-        n_ij = self.get_n_ij(i_node=node_i, j_neighbors=neighbors_idx, norm_q_ij=self.adjacency_mat[node_i, neighbors_idx])
+        neighbors_idx = np.argwhere(self.adjacency_mat[node_i, :] > 0).flatten()
+        n_ij = self.get_n_ij(
+            i_node=node_i,
+            j_neighbors=neighbors_idx,
+            norm_q_ij=self.adjacency_mat[node_i, neighbors_idx],
+        )
         q_ij_sigma_norm = self.sigma_norm(z_norm=self.adjacency_mat[node_i, neighbors_idx])
-        gradient_term = np.sum(self.phi_alpha(z=q_ij_sigma_norm)*n_ij, axis=1)
-        u_i = gradient_term*self.dt_in_s # integrate since we have a velocity input
-        return PlatformAction(np.linalg.norm(u_i, ord=2)
-            / self.u_max_mps,  # scale in % of max u
-            direction=np.arctan2(u_i[1], u_i[0]),)
+        gradient_term = np.sum(self.phi_alpha(z=q_ij_sigma_norm) * n_ij, axis=1)
+        u_i = gradient_term * self.dt_in_s  # integrate since we have a velocity input
+        return PlatformAction(
+            np.linalg.norm(u_i, ord=2) / self.u_max_mps,  # scale in % of max u
+            direction=np.arctan2(u_i[1], u_i[0]),
+        )
         # neighbors_iter = self.G_proximity.neighbors(node_i)
         # while True:
         #     try:
@@ -207,6 +224,7 @@ class FlockingControl:
         #     except StopIteration:
         #         # if StopIteration is raised, break from loop
         #         break
+
 
 class MultiAgentPlanner(HJReach2DPlanner):
     def __init__(
@@ -237,22 +255,26 @@ class MultiAgentPlanner(HJReach2DPlanner):
         )
         for k in range(len(observation)):
             hj_navigation = super().get_action(observation[k])
-            #hj_navigation = PlatformAction(magnitude=0, direction=0)
+            # hj_navigation = PlatformAction(magnitude=0, direction=0)
             reactive_action = reactive_control.get_reactive_control(k, hj_navigation)
             action_list.append(self.to_platform_action_bounds(reactive_action))
         return PlatformActionSet(action_list)
 
     def get_action_HJ_with_flocking(self, observation: ArenaObservation) -> PlatformActionSet:
         action_list = []
-        flocking_control = FlockingControl(observation=observation, param_dict=self.multi_agent_settings["flocking"], platform_dict=self.platform_dict)
+        flocking_control = FlockingControl(
+            observation=observation,
+            param_dict=self.multi_agent_settings["flocking"],
+            platform_dict=self.platform_dict,
+        )
         for k in range(len(observation)):
-            #hj_navigation = super().get_action(observation[k])
+            # hj_navigation = super().get_action(observation[k])
             flocking_action = flocking_control.get_u_i(node_i=k)
             action_list.append(self.to_platform_action_bounds(flocking_action))
-        return PlatformActionSet(action_list)    
+        return PlatformActionSet(action_list)
 
     def to_platform_action_bounds(self, action: PlatformAction):
-        action.direction = action.direction % (2*np.pi)
+        action.direction = action.direction % (2 * np.pi)
         if action.magnitude > 1:  # more than 100% of umax
             action.magnitude = 1
         return action

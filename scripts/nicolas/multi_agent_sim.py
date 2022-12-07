@@ -36,7 +36,7 @@ platf_init_dict = multi_ag_config["platforms_start"]
 target_dict = multi_ag_config["target_region"]
 
 # save yaml to result folder
-with open(f"{folder_save_results}/config.yaml", 'w') as fp:
+with open(f"{folder_save_results}/config.yaml", "w") as fp:
     yaml.dump(multi_ag_config, fp)
 #%% Initialize the Arena, target region and the platform states
 arena = ArenaFactory.create(
@@ -153,7 +153,7 @@ arena.animate_trajectory(
     problem=problem,
     temporal_resolution=7200,
     output=f"{folder_save_results}/trajectory_anim.mp4",
-    fps=6
+    fps=6,
 )
 
 arena.animate_graph_net_trajectory(
@@ -161,7 +161,7 @@ arena.animate_graph_net_trajectory(
     # collision_communication_thrslds=(10, 50), (not specified take defaut one)
     plot_ax_ticks=True,
     output=f"{folder_save_results}/network_graph_anim.mp4",
-    fps=5
+    fps=5,
 )
 # %% Plot useful metrics for multi-agent performance evaluation
 fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks

@@ -31,6 +31,7 @@ from ocean_navigation_simulator.utils.plotting_utils import (
 import dataclasses
 from scipy.integrate import simpson
 
+
 @dataclasses.dataclass
 class GraphObservation:
     """
@@ -42,13 +43,21 @@ class GraphObservation:
     G_complete: nx.Graph
 
     def adjacency_matrix_in_unit(self, unit: str, graph_type: str):
-        if graph_type=="complete":
-            e = [(n1, n2, w.m) if unit=="m" else (n1,n2, w.km) for n1, n2, w in list(self.G_complete.edges.data("weight"))]
-        else: #return communication graph adjacency matrix by defaut
-            e = [(n1, n2, w.m) if unit=="m" else (n1,n2, w.km) for n1, n2, w in list(self.G_communication.edges.data("weight"))]
+        if graph_type == "complete":
+            e = [
+                (n1, n2, w.m) if unit == "m" else (n1, n2, w.km)
+                for n1, n2, w in list(self.G_complete.edges.data("weight"))
+            ]
+        else:  # return communication graph adjacency matrix by defaut
+            e = [
+                (n1, n2, w.m) if unit == "m" else (n1, n2, w.km)
+                for n1, n2, w in list(self.G_communication.edges.data("weight"))
+            ]
 
         G = nx.Graph()
-        G.add_nodes_from(self.G_complete.nodes) # always add all nodes so that the adjacency matrix has the right amount of rows and cols
+        G.add_nodes_from(
+            self.G_complete.nodes
+        )  # always add all nodes so that the adjacency matrix has the right amount of rows and cols
         G.add_weighted_edges_from(e)
         return nx.to_numpy_array(G)
 
@@ -106,22 +115,35 @@ class MultiAgent:
             from_nodes=self.from_nodes, to_nodes=self.to_nodes
         )
         # get distances between all platforms
-        all_edges_and_weights = {key:val for key, val in zip(list(self.G_complete.edges), weights)}
+        all_edges_and_weights = {key: val for key, val in zip(list(self.G_complete.edges), weights)}
         # update interconnections for the complete graph (all edges & weights used)
-        self.G_complete.add_weighted_edges_from([(key[0], key[1], val) for key, val in all_edges_and_weights.items()], weight="weight")
+        self.G_complete.add_weighted_edges_from(
+            [(key[0], key[1], val) for key, val in all_edges_and_weights.items()], weight="weight"
+        )
         # Hysteresis based adding and removing of edges
         edges_to_remove = []
         edges_to_add_or_update = []
         for node_pair, weight in all_edges_and_weights.items():
-            if node_pair in list(self.G_communication.edges): # o(i,j)[t-] = 1
-                if self.in_unit(weight, unit=self.unit_weight_edges)  >= self.network_prop["communication_thrsld"]:
-                    edges_to_remove.append(node_pair) # o(i,j)[t] = 0 
+            if node_pair in list(self.G_communication.edges):  # o(i,j)[t-] = 1
+                if (
+                    self.in_unit(weight, unit=self.unit_weight_edges)
+                    >= self.network_prop["communication_thrsld"]
+                ):
+                    edges_to_remove.append(node_pair)  # o(i,j)[t] = 0
                 else:
-                    edges_to_add_or_update.append((node_pair[0], node_pair[1], weight)) # o(i,j)[t] = 1
-            else: # o(i,j)[t-] = 0
-                if self.in_unit(weight, unit=self.unit_weight_edges) < self.network_prop["communication_thrsld"] - self.network_prop["epsilon_margin"]:
-                    edges_to_add_or_update.append((node_pair[0], node_pair[1], weight))  # o(i,j)[t] = 1
-              
+                    edges_to_add_or_update.append(
+                        (node_pair[0], node_pair[1], weight)
+                    )  # o(i,j)[t] = 1
+            else:  # o(i,j)[t-] = 0
+                if (
+                    self.in_unit(weight, unit=self.unit_weight_edges)
+                    < self.network_prop["communication_thrsld"]
+                    - self.network_prop["epsilon_margin"]
+                ):
+                    edges_to_add_or_update.append(
+                        (node_pair[0], node_pair[1], weight)
+                    )  # o(i,j)[t] = 1
+
         self.G_communication.add_weighted_edges_from(edges_to_add_or_update, weight="weight")
 
         if (
@@ -153,27 +175,26 @@ class MultiAgent:
     def get_integer_yticks(y_data):
         return range(min(y_data), math.ceil(max(y_data)) + 1)
 
-
     @staticmethod
     def LOG_insert(file, format, text, level):
-        #https://stackoverflow.com/a/62824910
+        # https://stackoverflow.com/a/62824910
         infoLog = logging.FileHandler(file)
         infoLog.setFormatter(format)
         logger = logging.getLogger(file)
         logger.setLevel(level)
-        
+
         if not logger.handlers:
             logger.addHandler(infoLog)
-            if (level == logging.INFO):
+            if level == logging.INFO:
                 logger.info(text)
-            if (level == logging.ERROR):
+            if level == logging.ERROR:
                 logger.error(text)
-            if (level == logging.WARNING):
+            if level == logging.WARNING:
                 logger.warning(text)
-        
+
         infoLog.close()
         logger.removeHandler(infoLog)
-        
+
         return
 
     def plot_network_graph(
@@ -213,7 +234,7 @@ class MultiAgent:
         if collision_communication_thrslds is None:
             collision_thrsld, communication_thrsld = (
                 self.network_prop["collision_thrsld"],
-                self.network_prop["communication_thrsld"]-self.network_prop["epsilon_margin"],
+                self.network_prop["communication_thrsld"] - self.network_prop["epsilon_margin"],
             )
         else:
             collision_thrsld, communication_thrsld = collision_communication_thrslds
@@ -392,7 +413,7 @@ class MultiAgent:
                 label="communication loss high threshold",
             )
             ax.axhline(
-                y=self.network_prop["communication_thrsld"]-self.network_prop["epsilon_margin"],
+                y=self.network_prop["communication_thrsld"] - self.network_prop["epsilon_margin"],
                 xmin=0,
                 xmax=1,
                 c="green",
@@ -551,12 +572,14 @@ class MultiAgent:
         )
         return ax
 
-    def log_metrics(self,
+    def log_metrics(
+        self,
         list_of_graph: List[nx.Graph],
         dates: List[dt.datetime],
-        logfile: str = 'logmetrics.log', 
-        formatLog: Optional[logging.Formatter] = logging.Formatter('%(levelname)s %(message)s')):
-        
+        logfile: str = "logmetrics.log",
+        formatLog: Optional[logging.Formatter] = logging.Formatter("%(levelname)s %(message)s"),
+    ):
+
         isolated_nodes = list(
             map(
                 lambda G: int(len(list(nx.isolates(G)))),
@@ -564,5 +587,9 @@ class MultiAgent:
             )
         )
         integrated_communication = simpson(isolated_nodes, dates)
-        self.LOG_insert(logfile, formatLog, f"Integral metric of isolated platforms = {integrated_communication}",
-                logging.INFO)
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Integral metric of isolated platforms = {integrated_communication}",
+            logging.INFO,
+        )
