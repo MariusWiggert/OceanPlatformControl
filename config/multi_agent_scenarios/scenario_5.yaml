@@ -2,13 +2,13 @@
 
 data_source_config: "cal_coast_Copernicus_hindcast_local"
 
-folder_to_save: "scenario_reactive_no_hj_6days"
+folder_to_save: "scenario_flocking_no_hj_zero_currents_6days"
 
 days_sim: 6
 
 platforms_start:
   nb_platforms: 4
-  lon: [-128.5, -128.25, -128, -127.75]
+  lon: [-128.3, -128.25, -128.2, -128.15]
   lat: [32.75, 32.75, 32.75, 32.75]
   year: 2022
   month: 10
@@ -26,21 +26,29 @@ multi_agent_param:
   network_graph_dict:
     unit: "km"
     communication_thrsld: &comm 9
-    margin: 1
-    collision_thrsld: 1
+    epsilon_margin: 1 # when dist > comm-plot_margin plot dashed red in animation
+    collision_thrsld: 0.2
 
-    hj_naive:
+  hj_naive:
     unit: "km"
     communication_thrsld: *comm
 
   reactive_control: 
     type: "reactive_control"
     unit: "m"
-    delta_3: 8000
-    delta_2: 2000
-    delta_1: 200
+    delta_3: 8800 # collision threshold (communication - delta_3)
+    delta_2: 2000 # safe zone threshold  ]communication - delta_2, communication - delta_3[
+    delta_1: 500 # small threshold so that if distance > communication_thrsld- delta_1 we try to achieve connectivity
     communication_thrsld: 9000
-    k_1: 0.33
+    k_1: 0.25
     k_2: 1
+
+  flocking:
+    epsilon: 0.1
+    h: 0.2
+    ideal_distance: 5000 # meters
+    a: 5
+    b: 5
+    interaction_range: 9000 # meters
 
   initial_connections: Null

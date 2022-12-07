@@ -48,6 +48,7 @@ class GraphObservation:
             e = [(n1, n2, w.m) if unit=="m" else (n1,n2, w.km) for n1, n2, w in list(self.G_communication.edges.data("weight"))]
 
         G = nx.Graph()
+        G.add_nodes_from(self.G_complete.nodes) # always add all nodes so that the adjacency matrix has the right amount of rows and cols
         G.add_weighted_edges_from(e)
         return nx.to_numpy_array(G)
 

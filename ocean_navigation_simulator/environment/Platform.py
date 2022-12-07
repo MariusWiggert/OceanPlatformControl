@@ -259,10 +259,10 @@ class Platform:
             ca.horzcat(sym_time, sym_lat_degree, sym_lon_degree).T
         ).T
         sym_lon_delta_meters_per_s = (
-            ca.cos(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + u_curr
+            ca.cos(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + u_curr*0
         )
         sym_lat_delta_meters_per_s = (
-            ca.sin(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + v_curr
+            ca.sin(sym_u_angle) * sym_u_thrust_capped * self.u_max.mps + v_curr*0
         )
 
         # Transform the delta_meters from propulsion to the global coordinate system used.

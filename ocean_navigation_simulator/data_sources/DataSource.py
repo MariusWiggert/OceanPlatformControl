@@ -419,7 +419,7 @@ class DataSource(abc.ABC):
             else:
                 ax = plt.axes()
 
-        return self.plot_data_from_xarray(time_idx=time_idx, xarray=xarray, ax=ax, **kwargs)
+        return ax #self.plot_data_from_xarray(time_idx=time_idx, xarray=xarray, ax=ax, **kwargs)
 
     @staticmethod
     def plot_data_from_xarray(
