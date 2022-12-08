@@ -1,6 +1,6 @@
-from ForecastHindcastDataset import ForecastHindcastDatasetNpy
+from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import ForecastHindcastDatasetNpy
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse
-from utils import l1, mse
+from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse
 
 import torch.nn.functional as F
 import torch

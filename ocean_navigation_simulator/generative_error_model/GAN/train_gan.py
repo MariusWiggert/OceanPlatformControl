@@ -1,9 +1,9 @@
-from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
-    init_weights, save_checkpoint, load_checkpoint
+from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse, sparse_mse, total_variation,\
+    mass_conservation, init_weights, save_checkpoint, load_checkpoint
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
-from ssim import ssim
-from helper_funcs import get_model, get_data, get_test_data, get_optimizer, get_scheduler, initialize,\
-    save_input_output_pairs
+from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
+from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
+    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout
 
 import wandb
 import os
@@ -187,6 +187,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
 def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False):
     total_loss = 0
     [model.eval() for model in models]
+    enable_dropout(models[0])
     cfgs_train = all_cfgs["train"]
     metrics_names = all_cfgs["metrics"]
     with torch.no_grad():

@@ -1,7 +1,7 @@
-from Generator import Generator
-from Discriminator import Discriminator
-from BuoyForecastDataset import BuoyForecastErrorNpy
-from ForecastHindcastDataset import ForecastHindcastDatasetNpy
+from ocean_navigation_simulator.generative_error_model.GAN.Generator import Generator
+from ocean_navigation_simulator.generative_error_model.GAN.Discriminator import Discriminator
+from ocean_navigation_simulator.generative_error_model.GAN.BuoyForecastDataset import BuoyForecastErrorNpy
+from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import ForecastHindcastDatasetNpy
 
 import torch
 import torch.nn as nn

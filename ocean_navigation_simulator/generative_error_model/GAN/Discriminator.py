@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils import get_norm_layer
+from ocean_navigation_simulator.generative_error_model.GAN.utils import get_norm_layer
 
 
 class Block(nn.Module):
