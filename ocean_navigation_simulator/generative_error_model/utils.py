@@ -151,13 +151,13 @@ def get_time_matched_file_lists(list1, list2):
     out_list2 = []
     dates = sorted(list(file_name_per_day.keys()))
     for date in dates:
-        if len(file_name_per_day[date]) == 2:
+        num_files = len(file_name_per_day[date])
+        if num_files == 2:
             out_list1.append(file_name_per_day[date][0])
             out_list2.append(file_name_per_day[date][1])
-        if len(file_name_per_day[date]) > 2:
-            for i in range(int(len(file_name_per_day[date])/2)):
-                out_list1.append(file_name_per_day[date][2*i])
-                out_list2.append(file_name_per_day[date][2*i + 1])
+        if num_files > 2 and num_files % 2 == 0:
+            out_list1.extend(file_name_per_day[date][:int(num_files/2)])
+            out_list2.extend(file_name_per_day[date][int(num_files/2):])
     return out_list1, out_list2
 
 

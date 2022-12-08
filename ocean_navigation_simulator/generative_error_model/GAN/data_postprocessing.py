@@ -18,12 +18,12 @@ class ConvertToError:
         self.samples_dir = predictions_dir
         self.ground_truth_dir = ground_truth_dir
 
-        # data saved from test fuction of GAN
+        # data saved from test function of GAN
         fc_files = get_file_path_list(predictions_dir, "input")
         pred_files = get_file_path_list(predictions_dir, "output")
 
-        self.predictions = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in fc_files]
-        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in pred_files]
+        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in fc_files]
+        self.predictions = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in pred_files]
 
     def get_files_start_end_date_time(self):
         """Uses ground_truth files to determine time range of GAN samples."""
@@ -167,8 +167,7 @@ def main():
     predictions_dir = "data/drifter_data/GAN_samples/2022-11-28_20:38:37"
     ground_truth_dir = "data/drifter_data/buoy_preprocessed_test/area1"
     eval = ConvertToError(predictions_dir, ground_truth_dir)
-    ds = eval.get_individual_as_nc("data/drifter_data/GAN_nc")
-    # print(f"Num of zero values: {np.where(ds['water_u'].values == 0, 1, 0).sum()}")
+    eval.get_individual_as_nc("data/drifter_data/GAN_nc")
 
 
 if __name__ == "__main__":

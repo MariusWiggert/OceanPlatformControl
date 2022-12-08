@@ -201,3 +201,9 @@ def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: 
 def _save_data(data: torch.tensor, save_file_path: str) -> None:
     data = data.cpu().detach().numpy()
     np.save(save_file_path, data)
+
+
+def enable_dropout(m):
+    for each_module in m.modules():
+        if each_module.__class__.__name__.startswith('Dropout'):
+            each_module.train()

@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from typing import Callable, Dict, Any, List, Tuple
+import seaborn as sns
 
 
 def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, Any]]]:
@@ -135,3 +136,19 @@ def temporal_smoothness(data: np.ndarray) -> float:
 
     return temp_smoothness.sum()/((data.shape[0]-1)*np.prod(temp_smoothness.shape))
     # return (temp_smoothness / (data.shape[0] - 1)).mean()
+
+
+def get_correlation(var1: np.ndarray, var2: np.ndarray, *args):
+    data = np.vstack([var1, var2])
+    data = np.array([np.array(var1).flatten(), np.array(var2).flatten(), *args])
+    return np.corrcoef(data)
+
+
+def plot_correlation_grid(df: pd.DataFrame):
+    sns.heatmap(df.corr(),
+                cbar=False,
+                annot=True,
+                fmt=".4f",
+                cmap="coolwarm",
+                vmin=-1,
+                vmax=1)
