@@ -64,7 +64,7 @@ class DecentralizedReactiveControl:
             u_i = hj_optimal_action
         elif (
             self.g_a > -self.param_dict["delta_1"] ** 2
-            or self.g_b > -self.param_dict["delta_1"] ** 2
+            and self.g_b > -self.param_dict["delta_1"] ** 2
         ):  # achieve connectivity
             u_i = self._compute_potential_force(pltf_id=pltf_id, a=a, b=b)
         else:  # maintain connectivity
@@ -86,7 +86,7 @@ class DecentralizedReactiveControl:
 
     def _compute_gradient_g(self, pltf_id, d_x_id):
         # units of hj is m/s and rad/s
-        return 2 * np.array(
+        grad = 2 * np.array(
             [
                 self.observation[pltf_id].platform_state.lon.m
                 - self.observation[d_x_id].platform_state.lon.m,
@@ -94,6 +94,8 @@ class DecentralizedReactiveControl:
                 - self.observation[d_x_id].platform_state.lat.m,
             ]
         )
+        # return normalized gradient
+        return grad / np.linalg.norm(grad, ord=2)
 
     def _set_constraint_g(self, pltf_id):
         # obtained ordered list of neighbors (ascendent by distance) until element self.nb_max_neighbors

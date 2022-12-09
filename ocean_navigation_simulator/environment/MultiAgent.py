@@ -433,7 +433,7 @@ class MultiAgent:
             xtick_label=self.vect_strftime(dates[::stride_xticks], "%d-%H:%M"),
             ylabel="Distance in km",
             xlabel="time",
-            title="Distance Evolution between connected platforms over time",
+            title="Distance Evolution between platforms over time",
             plot_legend=True,
         )
         ax.grid()

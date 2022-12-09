@@ -278,11 +278,7 @@ class Arena:
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
         if self.is_multi_agent:
-            graph_observation = self.multi_agent_net.set_graph(platform_set=platform_set)
-            self.multi_agent_G_list[0], G_complete = (
-                graph_observation.G_communication,
-                graph_observation.G_complete,
-            )
+            self.multi_agent_G_list[0] = self.multi_agent_net.set_graph(platform_set=platform_set)
 
         observation = ArenaObservation(
             platform_state=platform_set,
@@ -290,7 +286,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            graph_obs=graph_observation if self.is_multi_agent else None,
+            graph_obs=self.multi_agent_G_list[0] if self.is_multi_agent else None,
         )
         return observation
 
@@ -312,7 +308,7 @@ class Arena:
             )
         if self.is_multi_agent:
             graph_observation = self.multi_agent_net.update_graph(platform_set=platform_set)
-            self.multi_agent_G_list.append(graph_observation.G_communication)
+            self.multi_agent_G_list.append(graph_observation)
 
         return ArenaObservation(
             platform_state=platform_set,
@@ -730,6 +726,9 @@ class Arena:
 
     def plot_distance_evolution_between_platforms(
         self,
+        only_connected_comp: Optional[
+            bool
+        ] = False,  # if we don't want to plot disconnected links (above threshold), set it tue True
         neighbors_list_to_plot: Optional[List[Tuple]] = None,
         figsize: Optional[Tuple[int]] = (12, 8),
         temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
@@ -745,7 +744,9 @@ class Arena:
         dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
 
         self.multi_agent_net.plot_distance_evolution_between_neighbors(
-            list_of_graph=self.multi_agent_G_list,
+            list_of_graph=[G.G_communication for G in self.multi_agent_G_list]
+            if only_connected_comp
+            else [G.G_complete for G in self.multi_agent_G_list],
             dates=dates,
             neighbors_list_to_plot=neighbors_list_to_plot,
             stride_temporal_res=stride_temporal_res,
@@ -800,7 +801,7 @@ class Arena:
         # shallow wrapper to plotting utils function
         self.multi_agent_net.animate_graph_net_trajectory(
             state_trajectory=self.state_trajectory,
-            multi_agent_graph_seq=self.multi_agent_G_list,
+            multi_agent_graph_seq=[G.G_communication for G in self.multi_agent_G_list],
             collision_communication_thrslds=collision_communication_thrslds,
             temporal_resolution=temporal_resolution,
             plot_ax_ticks=plot_ax_ticks,
@@ -825,7 +826,7 @@ class Arena:
         dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
         func_used(
             ax=ax,
-            list_of_graph=self.multi_agent_G_list,
+            list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=dates,
             stride_temporal_res=stride_temporal_res,
             stride_xticks=stride_xticks,
@@ -873,7 +874,7 @@ class Arena:
 
     def save_metrics_to_log(self, filename: str):
         self.multi_agent_net.log_metrics(
-            list_of_graph=self.multi_agent_G_list,
+            list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],
             logfile=filename,
         )

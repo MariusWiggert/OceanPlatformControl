@@ -24,7 +24,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
 #%%  Import scenario and configurate folder to save plots (for analysis)
-multi_agent_scenario = "scenario_5"
+multi_agent_scenario = "scenario_2"
 with open(f"config/multi_agent_scenarios/{multi_agent_scenario}.yaml") as f:
     multi_ag_config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -124,26 +124,26 @@ planner_set = MultiAgentPlanner(
 )
 # first observation of initial states
 observation = arena.reset(platform_set=platform_set)
-# action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
+action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
 
 # %% Reachability snapshot plot
-# plt.clf()
-# planner_set.plot_reachability_snapshot(
-#     rel_time_in_seconds=0,
-#     granularity_in_h=5,
-#     alpha_color=1,
-#     time_to_reach=True,
-#     fig_size_inches=(12, 12),
-#     plot_in_h=True,
-#     return_ax=True,
-# )
-# plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
+plt.clf()
+planner_set.plot_reachability_snapshot(
+    rel_time_in_seconds=0,
+    granularity_in_h=5,
+    alpha_color=1,
+    time_to_reach=True,
+    fig_size_inches=(12, 12),
+    plot_in_h=True,
+    return_ax=True,
+)
+plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
 
 # %% Simulate a trajectory:
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action = planner_set.get_action_HJ_with_flocking(observation=observation)
+    action = planner_set.get_action_HJ_decentralized_reactive_control(observation=observation)
     observation = arena.step(action)
 
 
