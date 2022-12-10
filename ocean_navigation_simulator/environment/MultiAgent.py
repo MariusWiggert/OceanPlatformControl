@@ -439,6 +439,39 @@ class MultiAgent:
         ax.grid()
         return ax
 
+    def get_isolate_nodes(
+        self,
+        list_of_graph: List[nx.Graph],
+        stride_temporal_res: Optional[int] = 1,
+    ):
+        return list(
+            map(
+                lambda G: int(len(list(nx.isolates(G)))),
+                list_of_graph[::stride_temporal_res],
+            )
+        )
+
+    def get_collisions(
+        self,
+        list_of_graph: List[nx.Graph],
+        stride_temporal_res: Optional[int] = 1,
+    ):
+
+        collision_nb_list = []
+        for G in list_of_graph[::stride_temporal_res]:
+            # count the number of collisions for each graph at datetime
+            collision_nb_list.append(
+                sum(
+                    [
+                        1
+                        for n1, n2, w in G.edges(data="weight")
+                        if self.in_unit(w, unit=self.unit_weight_edges)
+                        < self.network_prop["collision_thrsld"]
+                    ]
+                )
+            )
+        return collision_nb_list
+
     def plot_isolated_vertices(
         self,
         ax: plt.axes,
@@ -452,11 +485,8 @@ class MultiAgent:
         Function that plots the number of nodes that are isolated i.e. of degree zero over time. These nodes correspond to platforms that are disconnected from the rest of the flock
 
         """
-        isolated_nodes = list(
-            map(
-                lambda G: int(len(list(nx.isolates(G)))),
-                list_of_graph[::stride_temporal_res],
-            )
+        isolated_nodes = self.get_isolate_nodes(
+            list_of_graph=list_of_graph, stride_temporal_res=stride_temporal_res
         )
 
         ax.step(dates[::stride_temporal_res], isolated_nodes, "--x")
@@ -481,19 +511,9 @@ class MultiAgent:
         stride_xticks: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
 
-        collision_nb_list = []
-        for G in list_of_graph[::stride_temporal_res]:
-            # count the number of collisions for each graph at datetime
-            collision_nb_list.append(
-                sum(
-                    [
-                        1
-                        for n1, n2, w in G.edges(data="weight")
-                        if self.in_unit(w, unit=self.unit_weight_edges)
-                        < self.network_prop["collision_thrsld"]
-                    ]
-                )
-            )
+        collision_nb_list = self.get_collisions(
+            list_of_graph=list_of_graph, stride_temporal_res=stride_temporal_res
+        )
         ax.step(dates[::stride_temporal_res], collision_nb_list, "--x")
         ax = self.set_ax_description(
             ax=ax,
@@ -576,20 +596,59 @@ class MultiAgent:
         self,
         list_of_graph: List[nx.Graph],
         dates: List[dt.datetime],
+        success_rate_reach_target: float,
         logfile: str = "logmetrics.log",
-        formatLog: Optional[logging.Formatter] = logging.Formatter("%(levelname)s %(message)s"),
+        formatLog: Optional[logging.Formatter] = None,
     ):
+        if formatLog is None:
+            formatLog = logging.Formatter("%(asctime)s METRIC LOG:  %(message)s")
 
-        isolated_nodes = list(
-            map(
-                lambda G: int(len(list(nx.isolates(G)))),
-                list_of_graph,
-            )
-        )
+        isolated_nodes = self.get_isolate_nodes(list_of_graph=list_of_graph, stride_temporal_res=1)
+        # isolated_nodes = list(
+        #     map(
+        #         lambda G: int(len(list(nx.isolates(G)))),
+        #         list_of_graph,
+        #     )
+        # )
+        collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
         integrated_communication = simpson(isolated_nodes, dates)
+        collision_metric = sum(collisions)
+        if (
+            success_rate_reach_target == 1
+            and integrated_communication == 0
+            and collision_metric == 0
+        ):
+            mission_success = 1
+        else:
+            mission_success = 0
+
         self.LOG_insert(
             logfile,
             formatLog,
             f"Integral metric of isolated platforms = {integrated_communication}",
             logging.INFO,
         )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Number of collisions = {collision_metric}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Fraction of platforms reaching target = {success_rate_reach_target}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Mission Success !" if mission_success else f"Mission failed",
+            logging.INFO,
+        )
+        return {
+            "isolated_platform_metric": integrated_communication,
+            "number_of_collision": collision_metric,
+            "reaching_target": success_rate_reach_target,
+            "mission_sucess": mission_success,
+        }

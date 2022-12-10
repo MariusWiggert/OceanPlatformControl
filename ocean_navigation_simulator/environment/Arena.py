@@ -319,35 +319,40 @@ class Arena:
             graph_obs=graph_observation,
         )
 
-    def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
+    def is_inside_arena(self, platform_id: int = 0, margin: Optional[float] = 0.0) -> bool:
         # TODO: adapt for MultiAgent
         """Check if the current platform state is within the arena spatial boundary."""
         if self.spatial_boundary is not None:
             inside_x = (
                 self.spatial_boundary["x"][0].deg + margin
-                < self.platform.state_set.lon.deg
+                < self.platform.state_set[platform_id].lon.deg
                 < self.spatial_boundary["x"][1].deg - margin
             )
             inside_y = (
                 self.spatial_boundary["y"][0].deg + margin
-                < self.platform.state_set.lat.deg
+                < self.platform.state_set[platform_id].lat.deg
                 < self.spatial_boundary["y"][1].deg - margin
             )
             return inside_x and inside_y
         return True
 
-    def is_on_land(self, point: SpatialPoint = None) -> bool:
+    def is_on_land(self, point: SpatialPoint = None, platform_id: int = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
         # TODO: adapt for MultiAgent
         if point is None:
-            point = self.platform.state_set
+            point = self.platform.state_set[platform_id]
         return self.ocean_field.hindcast_data_source.is_on_land(point)
 
     def problem_status(
-        self, problem: Problem, check_inside: Optional[bool] = True, margin: Optional[float] = 0.0
+        self,
+        problem: Problem,
+        platform_id: int = 0,
+        check_inside: Optional[bool] = True,
+        margin: Optional[float] = 0.0,
     ) -> int:
         """
         Get the problem status
+        # for multi agent return a problem status for platform individually
         Returns:
             1   if problem was solved
             0   if problem is still open
@@ -355,13 +360,12 @@ class Arena:
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
         """
-        # TODO: adapt for MultiAgent
-        if self.is_on_land():
+        if self.is_on_land(platform_id=platform_id):
             return -2
-        elif check_inside and not self.is_inside_arena(margin):
+        elif check_inside and not self.is_inside_arena(platform_id=platform_id, margin=margin):
             return -3
         else:
-            return problem.is_done(self.platform.state_set)
+            return problem.is_done(self.platform.state_set[platform_id])
 
     def problem_status_text(self, problem_status):
         """
@@ -872,9 +876,18 @@ class Arena:
         )
         return fig
 
-    def save_metrics_to_log(self, filename: str):
-        self.multi_agent_net.log_metrics(
+    def save_metrics_to_log(self, problem: Problem, filename: str):
+        success_rate_reach_target = 0
+        n = problem.nb_platforms
+        for pltf_id in range(n):
+            if self.problem_status(problem=problem, platform_id=pltf_id, check_inside=True) == 1:
+                success_rate_reach_target += 1
+        success_rate_reach_target /= n
+
+        metrics_dict = self.multi_agent_net.log_metrics(
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],
+            success_rate_reach_target=success_rate_reach_target,
             logfile=filename,
         )
+        return metrics_dict

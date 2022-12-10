@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 import yaml
+import pandas as pd
 
 os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 # os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
@@ -24,7 +25,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
 #%%  Import scenario and configurate folder to save plots (for analysis)
-multi_agent_scenario = "scenario_2"
+multi_agent_scenario = "scenario_5"
 with open(f"config/multi_agent_scenarios/{multi_agent_scenario}.yaml") as f:
     multi_ag_config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -143,10 +144,14 @@ plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action = planner_set.get_action_HJ_decentralized_reactive_control(observation=observation)
+    action = planner_set.get_action_HJ_with_flocking(observation=observation)
     observation = arena.step(action)
 
-
+metrics_dict = arena.save_metrics_to_log(
+    problem=problem, filename=f"{folder_save_results}/metrics.log"
+)
+metrics_df = pd.DataFrame(data=metrics_dict, index=[0])
+metrics_df.to_csv(f"{folder_save_results}/metrics.csv")
 # animations
 arena.animate_trajectory(
     margin=0.25,
@@ -169,4 +174,3 @@ plt.savefig(f"{folder_save_results}/graph_properties.png")
 plt.clf()
 arena.plot_distance_evolution_between_platforms()
 plt.savefig(f"{folder_save_results}/distanceEvolution.png")
-arena.save_metrics_to_log(filename=f"{folder_save_results}/metrics.log")

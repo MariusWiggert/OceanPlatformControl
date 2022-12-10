@@ -202,7 +202,6 @@ class FlockingControl:
         # TODO check dimension mismatch: get a 3D array not expected
 
     def get_u_i(self, node_i):
-        # TODO: problem when platforms become disconnected: adjacency mat is 0
         neighbors_idx = np.argwhere(self.adjacency_mat[node_i, :] > 0).flatten()
         n_ij = self.get_n_ij(
             i_node=node_i,
@@ -211,7 +210,7 @@ class FlockingControl:
         )
         q_ij_sigma_norm = self.sigma_norm(z_norm=self.adjacency_mat[node_i, neighbors_idx])
         gradient_term = np.sum(self.phi_alpha(z=q_ij_sigma_norm) * n_ij, axis=1)
-        u_i = gradient_term * self.dt_in_s  # integrate since we have a velocity input
+        u_i = 0.5 * gradient_term * self.dt_in_s  # integrate since we have a velocity input
         return PlatformAction(
             np.linalg.norm(u_i, ord=2) / self.u_max_mps,  # scale in % of max u
             direction=np.arctan2(u_i[1], u_i[0]),
