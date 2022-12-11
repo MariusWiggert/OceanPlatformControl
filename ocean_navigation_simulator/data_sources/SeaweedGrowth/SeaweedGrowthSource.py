@@ -88,7 +88,11 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
     def get_growth_and_resp_data_array_from_file(self) -> xr:
         """Helper function to open the dataset and calculate the metrics derived from nutrients and temp."""
-        # TODO: we can actually just pre-compute it and just load the nc file for those two values.
+        # TODO: Clean up with parameters like year etc! we can actually just pre-compute it and just load the nc file for those two values.
+        path = "./data/seaweed/seaweed_precomputed.nc"
+        # if os.path.exists(path):
+        #     return xr.open_dataset(path)
+        # else:
         DataArray = xr.open_dataset(self.source_config_dict["source_settings"]["filepath"])
         DataArray = DataArray.rename({"latitude": "lat", "longitude": "lon"})
         DataArray = DataArray.assign(
@@ -99,6 +103,8 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         DataArray = DataArray.assign(R_resp=compute_R_resp(DataArray["Temperature"]))
         # Just to conserve RAM
         DataArray = DataArray.drop(["Temperature", "no3", "po4"])
+        # DataArray.to_netcdf(path=path)
+
         return DataArray
 
     @staticmethod
@@ -194,12 +200,28 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
           data     containing the data in whatever format as numpy array (not yet in xarray form) e.g. Tuple
         """
         # Step 1: Create the meshgrid numpy matrices for each coordinate
-        LAT, TIMES, LON = np.meshgrid(
-            grids_dict["y_grid"], grids_dict["t_grid"], grids_dict["x_grid"]
-        )
-        data_out = self.F_NGR_per_second(ca.DM([TIMES.flatten(), LAT.flatten(), LON.flatten()]))
+        # LAT, TIMES, LON = np.meshgrid(
+        #     grids_dict["y_grid"], grids_dict["t_grid"], grids_dict["x_grid"]
+        # )
+        LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
+
+        # data_out = self.F_NGR_per_second(ca.DM([TIMES.flatten(), LAT.flatten(), LON.flatten()]))
+        # print("data",data_out)
+        # print("reshaped",np.array(data_out).reshape(LAT.shape))
         # return reshaped to proper size
-        return np.array(data_out).reshape(LAT.shape)
+
+        LON, LAT = np.where((LON >= 2) & (LON <= 2.5), 1, 0), np.where(
+            (LAT >= 2) & (LAT <= 2.5), 1, 0
+        )
+        data = np.multiply(LON.T, LAT.T)
+
+        T = grids_dict["t_grid"].shape[0]
+
+        data = np.repeat(data[np.newaxis, :, :], T, axis=0)
+        # data = np.append(data, np.zeros(LON.shape)[np.newaxis,...], axis=0)
+        # return np.array(data_out).reshape(LAT.shape)
+
+        return data
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> float:
         """Function to get the data at a specific point.
@@ -220,8 +242,8 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
             datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
             datetime.datetime(2024, 1, 10, 0, 0, 0, tzinfo=datetime.timezone.utc),
         ]
-        source_config_dict["source_settings"]["spatial_resolution"] = 0.25
-        source_config_dict["source_settings"]["temporal_resolution"] = 3600
+        source_config_dict["source_settings"]["spatial_resolution"] = 0.1
+        source_config_dict["source_settings"]["temporal_resolution"] = 1
 
         return source_config_dict
 
