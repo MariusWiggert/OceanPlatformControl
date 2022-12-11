@@ -364,6 +364,7 @@ class Arena:
         self,
         margin: Optional[float] = 1,
         problem: Optional[NavigationProblem] = None,
+        background: Optional[str] = "current",
         temporal_resolution: Optional[float] = None,
         add_ax_func_ext: Optional[Callable] = None,
         output: Optional[AnyStr] = "traj_animation.mp4",
@@ -373,6 +374,7 @@ class Arena:
         Optional Args:
               margin:            Margin as box around x_0 and x_T to plot
               problem:           Navigation Problem object
+              background:       Data source which is rendered in plot background
               temporal_resolution:  The temporal resolution of the animation in seconds (per default same as data_source)
               add_ax_func_ext:  function handle what to add on top of the current visualization
                                 signature needs to be such that it takes an axis object and time as input
@@ -384,11 +386,23 @@ class Arena:
               forward_time:     If True, animation is forward in time, if false backwards
               **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
         """
+
+        # Background: Data Sources
+        if "current" in background:
+            data_source = self.ocean_field.hindcast_data_source
+        elif "solar" in background:
+            data_source = self.solar_field.hindcast_data_source
+        elif "seaweed" in background or "growth" in background:
+            data_source = self.seaweed_field.hindcast_data_source
+        else:
+            raise Exception(
+                f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed."
+            )
         # shallow wrapper to plotting utils function
         animate_trajectory(
             state_trajectory=self.state_trajectory.T,
             ctrl_trajectory=self.action_trajectory.T,
-            data_source=self.ocean_field.hindcast_data_source,
+            data_source=data_source,
             problem=problem,
             margin=margin,
             temporal_resolution=temporal_resolution,
@@ -579,10 +593,10 @@ class Arena:
             dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
-        ax.plot(dates, self.state_trajectory[::stride, 3], marker=".")
+        ax.plot(dates, self.state_trajectory[::stride, 4], marker=".")
 
         ax.set_title("Seaweed Mass over Time")
-        ax.set_ylim(0.0, 1.1)
+        # ax.set_ylim(0.0, 1000)
         ax.set_xlabel("time in h")
         ax.set_ylabel("Seaweed Mass in kg")
 
