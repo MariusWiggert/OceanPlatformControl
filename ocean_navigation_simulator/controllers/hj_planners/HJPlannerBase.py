@@ -14,6 +14,7 @@ import hj_reachability as hj
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
 import scipy
 import xarray as xr
 from scipy.interpolate import interp1d
@@ -399,8 +400,7 @@ class HJPlannerBase(Controller):
             self._run_hj_reachability(
                 initial_values=self.get_initial_values(direction="backward"),
                 t_start=x_t.date_time,
-                T_max_in_seconds=t_earliest_in_seconds
-                + self.specific_settings["fwd_back_buffer_in_seconds"],
+                T_max_in_seconds=t_earliest_in_seconds + self.specific_settings["fwd_back_buffer_in_seconds"],
                 dir="backward",
             )
             self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
@@ -1007,6 +1007,146 @@ class HJPlannerBase(Controller):
             return ax
         else:
             plt.show()
+
+    def vis_value_func_3D(self, timestep):
+        """Plot the 3D value function at a specific time frame.
+        Args:
+            timestemp:    time step of the value fct tensor i.e. 0 for first one & -1 for last one
+        """
+        z = self.all_values[timestep]
+        x = self.grid.states[..., 0]
+        y = self.grid.states[..., 1]
+        fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
+
+        fig.show()
+
+    def animate_value_func_3D(self):
+        """Animate the 3D value function at a specific time frame."""
+        fig = go.Figure(
+            data=go.Surface(
+                x=self.grid.states[..., 0],
+                y=self.grid.states[..., 1],
+                z=self.all_values[0],
+            )
+        )
+
+        frames = [
+            go.Frame(data=go.Surface(z=self.all_values[k]), name=str(k))
+            for k in range(len(self.all_values))
+        ]
+        updatemenus = [
+            dict(
+                buttons=[
+                    dict(
+                        args=[
+                            None,
+                            {
+                                "frame": {"duration": 20, "redraw": True},
+                                "fromcurrent": True,
+                                "transition": {"duration": 0},
+                            },
+                        ],
+                        label="Play",
+                        method="animate",
+                    ),
+                    dict(
+                        args=[
+                            [None],
+                            {
+                                "frame": {"duration": 0, "redraw": False},
+                                "mode": "immediate",
+                                "transition": {"duration": 0},
+                            },
+                        ],
+                        label="Pause",
+                        method="animate",
+                    ),
+                ],
+                direction="left",
+                pad={"r": 10, "t": 87},
+                showactive=False,
+                type="buttons",
+                x=0.21,
+                xanchor="right",
+                y=-0.075,
+                yanchor="top",
+            )
+        ]
+
+        sliders = [
+            dict(
+                steps=[
+                    dict(
+                        method="animate",
+                        args=[
+                            [f"{k}"],
+                            dict(
+                                mode="immediate",
+                                frame=dict(duration=201, redraw=True),
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                        label=f"{k+1}",
+                    )
+                    for k in range(len(self.all_values))
+                ],
+                active=0,
+                transition=dict(duration=0),
+                x=0,  # slider starting position
+                y=0,
+                currentvalue=dict(
+                    font=dict(size=12), prefix="frame: ", visible=True, xanchor="center"
+                ),
+                len=1.0,
+            )  # slider length
+        ]
+
+        fig.update_layout(width=700, height=700, updatemenus=updatemenus, sliders=sliders)
+        fig.update(frames=frames)
+        fig.update_traces(showscale=False)
+        fig.show()
+
+    def vis_value_func_2D(self, timestep):
+        """Plot the projected 3D value function on a 2D plane at a specific time frame.
+        Args:
+            timestemp:    time step of the value fct tensor i.e. 0 for first one & -1 for last one
+        """
+        z = self.all_values[timestep]
+        x = self.grid.states[..., 0]
+        y = self.grid.states[..., 1]
+
+        proj_z = lambda x, y, z: z  # projection in the z-direction
+        colorsurfz = proj_z(x, y, z)
+
+        z_offset = (np.min(z) - 2) * np.ones(z.shape)
+
+        fig = go.Figure(
+            data=[
+                go.Surface(
+                    z=list(z_offset),
+                    x=list(x),
+                    y=list(y),
+                    showlegend=False,
+                    showscale=True,
+                    surfacecolor=colorsurfz,
+                )
+            ]
+        )
+        fig.show()
+
+    def vis_value_func_contour(self, timestep):
+        """Plot the projected 3D value function on a 2D contour plane at a specific time frame.
+        Args:
+            timestemp:    time step of the value fct tensor i.e. 0 for first one & -1 for last one
+        """
+        z = self.all_values[timestep]
+        x = self.grid.states[0]
+        y = self.grid.states[1]
+
+        fig = go.Figure(
+            data=[go.Contour(z=list(z), x=list(x), y=list(y), contours_coloring="heatmap")]
+        )
+        fig.show()
 
     @staticmethod
     def _get_multi_reach_levels(granularity_in_h, vmin, abs_time_in_h, time_to_reach):
