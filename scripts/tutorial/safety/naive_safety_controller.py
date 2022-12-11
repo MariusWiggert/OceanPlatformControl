@@ -42,7 +42,10 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 # problem.plot(ax=ax)
 # plt.show()
 
-specific_settings = "dummy"
+specific_settings = {
+    "d_land_min": 40,
+    "filepath_distance_map": "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
+}
 planner = NaiveSafetyController(problem, specific_settings)
 # % Run reachability planner
 observation = arena.reset(platform_state=x_0)
