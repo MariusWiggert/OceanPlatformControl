@@ -1,8 +1,8 @@
+from typing import Union
 import jax.lax
 import jax.numpy as jnp
-from hj_reachability import dynamics, sets, interpolation
-from typing import Union
 import xarray as xr
+from hj_reachability import dynamics, interpolation, sets
 
 
 def transform_to_geographic_velocity(state, dx1, dx2):
@@ -52,6 +52,7 @@ class Platform2dSeaweedForSim(dynamics.Dynamics):
         control_space = sets.Box(lo=jnp.array([0, 0]), hi=jnp.array([1.0, 2 * jnp.pi]))
 
         disturbance_space = sets.Ball(center=jnp.zeros(2), radius=d_max)
+
         super().__init__(control_mode, disturbance_mode, control_space, disturbance_space)
 
     def update_jax_interpolant(self, data_xarray: xr, seaweed_xarray: xr):
@@ -109,8 +110,12 @@ class Platform2dSeaweedForSim(dynamics.Dynamics):
         return dx_out
         # return self.obstacle_operator(state, time, dx_out)
 
-    def __get_seaweed_growth_rate(self, state, time):
-        return self.seaweed_rate(state, time)
+    def _get_seaweed_growth_rate(self, state, time):
+        return self.seaweed_rate(self._get_dim_state(state), time)
+
+    def _get_dim_state(self, state_nonDim: jnp.ndarray):
+        """Returns the state transformed from non_dimensional coordinates to dimensional coordinates."""
+        return state_nonDim * self.characteristic_vec + self.offset_vec
 
     @staticmethod
     def disturbance_jacobian(state, time):
@@ -144,6 +149,6 @@ class Platform2dSeaweedForSim(dynamics.Dynamics):
         """Evaluates the HJ PDE Hamiltonian and adds running cost term (negative seaweed growth rate)"""
         del value  # unused
         control, disturbance = self.optimal_control_and_disturbance(state, time, grad_value)
-        return grad_value @ self(
-            state, control, disturbance, time
-        ) - self.__get_seaweed_growth_rate(state, time)
+        return grad_value @ self(state, control, disturbance, time) - self._get_seaweed_growth_rate(
+            state, time
+        )
