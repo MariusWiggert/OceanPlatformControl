@@ -105,8 +105,14 @@ class ArenaFactory:
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
                 with timing("ArenaFactory: Download Hindcast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_files(config=config, type="hindcast",
-                                                t_interval=t_interval, points=points, verbose=verbose, c3=c3)
+                    ArenaFactory.download_files(
+                        config=config,
+                        type="hindcast",
+                        t_interval=t_interval,
+                        points=points,
+                        verbose=verbose,
+                        c3=c3,
+                    )
 
             # Step 6: Download Forecast
             if (
@@ -115,8 +121,14 @@ class ArenaFactory:
                 and config["ocean_dict"]["forecast"]["source"] == "forecast_files"
             ):
                 with timing("ArenaFactory: Download Forecast Files ({:.1f}s)", verbose):
-                    ArenaFactory.download_files(config=config, type="forecast",
-                                                t_interval=t_interval, points=points, verbose=verbose, c3=c3)
+                    ArenaFactory.download_files(
+                        config=config,
+                        type="forecast",
+                        t_interval=t_interval,
+                        points=points,
+                        verbose=verbose,
+                        c3=c3,
+                    )
 
             # Step 7: Create Arena
             return Arena(
@@ -133,19 +145,15 @@ class ArenaFactory:
     def download_files(config, type, t_interval, points, verbose, c3=None):
         """Helper method to be run in C3 context manager."""
         ArenaFactory.download_required_files(
-            archive_source=config["ocean_dict"][type]["source_settings"][
-                "source"
-            ],
+            archive_source=config["ocean_dict"][type]["source_settings"]["source"],
             archive_type=config["ocean_dict"][type]["source_settings"]["type"],
-            download_folder=config["ocean_dict"][type]["source_settings"][
-                "folder"
-            ],
+            download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
             t_interval=t_interval,
             region=config["ocean_dict"]["area"],
             throw_exceptions=True,
             points=points,
             verbose=verbose,
-            c3=c3
+            c3=c3,
         )
 
     # TODO: automatically select best region depending on given points
@@ -160,6 +168,7 @@ class ArenaFactory:
         throw_exceptions: bool = False,
         verbose: Optional[int] = 10,
         c3: Optional = None,
+        keep_newest_days: int = 100,
     ) -> int:
         """
         helper function for thread-safe download of available current files from c3
@@ -173,6 +182,7 @@ class ArenaFactory:
             throw_exceptions: throw exceptions for missing or corrupted files
             verbose: silence print statements with 0
             c3: c3 object can be passed in directly, if not a c3 object is created
+            keep_newest_days: keep only n newest dates to prevent full storage i.e for 100 -> ~ 100 * 100MB = 10GB
         Returns:
             amount of files found
         Examples:
@@ -190,7 +200,7 @@ class ArenaFactory:
             region=region,
             t_interval=t_interval,
             verbose=verbose,
-            c3=c3
+            c3=c3,
         )
 
         # Step 2: Check File Count
@@ -234,7 +244,8 @@ class ArenaFactory:
             download_folder=download_folder,
             throw_exceptions=throw_exceptions,
             verbose=verbose,
-            c3=c3
+            c3=c3,
+            keep_newest_days=keep_newest_days,
         )
 
         return files.count
@@ -246,7 +257,7 @@ class ArenaFactory:
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
         verbose: Optional[int] = 10,
-        c3: Optional = None
+        c3: Optional = None,
     ):
         """
         helper function to get a list of available files from c3
@@ -312,8 +323,17 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def _download_filelist(files, download_folder, throw_exceptions, verbose: Optional[int] = 10, c3: Optional = None):
-        """thread-safe download with corruption and file size check"""
+    def _download_filelist(
+        files,
+        download_folder,
+        throw_exceptions,
+        verbose: Optional[int] = 10,
+        c3: Optional = None,
+        keep_newest_days: int = 100,
+    ):
+        """thread-safe download with corruption and file size check
+        keep_newest_days = 100 ->  ~ 100 * 100MB = 10GB
+        """
         if c3 is None:
             c3 = get_c3(verbose - 1)
 
@@ -373,11 +393,10 @@ class ArenaFactory:
             shutil.rmtree(temp_folder, ignore_errors=True)
 
         # Step 3: Only keep most recent files to prevent full storage
-        KEEP = 100  # ~ 100 * 100MB = 10GB
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
-        for file in cached_files[KEEP:]:
+        for file in cached_files[keep_newest_days:]:
             if verbose > 0:
                 print("Deleting old forecast file:", file)
             os.remove(file)
