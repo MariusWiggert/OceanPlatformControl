@@ -1,6 +1,10 @@
+# casadi_cache_dict:
+#     deg_around_x_t: 10.0
+#     time_around_x_t: 1000.0
+
 casadi_cache_dict:
-    deg_around_x_t: 10.0
-    time_around_x_t: 1000.0
+    deg_around_x_t: 0.2
+    time_around_x_t: 22
 
 platform_dict:
     battery_cap_in_wh: 400.0
@@ -9,13 +13,13 @@ platform_dict:
     solar_panel_size: 0.5
     solar_efficiency: 0.2
     drag_factor: 675.0
-    dt_in_s: 1
+    dt_in_s: 0.2
 
 use_geographic_coordinate_system: False
 
 spatial_boundary:
-    x: [0, 10]
-    y: [0, 10]
+    x: [-6, 4]
+    y: [-6, 4]
 
 ocean_dict:
     hindcast:
@@ -24,18 +28,36 @@ ocean_dict:
         source_settings:
             name: 'FixedCurrentHighway'
             boundary_buffers: [0.2, 0.2]
-            x_domain: [0, 10]
-            y_domain: [0, 10]
+            x_domain: [-6, 4]
+            y_domain: [-6, 4]
             temporal_domain: [0, 1000]
             spatial_resolution: 0.1
             temporal_resolution: 10
-            y_range_highway: [4.5, 5.5]
-            U_cur: 0.2
+            y_range_highway: [1.6, 1.8]
+            U_cur: 0
     forecast: null
 
-solar_dict: null
+solar_dict:
+    hindcast: 
+        field: 'SolarIrradiance'
+        source: 'analytical_wo_caching' # can also be analytical_w_caching
+        source_settings:
+            boundary_buffer: [0.2, 0.2]
+            x_domain: [-3, 3]
+            y_domain: [-3, 3]
+            temporal_domain: [2020-01-01 00:00:00Z, 2023-01-10 00:00:00Z]
+            spatial_resolution: 0.1
+            temporal_resolution: 3600 
+    forecast: null
 
-seaweed_dict: null
+seaweed_dict:
+    hindcast: 
+        field: 'SeaweedGrowth'
+        source: 'GEOMAR'
+        source_settings:
+            filepath: './data/nutrients/2022_monthly_nutrients_and_temp_faked_from_2021.nc'
+    forecast: null
+    
 
 platform_state:
     lon: 0
