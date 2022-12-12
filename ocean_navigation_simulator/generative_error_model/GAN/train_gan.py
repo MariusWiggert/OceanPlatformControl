@@ -286,6 +286,15 @@ def main(sweep: Optional[bool] = False):
     if cfgs_gen["load_from_chkpt"]:
         gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
         load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
+        if cfgs_gen["init_decoder"]:
+            with torch.no_grad():
+                for name, layer in generator.named_modules():
+                    # print(name, type(layer))
+                    if ("up" in name and "conv.0" in name) or "final_up.0" in name:
+                        print(name, type(layer))
+                        nn.init.xavier_normal_(layer.weight.data, gain=0.02)
+                        if layer.bias is not None:
+                            nn.init.constant_(layer.bias.data, 0.0)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
     if cfgs_disc["load_from_chkpt"]:

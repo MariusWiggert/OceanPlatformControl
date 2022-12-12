@@ -34,47 +34,46 @@ class Generator(nn.Module):
         """
         super().__init__()
         norm_layer = get_norm_layer(norm_type=norm)
-        dropout = dropout_all
         # print(f"dropout values: {dropout_val}")
 
         self.initial_down = nn.Sequential(
             nn.Conv2d(in_channels, features, 4, 2, 1, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
         )
-        self.down1 = Block(features, features * 2, down=True, act="leaky", norm_layer=norm_layer, use_dropout=dropout,
-                           dropout_val=dropout_val)
+        self.down1 = Block(features, features * 2, down=True, act="leaky", norm_layer=norm_layer,
+                           use_dropout=dropout_all, dropout_val=dropout_val)
         self.down2 = Block(features * 2, features * 4, down=True, act="leaky", norm_layer=norm_layer,
-                           use_dropout=dropout, dropout_val=dropout_val)
+                           use_dropout=dropout_all, dropout_val=dropout_val)
         self.down3 = Block(features * 4, features * 8, down=True, act="leaky", norm_layer=norm_layer,
-                           use_dropout=dropout, dropout_val=dropout_val)
+                           use_dropout=dropout_all, dropout_val=dropout_val)
         self.down4 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer,
-                           use_dropout=dropout, dropout_val=dropout_val)
+                           use_dropout=dropout_all, dropout_val=dropout_val)
         self.down5 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer,
-                           use_dropout=dropout, dropout_val=dropout_val)
+                           use_dropout=dropout_all, dropout_val=dropout_val)
         self.down6 = Block(features * 8, features * 8, down=True, act="leaky", norm_layer=norm_layer,
-                           use_dropout=dropout, dropout_val=dropout_val)
+                           use_dropout=dropout_all, dropout_val=dropout_val)
 
         self.bottleneck = nn.Sequential(nn.Conv2d(features * 8, features * 8, 4, 2, 1), nn.ReLU())
 
         if dropout:
-            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
-            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
-            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=True)
+            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=dropout)
+            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=dropout)
+            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=dropout)
         else:
             self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout, dropout_val=dropout_val)
+                             use_dropout=dropout_all, dropout_val=dropout_val)
             self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout, dropout_val=dropout_val)
+                             use_dropout=dropout_all, dropout_val=dropout_val)
             self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout, dropout_val=dropout_val)
+                             use_dropout=dropout_all, dropout_val=dropout_val)
         self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                         use_dropout=dropout, dropout_val=dropout_val)
+                         use_dropout=dropout_all, dropout_val=dropout_val)
         self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
-                         use_dropout=dropout, dropout_val=dropout_val)
+                         use_dropout=dropout_all, dropout_val=dropout_val)
         self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer,
-                         use_dropout=dropout, dropout_val=dropout_val)
+                         use_dropout=dropout_all, dropout_val=dropout_val)
         self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer,
-                         use_dropout=dropout, dropout_val=dropout_val)
+                         use_dropout=dropout_all, dropout_val=dropout_val)
         self.final_up = nn.Sequential(
             nn.ConvTranspose2d(features * 2, out_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh(),
