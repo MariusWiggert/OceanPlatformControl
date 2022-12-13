@@ -8,6 +8,9 @@ from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import 
     HJReach2DPlanner,
 )
 
+# Ugly import to enable importing all controllers using eval
+import ocean_navigation_simulator.controllers
+
 
 class SwitchingController(Controller):
     def __init__(
@@ -22,13 +25,10 @@ class SwitchingController(Controller):
         self.specific_settings = specific_settings
         self.specific_settings_navigation = specific_settings_navigation
         self.specific_settings_safety = specific_settings_safety
-
-        self.navigation_controller = HJReach2DPlanner(
-            problem, specific_settings=self.specific_settings_navigation
-        )
-        self.safety_controller = NaiveSafetyController(
-            problem, specific_settings=self.specific_settings_safety
-        )
+        # Eval to execute and import the controller we want to prevent a long switch case with more imports.
+        # TODO: discuss method
+        self.navigation_controller = eval(self.specific_settings["navigation_controller"])
+        self.safety_controller = eval(self.specific_settings["safety_controller"])
         self.safety_status = False
 
     def safety_condition(self, observation: ArenaObservation) -> bool:

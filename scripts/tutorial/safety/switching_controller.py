@@ -74,8 +74,8 @@ specific_settings_safety = dict(
 specific_settings_switching = dict(
     safety_condition="distance",
     safe_distance_to_land=20,  # TODO: change to units,
-    safety_controller="NaiveSafetyController",  # TODO: getattr()
-    navigation_controller="HJReach2DPlanner",  # TODO: getattr()
+    safety_controller="ocean_navigation_simulator.controllers.NaiveSafetyController.NaiveSafetyController(problem, self.specific_settings_safety)",
+    navigation_controller="ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner(problem, self.specific_settings_navigation)",
 )
 
 planner = SwitchingController(
