@@ -6,6 +6,7 @@ from typing import List, Tuple, Union
 import numpy as np
 
 from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
 
 
 @dataclasses.dataclass
@@ -152,6 +153,7 @@ class PlatformState:
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
     battery_charge: units.Energy = units.Energy(joule=100)
     seaweed_mass: units.Mass = units.Mass(kg=100)
+    velocity: OceanCurrentVector = OceanCurrentVector(u = units.Velocity(mps=0), v=units.Velocity(mps=0))
 
     def __array__(self):
         return np.array(
@@ -161,6 +163,8 @@ class PlatformState:
                 self.date_time.timestamp(),
                 self.battery_charge.joule,
                 self.seaweed_mass.kg,
+                self.velocity.u.mps,
+                self.velocity.v.mps,
             ]
         )
 
@@ -184,6 +188,8 @@ class PlatformState:
             date_time=datetime.datetime.fromtimestamp(numpy_array[2], tz=datetime.timezone.utc),
             battery_charge=units.Energy(joule=numpy_array[3]),
             seaweed_mass=units.Mass(kg=numpy_array[4]),
+            velocity = OceanCurrentVector(u=units.Velocity(mps=numpy_array[5]),
+                                          v = units.Velocity(mps=numpy_array[6])),
         )
 
     @staticmethod
@@ -203,12 +209,13 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return "Platform State[lon: {x} deg, lat: {y} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]".format(
+        return "Platform State[lon: {x} deg, lat: {y} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg, velocity: {v}]".format(
             x=self.lon.deg,
             y=self.lat.deg,
             b=self.battery_charge.joule,
             m=self.seaweed_mass.kg,
             t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
+            v=str(self.velocity),
         )
 
     def distance(self, other) -> float:
@@ -235,7 +242,9 @@ class PlatformStateSet:
         # datetime does not support array, whilst np.datetime64 has no timestamps....
         self.date_time = np.array([platform.date_time for platform in self.platform_list])
         self.battery_charge = units.Energy(joule=np.array(self.platform_list)[:, 3])
-        self.seaweed_masse = units.Mass(kg=np.array(self.platform_list)[:, 4])
+        self.seaweed_mass = units.Mass(kg=np.array(self.platform_list)[:, 4])
+        self.velocity = OceanCurrentVector(u=units.Velocity(mps=np.array(self.platform_list)[:, 5]),
+                                        v = units.Velocity(mps=np.array(self.platform_list)[:, 6]))
 
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
@@ -251,6 +260,19 @@ class PlatformStateSet:
     def get_date_time(self):
         # for now we assume that all platforms have the same date_time
         return self.platform_list[0].date_time
+
+    def to_casadi_input_dynamics_array(self):
+        return self.__array__()[:,0:5] # velocities not needed as inputs for casadi simulation 
+
+    def get_timestamp_arr(self):
+        return np.array([platform.date_time.timestamp() for platform in self.platform_list])
+
+    def replace_velocities(self, u_mps, v_mps):     
+        for pltf_id in range(len(self)): # update individual list 
+            self.platform_list[pltf_id].velocity = OceanCurrentVector(u = units.Velocity(mps=u_mps[pltf_id]),
+                                                                    v = units.Velocity(mps=v_mps[pltf_id]))
+        self.velocity = OceanCurrentVector(u = units.Velocity(mps=u_mps),
+                                        v = units.Velocity(mps=v_mps)) # update attribute
 
     def get_distance_btw_platforms(self, from_nodes, to_nodes):
         lon_from, lat_from = self.lon[from_nodes], self.lat[from_nodes]

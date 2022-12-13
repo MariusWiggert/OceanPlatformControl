@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2_reactive_OR"
+folder_to_save: "scenario_2_flocking"
 
 days_sim: 2
 
@@ -50,6 +50,7 @@ multi_agent_param:
     a: 5
     b: 5
     interaction_range: 9000 # meters
+    hj_factor: 0.25
 
 
 

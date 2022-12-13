@@ -269,11 +269,10 @@ class Arena:
         Returns:
           The first observation from the newly reset simulator
         """
-        self.initial_states = platform_set
-        self.platform.set_state(self.initial_states)
-        self.platform.initialize_dynamics(self.initial_states)
-        self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_states)
-
+        self.platform.initialize_dynamics(platform_set)
+        self.ocean_field.forecast_data_source.update_casadi_dynamics(platform_set)
+        self.initial_states = self.platform.set_state(platform_set)
+        
         self.state_trajectory = np.atleast_3d(np.array(platform_set))
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))

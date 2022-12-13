@@ -25,7 +25,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
 #%%  Import scenario and configurate folder to save plots (for analysis)
-multi_agent_scenario = "scenario_5"
+multi_agent_scenario = "scenario_2"
 with open(f"config/multi_agent_scenarios/{multi_agent_scenario}.yaml") as f:
     multi_ag_config = yaml.load(f, Loader=yaml.FullLoader)
 

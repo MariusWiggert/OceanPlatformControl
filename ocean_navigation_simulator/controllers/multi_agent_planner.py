@@ -201,7 +201,7 @@ class FlockingControl:
         )  # columns are per neighbor
         # TODO check dimension mismatch: get a 3D array not expected
 
-    def get_u_i(self, node_i):
+    def get_u_i(self, node_i, hj_action):
         neighbors_idx = np.argwhere(self.adjacency_mat[node_i, :] > 0).flatten()
         n_ij = self.get_n_ij(
             i_node=node_i,
@@ -210,11 +210,14 @@ class FlockingControl:
         )
         q_ij_sigma_norm = self.sigma_norm(z_norm=self.adjacency_mat[node_i, neighbors_idx])
         gradient_term = np.sum(self.phi_alpha(z=q_ij_sigma_norm) * n_ij, axis=1)
-        u_i = 0.5 * gradient_term * self.dt_in_s  # integrate since we have a velocity input
-        return PlatformAction(
-            np.linalg.norm(u_i, ord=2) / self.u_max_mps,  # scale in % of max u
+        u_i = 0.5 * gradient_term * self.dt_in_s #+ self.param_dict["hj_factor"]*np.array([np.cos(hj_action.direction)*hj_action.magnitude, 
+                #np.sin(hj_action.direction)*hj_action.magnitude])# integrate since we have a velocity input
+        u_i_scaled = PlatformAction(
+            min(np.linalg.norm(u_i, ord=2) / self.u_max_mps, 1), # scale in % of max u, bounded
             direction=np.arctan2(u_i[1], u_i[0]),
         )
+        
+        return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
         # neighbors_iter = self.G_proximity.neighbors(node_i)
         # while True:
         #     try:
@@ -269,8 +272,8 @@ class MultiAgentPlanner(HJReach2DPlanner):
             platform_dict=self.platform_dict,
         )
         for k in range(len(observation)):
-            # hj_navigation = super().get_action(observation[k])
-            flocking_action = flocking_control.get_u_i(node_i=k)
+            hj_navigation = super().get_action(observation[k])
+            flocking_action = flocking_control.get_u_i(node_i=k, hj_action=hj_navigation)
             action_list.append(self.to_platform_action_bounds(flocking_action))
         return PlatformActionSet(action_list)
 
