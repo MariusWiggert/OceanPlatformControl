@@ -200,7 +200,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
 
                 target_fake = models[0](data)
                 if save_data:
-                    save_input_output_pairs(data, target_fake, all_cfgs, idx)
+                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, idx)
                 mask = torch.where(target != 0, 1, 0)
                 target_fake = torch.mul(target_fake.detach(), mask).float()
                 disc_fake = models[1](data, target_fake)
@@ -228,7 +228,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
     metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Validation avg loss: {avg_loss:.2f}")
-    return avg_loss, metrics, metrics_ratio
+    return avg_loss, metrics, metrics_ratio, save_dir
 
 
 def clean_up_training(models, optimizers, name_extensions, dataloader, all_cfgs: dict, device: str):
@@ -333,10 +333,10 @@ def main(sweep: Optional[bool] = False):
             to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc}
 
             if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio = validation((generator, discriminator),
-                                                              val_loader,
-                                                              device,
-                                                              all_cfgs)
+                val_loss, metrics, metrics_ratio, _ = validation((generator, discriminator),
+                                                                 val_loader,
+                                                                 device,
+                                                                 all_cfgs)
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
@@ -387,7 +387,7 @@ def test():
     checkpoint = torch.load(checkpoint_path, map_location=device)
     gen.load_state_dict(checkpoint["state_dict"])
 
-    # load discriminator
+    # load discriminator -> needed due to using val func -> could create separate testing function.
     disc = get_model(all_cfgs["model"][1], cfgs_disc, device)
     checkpoint_path = os.path.join(all_cfgs["save_base_path"],
                                    f"{all_cfgs['test_load_chkpt'].split('.')[0]}_disc.pth")
@@ -395,8 +395,9 @@ def test():
     disc.load_state_dict(checkpoint["state_dict"])
 
     cfgs_train["epoch"] = 1
-    _, metrics, _ = validation((gen, disc), test_loader, device, all_cfgs, save_data=True)
+    _, metrics, _, save_dir = validation((gen, disc), test_loader, device, all_cfgs, save_data=True)
     print(metrics)
+    return save_dir
 
 
 if __name__ == "__main__":

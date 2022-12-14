@@ -76,7 +76,7 @@ class Generator(nn.Module):
                          use_dropout=dropout_all, dropout_val=dropout_val)
         self.final_up = nn.Sequential(
             nn.ConvTranspose2d(features * 2, out_channels, kernel_size=4, stride=2, padding=1),
-            nn.Tanh(),
+            # nn.Tanh(),
         )
 
     def forward(self, x):

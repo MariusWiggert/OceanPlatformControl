@@ -184,7 +184,7 @@ def get_scheduler(optimizer, scheduler_configs: Dict):
     return scheduler
 
 
-def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: dict, idx: int) -> None:
+def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: dict, idx: int) -> str:
     save_dir = os.path.join(all_cfgs["save_samples_path"], all_cfgs["model_save_name"].split(".")[0])
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -197,6 +197,8 @@ def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: 
     save_file_path = os.path.join(save_dir, f"output_{idx}.npy")
     _save_data(output, save_file_path)
 
+    return save_dir
+
 
 def _save_data(data: torch.tensor, save_file_path: str) -> None:
     data = data.cpu().detach().numpy()
@@ -207,3 +209,4 @@ def enable_dropout(m):
     for each_module in m.modules():
         if each_module.__class__.__name__.startswith('Dropout'):
             each_module.train()
+            print("enabled dropout")

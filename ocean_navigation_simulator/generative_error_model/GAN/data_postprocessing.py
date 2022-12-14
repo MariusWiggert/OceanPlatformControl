@@ -12,7 +12,7 @@ import itertools
 
 class ConvertToError:
     """GAN predicts in current space, therefore the FC has to be subtracted from the predictions. Additionally,
-    to make the data easier to handle, it is converted to a NetCDF file."""
+    to make the data easier to handle, it is converted to NetCDF files."""
 
     def __init__(self, predictions_dir: str, ground_truth_dir: str):
         self.samples_dir = predictions_dir
