@@ -46,7 +46,6 @@ class ConvertToError:
         final_time_steps = (num_files-1)*24 + 8*24
 
         final_data = np.zeros((final_time_steps, 2, 256, 256))
-        print(final_data.shape)
         for i in range(len(self.fc_data)-1):
             final_data[i*24:(i+1)*24, :, :, :] = self.predictions[i][:24] - self.fc_data[i][:24]
         final_data[len(self.fc_data):len(self.fc_data) + 8*24, :, :, :] = self.predictions[-1] - self.fc_data[-1]

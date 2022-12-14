@@ -184,8 +184,10 @@ def get_scheduler(optimizer, scheduler_configs: Dict):
     return scheduler
 
 
-def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: dict, idx: int) -> str:
-    save_dir = os.path.join(all_cfgs["save_samples_path"], all_cfgs["model_save_name"].split(".")[0])
+def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: dict, save_dir: str, idx: int) -> str:
+    """Saves input-output pairs for testing."""
+
+    save_dir = os.path.join(save_dir, all_cfgs["model_save_name"].split(".")[0])
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -206,7 +208,23 @@ def _save_data(data: torch.tensor, save_file_path: str) -> None:
 
 
 def enable_dropout(m):
-    for each_module in m.modules():
-        if each_module.__class__.__name__.startswith('Dropout'):
-            each_module.train()
-            print("enabled dropout")
+    """Enable specific Dropout layers in generator like in Pix2pix."""
+
+    for name, layer in m.named_modules():
+        if layer.__class__.__name__.startswith('Dropout') and\
+                ("up" in name and any(str(x) in name for x in [1, 2, 3])):
+            layer.train()
+    print("-> Enabled dropout in gen")
+
+
+def init_decoder_weights(generator):
+    """Reset weights in decoder part of generator after loading entire pre-trained generator weights."""
+
+    with torch.no_grad():
+        for name, layer in generator.named_modules():
+            # print(name, type(layer))
+            if ("up" in name and "conv.0" in name) or "final_up.0" in name:
+                print(name, type(layer))
+                nn.init.xavier_normal_(layer.weight.data, gain=0.02)
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias.data, 0.0)

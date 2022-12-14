@@ -3,7 +3,7 @@ from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse,
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
 from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
-    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout
+    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, init_decoder_weights
 
 import wandb
 import os
@@ -287,14 +287,7 @@ def main(sweep: Optional[bool] = False):
         gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
         load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
         if cfgs_gen["init_decoder"]:
-            with torch.no_grad():
-                for name, layer in generator.named_modules():
-                    # print(name, type(layer))
-                    if ("up" in name and "conv.0" in name) or "final_up.0" in name:
-                        print(name, type(layer))
-                        nn.init.xavier_normal_(layer.weight.data, gain=0.02)
-                        if layer.bias is not None:
-                            nn.init.constant_(layer.bias.data, 0.0)
+            init_decoder_weights(generator)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
     if cfgs_disc["load_from_chkpt"]:
@@ -365,7 +358,10 @@ def main(sweep: Optional[bool] = False):
                           device)
 
 
-def test():
+def test(data: str = "test"):
+    """Function uses test or validation data for generating samples from the generator which is
+    then used for further analysis."""
+
     all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -373,12 +369,20 @@ def test():
     # simplify config access
     model_types = all_cfgs["model"]
     cfgs_gen = all_cfgs[model_types[0]]
-    cfgs_disc = all_cfgs[model_types[1]]
-    cfgs_dataset = all_cfgs["test_dataset"]
+    cfgs_dataset_repeated = all_cfgs["test_dataset_repeated"]
     cfgs_train = all_cfgs["train"]
 
-    # load training data
-    test_loader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+    if data == "test":
+        cfgs_dataset = all_cfgs["test_dataset"]
+        # load test data
+        test_loader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+        # load test data with repeated data
+        test_loader_repeated = get_test_data(all_cfgs["dataset_type"], cfgs_dataset_repeated, cfgs_train)
+    elif data == "val":
+        cfgs_dataset = all_cfgs["dataset"]
+        _, val_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+    else:
+        raise ValueError(f"data = {data} is not a valid input! Try: {'test', 'val'}.")
 
     # load generator
     gen = get_model(all_cfgs["model"][0], cfgs_gen, device)
@@ -387,17 +391,20 @@ def test():
     checkpoint = torch.load(checkpoint_path, map_location=device)
     gen.load_state_dict(checkpoint["state_dict"])
 
-    # load discriminator -> needed due to using val func -> could create separate testing function.
-    disc = get_model(all_cfgs["model"][1], cfgs_disc, device)
-    checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                   f"{all_cfgs['test_load_chkpt'].split('.')[0]}_disc.pth")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    disc.load_state_dict(checkpoint["state_dict"])
-
-    cfgs_train["epoch"] = 1
-    _, metrics, _, save_dir = validation((gen, disc), test_loader, device, all_cfgs, save_data=True)
-    print(metrics)
-    return save_dir
+    gen.eval()
+    enable_dropout(gen)
+    save_dirs = []
+    for loader_idx, dataloader in enumerate([test_loader, test_loader_repeated]):
+        with torch.no_grad():
+            for idx, (data, target) in enumerate(tqdm(dataloader)):
+                data, target = data.to(device).float(), target.to(device).float()
+                target_fake = gen(data)
+                if loader_idx == 0:
+                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
+                else:
+                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                save_dirs.append(save_dir)
+    return save_dirs
 
 
 if __name__ == "__main__":
