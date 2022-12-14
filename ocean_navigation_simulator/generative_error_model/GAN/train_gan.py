@@ -3,7 +3,8 @@ from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse,
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
 from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
-    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, init_decoder_weights
+    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, init_decoder_weights,\
+    freeze_encoder_weights
 
 import wandb
 import os
@@ -139,15 +140,11 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
 
                 # train discriminator
                 target_fake = models[0](data)
-                # print(f"target nan values: {torch.isnan(target[0, 0]).sum()}")
-                # print(f"target num all zero frames: "
-                #       f"{[torch.where(target[0, i] != 0, 1, 0).sum()for i in range(target.shape[1])].count(0)}")
                 # mask the generator output to match target (buoy data)
                 mask = torch.where(target != 0, 1, 0)
                 target_fake = torch.mul(target_fake, mask).float()
                 # check whether same num of non-zero values in target and target_fake
                 assert mask.sum() == torch.where(target_fake != 0, 1, 0).sum()
-                # print(target_fake[0, 0])
                 # compute real and fake outputs of discriminator
                 disc_real = models[1](data, target)
                 disc_fake = models[1](data, target_fake)  # need to call detach to remove from comp graph
@@ -172,7 +169,6 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 gen_loss_sum += gen_loss.item()
 
                 optimizers[0].zero_grad()
-                # gen_loss = torch.autograd.Variable(gen_loss, requires_grad=True)
                 gen_loss.backward()
                 optimizers[0].step()
 
@@ -288,6 +284,8 @@ def main(sweep: Optional[bool] = False):
         load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
         if cfgs_gen["init_decoder"]:
             init_decoder_weights(generator)
+        if cfgs_gen["freeze_encoder"]:
+            freeze_encoder_weights(generator)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
     if cfgs_disc["load_from_chkpt"]:
@@ -295,15 +293,6 @@ def main(sweep: Optional[bool] = False):
         load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
     else:
         init_weights(discriminator, init_type=cfgs_disc["init_type"], init_gain=cfgs_disc["init_gain"])
-
-    # freeze encoder of generator
-    if cfgs_gen["freeze_encoder"]:
-        for name, param in generator.named_parameters():
-            if name.find("down") != -1 or name.find("bottleneck") != -1:
-                param.requires_grad = False
-            else:
-                param.requires_grad = True
-        print("-> frozen generator encoder")
 
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
@@ -369,18 +358,16 @@ def test(data: str = "test"):
     # simplify config access
     model_types = all_cfgs["model"]
     cfgs_gen = all_cfgs[model_types[0]]
-    cfgs_dataset_repeated = all_cfgs["test_dataset_repeated"]
     cfgs_train = all_cfgs["train"]
 
     if data == "test":
         cfgs_dataset = all_cfgs["test_dataset"]
         # load test data
-        test_loader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
-        # load test data with repeated data
-        test_loader_repeated = get_test_data(all_cfgs["dataset_type"], cfgs_dataset_repeated, cfgs_train)
+        dataloader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
     elif data == "val":
         cfgs_dataset = all_cfgs["dataset"]
-        _, val_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+        cfgs_train["batch_size"] = 192
+        _, dataloader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
     else:
         raise ValueError(f"data = {data} is not a valid input! Try: {'test', 'val'}.")
 
@@ -394,19 +381,28 @@ def test(data: str = "test"):
     gen.eval()
     enable_dropout(gen)
     save_dirs = []
-    for loader_idx, dataloader in enumerate([test_loader, test_loader_repeated]):
+    repeated_data = None
+    # iterate twice: once for all test/val FCs, once for repeated FC
+    for loader_idx in range(2):
         with torch.no_grad():
-            for idx, (data, target) in enumerate(tqdm(dataloader)):
-                data, target = data.to(device).float(), target.to(device).float()
-                target_fake = gen(data)
-                if loader_idx == 0:
-                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
-                else:
+            for idx, (data, _) in enumerate(tqdm(dataloader)):
+                data = data.to(device).float()
+                # repeated sample
+                if loader_idx == 1:
+                    if idx == 0:
+                        repeated_data = data
+                    if idx == 10:
+                        break
+                    target_fake = gen(repeated_data)
                     save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                # normal samples
+                else:
+                    target_fake = gen(data)
+                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
                 save_dirs.append(save_dir)
     return save_dirs
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     test()
