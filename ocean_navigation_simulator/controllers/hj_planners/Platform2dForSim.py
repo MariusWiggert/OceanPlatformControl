@@ -108,6 +108,7 @@ class Platform2dForSim(dynamics.Dynamics):
     def optimal_control(self, state, time, grad_value):
         """Computes the optimal control realized by the HJ PDE Hamiltonian."""
         uOpt = jnp.array(1.0)
+        #uOpt = jnp.linalg.norm(grad_value, ord=2)
         # angle of px, py vector of gradient
         alpha = jax.lax.atan2(grad_value[1], grad_value[0])
         # if min, go against the gradient direction

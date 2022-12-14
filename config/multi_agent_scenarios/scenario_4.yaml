@@ -2,7 +2,7 @@
 
 data_source_config: "cal_coast_Copernicus_hindcast_local"
 
-folder_to_save: "scenario_4"
+folder_to_save: "scenario_4_flocking_pi_pr"
 
 days_sim: 3
 
@@ -25,8 +25,33 @@ target_region:
 multi_agent_param:
   network_graph_dict:
     unit: "km"
-    communication_thrsld: 9
-    margin: 1
-    collision_thrsld: 1
+    communication_thrsld: &comm 9
+    epsilon_margin: 1 # when dist > comm-plot_margin plot dashed red in animation
+    collision_thrsld: 0.2
+
+  hj_naive:
+    unit: "km"
+    communication_thrsld: *comm
+
+  reactive_control: 
+    type: "reactive_control"
+    unit: "m"
+    delta_3: 8800 # collision threshold (communication - delta_3)
+    delta_2: 2000 # safe zone threshold  ]communication - delta_2, communication - delta_3[
+    delta_1: 500 # small threshold so that if distance > communication_thrsld- delta_1 we try to achieve connectivity
+    communication_thrsld: 9000
+    k_1: 0.25
+    k_2: 1
+
+  flocking:
+    epsilon: 0.1
+    h: 0.2
+    ideal_distance: 5000 # meters
+    a: 5
+    b: 5
+    interaction_range: 9000 # meters
+    hj_factor: 1
+
+
 
   initial_connections: Null
