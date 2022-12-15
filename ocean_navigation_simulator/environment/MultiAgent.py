@@ -34,15 +34,30 @@ from scipy.integrate import simpson
 
 @dataclasses.dataclass
 class GraphObservation:
+
     """
     Class that contains a graph observation: a complete graph and a communication graph which only
     contains edges with weights below a certain threshold (the platform communication threshold)
+
+    Attributes:
+        G_communication: networkx graph, where edges only exist between platforms that are within communication range
+        G_complete: networkx graph with edges between all nodes
+
     """
 
     G_communication: nx.Graph
     G_complete: nx.Graph
 
-    def adjacency_matrix_in_unit(self, unit: str, graph_type: str):
+    def adjacency_matrix_in_unit(self, unit: str, graph_type: str) -> np.ndarray:
+        """To obtain the adjacency matrix in the unit of choice, as the graphs are saved with the class unit type
+
+        Args:
+            unit (str): unit to compute adjacency
+            graph_type (str): choose between complete graph ("complete") and communication graph ("communication"), the latest being default
+
+        Returns:
+            np.ndarray: adjacency matrix
+        """
         if graph_type == "complete":
             e = [
                 (n1, n2, w.m) if unit == "m" else (n1, n2, w.km)
@@ -63,21 +78,38 @@ class GraphObservation:
 
 
 class MultiAgent:
-    """_summary_"""
+    """
+    MultiAgent class to create and keep information about a batch of platforms
+    Connectivity computation stored as (networkx) graphs
+    To interact with the arena
+    """
 
     def __init__(self, network_graph_dict: Dict, graph_edges: Optional[List] = None):
+        """Constructor
+
+        Args:
+            network_graph_dict (Dict): contains parameter for the graph, such as threshold and unit of measure
+            graph_edges (Optional[List], optional): if initial graph edges want to be passed, otherwise computed in set graph. Defaults to None.
+        """
         self.logger = logging.getLogger("arena.multi_agent")
         self.logger.info(f"Multi-Agent Setting: Initial connections are {graph_edges}")
         self.network_prop = network_graph_dict
         if graph_edges:
             self.graph_edges = graph_edges
         self.unit_weight_edges = self.network_prop["unit"]
-        self.G_communication, self.G_complete = None, None
+        self.G_communication, self.G_complete, self.list_all_edges_connections = None, None, None
         self.from_nodes, self.to_nodes = None, None
         self.vect_strftime = np.vectorize(dt.datetime.strftime)  # used in the plot functions
-        self.list_all_edges_connections = None
 
-    def set_graph(self, platform_set: PlatformStateSet):
+    def set_graph(self, platform_set: PlatformStateSet) -> GraphObservation:
+        """Resets or set for the first time graph connections and weights
+
+        Args:
+            platform_set (PlatformStateSet)
+
+        Returns:
+            GraphObservation with new weights and edges between connected platforms
+        """
         nodes = platform_set.get_nodes_list()
         # Build a complete graph retaining all distances between platforms
         self.G_complete = nx.complete_graph(nodes)
@@ -111,14 +143,14 @@ class MultiAgent:
             G_complete=copy.deepcopy(self.G_complete),
         )
 
-    def update_graph(self, platform_set: PlatformStateSet):
-        """_summary_
+    def update_graph(self, platform_set: PlatformStateSet) -> GraphObservation:
+        """ update the graphs connections based on the new positions of the platform set
 
         Args:
-            platform_set (PlatformStateSet): _description_
+            platform_set (PlatformStateSet)
 
         Returns:
-            _type_: _description_
+            GraphObservation: Communication and complete graphs with updated weights and edges 
         """
         # get new distance between platforms
         weights = platform_set.get_distance_btw_platforms(
@@ -134,16 +166,17 @@ class MultiAgent:
         edges_to_remove = []
         edges_to_add_or_update = []
         for node_pair, weight in all_edges_and_weights.items():
-            if node_pair in list(self.G_communication.edges):  # o(i,j)[t-] = 1
+            # o(i,j)[t-] = 1
+            if node_pair in list(self.G_communication.edges):  
                 if (
                     self.in_unit(weight, unit=self.unit_weight_edges)
                     >= self.network_prop["communication_thrsld"]
                 ):
                     edges_to_remove.append(node_pair)  # o(i,j)[t] = 0
-                else:
+                else: # o(i,j)[t] = 1
                     edges_to_add_or_update.append(
                         (node_pair[0], node_pair[1], weight)
-                    )  # o(i,j)[t] = 1
+                    )  
             else:  # o(i,j)[t-] = 0
                 if (
                     self.in_unit(weight, unit=self.unit_weight_edges)
@@ -165,28 +198,122 @@ class MultiAgent:
             G_complete=copy.deepcopy(self.G_complete),
         )  # to save to arena: so that new elements do not change previous ones
 
+    def get_isolate_nodes(
+        self,
+        list_of_graph: List[nx.Graph],
+        stride_temporal_res: Optional[int] = 1,
+    ) -> list:
+        """Computes the number of isolated nodes of a graph evolving over time
+
+        Args:
+            list_of_graph (List[nx.Graph]): Graphs taken at different time instances through the simulation
+            stride_temporal_res (Optional[int], optional):  Defaults to 1 if we compute the number of isolated nodes for each time
+
+        Returns:
+            list: number of isolated nodes for the graphs specified in input 
+        """
+        return list(
+            map(
+                lambda G: int(len(list(nx.isolates(G)))),
+                list_of_graph[::stride_temporal_res],
+            )
+        )
+
+    def get_collisions(
+        self,
+        list_of_graph: List[nx.Graph],
+        stride_temporal_res: Optional[int] = 1,
+    ) -> list:
+        """Computes the number of collisions of a graph evolving over time
+
+        Args:
+            list_of_graph (List[nx.Graph])
+            stride_temporal_res (Optional[int], optional): Defaults to 1.
+
+        Returns:
+            list: number of collisions for the graphs specified in input
+        """
+
+        collision_nb_list = []
+        for G in list_of_graph[::stride_temporal_res]:
+            # count the number of collisions for each graph at datetime
+            collision_nb_list.append(
+                sum(
+                    [
+                        1
+                        for n1, n2, w in G.edges(data="weight")
+                        if self.in_unit(w, unit=self.unit_weight_edges)
+                        < self.network_prop["collision_thrsld"]
+                    ]
+                )
+            )
+        return collision_nb_list
+
+    #---- Utilities methods ----#
     @staticmethod
-    def in_unit(value: units.Distance, unit: str = "km"):
+    def in_unit(value: units.Distance, unit: str = "km") ->float:
+        """
+        Args:
+            value (units.Distance): _description_
+            unit (str, optional): _description_. Defaults to "km".
+
+        Returns:
+            float: value in the desired unit
+        """
         if unit == "km":
             return value.km
         else:
             return value.deg
 
     @staticmethod
-    def split_edge_list(graph_edges: List):
+    def split_edge_list(graph_edges: List) -> Tuple[list]:
+        """get two list for each edge ij where the first list contains
+        the nodes i and the second the node j
+
+        Args:
+            graph_edges (List)
+
+        Returns:
+            Tuple[list]: two list of nodes, corresponding to the edges extremities
+        """
         return list(map(lambda x: x[0], graph_edges)), list(map(lambda x: x[1], graph_edges))
 
     @staticmethod
-    def make_proxy(clr, mappable, **kwargs):
+    def make_proxy(clr, mappable, **kwargs)->Line2D:
+        """Function to map colors to lines and add legend to line collection
+
+        Args:
+            clr (_type_): color of the line
+            mappable (_type_): plot handle
+
+        Returns:
+            Line2D: _description_
+        """
         # https://stackoverflow.com/a/48136768
         return Line2D([0, 1], [0, 1], color=clr, **kwargs)
 
     @staticmethod
-    def get_integer_yticks(y_data):
+    def get_integer_yticks(y_data:list) -> range:
+        """For integer ticks only for plotting
+
+        Args:
+            y_data (list): 
+
+        Returns:
+            range: integer ticks in the range y_data
+        """
         return range(min(y_data), math.ceil(max(y_data)) + 1)
 
     @staticmethod
-    def LOG_insert(file, format, text, level):
+    def LOG_insert(file: str, format: logging.Formatter, text: str, level: logging):
+        """Function to insert logs, such as metrics in a log file
+
+        Args:
+            file (str): name of the file to log into
+            format (logging.Formatter): format of log
+            text (str): text to log
+            level (logging): info, error or warning
+        """
         # https://stackoverflow.com/a/62824910
         infoLog = logging.FileHandler(file)
         infoLog.setFormatter(format)
@@ -204,29 +331,106 @@ class MultiAgent:
 
         infoLog.close()
         logger.removeHandler(infoLog)
-
         return
 
+    def log_metrics(
+        self,
+        list_of_graph: List[nx.Graph],
+        dates: List[dt.datetime],
+        success_rate_reach_target: float,
+        logfile: str = "logmetrics.log",
+        formatLog: Optional[logging.Formatter] = None,
+    )->dict:
+        """Function to log metrics of multi-agent simulation performance
+
+        Args:
+            list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
+            dates (List[dt.datetime]): times at which the graphs were recorded
+            success_rate_reach_target (float): number of platforms having reached target out of all platforms
+            logfile (str, optional): name of file to log to. Defaults to "logmetrics.log".
+            formatLog (Optional[logging.Formatter], optional): log format. Defaults to None.
+
+        Returns:
+            dict: also returns the metrics as a dictionary 
+        """
+        if formatLog is None:
+            formatLog = logging.Formatter("%(asctime)s METRIC LOG:  %(message)s")
+
+        isolated_nodes = self.get_isolate_nodes(list_of_graph=list_of_graph, stride_temporal_res=1)
+        collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
+        integrated_communication = simpson(isolated_nodes, dates)
+        collision_metric = sum(collisions)
+        if (
+            success_rate_reach_target == 1
+            and integrated_communication == 0
+            and collision_metric == 0
+        ):
+            mission_success = 1
+        else:
+            mission_success = 0
+
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Integral metric of isolated platforms = {integrated_communication}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Number of collisions = {collision_metric}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Fraction of platforms reaching target = {success_rate_reach_target}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Mission Success !" if mission_success else f"Mission failed",
+            logging.INFO,
+        )
+        return {
+            "isolated_platform_metric": integrated_communication,
+            "number_of_collision": collision_metric,
+            "reaching_target": success_rate_reach_target,
+            "mission_sucess": mission_success,
+        }
+
+    #---- Plot functions ----#
     def plot_network_graph(
         self,
-        G: nx,
+        G: nx.Graph,
         pos: dict,
         t_datetime: dt.datetime,
         collision_communication_thrslds: Optional[Tuple] = None,
         plot_ax_ticks: Optional[bool] = False,
         reset_plot: Optional[bool] = False,
-    ):
+    ) -> matplotlib.axes.Axes:
+        """Plot the platform set network as a graph, displaying the different communication and collisions thresholds
+
+        Args:
+            G (nx.Graph): Graph to plot
+            pos (dict): positions of the nodes (x,y)
+            t_datetime (dt.datetime): date at which the graph was recorded in the simulation
+            collision_communication_thrslds (Optional[Tuple], optional): Defaults to None.
+            plot_ax_ticks (Optional[bool], optional): Defaults to False.
+            reset_plot (Optional[bool], optional): Defaults to False.
+
+        Returns:
+            matplotlib.axes.Axes 
+        """
         weight_edges = nx.get_edge_attributes(G, "weight")
         weight_edges_in_dist_unit = {
             key: self.in_unit(value, unit=self.unit_weight_edges)
             for key, value in weight_edges.items()
         }
+        # display labels in km
         edge_labels = {key: f"{value.km:.1f}" for key, value in weight_edges.items()}
-        # Gplot = nx.Graph()
-        # Gplot.add_edges_from(G.edges())  # create a copy from G
-
-        # reset plot this is needed for matplotlib.animation
-        if reset_plot:
+        if reset_plot:         # reset plot this is needed for matplotlib.animation
             plt.clf()
         ax = plt.axes()
         ax.set_title(f"Network graph at t= {dt.datetime.strftime(t_datetime, '%Y-%m-%d %H:%M:%S')}")
@@ -237,7 +441,6 @@ class MultiAgent:
             node_color="k",
             ax=ax,
         )
-        # nx.draw_networkx_edges(Gplot, pos, width=1.5, ax=ax)
         nx.draw_networkx_labels(G, pos, font_color="white", ax=ax)
         nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=ax)
 
@@ -283,8 +486,8 @@ class MultiAgent:
 
     def animate_graph_net_trajectory(
         self,
-        state_trajectory,
-        multi_agent_graph_seq,
+        state_trajectory: np.ndarray,
+        multi_agent_graph_seq: list,
         collision_communication_thrslds: Optional[Tuple] = None,
         temporal_resolution: Optional[float] = None,
         plot_ax_ticks: Optional[bool] = False,
@@ -295,7 +498,21 @@ class MultiAgent:
         fps: Optional[int] = 5,
         normalize_positions: Optional[bool] = False,
     ):
+        """Function to animate the graph connections and weights evolution during a multi-agent simulation
 
+        Args:
+            state_trajectory (np.ndarray): trajectory of the platforms: dims = (pltf_id, pltf_states, time_idx)
+            multi_agent_graph_seq (list): sequence of graphs corresponding to the time indices in the state trajectory
+            collision_communication_thrslds (Optional[Tuple], optional): _Defaults to None.
+            temporal_resolution (Optional[float], optional): The temporal resolution of the animation in seconds, per default will be set same as the trajectory.
+            plot_ax_ticks (Optional[bool], optional):Defaults to False.
+            output (Optional[AnyStr], optional): filename for the ouput. Defaults to "traj_graph_anim.mp4".
+            margin (float, optional): Margin as box around nodes to plot. Defaults to 1.
+            forward_time (bool, optional): play animation in forward time. Defaults to True.
+            figsize (tuple, optional):  Defaults to (10, 10).
+            fps (Optional[int], optional): frame per seconds. Defaults to 5.
+            normalize_positions (Optional[bool], optional): if true, normalize platforms position between 0 and 1. Defaults to False.
+        """
         if temporal_resolution is not None:
             time_grid = np.arange(
                 start=state_trajectory[0, 2, 0],
@@ -305,7 +522,12 @@ class MultiAgent:
         else:
             time_grid = state_trajectory[0, 2, :]
 
-        def plot_network_render_fcn(frame_idx):
+        def plot_network_render_fcn(frame_idx: int):
+            """Callable within the animation function to plot graph at each timeframe
+
+            Args:
+                frame_idx (int): frame index
+            """
             posix_time = time_grid[frame_idx]
             time_idx = np.searchsorted(a=state_trajectory[0, 2, :], v=posix_time)
             t_from_idx = dt.datetime.fromtimestamp(
@@ -357,7 +579,7 @@ class MultiAgent:
 
     @staticmethod
     def set_ax_description(
-        ax,
+        ax: matplotlib.axes.Axes,
         xticks=None,
         yticks=None,
         xtick_label=None,
@@ -366,7 +588,23 @@ class MultiAgent:
         ylabel: str = None,
         title: str = None,
         plot_legend: bool = False,
-    ):
+    )->matplotlib.axes.Axes:
+        """Function to generate all the plot axes details 
+
+        Args:
+            ax (matplotlib.axes.Axes): 
+            xticks (_type_, optional):  Defaults to None.
+            yticks (_type_, optional):  Defaults to None.
+            xtick_label (_type_, optional): Defaults to None.
+            ytick_label (_type_, optional):  Defaults to None.
+            xlabel (str, optional):  Defaults to None.
+            ylabel (str, optional):  Defaults to None.
+            title (str, optional): Defaults to None.
+            plot_legend (bool, optional):  Defaults to False.
+
+        Returns:
+            matplotlib.axes.Axes
+        """
         if xticks is not None:
             ax.set_xticks(xticks)
         if yticks is not None:
@@ -395,9 +633,18 @@ class MultiAgent:
         figsize: Optional[Tuple[int]] = (10, 8),
         plot_threshold: Optional[bool] = True,
     ) -> matplotlib.axes.Axes:
-        """
-        Function to compute distance evolution between given neighboring nodes over specified time in dates
+        """Function to compute distance evolution between given neighboring nodes over specified time in dates
 
+        Args:
+            list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
+            dates (List[dt.datetime]): time were graphs recorded during simulation, generally corresponds to the timesteps
+            neighbors_list_to_plot (Optional[List[Tuple]], optional):  if only certain pair of platforms are to be plotted
+            stride_xticks (Optional[int], optional):  Defaults to 1.
+            figsize (Optional[Tuple[int]], optional): Defaults to (10, 8).
+            plot_threshold (Optional[bool], optional): True if threshold horizontal lines are to be displayed
+
+        Returns:
+            matplotlib.axes.Axes: _description_
         """
         if neighbors_list_to_plot is None:
             neighbors_list_to_plot = list(self.G_complete.edges)
@@ -449,38 +696,6 @@ class MultiAgent:
         ax.grid()
         return ax
 
-    def get_isolate_nodes(
-        self,
-        list_of_graph: List[nx.Graph],
-        stride_temporal_res: Optional[int] = 1,
-    ):
-        return list(
-            map(
-                lambda G: int(len(list(nx.isolates(G)))),
-                list_of_graph[::stride_temporal_res],
-            )
-        )
-
-    def get_collisions(
-        self,
-        list_of_graph: List[nx.Graph],
-        stride_temporal_res: Optional[int] = 1,
-    ):
-
-        collision_nb_list = []
-        for G in list_of_graph[::stride_temporal_res]:
-            # count the number of collisions for each graph at datetime
-            collision_nb_list.append(
-                sum(
-                    [
-                        1
-                        for n1, n2, w in G.edges(data="weight")
-                        if self.in_unit(w, unit=self.unit_weight_edges)
-                        < self.network_prop["collision_thrsld"]
-                    ]
-                )
-            )
-        return collision_nb_list
 
     def plot_isolated_vertices(
         self,
@@ -490,10 +705,18 @@ class MultiAgent:
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
+        """ Function that plots the number of nodes that are isolated i.e. of degree zero over time. 
+            These nodes correspond to platforms that are disconnected from the rest of the flock
 
-        """
-        Function that plots the number of nodes that are isolated i.e. of degree zero over time. These nodes correspond to platforms that are disconnected from the rest of the flock
+        Args:
+            ax (plt.axes): plot on top of existing axes
+            list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
+            dates (List[dt.datetime]): time were graphs recorded during simulation, generally corresponds to the timesteps
+            stride_temporal_res (Optional[int], optional): Defaults to 1.
+            stride_xticks (Optional[int], optional): Defaults to 1.
 
+        Returns:
+            matplotlib.axes.Axes
         """
         isolated_nodes = self.get_isolate_nodes(
             list_of_graph=list_of_graph, stride_temporal_res=stride_temporal_res
@@ -520,6 +743,18 @@ class MultiAgent:
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
+        """ Function to plot the number of collisions during the simulation over time
+
+        Args:
+            ax (plt.axes): plot on top of existing axes
+            list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
+            dates (List[dt.datetime]): time were graphs recorded during simulation, generally corresponds to the timesteps
+            stride_temporal_res (Optional[int], optional): Defaults to 1.
+            stride_xticks (Optional[int], optional): Defaults to 1.
+
+        Returns:
+            matplotlib.axes.Axes
+        """
 
         collision_nb_list = self.get_collisions(
             list_of_graph=list_of_graph, stride_temporal_res=stride_temporal_res
@@ -545,7 +780,18 @@ class MultiAgent:
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
+        """ Function to plot the graph minimum and maximum degree, over simulation time
 
+        Args:
+            ax (plt.axes): plot on top of existing axes
+            list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
+            dates (List[dt.datetime]): time were graphs recorded during simulation, generally corresponds to the timesteps
+            stride_temporal_res (Optional[int], optional): Defaults to 1.
+            stride_xticks (Optional[int], optional): Defaults to 1.
+
+        Returns:
+            matplotlib.axes.Axes
+        """
         max_degree_over_t = list(
             map(
                 lambda G: max([deg for _, deg in G.degree]),
@@ -558,7 +804,6 @@ class MultiAgent:
                 list_of_graph[::stride_temporal_res],
             )
         )
-
         ax.step(dates[::stride_temporal_res], max_degree_over_t, "--xr", label="max graph degree")
         ax.step(dates[::stride_temporal_res], min_degree_over_t, "--xb", label="min graph degree")
 
@@ -582,7 +827,18 @@ class MultiAgent:
         stride_temporal_res: Optional[int] = 1,
         stride_xticks: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
+        """ Function to plot the graph number of connected components over simulation time
 
+        Args:
+            ax (plt.axes): plot on top of existing axes
+            list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
+            dates (List[dt.datetime]): time were graphs recorded during simulation, generally corresponds to the timesteps
+            stride_temporal_res (Optional[int], optional): Defaults to 1.
+            stride_xticks (Optional[int], optional): Defaults to 1.
+
+        Returns:
+            matplotlib.axes.Axes
+        """
         nb_connected_comp = list(
             map(
                 lambda G: nx.number_connected_components(G),
@@ -601,64 +857,3 @@ class MultiAgent:
             plot_legend=False,
         )
         return ax
-
-    def log_metrics(
-        self,
-        list_of_graph: List[nx.Graph],
-        dates: List[dt.datetime],
-        success_rate_reach_target: float,
-        logfile: str = "logmetrics.log",
-        formatLog: Optional[logging.Formatter] = None,
-    ):
-        if formatLog is None:
-            formatLog = logging.Formatter("%(asctime)s METRIC LOG:  %(message)s")
-
-        isolated_nodes = self.get_isolate_nodes(list_of_graph=list_of_graph, stride_temporal_res=1)
-        # isolated_nodes = list(
-        #     map(
-        #         lambda G: int(len(list(nx.isolates(G)))),
-        #         list_of_graph,
-        #     )
-        # )
-        collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
-        integrated_communication = simpson(isolated_nodes, dates)
-        collision_metric = sum(collisions)
-        if (
-            success_rate_reach_target == 1
-            and integrated_communication == 0
-            and collision_metric == 0
-        ):
-            mission_success = 1
-        else:
-            mission_success = 0
-
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Integral metric of isolated platforms = {integrated_communication}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Number of collisions = {collision_metric}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Fraction of platforms reaching target = {success_rate_reach_target}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Mission Success !" if mission_success else f"Mission failed",
-            logging.INFO,
-        )
-        return {
-            "isolated_platform_metric": integrated_communication,
-            "number_of_collision": collision_metric,
-            "reaching_target": success_rate_reach_target,
-            "mission_sucess": mission_success,
-        }
