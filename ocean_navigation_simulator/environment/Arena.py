@@ -732,24 +732,37 @@ class Arena:
 
     def plot_distance_evolution_between_platforms(
         self,
-        only_connected_comp: Optional[
-            bool
-        ] = False,  # if we don't want to plot disconnected links (above threshold), set it tue True
+        only_connected_comp: Optional[bool] = False,
         neighbors_list_to_plot: Optional[List[Tuple]] = None,
         figsize: Optional[Tuple[int]] = (12, 8),
-        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
+        temporal_res: Optional[int] = 1800,
+        xticks_temporal_res: Optional[int] = 14400,
         plot_threshold: Optional[bool] = True,
     ) -> matplotlib.axes.Axes:
-        """
-        Function to compute distance evolution between neighboring platforms over their trajectories
+        """Function to compute distance evolution between neighboring platforms over their trajectories
+
+        Args:
+            only_connected_comp (Optional[ bool ], optional): True if only the platform pairs with distance smaller than the
+                                                            communication threshold are plotted (the connected pairs).
+                                                            Defaults to False.
+            neighbors_list_to_plot (Optional[List[Tuple]], optional): If only distances for specific pairs of platforms
+                                                                    want to be plotted. Defaults to None.
+            figsize (Optional[Tuple[int]], optional): Defaults to (12, 8).
+            temporal_res (Optional[int], optional): sampling interval for plotting from the trajectories in [s].
+                                                    Defaults to 1800 (=30mins).
+            xticks_temporal_res (Optional[int], optional): xticks interval in [s]: Defaults to 14400 (= 4H).
+            plot_threshold (Optional[bool], optional):  Defaults to True to show the communication and
+                                                        collisions thresholds.
+
+        Returns:
+            matplotlib.axes.Axes
         """
         stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
             temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
         )
         dates = self.get_datetime_from_state_trajectory(state_trajectory=self.state_trajectory)
 
-        self.multi_agent_net.plot_distance_evolution_between_neighbors(
+        ax = self.multi_agent_net.plot_distance_evolution_between_neighbors(
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list]
             if only_connected_comp
             else [G.G_complete for G in self.multi_agent_G_list],
@@ -760,17 +773,36 @@ class Arena:
             figsize=figsize,
             plot_threshold=plot_threshold,
         )
+        return ax
 
     def plot_graph_for_platform_state(
         self,
-        G: nx,
+        G: nx.Graph,
         platform_set: PlatformStateSet,
         collision_communication_thrsld: Optional[Tuple] = None,
         plot_ax_ticks: Optional[bool] = False,
         figsize: Optional[Tuple] = (10, 10),
         normalize_positions: Optional[bool] = False,
         margin: Optional[int] = 1,
-    ):
+    ) -> matplotlib.axes.Axes:
+        """_summary_
+
+        Args:
+            G (nx.Graph): Graph network to plot
+            platform_set (PlatformStateSet): the set of platforms corresponding to this graph
+            collision_communication_thrsld (Optional[Tuple], optional): Specific thresholds to represent
+                                                                        edges as connected or risks of collisions.
+                                                                        Defaults to None, later specified by the multi_agent_net instances
+            plot_ax_ticks (Optional[bool], optional): Plot x and y ticks (lon, lat). Defaults to False.
+            figsize (Optional[Tuple], optional): _description_. Defaults to (10, 10).
+            normalize_positions (Optional[bool], optional): To normalize positions between 0 and 1. Defaults to False.
+            margin (Optional[int], optional): margin from the most (left, right, bottom, top) node to the edges.
+                                            Defaults to 1.
+
+        Returns:
+            matplotlib.axes.Axes
+        """
+
         pos = {}
         x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
             state_trajectory=np.atleast_3d(np.array(platform_set)), margin=margin
@@ -787,7 +819,7 @@ class Arena:
                 pos[key] = (lon, lat)
 
         t = dt.datetime.fromtimestamp(t_interval[0], tz=dt.timezone.utc)
-        fig = plt.figure(figsize=figsize)
+        plt.figure(figsize=figsize)
         ax = self.multi_agent_net.plot_network_graph(
             G,
             pos=pos,
@@ -805,6 +837,18 @@ class Arena:
         output: Optional[AnyStr] = "network_graph_anim.mp4",
         **kwargs,
     ):
+        """Animate the platforms interactions as a graph, through simulation:
+            visualize edge connections, weights and collision risks
+
+        Args:
+            collision_communication_thrslds (Optional[Tuple], optional): To give different collision communication
+                                                                         thresholds as in the multi_agent_net instance.
+                                                                         Defaults to None.
+            temporal_resolution (Optional[float], optional): The temporal resolution of the animation in seconds,
+                                                             per default will be set same as the trajectory.
+            plot_ax_ticks (Optional[bool], optional): Defaults to False.
+            output (Optional[AnyStr], optional): Defaults to "network_graph_anim.mp4".
+        """
         # shallow wrapper to plotting utils function
         self.multi_agent_net.animate_graph_net_trajectory(
             state_trajectory=self.state_trajectory,
@@ -821,9 +865,25 @@ class Arena:
         func_used: Callable,
         ax: Optional[plt.axes] = None,
         figsize: Optional[Tuple[int]] = (8, 6),
-        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
-    ):
+        temporal_res: Optional[int] = 1800,
+        xticks_temporal_res: Optional[int] = 14400,
+    ) -> matplotlib.axes.Axes:
+        """Generic function to be called with a function callable, defining which property of the graph should be plotted,
+            e.g. the number of collisions, the number of isolated platforms etc.
+        Args:
+            func_used (Callable): function that plots the desired property, in the MultiAgent Class
+                            - plot_isolated_vertices
+                            - plot_collision_nb_over_time
+                            - plot_graph_nb_connected_components
+                            - plot_graph_degree
+            ax (Optional[plt.axes], optional): Defaults to None.
+            figsize (Optional[Tuple[int]], optional): Defaults to (8, 6).
+            temporal_res (Optional[int], optional):  sampling interval for plotting from the trajectories in [s].
+                                                    Defaults to 1800 (=30mins).
+            xticks_temporal_res: (Optional[int], optional): xticks interval in [s]: Defaults to 14400 (= 4H).
+        Returns:
+            matplotlib.axes.Axes:
+        """
         stride_temporal_res, stride_xticks = self.get_stride_for_xaxis_from_temp_res(
             temporal_res=temporal_res, xticks_temporal_res=xticks_temporal_res
         )
@@ -843,9 +903,20 @@ class Arena:
     def plot_all_network_analysis(
         self,
         figsize: Optional[Tuple[int]] = (15, 15),
-        temporal_res: Optional[int] = 1800,  # defaut corresponds to sampling every 30mins
-        xticks_temporal_res: Optional[int] = 14400,  # xlabel ticks in seconds, defaut is 4h
-    ):
+        temporal_res: Optional[int] = 1800,
+        xticks_temporal_res: Optional[int] = 14400,
+    ) -> matplotlib.figure.Figure:
+        """Plot all the graph network properties over simulation time, such as communication losses, collisions etc.
+        Serves as visual metric
+        Args:
+            figsize (Optional[Tuple[int]], optional): Defaults to (15, 15).
+            temporal_res (Optional[int], optional): sampling interval for plotting from the trajectories in [s].
+                                                    Defaults to 1800 (=30mins).
+            xticks_temporal_res (Optional[int], optional): xticks interval in [s]: Defaults to 14400 (= 4H).
+
+        Returns:
+            matplotlib.figure.Figure
+        """
 
         fig = plt.figure(figsize=figsize)
         ax1 = fig.add_subplot(2, 2, 1)
@@ -879,7 +950,23 @@ class Arena:
         )
         return fig
 
-    def save_metrics_to_log(self, all_pltf_status: list, filename: str):
+    def save_metrics_to_log(self, all_pltf_status: list, filename: str) -> dict:
+        """Compute and save metrics for the given multi-agent instance
+        For now implemented are:
+        1) Time-integral metric of # isolated platforms
+        2) Number of collisions during simulation
+        3) The fraction of total platforms reaching the target (1 = all platforms reached the target within simulation time)
+        4) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
+
+        Args:
+            all_pltf_status (list): list of platform status, obtained by calling problem_status through the simulation
+                                    (see function above in arena)
+            filename (str): logging filename
+
+        Returns:
+            dict: dictionary form containing the different metrics
+        """
+        # success if platform has a problem status = 1 (target reached)
         success_rate_reach_target = sum(pltf_status == 1 for pltf_status in all_pltf_status) / len(
             all_pltf_status
         )
