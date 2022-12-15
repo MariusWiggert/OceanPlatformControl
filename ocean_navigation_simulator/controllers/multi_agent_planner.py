@@ -142,7 +142,8 @@ class FlockingControl:
         self.d_alpha = self.sigma_norm(self.param_dict["ideal_distance"])
         self.a, self.b = [self.param_dict[key] for key in ["a", "b"]]
         # self.c = np.abs(self.a - self.b) / np.sqrt(4 * self.a * self.b)
-        self.c = -self.a/np.sqrt(2*self.a*self.b + self.b**2)
+        self.c = -self.a / np.sqrt(2 * self.a * self.b + self.b**2)
+        self.vect_bump_f = np.vectorize(self.bump_function, otypes=[float])
 
     def sigma_norm(self, z_norm):
         val = self.param_dict["epsilon"] * (z_norm**2)
@@ -172,22 +173,23 @@ class FlockingControl:
         ax1.set_ylabel(r"$\phi_{\alpha}$")
         ax1.set_xticks([self.d_alpha, self.r_alpha])
         ax1.set_xticklabels([r"$d_{\alpha}$", r"$r_{\alpha}$"])
-        ax1.grid(axis='both', linestyle='--')
+        ax1.grid(axis="both", linestyle="--")
         ax2.plot(z_range, psi_alpha)
         ax2.set_ylabel(r"$\psi_{\alpha}$")
         ax2.set_xticks([self.d_alpha, self.r_alpha])
         ax2.set_xticklabels([r"$d_{\alpha}$", r"$r_{\alpha}$"])
         ax2.set_xlabel(r"$\Vert z \Vert_{\sigma}$")
-        ax2.grid(axis='both', linestyle='--')
+        ax2.grid(axis="both", linestyle="--")
         if savefig:
             plt.savefig("plot_gradient_and_potential.png")
 
     def phi(self, z):
-        return 0.5 * ((self.a + self.b) * self.sigma_1(z + self.c) + self.a) #0.5 * ((self.a + self.b) * self.sigma_1(z + self.c) + (self.a - self.b))
+        return 0.5 * (
+            (self.a + self.b) * self.sigma_1(z + self.c) + self.a
+        )  # 0.5 * ((self.a + self.b) * self.sigma_1(z + self.c) + (self.a - self.b))
 
     def phi_alpha(self, z):
-        vect_bump = np.vectorize(self.bump_function, otypes=[float])
-        bump_h = vect_bump(z / self.r_alpha)
+        bump_h = self.vect_bump_f(z / self.r_alpha)
         phi = self.phi(z - self.d_alpha)
         return bump_h * phi
 
@@ -202,13 +204,27 @@ class FlockingControl:
         )
         q_ij = np.vstack((q_ij_lon, q_ij_lat))
         return q_ij / np.sqrt(
-            1 + self.param_dict["epsilon"] * (norm_q_ij.T)**2
+            1 + self.param_dict["epsilon"] * (norm_q_ij.T) ** 2
         )  # columns are per neighbor
         # TODO check dimension mismatch: get a 3D array not expected
 
-    def get_u_i(self, node_i: int, hj_action:PlatformAction):
+    def get_velocity_diff_array(self, node_i, neighbors_idx, sign_only: bool = False):
+        velocities = np.array(self.observation.platform_state.velocity)
+        # Enforce good dimensions with reshape (velocities u and v as rows)
+        velocity_diff = velocities[:, node_i].reshape(2, 1) - velocities[:, neighbors_idx].reshape(
+            2, neighbors_idx.size
+        )
+        if sign_only:
+            return np.sign(velocity_diff)
+        else:
+            return velocity_diff
+
+    def get_aij(self, q_ij_sigma):
+        return self.vect_bump_f(q_ij_sigma / self.r_alpha)
+
+    def get_u_i(self, node_i: int, hj_action: PlatformAction):
         neighbors_idx = np.argwhere(self.adjacency_mat[node_i, :] > 0).flatten()
-        if not neighbors_idx.size: #no neighbors
+        if not neighbors_idx.size:  # no neighbors
             return hj_action
         else:
             n_ij = self.get_n_ij(
@@ -218,16 +234,24 @@ class FlockingControl:
             )
             q_ij_sigma_norm = self.sigma_norm(z_norm=self.adjacency_mat[node_i, neighbors_idx])
             gradient_term = np.sum(self.phi_alpha(z=q_ij_sigma_norm) * n_ij, axis=1)
+            velocity_match = np.matmul(
+                self.get_aij(q_ij_sigma=q_ij_sigma_norm),
+                self.get_velocity_diff_array(
+                    node_i=node_i, neighbors_idx=neighbors_idx, sign_only=True
+                ).T,
+            )  # sum over neighbors where velocity is a vector (u,v)
             # p_i = np.array([self.observation.platform_state[node_i].velocity.u.mps,
             #         self.observation.platform_state[node_i].velocity.v.mps]) # platform i velocity
-            # p_r = np.array([np.cos(hj_action.direction)*hj_action.magnitude*self.u_max_mps, 
+            # p_r = np.array([np.cos(hj_action.direction)*hj_action.magnitude*self.u_max_mps,
             #         np.sin(hj_action.direction)*hj_action.magnitude*self.u_max_mps]) # reference velocity
-            u_i = 0.5 * gradient_term * self.dt_in_s # - self.param_dict["hj_factor"]*(p_i-p_r)# integrate since we have a velocity input
+            u_i = (
+                0.5 * (gradient_term + velocity_match) * self.dt_in_s
+            )  # - self.param_dict["hj_factor"]*(p_i-p_r)# integrate since we have a velocity input
             u_i_scaled = PlatformAction(
-                min(np.linalg.norm(u_i, ord=2) / self.u_max_mps, 1), # scale in % of max u, bounded
+                min(np.linalg.norm(u_i, ord=2) / self.u_max_mps, 1),  # scale in % of max u, bounded
                 direction=np.arctan2(u_i[1], u_i[0]),
             )
-            
+
             return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
         # return u_i_scaled
         # neighbors_iter = self.G_proximity.neighbors(node_i)
@@ -253,7 +277,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         self.multi_agent_settings = multi_agent_settings
         self.platform_dict = specific_settings["platform_dict"]
 
-    def get_action_set_HJ_naive(self, observation: ArenaObservation) -> PlatformActionSet:
+    def get_action_HJ_naive(self, observation: ArenaObservation) -> PlatformActionSet:
         action_list = []
         for k in range(len(observation)):
             action_list.append(super().get_action(observation[k]))

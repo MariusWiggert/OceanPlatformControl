@@ -20,7 +20,9 @@ import casadi as ca
 import numpy as np
 
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
-from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import OceanCurrentVector
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import (
+    OceanCurrentVector,
+)
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthSource,
 )
@@ -158,16 +160,21 @@ class Platform:
            platform_state_set: has to be a set of platforms otherwise nb_platforms is not well initialized
         """
         if self.nb_platforms is None:
-            raise Exception("The simulator dynamics need to be initialized first before calling this function")
-        u_curr = self.ocean_source.u_curr_func(np.stack((
-            states.get_timestamp_arr(), states.lat.deg, states.lon.deg), axis=0))
-        v_curr = self.ocean_source.v_curr_func(np.stack((
-            states.get_timestamp_arr(), states.lat.deg, states.lon.deg), axis=0))
+            raise Exception(
+                "The simulator dynamics need to be initialized first before calling this function"
+            )
+        u_curr = self.ocean_source.u_curr_func(
+            np.stack((states.get_timestamp_arr(), states.lat.deg, states.lon.deg), axis=0)
+        )
+        v_curr = self.ocean_source.v_curr_func(
+            np.stack((states.get_timestamp_arr(), states.lat.deg, states.lon.deg), axis=0)
+        )
 
-        states.replace_velocities(u_mps=np.array(u_curr).squeeze(), v_mps=np.array(v_curr).squeeze())
+        states.replace_velocities(
+            u_mps=np.array(u_curr).squeeze(), v_mps=np.array(v_curr).squeeze()
+        )
         self.state_set = states
         return states
-
 
     def simulate_step(self, action: PlatformActionSet) -> PlatformStateSet:
         """Steps forward the simulation.
@@ -181,7 +188,9 @@ class Platform:
         # check if the cached dynamics need to be updated
         self.update_dynamics(self.state_set)
         state_numpy = np.array(
-            self.F_x_next(self.state_set.to_casadi_input_dynamics_array(), np.array(action), self.dt_in_s)
+            self.F_x_next(
+                self.state_set.to_casadi_input_dynamics_array(), np.array(action), self.dt_in_s
+            )
         ).astype("float64")
         self.state_set = PlatformStateSet.from_numpy(state_numpy)
 

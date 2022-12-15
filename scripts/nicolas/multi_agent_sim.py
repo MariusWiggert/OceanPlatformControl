@@ -125,8 +125,10 @@ planner_set = MultiAgentPlanner(
 )
 # first observation of initial states
 observation = arena.reset(platform_set=platform_set)
-action = planner_set.get_action_set_HJ_naive(observation=observation)  # get first action to take
-
+action = planner_set.get_action_HJ_naive(observation=observation)  # get first action to take
+all_pltf_status = [
+    arena.problem_status(problem=problem, platform_id=id) for id in range(len(platform_set))
+]
 # %% Reachability snapshot plot
 plt.clf()
 planner_set.plot_reachability_snapshot(
@@ -146,9 +148,15 @@ day_sim = multi_ag_config["days_sim"]
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
     action = planner_set.get_action_HJ_with_flocking(observation=observation)
     observation = arena.step(action)
+    # check if platforms have reached target
+    new_status = [
+        arena.problem_status(problem=problem, platform_id=id) for id in range(len(platform_set))
+    ]
+    # for the final metric, look if platform was able to reach target within T, so keep only max (=1 if pltf reached target)
+    all_pltf_status = list(map(max, zip(all_pltf_status, new_status)))
 
 metrics_dict = arena.save_metrics_to_log(
-    problem=problem, filename=f"{folder_save_results}/metrics.log"
+    all_pltf_status=all_pltf_status, filename=f"{folder_save_results}/metrics.log"
 )
 metrics_df = pd.DataFrame(data=metrics_dict, index=[0])
 metrics_df.to_csv(f"{folder_save_results}/metrics.csv")
@@ -168,7 +176,12 @@ arena.animate_graph_net_trajectory(
     output=f"{folder_save_results}/network_graph_anim.mp4",
     fps=5,
 )
+# Plot trajectory
+plt.clf()
+arena.plot_all_on_map(problem=problem, return_ax=True, figsize=(10, 8))
+plt.savefig(f"{folder_save_results}/trajectory_plot.png")
 # %% Plot useful metrics for multi-agent performance evaluation
+plt.clf()
 fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks
 plt.savefig(f"{folder_save_results}/graph_properties.png")
 plt.clf()

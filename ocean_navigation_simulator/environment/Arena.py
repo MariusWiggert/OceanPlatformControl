@@ -272,7 +272,7 @@ class Arena:
         self.platform.initialize_dynamics(platform_set)
         self.ocean_field.forecast_data_source.update_casadi_dynamics(platform_set)
         self.initial_states = self.platform.set_state(platform_set)
-        
+
         self.state_trajectory = np.atleast_3d(np.array(platform_set))
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
@@ -562,6 +562,7 @@ class Arena:
         y_interval: Optional[List] = None,
         margin: Optional[int] = 1,
         # plot directly or return ax
+        figsize: Optional[Tuple[int]] = (8, 6),
         return_ax: Optional[bool] = False,
     ) -> matplotlib.axes.Axes:
         """Helper Function to plot everything together on a map."""
@@ -569,7 +570,6 @@ class Arena:
             x_interval, y_interval, _ = get_lon_lat_time_interval_from_trajectory(
                 state_trajectory=self.state_trajectory, margin=margin
             )
-
         # Background: Data Sources
         if "current" in background:
             ax = self.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -577,6 +577,7 @@ class Arena:
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
+                figsize=figsize,
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -584,6 +585,7 @@ class Arena:
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
+                figsize=figsize,
             )
         elif "seaweed" in background or "growth" in background:
             ax = self.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -591,6 +593,7 @@ class Arena:
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
+                figsize=figsize,
             )
         else:
             raise Exception(
@@ -792,6 +795,7 @@ class Arena:
             collision_communication_thrslds=collision_communication_thrsld,
             plot_ax_ticks=plot_ax_ticks,
         )
+        return ax
 
     def animate_graph_net_trajectory(
         self,
@@ -875,14 +879,10 @@ class Arena:
         )
         return fig
 
-    def save_metrics_to_log(self, problem: Problem, filename: str):
-        success_rate_reach_target = 0
-        n = problem.nb_platforms
-        for pltf_id in range(n):
-            if self.problem_status(problem=problem, platform_id=pltf_id, check_inside=True) == 1:
-                success_rate_reach_target += 1
-        success_rate_reach_target /= n
-
+    def save_metrics_to_log(self, all_pltf_status: list, filename: str):
+        success_rate_reach_target = sum(pltf_status == 1 for pltf_status in all_pltf_status) / len(
+            all_pltf_status
+        )
         metrics_dict = self.multi_agent_net.log_metrics(
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],

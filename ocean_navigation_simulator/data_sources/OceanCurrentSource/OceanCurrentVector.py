@@ -31,7 +31,7 @@ class OceanCurrentVector(NamedTuple):
 
     def __array__(self) -> np.ndarray:
         # for multi_agent: outputs -> first row = u velocities, second row = v velocities
-        return np.array([self.u, self.v]).squeeze()
+        return np.array([self.u.mps, self.v.mps])
 
     def __str__(self) -> str:
         return f"({self.u}, {self.v})"

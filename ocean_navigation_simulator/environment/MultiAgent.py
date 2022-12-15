@@ -63,6 +63,8 @@ class GraphObservation:
 
 
 class MultiAgent:
+    """_summary_"""
+
     def __init__(self, network_graph_dict: Dict, graph_edges: Optional[List] = None):
         self.logger = logging.getLogger("arena.multi_agent")
         self.logger.info(f"Multi-Agent Setting: Initial connections are {graph_edges}")
@@ -110,6 +112,14 @@ class MultiAgent:
         )
 
     def update_graph(self, platform_set: PlatformStateSet):
+        """_summary_
+
+        Args:
+            platform_set (PlatformStateSet): _description_
+
+        Returns:
+            _type_: _description_
+        """
         # get new distance between platforms
         weights = platform_set.get_distance_btw_platforms(
             from_nodes=self.from_nodes, to_nodes=self.to_nodes
