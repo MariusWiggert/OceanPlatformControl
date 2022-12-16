@@ -62,10 +62,11 @@ class Block(nn.Module):
     def __init__(self, in_channels, out_channels, stride=2, norm_layer=nn.BatchNorm2d):
         super(Block, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 4, stride, 1, bias=False, padding_mode="reflect"),
-            nn.BatchNorm2d(out_channels),
-            # potentially use spectral norm here
-            norm_layer(out_channels),
+            norm_layer(nn.Conv2d(in_channels, out_channels, 4, stride, 1, bias=False, padding_mode="reflect"))
+            if norm_layer == nn.utils.spectral_norm
+            else nn.Conv2d(in_channels, out_channels, 4, stride, 1, bias=False, padding_mode="reflect"),
+            nn.Identity(out_channels) if norm_layer == nn.utils.spectral_norm
+            else norm_layer(out_channels),
             nn.LeakyReLU(0.2)
         )
 

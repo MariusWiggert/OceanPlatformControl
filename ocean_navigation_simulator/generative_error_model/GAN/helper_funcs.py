@@ -214,7 +214,7 @@ def enable_dropout(m):
         if layer.__class__.__name__.startswith('Dropout') and\
                 ("up" in name and any(str(x) in name for x in [1, 2, 3])):
             layer.train()
-    print("-> Enabled dropout in gen")
+    # print("-> Enabled dropout in gen")
 
 
 def init_decoder_weights(generator):
@@ -224,7 +224,7 @@ def init_decoder_weights(generator):
         for name, layer in generator.named_modules():
             # print(name, type(layer))
             if ("up" in name and "conv.0" in name) or "final_up.0" in name:
-                print(name, type(layer))
+                # print(name, type(layer))
                 nn.init.xavier_normal_(layer.weight.data, gain=0.02)
                 if layer.bias is not None:
                     nn.init.constant_(layer.bias.data, 0.0)
