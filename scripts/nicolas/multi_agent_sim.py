@@ -10,7 +10,7 @@ import pandas as pd
 
 os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 # os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
-from ocean_navigation_simulator.controllers.multi_agent_planner import (
+from ocean_navigation_simulator.controllers.Multi_agent_planner import (
     MultiAgentPlanner,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
@@ -146,7 +146,7 @@ plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action = planner_set.get_action_HJ_with_flocking(observation=observation)
+    action, max_flock_correction = planner_set.get_action_HJ_with_flocking(observation=observation)
     observation = arena.step(action)
     # check if platforms have reached target
     new_status = [

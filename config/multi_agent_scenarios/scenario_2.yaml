@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2_flocking_velocity_sgn"
+folder_to_save: "scenario_2_flocking_velocity_sgn_new_potpot"
 
 days_sim: 2
 
@@ -47,6 +47,8 @@ multi_agent_param:
     epsilon: 0.1
     h: 0.2
     ideal_distance: 5000 # meters
+    ideal_distance_low: 4500 # meters
+    ideal_distance_high: 5500 # meters
     a: 5
     b: 5
     interaction_range: 9000 # meters
