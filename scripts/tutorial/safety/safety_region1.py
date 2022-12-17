@@ -12,16 +12,22 @@ from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
+from config.safety.config_switching_controller import (
+    specific_settings_switching,
+    specific_settings_safety,
+    specific_settings_navigation,
+)
 
 
-arena = ArenaFactory.create(scenario_name="safety_region1_HYCOM_forecast_HYCOM_hindcast_local")
+arena = ArenaFactory.create(
+    scenario_name="safety_region1_Copernicus_forecast_Copernicus_hindcast_local"
+)
 
 
 x_0 = PlatformState(
-    lon=units.Distance(deg=-120),
-    lat=units.Distance(deg=34.25),
-    # TODO: start at 21 if data would work
-    date_time=datetime.datetime(2022, 10, 2, 12, 0, tzinfo=datetime.timezone.utc),
+    lon=units.Distance(deg=-118.7),
+    lat=units.Distance(deg=32.8),
+    date_time=datetime.datetime(2022, 10, 10, 14, 0, tzinfo=datetime.timezone.utc),
 )
 
 x_T = SpatialPoint(lon=units.Distance(deg=-118), lat=units.Distance(deg=33))
@@ -31,55 +37,22 @@ problem = NavigationProblem(
     end_region=x_T,
     target_radius=0.1,
 )
+#%%
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=x_0.to_spatio_temporal_point(),
+#     x_T=x_T,
+#     deg_around_x0_xT_box=1,
+#     temp_horizon_in_s=3600 * 24 * 1.2,
+# )
 
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_T,
-    deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600 * 24 * 3,
-)
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
+#%%
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
-
-
-specific_settings_navigation = {
-    "replan_on_new_fmrc": True,
-    "replan_every_X_seconds": False,
-    "direction": "backward",
-    "n_time_vector": 200,
-    # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
-    "accuracy": "high",
-    "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 5,
-    "use_geographic_coordinate_system": True,
-    "progress_bar": True,
-    "initial_set_radii": [
-        0.1,
-        0.1,
-    ],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
-    # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-    "grid_res": 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-    "d_max": 0.0,
-    # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
-    # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
-    # TODO: This is from the config. So we can perhaps pass the whole config and then pick what we need
-    "platform_dict": arena.platform.platform_dict,
-}
-
-specific_settings_safety = dict(
-    filepath_distance_map="data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
-)
-specific_settings_switching = dict(
-    safety_condition="distance",
-    safe_distance_to_land=15,  # TODO: change to units,
-    safety_controller="ocean_navigation_simulator.controllers.NaiveSafetyController.NaiveSafetyController(problem, self.specific_settings_safety)",
-    navigation_controller="ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner(problem, self.specific_settings_navigation)",
-)
+specific_settings_navigation["platform_dict"] = arena.platform.platform_dict
 
 planner = SwitchingController(
     problem, specific_settings_switching, specific_settings_navigation, specific_settings_safety
@@ -91,6 +64,7 @@ observation = arena.reset(platform_state=x_0)
 # TODO: this needs to be done to calculate the HJ dynamics at least once
 # In case that the safety is on
 plaction = planner.get_action(observation=observation)
+# Calculate reachability
 action_nav = planner.navigation_controller.get_action(observation=observation)
 
 
@@ -103,7 +77,7 @@ planner.navigation_controller.plot_reachability_snapshot(
     plot_in_h=True,
 )
 #%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 5 days
+for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
