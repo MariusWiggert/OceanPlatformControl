@@ -338,6 +338,7 @@ class MultiAgent:
         list_of_graph: List[nx.Graph],
         dates: List[dt.datetime],
         success_rate_reach_target: float,
+        energy_efficiency_proxy: float,
         logfile: str = "logmetrics.log",
         formatLog: Optional[logging.Formatter] = None,
     ) -> dict:
@@ -347,6 +348,8 @@ class MultiAgent:
             list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
             dates (List[dt.datetime]): times at which the graphs were recorded
             success_rate_reach_target (float): number of platforms having reached target out of all platforms
+            energy_efficiency_proxy(float): average of the maximum deviation from the optimal control angle for all the platforms 
+                                            at each simulation step
             logfile (str, optional): name of file to log to. Defaults to "logmetrics.log".
             formatLog (Optional[logging.Formatter], optional): log format. Defaults to None.
 
@@ -390,6 +393,12 @@ class MultiAgent:
         self.LOG_insert(
             logfile,
             formatLog,
+            f"Mean maximum correction from optimal control, in degrees = {energy_efficiency_proxy*180/np.pi}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
             f"Mission Success !" if mission_success else f"Mission failed",
             logging.INFO,
         )
@@ -397,6 +406,7 @@ class MultiAgent:
             "isolated_platform_metric": integrated_communication,
             "number_of_collision": collision_metric,
             "reaching_target": success_rate_reach_target,
+            "Mean maximum correction from optimal control degrees": energy_efficiency_proxy*180/np.pi,
             "mission_sucess": mission_success,
         }
 

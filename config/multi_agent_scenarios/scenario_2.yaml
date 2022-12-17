@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2_flocking_velocity_sgn_new_potpot"
+folder_to_save: "scenario_2_flocking_velocity_sgn"
 
 days_sim: 2
 

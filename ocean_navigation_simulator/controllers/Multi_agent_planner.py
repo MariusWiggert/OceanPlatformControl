@@ -31,6 +31,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.controllers.Flocking import (
     FlockingControl,
     RelaxedFlockingControl,
+    FlockingControl2,
 )
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.utils import units
@@ -171,13 +172,15 @@ class MultiAgentPlanner(HJReach2DPlanner):
         #     param_dict=self.multi_agent_settings["flocking"],
         #     platform_dict=self.platform_dict,
         # )
-        flocking_control = RelaxedFlockingControl(
+        flocking_control = FlockingControl(
             observation=observation,
             param_dict=self.multi_agent_settings["flocking"],
             platform_dict=self.platform_dict,
         )
         for k in range(len(observation)):
             hj_navigation = super().get_action(observation[k])
+            point = observation[k].platform_state.to_spatio_temporal_point()
+            #val = super().interpolate_value_function_in_hours(point=point)
             flocking_action = flocking_control.get_u_i(node_i=k, hj_action=hj_navigation)
             action_list.append(self.to_platform_action_bounds(flocking_action))
             # compute the flocking correction angle to optimal input as proxy for energy consumption 

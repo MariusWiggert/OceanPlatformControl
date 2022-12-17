@@ -950,17 +950,21 @@ class Arena:
         )
         return fig
 
-    def save_metrics_to_log(self, all_pltf_status: list, filename: str) -> dict:
+    def save_metrics_to_log(self, all_pltf_status: list, max_correction_from_opt_ctrl: list, filename: str) -> dict:
         """Compute and save metrics for the given multi-agent instance
         For now implemented are:
         1) Time-integral metric of # isolated platforms
         2) Number of collisions during simulation
         3) The fraction of total platforms reaching the target (1 = all platforms reached the target within simulation time)
-        4) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
+        4) The average of the maximum deviation from the optimal control angle for all the platforms 
+                                            at each simulation step as a proxy for energy efficiency
+        5) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
 
         Args:
             all_pltf_status (list): list of platform status, obtained by calling problem_status through the simulation
                                     (see function above in arena)
+            max_correction_from_opt_ctrl(list): maximum deviation from the optimal control angle for all the platforms 
+                                            at each simulation step
             filename (str): logging filename
 
         Returns:
@@ -970,10 +974,12 @@ class Arena:
         success_rate_reach_target = sum(pltf_status == 1 for pltf_status in all_pltf_status) / len(
             all_pltf_status
         )
+        energy_efficiency_proxy = np.mean(max_correction_from_opt_ctrl)
         metrics_dict = self.multi_agent_net.log_metrics(
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],
             success_rate_reach_target=success_rate_reach_target,
+            energy_efficiency_proxy = energy_efficiency_proxy,
             logfile=filename,
         )
         return metrics_dict

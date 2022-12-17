@@ -141,6 +141,85 @@ class FlockingControl:
             return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
 
 
+class FlockingControl2:
+    def __init__(
+        self,
+        observation: ArenaObservation,
+        param_dict: dict,
+        platform_dict: dict,
+    ):
+        self.param_dict = param_dict
+        self.G_proximity = observation.graph_obs.G_communication
+        self.observation = observation
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
+            unit="m", graph_type="communication"
+        )  # get adjacency
+        self.u_max_mps = platform_dict["u_max_in_mps"]
+        self.dt_in_s = platform_dict["dt_in_s"]
+        self.r_max = self.param_dict["interaction_range"]
+
+    def plot_potential_fcn(self, step: Optional[int] = 100, savefig: Optional[bool] = False):
+        z_range = np.arange(start=0, stop=self.r_max, step=step)
+        psi = [self.get_potential_function(norm_q_ij=z) for z in z_range]
+        fig, ax = plt.subplots(1, 1)
+        ax.plot(z_range, psi)
+        ax.set_ylabel(r"$\psi$")
+        ax.set_xticks([0, self.r_max/2, self.r_max])
+        ax.set_xticklabels([r"$0$", r"$\frac{r_{max}}{2}$", r"$r_{max}$"])
+        ax.grid(axis="both", linestyle="--")
+        if savefig:
+            plt.savefig("plot_gradient_and_potential.png")
+
+
+    def get_potential_function(self, norm_q_ij):
+        return self.r_max/(norm_q_ij*(1 - norm_q_ij/self.r_max))
+
+    def get_analytical_gradient(self, i_node, j_neighbor):
+        q_i = np.array([self.observation.platform_state.lon.m[i_node],
+                        self.observation.platform_state.lat.m[i_node]])
+        q_j = np.array([self.observation.platform_state.lon.m[j_neighbor],
+                        self.observation.platform_state.lat.m[j_neighbor]])
+        nominator = -self.r_max**2*(self.r_max*np.sign(q_i-q_j)-2*q_i + 2*q_j)
+        denominator = (q_i-q_j)**2 * (self.r_max-np.abs(q_i-q_j))**2
+        return nominator/denominator
+    
+    def get_pot_2(self, norm_q_ij):
+        return norm_q_ij**2/(self.r_max-norm_q_ij)
+
+    def get_velocity_diff_array(self, node_i, neighbors_idx, sign_only: bool = False):
+        velocities = np.array(self.observation.platform_state.velocity)
+        # Enforce good dimensions with reshape (velocities u and v as rows)
+        velocity_diff = velocities[:, node_i].reshape(2, 1) - velocities[:, neighbors_idx].reshape(
+            2, neighbors_idx.size
+        )
+        if sign_only:
+            return np.sign(velocity_diff)
+        else:
+            return velocity_diff
+
+    def get_u_i(self, node_i: int, hj_action: PlatformAction):
+        neighbors_idx = np.argwhere(self.adjacency_mat[node_i, :] > 0).flatten()
+        if not neighbors_idx.size:  # no neighbors
+            return hj_action
+        else:
+            grad = 0
+            for neighbor in neighbors_idx:
+                grad += self.get_analytical_gradient(i_node=node_i, j_neighbor=neighbor)
+
+            velocity_match = self.get_velocity_diff_array(
+                    node_i=node_i, neighbors_idx=neighbors_idx, sign_only=True
+                )
+            u_i = (
+                0.5 * (grad - np.sum(velocity_match)) * self.dt_in_s
+            )  # integrate since we have a velocity input
+            u_i_scaled = PlatformAction(
+                min(np.linalg.norm(u_i, ord=2) / self.u_max_mps, 1),  # scale in % of max u, bounded
+                direction=np.arctan2(u_i[1], u_i[0]),
+            )
+
+            return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
+
+
 class RelaxedFlockingControl:
     def __init__(
         self,
