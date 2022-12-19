@@ -3,9 +3,8 @@
      the seaweed as well as battery usage.
 """
 import dataclasses
-import datetime as dt
+import datetime
 import logging
-import os
 import time
 from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
@@ -44,6 +43,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.utils.misc import timing_logger
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
@@ -107,6 +107,7 @@ class Arena:
     solar_field: SolarIrradianceField = None
     seaweed_field: SeaweedGrowthField = None
     platform: Platform = None
+    timeout: Union[datetime.timedelta, int] = None
 
     def __init__(
         self,
@@ -118,7 +119,7 @@ class Arena:
         seaweed_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
         collect_trajectory: Optional[bool] = True,
-        logging_level: Optional[AnyStr] = "INFO",
+        timeout: Union[datetime.timedelta, int] = None
     ):
         """OceanPlatformArena constructor.
         Args:
@@ -140,11 +141,11 @@ class Arena:
                                              specify the seaweed growth data source. Details see SeaweedGrowthField.
             spatial_boundary:                dictionary containing the "x" and "y" spatial boundaries as list of [min, max]
             collect_trajectory:              boolean if True trajectory of states and actions is logged, otherwise not.
-            logging_level:                   Level applied for logging.
+            timeout:                         integer (in seconds) or timedelta object for max sim run (None sets no limit)
         """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        self.timeout = self.format_timeout(timeout)
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
@@ -238,7 +239,8 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-        state = self.platform.simulate_step(action)
+        with timing_logger("Platform Step ({})", self.logger, logging.DEBUG):
+            state = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
             self.state_trajectory = np.append(
@@ -248,35 +250,82 @@ class Arena:
                 self.action_trajectory, np.expand_dims(np.array(action).squeeze(), axis=0), axis=0
             )
 
-        return ArenaObservation(
-            platform_state=state,
-            true_current_at_state=self.ocean_field.get_ground_truth(
-                state.to_spatio_temporal_point()
-            ),
-            forecast_data_source=self.ocean_field.forecast_data_source,
-        )
+        with timing_logger("Create Observation ({})", self.logger, logging.DEBUG):
+            obs = ArenaObservation(
+                platform_state=state,
+                true_current_at_state=self.ocean_field.get_ground_truth(
+                    state.to_spatio_temporal_point()
+                ),
+                forecast_data_source=self.ocean_field.forecast_data_source,
+            )
+        return obs
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
         """Check if the current platform state is within the arena spatial boundary."""
-        if self.spatial_boundary is not None:
-            inside_x = (
-                self.spatial_boundary["x"][0].deg + margin
-                < self.platform.state.lon.deg
-                < self.spatial_boundary["x"][1].deg - margin
-            )
-            inside_y = (
-                self.spatial_boundary["y"][0].deg + margin
-                < self.platform.state.lat.deg
-                < self.spatial_boundary["y"][1].deg - margin
-            )
-            return inside_x and inside_y
-        return True
+        if self.spatial_boundary is None:
+            try:
+                x_boundary = [
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][0],
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1]]
+                y_boundary = [
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][0],
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1]]
+            except BaseException:
+                self.logger.warning(f"Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside.")
+                return True
+        else:
+            x_boundary = [x.deg for x in self.spatial_boundary["x"]]
+            y_boundary = [y.deg for y in self.spatial_boundary["y"]]
+
+        # calculate if inside or outside
+        inside_x = (
+            x_boundary[0] + margin
+            < self.platform.state.lon.deg
+            < x_boundary[1] - margin
+        )
+        inside_y = (
+            y_boundary[0] + margin
+            < self.platform.state.lat.deg
+            < y_boundary[1] - margin
+        )
+        return inside_x and inside_y
 
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        if point is None:
-            point = self.platform.state
-        return self.ocean_field.hindcast_data_source.is_on_land(point)
+        # Check if x_grid exists (not for all data sources)
+        if self.ocean_field.hindcast_data_source.grid_dict.get('x_grid', None) is not None:
+            if point is None:
+                point = self.platform.state
+            return self.ocean_field.hindcast_data_source.is_on_land(point)
+        else:
+            return False
+
+    def is_timeout(self) -> bool:
+        # calculate passed_seconds
+        if self.timeout is not None:
+            total_seconds = (self.platform.state.date_time - self.initial_state.date_time).total_seconds()
+            return total_seconds >= self.timeout.total_seconds()
+        else:
+            return False
+
+    def final_distance_to_target(self, problem: NavigationProblem) -> float:
+        # Step 1: calculate min distance
+        total_distance = problem.distance(PlatformState.from_numpy(self.state_trajectory[-1, :])).deg
+        min_distance_to_target = total_distance - problem.target_radius
+        # Step 2: Set 0 when inside and the distance when outside
+        if min_distance_to_target <= 0:
+            min_distance_to_target = 0.0
+        return min_distance_to_target
+
+    @staticmethod
+    def format_timeout(timeout) -> Union[datetime.timedelta, None]:
+        """Helper function because we want timeout to be able to be from a dict/string."""
+        if isinstance(timeout, datetime.timedelta):
+            return timeout
+        elif timeout is not None:
+            return datetime.timedelta(seconds=timeout)
+        else:
+            return None
 
     def problem_status(
         self, problem: Problem, check_inside: Optional[bool] = True, margin: Optional[float] = 0.0
@@ -290,10 +339,12 @@ class Arena:
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
         """
+        if self.is_timeout():
+            return -1
+        if check_inside and not self.is_inside_arena(margin):
+            return -3
         if self.is_on_land():
             return -2
-        elif check_inside and not self.is_inside_arena(margin):
-            return -3
         else:
             return problem.is_done(self.platform.state)
 
@@ -460,6 +511,7 @@ class Arena:
 
     def plot_all_on_map(
         self,
+        ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
         index: Optional[int] = -1,
         show_current_position: Optional[bool] = True,
@@ -511,7 +563,7 @@ class Arena:
             )
         else:
             raise Exception(
-                f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed."
+                f"Arena: Background '{background}' is not available only 'current', 'solar' or 'seaweed."
             )
 
         if show_state_trajectory:
@@ -559,7 +611,7 @@ class Arena:
         format_datetime_x_axis(ax)
 
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
         ax.plot(dates, self.state_trajectory[::stride, 3])
@@ -590,7 +642,7 @@ class Arena:
         format_datetime_x_axis(ax)
 
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
         ax.plot(dates, self.state_trajectory[::stride, 4], marker=".")
@@ -626,7 +678,7 @@ class Arena:
 
         # plot
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[:-1:stride, 2]
         ]
         if to_plot == "both" or to_plot == "thrust":
