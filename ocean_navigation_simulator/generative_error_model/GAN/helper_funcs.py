@@ -18,7 +18,7 @@ import argparse
 import os
 
 
-def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
+def initialize(sweep: bool, test: bool = False):
     parser = argparse.ArgumentParser()
     parser.add_argument("config_file", type=str, help="specify the file config for model and training")
     config_file = parser.parse_args().config_file
@@ -34,10 +34,11 @@ def initialize(sweep: bool, test: bool = False, tag: Optional[str] = "train"):
     if sweep:
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
-    wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
-                     f"_{all_cfgs['dataset']['area']}" + \
-                     f"_{all_cfgs['dataset']['len']}" + \
-                     f"_{all_cfgs['dataset']['concat_len']}"
+    if all_cfgs["wandb_mode"] == "online":
+        wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
+                         f"_{all_cfgs['dataset']['area']}" + \
+                         f"_{all_cfgs['dataset']['len']}" + \
+                         f"_{all_cfgs['dataset']['concat_len']}"
     wandb.config.update(all_cfgs)
     return all_cfgs
 

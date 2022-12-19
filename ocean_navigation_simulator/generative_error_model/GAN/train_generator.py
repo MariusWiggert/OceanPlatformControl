@@ -2,7 +2,8 @@ from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
     init_weights, save_checkpoint, load_checkpoint
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ssim import ssim
-from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, initialize, save_input_output_pairs
+from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, initialize, save_input_output_pairs,\
+    get_test_data, enable_dropout
 
 import wandb
 import os
@@ -190,7 +191,7 @@ def train_main(sweep: Optional[bool] = False):
     cfgs_lr_scheduler = all_cfgs["train"]["lr_scheduler_configs"]
 
     # load training data
-    train_loader, val_loader, _, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+    train_loader, val_loader, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
     print(f"-> Model: {model_type}.")
@@ -237,19 +238,24 @@ def train_main(sweep: Optional[bool] = False):
         clean_up_training(model, optimizer, fixed_batch_loader, all_cfgs, device)
 
 
-def test_main():
-    # TODO: add option to save input-output pairs -> use for variogram
+def test_main(data: str = "test"):
     all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # simplify config access
     cfgs_model = all_cfgs[all_cfgs["model"]]
-    cfgs_dataset = all_cfgs["dataset"]
     cfgs_train = all_cfgs["train"]
 
-    # load training data
-    _, _, test_loader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train, test=True)
+    if data == "test":
+        # load test_data
+        cfgs_dataset = all_cfgs["test_dataset"]
+    elif data == "val":
+        cfgs_dataset = all_cfgs["val_dataset"]
+        cfgs_train["batch_size"] = 192
+    else:
+        raise ValueError(f"data = {data} is not a valid input! Try: ['test', 'val'].")
+    dataloader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # load model
     model = get_model(all_cfgs["model"], cfgs_model, device)
@@ -257,9 +263,29 @@ def test_main():
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
 
-    cfgs_train["epoch"] = 1
-    _, metrics, _ = validation(model, test_loader, device, all_cfgs, save_data=True)
-    print(metrics)
+    model.eval()
+    enable_dropout(model)
+    save_dirs = []
+    repeated_data = None
+    # iterate twice: once for all test/val FCs, once for repeated FC
+    for loader_idx in range(2):
+        with torch.no_grad():
+            for idx, (data, _) in enumerate(tqdm(dataloader)):
+                data = data.to(device).float()
+                # repeated sample
+                if loader_idx == 1:
+                    if idx == 0:
+                        repeated_data = data
+                    if idx == 10:
+                        break
+                    target_fake = model(repeated_data)
+                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                # normal samples
+                else:
+                    target_fake = model(data)
+                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
+                save_dirs.append(save_dir)
+    return save_dirs
 
 
 def main():
@@ -268,7 +294,7 @@ def main():
     if all_cfgs["run_train"]:
         train_main()
     else:
-        test_main()
+        test_main(data="val")
 
 
 if __name__ == "__main__":
