@@ -27,8 +27,8 @@ specific_settings_safety = dict(
     filepath_distance_map="data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
 )
 specific_settings_switching = dict(
-    safety_condition="distance",
-    safe_distance_to_land=15,  # TODO: change to units,
+    safety_condition="off",
+    safe_distance_to_land=10,  # TODO: change to units,
     safety_controller="ocean_navigation_simulator.controllers.NaiveSafetyController.NaiveSafetyController(problem, self.specific_settings_safety)",
     navigation_controller="ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner(problem, self.specific_settings_navigation)",
 )

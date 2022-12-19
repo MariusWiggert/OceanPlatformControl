@@ -38,6 +38,10 @@ class SwitchingController(Controller):
                 lon=observation.platform_state.lon.deg, lat=observation.platform_state.lat.deg
             )["distance"].data
             return distance_to_land_at_pos < self.specific_settings["safe_distance_to_land"]
+        elif self.specific_settings["safety_condition"] == "on":
+            return True
+        elif self.specific_settings["safety_condition"] == "off":
+            return False
         elif self.specific_settings["safety_condition"] == "distance_and_time_safe":
             # TODO: implement time counter
             raise NotImplementedError
