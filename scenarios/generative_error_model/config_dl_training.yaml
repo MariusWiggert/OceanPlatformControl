@@ -1,14 +1,16 @@
 model: ["generator", "discriminator"]
 save_model: False
 dataset_type: "forecastbuoy"
-wandb_mode: "offline"
+wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 
 # testing and saving output
-save_samples_path: "data/drifter_data/GAN_samples_repeated"
+save_samples_path: "data/drifter_data/GAN_samples"
+save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2022-11-27_22:48:44.pth"
-test_load_chkpt: "2022-12-10_13:09:12.pth"
+#test_load_chkpt: "2022-12-10_13:09:12.pth"
+test_load_chkpt: "2022-12-13_07:10:04.pth"
 
 generator:
   in_channels: 2
@@ -79,12 +81,15 @@ dataset:
   concat_len: 1
 
 test_dataset:
-#  forecasts: "data/drifter_data/forecasts_preprocessed_test"
-#  ground_truth: "data/drifter_data/buoy_preprocessed_test"
-  forecasts: "data/drifter_data/GAN_repeated_test/forecasts"
-  ground_truth: "data/drifter_data/GAN_repeated_test/buoy"
+  forecasts: "data/drifter_data/forecasts_preprocessed_test"
+  ground_truth: "data/drifter_data/buoy_preprocessed_test"
 #  forecasts: "data/drifter_data/thesis_gan_inference/forecast/"
 #  ground_truth: "data/drifter_data/thesis_gan_inference/ground_truth"
   area: ["area1"]
   concat_len: 1
 
+test_dataset_repeated:
+  forecasts: "data/drifter_data/GAN_repeated_test/forecasts"
+  ground_truth: "data/drifter_data/GAN_repeated_test/buoy"
+  area: ["area1"]
+  concat_len: 1

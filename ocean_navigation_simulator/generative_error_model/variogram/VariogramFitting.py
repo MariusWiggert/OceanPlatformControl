@@ -181,7 +181,7 @@ class VariogramFitting:
 
         # get data for fitted function line plot
         lags, function_semivariance = self._get_sliced_fitted_function_data(var)
-        ax.plot(lags, function_semivariance, label="fitted function", color="orange")
+        ax.plot(lags, function_semivariance, label="variogram model", color="orange")
 
         if plot_empirical:
             # get data for empirical points scatter plot

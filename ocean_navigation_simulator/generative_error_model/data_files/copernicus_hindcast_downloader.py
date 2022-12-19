@@ -55,20 +55,28 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
         water_v = hindcast["water_v"].values[:, np.newaxis, :, :]
         attrs = hindcast.attrs
 
-        # Need to create new xarray to change data variable names back to be the same as copernicus forecast
-        hindcast = xr.Dataset(
-            data_vars=dict(
-                utotal=(["time", "depth", "latitude", "longitude"], water_u),
-                vtotal=(["time", "depth", "latitude", "longitude"], water_v)
-            ),
-            coords=dict(
-                time=("time", hindcast.coords["time"].values),
-                depth=("depth", [hindcast.coords["depth"].values]),
-                latitude=("latitude", hindcast.coords["lat"].values),
-                longitude=("longitude", hindcast.coords["lon"].values)
-            ),
-            attrs=attrs
-        )
+        # rename dims and variables
+        renaming_map = {"lon": "longitude",
+                        "lat": "latitude",
+                        "water_u": "utotal",
+                        "water_v": "vtotal"}
+        hindcast = hindcast.rename(renaming_map)
+        print(hindcast)
+
+        # # Need to create new xarray to change data variable names back to be the same as copernicus forecast
+        # hindcast = xr.Dataset(
+        #     data_vars=dict(
+        #         utotal=(["time", "depth", "latitude", "longitude"], water_u),
+        #         vtotal=(["time", "depth", "latitude", "longitude"], water_v)
+        #     ),
+        #     coords=dict(
+        #         time=("time", hindcast.coords["time"].values),
+        #         depth=("depth", [hindcast.coords["depth"].values]),
+        #         latitude=("latitude", hindcast.coords["lat"].values),
+        #         longitude=("longitude", hindcast.coords["lon"].values)
+        #     ),
+        #     attrs=attrs
+        # )
         # save data to file
         hindcast.to_netcdf(os.path.join(save_dir, file_name), engine="netcdf4")
         print(f"Written: {file_name}.")
