@@ -145,8 +145,8 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         with open(folder + "specific_settings.pickle", "wb") as file:
             pickle.dump(self.specific_settings, file)
         # Used in Replanning
-        with open(folder + "last_fmrc_idx_planned_with.pickle", "wb") as file:
-            pickle.dump(self.last_fmrc_idx_planned_with, file)
+        # with open(folder + "last_fmrc_idx_planned_with.pickle", "wb") as file:
+        #     pickle.dump(self.last_fmrc_idx_planned_with, file)
         # Used in Interpolation
         with open(folder + "all_values.pickle", "wb") as file:
             pickle.dump(self.all_values, file)
@@ -167,12 +167,12 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             pickle.dump(self.initial_values, file)
 
     @staticmethod
-    def from_saved_planner_state(folder, problem: NavigationProblem, verbose: Optional[int] = 0):
+    def from_saved_planner_state(folder, problem: NavigationProblem, arena: ArenaFactory, verbose: Optional[int] = 0):
         # Settings
         with open(folder + "specific_settings.pickle", "rb") as file:
             specific_settings = pickle.load(file)
 
-        planner = HJBSeaweed2DPlanner(problem=problem, specific_settings=specific_settings)
+        planner = HJBSeaweed2DPlanner(problem=problem, specific_settings=specific_settings, arena=arena)
 
         # Used in Replanning
         with open(folder + "last_fmrc_idx_planned_with.pickle", "rb") as file:
@@ -253,7 +253,6 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
                 radii=[self.problem.target_radius, self.problem.target_radius]
                 / self.characteristic_vec,
             )
-
             self._run_hj_reachability(
                 initial_values=initial_values,  # self.get_initial_values(direction="backward"),
                 t_start=x_t.date_time,

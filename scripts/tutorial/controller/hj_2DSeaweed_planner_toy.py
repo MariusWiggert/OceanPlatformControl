@@ -19,18 +19,13 @@ from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
-
-# import xarray as xr
-# matthias = xr.open_dataset("/Users/matthiaskiller/Desktop/data/Copernicus/Hindcast/Region 3/copernicus_hindcast_lon_[-120, -70]_lat_[-20, 20]_time_[2022-10-11 00:00:00,2022-10-12 00:00:00].nc")
-# print(matthias)
-
 # %% Initialize
 os.chdir(
     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
 )
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 # arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed")
-arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed")
+arena = ArenaFactory.create(scenario_name="current_highway")
 # we can also download the respective files directly to a temp folder, then t_interval needs to be set
 # % Specify Navigation Problem
 # x_0 = PlatformState(
@@ -39,20 +34,18 @@ arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local_s
 #     date_time=datetime.datetime(2022, 7, 24, 12, 0, tzinfo=datetime.timezone.utc),
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-120), lat=units.Distance(deg=70))
-
-#%%
 x_0 = PlatformState(
-    lon=units.Distance(deg=-60),
-    lat=units.Distance(deg=-15),
+    lon=units.Distance(deg=1),
+    lat=units.Distance(deg=1),
     date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
 )
-x_T = SpatialPoint(lon=units.Distance(deg=-60), lat=units.Distance(deg=-15))
+x_T = SpatialPoint(lon=units.Distance(deg=1), lat=units.Distance(deg=1))
 
 problem = NavigationProblem(
     start_state=x_0,
     end_region=x_T,
     target_radius=0.1,
-    timeout=datetime.timedelta(days=4),
+    timeout=datetime.timedelta(days=1),
     platform_dict=arena.platform.platform_dict,
 )
 
@@ -98,11 +91,11 @@ specific_settings = {
     "direction": "backward",
     "n_time_vector": 200,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 1.1,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 4,
-    "use_geographic_coordinate_system": True,
+    "T_goal_in_seconds": 3600, #* 24 * 4,
+    "use_geographic_coordinate_system": False,
     "progress_bar": True,
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
@@ -116,7 +109,6 @@ observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 
 #%% get vlaue function 
-
 
 planner.animate_value_func_3D()
 
@@ -172,22 +164,17 @@ planner.save_planner_state("saved_planner/")
 
 # %% Let the controller run closed-loop within the arena (the simulation loop)
 # observation = arena.reset(platform_state=x_0)
-dt_in_s = arena.platform.platform_dict["dt_in_s"]
+#dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
-
 # for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
-for i in tqdm(range(int(3600 * 24 * 4 / dt_in_s))):  # 3 days
+for i in tqdm(range(int(200))):  #3600 * 24 * 3 / dt_in_s # 3 days
 
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
-#%%
+
 print(arena.platform.state.seaweed_mass.kg)
 arena.plot_seaweed_trajectory_on_timeaxis()
-
-#%% 
-arena.plot_battery_trajectory_on_timeaxis()
-
 
 
 #%% Plot the arena trajectory on the map
