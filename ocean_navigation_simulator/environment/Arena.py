@@ -377,6 +377,7 @@ class Arena:
             -1  if problem timed out
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
+            -4  if platform in garbage patch
         """
         if self.is_timeout():
             return -1
@@ -398,6 +399,7 @@ class Arena:
             'Timeout'       if problem timed out
             'Stranded'      if platform stranded
             'Outside Arena' if platform left specified araena region (spatial boundaries)
+            'In garbage patch' if platform in garbage patch
             'Invalid'       otherwise
         """
         if problem_status == 1:
