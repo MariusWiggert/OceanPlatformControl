@@ -1,4 +1,5 @@
 from collections import deque
+from typing import List
 
 import cartopy.crs as ccrs
 import cmocean
@@ -262,6 +263,31 @@ def format_spatial_resolution(xarray: xr.Dataset(), res_lat=1 / 12, res_lon=1 / 
         },
     )
     return xarray_new
+
+
+def plot_rectangles_from_interval(
+    x_interval: List, y_interval: List, ax: plt.axes, color: str = "k"
+) -> plt.axes:
+    """Plot bounding box rectangles on ax from interval
+
+    Args:
+        x_interval (List): Lon interval of rectanlge.
+        y_interval (List): Lat interval of rectanlge.
+        ax (plt.axes): Axes
+        color (str, optional): Color of rectangle border. Defaults to "k".
+
+    Returns:
+        plt.axes: Axes with added rectangle.
+    """
+    if not len(x_interval) == len(y_interval) and len(x_interval) == 2:
+        return ax
+
+    # Plot bounding box
+    ax.plot(x_interval, [y_interval[0], y_interval[0]], color=color)
+    ax.plot(x_interval, [y_interval[1], y_interval[1]], color=color)
+    ax.plot([x_interval[0], x_interval[0]], y_interval, color=color)
+    ax.plot([x_interval[1], x_interval[1]], y_interval, color=color)
+    return ax
 
 
 def plot_bathymetry_2d(xarray: xr.Dataset()) -> None:
