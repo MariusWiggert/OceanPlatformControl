@@ -592,9 +592,21 @@ class Arena:
                 y_interval=y_interval,
                 return_ax=True,
             )
+        elif "bathymetry" in background:
+            ax = self.bathymetry_source.plot_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
+        elif "garbage" in background:
+            ax = self.garbage_source.plot_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
         else:
             raise Exception(
-                f"Arena: Background '{background}' is not available only 'current', 'solar' or 'seaweed."
+                f"Arena: Background '{background}' is not available only 'current', 'solar', 'seaweed', 'bathymetry', or 'garbage'."
             )
 
         if show_state_trajectory:
