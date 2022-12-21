@@ -734,3 +734,38 @@ class Arena:
         plt.xlabel("time")
 
         return ax
+
+    def plot_garbage_trajectory_on_timeaxis(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
+        # TODO: expand to safety to include bathymetry violations (then bathymetry state needs to be added to trajectory)
+        # to_plot: Optional[Literal["both", "garbage", "bathymetry"]] = "both",
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the garbgae trajectory on a time axis. Passing in an axis is optional.
+         Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        format_datetime_x_axis(ax)
+
+        # plot
+        dates = [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
+            for posix in self.state_trajectory[::stride, 2]
+        ]
+        ax.plot(dates, self.state_trajectory[::stride, 5])
+
+        plt.ylabel("is_in_garbage")
+        plt.title("Inside Garbage Patch Trajectory")
+        plt.xlabel("time")
+
+        return ax
