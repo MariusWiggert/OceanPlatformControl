@@ -114,7 +114,7 @@ def set_arena_loggers(level):
     logging.getLogger("arena.ocean_field").setLevel(level)
     logging.getLogger("arena.ocean_field.ocean_source").setLevel(level)
 
-    logging.getLogger("arena.ocean_field.seaweed_growth_source").setLevel(level)
+    logging.getLogger("arena.seaweed_field.seaweed_growth_source").setLevel(level)
     logging.getLogger("arena.seaweed_growth_field").setLevel(level)
 
     logging.getLogger("arena.solar_field").setLevel(level)
