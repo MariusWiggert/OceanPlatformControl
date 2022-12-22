@@ -25,12 +25,12 @@ arena = ArenaFactory.create(
 
 
 x_0 = PlatformState(
-    lon=units.Distance(deg=-159.5),  # -118.5
-    lat=units.Distance(deg=28.6),  # 32.8
+    lon=units.Distance(deg=-158.5),  # -118.5
+    lat=units.Distance(deg=28.4),  # 32.8
     date_time=datetime.datetime(2022, 10, 10, 14, 0, tzinfo=datetime.timezone.utc),
 )
 
-x_T = SpatialPoint(lon=units.Distance(deg=-158), lat=units.Distance(deg=28))  # -118, 33
+x_T = SpatialPoint(lon=units.Distance(deg=-158.1), lat=units.Distance(deg=27.9))  # -118, 33
 
 problem = NavigationProblem(
     start_state=x_0,
@@ -42,11 +42,27 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
     x_0=x_0.to_spatio_temporal_point(),
     x_T=x_T,
     deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600 * 24 * 1.2,
+    temp_horizon_in_s=3600 * 24 * 2,
 )
 
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
+# TODO: add mask
+
+ax = arena.garbage_source.plot_mask_from_xarray(
+    xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
+    ax=ax,
+    var_to_plot="garbage",
+    alpha=0.5,
+)
+plt.show()
+
+problem.plot(ax=ax)
+plt.show()
+
+ax = arena.garbage_source.plot_data_over_area(
+    x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 )
 problem.plot(ax=ax)
 plt.show()
@@ -77,7 +93,7 @@ planner.navigation_controller.plot_reachability_snapshot(
     plot_in_h=True,
 )
 #%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
+for i in tqdm(range(int(3600 * 24 * 2 / 600))):  # 5 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
     problem_status = arena.problem_status(problem=problem)
@@ -88,9 +104,13 @@ for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
         # TODO: error in plotting_utils.py in add_traj_and_ctrl_at_time:
         #         ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
         # IndexError: index 657 is out of bounds for axis 1 with size 657
-        break
+        # break
+        print("reached")
 
+#%%
+garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
+plt.show()
 #%% Plot the arena trajectory on the map
-arena.plot_all_on_map(problem=problem)
+arena.plot_all_on_map(problem=problem, background="garbage")
 #%% Animate the trajectory
 arena.animate_trajectory(problem=problem, temporal_resolution=7200)

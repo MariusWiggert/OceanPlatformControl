@@ -43,7 +43,7 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 # plt.show()
 
 specific_settings = {
-    "d_land_min": 40,
+    "d_land_min": 10,
     "filepath_distance_map": "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
 }
 planner = NaiveSafetyController(problem, specific_settings)
@@ -56,6 +56,6 @@ for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 5 days
     observation = arena.step(action)
 
 #%% Plot the arena trajectory on the map
-arena.plot_all_on_map(problem=problem)
+arena.plot_all_on_map(problem=problem, background="bathymetry")
 #%% Animate the trajectory
 arena.animate_trajectory(problem=problem, temporal_resolution=7200)

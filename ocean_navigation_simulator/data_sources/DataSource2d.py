@@ -354,3 +354,53 @@ class DataSource2d(abc.ABC):
             )
         )
         return ax
+
+    # TODO: wip
+    @staticmethod
+    def plot_mask_from_xarray(
+        xarray: xr,
+        var_to_plot: AnyStr = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        alpha: Optional[float] = 1.0,
+        ax: plt.axes = None,
+        fill_nan: bool = True,
+        masking_val: float = 0,
+    ) -> matplotlib.pyplot.axes:
+        """Base function to plot a specific var_to_plot of the x_array.
+        All other functions build on top of it, it creates the ax object and returns it.
+        Args:
+            xarray:            xarray object containing the grids and data
+            var_to_plot:       a string of the variable to plot
+            vmin:              minimum current magnitude used for colorbar (float)
+            vmax:              maximum current magnitude used for colorbar (float)
+            alpha:             alpha of the current magnitude color visualization
+            ax:                Optional for feeding in an axis object to plot the figure on.
+            fill_nan:          Optional if True we fill nan values with 0 otherwise leave them as nans.
+        Returns:
+            ax                 matplotlib.pyplot.axes object
+        """
+        if fill_nan:
+            xarray = xarray.fillna(0)
+        # Get data variable if not provided
+        if var_to_plot is None:
+            var_to_plot = list(xarray.keys())[0]
+        if ax is None:
+            ax = plt.axes()
+        # plot data for the specific variable
+        if vmax is None:
+            vmax = xarray[var_to_plot].max()
+        if vmin is None:
+            vmin = xarray[var_to_plot].min()
+        # masked_t2_avg = t2c_tavg.where(nc_inv.lsm > 0.5)
+        xarray[var_to_plot].where(xarray[var_to_plot] > masking_val).plot(
+            cmap="viridis", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+        )
+        # TODO: add to legend
+        # # Label the plot
+        # ax.set_title(
+        #     "Variable: {var} \n at Time: {t}".format(
+        #         var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+        #     )
+        # )
+        return ax
