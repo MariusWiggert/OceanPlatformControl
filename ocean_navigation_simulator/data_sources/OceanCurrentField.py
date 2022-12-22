@@ -1,6 +1,8 @@
 import logging
-from typing import Dict, Optional
-
+from ocean_navigation_simulator.data_sources.DataField import DataField
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import \
+    HindcastFileSource, HindcastOpendapSource, ForecastFileSource, LongTermAverageSource
 import ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
 from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
@@ -54,10 +56,10 @@ class OceanCurrentField(DataField):
             return HindcastFileSource(source_dict)
         elif source_dict["source"] == "forecast_files":
             return ForecastFileSource(source_dict)
-        elif source_dict["source"] == "analytical":
-            specific_analytical_current = getattr(
-                AnalyticalSources, source_dict["source_settings"]["name"]
-            )
+        elif source_dict['source'] == 'longterm_average':
+            return LongTermAverageSource(source_dict)
+        elif source_dict['source'] == 'analytical':
+            specific_analytical_current = getattr(AnalyticalSources, source_dict['source_settings']['name'])
             return specific_analytical_current(source_dict)
         else:
             raise ValueError(
