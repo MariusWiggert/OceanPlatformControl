@@ -5,8 +5,8 @@ from ocean_navigation_simulator.data_sources.C3Downloader import C3Downloader
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 
 time_interval = [
-    datetime.datetime(2022, 4, 13, 00, 0, 0),
-    datetime.datetime(2022, 10, 16, 23, 59, 59),
+    datetime.datetime(2022, 11, 28, 00, 0, 0),
+    datetime.datetime(2022, 12, 20, 23, 59, 59),
 ]
 
 # There are two ways of downloading files from c3.
@@ -21,16 +21,13 @@ time_interval = [
 #%% Using the Arena Factory helper function
 # Option 2: Download filed and do a bunch of checking in terms of spatial coverage, corrupt files, and thread safe.
 # Download data for specific time interval.
-folder = "/Users/matthiaskiller/Desktop/data/Copernicus/Hindcast/Region1"
+folder = "path_name"
 
 ArenaFactory.download_required_files(
     archive_source="Copernicus",
     archive_type="forecast",
-    region="Region 1",
+    region="Region 3",
     download_folder=folder,
     t_interval=time_interval,
     keep_newest_days=1000,
 )
-
-
-# %%
