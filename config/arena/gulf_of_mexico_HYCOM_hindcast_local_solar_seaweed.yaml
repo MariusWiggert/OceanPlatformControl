@@ -3,11 +3,11 @@ casadi_cache_dict:
     time_around_x_t: 172800. # 3600 * 24 * 5
 
 platform_dict:
-    battery_cap_in_wh: 400.0
+    battery_cap_in_wh: 40000.0 #400000.0
     u_max_in_mps: 0.1
     motor_efficiency: 1.0
-    solar_panel_size: 0.5
-    solar_efficiency: 0.2
+    solar_panel_size: 100
+    solar_efficiency: 1
     drag_factor: 675.0
     dt_in_s: 600.0
 
@@ -16,21 +16,32 @@ use_geographic_coordinate_system: True
 spatial_boundary: null
 
 ocean_dict:
+    area: "Region 3"
     hindcast:
-        # field: 'OceanCurrents'
-        # source: 'hindcast_files'
-        # source_settings:
-        #     folder: "data/hindcast_test/"
         field: 'OceanCurrents'
-        source: 'opendap'
+        source: 'hindcast_files'
         source_settings:
-            service: "copernicus"
-            currents: "total"
-            USERNAME: "mmariuswiggert"
-            PASSWORD: "tamku3-qetroR-guwneq"
-            DATASET_ID: "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
+            folder: '/Users/matthiaskiller/Desktop/data/Copernicus/Hindcast/Region 3/' #'data/hindcast_test/' 
+            source: 'Copernicus'
+            type: "hindcast"
+            local: True
+        # field: 'OceanCurrents'
+        # source: 'opendap'
+        # source_settings:
+        #     service: "copernicus"
+        #     currents: "total"
+        #     USERNAME: "mmariuswiggert"
+        #     PASSWORD: "tamku3-qetroR-guwneq"
+        #     DATASET_ID: "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
     forecast:
         null
+        # field: 'OceanCurrents'
+        # source: 'forecast_files'
+        # source_settings:
+        #     folder: '/Users/matthiaskiller/Desktop/data/Copernicus/Forecast/Region 3/' #'data/hindcast_test/' 
+        #     source: 'Copernicus'
+        #     type: "forecast"
+        #     local: True
 
 
 
@@ -52,6 +63,6 @@ seaweed_dict:
         field: 'SeaweedGrowth'
         source: 'GEOMAR'
         source_settings:
-            filepath: './data/nutrients/2022_monthly_nutrients_and_temp_faked_from_2021.nc'
+            filepath: './data/nutrients/2022_monthly_nutrients_and_temp_faked_from_2021.nc' #'./data/nutrients/2022_monthly_nutrients_and_temp.nc' 
     forecast: null
     
