@@ -26,7 +26,7 @@ ocean_dict:
             source: "HYCOM"
             local: True
             type: "hindcast"
-            folder: "data/hindcast_test_download/"
+            folder: "data/hindcast_test/"
     forecast: null
 
 solar_dict:
