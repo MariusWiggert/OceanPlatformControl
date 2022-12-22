@@ -794,11 +794,15 @@ class AnalyticalSource(abc.ABC):
                 datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
                 for posix in t_interval_posix
             ]
+        # TODO: only temporary solution to ensure we don't get any error in sanity check of data sources -> permanent solution should look more like buffers in XarraySource
+        x_interval_extended = [x_interval[0] - 2 * 0.1, x_interval[1] + 2 * 0.1]
+        y_interval_extended = [y_interval[0] - 2 * 0.1, y_interval[1] + 2 * 0.1]
+    
 
         # Get the coordinate vectors to calculate the analytical function over
         grids_dict = self.get_grid_dict(
-            x_interval,
-            y_interval,
+            x_interval_extended,
+            y_interval_extended,
             t_interval_posix,
             spatial_resolution=spatial_resolution,
             temporal_resolution=temporal_resolution,
