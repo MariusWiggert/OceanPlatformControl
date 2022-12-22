@@ -68,7 +68,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         source_config_dict = self.add_default_domains(source_config_dict)
         super().__init__(source_config_dict)
         # initialize logger
-        self.logger = logging.getLogger("arena.ocean_field.seaweed_growth_source")
+        self.logger = logging.getLogger("arena.seaweed_field.seaweed_growth_source")
 
         # Initialize variables used to hold casadi functions.
         self.F_NGR_per_second, self.r_growth_wo_irradiance, self.r_resp = [None] * 3
@@ -198,26 +198,25 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
           data     containing the data in whatever format as numpy array (not yet in xarray form) e.g. Tuple
         """
         # Step 1: Create the meshgrid numpy matrices for each coordinate
-        # LAT, TIMES, LON = np.meshgrid(
-        #     grids_dict["y_grid"], grids_dict["t_grid"], grids_dict["x_grid"]
-        # )
-        LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
+        LAT, TIMES, LON = np.meshgrid(
+            grids_dict["y_grid"], grids_dict["t_grid"], grids_dict["x_grid"]
+        )
+        #LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
 
-        # data_out = self.F_NGR_per_second(ca.DM([TIMES.flatten(), LAT.flatten(), LON.flatten()]))
+        data_out = self.F_NGR_per_second(ca.DM([TIMES.flatten(), LAT.flatten(), LON.flatten()]))
         # print("data",data_out)
         # print("reshaped",np.array(data_out).reshape(LAT.shape))
         # return reshaped to proper size
 
-        LON, LAT = np.where((LON >= 2) & (LON <= 2.5), 1, 0), np.where(
-            (LAT >= 2) & (LAT <= 2.5), 1, 0
-        )
-        data = np.multiply(LON.T, LAT.T)
+        # LON, LAT = np.where((LON >= -82.2) & (LON <= -81.6), 1, 0), np.where(
+        #     (LAT >= 23.7) & (LAT <= 24.3), 1, 0
+        # )
+        # data = np.multiply(LON.T, LAT.T)
 
-        T = grids_dict["t_grid"].shape[0]
+        # T = grids_dict["t_grid"].shape[0]
 
-        data = np.repeat(data[np.newaxis, :, :], T, axis=0)
-        # data = np.append(data, np.zeros(LON.shape)[np.newaxis,...], axis=0)
-        # return np.array(data_out).reshape(LAT.shape)
+        # data = np.repeat(data[np.newaxis, :, :], T, axis=0)
+        return np.array(data_out).reshape(LAT.shape)
 
         return data
 
@@ -241,7 +240,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
             datetime.datetime(2024, 1, 10, 0, 0, 0, tzinfo=datetime.timezone.utc),
         ]
         source_config_dict["source_settings"]["spatial_resolution"] = 0.1
-        source_config_dict["source_settings"]["temporal_resolution"] = 1
+        source_config_dict["source_settings"]["temporal_resolution"] = 3600
 
         return source_config_dict
 
