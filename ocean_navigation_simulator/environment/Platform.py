@@ -186,7 +186,7 @@ class Platform:
         sym_lat_degree = ca.MX.sym("lat")  # in deg or m
         sym_time = ca.MX.sym("time")  # in posix
         sym_battery = ca.MX.sym("battery")  # in Joule
-        sym_seaweed_mass = ca.MX.sym("battery")  # in Kg
+        sym_seaweed_mass = ca.MX.sym("seaweed")  # in Kg
         sym_dt = ca.MX.sym("dt")  # in s
         sym_u_thrust = ca.MX.sym("u_thrust")  # in % of u_max
         sym_u_angle = ca.MX.sym("u_angle")  # in radians
