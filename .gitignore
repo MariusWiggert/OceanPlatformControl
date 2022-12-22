@@ -22,3 +22,5 @@ tmp/
 data/
 models/
 results/
+wandb/
+saved_planner/
