@@ -1,4 +1,6 @@
+#%% imports
 import datetime
+import os
 
 import numpy as np
 
@@ -9,53 +11,58 @@ from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
-from ocean_navigation_simulator.utils import units
 
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource, ForecastFileSource, HindcastFileSource, get_datetime_from_np64
+
+from ocean_navigation_simulator.utils import units
+#%%
+os.chdir(
+    "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
+)
 # For fast interpolation of currents we cache part of the spatio-temporal data around x_t in a casadi function
 casadi_cache_dict = {"deg_around_x_t": 1, "time_around_x_t": 3600 * 24 * 1}
-# import yaml
-# with open(f'config/arena/gulf_of_mexico_LongTermAverageSource.yaml') as f:
-#     full_config = yaml.load(f, Loader=yaml.FullLoader)
+import yaml
+with open(f'config/arena/gulf_of_mexico_LongTermAverageSource.yaml') as f:
+    full_config = yaml.load(f, Loader=yaml.FullLoader)
 
-# source_config_dict = full_config['ocean_dict']['forecast']
-# forecast_dict = source_config_dict['source_settings']['forecast']
-# average_dict = source_config_dict['source_settings']['average']
-# for source_dict in [forecast_dict, average_dict]:
-#     source_dict['casadi_cache_settings'] = casadi_cache_dict
-#     source_dict['use_geographic_coordinate_system'] = True
-# #%%
-# from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import OceanCurrentSource, ForecastFileSource, HindcastFileSource, get_datetime_from_np64
+source_config_dict = full_config['ocean_dict']['forecast']
+forecast_dict = source_config_dict['source_settings']['forecast']
+average_dict = source_config_dict['source_settings']['average']
+for source_dict in [forecast_dict, average_dict]:
+    source_dict['casadi_cache_settings'] = casadi_cache_dict
+    source_dict['use_geographic_coordinate_system'] = True
+#%%
 
-# # Step 1: Initialize both data_sources
-# forecast_data_source = ForecastFileSource(forecast_dict)
-# monthly_avg_data_source = HindcastFileSource(average_dict)
-# #%% plot to see if it worked
-# # forecast_data_source.plot_data_at_time_over_area(datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
-# #                                                  [-84, -82], [20,25])
-# # monthly_avg_data_source.plot_data_at_time_over_area(datetime.datetime(2021, 11, 30, 12, 0, tzinfo=datetime.timezone.utc),
-# #                                                  [-84, -82], [20,25])
-# #%%
-# x_interval= [-84, -82]
-# y_interval= [20,25]
-# t_interval= [datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
-#              datetime.datetime(2021, 11, 30, 12, 0, tzinfo=datetime.timezone.utc)]
-# spatial_resolution = 0.1
-# temporal_resolution= 3600*6
-# #%%
-# # todo: use keyword inputs for clarity!
-# forecast_dataframe = forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval,spatial_resolution, temporal_resolution)
-# # 11-24 to 11-28
-# # Now get end_forecast time
-# end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
-# if end_forecast_time >= t_interval[1]:
-#     print("forecast is enough")
+# Step 1: Initialize both data_sources
+forecast_data_source = ForecastFileSource(forecast_dict)
+monthly_avg_data_source = HindcastFileSource(average_dict)
+#%% plot to see if it worked
+forecast_data_source.plot_data_at_time_over_area(datetime.datetime(2022, 5, 1, 12, 0, tzinfo=datetime.timezone.utc),
+                                                 [240, 280], [-15,0])
+monthly_avg_data_source.plot_data_at_time_over_area(datetime.datetime(2022, 7, 1, 12, 0, tzinfo=datetime.timezone.utc),
+                                                [-120, -80], [-15,0])
+#%%
+x_interval= [240, 260]
+y_interval= [-15,0]
+t_interval= [datetime.datetime(2022, 5, 1, 12, 0, tzinfo=datetime.timezone.utc),
+             datetime.datetime(2022, 5, 30, 12, 0, tzinfo=datetime.timezone.utc)]
+spatial_resolution = 0.1
+temporal_resolution= 3600*6
+#%%
+# todo: use keyword inputs for clarity!
+forecast_dataframe = forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval,spatial_resolution, temporal_resolution)
+# 11-24 to 11-28
+# Now get end_forecast time
+end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
+if end_forecast_time >= t_interval[1]:
+    print("forecast is enough")
 
-# # easiest fix: run it with temp and spat resolution of the forecast...
-# remaining_t_interval = [end_forecast_time, t_interval[1]]
-# monthly_average_dataframe = monthly_avg_data_source.get_data_over_area(x_interval, y_interval,
-#                                                                        remaining_t_interval,
-#                                                                        spatial_resolution,
-#                                                                        temporal_resolution)
+# easiest fix: run it with temp and spat resolution of the forecast...
+remaining_t_interval = [end_forecast_time, t_interval[1]]
+monthly_average_dataframe = monthly_avg_data_source.get_data_over_area(x_interval, y_interval,
+                                                                       remaining_t_interval,
+                                                                       spatial_resolution,
+                                                                       temporal_resolution)
 # #%% Now cut out the relevant times:
 # subset = monthly_average_dataframe.sel(
 #             time=slice(remaining_t_interval[0], remaining_t_interval[1]))
