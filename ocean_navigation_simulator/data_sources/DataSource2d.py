@@ -393,8 +393,44 @@ class DataSource2d(abc.ABC):
         if vmin is None:
             vmin = xarray[var_to_plot].min()
         # masked_t2_avg = t2c_tavg.where(nc_inv.lsm > 0.5)
-        xarray[var_to_plot].where(xarray[var_to_plot] > masking_val).plot(
-            cmap="viridis", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+        from matplotlib.colors import ListedColormap
+
+        # # Does not work, just plot filled mask, no hatches
+        # xarray[var_to_plot].where(xarray[var_to_plot] > masking_val).plot.pcolormesh(
+        #     alpha=alpha, ax=ax, add_colorbar=False, hatch="///"
+        # )
+        mask = xarray[var_to_plot].where(xarray[var_to_plot] > masking_val)
+        X, Y = np.meshgrid(xarray.lon, xarray.lat)
+        none_map = ListedColormap(["none"])
+        # Works, but still has colors...
+        # ax.pcolor(
+        #     X, Y, mask, cmap=none_map, hatch="\\ \\", alpha=alpha, edgecolor="red", lw=2, zorder=2
+        # )
+
+        # Works!
+        ax.contourf(
+            X,
+            Y,
+            mask,
+            corner_mask=True,
+            colors="red",
+            hatches="\\ \\",
+            alpha=0.0,
+            # edgecolor="red",
+            linewidths=2,
+            zorder=2,
+        )
+        ax.contour(
+            X,
+            Y,
+            xarray[var_to_plot],
+            levels=0,
+            # colors="red",
+            facecolor="red",
+            alpha=1,
+            # edgecolor="red",
+            linewidths=2,
+            zorder=1,
         )
         # TODO: add to legend
         # # Label the plot

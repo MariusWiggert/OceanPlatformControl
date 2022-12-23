@@ -48,13 +48,11 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 )
-# TODO: add mask
-
 ax = arena.garbage_source.plot_mask_from_xarray(
     xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
-    ax=ax,
     var_to_plot="garbage",
     alpha=0.5,
+    ax=ax,
 )
 plt.show()
 
