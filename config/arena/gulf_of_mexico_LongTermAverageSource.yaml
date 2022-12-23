@@ -20,7 +20,7 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: "data/hindcast_test"
+            folder: "/Users/matthiaskiller/Desktop/data/Copernicus/Hindcast/Region 3/"
             source: "HYCOM"
             type: "hindcast"
    
@@ -32,12 +32,14 @@ ocean_dict:
             field: 'OceanCurrents'
             source: 'forecast_files'
             source_settings:
-              folder: "data/forecast_test"
+              folder: "/Users/matthiaskiller/Desktop/data/HYCOM/Forecast/Region 3/"
           average:
             field: 'OceanCurrents'
             source: 'hindcast_files'
+            
             source_settings:
-              folder: "data/monthly_average"
+              folder: "/Users/matthiaskiller/Desktop/data/Copernicus/Averages_monthly/"
+              currents: 'normal'
 
 solar_dict:
     hindcast: null

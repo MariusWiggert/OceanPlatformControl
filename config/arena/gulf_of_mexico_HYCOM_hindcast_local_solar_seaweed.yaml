@@ -39,9 +39,10 @@ ocean_dict:
         # source: 'forecast_files'
         # source_settings:
         #     folder: '/Users/matthiaskiller/Desktop/data/Copernicus/Forecast/Region 3/' #'data/hindcast_test/' 
-        #     source: 'Copernicus'
+        #     source: 'HYCOM'
         #     type: "forecast"
         #     local: True
+        
 
 
 
