@@ -355,7 +355,6 @@ class DataSource2d(abc.ABC):
         )
         return ax
 
-    # TODO: wip
     @staticmethod
     def plot_mask_from_xarray(
         xarray: xr,
@@ -363,22 +362,27 @@ class DataSource2d(abc.ABC):
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         alpha: Optional[float] = 1.0,
-        ax: plt.axes = None,
-        fill_nan: bool = True,
-        masking_val: float = 0,
+        ax: Optional[plt.axes] = None,
+        fill_nan: Optional[bool] = True,
+        masking_val: Optional[float] = 0,
+        hatching: Optional[str] = "// //",
+        overlay: Optional[bool] = False,
+        contour: Optional[bool] = True,
     ) -> matplotlib.pyplot.axes:
-        """Base function to plot a specific var_to_plot of the x_array.
-        All other functions build on top of it, it creates the ax object and returns it.
+        """Base function to plot a specific var_to_plot mask of the x_array.
+
         Args:
-            xarray:            xarray object containing the grids and data
-            var_to_plot:       a string of the variable to plot
-            vmin:              minimum current magnitude used for colorbar (float)
-            vmax:              maximum current magnitude used for colorbar (float)
-            alpha:             alpha of the current magnitude color visualization
-            ax:                Optional for feeding in an axis object to plot the figure on.
-            fill_nan:          Optional if True we fill nan values with 0 otherwise leave them as nans.
+            xarray (xr):                            xarray object containing the grids and data
+            var_to_plot (AnyStr, optional):         A string of the variable to plot. Defaults to None.
+            ax (Optional[plt.axes], optional):      Feeding in an axis object to plot the figure on.. Defaults to None.
+            fill_nan (Optional[bool], optional):    If True we fill nan values with 0 otherwise leave them as nans.. Defaults to True.
+            masking_val (Optional[float], optional):Value to use as binary border of mask, e.g. -150 for elevation. Defaults to 0.
+            hatching (Optional[str], optional):     Hatching pattern to plot, if None or False will not plot. Defaults to "// //".
+            overlay (Optional[bool], optional):     Overlay the mask on the plot. Defaults to False.
+            contour (Optional[bool], optional):     Plot contour on ax. Defaults to True.
+
         Returns:
-            ax                 matplotlib.pyplot.axes object
+            matplotlib.pyplot.axes: Ax object with mask.
         """
         if fill_nan:
             xarray = xarray.fillna(0)
@@ -387,56 +391,43 @@ class DataSource2d(abc.ABC):
             var_to_plot = list(xarray.keys())[0]
         if ax is None:
             ax = plt.axes()
-        # plot data for the specific variable
-        if vmax is None:
-            vmax = xarray[var_to_plot].max()
-        if vmin is None:
-            vmin = xarray[var_to_plot].min()
-        # masked_t2_avg = t2c_tavg.where(nc_inv.lsm > 0.5)
-        from matplotlib.colors import ListedColormap
-
-        # # Does not work, just plot filled mask, no hatches
-        # xarray[var_to_plot].where(xarray[var_to_plot] > masking_val).plot.pcolormesh(
-        #     alpha=alpha, ax=ax, add_colorbar=False, hatch="///"
-        # )
         mask = xarray[var_to_plot].where(xarray[var_to_plot] > masking_val)
         X, Y = np.meshgrid(xarray.lon, xarray.lat)
-        none_map = ListedColormap(["none"])
-        # Works, but still has colors...
-        # ax.pcolor(
-        #     X, Y, mask, cmap=none_map, hatch="\\ \\", alpha=alpha, edgecolor="red", lw=2, zorder=2
-        # )
-
         # Works!
-        ax.contourf(
-            X,
-            Y,
-            mask,
-            corner_mask=True,
-            colors="red",
-            hatches="\\ \\",
-            alpha=0.0,
-            # edgecolor="red",
-            linewidths=2,
-            zorder=2,
+        plt.rcParams["hatch.linewidth"] = 4
+        plt.rcParams["hatch.color"] = "red"
+        if hatching or overlay:
+            # If hatching is not None or False, we do hatching on the area
+            # If overlay is false, then alpha is set to 0.0, which means that we do not plot the mask
+            if overlay:
+                alpha = 0.5
+            else:
+                alpha = 0.0
+            ax.contourf(
+                X,
+                Y,
+                mask,
+                corner_mask=True,
+                colors="red",
+                alpha=alpha,
+                hatches=hatching,
+                zorder=2,
+            )
+        if contour:
+            ax.contour(
+                X,
+                Y,
+                xarray[var_to_plot],
+                levels=0,
+                colors="red",
+                alpha=1,
+                linewidths=2,
+                zorder=1,
+            )
+        # Label the plot
+        ax.set_title(
+            "Variable: {var} \n at Time: {t}".format(
+                var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+            )
         )
-        ax.contour(
-            X,
-            Y,
-            xarray[var_to_plot],
-            levels=0,
-            # colors="red",
-            facecolor="red",
-            alpha=1,
-            # edgecolor="red",
-            linewidths=2,
-            zorder=1,
-        )
-        # TODO: add to legend
-        # # Label the plot
-        # ax.set_title(
-        #     "Variable: {var} \n at Time: {t}".format(
-        #         var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
-        #     )
-        # )
         return ax

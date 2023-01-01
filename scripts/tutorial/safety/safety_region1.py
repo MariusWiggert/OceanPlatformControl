@@ -51,7 +51,9 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 ax = arena.garbage_source.plot_mask_from_xarray(
     xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
     var_to_plot="garbage",
-    alpha=0.5,
+    contour=True,
+    hatching="///",
+    overlay=False,
     ax=ax,
 )
 plt.show()
