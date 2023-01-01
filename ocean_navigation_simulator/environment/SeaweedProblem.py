@@ -18,7 +18,6 @@ class SeaweedProblem:
     start_state: PlatformState
     platform_dict: dict = None
 
-   
     def plot(
         self,
         ax: matplotlib.axes.Axes,

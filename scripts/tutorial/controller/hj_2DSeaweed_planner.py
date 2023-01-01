@@ -27,7 +27,7 @@ os.chdir(
 )
 set_arena_loggers(logging.INFO)
 
-scenario_name="gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed"
+scenario_name = "gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed"
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 # arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed")
@@ -43,9 +43,8 @@ arena = ArenaFactory.create(scenario_name=scenario_name)
 
 #%% init weights & biases
 with open(f"config/arena/{scenario_name}.yaml") as f:
-                    config = yaml.load(f, Loader=yaml.FullLoader)
-#wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-control", config=config)
-
+    config = yaml.load(f, Loader=yaml.FullLoader)
+# wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-control", config=config)
 
 
 #%%
@@ -68,12 +67,14 @@ problem = SeaweedProblem(
 )
 
 
-
 # %% Plot the problem on the map
 
 
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(), x_T=x_0.to_spatio_temporal_point(), deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+    x_0=x_0.to_spatio_temporal_point(),
+    x_T=x_0.to_spatio_temporal_point(),
+    deg_around_x0_xT_box=1,
+    temp_horizon_in_s=3600,
 )
 
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -111,12 +112,13 @@ specific_settings = {
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     "platform_dict": arena.platform.platform_dict,
-    "first_plan": True, # indicates whether we plan the first time over the whole time-horizon or only over days with new forecast and recycle value fct. for the remaining days
-    "forecast_length": 3600 * 24 * 9 + 11*3600, # length of forecast horizon -> 3600 * 24 * #days --> curr. 9 days and 11hours
+    "first_plan": True,  # indicates whether we plan the first time over the whole time-horizon or only over days with new forecast and recycle value fct. for the remaining days
+    "forecast_length": 3600 * 24 * 9
+    + 11 * 3600,  # length of forecast horizon -> 3600 * 24 * #days --> curr. 9 days and 11hours
 }
-#wandb.config.update({"planner_settings": specific_settings})
+# wandb.config.update({"planner_settings": specific_settings})
 
-#%% 
+#%%
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
 
 # %% Run reachability planner
@@ -142,7 +144,7 @@ planner.save_planner_state("saved_planner/")
 dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
 
-for i in tqdm(range(int(3600 * 24 * 12 / dt_in_s))):  
+for i in tqdm(range(int(3600 * 24 * 12 / dt_in_s))):
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
@@ -159,7 +161,7 @@ ax.draw(fig.canvas.renderer)
 # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
 # #image = wandb.Image(data, caption="Seaweed trajectory on timeaxis")
-          
+
 # #wandb.log({"seaweed_trajectory_on_timeaxis": image})
 
 # ## Battery curve
@@ -173,7 +175,7 @@ ax.draw(fig.canvas.renderer)
 # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
 # #image = wandb.Image(data, caption="Battery trajectory on timeaxis")
-          
+
 # #wandb.log({"battery_trajectory_on_timeaxis": image})
 
 # ## Seaweed trajectory on map
@@ -187,7 +189,7 @@ ax.draw(fig.canvas.renderer)
 # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
 # #image = wandb.Image(data, caption="Seaweed trajectory on map")
-          
+
 # #wandb.log({"seaweed_trajectory_on_map": image})
 
 # ## Current trajectory
@@ -201,11 +203,8 @@ ax.draw(fig.canvas.renderer)
 # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
 # #image = wandb.Image(data, caption="Current trajectory on map")
-          
+
 # #wandb.log({"current_trajectory_on_map": image})
-
-
-
 
 
 #%% Plot the arena trajectory on the map
@@ -216,7 +215,7 @@ arena.plot_all_on_map(problem=problem, background="current")
 # %%
 arena.animate_trajectory(
     problem=problem,
-    temporal_resolution=14400, #7200,
+    temporal_resolution=14400,  # 7200,
     background="current",
     output="trajectory_currents.mp4",
 )
@@ -225,16 +224,14 @@ arena.animate_trajectory(
 
 arena.animate_trajectory(
     problem=problem,
-    temporal_resolution=14400, #7200,
+    temporal_resolution=14400,  # 7200,
     background="seaweed",
     output="trajectory_seaweed.mp4",
 )
 
 
-
 #%%
-wandb.log(
-  {"video": wandb.Video("generated_media/trajectory_seaweed.mp4", fps=25, format="mp4")})
+wandb.log({"video": wandb.Video("generated_media/trajectory_seaweed.mp4", fps=25, format="mp4")})
 
 
 # #%% Animate the trajectory

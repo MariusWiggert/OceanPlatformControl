@@ -52,10 +52,10 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         # set first_plan to True so we plan on the first run over the whole time horizon
         self.specific_settings["first_plan"] = True
         self.previous_reach_times, self.previous_all_values = [None] * 2
-        #TODO: retrieve forecast_length rather than specifiying it
+        # TODO: retrieve forecast_length rather than specifiying it
         if "forecast_length" not in self.specific_settings:
             raise KeyError(
-                "\"forecast_length\" is not defined in specific_settings. Please provide the forecast length."
+                '"forecast_length" is not defined in specific_settings. Please provide the forecast length.'
             )
 
     def get_x_from_full_state(
@@ -65,7 +65,10 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
 
     def get_time_vector(self, T_max_in_seconds: int) -> int:
         """Return n_time_vector for a given T_max_in_seconds. If we plan over the full horizon we take complete n_time_vector. If we only replan the forecast horizon and take the previous value fct. as initial values we shorten the n_time_vector accordingly"""
-        return np.rint((T_max_in_seconds * self.specific_settings["n_time_vector"])/self.specific_settings["T_goal_in_seconds"]).astype(int)
+        return np.rint(
+            (T_max_in_seconds * self.specific_settings["n_time_vector"])
+            / self.specific_settings["T_goal_in_seconds"]
+        ).astype(int)
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
@@ -97,15 +100,13 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         elif direction == "backward":
             return jnp.zeros(self.nonDimGrid.shape)
         elif direction == "multi-time-reach-back":
-            raise NotImplementedError(
-                "HJPlanner: Multi-Time-Reach not implemented yet"
-            )           
+            raise NotImplementedError("HJPlanner: Multi-Time-Reach not implemented yet")
         else:
             raise ValueError(
                 "Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back."
             )
 
-    def _get_idx_closest_value_in_array(self, array: np.ndarray, value: Union[int,float]) -> int:
+    def _get_idx_closest_value_in_array(self, array: np.ndarray, value: Union[int, float]) -> int:
         """Takes a value and an array and returns the index of the closest value in the array.
         Args:
             array: array in which to find the index of the closest value
@@ -136,7 +137,6 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             method="linear",
         )
 
-
     def _plan(self, x_t: PlatformState):
         """Main function where the reachable front is computed.
         Args:
@@ -164,27 +164,44 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             if self.specific_settings["first_plan"]:
                 initial_values = self.get_initial_values(direction="backward")
                 T_max_in_seconds = self.specific_settings["T_goal_in_seconds"]
-            elif not self.specific_settings["first_plan"] and self.specific_settings["forecast_length"] < self.specific_settings["T_goal_in_seconds"]:
-                time_idx = self._get_idx_closest_value_in_array(self.previous_reach_times, self.specific_settings["forecast_length"])
+            elif (
+                not self.specific_settings["first_plan"]
+                and self.specific_settings["forecast_length"]
+                < self.specific_settings["T_goal_in_seconds"]
+            ):
+                time_idx = self._get_idx_closest_value_in_array(
+                    self.previous_reach_times, self.specific_settings["forecast_length"]
+                )
                 initial_values = self.all_values[time_idx]
                 T_max_in_seconds = self.specific_settings["forecast_length"]
-                
+
             self._run_hj_reachability(
                 initial_values=initial_values,
                 t_start=x_t.date_time,
                 T_max_in_seconds=T_max_in_seconds,
                 dir="backward",
             )
-            
-            if self.specific_settings["first_plan"] and self.specific_settings["forecast_length"] < self.specific_settings["T_goal_in_seconds"]:
+
+            if (
+                self.specific_settings["first_plan"]
+                and self.specific_settings["forecast_length"]
+                < self.specific_settings["T_goal_in_seconds"]
+            ):
                 # Set first_plan to False after first planning is finished
                 self.specific_settings["first_plan"] = False
-            elif not self.specific_settings["first_plan"] and self.specific_settings["forecast_length"] < self.specific_settings["T_goal_in_seconds"]:
-                # concatenate the the static part and the new part of the value fct. based on new FC data 
+            elif (
+                not self.specific_settings["first_plan"]
+                and self.specific_settings["forecast_length"]
+                < self.specific_settings["T_goal_in_seconds"]
+            ):
+                # concatenate the the static part and the new part of the value fct. based on new FC data
                 print("concatentate")
-                self.reach_times = jnp.append(self.previous_reach_times[:time_idx], self.reach_times, axis=0)
-                self.all_values = jnp.append(self.previous_all_values[:time_idx], self.all_values, axis=0)
-                
+                self.reach_times = jnp.append(
+                    self.previous_reach_times[:time_idx], self.reach_times, axis=0
+                )
+                self.all_values = jnp.append(
+                    self.previous_all_values[:time_idx], self.all_values, axis=0
+                )
 
             self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
 
@@ -196,13 +213,9 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             self._flip_value_func_to_forward_times()
 
         elif self.specific_settings["direction"] == "forward-backward":
-            raise NotImplementedError(
-                "HJPlanner: Forward-Backward not implemented yet"
-            )
+            raise NotImplementedError("HJPlanner: Forward-Backward not implemented yet")
         elif self.specific_settings["direction"] == "multi-time-reach-back":
-            raise NotImplementedError(
-                "HJPlanner: Multi-Time-Reach not implemented yet"
-            )
+            raise NotImplementedError("HJPlanner: Multi-Time-Reach not implemented yet")
         else:
             raise ValueError(
                 "Direction in controller YAML needs to be one of {backward, forward, forward-backward, "
@@ -325,8 +338,6 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
 
         self.logger.info(f"HJPlannerBase: Loading new Current Data ({time.time() - start:.1f}s)")
 
-   
-
     def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok=True)
         # Settings
@@ -355,12 +366,16 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             pickle.dump(self.initial_values, file)
 
     @staticmethod
-    def from_saved_planner_state(folder, problem: NavigationProblem, arena: ArenaFactory, verbose: Optional[int] = 0):
+    def from_saved_planner_state(
+        folder, problem: NavigationProblem, arena: ArenaFactory, verbose: Optional[int] = 0
+    ):
         # Settings
         with open(folder + "specific_settings.pickle", "rb") as file:
             specific_settings = pickle.load(file)
 
-        planner = HJBSeaweed2DPlanner(problem=problem, specific_settings=specific_settings, arena=arena)
+        planner = HJBSeaweed2DPlanner(
+            problem=problem, specific_settings=specific_settings, arena=arena
+        )
 
         # Used in Replanning
         with open(folder + "last_fmrc_idx_planned_with.pickle", "rb") as file:

@@ -60,9 +60,12 @@ class OceanCurrentSource(DataSource):
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
         """
-        self.u_curr_func = ca.interpolant('u_curr', 'linear', grid, array['water_u'].values.ravel(order='F'))
-        self.v_curr_func = ca.interpolant('v_curr', 'linear', grid, array['water_v'].values.ravel(order='F'))
-
+        self.u_curr_func = ca.interpolant(
+            "u_curr", "linear", grid, array["water_u"].values.ravel(order="F")
+        )
+        self.v_curr_func = ca.interpolant(
+            "v_curr", "linear", grid, array["water_v"].values.ravel(order="F")
+        )
 
     # Plotting Functions for OceanCurrents specifically
     @staticmethod
@@ -271,7 +274,9 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         # otherwise use the general xarray interpolation function (slower)
         else:
             data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
-            return OceanCurrentVector(u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item())
+            return OceanCurrentVector(
+                u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item()
+            )
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
@@ -298,33 +303,32 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         self.rec_file_idx = 0
         self.load_ocean_current_from_idx()
 
-
     def get_data_over_area(
-        self, 
-        x_interval: List[float], 
+        self,
+        x_interval: List[float],
         y_interval: List[float],
         t_interval: List[Union[datetime.datetime, int]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
         most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
         throw_exceptions: Optional[bool] = True,
-        ) -> xr:
+    ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
-            Args:
-              x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
-              y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
-              t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
-              spatial_resolution: spatial resolution in the same units as x and y interval
-              temporal_resolution: temporal resolution in seconds
-              most_recent_fmrc_at_time: if specified this is the idx of a specific forecast file to get data from it
-                                        otherwise the most recent fmrc available at t_interval[0] is used.
-              throw_exceptions: boolean whether exception should be thrown or not
-            Returns:
-              data_array     in xarray format that contains the grid and the values (land is NaN)
-            """
+        Args:
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          spatial_resolution: spatial resolution in the same units as x and y interval
+          temporal_resolution: temporal resolution in seconds
+          most_recent_fmrc_at_time: if specified this is the idx of a specific forecast file to get data from it
+                                    otherwise the most recent fmrc available at t_interval[0] is used.
+          throw_exceptions: boolean whether exception should be thrown or not
+        Returns:
+          data_array     in xarray format that contains the grid and the values (land is NaN)
+        """
         # Step 0: enforce timezone aware datetime objects
         t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
-        
+
         # Step 1: Make sure we use the right forecast either most_recent_fmrc_at_time or default t_interval[0]
         self.check_for_most_recent_fmrc_dataframe(
             most_recent_fmrc_at_time if most_recent_fmrc_at_time is not None else t_interval[0]
@@ -432,7 +436,7 @@ class ForecastFromHindcastSource(HindcastFileSource):
 
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
-        self.forecast_length_in_days = source_config_dict['forecast_length_in_days']
+        self.forecast_length_in_days = source_config_dict["forecast_length_in_days"]
 
     def get_data_over_area(
         self,
@@ -441,7 +445,7 @@ class ForecastFromHindcastSource(HindcastFileSource):
         t_interval: List[datetime.datetime],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
-        throw_exceptions: Optional[bool] = True
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         # Step 0: enforce timezone aware datetime objects
         t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
@@ -463,18 +467,19 @@ class ForecastFromHindcastSource(HindcastFileSource):
             t_interval,
             spatial_resolution=spatial_resolution,
             temporal_resolution=temporal_resolution,
-            throw_exceptions=throw_exceptions
+            throw_exceptions=throw_exceptions,
         )
 
 
 class GroundTruthFromNoise(OceanCurrentSource):
     """DataSource to add Noise to a Hindcast Data Source to model forecast error with fine-grained currents."""
+
     def __init__(self, seed: int, params_path: str, hindcast_data_source: DataSource):
         """Args:
-              seed: integer as the random seed to the noise model (to generate diverse noise that is reproducible)
-              params_path: path to the npy file where the noise model parameters are stored
-               e.g. "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
-              hindcast_data_source: data source to which the generative noise is added
+        seed: integer as the random seed to the noise model (to generate diverse noise that is reproducible)
+        params_path: path to the npy file where the noise model parameters are stored
+         e.g. "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+        hindcast_data_source: data source to which the generative noise is added
         """
         self.hindcast_data_source = hindcast_data_source
         self.source_config_dict = hindcast_data_source.source_config_dict
@@ -491,7 +496,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
         t_interval: List[Union[datetime.datetime, int]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
-        throw_exceptions: Optional[bool] = True
+        throw_exceptions: Optional[bool] = True,
     ) -> xr.Dataset:
 
         # Step 0: enforce timezone aware datetime objects
@@ -499,10 +504,17 @@ class GroundTruthFromNoise(OceanCurrentSource):
 
         # Step 1: get hindcast dataframe
         ds = self.hindcast_data_source.get_data_over_area(
-            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution, throw_exceptions=throw_exceptions
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution,
+            temporal_resolution,
+            throw_exceptions=throw_exceptions,
         )
         # Step 2: get noise df for the same lon, lat, time grid
-        additive_noise = self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
+        additive_noise = self.noise.get_noise_from_axes(
+            ds["lon"].values, ds["lat"].values, ds["time"].values
+        )
 
         # Step 3: return dataframe with added noise
         return ds + additive_noise
@@ -545,7 +557,9 @@ class GroundTruthFromNoise(OceanCurrentSource):
 
         # plot hc and hc+noise
         fig, axs = plt.subplots(1, 2, figsize=(15, 6))
-        self.hindcast_data_source.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc, ax=axs[0], **kwargs)
+        self.hindcast_data_source.plot_data_from_xarray(
+            time_idx=0, xarray=at_time_xarray_hc, ax=axs[0], **kwargs
+        )
         self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc_noise, ax=axs[1], **kwargs)
         plt.tight_layout()
 
@@ -557,6 +571,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
     """Data Source Object that accesses the data via the opendap framework directly from the server."""
+
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: establish the opendap connection with the settings in config_dict
@@ -589,39 +604,67 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
 
 class LongTermAverageSource(OceanCurrentSource):
     """LongTermAverageSource which is used for planning horizons longer than the forecast horizon for daily forecasts. It takes the maximum daily forecast length for the first period and for the remaining period it takes monthly averages. It then concatenates both forecasts."""
+
     def __init__(self, source_config_dict: dict):
         self.u_curr_func, self.v_curr_func = [None] * 2
-        self.forecast_data_source = ForecastFileSource(source_config_dict['source_settings']['forecast']) 
-        self.monthly_avg_data_source = HindcastFileSource(source_config_dict['source_settings']['average']) # defaults currents to normal 
+        self.forecast_data_source = ForecastFileSource(
+            source_config_dict["source_settings"]["forecast"]
+        )
+        self.monthly_avg_data_source = HindcastFileSource(
+            source_config_dict["source_settings"]["average"]
+        )  # defaults currents to normal
         self.source_config_dict = source_config_dict
-        # self.t_0 = source_config_dict['t0'] # not sure what to do here 
+        # self.t_0 = source_config_dict['t0'] # not sure what to do here
 
-    def get_data_over_area(self, x_interval: List[float], y_interval: List[float],
-                        t_interval: List[Union[datetime.datetime, int]],
-                        spatial_resolution: Optional[float] = None,
-                        temporal_resolution: Optional[float] = None,
-                        throw_exceptions: Optional[bool] = True
-                        ) -> xr:
-        # Query as much forecast data as is possible 
-        try: 
-            forecast_dataframe = self.forecast_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution,throw_exceptions=throw_exceptions)
+    def get_data_over_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, int]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
+    ) -> xr:
+        # Query as much forecast data as is possible
+        try:
+            forecast_dataframe = self.forecast_data_source.get_data_over_area(
+                x_interval,
+                y_interval,
+                t_interval,
+                spatial_resolution,
+                temporal_resolution,
+                throw_exceptions=throw_exceptions,
+            )
             end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
-        except ValueError: 
-            monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution=3600,throw_exceptions=throw_exceptions)
+        except ValueError:
+            monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(
+                x_interval,
+                y_interval,
+                t_interval,
+                spatial_resolution,
+                temporal_resolution=3600,
+                throw_exceptions=throw_exceptions,
+            )
             return monthly_average_dataframe
 
-
-        if end_forecast_time >= t_interval[1]: 
+        if end_forecast_time >= t_interval[1]:
             return forecast_dataframe
-        
-        remaining_t_interval = [end_forecast_time, t_interval[1]] # may not work
-        monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(x_interval, y_interval, remaining_t_interval, spatial_resolution, temporal_resolution=3600,throw_exceptions=throw_exceptions)
+
+        remaining_t_interval = [end_forecast_time, t_interval[1]]  # may not work
+        monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(
+            x_interval,
+            y_interval,
+            remaining_t_interval,
+            spatial_resolution,
+            temporal_resolution=3600,
+            throw_exceptions=throw_exceptions,
+        )
         # Monthly averages wiil be returned with buffers/margins. In order to concatenate the xarrays those margins have to be removed.
         subset = monthly_average_dataframe.sel(
-            time=slice(remaining_t_interval[0],remaining_t_interval[1]),
+            time=slice(remaining_t_interval[0], remaining_t_interval[1]),
         )
-        subset["lat"]=subset["lat"].data.round(decimals=4)
-        forecast_dataframe["lat"]=forecast_dataframe["lat"].data.round(decimals=4)
+        subset["lat"] = subset["lat"].data.round(decimals=4)
+        forecast_dataframe["lat"] = forecast_dataframe["lat"].data.round(decimals=4)
         return xr.concat([forecast_dataframe, subset], dim="time")
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
@@ -632,10 +675,13 @@ class LongTermAverageSource(OceanCurrentSource):
         """
         return self.forecast_data_source.check_for_most_recent_fmrc_dataframe(time)
 
-    # TODO: check: Not sure if I can just all this 
+    # TODO: check: Not sure if I can just all this
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
         """We overwrite it because we don't want that Forecast needs caching..."""
-        return self.forecast_data_source.get_data_at_point(spatio_temporal_point=spatio_temporal_point)
+        return self.forecast_data_source.get_data_at_point(
+            spatio_temporal_point=spatio_temporal_point
+        )
+
 
 # Helper functions across the OceanCurrentSource objects
 def get_file_dicts(folder: AnyStr, currents="total") -> List[dict]:
@@ -656,10 +702,10 @@ def get_file_dicts(folder: AnyStr, currents="total") -> List[dict]:
     for place in folder:
         if os.path.isdir(place):
             new_files = [
-                    place + f
-                    for f in os.listdir(place)
-                    if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
-                ]
+                place + f
+                for f in os.listdir(place)
+                if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
+            ]
             files_list += new_files
         elif os.path.isfile(place):
             files_list.append(place)

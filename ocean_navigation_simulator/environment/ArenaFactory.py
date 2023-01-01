@@ -55,7 +55,7 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         throw_exceptions: Optional[bool] = True,
-        c3: Optional[C3Python] = None
+        c3: Optional[C3Python] = None,
     ) -> Arena:
         """
         Create an Arena with all needed configuration dictionaries.
@@ -113,7 +113,8 @@ class ArenaFactory:
                         problem.start_state.date_time,
                         problem.start_state.date_time
                         + datetime.timedelta(
-                            seconds=config["casadi_cache_dict"]["time_around_x_t"] + config.get('timeout', 0)
+                            seconds=config["casadi_cache_dict"]["time_around_x_t"]
+                            + config.get("timeout", 0)
                         ),
                     ]
 
@@ -124,7 +125,8 @@ class ArenaFactory:
                 ]
 
             # Step 5: Download Hindcast
-            if (t_interval is not None
+            if (
+                t_interval is not None
                 and config["ocean_dict"]["hindcast"] is not None
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
@@ -158,7 +160,7 @@ class ArenaFactory:
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
-                            c3=c3
+                            c3=c3,
                         )
 
                     logger.debug(f"Hindcast Files: {files}")
@@ -201,7 +203,7 @@ class ArenaFactory:
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
-                            c3=c3
+                            c3=c3,
                         )
 
                     logger.debug(f"Forecast Files: {files}")
@@ -220,7 +222,7 @@ class ArenaFactory:
                 solar_dict=config.get("solar_dict", None),
                 seaweed_dict=config.get("seaweed_dict", None),
                 spatial_boundary=config.get("spatial_boundary", None),
-                timeout=config.get('timeout', None),
+                timeout=config.get("timeout", None),
             )
 
     @staticmethod
@@ -228,22 +230,20 @@ class ArenaFactory:
     def download_files(config, type, t_interval, points, c3=None, throw_exceptions=True):
         """Helper method to be run in C3 context manager."""
         try:
-            if 'files' in config["ocean_dict"][type]['source']:
+            if "files" in config["ocean_dict"][type]["source"]:
                 ArenaFactory.download_required_files(
-                    archive_source=config["ocean_dict"][type]["source_settings"][
-                        "source"
-                    ],
+                    archive_source=config["ocean_dict"][type]["source_settings"]["source"],
                     archive_type=config["ocean_dict"][type]["source_settings"]["type"],
                     download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
                     t_interval=t_interval,
                     region=config["ocean_dict"]["area"],
                     throw_exceptions=throw_exceptions,
                     points=points,
-                    c3=c3
+                    c3=c3,
                 )
             yield True
         finally:
-            if 'files' in config["ocean_dict"][type]['source']:
+            if "files" in config["ocean_dict"][type]["source"]:
                 try:
                     shutil.rmtree(config["ocean_dict"][type]["source_settings"]["folder"])
                 except BaseException:
@@ -379,7 +379,7 @@ class ArenaFactory:
         archive_type: str,
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
-        c3: Optional[C3Python] = None
+        c3: Optional[C3Python] = None,
     ):
         """
         helper function to get a list of available files from c3
@@ -444,12 +444,13 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def _download_filelist(files,
+    def _download_filelist(
+        files,
         download_folder,
         throw_exceptions,
         c3: Optional[C3Python] = None,
         keep_newest_days: int = 100,
-        ):
+    ):
         """
         thread-safe download with corruption and file size check
         Arguments:
@@ -541,7 +542,7 @@ class ArenaFactory:
         else:
             shutil.rmtree(temp_folder, ignore_errors=True)
 
-        # Step 3: Only keep most recent files to prevent full storage 
+        # Step 3: Only keep most recent files to prevent full storage
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)

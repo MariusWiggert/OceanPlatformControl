@@ -80,7 +80,9 @@ class Constructor:
 
         # handle user error when fed in not as list
         if type(self.mission_conf["x_0"]) == dict:
-            raise TypeError("mission_conf[x_0] needs to be a list of state dicts!, not a dict itself.")
+            raise TypeError(
+                "mission_conf[x_0] needs to be a list of state dicts!, not a dict itself."
+            )
 
         for x in self.mission_conf["x_0"]:
             X_0.append(PlatformState.from_dict(x))
@@ -89,12 +91,12 @@ class Constructor:
         # Create SpatialPoint objects from mission config and save it back to mission_conf
         x_T = SpatialPoint.from_dict(self.mission_conf["x_T"])
 
-        if self.objective_conf['type'] == "nav":
+        if self.objective_conf["type"] == "nav":
             return NavigationProblem(
                 start_state=X_0[0],
                 end_region=x_T,
                 target_radius=self.mission_conf["target_radius"],
-                platform_dict=self.platform_dict
+                platform_dict=self.platform_dict,
             )
 
         # TODO: Adapt to new objectives i.e.:
@@ -142,7 +144,7 @@ class Constructor:
         Returns:
             Either a Observer object if specified in observer configuration otherwise NoObserver object
         """
-        if ("observer" not in self.observer_conf or self.observer_conf["observer"] is None):
+        if "observer" not in self.observer_conf or self.observer_conf["observer"] is None:
             return NoObserver()
         else:
             return Observer(self.observer_conf["observer"])

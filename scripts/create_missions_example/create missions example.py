@@ -16,24 +16,44 @@ from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 
 # set_arena_loggers(logging.INFO)
-arena_config = {'casadi_cache_dict': {'deg_around_x_t': 2.0, 'time_around_x_t': 432000},
-                'platform_dict': {'battery_cap_in_wh': 400.0,
-                                  'u_max_in_mps': 0.1,
-                                  'motor_efficiency': 1.0,
-                                  'solar_panel_size': 0.5,
-                                  'solar_efficiency': 0.2,
-                                  'drag_factor': 675.0,
-                                  'dt_in_s': 600.0},
-                'use_geographic_coordinate_system': True,
-                'spatial_boundary': None,
-                'ocean_dict': {
-                    'hindcast': {
-                        'field': 'OceanCurrents',
-                        'source': 'hindcast_files',
-                        'source_settings': {'folder': 'data/miss_gen_hindcast/', 'local': True, 'source': 'HYCOM', 'type': 'hindcast', 'currents': 'total'}},
-                    'forecast': {'field': 'OceanCurrents',
-                                 'source': 'forecast_files',
-                                 'source_settings': {'folder': 'data/miss_gen_forecast/', 'local': True, 'source': 'Copernicus', 'type': 'forecast', 'currents': 'total'}}}}
+arena_config = {
+    "casadi_cache_dict": {"deg_around_x_t": 2.0, "time_around_x_t": 432000},
+    "platform_dict": {
+        "battery_cap_in_wh": 400.0,
+        "u_max_in_mps": 0.1,
+        "motor_efficiency": 1.0,
+        "solar_panel_size": 0.5,
+        "solar_efficiency": 0.2,
+        "drag_factor": 675.0,
+        "dt_in_s": 600.0,
+    },
+    "use_geographic_coordinate_system": True,
+    "spatial_boundary": None,
+    "ocean_dict": {
+        "hindcast": {
+            "field": "OceanCurrents",
+            "source": "hindcast_files",
+            "source_settings": {
+                "folder": "data/miss_gen_hindcast/",
+                "local": True,
+                "source": "HYCOM",
+                "type": "hindcast",
+                "currents": "total",
+            },
+        },
+        "forecast": {
+            "field": "OceanCurrents",
+            "source": "forecast_files",
+            "source_settings": {
+                "folder": "data/miss_gen_forecast/",
+                "local": True,
+                "source": "Copernicus",
+                "type": "forecast",
+                "currents": "total",
+            },
+        },
+    },
+}
 
 # change to this if basic setup works
 set_arena_loggers(logging.DEBUG)
@@ -54,7 +74,7 @@ config = {
     # Combined: [-98.0, -76.416664], [18.1200008392334, 30.0]
     "x_range": [-95.9, -78.52],
     "y_range": [20.22, 27.9],
-    "t_range": [#['2022-08-01T00:00:00+00:00', '2022-08-30T00:00:00+00:00'],
+    "t_range": [  # ['2022-08-01T00:00:00+00:00', '2022-08-30T00:00:00+00:00'],
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
         datetime.datetime(year=2022, month=8, day=1, tzinfo=datetime.timezone.utc),
         datetime.datetime(year=2022, month=8, day=30, tzinfo=datetime.timezone.utc),
@@ -114,4 +134,3 @@ df.to_csv("problems.csv")
 # )
 # GenerationRunner.plot_target_dates_histogram(results_folder)
 # GenerationRunner.plot_ttr_histogram(results_folder)
-

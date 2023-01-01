@@ -48,14 +48,10 @@ class MissionGenerator:
      - problem is uniquely identified by seed/factory index
     """
 
-    def __init__(
-        self,
-        config: Optional[dict] = {},
-        c3 = None
-    ):
+    def __init__(self, config: Optional[dict] = {}, c3=None):
         # update the config to be in proper units
-        if type(config['t_range'][0]) == str:
-            config['t_range'] = [datetime.datetime.fromisoformat(t) for t in config['t_range']]
+        if type(config["t_range"][0]) == str:
+            config["t_range"] = [datetime.datetime.fromisoformat(t) for t in config["t_range"]]
         self.config = config
         self.c3 = c3
 
@@ -221,19 +217,18 @@ class MissionGenerator:
         # Planner starts from timeout backwards (this is a trick, so we can use the planner after max_mission_range)!
         fake_target = SpatioTemporalPoint(
             lon=units.Distance(
-                deg=self.random.uniform(
-                    self.config["x_range"][0], self.config["x_range"][1]
-                )
+                deg=self.random.uniform(self.config["x_range"][0], self.config["x_range"][1])
             ),
             lat=units.Distance(
-                deg=self.random.uniform(
-                    self.config["y_range"][0], self.config["y_range"][1]
-                )
+                deg=self.random.uniform(self.config["y_range"][0], self.config["y_range"][1])
             ),
             # only sample goal times s.t. all missions will start and timeout in t_interval
             date_time=datetime.datetime.fromtimestamp(
                 self.random.uniform(
-                    (self.config["t_range"][0] + datetime.timedelta(hours=self.config["problem_timeout_in_h"])).timestamp(),
+                    (
+                        self.config["t_range"][0]
+                        + datetime.timedelta(hours=self.config["problem_timeout_in_h"])
+                    ).timestamp(),
                     self.config["t_range"][1].timestamp(),
                 ),
                 tz=datetime.timezone.utc,
@@ -242,14 +237,15 @@ class MissionGenerator:
         fake_start = PlatformState(
             lon=fake_target.lon,
             lat=fake_target.lat,
-            date_time=fake_target.date_time - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
+            date_time=fake_target.date_time
+            - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
         )
 
         ##### Step 2: Reject if files are missing or corrupted #####
         try:
             self.arena = ArenaFactory.create(
-                scenario_file=self.config.get("scenario_file",None),
-                scenario_config=self.config.get("scenario_config",None),
+                scenario_file=self.config.get("scenario_file", None),
+                scenario_config=self.config.get("scenario_config", None),
                 x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
                 y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
                 t_interval=[
@@ -257,7 +253,7 @@ class MissionGenerator:
                     fake_target.date_time + datetime.timedelta(days=1, hours=1),
                 ],
                 throw_exceptions=True,
-                c3=self.c3
+                c3=self.c3,
             )
             self.arena.reset(fake_start)
         except (MissingOceanFileException, CorruptedOceanFileException) as e:
@@ -563,7 +559,7 @@ class MissionGenerator:
             scenario_file=self.config["scenario_file"],
             problem=problem,
             throw_exceptions=True,
-            c3=self.c3
+            c3=self.c3,
         )
 
         # Run Arena until Timeout (reset position to no leave arena)

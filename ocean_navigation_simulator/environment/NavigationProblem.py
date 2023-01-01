@@ -126,7 +126,5 @@ class NavigationProblem(Problem):
 
     def __repr__(self):
         return "Problem [start: {s}, end: {e}, target_radius: {r:.2f}, timeout: {t:.1f}h]".format(
-            s=self.start_state.to_spatio_temporal_point(),
-            e=self.end_region,
-            r=self.target_radius
+            s=self.start_state.to_spatio_temporal_point(), e=self.end_region, r=self.target_radius
         )

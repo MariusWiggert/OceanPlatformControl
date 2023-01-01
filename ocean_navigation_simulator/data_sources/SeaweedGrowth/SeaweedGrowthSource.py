@@ -203,8 +203,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         )
         data_out = self.F_NGR_per_second(ca.DM([TIMES.flatten(), LAT.flatten(), LON.flatten()]))
 
-        #LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
-
+        # LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
 
         # LON, LAT = np.where((LON >= -79.9) & (LON <= -79.5), 1, 0), np.where(
         #     (LAT >= -14.9) & (LAT <= -14.5), 1, 0
@@ -213,7 +212,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
         # T = grids_dict["t_grid"].shape[0]
 
-        #data = np.repeat(data[np.newaxis, :, :], T, axis=0)
+        # data = np.repeat(data[np.newaxis, :, :], T, axis=0)
         return np.array(data_out).reshape(LAT.shape)
 
         return data

@@ -4,10 +4,12 @@ import time
 
 import yaml
 import logging
+
 # logging.basicConfig(filename='example.log', encoding='utf-8', level=logging.DEBUG)
 
 from ocean_navigation_simulator.problem_factories.Constructor import Constructor
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+
 # % configs
 observer_config = {
     "observer": {
@@ -78,7 +80,7 @@ ctrl_config = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
 }
 
-objective_conf = {'type': "nav"}
+objective_conf = {"type": "nav"}
 
 # #%%
 # ArenaFactory.download_files(

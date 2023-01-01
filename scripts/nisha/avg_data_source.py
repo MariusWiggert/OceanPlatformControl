@@ -11,11 +11,14 @@ from ocean_navigation_simulator.utils import units
 import matplotlib.pyplot as plt
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
-arena = ArenaFactory.create(scenario_name='gulf_of_mexico_LongTermAverageSource')
+arena = ArenaFactory.create(scenario_name="gulf_of_mexico_LongTermAverageSource")
 # we can also download the respective files directly to a temp folder, then t_interval needs to be set
 # % Specify Navigation Problem
-x_0 = PlatformState(lon=units.Distance(deg=-82.5), lat=units.Distance(deg=23.7),
-                    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc))
+x_0 = PlatformState(
+    lon=units.Distance(deg=-82.5),
+    lat=units.Distance(deg=23.7),
+    date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+)
 x_T = SpatialPoint(lon=units.Distance(deg=-80.3), lat=units.Distance(deg=24.6))
 
 problem = NavigationProblem(
@@ -23,40 +26,44 @@ problem = NavigationProblem(
     end_region=x_T,
     target_radius=0.1,
     timeout=datetime.timedelta(days=2),
-    platform_dict=arena.platform.platform_dict)
+    platform_dict=arena.platform.platform_dict,
+)
 
 # %% Plot the problem on the map
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_T, deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600)
+    x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+)
 
 # x_0.date_time = 2021-11-24 12:00:00+00:00
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True)
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
 problem.plot(ax=ax)
 plt.show()
-# %% Try to do the same as above for the longterm average 
+# %% Try to do the same as above for the longterm average
 print("Longterm Average")
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.forecast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_T, deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600)
+    x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+)
 
-# # x_0.date_time = 2021-11-24 12:00:00+00:00 -> should just plot the forecast stuff 
+# # x_0.date_time = 2021-11-24 12:00:00+00:00 -> should just plot the forecast stuff
 time_forecast = datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc)
 ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-    time=time_forecast, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True)
+    time=time_forecast, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
 problem.plot(ax=ax)
 plt.show()
 
 time_average = datetime.datetime(2021, 12, 1, 12, 0, tzinfo=datetime.timezone.utc)
 ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-    time=time_average, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True)
+    time=time_average, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
 problem.plot(ax=ax)
 plt.show()
 
-d = arena.ocean_field.forecast_data_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds, t_interval=[time_forecast, time_average])
+d = arena.ocean_field.forecast_data_source.get_data_over_area(
+    x_interval=lon_bnds, y_interval=lat_bnds, t_interval=[time_forecast, time_average]
+)
 print(d)
 # %% Instantiate the HJ Planner
 # specific_settings = {

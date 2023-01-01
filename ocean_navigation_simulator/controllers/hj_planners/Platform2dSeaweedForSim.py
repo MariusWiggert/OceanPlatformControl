@@ -111,7 +111,7 @@ class Platform2dSeaweedForSim(dynamics.Dynamics):
         # return self.obstacle_operator(state, time, dx_out)
 
     def _get_seaweed_growth_rate(self, state, time):
-        return self.seaweed_rate(self._get_dim_state(state), time) 
+        return self.seaweed_rate(self._get_dim_state(state), time)
 
     def _get_dim_state(self, state_nonDim: jnp.ndarray):
         """Returns the state transformed from non_dimensional coordinates to dimensional coordinates."""

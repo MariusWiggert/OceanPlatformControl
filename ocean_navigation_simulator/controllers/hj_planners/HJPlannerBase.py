@@ -203,7 +203,10 @@ class HJPlannerBase(Controller):
         """
 
         # Check for re-planning with new forecast (or first time so no idx set yet)
-        if self.specific_settings.get("replan_on_new_fmrc", False) or self.last_fmrc_time_planned_with is None:
+        if (
+            self.specific_settings.get("replan_on_new_fmrc", False)
+            or self.last_fmrc_time_planned_with is None
+        ):
             old = self.last_fmrc_time_planned_with
             if self._new_forecast_data_available(observation):
                 # If the data_source is an observer, delete all error measurements from the old forecast.
@@ -396,7 +399,8 @@ class HJPlannerBase(Controller):
             self._run_hj_reachability(
                 initial_values=self.get_initial_values(direction="backward"),
                 t_start=x_t.date_time,
-                T_max_in_seconds=t_earliest_in_seconds + self.specific_settings["fwd_back_buffer_in_seconds"],
+                T_max_in_seconds=t_earliest_in_seconds
+                + self.specific_settings["fwd_back_buffer_in_seconds"],
                 dir="backward",
             )
             self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
