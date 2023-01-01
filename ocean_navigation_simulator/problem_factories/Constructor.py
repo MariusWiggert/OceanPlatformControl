@@ -1,5 +1,3 @@
-import datetime
-import logging
 from importlib import import_module
 from typing import Type, Union
 
@@ -15,7 +13,6 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
-from ocean_navigation_simulator.utils import units
 
 
 class Constructor:

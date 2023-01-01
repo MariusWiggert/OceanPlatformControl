@@ -1,13 +1,12 @@
+import datetime
 import os
 
-import datetime
-import time
-
+import pytest
 import yaml
 
-from ocean_navigation_simulator.problem_factories.Constructor import Constructor
-
-import pytest
+from ocean_navigation_simulator.problem_factories.Constructor import (
+    Constructor,
+)
 
 
 @pytest.mark.training

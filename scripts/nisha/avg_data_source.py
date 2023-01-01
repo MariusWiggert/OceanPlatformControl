@@ -1,14 +1,19 @@
 import datetime
+
+import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.NavigationProblem import (
+    NavigationProblem,
+)
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 from ocean_navigation_simulator.utils import units
-import matplotlib.pyplot as plt
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(scenario_name="gulf_of_mexico_LongTermAverageSource")

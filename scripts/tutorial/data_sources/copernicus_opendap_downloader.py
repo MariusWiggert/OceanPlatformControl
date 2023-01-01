@@ -1,11 +1,13 @@
-from ocean_navigation_simulator.data_sources.OceanCurrentField import OceanCurrentField
-
 import datetime
 import os
-import xarray as xr
-import numpy as np
 from typing import List
 
+import numpy as np
+import xarray as xr
+
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 
 hindcast_dict = {
     "field": "OceanCurrents",
@@ -51,7 +53,7 @@ def get_copernicus_hindcast(
         )
         # check if file already exists
         if os.path.exists(os.path.join(save_dir, file_name)):
-            print(f"File already exists!")
+            print("File already exists!")
             continue
 
         # need to run OceanCurrentField again so connection does not time out -> makes loop very slow

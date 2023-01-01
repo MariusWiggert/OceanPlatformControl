@@ -5,7 +5,6 @@ from typing import Optional
 import matplotlib
 
 from ocean_navigation_simulator.environment.PlatformState import PlatformState
-from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.utils import units
 
 # TODO: add minimal docstrings and comments for others to build on it!

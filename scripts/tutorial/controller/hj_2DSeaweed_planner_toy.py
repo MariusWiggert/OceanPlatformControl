@@ -50,14 +50,12 @@ problem = NavigationProblem(
 )
 
 
-
 # %% Plot the problem on the map
 
 
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
     x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
 )
-
 
 
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -94,7 +92,7 @@ specific_settings = {
     "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600, #* 24 * 4,
+    "T_goal_in_seconds": 3600,  # * 24 * 4,
     "use_geographic_coordinate_system": False,
     "progress_bar": True,
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
@@ -108,7 +106,7 @@ planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=sp
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 
-#%% get vlaue function 
+#%% get vlaue function
 
 planner.animate_value_func_3D()
 
@@ -164,10 +162,10 @@ planner.save_planner_state("saved_planner/")
 
 # %% Let the controller run closed-loop within the arena (the simulation loop)
 # observation = arena.reset(platform_state=x_0)
-#dt_in_s = arena.platform.platform_dict["dt_in_s"]
+# dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
 # for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
-for i in tqdm(range(int(200))):  #3600 * 24 * 3 / dt_in_s # 3 days
+for i in tqdm(range(int(200))):  # 3600 * 24 * 3 / dt_in_s # 3 days
 
     action = planner.get_action(observation=observation)
     observation = arena.step(action)

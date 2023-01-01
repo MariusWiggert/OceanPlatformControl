@@ -86,11 +86,6 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
     def get_growth_and_resp_data_array_from_file(self) -> xr:
         """Helper function to open the dataset and calculate the metrics derived from nutrients and temp."""
-        # TODO: Clean up with parameters like year etc! we can actually just pre-compute it and just load the nc file for those two values.
-        path = "./data/seaweed/seaweed_precomputed.nc"
-        # if os.path.exists(path):
-        #     return xr.open_dataset(path)
-        # else:
         DataArray = xr.open_dataset(self.source_config_dict["source_settings"]["filepath"])
         DataArray = DataArray.rename({"latitude": "lat", "longitude": "lon"})
         DataArray = DataArray.assign(
@@ -101,8 +96,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         DataArray = DataArray.assign(R_resp=compute_R_resp(DataArray["Temperature"]))
         # Just to conserve RAM
         DataArray = DataArray.drop(["Temperature", "no3", "po4"])
-        # DataArray.to_netcdf(path=path)
-
+        
         return DataArray
 
     @staticmethod

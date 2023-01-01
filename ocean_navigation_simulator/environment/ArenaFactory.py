@@ -1,12 +1,13 @@
+import contextlib
 import datetime
 import logging
 import os
 import shutil
 from typing import List, Optional
-import contextlib
 
 import mergedeep
 import yaml
+from c3python import C3Python
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     get_grid_dict_from_file,
@@ -18,8 +19,6 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import get_c3, timing_logger
-from c3python import C3Python
-
 
 logger = logging.getLogger("arena.factory")
 

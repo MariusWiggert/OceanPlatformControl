@@ -14,7 +14,6 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
-
 # set_arena_loggers(logging.INFO)
 arena_config = {
     "casadi_cache_dict": {"deg_around_x_t": 2.0, "time_around_x_t": 432000},

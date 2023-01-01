@@ -92,54 +92,54 @@ plt.imshow(ds_seaweed["F_NGR_per_second"].fillna(0).data[0, ...])
 # plt.imshow(ds_water["water_u"].fillna(0).data[0,...])
 
 
-#%%
+# #%% RUN FORWARD
 
-times, all_values = hj.solve(solver_settings, Plat2D, grid, times, initial_values)
-#%% viz
-# hj.viz.visSet2DAnimation(grid, all_values, times, type='mp4', colorbar=False)
-#%%
+# times, all_values = hj.solve(solver_settings, Plat2D, grid, times, initial_values)
+# #%% viz
+# # hj.viz.visSet2DAnimation(grid, all_values, times, type='mp4', colorbar=False)
+# #%%
+
+# # Read data from a csv
+
+# z = all_values[-1]
+# x = grid.states[..., 0]
+# y = grid.states[..., 1]
+# fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
+# # fig.update_layout(title='Mt Bruno Elevation', autosize=False,
+# #                   width=500, height=500,
+# #                   margin=dict(l=65, r=50, b=65, t=90))
+# fig.show()
 
 
-# Read data from a csv
+# x_init = np.array([10, 10])
 
-z = all_values[-1]
-x = grid.states[..., 0]
-y = grid.states[..., 1]
-fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
-# fig.update_layout(title='Mt Bruno Elevation', autosize=False,
-#                   width=500, height=500,
-#                   margin=dict(l=65, r=50, b=65, t=90))
-fig.show()
+# # %% Extract trajectory
+# times, x_traj, contr_seq, distr_seq = Plat2D.backtrack_trajectory(grid, x_init, times, all_values)
+# # %% Plot the Traj
+# hj.viz.visTrajSet2D(
+#     x_traj=x_traj,
+#     grid=grid,
+#     all_values=all_values,
+#     times=times,
+#     x_init=x_init,
+# )
 
-
-x_init = np.array([10, 10])
-
-# %%
-print(type(grid.domain.lo))
-print(type(x_init))
-
-# %% Extract trajectory
-times, x_traj, contr_seq, distr_seq = Plat2D.backtrack_trajectory(grid, x_init, times, all_values)
-# %% Plot the Traj
-hj.viz.visTrajSet2D(
-    x_traj=x_traj,
-    grid=grid,
-    all_values=all_values,
-    times=times,
-    x_init=x_init,
-)
-
-# %% Plot the Control Traj
-plt.plot(np.arange(contr_seq.shape[1]), contr_seq[0, :], color="r")
-plt.plot(np.arange(contr_seq.shape[1]), contr_seq[1, :], color="b")
-plt.show()
+# # %% Plot the Control Traj
+# plt.plot(np.arange(contr_seq.shape[1]), contr_seq[0, :], color="r")
+# plt.plot(np.arange(contr_seq.shape[1]), contr_seq[1, :], color="b")
+# plt.show()
 
 
 # %% RUN BACKWARD
 times = np.linspace(0, 60, 1000)
 times = np.flip(times, axis=0)
 
-times, all_values = hj.solve(solver_settings, Plat2D, grid, times, all_values[-1])
+times, all_values = hj.solve(solver_settings, Plat2D, grid, times, initial_values)
+
+# times, all_values = [
+#                 np.flip(seq, axis=0) for seq in [times, all_values]
+#             ]
+
 #%% viz
 # hj.viz.visSet2DAnimation(grid, all_values, times, type='mp4', colorbar=False)
 #%%
@@ -156,10 +156,46 @@ fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
 fig.show()
 
 x_init = np.array([10, 10])
+# %% Extract trajectory
+times, x_traj, contr_seq, distr_seq = Plat2D.backtrack_trajectory(grid, x_init, times, all_values)
+# %% Plot the Traj
+hj.viz.visTrajSet2D(
+    x_traj=x_traj,
+    grid=grid,
+    all_values=all_values,
+    times=times,
+    x_init=x_init,
+)
 
-# %%
-print(type(grid.domain.lo))
-print(type(x_init))
+# %% Plot the Control Traj
+plt.plot(np.arange(contr_seq.shape[1]), contr_seq[0, :], color="r")
+plt.plot(np.arange(contr_seq.shape[1]), contr_seq[1, :], color="b")
+plt.show()
+#%% RUN BACKWARD only for newest 25 steps
+
+times_old = times
+all_values_old = all_values
+
+times, all_values = hj.solve(solver_settings, Plat2D, grid, times[-25:], all_values[-25])
+
+#%%
+
+
+#%%
+times = times_old
+all_values = jnp.append(all_values_old[:-25], all_values, axis=0)
+x_init = np.array([10, 10])
+# Read data from a csv
+
+z = all_values[-1]
+x = grid.states[..., 0]
+y = grid.states[..., 1]
+fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
+# fig.update_layout(title='Mt Bruno Elevation', autosize=False,
+#                   width=500, height=500,
+#                   margin=dict(l=65, r=50, b=65, t=90))
+fig.show()
+
 
 # %% Extract trajectory
 times, x_traj, contr_seq, distr_seq = Plat2D.backtrack_trajectory(grid, x_init, times, all_values)
@@ -176,3 +212,5 @@ hj.viz.visTrajSet2D(
 plt.plot(np.arange(contr_seq.shape[1]), contr_seq[0, :], color="r")
 plt.plot(np.arange(contr_seq.shape[1]), contr_seq[1, :], color="b")
 plt.show()
+
+# %%

@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from IPython.display import HTML
-import pytz
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,

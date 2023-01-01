@@ -1,9 +1,7 @@
 import datetime
-from multiprocessing.sharedctypes import Value
-import os
-from typing import List, AnyStr, Optional, Union
 import logging
-from calendar import month
+import os
+from typing import AnyStr, List, Optional, Union
 
 import casadi as ca
 import dask.array.core
@@ -26,15 +24,14 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
     SpatioTemporalPoint,
 )
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
+    OceanCurrentNoiseField,
+)
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.units import (
     get_datetime_from_np64,
     get_posix_time_from_np64,
 )
-from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
-    OceanCurrentNoiseField,
-)
-
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
 # The fill with 0 could also be done in the HJ Planner, then we don't need to save the land grid anywhere.

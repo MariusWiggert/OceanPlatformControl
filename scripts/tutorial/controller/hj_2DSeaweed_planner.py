@@ -1,25 +1,25 @@
 #%% Run imports
 import datetime
-import os
 import logging
+import os
 
 import matplotlib.pyplot as plt
-from tqdm import tqdm
-import wandb
-import yaml
 import numpy as np
+import yaml
+from tqdm import tqdm
 
-
+import wandb
 from ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner import (
     HJBSeaweed2DPlanner,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
+from ocean_navigation_simulator.environment.SeaweedProblem import (
+    SeaweedProblem,
+)
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
-
 
 # %% Initialize
 os.chdir(

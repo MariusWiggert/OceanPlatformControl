@@ -1,6 +1,6 @@
 import dataclasses
 import datetime
-from typing import List, Optional
+from typing import Optional
 
 import matplotlib
 from matplotlib import pyplot as plt
@@ -125,6 +125,6 @@ class NavigationProblem(Problem):
         )
 
     def __repr__(self):
-        return "Problem [start: {s}, end: {e}, target_radius: {r:.2f}, timeout: {t:.1f}h]".format(
+        return "Problem [start: {s}, end: {e}, target_radius: {r:.2f}]".format(
             s=self.start_state.to_spatio_temporal_point(), e=self.end_region, r=self.target_radius
         )

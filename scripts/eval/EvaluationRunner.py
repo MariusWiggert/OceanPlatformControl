@@ -1,14 +1,17 @@
 # %% imports
 import datetime
+import logging
 import time
 
 import yaml
-import logging
+
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.problem_factories.Constructor import (
+    Constructor,
+)
 
 # logging.basicConfig(filename='example.log', encoding='utf-8', level=logging.DEBUG)
 
-from ocean_navigation_simulator.problem_factories.Constructor import Constructor
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 
 # % configs
 observer_config = {
