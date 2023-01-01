@@ -7,17 +7,16 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import wandb
 import yaml
+import numpy as np
 
 
 from ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner import (
     HJBSeaweed2DPlanner,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
-)
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
+from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
@@ -45,7 +44,7 @@ arena = ArenaFactory.create(scenario_name=scenario_name)
 #%% init weights & biases
 with open(f"config/arena/{scenario_name}.yaml") as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
-wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-control", config=config)
+#wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-control", config=config)
 
 
 
@@ -59,15 +58,12 @@ wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-c
 x_0 = PlatformState(
     lon=units.Distance(deg=-80),
     lat=units.Distance(deg=-15),
-    date_time=datetime.datetime(2022, 4, 13, 18, 0, tzinfo=datetime.timezone.utc),
+    date_time=datetime.datetime(2022, 8, 23, 18, 0, tzinfo=datetime.timezone.utc),
 )
-x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=-15))
 
 
-problem = NavigationProblem(
+problem = SeaweedProblem(
     start_state=x_0,
-    end_region=x_T,
-    target_radius=0.1,
     platform_dict=arena.platform.platform_dict,
 )
 
@@ -77,10 +73,8 @@ problem = NavigationProblem(
 
 
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+    x_0=x_0.to_spatio_temporal_point(), x_T=x_0.to_spatio_temporal_point(), deg_around_x0_xT_box=1, temp_horizon_in_s=3600
 )
-
-
 
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
@@ -88,10 +82,11 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 problem.plot(ax=ax)
 plt.show()
 
-t_interval, lat_bnds, lon_bnds = arena.seaweed_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
+ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 )
-
+problem.plot(ax=ax)
+plt.show()
 
 ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
@@ -100,17 +95,6 @@ problem.plot(ax=ax)
 plt.show()
 
 
-# x, y = np.linspace(-1, 3.25,18), np.linspace(0, 3.25, 14)
-# z = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# ).to_array()
-
-# print(z)
-# print("test")
-# fig = go.Figure(data=[go.Surface(x=x, y=y, z=z[0][0])])
-
-# fig.show()
-
 # %% Instantiate the HJ Planner
 specific_settings = {
     "replan_on_new_fmrc": True,
@@ -118,17 +102,19 @@ specific_settings = {
     "direction": "backward",
     "n_time_vector": 200,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 5,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 180,
+    "T_goal_in_seconds": 3600 * 24 * 12,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     "platform_dict": arena.platform.platform_dict,
+    "first_plan": True, # indicates whether we plan the first time over the whole time-horizon or only over days with new forecast and recycle value fct. for the remaining days
+    "forecast_length": 3600 * 24 * 9 + 11*3600, # length of forecast horizon -> 3600 * 24 * #days --> curr. 9 days and 11hours
 }
-wandb.config.update({"planner_settings": specific_settings})
+#wandb.config.update({"planner_settings": specific_settings})
 
 #%% 
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
@@ -137,49 +123,8 @@ planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=sp
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 
-#%% get vlaue function #
-
-
+#%% get value function #
 planner.animate_value_func_3D()
-
-
-#%%
-# planner.all_values.max()
-#  # %% Various plotting of the reachability computations
-# planner.plot_reachability_snapshot(
-#     rel_time_in_seconds=3599,
-#     granularity_in_h=0.1,
-#     alpha_color=1,
-#     time_to_reach=False,
-#     fig_size_inches=(6, 6),
-#     plot_in_h=False,
-# )
-# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=0, granularity_in_h=5, time_to_reach=False)
-# # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, filename="test_reach_animation.mp4")
-# # planner.plot_reachability_animation(time_to_reach=True, granularity_in_h=5, with_opt_ctrl=True,
-# #                                   filename="test_reach_animation_w_ctrl.mp4", forward_time=True)
-
-# proj_z=lambda x, y, z: z #projection in the z-direction
-# colorsurfz=proj_z(x,y,z)
-# z = planner.all_values[-1]
-# z_offset=(np.min(z)-2)*np.ones(z.shape)
-# fig = go.Figure(data=[go.Surface(z=list(z_offset),
-#                 x=list(x),
-#                 y=list(y),
-#                 showlegend=False,
-#                 showscale=True,
-#                 surfacecolor=colorsurfz,
-#                )])
-# fig.show()
-
-# fig = go.Figure(data=[go.Contour(
-#         z=list(planner.all_values[-1]),
-#         x=list(planner.grid.states[0]), # horizontal axis
-#         y=list(planner.grid.states[1]),# vertical axis
-#         contours_coloring='heatmap'
-#     )])
-# fig.show()
-
 
 #%% save planner state and reload it
 # Save it to a folder
@@ -197,72 +142,67 @@ planner.save_planner_state("saved_planner/")
 dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
 
-# for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 3 days
-for i in tqdm(range(int(3600 * 24 * 180 / dt_in_s))):  # 3 days
-
+for i in tqdm(range(int(3600 * 24 * 12 / dt_in_s))):  
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
 #%%
-import numpy as np
-
 ## Seaweed growth curve
-
 print(arena.platform.state.seaweed_mass.kg)
 fig, ax = plt.subplots()
 ax = arena.plot_seaweed_trajectory_on_timeaxis(ax=ax)
 fig.canvas.draw()
 ax.draw(fig.canvas.renderer)
 
-# Now we can save it to a numpy array
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+# # Now we can save it to a numpy array
+# data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+# data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-image = wandb.Image(data, caption="Seaweed trajectory on timeaxis")
+# #image = wandb.Image(data, caption="Seaweed trajectory on timeaxis")
           
-wandb.log({"seaweed_trajectory_on_timeaxis": image})
+# #wandb.log({"seaweed_trajectory_on_timeaxis": image})
 
-## Battery curve
-fig, ax = plt.subplots()
-ax = arena.plot_battery_trajectory_on_timeaxis(ax=ax)
-fig.canvas.draw()
-ax.draw(fig.canvas.renderer)
+# ## Battery curve
+# fig, ax = plt.subplots()
+# ax = arena.plot_battery_trajectory_on_timeaxis(ax=ax)
+# fig.canvas.draw()
+# ax.draw(fig.canvas.renderer)
 
-# Now we can save it to a numpy array
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+# # Now we can save it to a numpy array
+# data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+# data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-image = wandb.Image(data, caption="Battery trajectory on timeaxis")
+# #image = wandb.Image(data, caption="Battery trajectory on timeaxis")
           
-wandb.log({"battery_trajectory_on_timeaxis": image})
+# #wandb.log({"battery_trajectory_on_timeaxis": image})
 
-## Seaweed trajectory on map
-fig, ax = plt.subplots()
-ax = arena.plot_all_on_map(problem=problem, background="seaweed",return_ax=True)
-fig.canvas.draw()
-ax.draw(fig.canvas.renderer)
+# ## Seaweed trajectory on map
+# fig, ax = plt.subplots()
+# ax = arena.plot_all_on_map(problem=problem, background="seaweed",return_ax=True)
+# fig.canvas.draw()
+# ax.draw(fig.canvas.renderer)
 
-# Now we can save it to a numpy array
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+# # Now we can save it to a numpy array
+# data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+# data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-image = wandb.Image(data, caption="Seaweed trajectory on map")
+# #image = wandb.Image(data, caption="Seaweed trajectory on map")
           
-wandb.log({"seaweed_trajectory_on_map": image})
+# #wandb.log({"seaweed_trajectory_on_map": image})
 
-## Current trajectory
-fig, ax = plt.subplots()
-ax = arena.plot_all_on_map(problem=problem, background="current",return_ax=True)
-fig.canvas.draw()
-ax.draw(fig.canvas.renderer)
+# ## Current trajectory
+# fig, ax = plt.subplots()
+# ax = arena.plot_all_on_map(problem=problem, background="current",return_ax=True)
+# fig.canvas.draw()
+# ax.draw(fig.canvas.renderer)
 
-# Now we can save it to a numpy array
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+# # Now we can save it to a numpy array
+# data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+# data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-image = wandb.Image(data, caption="Current trajectory on map")
+# #image = wandb.Image(data, caption="Current trajectory on map")
           
-wandb.log({"current_trajectory_on_map": image})
+# #wandb.log({"current_trajectory_on_map": image})
 
 
 
@@ -272,10 +212,6 @@ wandb.log({"current_trajectory_on_map": image})
 arena.plot_all_on_map(problem=problem, background="seaweed")
 arena.plot_all_on_map(problem=problem, background="current")
 
-#%% Animate the trajectory
-# arena.animate_trajectory(
-#     problem=problem, temporal_resolution=7200, background="seaweed", output="jupyter", margin=3
-# )
 
 # %%
 arena.animate_trajectory(
@@ -284,8 +220,8 @@ arena.animate_trajectory(
     background="current",
     output="trajectory_currents.mp4",
 )
-wandb.log(
-  {"video": wandb.Video("generated_media/trajectory_currents.mp4", fps=25, format="mp4")})
+# wandb.log(
+#   {"video": wandb.Video("generated_media/trajectory_currents.mp4", fps=25, format="mp4")})
 
 arena.animate_trajectory(
     problem=problem,
@@ -293,20 +229,18 @@ arena.animate_trajectory(
     background="seaweed",
     output="trajectory_seaweed.mp4",
 )
+
+
+
 #%%
 wandb.log(
   {"video": wandb.Video("generated_media/trajectory_seaweed.mp4", fps=25, format="mp4")})
 
 
-# # %%
-# arena.plot_seaweed_trajectory_on_timeaxis()
-# # %%
-
-
-# #%%
-
-# planner.plot_reachability_snapshot_over_currents(rel_time_in_seconds=1000, granularity_in_h=5, time_to_reach=False)
-
+# #%% Animate the trajectory
+# arena.animate_trajectory(
+#     problem=problem, temporal_resolution=7200, background="seaweed", output="jupyter", margin=3
+# )
 
 # # %%
 # planner.vis_value_func_3D()
@@ -387,4 +321,37 @@ planner.animate_value_func_3D()
 # planner.vis_value_func_3D(-1)
 # planner.vis_value_func_2D(-1)
 # planner.vis_value_func_contour(-1)
+# %%
+
+# proj_z=lambda x, y, z: z #projection in the z-direction
+# colorsurfz=proj_z(x,y,z)
+# z = planner.all_values[-1]
+# z_offset=(np.min(z)-2)*np.ones(z.shape)
+# fig = go.Figure(data=[go.Surface(z=list(z_offset),
+#                 x=list(x),
+#                 y=list(y),
+#                 showlegend=False,
+#                 showscale=True,
+#                 surfacecolor=colorsurfz,
+#                )])
+# fig.show()
+
+# fig = go.Figure(data=[go.Contour(
+#         z=list(planner.all_values[-1]),
+#         x=list(planner.grid.states[0]), # horizontal axis
+#         y=list(planner.grid.states[1]),# vertical axis
+#         contours_coloring='heatmap'
+#     )])
+# fig.show()
+
+# x, y = np.linspace(-1, 3.25,18), np.linspace(0, 3.25, 14)
+# z = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# ).to_array()
+
+# print(z)
+# print("test")
+# fig = go.Figure(data=[go.Surface(x=x, y=y, z=z[0][0])])
+
+# fig.show()
 # %%
