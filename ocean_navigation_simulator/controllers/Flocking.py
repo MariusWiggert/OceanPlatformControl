@@ -1,3 +1,9 @@
+"""
+Class implementing Flocking control for the multi-agent network of 
+platforms. Uses the HJ time-optimal control input as the navigation function
+Control signal of flocking consists in a gradient of a potential function 
+summed to a velocity matching term and a navigation term (from HJ)
+"""
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -13,6 +19,11 @@ import scipy.integrate as integrate
 
 
 class FlockingControl:
+    """
+    Basic implementation of flocking control, following the potential function
+    / activation function defined in the base paper:
+    http://ieeexplore.ieee.org/document/1605401/
+    """
     def __init__(
         self,
         observation: ArenaObservation,
@@ -98,7 +109,20 @@ class FlockingControl:
         )  # columns are per neighbor
         # TODO check dimension mismatch: get a 3D array not expected
 
-    def get_velocity_diff_array(self, node_i, neighbors_idx, sign_only: bool = False):
+    def get_velocity_diff_array(self, node_i: int, neighbors_idx: np.ndarray, sign_only: bool = False) -> np.ndarray:
+        """Obtain the vectorized velocity difference between the platform for which the control input
+        is computed and it's neighbors. Used for velocity matching
+
+        Args:
+            node_i (int): the actual platform index for which the flocking signal is calculated
+            neighbors_idx (np.ndarray): the neighboring platform indices of the actual platform
+            sign_only (bool, optional): True if only the sign of the difference is returned. 
+                                        Defaults to False, which corresponds to the actual difference of velocities
+
+        Returns:
+            np.ndarray: the velocity difference as an array (n  x m) where n=2, for the directions u, v and 
+                        m the number of neighbors
+        """
         velocities = np.array(self.observation.platform_state.velocity)
         # Enforce good dimensions with reshape (velocities u and v as rows)
         velocity_diff = velocities[:, node_i].reshape(2, 1) - velocities[:, neighbors_idx].reshape(
@@ -112,7 +136,17 @@ class FlockingControl:
     def get_aij(self, q_ij_sigma):
         return self.vect_bump_f(q_ij_sigma / self.r_alpha)
 
-    def get_u_i(self, node_i: int, hj_action: PlatformAction):
+    def get_u_i(self, node_i: int, hj_action: PlatformAction)-> PlatformAction:
+        """Obtain the flocking control input
+
+        Args:
+            node_i (int): the platform index for which the flocking control input is
+                          computed
+            hj_action (PlatformAction): the time-optimal reachability control
+
+        Returns:
+            PlatformAction: flocking control signal
+        """
         neighbors_idx = np.argwhere(self.adjacency_mat[node_i, :] > 0).flatten()
         if not neighbors_idx.size:  # no neighbors
             return hj_action

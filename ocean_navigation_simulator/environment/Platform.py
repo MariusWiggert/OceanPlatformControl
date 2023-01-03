@@ -46,10 +46,17 @@ class PlatformAction:
     magnitude: float
     direction: float
 
-    # TODO: define an __add method surcharge and multiplication by constant as well
+    def __add__(self, other: 'PlatformAction')->'PlatformAction':
+        """
+        Computes the sum of two polar vectors without transforming back and forth 
+        between polar & cartesian coordinates
+        Args:
+            other: Another PlatformAction object to add
 
-    def __add__(self, other):
-        # adding two polar vectors without transforming back and forth between polar & cartesian coordinates
+        Returns:
+            PlatformAction: sum of two platform action objects
+        """
+        # 
         # https://math.stackexchange.com/a/1365938
         added_mag = np.sqrt(
             self.magnitude**2
@@ -62,7 +69,16 @@ class PlatformAction:
         )
         return PlatformAction(magnitude=added_mag, direction=added_angle)
 
-    def scaling(self, constant):
+    def scaling(self, constant: float)->'PlatformAction':
+        """To multiply the PlatformAction object by a constant, which in polar coordinates,
+        results in multiplying only the magnitude of the vector
+
+        Args:
+            constant: The constant to multiply the vector PlatformAction
+
+        Returns:
+            PlatformAction: scaled by the constant
+        """
         return PlatformAction(magnitude=self.magnitude * constant, direction=self.direction)
 
     def __array__(self):
@@ -95,10 +111,19 @@ class PlatformAction:
 
 @dataclass
 class PlatformActionSet:
+    """
+    A class containing a list of PlatformAction to facilitate
+    multi-agent handling for the simulation
+    """
     action_set: List[PlatformAction]
 
-    def __array__(self):
-        return np.array(self.action_set)  # rows are platforms and columns: [mag, dir]
+    def __array__(self)->np.ndarray:
+        """rows are platforms and columns: [mag, dir]
+
+        Returns:
+            np.ndarray
+        """
+        return np.array(self.action_set)  # 
 
     # TODO implement from_xy_propulsion for x and y given as arrays in the multi-agent setting
 
