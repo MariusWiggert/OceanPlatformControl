@@ -364,8 +364,8 @@ class DataSource2d(abc.ABC):
         alpha: Optional[float] = 1.0,
         ax: Optional[plt.axes] = None,
         fill_nan: Optional[bool] = True,
-        masking_val: Optional[float] = 0,
-        hatching: Optional[str] = "// //",
+        masking_val: Optional[float] = 0.0,
+        hatches: Optional[str] = "///",
         overlay: Optional[bool] = False,
         contour: Optional[bool] = True,
     ) -> matplotlib.pyplot.axes:
@@ -377,7 +377,7 @@ class DataSource2d(abc.ABC):
             ax (Optional[plt.axes], optional):      Feeding in an axis object to plot the figure on.. Defaults to None.
             fill_nan (Optional[bool], optional):    If True we fill nan values with 0 otherwise leave them as nans.. Defaults to True.
             masking_val (Optional[float], optional):Value to use as binary border of mask, e.g. -150 for elevation. Defaults to 0.
-            hatching (Optional[str], optional):     Hatching pattern to plot, if None or False will not plot. Defaults to "// //".
+            hatches (Optional[str], optional):     hatches pattern to plot, if None or False will not plot. Defaults to "// //".
             overlay (Optional[bool], optional):     Overlay the mask on the plot. Defaults to False.
             contour (Optional[bool], optional):     Plot contour on ax. Defaults to True.
 
@@ -394,10 +394,10 @@ class DataSource2d(abc.ABC):
         mask = xarray[var_to_plot].where(xarray[var_to_plot] > masking_val)
         X, Y = np.meshgrid(xarray.lon, xarray.lat)
         # Works!
-        plt.rcParams["hatch.linewidth"] = 4
+        plt.rcParams["hatch.linewidth"] = 2
         plt.rcParams["hatch.color"] = "red"
-        if hatching or overlay:
-            # If hatching is not None or False, we do hatching on the area
+        if hatches or overlay:
+            # If hatches is not None or False, we do hatches on the area
             # If overlay is false, then alpha is set to 0.0, which means that we do not plot the mask
             if overlay:
                 alpha = 0.5
@@ -410,7 +410,7 @@ class DataSource2d(abc.ABC):
                 corner_mask=True,
                 colors="red",
                 alpha=alpha,
-                hatches=hatching,
+                hatches=hatches,
                 zorder=2,
             )
         if contour:
