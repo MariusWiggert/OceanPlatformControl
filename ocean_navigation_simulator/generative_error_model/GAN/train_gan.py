@@ -371,7 +371,6 @@ def test(data: str = "test"):
         cfgs_train["batch_size"] = 192
     else:
         raise ValueError(f"data = {data} is not a valid input! Try: ['test', 'val'].")
-    dataloader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # load generator
     gen = get_model(all_cfgs["model"][0], cfgs_gen, device)
@@ -387,6 +386,7 @@ def test(data: str = "test"):
     # iterate twice: once for all test/val FCs, once for repeated FC
     for loader_idx in range(2):
         with torch.no_grad():
+            dataloader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
             for idx, (data, _) in enumerate(tqdm(dataloader)):
                 data = data.to(device).float()
                 # repeated sample
@@ -396,7 +396,7 @@ def test(data: str = "test"):
                     if idx == 10:
                         break
                     target_fake = gen(repeated_data)
-                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                    save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
                 # normal samples
                 else:
                     target_fake = gen(data)

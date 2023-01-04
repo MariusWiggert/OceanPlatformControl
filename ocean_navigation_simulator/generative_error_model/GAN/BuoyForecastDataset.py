@@ -118,8 +118,10 @@ class BuoyForecastErrorNpy(Dataset):
             self.fc_file_paths.extend(fc_file_paths)
             self.buoy_file_paths.extend(buoy_file_paths)
 
-        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
-        self.buoy_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.buoy_file_paths]
+        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
+                        for file_path in self.fc_file_paths]
+        self.buoy_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
+                          for file_path in self.buoy_file_paths]
 
     def __len__(self):
         return min(len(self.fc_file_paths), len(self.buoy_file_paths)) * (self.hours_in_file//self.concat_len)
