@@ -5,6 +5,7 @@ save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 run_train: False
 
+# for continuing to train
 load_from_chkpt:
   value: False
   file_name: "2022-11-21_17:51:56.pth"

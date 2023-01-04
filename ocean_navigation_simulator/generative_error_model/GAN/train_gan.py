@@ -224,7 +224,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
     metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
     avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     # print(f"Validation avg loss: {avg_loss:.2f}")
-    return avg_loss, metrics, metrics_ratio, save_dir
+    return avg_loss, metrics, metrics_ratio
 
 
 def clean_up_training(models, optimizers, name_extensions, dataloader, all_cfgs: dict, device: str):
@@ -293,6 +293,8 @@ def main(sweep: Optional[bool] = False):
         load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
     else:
         init_weights(discriminator, init_type=cfgs_disc["init_type"], init_gain=cfgs_disc["init_gain"])
+        # for name, layer in discriminator.named_modules():
+        #     print(name, type(layer))
 
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
@@ -315,10 +317,10 @@ def main(sweep: Optional[bool] = False):
             to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc}
 
             if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio, _ = validation((generator, discriminator),
-                                                                 val_loader,
-                                                                 device,
-                                                                 all_cfgs)
+                val_loss, metrics, metrics_ratio = validation((generator, discriminator),
+                                                              val_loader,
+                                                              device,
+                                                              all_cfgs)
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
@@ -353,6 +355,7 @@ def test(data: str = "test"):
 
     all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
+    print(f"In mode: {data}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # simplify config access
@@ -363,13 +366,12 @@ def test(data: str = "test"):
     if data == "test":
         cfgs_dataset = all_cfgs["test_dataset"]
         # load test data
-        dataloader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
     elif data == "val":
-        cfgs_dataset = all_cfgs["dataset"]
+        cfgs_dataset = all_cfgs["val_dataset"]
         cfgs_train["batch_size"] = 192
-        _, dataloader, _ = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
     else:
-        raise ValueError(f"data = {data} is not a valid input! Try: {'test', 'val'}.")
+        raise ValueError(f"data = {data} is not a valid input! Try: ['test', 'val'].")
+    dataloader = get_test_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # load generator
     gen = get_model(all_cfgs["model"][0], cfgs_gen, device)
@@ -399,10 +401,10 @@ def test(data: str = "test"):
                 else:
                     target_fake = gen(data)
                     save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
-                save_dirs.append(save_dir)
+        save_dirs.append(save_dir)
     return save_dirs
 
 
 if __name__ == "__main__":
-    main()
-    test()
+    # main()
+    print(test(data="val"))

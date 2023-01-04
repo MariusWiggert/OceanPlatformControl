@@ -1,7 +1,7 @@
 model: ["generator", "discriminator"]
 save_model: False
 dataset_type: "forecastbuoy"
-wandb_mode: "online"
+wandb_mode: "offline"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 
@@ -10,7 +10,10 @@ save_samples_path: "data/drifter_data/GAN_samples"
 save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2022-11-27_22:48:44.pth"
 #test_load_chkpt: "2022-12-10_13:09:12.pth"
-test_load_chkpt: "2022-12-13_07:10:04.pth"
+#test_load_chkpt: "2022-12-13_07:10:04.pth"
+#test_load_chkpt: "2022-12-15_07:12:21.pth"  # fixed disc
+test_load_chkpt: "2022-12-16_10:03:55.pth"  # add spectral norm -> also change in test
+#test_load_chkpt: "2022-12-17_09:37:04.pth"  # 4 dropout layers -> also change for test
 
 generator:
   in_channels: 2
@@ -40,7 +43,7 @@ discriminator:
   features: [64, 128, 256, 512]
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "batch"
+  norm_type: "spectral"
   load_from_chkpt: False
   chkpt: ""
 
@@ -80,16 +83,16 @@ dataset:
   split: [0.9, 0.1]
   concat_len: 1
 
+val_dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed_val"
+  ground_truth: "data/drifter_data/buoy_preprocessed_val"
+  area: ["area1"]
+  concat_len: 1
+
 test_dataset:
   forecasts: "data/drifter_data/forecasts_preprocessed_test"
   ground_truth: "data/drifter_data/buoy_preprocessed_test"
 #  forecasts: "data/drifter_data/thesis_gan_inference/forecast/"
 #  ground_truth: "data/drifter_data/thesis_gan_inference/ground_truth"
-  area: ["area1"]
-  concat_len: 1
-
-test_dataset_repeated:
-  forecasts: "data/drifter_data/GAN_repeated_test/forecasts"
-  ground_truth: "data/drifter_data/GAN_repeated_test/buoy"
   area: ["area1"]
   concat_len: 1
