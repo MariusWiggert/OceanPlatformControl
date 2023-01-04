@@ -12,8 +12,8 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2022-12-10_13:09:12.pth"
 #test_load_chkpt: "2022-12-13_07:10:04.pth"
 #test_load_chkpt: "2022-12-15_07:12:21.pth"  # fixed disc
-test_load_chkpt: "2022-12-16_10:03:55.pth"  # add spectral norm -> also change in test
-#test_load_chkpt: "2022-12-17_09:37:04.pth"  # 4 dropout layers -> also change for test
+#test_load_chkpt: "2022-12-16_10:03:55.pth"  # add spectral norm -> also change in test
+test_load_chkpt: "2022-12-17_09:37:04.pth"  # 4 dropout layers -> also change for test
 
 generator:
   in_channels: 2
@@ -43,7 +43,7 @@ discriminator:
   features: [64, 128, 256, 512]
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "spectral"
+  norm_type: "batch"
   load_from_chkpt: False
   chkpt: ""
 

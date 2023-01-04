@@ -407,4 +407,4 @@ def test(data: str = "test"):
 
 if __name__ == "__main__":
     # main()
-    print(test(data="val"))
+    print(test(data="test"))

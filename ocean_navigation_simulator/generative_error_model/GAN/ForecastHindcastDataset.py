@@ -88,8 +88,10 @@ class ForecastHindcastDatasetNpy(Dataset):
             self.hc_file_paths.extend(hc_file_paths)
             print(len(fc_file_paths), len(hc_file_paths))
 
-        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.fc_file_paths]
-        self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in self.hc_file_paths]
+        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
+                        for file_path in self.fc_file_paths]
+        self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
+                        for file_path in self.hc_file_paths]
 
     def __len__(self):
         return min(len(self.fc_file_paths), len(self.hc_file_paths)) * (self.hours_in_file//self.concat_len)

@@ -241,6 +241,7 @@ def train_main(sweep: Optional[bool] = False):
 def test_main(data: str = "test"):
     all_cfgs = initialize(sweep=False, test=True)
     print("####### Start Testing #######")
+    print(f"In mode: {data}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # simplify config access
@@ -279,12 +280,12 @@ def test_main(data: str = "test"):
                     if idx == 10:
                         break
                     target_fake = model(repeated_data)
-                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                    save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
                 # normal samples
                 else:
                     target_fake = model(data)
                     save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
-                save_dirs.append(save_dir)
+        save_dirs.append(save_dir)
     return save_dirs
 
 
@@ -294,7 +295,7 @@ def main():
     if all_cfgs["run_train"]:
         train_main()
     else:
-        test_main(data="val")
+        print(test_main(data="test"))
 
 
 if __name__ == "__main__":
