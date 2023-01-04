@@ -2,7 +2,7 @@
 
 data_source_config: "cal_coast_Copernicus_hindcast_local"
 
-folder_to_save: "scenario_3_flocking_velocity_sgn"
+folder_to_save: "scenario_3_flocking_softmax"
 
 days_sim: 2
 
@@ -45,13 +45,16 @@ multi_agent_param:
     k_2: 1
 
   flocking:
-    epsilon: 0.1
+    epsilon: 10000
     h: 0.2
     ideal_distance: 5000 # meters
+    ideal_distance_low: 4500 # meters
+    ideal_distance_high: 5500 # meters
     a: 5
     b: 5
     interaction_range: 9000 # meters
     hj_factor: 1
+    grad_clip_abs_val: 5
 
 
 

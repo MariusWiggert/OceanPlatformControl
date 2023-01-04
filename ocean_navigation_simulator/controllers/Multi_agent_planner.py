@@ -30,6 +30,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 from ocean_navigation_simulator.controllers.Flocking import (
     FlockingControl,
+    FlockingControlVariant,
     RelaxedFlockingControl,
     FlockingControl2,
 )
@@ -248,7 +249,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         #     param_dict=self.multi_agent_settings["flocking"],
         #     platform_dict=self.platform_dict,
         # )
-        flocking_control = FlockingControl(
+        flocking_control = FlockingControlVariant(
             observation=observation,
             param_dict=self.multi_agent_settings["flocking"],
             platform_dict=self.platform_dict,
@@ -274,5 +275,5 @@ class MultiAgentPlanner(HJReach2DPlanner):
             PlatformAction: scaled w.r.t u_max
         """
         action.direction = action.direction % (2 * np.pi)
-        action.magnitude = min(action.magnitude,1)
+        action.magnitude = max(min(action.magnitude,1),1)
         return action

@@ -2,7 +2,7 @@
 
 data_source_config: "cal_coast_Copernicus_hindcast_local"
 
-folder_to_save: "scenario_flocking_no_hj_6days"
+folder_to_save: "scenario_flocking_no_hj_6days_no_curr_grad"
 
 days_sim: 6
 

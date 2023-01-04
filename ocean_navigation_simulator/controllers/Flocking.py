@@ -175,6 +175,111 @@ class FlockingControl:
             return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
 
 
+class FlockingControlVariant:
+    def __init__(
+        self,
+        observation: ArenaObservation,
+        param_dict: dict,
+        platform_dict: dict,
+    ):
+        self.param_dict = param_dict
+        self.G_proximity = observation.graph_obs.G_communication
+        self.observation = observation
+        adjacency_communication = observation.graph_obs.adjacency_matrix_in_unit(
+            unit="m", graph_type="communication"
+        )  # get adjacency for communication graph
+        self.binary_adjacency = np.where(adjacency_communication>0,1,0) # indicator values
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
+            unit="km", graph_type="complete"
+        ) #complete adjacency matrix containing all distances between platforms
+        self.u_max_mps = platform_dict["u_max_in_mps"]
+        self.dt_in_s = platform_dict["dt_in_s"]
+        self.r = self.param_dict["interaction_range"]
+        self.r_sigma= self.sigma_norm(self.r)
+        self.list_all_platforms = list(range(self.adjacency_mat.shape[0]))
+
+    def sigma_norm(self, z_norm):
+        val = self.param_dict["epsilon"] * (z_norm**2)
+        return 1 / self.param_dict["epsilon"] * (np.sqrt(1 + val) - 1)
+
+    def gradient(self, norm_qij, inside_range: bool, grad_clip:bool = False):
+        #norm_qij_sigma = self.sigma_norm(z_norm=norm_qij)
+        if inside_range:
+            # grad = -self.r_sigma*(self.r_sigma-2*norm_qij_sigma)/ \
+            # (norm_qij_sigma**2*(self.r_sigma-norm_qij_sigma)**2)
+            grad = -self.r*(self.r-2*norm_qij)/ \
+            (norm_qij**2*(self.r-norm_qij)**2) 
+        else:
+            # grad = 1/(norm_qij_sigma-self.r_sigma+1)
+            grad = 1/(norm_qij-self.r+1)
+        if grad_clip:
+            return np.clip(grad, -self.param_dict["grad_clip_abs_val"], self.param_dict["grad_clip_abs_val"])
+        else:
+            return grad
+
+    def pot_func(self, norm_qij, inside_range: bool):
+        norm_qij_sigma = self.sigma_norm(z_norm=norm_qij)
+        if inside_range:
+            # return self.r_sigma/(norm_qij_sigma*(self.r_sigma-norm_qij_sigma))
+            return self.r/(norm_qij*(self.r-norm_qij))
+        else:
+            return np.log(norm_qij-self.r+1)
+
+    def get_n_ij(self, i_node, j_neighbor, norm_qij):
+        q_ij_lon = (
+            self.observation.platform_state.lon.m[j_neighbor]
+            - self.observation.platform_state.lon.m[i_node]
+        )
+        q_ij_lat = (
+            self.observation.platform_state.lat.m[j_neighbor]
+            - self.observation.platform_state.lat.m[i_node]
+        )
+        q_ij = np.vstack((q_ij_lon, q_ij_lat))
+        return q_ij/np.linalg.norm(q_ij)
+        # return q_ij / np.sqrt(
+        #     1 + self.param_dict["epsilon"] * norm_qij ** 2)
+        
+    def get_u_i(self, node_i: int, hj_action: PlatformAction)-> PlatformAction:
+        neighbors_idx = list(self.list_all_platforms)
+        neighbors_idx.remove(node_i)
+        grad = 0
+        for neighbor in neighbors_idx:
+            n_ij = self.get_n_ij(
+                i_node=node_i,
+                j_neighbor=neighbor,
+                norm_qij=self.adjacency_mat[node_i, neighbor],
+            )
+            grad += self.gradient(norm_qij=self.adjacency_mat[node_i, neighbor],
+                    inside_range=bool(self.binary_adjacency[node_i, neighbor]))*n_ij.flatten()
+        grad_action = PlatformAction(np.linalg.norm(grad, ord=2), 
+                direction=np.arctan2(grad[1], grad[0]))
+        softmax_grad = np.exp(grad_action.magnitude)/(np.exp(grad_action.magnitude)+np.exp(hj_action.magnitude))
+        return grad_action.scaling(softmax_grad) + hj_action.scaling(1-softmax_grad)
+        # return PlatformAction(
+        #         max(min(np.linalg.norm(grad, ord=2) / self.u_max_mps, 1),1),  # scale in % of max u, bounded
+        #         direction=np.arctan2(grad[1], grad[0]),)
+
+
+    def plot_psi_and_phi_alpha(self, max_plot_factor:Optional[int] = 1.5, step: Optional[int] = 100, savefig: Optional[bool] = False):
+        z_range = np.arange(start=0, stop=self.r*max_plot_factor, step=step)
+        inside_range_arr = np.where(z_range < self.r, 1, 0)
+        phi = [self.gradient(norm_qij=z, inside_range=indicator) for z, indicator in zip(z_range, inside_range_arr)]
+        psi = [self.pot_func(norm_qij=z, inside_range=indicator) for z, indicator in zip(z_range, inside_range_arr)]
+        fig, (ax1, ax2) = plt.subplots(2, 1)
+        ax1.plot(z_range, phi)
+        ax1.set_ylabel(r"$\phi$")
+        ax1.set_xticks([self.r/2, self.r])
+        ax1.set_xticklabels([r"$\frac{r_{\sigma}}{2}$", r"$r_{\sigma}$"])
+        ax1.grid(axis="both", linestyle="--")
+        ax2.plot(z_range, psi)
+        ax2.set_ylabel(r"$\psi$")
+        ax2.set_xticks([self.r/2, self.r])
+        ax2.set_xticklabels([r"$\frac{r_{\sigma}}{2}$", r"$r_{\sigma}$"])
+        ax2.set_xlabel(r"$\Vert z \Vert_{\sigma}$")
+        ax2.grid(axis="both", linestyle="--")
+        if savefig:
+            plt.savefig("plot_gradient_and_potential.png")
+
 class FlockingControl2:
     def __init__(
         self,
