@@ -49,6 +49,7 @@ class NavigationProblem(Problem):
         ax: matplotlib.axes.Axes,
         problem_start_color: Optional[str] = "red",
         problem_target_color: Optional[str] = "green",
+        start_size = 100,
     ) -> matplotlib.axes.Axes:
         """plot start/target on a given axis"""
         ax.scatter(
@@ -56,7 +57,9 @@ class NavigationProblem(Problem):
             self.start_state.lat.deg,
             c=problem_start_color,
             marker="o",
+            s=start_size,
             label="start",
+            zorder=6
         )
         ax.add_patch(
             plt.Circle(
@@ -65,6 +68,7 @@ class NavigationProblem(Problem):
                 facecolor=problem_target_color,
                 edgecolor=problem_target_color,
                 label="goal",
+                zorder=6
             )
         )
 
@@ -128,7 +132,7 @@ class NavigationProblem(Problem):
         )
 
     def __repr__(self):
-        return "Problem [start: {s}, end: {e}, target_radius: {r:.2f}, timeout: {t:.1f}h]".format(
+        return "Problem [start: {s}, end: {e}, target_radius: {r:.2f}]".format(
             s=self.start_state.to_spatio_temporal_point(),
             e=self.end_region,
             r=self.target_radius

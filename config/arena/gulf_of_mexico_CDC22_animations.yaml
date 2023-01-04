@@ -9,29 +9,37 @@ platform_dict:
     solar_panel_size: 0.5
     solar_efficiency: 0.2
     drag_factor: 675.0
-    dt_in_s: 600.0
+    dt_in_s: 1800.0
 
 use_geographic_coordinate_system: True
 
 spatial_boundary: null
+timeout: 432000 #120h
 
 ocean_dict:
     region: "GOM"
     hindcast:
         field: 'OceanCurrents'
-        source: 'opendap'
-        source_settings:
-            service: 'copernicus'
-            currents: 'total'
-            USERNAME: 'mmariuswiggert'
-            PASSWORD: 'tamku3-qetroR-guwneq'
-            DATASET_ID: 'cmems_mod_glo_phy_anfc_merged-uv_PT1H-i'
+        source: 'generative_noise'
+        base_source:
+            source: 'hindcast_files'
+            source_settings:
+                local: False
+                folder: "data/cdc22_animation_fc_as_hindcast/"
+                source: "HYCOM"
+                type: "hindcast"
+        noise_source:
+            source: 'simplex_noise'
+            source_settings:
+                seed: 151
+                params_path: "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+                scale_noise: 1
     forecast:
         field: 'OceanCurrents'
         source: 'forecast_files'
         source_settings:
-            folder: "/tmp/hycom_forecast/"
             local: False
+            folder: "data/cdc22_animation_fc/"
             source: "HYCOM"
             type: "forecast"
 

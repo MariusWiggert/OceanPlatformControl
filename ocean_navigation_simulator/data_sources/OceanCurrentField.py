@@ -8,6 +8,7 @@ from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSour
     HindcastFileSource,
     HindcastOpendapSource,
     OceanCurrentSource,
+    GroundTruthFromNoise
 )
 
 
@@ -59,6 +60,17 @@ class OceanCurrentField(DataField):
                 AnalyticalSources, source_dict["source_settings"]["name"]
             )
             return specific_analytical_current(source_dict)
+        elif source_dict["source"] == "generative_noise":
+            # First instantiate the base source from the respective dict
+            source_dict["base_source"]["use_geographic_coordinate_system"] = source_dict["use_geographic_coordinate_system"]
+            source_dict["base_source"]["casadi_cache_settings"] = source_dict["casadi_cache_settings"]
+            source_dict["base_source"]["field"] = source_dict["field"]
+            base_source = OceanCurrentField.instantiate_source_from_dict(source_dict=source_dict["base_source"])
+            # return generative noise source
+            return GroundTruthFromNoise(
+                hindcast_data_source=base_source,
+                source_settings=source_dict["noise_source"]["source_settings"]
+            )
         else:
             raise ValueError(
                 "Selected source {} in the OceanCurrentSource dict is not implemented.".format(

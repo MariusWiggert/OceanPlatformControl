@@ -414,20 +414,26 @@ class Arena:
     def animate_trajectory(
         self,
         margin: Optional[float] = 1,
+        x_interval: Optional[List[float]] = None,
+        y_interval: Optional[List[float]] = None,
         problem: Optional[NavigationProblem] = None,
         temporal_resolution: Optional[float] = None,
         add_ax_func_ext: Optional[Callable] = None,
+        full_traj: Optional[bool] = True,
         output: Optional[AnyStr] = "traj_animation.mp4",
         **kwargs,
     ):
         """Plotting functions to animate the trajectory of the arena so far.
         Optional Args:
               margin:            Margin as box around x_0 and x_T to plot
+              x_interval:        If both x and y interval are present the margin is ignored.
+              y_interval:        If both x and y interval are present the margin is ignored.
               problem:           Navigation Problem object
               temporal_resolution:  The temporal resolution of the animation in seconds (per default same as data_source)
               add_ax_func_ext:  function handle what to add on top of the current visualization
                                 signature needs to be such that it takes an axis object and time as input
                                 e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
+              full_traj:        Boolean, True per default to disply full trajectory at all times, when False iteratively.
               # Other variables possible via kwargs see DataSource animate_data, such as:
               fps:              Frames per second
               output:           How to output the animation. Options are either saved to file or via html in jupyter/safari.
@@ -442,8 +448,11 @@ class Arena:
             data_source=self.ocean_field.hindcast_data_source,
             problem=problem,
             margin=margin,
+            x_interval=x_interval,
+            y_interval=y_interval,
             temporal_resolution=temporal_resolution,
             add_ax_func_ext=add_ax_func_ext,
+            full_traj=full_traj,
             output=output,
             **kwargs,
         )
@@ -499,7 +508,7 @@ class Arena:
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
-        index: Optional[int] = -1,
+        index: Optional[int] = 0,
         show_current_position: Optional[bool] = True,
         current_position_color: Optional[str] = "black",
         # State
@@ -570,7 +579,7 @@ class Arena:
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend()
+        ax.legend("lower right")
 
         if return_ax:
             return ax

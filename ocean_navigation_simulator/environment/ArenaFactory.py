@@ -45,6 +45,7 @@ class ArenaFactory:
     @staticmethod
     def create(
         scenario_file: str = None,
+        folder_scenario: str = "config/arena/",
         scenario_name: str = None,
         scenario_config: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,

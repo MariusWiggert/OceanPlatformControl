@@ -12,6 +12,8 @@ import xarray as xr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 
 from ocean_navigation_simulator.data_sources.DataSource import (
     DataSource,
@@ -81,6 +83,9 @@ class OceanCurrentSource(DataSource):
         fill_nan: Optional[bool] = True,
         return_cbar: Optional[bool] = False,
         set_title: Optional[bool] = True,
+        quiver_spatial_res: Optional[float] = None,
+        quiver_scale: Optional[int] = None,
+        **kwargs
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
@@ -113,10 +118,10 @@ class OceanCurrentSource(DataSource):
         # Step 2: Create ax object
         if ax is None:
             ax = plt.axes()
-        if set_title:
-            ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC"))
 
         # underly with current magnitude
+        vmax = kwargs.get('vmax', vmax)
+        vmin = kwargs.get('vmin', vmin)
         if vmax is None:
             vmax = np.max(xarray["magnitude"].max()).item()
         im = xarray["magnitude"].plot(
@@ -127,7 +132,9 @@ class OceanCurrentSource(DataSource):
             divider = make_axes_locatable(ax)
             cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
-            cbar.ax.set_ylabel("current velocity in m/s")
+            cbar.ax.set_ylabel("current velocity [m/s]")
+            cbar.ax.tick_params(labelsize=17)
+            cbar.patch.set_facecolor("white")
             cbar.set_ticks(cbar.get_ticks())
             precision = 1
             if int(vmin * 10) == int(vmax * 10):
@@ -145,8 +152,15 @@ class OceanCurrentSource(DataSource):
             ax.set_ylim([time_2D_array["lat"].data.min(), time_2D_array["lat"].data.max()])
             ax.set_xlim([time_2D_array["lon"].data.min(), time_2D_array["lon"].data.max()])
         elif plot_type == "quiver":
-            xarray.plot.quiver(x="lon", y="lat", u="water_u", v="water_v", ax=ax, add_guide=False)
+            # downsample
+            if quiver_spatial_res is not None:
+                xarray = XarraySource.interpolate_in_space_and_time(
+                    array=xarray, spatial_resolution=quiver_spatial_res, temporal_resolution=None)
+            xarray.plot.quiver(x="lon", y="lat", u="water_u", v="water_v", ax=ax, add_guide=False, scale=quiver_scale)
 
+        if set_title:
+            ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M UTC"), fontsize=20)
+        ax.set_facecolor("white")
         if return_cbar:
             return ax, cbar
         return ax
@@ -206,8 +220,9 @@ class OceanCurrentSource(DataSource):
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
-        del self.u_curr_func
-        del self.v_curr_func
+        if hasattr(self, 'u_curr_func'):
+            del self.u_curr_func
+            del self.v_curr_func
         pass
 
 
@@ -340,6 +355,9 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         # Hack for the moment: otherwise simulation interpolate NaN's near to shore
         self.DataArray = self.DataArray.fillna({"water_u": 0.0, "water_v": 0.0})
 
+        # re_load grid dict
+        self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.
@@ -432,6 +450,7 @@ class ForecastFromHindcastSource(HindcastFileSource):
         t_interval: List[datetime.datetime],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         # Step 0: enforce timezone aware datetime objects
         t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
@@ -453,12 +472,13 @@ class ForecastFromHindcastSource(HindcastFileSource):
             t_interval,
             spatial_resolution=spatial_resolution,
             temporal_resolution=temporal_resolution,
+            throw_exceptions=throw_exceptions
         )
 
 
 class GroundTruthFromNoise(OceanCurrentSource):
     """DataSource to add Noise to a Hindcast Data Source to model forecast error with fine-grained currents."""
-    def __init__(self, seed: int, params_path: str, hindcast_data_source: DataSource):
+    def __init__(self, hindcast_data_source: DataSource, source_settings: dict):
         """Args:
               seed: integer as the random seed to the noise model (to generate diverse noise that is reproducible)
               params_path: path to the npy file where the noise model parameters are stored
@@ -467,10 +487,20 @@ class GroundTruthFromNoise(OceanCurrentSource):
         """
         self.hindcast_data_source = hindcast_data_source
         self.source_config_dict = hindcast_data_source.source_config_dict
+        self.grid_dict = self.hindcast_data_source.grid_dict
 
         # initialize NoiseField
-        self.noise = OceanCurrentNoiseField.load_config_from_file(params_path)
-        rng = np.random.default_rng(seed)
+        self.noise = OceanCurrentNoiseField.load_config_from_file(source_settings['params_path'])
+        self.set_noise_seed(seed_integer=source_settings['seed'])
+        self.source_settings = source_settings
+
+    def set_noise_seed(self, seed_integer):
+        """Set the noise seed, can be reset from outside.
+        Args:
+              seed_integer: integer as the random seed to the noise model
+        """
+        self.noise_seed = seed_integer
+        rng = np.random.default_rng(self.noise_seed)
         self.noise.reset(rng)
 
     def get_data_over_area(
@@ -480,20 +510,39 @@ class GroundTruthFromNoise(OceanCurrentSource):
         t_interval: List[Union[datetime.datetime, int]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
+        noise_only: Optional[bool] = False,
     ) -> xr.Dataset:
 
         # Step 0: enforce timezone aware datetime objects
         t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
 
-        # Step 1: get hindcast dataframe
+        # Step 1: get hindcast dataframe (non-interpolated)
         ds = self.hindcast_data_source.get_data_over_area(
-            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
-        )
-        # Step 2: get noise df for the same lon, lat, time grid
-        additive_noise = self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
+            x_interval, y_interval, t_interval,
+            spatial_resolution=None, temporal_resolution=None, throw_exceptions=throw_exceptions)
 
-        # Step 3: return dataframe with added noise
-        return ds + additive_noise/2
+        # Step 2: get noise df for the same lon, lat, time grid
+        additive_noise = self.source_settings.get('scale_noise', 1.) * self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
+
+        # Step 3: add them up
+        ds_plus_noise = additive_noise
+        if not noise_only:
+            ds_plus_noise = ds + additive_noise
+
+        # Step 4: perform interpolation to a specific resolution if requested
+        if spatial_resolution is not None or temporal_resolution is not None:
+            ds_plus_noise = XarraySource.interpolate_in_space_and_time(
+                ds_plus_noise, spatial_resolution, temporal_resolution
+            )
+        return ds_plus_noise
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        # if caching function exists, use that for faster point data access
+        return OceanCurrentVector(
+            u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+            v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+        )
 
     def plot_noise_at_time_over_area(
         self,
@@ -514,23 +563,42 @@ class GroundTruthFromNoise(OceanCurrentSource):
             spatial_resolution=spatial_resolution
         )
 
-        # interpolate HC to specific time
-        at_time_xarray_hc = area_xarray_hc.interp(time=time.replace(tzinfo=None))
-
-        # get HC + noise area data
-        area_xarray_hc_noise = self.get_data_over_area(
+        # get noise only data
+        area_xarray_noise = self.get_data_over_area(
             x_interval,
             y_interval,
             [time, time + datetime.timedelta(seconds=1)],
-            spatial_resolution=spatial_resolution)
+            spatial_resolution=spatial_resolution,
+            noise_only=True)
 
-        # interpolate HC+noise to specific time
-        at_time_xarray_hc_noise = area_xarray_hc_noise.interp(time=time.replace(tzinfo=None))
+        # interpolate all of them to specific point
+        at_time_xarray_hc = area_xarray_hc.interp(time=time.replace(tzinfo=None))
+        at_time_xarray_noise = area_xarray_noise.interp(time=time.replace(tzinfo=None))
+        # put both of them together
+        at_time_xarray_hc_noise_after = at_time_xarray_hc + at_time_xarray_noise
 
-        # plot hc and hc+noise
-        fig, axs = plt.subplots(1, 2, figsize=(15, 6))
-        self.hindcast_data_source.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc, ax=axs[0], **kwargs)
-        self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc_noise, ax=axs[1], **kwargs)
+        # plot all of them
+        if self.source_config_dict["use_geographic_coordinate_system"]:
+            fig, axs = plt.subplots(1, 3, figsize=(23, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+            for ax in axs:
+                grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+                grid_lines.top_labels = False
+                grid_lines.right_labels = False
+                ax.add_feature(cfeature.LAND, zorder=3, edgecolor="black")
+        else:
+            fig, axs = plt.subplots(1,3, figsize=(23, 6))
+
+        # plot both of them
+        self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc, ax=axs[0], **kwargs)
+        axs[0].set_title("Hindcast from source", fontsize=10)
+        self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_noise, ax=axs[1], **kwargs)
+        axs[1].set_title("Noise", fontsize=10)
+        self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc_noise_after, ax=axs[2], **kwargs)
+        axs[2].set_title("Noise + HC", fontsize=10)
+        # make figure title
+        time = get_datetime_from_np64(at_time_xarray_hc["time"].data)
+        fig.suptitle("Time: " + time.strftime("%Y-%m-%d %H:%M UTC") + " seed {}".format(self.noise_seed), fontsize=20)
+
         plt.tight_layout()
 
         if return_ax:
@@ -641,6 +709,10 @@ def format_xarray(data_frame: xr, currents: AnyStr = "total") -> xr:
         data_frame = data_frame[["u_error", "v_error"]].rename(
             {"u_error": "water_u", "v_error": "water_v"}
         )
+
+    # make the longitude dimension consistently [-180, + 180]
+    if np.any(data_frame.lon.data > 180):
+        data_frame = data_frame.assign_coords(lon=(data_frame.lon - 360))
 
     return data_frame
 

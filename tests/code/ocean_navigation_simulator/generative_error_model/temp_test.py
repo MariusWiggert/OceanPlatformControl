@@ -6,8 +6,8 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 
 import datetime
 # define intervals
-lon_interval = [-140 + 360, -120 + 360]
-lat_interval = [20, 30]
+lon_interval = [-140 + 360, -135 + 360]
+lat_interval = [20, 25]
 t_interval = [datetime.datetime(2022, 10, 1, 12, 30, 0), datetime.datetime(2022, 10, 8, 12, 30, 0)]
 target_folder = "data/hycom_hindcast_gen_noise_test/"
 
@@ -39,7 +39,7 @@ gt = GroundTruthFromNoise(
                 # + "tuned_2d_forecast_variogram_area1_edited.npy",
     hindcast_data_source=hindcast_data,
 )
-
+#%%
 gt.plot_noise_at_time_over_area(time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval)
 #%% plot comparison
 # without noise
