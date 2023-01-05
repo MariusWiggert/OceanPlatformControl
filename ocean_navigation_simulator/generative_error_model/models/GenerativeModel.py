@@ -1,8 +1,9 @@
-from abc import ABC, abstractmethod
-from typing import Optional, List, Union
-import xarray as xr
-import numpy as np
 import datetime
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+import numpy as np
+import xarray as xr
 
 
 class GenerativeModel(ABC):
@@ -16,6 +17,11 @@ class GenerativeModel(ABC):
         """Initializes the model with a new random number generator."""
 
     @abstractmethod
-    def get_noise(self, lon_locs: List[float], lat_locs: List[float], t_locs: List[datetime.datetime],
-                  t_origin: datetime.datetime) -> xr.Dataset:
+    def get_noise(
+        self,
+        lon_locs: List[float],
+        lat_locs: List[float],
+        t_locs: List[datetime.datetime],
+        t_origin: datetime.datetime,
+    ) -> xr.Dataset:
         """Returns the noise field given a specific rng."""

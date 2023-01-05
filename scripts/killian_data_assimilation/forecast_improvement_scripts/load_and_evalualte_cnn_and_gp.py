@@ -1,7 +1,9 @@
 import pickle
 import sys
 
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import main
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import (
+    main,
+)
 
 all_res = {}
 export_path = "./ablation_study/all_results_testing_set_ablation_study.pkl"

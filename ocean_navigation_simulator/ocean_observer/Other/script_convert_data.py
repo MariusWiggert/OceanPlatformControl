@@ -7,10 +7,10 @@ import torch
 import yaml
 from dateutil import parser as dateParser
 
-from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsDataset import (
     CustomOceanCurrentsDatasetSubgrid,
 )
+from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 
 
 def collate_fn(batch):

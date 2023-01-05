@@ -290,7 +290,9 @@ class GenerationRunner:
         print(f"Batch Time Max:  {time_numerical.max():.1f}s")
 
     @staticmethod
-    def plot_starts_and_targets(results_folder: str, scenario_file: str = None, scenario_config: dir = None, c3=None):
+    def plot_starts_and_targets(
+        results_folder: str, scenario_file: str = None, scenario_config: dir = None, c3=None
+    ):
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
@@ -308,7 +310,7 @@ class GenerationRunner:
             scenario_config=scenario_config,
             problem=problem,
             throw_exceptions=False,
-            c3=c3
+            c3=c3,
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -360,7 +362,7 @@ class GenerationRunner:
     #     )
 
     @staticmethod
-    def plot_target_dates_histogram(results_folder = None, problems_df = None):
+    def plot_target_dates_histogram(results_folder=None, problems_df=None):
         # Step 1: Load Data
         if results_folder:
             if results_folder.startswith("/seaweed-storage/"):
@@ -370,7 +372,7 @@ class GenerationRunner:
             os.makedirs(analysis_folder, exist_ok=True)
 
         # Step 2: Prepare Data
-        if 'factory_index' in list(problems_df.columns.values):
+        if "factory_index" in list(problems_df.columns.values):
             target_df = problems_df[problems_df["factory_index"] == 0]
         else:
             target_df = problems_df

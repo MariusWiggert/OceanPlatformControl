@@ -1,22 +1,24 @@
 import datetime
+
 import numpy as np
+import xarray as xr
+
 from ocean_navigation_simulator.data_sources.OceanCurrentField import (
     OceanCurrentField,
+)
+from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
+    GroundTruthFromNoise,
+    HindcastFileSource,
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
-    GroundTruthFromNoise,
-    HindcastFileSource, HindcastOpendapSource
-)
-import xarray as xr
+
 #%%
 ensemble1 = xr.open_dataset("data/mseas_ensemble/pe_ens_001.nc")
-#%%
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+
 #%% Step 1: Fix the plotting issues why is it 200 degree things?
 # The HYCOM data sources are in negative degrees... Copernicus is -180 to + 180 from opendap...
 # It's HYCOM global hindcast files that are 0-360, the rest is fine!
@@ -34,7 +36,7 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 lon_interval = [-140, -135]
 lat_interval = [20, 25]
 t_interval = [datetime.datetime(2022, 10, 1, 12, 30, 0), datetime.datetime(2022, 10, 8, 12, 30, 0)]
-target_folder = "data/hycom_hindcast_gen_noise_test/" # this is Region 1 data
+target_folder = "data/hycom_hindcast_gen_noise_test/"  # this is Region 1 data
 
 # TODO: Implement animation function that shows hindcast, noise, and both together in a video over time!
 # TODO: ultimately we want an ocean field to be as easy to instantiate as the others, directly from one dict, build the constructors to do that.
@@ -50,31 +52,28 @@ target_folder = "data/hycom_hindcast_gen_noise_test/" # this is Region 1 data
 source_dict = {
     "field": "OceanCurrents",
     "source": "hindcast_files",
-    'use_geographic_coordinate_system': True,
-    "source_settings": {
-        "folder": target_folder},
+    "use_geographic_coordinate_system": True,
+    "source_settings": {"folder": target_folder},
 }
 hindcast_data = HindcastFileSource(source_dict)
 #% Initialize the GT from Noise field!
 gt = GroundTruthFromNoise(
-    seed=100, # this needs to be an integer
+    seed=100,  # this needs to be an integer
     params_path="ocean_navigation_simulator/generative_error_model/models/"
-                + "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy",
+    + "tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy",
     hindcast_data_source=hindcast_data,
 )
 #%%
-gt.plot_noise_at_time_over_area(time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval)
+gt.plot_noise_at_time_over_area(
+    time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval
+)
 #%% plot comparison
 # without noise
-hindcast_data.plot_data_at_time_over_area(time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval)
+hindcast_data.plot_data_at_time_over_area(
+    time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval
+)
 #%% # with Noise
 gt.plot_data_at_time_over_area(time=t_interval[0], x_interval=lon_interval, y_interval=lat_interval)
-
-
-
-
-
-
 
 
 #%%
@@ -116,7 +115,6 @@ ocean_field = OceanCurrentField(
     casadi_cache_dict=casadi_cache_dict,
 )
 #%%
-import pytz
 t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 #%% Use it by defining a spatial and temporal interval and points
 t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)

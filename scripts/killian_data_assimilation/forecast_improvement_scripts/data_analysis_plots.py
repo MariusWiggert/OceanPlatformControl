@@ -11,7 +11,9 @@ from matplotlib import pyplot as plt
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 
 #
-from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
+from ocean_navigation_simulator.ocean_observer.ExperimentRunner import (
+    ExperimentRunner,
+)
 from ocean_navigation_simulator.ocean_observer.PredictionsAndGroundTruthOverArea import (
     PredictionsAndGroundTruthOverArea,
 )

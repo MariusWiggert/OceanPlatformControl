@@ -3,6 +3,8 @@ import logging
 import os
 from typing import AnyStr, List, Optional, Union
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import casadi as ca
 import dask.array.core
 import matplotlib.pyplot
@@ -12,8 +14,6 @@ import xarray as xr
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pydap.cas.get_cookies import setup_session
 from pydap.client import open_url
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
 from ocean_navigation_simulator.data_sources.DataSource import (
     DataSource,
@@ -26,16 +26,14 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
     SpatioTemporalPoint,
 )
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
+    OceanCurrentNoiseField,
+)
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.units import (
     get_datetime_from_np64,
     get_posix_time_from_np64,
 )
-from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
-    OceanCurrentNoiseField,
-)
-
-
 
 # TODO: Ok to pass data with NaNs to check for out of bound with point data? Or fill with 0?
 # The fill with 0 could also be done in the HJ Planner, then we don't need to save the land grid anywhere.
@@ -85,7 +83,7 @@ class OceanCurrentSource(DataSource):
         set_title: Optional[bool] = True,
         quiver_spatial_res: Optional[float] = None,
         quiver_scale: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
@@ -120,8 +118,8 @@ class OceanCurrentSource(DataSource):
             ax = plt.axes()
 
         # underly with current magnitude
-        vmax = kwargs.get('vmax', vmax)
-        vmin = kwargs.get('vmin', vmin)
+        vmax = kwargs.get("vmax", vmax)
+        vmin = kwargs.get("vmin", vmin)
         if vmax is None:
             vmax = np.max(xarray["magnitude"].max()).item()
         im = xarray["magnitude"].plot(
@@ -155,8 +153,17 @@ class OceanCurrentSource(DataSource):
             # downsample
             if quiver_spatial_res is not None:
                 xarray = XarraySource.interpolate_in_space_and_time(
-                    array=xarray, spatial_resolution=quiver_spatial_res, temporal_resolution=None)
-            xarray.plot.quiver(x="lon", y="lat", u="water_u", v="water_v", ax=ax, add_guide=False, scale=quiver_scale)
+                    array=xarray, spatial_resolution=quiver_spatial_res, temporal_resolution=None
+                )
+            xarray.plot.quiver(
+                x="lon",
+                y="lat",
+                u="water_u",
+                v="water_v",
+                ax=ax,
+                add_guide=False,
+                scale=quiver_scale,
+            )
 
         if set_title:
             ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M UTC"), fontsize=20)
@@ -220,7 +227,7 @@ class OceanCurrentSource(DataSource):
 
     def __del__(self):
         """Helper function to delete the existing casadi functions."""
-        if hasattr(self, 'u_curr_func'):
+        if hasattr(self, "u_curr_func"):
             del self.u_curr_func
             del self.v_curr_func
         pass
@@ -291,7 +298,9 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
         # otherwise use the general xarray interpolation function (slower)
         else:
             data_xarray = self.make_explicit(super().get_data_at_point(spatio_temporal_point))
-            return OceanCurrentVector(u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item())
+            return OceanCurrentVector(
+                u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item()
+            )
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):
@@ -441,7 +450,7 @@ class ForecastFromHindcastSource(HindcastFileSource):
 
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
-        self.forecast_length_in_days = source_config_dict['forecast_length_in_days']
+        self.forecast_length_in_days = source_config_dict["forecast_length_in_days"]
 
     def get_data_over_area(
         self,
@@ -472,26 +481,27 @@ class ForecastFromHindcastSource(HindcastFileSource):
             t_interval,
             spatial_resolution=spatial_resolution,
             temporal_resolution=temporal_resolution,
-            throw_exceptions=throw_exceptions
+            throw_exceptions=throw_exceptions,
         )
 
 
 class GroundTruthFromNoise(OceanCurrentSource):
     """DataSource to add Noise to a Hindcast Data Source to model forecast error with fine-grained currents."""
+
     def __init__(self, hindcast_data_source: DataSource, source_settings: dict):
         """Args:
-              seed: integer as the random seed to the noise model (to generate diverse noise that is reproducible)
-              params_path: path to the npy file where the noise model parameters are stored
-               e.g. "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
-              hindcast_data_source: data source to which the generative noise is added
+        seed: integer as the random seed to the noise model (to generate diverse noise that is reproducible)
+        params_path: path to the npy file where the noise model parameters are stored
+         e.g. "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+        hindcast_data_source: data source to which the generative noise is added
         """
         self.hindcast_data_source = hindcast_data_source
         self.source_config_dict = hindcast_data_source.source_config_dict
         self.grid_dict = self.hindcast_data_source.grid_dict
 
         # initialize NoiseField
-        self.noise = OceanCurrentNoiseField.load_config_from_file(source_settings['params_path'])
-        self.set_noise_seed(seed_integer=source_settings['seed'])
+        self.noise = OceanCurrentNoiseField.load_config_from_file(source_settings["params_path"])
+        self.set_noise_seed(seed_integer=source_settings["seed"])
         self.source_settings = source_settings
 
     def set_noise_seed(self, seed_integer):
@@ -519,11 +529,18 @@ class GroundTruthFromNoise(OceanCurrentSource):
 
         # Step 1: get hindcast dataframe (non-interpolated)
         ds = self.hindcast_data_source.get_data_over_area(
-            x_interval, y_interval, t_interval,
-            spatial_resolution=None, temporal_resolution=None, throw_exceptions=throw_exceptions)
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution=None,
+            temporal_resolution=None,
+            throw_exceptions=throw_exceptions,
+        )
 
         # Step 2: get noise df for the same lon, lat, time grid
-        additive_noise = self.source_settings.get('scale_noise', 1.) * self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
+        additive_noise = self.source_settings.get(
+            "scale_noise", 1.0
+        ) * self.noise.get_noise_from_axes(ds["lon"].values, ds["lat"].values, ds["time"].values)
 
         # Step 3: add them up
         ds_plus_noise = additive_noise
@@ -560,7 +577,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
             x_interval,
             y_interval,
             [time, time + datetime.timedelta(seconds=1)],
-            spatial_resolution=spatial_resolution
+            spatial_resolution=spatial_resolution,
         )
 
         # get noise only data
@@ -569,7 +586,8 @@ class GroundTruthFromNoise(OceanCurrentSource):
             y_interval,
             [time, time + datetime.timedelta(seconds=1)],
             spatial_resolution=spatial_resolution,
-            noise_only=True)
+            noise_only=True,
+        )
 
         # interpolate all of them to specific point
         at_time_xarray_hc = area_xarray_hc.interp(time=time.replace(tzinfo=None))
@@ -579,25 +597,32 @@ class GroundTruthFromNoise(OceanCurrentSource):
 
         # plot all of them
         if self.source_config_dict["use_geographic_coordinate_system"]:
-            fig, axs = plt.subplots(1, 3, figsize=(23, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+            fig, axs = plt.subplots(
+                1, 3, figsize=(23, 6), subplot_kw={"projection": ccrs.PlateCarree()}
+            )
             for ax in axs:
                 grid_lines = ax.gridlines(draw_labels=True, zorder=5)
                 grid_lines.top_labels = False
                 grid_lines.right_labels = False
                 ax.add_feature(cfeature.LAND, zorder=3, edgecolor="black")
         else:
-            fig, axs = plt.subplots(1,3, figsize=(23, 6))
+            fig, axs = plt.subplots(1, 3, figsize=(23, 6))
 
         # plot both of them
         self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc, ax=axs[0], **kwargs)
         axs[0].set_title("Hindcast from source", fontsize=10)
         self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_noise, ax=axs[1], **kwargs)
         axs[1].set_title("Noise", fontsize=10)
-        self.plot_data_from_xarray(time_idx=0, xarray=at_time_xarray_hc_noise_after, ax=axs[2], **kwargs)
+        self.plot_data_from_xarray(
+            time_idx=0, xarray=at_time_xarray_hc_noise_after, ax=axs[2], **kwargs
+        )
         axs[2].set_title("Noise + HC", fontsize=10)
         # make figure title
         time = get_datetime_from_np64(at_time_xarray_hc["time"].data)
-        fig.suptitle("Time: " + time.strftime("%Y-%m-%d %H:%M UTC") + " seed {}".format(self.noise_seed), fontsize=20)
+        fig.suptitle(
+            "Time: " + time.strftime("%Y-%m-%d %H:%M UTC") + " seed {}".format(self.noise_seed),
+            fontsize=20,
+        )
 
         plt.tight_layout()
 
@@ -657,10 +682,10 @@ def get_file_dicts(folder: AnyStr, currents="total") -> List[dict]:
     for place in folder:
         if os.path.isdir(place):
             new_files = [
-                    place + f
-                    for f in os.listdir(place)
-                    if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
-                ]
+                place + f
+                for f in os.listdir(place)
+                if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
+            ]
             files_list += new_files
         elif os.path.isfile(place):
             files_list.append(place)

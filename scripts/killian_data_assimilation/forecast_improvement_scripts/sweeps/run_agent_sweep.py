@@ -1,6 +1,8 @@
 import wandb
 
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import main
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import (
+    main,
+)
 
 wandb.agent(
     "4oau3xve",

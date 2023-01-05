@@ -1,13 +1,14 @@
 from typing import AnyStr, Callable, List, Optional, Tuple
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import font_manager
 
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
+
 
 def get_lon_lat_time_interval_from_trajectory(
     state_trajectory: np.ndarray,
@@ -99,24 +100,29 @@ def animate_trajectory(
                 marker="*",
                 s=200,
                 label="Traj_end",
-                zorder=5
+                zorder=5,
             )
         else:
-            traj_to_plot = state_trajectory[:, :(idx + 1)]
+            traj_to_plot = state_trajectory[:, : (idx + 1)]
         ax.plot(
             traj_to_plot[0, :],
             traj_to_plot[1, :],
-            color=kwargs.get('traj_color', "black"),
-            linewidth=kwargs.get('traj_linewidth', 3),
-            linestyle=kwargs.get('traj_linestyle', "--"),
+            color=kwargs.get("traj_color", "black"),
+            linewidth=kwargs.get("traj_linewidth", 3),
+            linestyle=kwargs.get("traj_linestyle", "--"),
             label="Trajectory",
-            zorder=5
+            zorder=5,
         )
 
         # plot start position
         ax.scatter(
-            state_trajectory[0, 0], state_trajectory[1, 0], c="r", marker="o", s=100, label="Start",
-            zorder=6
+            state_trajectory[0, 0],
+            state_trajectory[1, 0],
+            c="r",
+            marker="o",
+            s=100,
+            label="Start",
+            zorder=6,
         )
         # plot the goal
         if problem is not None:
@@ -127,22 +133,27 @@ def animate_trajectory(
                 fill=True,
                 alpha=0.7,
                 label="Goal",
-                zorder = 6
+                zorder=6,
             )
             ax.add_patch(goal_circle)
         # plot the control arrow for the specific time
-        ax.scatter(state_trajectory[0, idx], state_trajectory[1, idx],
-                   c=kwargs.get('x_t_marker_color', "m"), marker="o", s=kwargs.get('x_t_marker_size', 30),
-                   zorder=7)
+        ax.scatter(
+            state_trajectory[0, idx],
+            state_trajectory[1, idx],
+            c=kwargs.get("x_t_marker_color", "m"),
+            marker="o",
+            s=kwargs.get("x_t_marker_size", 30),
+            zorder=7,
+        )
         ax.quiver(
             state_trajectory[0, idx],
             state_trajectory[1, idx],
             ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
             ctrl_trajectory[0, idx] * np.sin(ctrl_trajectory[1, idx]),  # v_vector
-            color=kwargs.get('ctrl_color', "magenta"),
-            scale=kwargs.get('ctrl_scale', 10),
+            color=kwargs.get("ctrl_color", "magenta"),
+            scale=kwargs.get("ctrl_scale", 10),
             label="Control",
-            zorder=8
+            zorder=8,
         )
         # if there's a func plot it
         if add_ax_func_ext is not None:
@@ -166,15 +177,17 @@ def animate_trajectory(
     )
 
 
-def set_palatino_font(font_path='/package_data/font/Palatino_thin.ttf'):
+def set_palatino_font(font_path="/package_data/font/Palatino_thin.ttf"):
     font_manager.fontManager.addfont(font_path)
     prop = font_manager.FontProperties(fname=font_path)
 
-    plt.rcParams['font.family'] = 'sans-serif'
-    plt.rcParams['font.sans-serif'] = prop.get_name()
-    params = {'legend.fontsize': 'x-large',
-              'axes.labelsize': 21,
-              'axes.titlesize': 21,
-              'xtick.labelsize': 13,
-              'ytick.labelsize': 13}
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.sans-serif"] = prop.get_name()
+    params = {
+        "legend.fontsize": "x-large",
+        "axes.labelsize": 21,
+        "axes.titlesize": 21,
+        "xtick.labelsize": 13,
+        "ytick.labelsize": 13,
+    }
     plt.rcParams.update(params)

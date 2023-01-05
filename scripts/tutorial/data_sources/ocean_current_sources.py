@@ -49,7 +49,6 @@ ocean_field = OceanCurrentField(
     casadi_cache_dict=casadi_cache_dict,
 )
 #%%
-import pytz
 t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 #%% Use it by defining a spatial and temporal interval and points
 t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
@@ -68,14 +67,14 @@ ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     return_ax=False,
     vmax=1.4,
     quiver_spatial_res=0.1,
-    quiver_scale=15
+    quiver_scale=15,
 )
 #%%
 ocean_field.hindcast_data_source.animate_data(
     x_interval=x_interval,
     y_interval=y_interval,
     t_interval=t_interval,
-    plot_type='streamline',
+    plot_type="streamline",
     output="test_hindcast_current_animation.mp4",
 )
 # it will be saved as file in the "generated_media" folder

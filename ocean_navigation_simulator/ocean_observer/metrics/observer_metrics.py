@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Dict, Callable, Any, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 from numpy import ndarray
 
-from ocean_navigation_simulator.utils.calc_fmrc_error import calc_vector_corr_over_time
+from ocean_navigation_simulator.utils.calc_fmrc_error import (
+    calc_vector_corr_over_time,
+)
 
 
 def get_metrics() -> Dict[str, Callable[[ndarray, ndarray, ndarray], Dict[float, Any]]]:

@@ -1,11 +1,14 @@
 # This File will calculate the FC Error for a specific problem and FC/HC Setting
 # Step 1: Create the arena and the problem object!
-import datetime
+import logging
 
 import yaml
-from ocean_navigation_simulator.problem_factories.Constructor import Constructor
+
+from ocean_navigation_simulator.problem_factories.Constructor import (
+    Constructor,
+)
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
-import logging
+
 set_arena_loggers(logging.DEBUG)
 
 x_0 = {
@@ -23,11 +26,12 @@ mission_config = {
     "seed": 12344093,
 }
 
-with open(f"config/arena/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml") as f:
+with open("config/arena/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml") as f:
     arena_config = yaml.load(f, Loader=yaml.FullLoader)
 ctrl_config = {
-    "ctrl_name": "ocean_navigation_simulator.controllers.NaiveController.NaiveController"}
-objective_conf = {'type': "nav"}
+    "ctrl_name": "ocean_navigation_simulator.controllers.NaiveController.NaiveController"
+}
+objective_conf = {"type": "nav"}
 
 # Step 0: Create Constructor object which contains arena, problem, controller and observer
 constructor = Constructor(
@@ -36,7 +40,7 @@ constructor = Constructor(
     objective_conf=objective_conf,
     ctrl_conf=ctrl_config,
     observer_conf={"observer": None},
-    download_files=True
+    download_files=True,
 )
 
 # Step 1.1 Retrieve problem
@@ -46,7 +50,14 @@ problem = constructor.problem
 arena = constructor.arena
 observation = arena.reset(platform_state=problem.start_state)
 
-feasibility_dict = {'deg_around_xt_xT_box': 1, 'T_goal_in_seconds': 3600*24*2}
+feasibility_dict = {"deg_around_xt_xT_box": 1, "T_goal_in_seconds": 3600 * 24 * 2}
 #%% Calculate the FC Errors
 from ocean_navigation_simulator.utils.calc_fmrc_error import calc_fmrc_errors
-error_dict = calc_fmrc_errors(problem=problem, arena=arena, t_horizon_in_h=100, deg_around_x0_xT_box=1, T_goal_in_seconds=3600*24*2)
+
+error_dict = calc_fmrc_errors(
+    problem=problem,
+    arena=arena,
+    t_horizon_in_h=100,
+    deg_around_x0_xT_box=1,
+    T_goal_in_seconds=3600 * 24 * 2,
+)

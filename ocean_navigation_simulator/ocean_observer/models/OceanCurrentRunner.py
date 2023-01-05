@@ -7,7 +7,7 @@ import os
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Tuple, List, Any, Optional
+from typing import Any, List, Optional, Tuple
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -19,7 +19,6 @@ from torch import optim
 from torch.nn import functional as F
 from tqdm import tqdm
 
-from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import (
     CustomOceanCurrentsFromFiles,
 )
@@ -29,18 +28,19 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentCNN import (
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentConvLSTM import (
     OceanCurrentConvLSTM,
 )
-from ocean_navigation_simulator.ocean_observer.models.OceanCurrentUnetLSTM import (
-    OceanCurrentUnetLSTM,
-)
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsMLP import (
     OceanCurrentMLP,
 )
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentsRNN import (
     OceanCurrentRNN,
 )
-
+from ocean_navigation_simulator.ocean_observer.models.OceanCurrentUnetLSTM import (
+    OceanCurrentUnetLSTM,
+)
+from ocean_navigation_simulator.ocean_observer.Other.DotDict import DotDict
 
 # Class used to train the Neural network models
+
 
 # Custom Collate funtion to remove the NaNs
 def collate_fn(batch):
@@ -310,6 +310,7 @@ def get_model(model_type, cfg_neural_network, device):
         except FileNotFoundError:
             # get it from the package distribution
             import ocean_navigation_simulator
+
             package_path = os.path.dirname(os.path.abspath(ocean_navigation_simulator.__file__))
             model.load_state_dict(torch.load(package_path + path_weights, map_location=device))
         model.eval()

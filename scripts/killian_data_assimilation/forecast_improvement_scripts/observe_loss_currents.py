@@ -4,12 +4,12 @@ import numpy as np
 import torch
 import xarray as xr
 from matplotlib import pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Button, Slider
 
 from ocean_navigation_simulator.data_sources import DataSource
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import (
-    compute_conservation_mass_loss,
     compute_burgers_loss,
+    compute_conservation_mass_loss,
 )
 from ocean_navigation_simulator.utils import units
 

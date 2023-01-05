@@ -1,13 +1,20 @@
-import numpy as np
-from ocean_navigation_simulator.data_sources.DataSource import DataSource
 import datetime
-from typing import AnyStr, List, Optional, Union, Dict
-from ocean_navigation_simulator.environment.Problem import Problem
+from typing import Dict
+
+import numpy as np
+
+from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import Arena
+from ocean_navigation_simulator.environment.Problem import Problem
 
 
-def calc_fmrc_errors(problem: Problem, arena: Arena, t_horizon_in_h: int,
-                     deg_around_x0_xT_box: float, T_goal_in_seconds: int) -> Dict:
+def calc_fmrc_errors(
+    problem: Problem,
+    arena: Arena,
+    t_horizon_in_h: int,
+    deg_around_x0_xT_box: float,
+    T_goal_in_seconds: int,
+) -> Dict:
     """Calculating the forecast errors for a specific problem and returns a dict with RMSE, vector correlation, and abs angle difference.
     First we calculate the errors for each forecast for t_horizon_in_h and get the mean over space.
     Then we get the mean over all forecasts that the problem is affected by.
@@ -22,9 +29,14 @@ def calc_fmrc_errors(problem: Problem, arena: Arena, t_horizon_in_h: int,
     )
 
     # Get the starting forecast time and last fc_time
-    forecast_time_start = arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(
-        problem.start_state.date_time)
-    last_fc_time = arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(t_interval[1])
+    forecast_time_start = (
+        arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(
+            problem.start_state.date_time
+        )
+    )
+    last_fc_time = arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(
+        t_interval[1]
+    )
     t_horizon_in_h = int(t_horizon_in_h)
 
     # initialize lists for logging arrays for the individual forecasts
@@ -34,38 +46,61 @@ def calc_fmrc_errors(problem: Problem, arena: Arena, t_horizon_in_h: int,
 
     # Iterate over all forecasts until forecast_time_start is bigger than final time
     while forecast_time_start < last_fc_time:
-        request_data_t_interval = [forecast_time_start,
-                                   forecast_time_start + datetime.timedelta(hours=t_horizon_in_h)]
+        request_data_t_interval = [
+            forecast_time_start,
+            forecast_time_start + datetime.timedelta(hours=t_horizon_in_h),
+        ]
         # % get forecast for first time-interval
         fc_data = arena.ocean_field.forecast_data_source.get_data_over_area(
-            x_interval=x_interval,
-            y_interval=y_interval,
-            t_interval=request_data_t_interval)
+            x_interval=x_interval, y_interval=y_interval, t_interval=request_data_t_interval
+        )
         # align the interval
-        fc_data = fc_data.sel(time=slice(request_data_t_interval[0].replace(tzinfo=None),
-                                         request_data_t_interval[1].replace(tzinfo=None)))
+        fc_data = fc_data.sel(
+            time=slice(
+                request_data_t_interval[0].replace(tzinfo=None),
+                request_data_t_interval[1].replace(tzinfo=None),
+            )
+        )
         # % get hindcast data over a slightly bigger area!
         x_increment = 0.2
         y_increment = 0.2
         hc_data = arena.ocean_field.hindcast_data_source.get_data_over_area(
             x_interval=[x - ((-1) ** i) * x_increment for i, x in enumerate(x_interval)],
             y_interval=[y - ((-1) ** i) * y_increment for i, y in enumerate(y_interval)],
-            t_interval=[request_data_t_interval[0] - datetime.timedelta(hours=3),
-                        request_data_t_interval[1] + datetime.timedelta(hours=3)])
+            t_interval=[
+                request_data_t_interval[0] - datetime.timedelta(hours=3),
+                request_data_t_interval[1] + datetime.timedelta(hours=3),
+            ],
+        )
         hc_correct_size = hc_data.interp_like(fc_data)
         # get data
         RMSE_across_fmrc.append(
-            calc_speed_RMSE(fc_data['water_u'].data, fc_data['water_v'].data, hc_correct_size['water_u'].data,
-                            hc_correct_size['water_v'].data))
+            calc_speed_RMSE(
+                fc_data["water_u"].data,
+                fc_data["water_v"].data,
+                hc_correct_size["water_u"].data,
+                hc_correct_size["water_v"].data,
+            )
+        )
         angle_diff_across_fmrc.append(
-            calc_abs_angle_difference(fc_data['water_u'].data, fc_data['water_v'].data, hc_correct_size['water_u'].data,
-                                      hc_correct_size['water_v'].data))
-        vec_corr_across_fmrc.append(calc_vector_corr_over_time(fc_data.to_array().to_numpy().transpose((1, 3, 2, 0)),
-                                                               hc_correct_size.to_array().to_numpy().transpose(
-                                                                   (1, 3, 2, 0))))
+            calc_abs_angle_difference(
+                fc_data["water_u"].data,
+                fc_data["water_v"].data,
+                hc_correct_size["water_u"].data,
+                hc_correct_size["water_v"].data,
+            )
+        )
+        vec_corr_across_fmrc.append(
+            calc_vector_corr_over_time(
+                fc_data.to_array().to_numpy().transpose((1, 3, 2, 0)),
+                hc_correct_size.to_array().to_numpy().transpose((1, 3, 2, 0)),
+            )
+        )
         # prep for next round
         next_time = forecast_time_start + datetime.timedelta(days=1, hours=5)
-        forecast_time_start = arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(next_time)
+        forecast_time_start = (
+            arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(next_time)
+        )
 
     # Return the results dict
     return {
@@ -82,6 +117,7 @@ def calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hi
         (u_data_forecast - u_data_hindcast) ** 2 + (v_data_forecast - v_data_hindcast) ** 2
     ).mean(axis=(1, 2))
     return RMSE_speed
+
 
 def calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
     return np.abs(

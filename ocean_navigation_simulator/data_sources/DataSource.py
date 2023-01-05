@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from IPython.display import HTML
-import pytz
 from matplotlib.figure import Figure
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -54,19 +53,19 @@ class DataSource(abc.ABC):
             logger: logging object
         """
         out_x_range = not (
-                self.casadi_grid_dict["x_range"][0]
-                < state.lon.deg
-                < self.casadi_grid_dict["x_range"][1]
+            self.casadi_grid_dict["x_range"][0]
+            < state.lon.deg
+            < self.casadi_grid_dict["x_range"][1]
         )
         out_y_range = not (
-                self.casadi_grid_dict["y_range"][0]
-                < state.lat.deg
-                < self.casadi_grid_dict["y_range"][1]
+            self.casadi_grid_dict["y_range"][0]
+            < state.lat.deg
+            < self.casadi_grid_dict["y_range"][1]
         )
         out_t_range = not (
-                self.casadi_grid_dict["t_range"][0]
-                <= state.date_time
-                < self.casadi_grid_dict["t_range"][1]
+            self.casadi_grid_dict["t_range"][0]
+            <= state.date_time
+            < self.casadi_grid_dict["t_range"][1]
         )
 
         if out_x_range or out_y_range or out_t_range:
@@ -131,10 +130,10 @@ class DataSource(abc.ABC):
 
     @staticmethod
     def convert_to_x_y_time_bounds(
-            x_0: SpatioTemporalPoint,
-            x_T: SpatialPoint,
-            deg_around_x0_xT_box: float,
-            temp_horizon_in_s: float,
+        x_0: SpatioTemporalPoint,
+        x_T: SpatialPoint,
+        deg_around_x0_xT_box: float,
+        temp_horizon_in_s: float,
     ):
         """Helper function for spatio-temporal subsetting
         Args:
@@ -190,13 +189,13 @@ class DataSource(abc.ABC):
         return grid_dict
 
     def array_subsetting_sanity_check(
-            self,
-            array: xr,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[datetime.datetime],
-            logger: logging.Logger,
-            throw_exception: Optional[bool] = True,
+        self,
+        array: xr,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[datetime.datetime],
+        logger: logging.Logger,
+        throw_exception: Optional[bool] = True,
     ):
         """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         temporal_error = False
@@ -212,13 +211,13 @@ class DataSource(abc.ABC):
 
         # Step 2: Data partially not in the array check
         if (
-                array.coords["lat"].data[0] >= y_interval[0]
-                or array.coords["lat"].data[-1] <= y_interval[1]
+            array.coords["lat"].data[0] >= y_interval[0]
+            or array.coords["lat"].data[-1] <= y_interval[1]
         ):
             spatial_error = f"Part of the y requested area is outside of file (requested: [{y_interval[0]}, {y_interval[1]}])."
         if (
-                array.coords["lon"].data[0] >= x_interval[0]
-                or array.coords["lon"].data[-1] <= x_interval[1]
+            array.coords["lon"].data[0] >= x_interval[0]
+            or array.coords["lon"].data[-1] <= x_interval[1]
         ):
             spatial_error = f"Part of the x requested area is outside of file (requested: [{x_interval[0]}, {x_interval[1]}])."
         if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
@@ -242,14 +241,14 @@ class DataSource(abc.ABC):
                 logger.warning(error)
 
     def plot_data_at_time_over_area(
-            self,
-            time: Union[datetime.datetime, float],
-            x_interval: List[float],
-            y_interval: List[float],
-            spatial_resolution: Optional[float] = None,
-            return_ax: Optional[bool] = False,
-            ax: Optional[matplotlib.pyplot.axes] = None,
-            **kwargs,
+        self,
+        time: Union[datetime.datetime, float],
+        x_interval: List[float],
+        y_interval: List[float],
+        spatial_resolution: Optional[float] = None,
+        return_ax: Optional[bool] = False,
+        ax: Optional[matplotlib.pyplot.axes] = None,
+        **kwargs,
     ):
         """Plot the data at a specific time over an area defined by the x and y intervals.
         Args:
@@ -287,18 +286,18 @@ class DataSource(abc.ABC):
     def set_up_geographic_ax() -> matplotlib.pyplot.axes:
         """Helper function to set up a geographic ax object to plot on."""
         ax = plt.axes(projection=ccrs.PlateCarree())
-        grid_lines = ax.gridlines(draw_labels=True, zorder=4, color='silver', alpha=1)
+        grid_lines = ax.gridlines(draw_labels=True, zorder=4, color="silver", alpha=1)
         grid_lines.top_labels = False
         grid_lines.right_labels = False
         ax.add_feature(cfeature.LAND, zorder=3, edgecolor="black")
         return ax
 
     def bound_spatial_temporal_resolution(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            max_spatial_n: Optional[int] = None,
-            max_temp_n: Optional[int] = None,
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        max_spatial_n: Optional[int] = None,
+        max_temp_n: Optional[int] = None,
     ) -> Tuple[Union[float, Any], Any]:
         """Helper Function to upper bound the resolutions for plotting.
         Args:
@@ -378,13 +377,13 @@ class DataSource(abc.ABC):
                 )
 
     def plot_xarray_for_animation(
-            self,
-            time_idx: int,
-            xarray: xr,
-            reset_plot: Optional[bool] = False,
-            figsize: Tuple[int] = (6, 6),
-            ax: matplotlib.pyplot.axes = None,
-            **kwargs,
+        self,
+        time_idx: int,
+        xarray: xr,
+        reset_plot: Optional[bool] = False,
+        figsize: Tuple[int] = (6, 6),
+        ax: matplotlib.pyplot.axes = None,
+        **kwargs,
     ) -> matplotlib.pyplot.axes:
         """Helper function for animations adding plot resets, figure size and automatically generating the axis.
         See plot_data_from_xarray for other optional keyword arguments.
@@ -415,18 +414,18 @@ class DataSource(abc.ABC):
 
     @staticmethod
     def plot_data_from_xarray(
-            time_idx: int,
-            xarray: xr,
-            var_to_plot: AnyStr = None,
-            vmin: Optional[float] = None,
-            vmax: Optional[float] = None,
-            alpha: Optional[float] = 1.0,
-            ax: plt.axes = None,
-            fill_nan: bool = True,
-            colorbar: bool = True,
-            return_cbar: bool = False,
-            set_title: bool = True,
-            **kwargs
+        time_idx: int,
+        xarray: xr,
+        var_to_plot: AnyStr = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        alpha: Optional[float] = 1.0,
+        ax: plt.axes = None,
+        fill_nan: bool = True,
+        colorbar: bool = True,
+        return_cbar: bool = False,
+        set_title: bool = True,
+        **kwargs,
     ) -> Union[matplotlib.pyplot.axes, Tuple[matplotlib.pyplot.axes, Figure.colorbar]]:
         """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
@@ -494,17 +493,17 @@ class DataSource(abc.ABC):
         return ax
 
     def animate_data(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[Union[datetime.datetime, float]],
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
-            add_ax_func: Optional[Callable] = None,
-            fps: int = 10,
-            output: AnyStr = "data_animation.mp4",
-            forward_time: bool = True,
-            **kwargs,
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, float]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        add_ax_func: Optional[Callable] = None,
+        fps: int = 10,
+        output: AnyStr = "data_animation.mp4",
+        forward_time: bool = True,
+        **kwargs,
     ):
         """Basis function to animate data over a specific area and time interval.
         Args:
@@ -525,19 +524,24 @@ class DataSource(abc.ABC):
         """
 
         # Step 1: get the data_subset for animation
-        get_data_dict = {'x_interval': x_interval, 'y_interval': y_interval, 't_interval': t_interval,
-                         'spatial_resolution': spatial_resolution, 'temporal_resolution': temporal_resolution}
+        get_data_dict = {
+            "x_interval": x_interval,
+            "y_interval": y_interval,
+            "t_interval": t_interval,
+            "spatial_resolution": spatial_resolution,
+            "temporal_resolution": temporal_resolution,
+        }
         # If we only want to animate noise, add this to the get_data_dict
-        if 'noise_only' in kwargs:
-            get_data_dict.update({'noise_only': kwargs['noise_only']})
-            del kwargs['noise_only']
+        if "noise_only" in kwargs:
+            get_data_dict.update({"noise_only": kwargs["noise_only"]})
+            del kwargs["noise_only"]
 
         xarray = self.get_data_over_area(**get_data_dict)
 
         # Calculate min and max over the full tempo-spatial array
         if self.source_config_dict["field"] == "OceanCurrents":
             # get rounded up vmax across the whole dataset (with ` decimals)
-            xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
+            xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
             vmax = round(xarray["magnitude"].max().item() + 0.049, 1)
             vmin = 0
         else:
@@ -549,10 +553,10 @@ class DataSource(abc.ABC):
             )
 
         # add vmin and vmax to kwargs if not already in it
-        if 'vmax' not in kwargs:
-            kwargs.update({'vmax': vmax})
-        if 'vmin' not in kwargs:
-            kwargs.update({'vmin': vmin})
+        if "vmax" not in kwargs:
+            kwargs.update({"vmax": vmax})
+        if "vmin" not in kwargs:
+            kwargs.update({"vmin": vmin})
 
         # create global figure object where the animation happens
         if "figsize" in kwargs:
@@ -630,14 +634,14 @@ class XarraySource(abc.ABC):
         )
 
     def get_data_over_area(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[Union[datetime.datetime, int]],
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
-            throw_exceptions: Optional[bool] = True,
-            spatial_tolerance: Optional[float] = 2.0
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, int]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
+        spatial_tolerance: Optional[float] = 2.0,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -665,11 +669,15 @@ class XarraySource(abc.ABC):
             np.datetime64(t_interval[1].replace(tzinfo=None)) + dt,
         ]
         dlon = self.DataArray["lon"][1] - self.DataArray["lon"][0]
-        x_interval_extended = [x_interval[0] - spatial_tolerance * dlon.item(),
-                               x_interval[1] + spatial_tolerance * dlon.item()]
+        x_interval_extended = [
+            x_interval[0] - spatial_tolerance * dlon.item(),
+            x_interval[1] + spatial_tolerance * dlon.item(),
+        ]
         dlat = self.DataArray["lat"][1] - self.DataArray["lat"][0]
-        y_interval_extended = [y_interval[0] - spatial_tolerance * dlat.item(),
-                               y_interval[1] + spatial_tolerance * dlat.item()]
+        y_interval_extended = [
+            y_interval[0] - spatial_tolerance * dlat.item(),
+            y_interval[1] + spatial_tolerance * dlat.item(),
+        ]
         subset = self.DataArray.sel(
             time=slice(t_interval_extended[0], t_interval_extended[1]),
             lon=slice(x_interval_extended[0], x_interval_extended[1]),
@@ -691,7 +699,7 @@ class XarraySource(abc.ABC):
 
     @staticmethod
     def interpolate_in_space_and_time(
-            array: xr, spatial_resolution: Optional[float], temporal_resolution: Optional[float]
+        array: xr, spatial_resolution: Optional[float], temporal_resolution: Optional[float]
     ) -> xr:
         """Helper function for temporal and spatial interpolation"""
         # Run temporal interpolation
@@ -755,7 +763,7 @@ class AnalyticalSource(abc.ABC):
         ]
         # set the temp_domain_posix
         if isinstance(
-                source_config_dict["source_settings"]["temporal_domain"][0], datetime.datetime
+            source_config_dict["source_settings"]["temporal_domain"][0], datetime.datetime
         ):
             # Assume it's utc if not correct it
             self.temp_domain_posix = [
@@ -801,12 +809,12 @@ class AnalyticalSource(abc.ABC):
         raise NotImplementedError
 
     def get_data_over_area(
-            self,
-            x_interval: List[float],
-            y_interval: List[float],
-            t_interval: List[Union[datetime.datetime, float]],
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, float]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -849,10 +857,10 @@ class AnalyticalSource(abc.ABC):
         return subset
 
     def get_ranges_dict(
-            self,
-            x_interval: Optional[List[float]] = None,
-            y_interval: Optional[List[float]] = None,
-            t_interval: Optional[List[float]] = None,
+        self,
+        x_interval: Optional[List[float]] = None,
+        y_interval: Optional[List[float]] = None,
+        t_interval: Optional[List[float]] = None,
     ):
         """Helper function to get a ranges dictionary bounded by the spatial and temporal domain.
         If no input is provided this returns the ranges for data source domain.
@@ -896,12 +904,12 @@ class AnalyticalSource(abc.ABC):
         }
 
     def get_grid_dict(
-            self,
-            x_interval: Optional[List[float]] = None,
-            y_interval: Optional[List[float]] = None,
-            t_interval: Optional[List[float]] = None,
-            spatial_resolution: Optional[float] = None,
-            temporal_resolution: Optional[float] = None,
+        self,
+        x_interval: Optional[List[float]] = None,
+        y_interval: Optional[List[float]] = None,
+        t_interval: Optional[List[float]] = None,
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
     ):
 
         """Helper Function to produce a grid dict."""
@@ -937,10 +945,10 @@ class AnalyticalSource(abc.ABC):
         return {"x_grid": x_vector, "y_grid": y_vector, "t_grid": t_grid}
 
     def is_boundary(
-            self,
-            lon: Union[float, np.array],
-            lat: Union[float, np.array],
-            posix_time: Union[float, np.array],
+        self,
+        lon: Union[float, np.array],
+        lat: Union[float, np.array],
+        posix_time: Union[float, np.array],
     ) -> Union[float, np.array]:
         """Helper function to check if a state is in the boundary specified in hj as obstacle."""
         x_boundary = np.logical_or(

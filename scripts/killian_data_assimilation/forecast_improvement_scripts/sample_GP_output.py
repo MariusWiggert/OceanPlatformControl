@@ -8,7 +8,6 @@ import os
 import numpy as np
 from npy_append_array import NpyAppendArray
 
-
 # In[7]:
 
 # File used to sample the output of the missions such that it can be used as NN input without having to much

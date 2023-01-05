@@ -3,17 +3,17 @@ import datetime
 import math
 import os
 import random
-from typing import Union, List
+from typing import List, Union
 
 import numpy as np
 import xarray as xr
 import yaml
 
 from ocean_navigation_simulator.environment.PlatformState import (
-    SpatioTemporalPoint,
     SpatialPoint,
+    SpatioTemporalPoint,
 )
-from ocean_navigation_simulator.utils.units import Velocity, Distance
+from ocean_navigation_simulator.utils.units import Distance, Velocity
 
 tile_radius = 1
 delta_points = 1 / 12

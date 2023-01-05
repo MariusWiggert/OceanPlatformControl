@@ -2,7 +2,7 @@
 source: https://github.com/google/balloon-learning-environment/blob/cdb2e582f2b03c41f037bf76142d31611f5e0316/balloon_learning_environment/env/wind_gp.py
 """
 
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
 
 import numpy as np
 from sklearn import gaussian_process

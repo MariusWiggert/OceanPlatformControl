@@ -6,13 +6,13 @@ import math
 import os
 import pickle
 import sys
-from _csv import writer
 from typing import Optional
 
 import numpy as np
 import ray
 import torch
 import yaml
+from _csv import writer
 from matplotlib import pyplot as plt
 from npy_append_array import NpyAppendArray
 from ray import tune
@@ -21,7 +21,9 @@ from ray.air import session
 # from ray.tune.suggest.bayesopt import BayesOptSearch
 from ray.tune.search.bayesopt import BayesOptSearch
 
-from ocean_navigation_simulator.ocean_observer.ExperimentRunner import ExperimentRunner
+from ocean_navigation_simulator.ocean_observer.ExperimentRunner import (
+    ExperimentRunner,
+)
 
 
 def conditional_parameters(str_accepted: list[str], to_return, is_kernel_1: bool = True):

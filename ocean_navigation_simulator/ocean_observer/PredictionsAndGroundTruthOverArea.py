@@ -1,19 +1,20 @@
 import math
 from datetime import datetime, timezone
-from typing import Union, Dict, Set, Optional, List, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import xarray as xr
 from DateTime import DateTime
-from matplotlib import pyplot as plt, patches
+from matplotlib import patches
+from matplotlib import pyplot as plt
 from matplotlib.widgets import Slider
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     OceanCurrentSource,
 )
 from ocean_navigation_simulator.ocean_observer.metrics.observer_metrics import (
-    get_metrics,
     check_nans,
+    get_metrics,
 )
 from ocean_navigation_simulator.utils import units
 

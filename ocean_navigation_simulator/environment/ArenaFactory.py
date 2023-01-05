@@ -1,9 +1,9 @@
+import contextlib
 import datetime
 import logging
 import os
 import shutil
 from typing import List, Optional
-import contextlib
 
 import mergedeep
 import yaml
@@ -54,7 +54,7 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         throw_exceptions: Optional[bool] = True,
-        c3: Optional = None
+        c3: Optional = None,
     ) -> Arena:
         """
         Create an Arena with all needed configuration dictionaries.
@@ -112,7 +112,8 @@ class ArenaFactory:
                         problem.start_state.date_time,
                         problem.start_state.date_time
                         + datetime.timedelta(
-                            seconds=config["casadi_cache_dict"]["time_around_x_t"] + config.get('timeout', 0)
+                            seconds=config["casadi_cache_dict"]["time_around_x_t"]
+                            + config.get("timeout", 0)
                         ),
                     ]
 
@@ -123,7 +124,8 @@ class ArenaFactory:
                 ]
 
             # Step 5: Download Hindcast
-            if (t_interval is not None
+            if (
+                t_interval is not None
                 and config["ocean_dict"]["hindcast"] is not None
                 and config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
             ):
@@ -157,7 +159,7 @@ class ArenaFactory:
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
-                            c3=c3
+                            c3=c3,
                         )
 
                     logger.debug(f"Hindcast Files: {files}")
@@ -200,7 +202,7 @@ class ArenaFactory:
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
-                            c3=c3
+                            c3=c3,
                         )
 
                     logger.debug(f"Forecast Files: {files}")
@@ -219,7 +221,7 @@ class ArenaFactory:
                 solar_dict=config.get("solar_dict", None),
                 seaweed_dict=config.get("seaweed_dict", None),
                 spatial_boundary=config.get("spatial_boundary", None),
-                timeout=config.get('timeout', None),
+                timeout=config.get("timeout", None),
             )
 
     @staticmethod
@@ -227,22 +229,20 @@ class ArenaFactory:
     def download_files(config, type, t_interval, points, c3=None, throw_exceptions=True):
         """Helper method to be run in C3 context manager."""
         try:
-            if 'files' in config["ocean_dict"][type]['source']:
+            if "files" in config["ocean_dict"][type]["source"]:
                 ArenaFactory.download_required_files(
-                    archive_source=config["ocean_dict"][type]["source_settings"][
-                        "source"
-                    ],
+                    archive_source=config["ocean_dict"][type]["source_settings"]["source"],
                     archive_type=config["ocean_dict"][type]["source_settings"]["type"],
                     download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
                     t_interval=t_interval,
                     region=config["ocean_dict"]["area"],
                     throw_exceptions=throw_exceptions,
                     points=points,
-                    c3=c3
+                    c3=c3,
                 )
             yield True
         finally:
-            if 'files' in config["ocean_dict"][type]['source']:
+            if "files" in config["ocean_dict"][type]["source"]:
                 try:
                     shutil.rmtree(config["ocean_dict"][type]["source_settings"]["folder"])
                 except BaseException:
@@ -321,7 +321,7 @@ class ArenaFactory:
             archive_type=archive_type,
             region=region,
             t_interval=t_interval,
-            c3=c3
+            c3=c3,
         )
 
         # Step 2: Check File Count
@@ -361,10 +361,7 @@ class ArenaFactory:
 
         # Step 4: Download files thread-safe
         downloaded_files = ArenaFactory._download_filelist(
-            files=files,
-            download_folder=download_folder,
-            throw_exceptions=throw_exceptions,
-            c3=c3
+            files=files, download_folder=download_folder, throw_exceptions=throw_exceptions, c3=c3
         )
 
         return downloaded_files
@@ -375,7 +372,7 @@ class ArenaFactory:
         archive_type: str,
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
-        c3: Optional = None
+        c3: Optional = None,
     ):
         """
         helper function to get a list of available files from c3

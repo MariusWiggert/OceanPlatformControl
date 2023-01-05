@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -10,7 +10,6 @@ from torch.utils.data import Dataset
 from ocean_navigation_simulator.data_sources.OceanCurrentField import (
     OceanCurrentField,
 )
-
 
 # Class used to convert the Forecast/Hindcast files into input/target for the NN
 # Used when the GP is not is not used
