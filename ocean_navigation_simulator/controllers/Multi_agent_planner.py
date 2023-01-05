@@ -31,8 +31,8 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.controllers.Flocking import (
     FlockingControl,
     FlockingControlVariant,
-    RelaxedFlockingControl,
-    FlockingControl2,
+    # RelaxedFlockingControl,
+    # FlockingControl2,
 )
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.utils import units

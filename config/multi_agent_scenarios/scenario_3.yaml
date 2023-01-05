@@ -45,14 +45,15 @@ multi_agent_param:
     k_2: 1
 
   flocking:
-    epsilon: 10000
+    unit: "km"
+    epsilon: 10
     h: 0.2
-    ideal_distance: 5000 # meters
-    ideal_distance_low: 4500 # meters
-    ideal_distance_high: 5500 # meters
+    ideal_distance: 5 # km
+    ideal_distance_low: 4.5 # km
+    ideal_distance_high: 5.5 # km
     a: 5
     b: 5
-    interaction_range: 9000 # meters
+    interaction_range: 9 # km
     hj_factor: 1
     grad_clip_abs_val: 5
 

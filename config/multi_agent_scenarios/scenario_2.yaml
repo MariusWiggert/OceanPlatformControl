@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2_flocking_softmax"
+folder_to_save: "scenario_2_flocking_softmax_clip"
 
 days_sim: 2
 
@@ -54,7 +54,7 @@ multi_agent_param:
     b: 5
     interaction_range: 9 # km
     hj_factor: 1
-    grad_clip_abs_val: 5
+    grad_clip_range: 0.1 # km
 
 
 
