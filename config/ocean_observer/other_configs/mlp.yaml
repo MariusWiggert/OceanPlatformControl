@@ -1,0 +1,49 @@
+---
+#output_layers_dims_old:
+#  - 5760
+#  - 14580
+#  - 29160
+#  - 29160
+#  - 14580
+#  - 2916
+#  - 1458
+#  - 1152
+cfg_model:
+  input_dim: 5760
+  output_layers_dims:
+    - 11520
+    - 23160
+    - 11520
+    - 2916
+    - 1152
+  batch_norm_layers:
+    - 1
+    - 1
+    - 1
+    - 1
+    - -1
+  output_shape:
+    - 2
+    - 1
+    - 24
+    - 24
+cfg_dataset:
+  radius_lon: 1
+  radius_lat: 1
+  margin_forecast: 0
+  stride_tiles_dataset: 0.8
+  time_horizon_input_h: 5
+  time_horizon_output_h: 1
+  stride_time_dataset_h: 1
+  input_shape:
+    - 2
+    - 5
+    - 24
+    - 24
+  output_shape:
+    - 2
+    - 1
+    - 24
+    - 24
+  index_axis_time: 2
+model_error: true
