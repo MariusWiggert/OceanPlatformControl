@@ -145,9 +145,11 @@ plt.savefig(f"{folder_save_results}/ReachabilitySnap.png")
 # %% Simulate a trajectory:
 update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
-max_flock_correction_list = []
+max_ma_control_correction_list = []
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action, max_flock_correction = planner_set.get_action_HJ_with_flocking(observation=observation)
+    action, max_ma_control_correction = planner_set.get_action_HJ_decentralized_reactive_control(
+        observation=observation
+    )
     observation = arena.step(action)
     # check if platforms have reached target
     new_status = [
@@ -155,11 +157,11 @@ for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
     ]
     # for the final metric, look if platform was able to reach target within T, so keep only max (=1 if pltf reached target)
     all_pltf_status = list(map(max, zip(all_pltf_status, new_status)))
-    max_flock_correction_list.append(max_flock_correction)
+    max_ma_control_correction_list.append(max_ma_control_correction)
 
 metrics_dict = arena.save_metrics_to_log(
     all_pltf_status=all_pltf_status,
-    max_correction_from_opt_ctrl=max_flock_correction_list,
+    max_correction_from_opt_ctrl=max_ma_control_correction_list,
     filename=f"{folder_save_results}/metrics.log",
 )
 metrics_df = pd.DataFrame(data=metrics_dict, index=[0])
