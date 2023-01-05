@@ -48,18 +48,19 @@ observer:
 
   model:
     gaussian_process:
-      sigma_noise_squared: 0.000005
+      #sigma_noise_squared: 0.000005
       # 3.6 ** 2 = 12.96
-      sigma_exp_squared: 100 #12.96
+      sigma_exp_squared: 3.4904 #12.96
       kernel:
         #type: "RBF"
         type: "matern"
         scaling:
-          latitude: 1 # [m]
-          longitude: 1 # [m]
-          time: 10000 # [s]
+          latitude: 0.48426081412300614 # [m]
+          longitude: 0.6580229922153629 # [m]
+          time: 31553.807459317766 # [s]
         parameters:
           length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+          nu: 1.5
         #type: "rbf"
         #type: "constantkernel"
 

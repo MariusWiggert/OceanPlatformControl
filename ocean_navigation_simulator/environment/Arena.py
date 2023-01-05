@@ -119,7 +119,7 @@ class Arena:
         seaweed_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
         collect_trajectory: Optional[bool] = True,
-        timeout: Union[datetime.timedelta, int] = None
+        timeout: Union[datetime.timedelta, int] = None,
     ):
         """OceanPlatformArena constructor.
         Args:
@@ -266,34 +266,30 @@ class Arena:
             try:
                 x_boundary = [
                     self.ocean_field.hindcast_data_source.grid_dict["x_grid"][0],
-                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1]]
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1],
+                ]
                 y_boundary = [
                     self.ocean_field.hindcast_data_source.grid_dict["y_grid"][0],
-                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1]]
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1],
+                ]
             except BaseException:
-                self.logger.warning(f"Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside.")
+                self.logger.warning(
+                    "Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside."
+                )
                 return True
         else:
             x_boundary = [x.deg for x in self.spatial_boundary["x"]]
             y_boundary = [y.deg for y in self.spatial_boundary["y"]]
 
         # calculate if inside or outside
-        inside_x = (
-            x_boundary[0] + margin
-            < self.platform.state.lon.deg
-            < x_boundary[1] - margin
-        )
-        inside_y = (
-            y_boundary[0] + margin
-            < self.platform.state.lat.deg
-            < y_boundary[1] - margin
-        )
+        inside_x = x_boundary[0] + margin < self.platform.state.lon.deg < x_boundary[1] - margin
+        inside_y = y_boundary[0] + margin < self.platform.state.lat.deg < y_boundary[1] - margin
         return inside_x and inside_y
 
     def is_on_land(self, point: SpatialPoint = None) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
         # Check if x_grid exists (not for all data sources)
-        if self.ocean_field.hindcast_data_source.grid_dict.get('x_grid', None) is not None:
+        if self.ocean_field.hindcast_data_source.grid_dict.get("x_grid", None) is not None:
             if point is None:
                 point = self.platform.state
             return self.ocean_field.hindcast_data_source.is_on_land(point)
@@ -303,14 +299,18 @@ class Arena:
     def is_timeout(self) -> bool:
         # calculate passed_seconds
         if self.timeout is not None:
-            total_seconds = (self.platform.state.date_time - self.initial_state.date_time).total_seconds()
+            total_seconds = (
+                self.platform.state.date_time - self.initial_state.date_time
+            ).total_seconds()
             return total_seconds >= self.timeout.total_seconds()
         else:
             return False
 
     def final_distance_to_target(self, problem: NavigationProblem) -> float:
         # Step 1: calculate min distance
-        total_distance = problem.distance(PlatformState.from_numpy(self.state_trajectory[-1, :])).deg
+        total_distance = problem.distance(
+            PlatformState.from_numpy(self.state_trajectory[-1, :])
+        ).deg
         min_distance_to_target = total_distance - problem.target_radius
         # Step 2: Set 0 when inside and the distance when outside
         if min_distance_to_target <= 0:
@@ -414,20 +414,26 @@ class Arena:
     def animate_trajectory(
         self,
         margin: Optional[float] = 1,
+        x_interval: Optional[List[float]] = None,
+        y_interval: Optional[List[float]] = None,
         problem: Optional[NavigationProblem] = None,
         temporal_resolution: Optional[float] = None,
         add_ax_func_ext: Optional[Callable] = None,
+        full_traj: Optional[bool] = True,
         output: Optional[AnyStr] = "traj_animation.mp4",
         **kwargs,
     ):
         """Plotting functions to animate the trajectory of the arena so far.
         Optional Args:
               margin:            Margin as box around x_0 and x_T to plot
+              x_interval:        If both x and y interval are present the margin is ignored.
+              y_interval:        If both x and y interval are present the margin is ignored.
               problem:           Navigation Problem object
               temporal_resolution:  The temporal resolution of the animation in seconds (per default same as data_source)
               add_ax_func_ext:  function handle what to add on top of the current visualization
                                 signature needs to be such that it takes an axis object and time as input
                                 e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
+              full_traj:        Boolean, True per default to disply full trajectory at all times, when False iteratively.
               # Other variables possible via kwargs see DataSource animate_data, such as:
               fps:              Frames per second
               output:           How to output the animation. Options are either saved to file or via html in jupyter/safari.
@@ -442,8 +448,11 @@ class Arena:
             data_source=self.ocean_field.hindcast_data_source,
             problem=problem,
             margin=margin,
+            x_interval=x_interval,
+            y_interval=y_interval,
             temporal_resolution=temporal_resolution,
             add_ax_func_ext=add_ax_func_ext,
+            full_traj=full_traj,
             output=output,
             **kwargs,
         )
@@ -499,7 +508,7 @@ class Arena:
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
-        index: Optional[int] = -1,
+        index: Optional[int] = 0,
         show_current_position: Optional[bool] = True,
         current_position_color: Optional[str] = "black",
         # State
@@ -570,7 +579,7 @@ class Arena:
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend()
+        ax.legend(loc="lower right")
 
         if return_ax:
             return ax

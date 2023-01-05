@@ -33,3 +33,6 @@ class NaiveProblemFactory(ProblemFactory):
             True iff the factory can still create at least one problem
         """
         return len(self.problems) > 0
+
+    def get_problem_list(self, limit) -> [(int, Problem)]:
+        return list(enumerate(self.problems[:limit]))
