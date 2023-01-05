@@ -1,0 +1,234 @@
+{
+  "lr": {
+    "desc": null,
+    "value": 0.0016327816089142116
+  },
+  "seed": {
+    "desc": null,
+    "value": 1
+  },
+  "ch_sz": {
+    "desc": null,
+    "value": [
+      2,
+      6,
+      12,
+      24,
+      48
+    ]
+  },
+  "gamma": {
+    "desc": null,
+    "value": 0.7
+  },
+  "_wandb": {
+    "desc": null,
+    "value": {
+      "t": {
+        "1": [
+          1,
+          55
+        ],
+        "2": [
+          1,
+          55
+        ],
+        "3": [
+          2,
+          3,
+          15,
+          23,
+          37
+        ],
+        "4": "3.9.12",
+        "5": "0.13.2",
+        "8": [
+          5
+        ]
+      },
+      "framework": "torch",
+      "start_time": 1666850172.88257,
+      "cli_version": "0.13.2",
+      "is_jupyter_run": false,
+      "python_version": "3.9.12",
+      "is_kaggle_kernel": false
+    }
+  },
+  "device": {
+    "desc": null,
+    "value": "cuda"
+  },
+  "epochs": {
+    "desc": null,
+    "value": 20
+  },
+  "dry_run": {
+    "desc": null,
+    "value": false
+  },
+  "no_cuda": {
+    "desc": null,
+    "value": false
+  },
+  "silicon": {
+    "desc": null,
+    "value": false
+  },
+  "optimizer": {
+    "desc": null,
+    "value": {
+      "name": "Adam",
+      "parameters": {
+        "eps": 0.000001,
+        "betas": [
+          0.95,
+          0.9995
+        ],
+        "weight_decay": 0.0007
+      }
+    }
+  },
+  "scheduler": {
+    "desc": null,
+    "value": {
+      "name": "ReduceLROnPlateau",
+      "parameters": {
+        "mode": "min",
+        "factor": 0.5,
+        "patience": 7,
+        "threshold": 0.005
+      }
+    }
+  },
+  "tile_size": {
+    "desc": null,
+    "value": [
+      12,
+      25,
+      25
+    ]
+  },
+  "activation": {
+    "desc": null,
+    "value": "relu"
+  },
+  "batch_size": {
+    "desc": null,
+    "value": 128
+  },
+  "model_type": {
+    "desc": null,
+    "value": "cnn"
+  },
+  "print_dims": {
+    "desc": null,
+    "value": false
+  },
+  "save_model": {
+    "desc": null,
+    "value": false
+  },
+  "tags_wandb": {
+    "desc": null,
+    "value": [
+      "big_tile",
+      "big_dataset",
+      "GP_output"
+    ]
+  },
+  "model_error": {
+    "desc": null,
+    "value": false
+  },
+  "log_interval": {
+    "desc": null,
+    "value": 1
+  },
+  "weight_decay": {
+    "desc": null,
+    "value": 0.007315608742981338
+  },
+  "folder_figure": {
+    "desc": null,
+    "value": "./figures/"
+  },
+  "instance_norm": {
+    "desc": null,
+    "value": false
+  },
+  "dropout_bottom": {
+    "desc": null,
+    "value": 0.046342617560933226
+  },
+  "dropout_decoder": {
+    "desc": null,
+    "value": 0.1589787793469004
+  },
+  "dropout_encoder": {
+    "desc": null,
+    "value": 0.0810876372115155
+  },
+  "output_paddings": {
+    "desc": null,
+    "value": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ]
+    ]
+  },
+  "initial_channels": {
+    "desc": null,
+    "value": [
+      4,
+      5
+    ]
+  },
+  "downsizing_method": {
+    "desc": null,
+    "value": "avgpool"
+  },
+  "yaml_file_datasets": {
+    "desc": null,
+    "value": "config_neural_net"
+  },
+  "return_GP_FC_IMP_FC": {
+    "desc": null,
+    "value": true
+  },
+  "lambda_physical_loss": {
+    "desc": null,
+    "value": 0
+  },
+  "final_number_channels": {
+    "desc": null,
+    "value": 2
+  },
+  "validation_batch_size": {
+    "desc": null,
+    "value": 256
+  },
+  "max_batches_training_set": {
+    "desc": null,
+    "value": -1
+  },
+  "max_batches_validation_set": {
+    "desc": null,
+    "value": -1
+  },
+  "validate_each_file_separately": {
+    "desc": null,
+    "value": true
+  }
+}

@@ -1,13 +1,12 @@
+import datetime
 import os
 
-import datetime
-import time
-
+import pytest
 import yaml
 
-from ocean_navigation_simulator.problem_factories.Constructor import Constructor
-
-import pytest
+from ocean_navigation_simulator.problem_factories.Constructor import (
+    Constructor,
+)
 
 
 @pytest.mark.training
@@ -25,7 +24,11 @@ def test_Constructor():
                     # 3.6 ** 2 = 12.96
                     "sigma_exp_squared": 100,  # 12.96
                     "kernel": {
-                        "scaling": {"latitude": 1, "longitude": 1, "time": 10000},  # [m]  # [m]  # [s]
+                        "scaling": {
+                            "latitude": 1,
+                            "longitude": 1,
+                            "time": 10000,
+                        },  # [m]  # [m]  # [s]
                         "type": "matern",
                         "parameters": {"length_scale_bounds": "fixed"},
                     },
@@ -39,7 +42,6 @@ def test_Constructor():
     #     "observer": None
     # }
 
-
     x_0 = {
         "lon": -82.5,
         "lat": 23.7,
@@ -48,7 +50,7 @@ def test_Constructor():
 
     x_T = {"lon": -80.3, "lat": 24.6}
 
-    with open(f"config/arena/gulf_of_mexico_HYCOM_hindcast_local.yaml") as f:
+    with open("config/arena/gulf_of_mexico_HYCOM_hindcast_local.yaml") as f:
         arena_config = yaml.load(f, Loader=yaml.FullLoader)
 
     mission_config = {
@@ -83,7 +85,6 @@ def test_Constructor():
         # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     }
 
-
     # Step 0: Create Constructor object which contains arena, problem, controller and observer
     constructor = Constructor(
         arena_conf=arena_config,
@@ -93,7 +94,6 @@ def test_Constructor():
         observer_conf=observer_config,
     )
 
-
     # Step 1.1 Retrieve problem
     problem = constructor.problem
 
@@ -102,14 +102,12 @@ def test_Constructor():
     observation = arena.reset(platform_state=problem.start_state)
     problem_status = arena.problem_status(problem=problem)
 
-
     # Step 2: Retrieve controller
     controller = constructor.controller
     action = controller.get_action(observation=observation)
 
     # Step 3: Retrieve observer
     observer = constructor.observer
-
 
     # Step 4: Run Arena
     # TODO: investigate runtime of collision check
@@ -127,11 +125,12 @@ def test_Constructor():
         problem_status = arena.problem_status(problem=problem)
 
     # Generate trajectory animation
-    arena.animate_trajectory(problem=problem, temporal_resolution=7200,output="trajectory.mp4")
-
+    arena.animate_trajectory(problem=problem, temporal_resolution=7200, output="trajectory.mp4")
 
     # Test if animation is saved
-    assert os.path.isfile('generated_media/trajectory.mp4') is True, "Trajectory animation was not saved properly."
+    assert (
+        os.path.isfile("generated_media/trajectory.mp4") is True
+    ), "Trajectory animation was not saved properly."
 
     # Remove animation
-    os.remove('generated_media/trajectory.mp4')
+    os.remove("generated_media/trajectory.mp4")

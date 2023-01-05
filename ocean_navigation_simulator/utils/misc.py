@@ -108,6 +108,7 @@ def set_arena_loggers(level):
     logging.getLogger("arena.factory").setLevel(level)
     logging.getLogger("arena.platform").setLevel(level)
     logging.getLogger("arena.controller").setLevel(level)
+    logging.getLogger("observer").setLevel(level)
 
     logging.getLogger("data_source").setLevel(level)
 

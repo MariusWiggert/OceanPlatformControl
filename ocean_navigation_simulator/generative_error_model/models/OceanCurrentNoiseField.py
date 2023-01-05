@@ -1,13 +1,16 @@
-from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import (
-    SimplexNoiseModel,
-    HarmonicParameters,
-)
-from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import GenerativeModel
-
-from typing import List, Dict, Any, Tuple, Optional
-import xarray as xr
 import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+import xarray as xr
+
+from ocean_navigation_simulator.generative_error_model.models.GenerativeModel import (
+    GenerativeModel,
+)
+from ocean_navigation_simulator.generative_error_model.models.SimplexNoiseModel import (
+    HarmonicParameters,
+    SimplexNoiseModel,
+)
 
 
 class OceanCurrentNoiseField(GenerativeModel):
@@ -39,13 +42,14 @@ class OceanCurrentNoiseField(GenerativeModel):
         self.model.reset(rng)
         self.time_origin = None
 
-    def get_noise_from_ranges(self,
-                              x_interval: List[float],
-                              y_interval: List[float],
-                              t_interval: List[datetime.datetime],
-                              spatial_resolution: Optional[float] = None,
-                              temporal_resolution: Optional[float] = None
-                              ) -> xr.Dataset:
+    def get_noise_from_ranges(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[datetime.datetime],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+    ) -> xr.Dataset:
         """Uses the SimplexNoiseModel to produce a noise field over the specified ranges.
         Parameters:
             spatial_resolution - in degrees
@@ -53,7 +57,10 @@ class OceanCurrentNoiseField(GenerativeModel):
         """
 
         if temporal_resolution is None:
-            lon_res, lat_res, = 1/12, 1/12
+            lon_res, lat_res, = (
+                1 / 12,
+                1 / 12,
+            )
         else:
             lon_res, lat_res = spatial_resolution, spatial_resolution
 
@@ -71,13 +78,21 @@ class OceanCurrentNoiseField(GenerativeModel):
         lon_locs = np.arange(lon_range[0], lon_range[1] + lon_res, lon_res)
         lat_locs = np.arange(lat_range[0], lat_range[1] + lat_res, lat_res)
         if self.time_origin is None:
-            t_locs = np.array(timedelta_range_hours(datetime.timedelta(hours=0),
-                                                    t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
-                                                    t_res))
+            t_locs = np.array(
+                timedelta_range_hours(
+                    datetime.timedelta(hours=0),
+                    t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
+                    t_res,
+                )
+            )
         else:
-            t_locs = np.array(timedelta_range_hours(t_range[0] - self.time_origin,
-                                                    t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
-                                                    t_res))
+            t_locs = np.array(
+                timedelta_range_hours(
+                    t_range[0] - self.time_origin,
+                    t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
+                    t_res,
+                )
+            )
         t_locs = np.array([np.timedelta64(timedelta) for timedelta in t_locs])
 
         return self.get_noise(lon_locs, lat_locs, t_locs, t_range[0])
@@ -91,15 +106,19 @@ class OceanCurrentNoiseField(GenerativeModel):
         if self.time_origin is None:
             t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis])
         else:
-            t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis - self.time_origin])
+            t_locs = np.array(
+                [np.timedelta64(time_step - t_axis[0]) for time_step in t_axis - self.time_origin]
+            )
 
         return self.get_noise(lon_axis, lat_axis, t_locs, t_axis[0])
 
-    def get_noise(self,
-                  lon_locs: np.ndarray,
-                  lat_locs: np.ndarray,
-                  t_locs: np.ndarray,
-                  t_origin: datetime.datetime):
+    def get_noise(
+        self,
+        lon_locs: np.ndarray,
+        lat_locs: np.ndarray,
+        t_locs: np.ndarray,
+        t_origin: datetime.datetime,
+    ):
 
         """This method iteratively gets a slice of constant lat and varying lon and time with every iteration.
         Cannot sample all positions at once because degree-space is not Euclidean and OpenSimplex only allows
@@ -128,7 +147,11 @@ class OceanCurrentNoiseField(GenerativeModel):
 
     @staticmethod
     def _create_xarray(
-        data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: np.ndarray, t_start: datetime.datetime
+        data: np.ndarray,
+        lon_axis: np.ndarray,
+        lat_axis: np.ndarray,
+        t_axis: np.ndarray,
+        t_start: datetime.datetime,
     ) -> xr.Dataset:
 
         ds = xr.Dataset(
@@ -139,7 +162,7 @@ class OceanCurrentNoiseField(GenerativeModel):
             coords=dict(
                 time=datetime_range_from_timedeltas(t_start, t_axis.tolist()),
                 lat=lat_axis,
-                lon=lon_axis
+                lon=lon_axis,
             ),
             attrs=dict(description="An ocean current error sample over time and space."),
         )

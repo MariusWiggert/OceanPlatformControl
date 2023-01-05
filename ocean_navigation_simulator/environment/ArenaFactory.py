@@ -1,9 +1,9 @@
+import contextlib
 import datetime
 import logging
 import os
 import shutil
 from typing import List, Optional
-import contextlib
 
 import mergedeep
 import yaml
@@ -45,6 +45,7 @@ class ArenaFactory:
     @staticmethod
     def create(
         scenario_file: str = None,
+        folder_scenario: str = "config/arena/",
         scenario_name: str = None,
         scenario_config: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,
@@ -87,7 +88,7 @@ class ArenaFactory:
                 with open(scenario_file) as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
             elif scenario_name is not None:
-                with open(f"config/arena/{scenario_name}.yaml") as f:
+                with open(os.path.join(folder_scenario, f"{scenario_name}.yaml")) as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
             else:
                 config = {}
@@ -211,7 +212,7 @@ class ArenaFactory:
 
             # Step 7: Create Arena
             return Arena(
-                casadi_cache_dict=config["casadi_cache_dict"],
+                casadi_cache_dict=config.get("casadi_cache_dict", {}),
                 platform_dict=config["platform_dict"],
                 ocean_dict=config["ocean_dict"],
                 use_geographic_coordinate_system=config.get(

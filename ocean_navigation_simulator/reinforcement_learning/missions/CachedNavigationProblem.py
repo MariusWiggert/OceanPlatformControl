@@ -63,20 +63,20 @@ class CachedNavigationProblem(NavigationProblem):
         """To easily populate c3 database with missions."""
         prob_dict = self.to_dict()
         x_0 = {
-            "lon": prob_dict['x_0_lon'].tolist(),
-            "lat": prob_dict['x_0_lat'].tolist(),
-            "date_time": prob_dict['t_0'],
+            "lon": prob_dict["x_0_lon"].tolist(),
+            "lat": prob_dict["x_0_lat"].tolist(),
+            "date_time": prob_dict["t_0"],
         }
 
-        x_T = {"lon": prob_dict['x_T_lon'], "lat": prob_dict['x_T_lat']}
+        x_T = {"lon": prob_dict["x_T_lon"], "lat": prob_dict["x_T_lat"]}
 
         mission_config = {
-            "x_0": [x_0], # Evaluation runner assumes it is a list (for multi-agent)
+            "x_0": [x_0],  # Evaluation runner assumes it is a list (for multi-agent)
             "x_T": x_T,
-            "target_radius": prob_dict['target_radius'],
-            "seed": prob_dict.get('factory_seed', None),
-            "feasible": prob_dict.get('feasible', None),
-            'ttr_in_h': prob_dict.get('ttr_in_h', None)
+            "target_radius": prob_dict["target_radius"],
+            "seed": prob_dict.get("factory_seed", None),
+            "feasible": prob_dict.get("feasible", None),
+            "ttr_in_h": prob_dict.get("ttr_in_h", None),
         }
 
         return mission_config
@@ -85,16 +85,19 @@ class CachedNavigationProblem(NavigationProblem):
     def from_c3_mission_config(missionConfig):
         return CachedNavigationProblem(
             start_state=PlatformState(
-                lon=units.Distance(deg=missionConfig["x_0"][0]['lon']),
-                lat=units.Distance(deg=missionConfig["x_0"][0]['lat']),
-                date_time=datetime.datetime.fromisoformat(missionConfig["x_0"][0]['date_time']),
+                lon=units.Distance(deg=missionConfig["x_0"][0]["lon"]),
+                lat=units.Distance(deg=missionConfig["x_0"][0]["lat"]),
+                date_time=datetime.datetime.fromisoformat(missionConfig["x_0"][0]["date_time"]),
             ),
             end_region=SpatialPoint(
-                lon=units.Distance(deg=missionConfig["x_T"]['lon']),
-                lat=units.Distance(deg=missionConfig["x_T"]['lat']),
+                lon=units.Distance(deg=missionConfig["x_T"]["lon"]),
+                lat=units.Distance(deg=missionConfig["x_T"]["lat"]),
             ),
             target_radius=missionConfig["target_radius"],
-            extra_info={'feasible': missionConfig.get("feasible", None), 'ttr_in_h': missionConfig.get("ttr_in_h", None)},
+            extra_info={
+                "feasible": missionConfig.get("feasible", None),
+                "ttr_in_h": missionConfig.get("ttr_in_h", None),
+            },
         )
 
     def get_cached_forecast_planner(self, base_path, arena=None, pickle=False):
