@@ -1,20 +1,27 @@
+import math
 import multiprocessing as mp
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import scipy
+import scipy.integrate as integrate
 import xarray as xr
-import networkx as nx
 
 from ocean_navigation_simulator.controllers.Controller import Controller
+from ocean_navigation_simulator.controllers.Flocking import (  # RelaxedFlockingControl,; FlockingControl2,
+    FlockingControl,
+    FlockingControlVariant,
+)
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJPlannerBase,
     HJReach2DPlanner,
 )
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -28,23 +35,16 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
     SpatioTemporalPoint,
 )
-from ocean_navigation_simulator.controllers.Flocking import (
-    FlockingControl,
-    FlockingControlVariant,
-    # RelaxedFlockingControl,
-    # FlockingControl2,
-)
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
-import scipy.integrate as integrate
-import math
+
 
 class DecentralizedReactiveControl:
-    """Implementation of reactive control for the multi-agent scheme 
+    """Implementation of reactive control for the multi-agent scheme
     with the rules specified in
     https://repository.upenn.edu/cgi/viewcontent.cgi?article=1044&context=meam_papers
     """
+
     def __init__(
         self,
         observation: ArenaObservation,
@@ -63,8 +63,10 @@ class DecentralizedReactiveControl:
         self.observation = observation
         self.u_max_mps = platform_dict["u_max_in_mps"]
 
-    def get_reactive_control(self, pltf_id: int, hj_optimal_action: PlatformAction)-> PlatformAction:
-        """Obtain the reactive control input for a given platform, taking into account the position 
+    def get_reactive_control(
+        self, pltf_id: int, hj_optimal_action: PlatformAction
+    ) -> PlatformAction:
+        """Obtain the reactive control input for a given platform, taking into account the position
         of the neighboring platforms and the navigation function, defined as the HJ time-optimal
         control input
 
@@ -97,9 +99,9 @@ class DecentralizedReactiveControl:
 
         Args:
             pltf_id (int): the platform for which the control input is computed (index i in the paper)
-            a (int): The constant for constraint of neighbor a of this platform 
+            a (int): The constant for constraint of neighbor a of this platform
                     (defining repulsion or attraction)
-            b (int): The constant for constraint of neighbor b of this platform 
+            b (int): The constant for constraint of neighbor b of this platform
                     (defining repulsion or attraction)
 
         Returns:
@@ -117,7 +119,7 @@ class DecentralizedReactiveControl:
 
     def _compute_gradient_g(self, pltf_id: int, d_x_id: int) -> np.ndarray:
         """Computes the gradient of the constraint function g
-        
+
         Args:
             pltf_id (int): the platform for which the control input is computed (index i in the paper)
             d_x_id (int): constraint of platform i w.r.t a or b (index of the neighboring platform)
@@ -159,11 +161,11 @@ class DecentralizedReactiveControl:
             - self.param_dict["communication_thrsld"] ** 2
         )
 
-    def _set_attraction_or_repulsion(self, g: float)-> int:
-        """ Set attraction or repulsive behavior w.r.t to
+    def _set_attraction_or_repulsion(self, g: float) -> int:
+        """Set attraction or repulsive behavior w.r.t to
         neighbor a or b, given by the circular constraint function g
         The thresholds delta are squared to match the constraint function
-        form (x_i - x_k)^2 + (y_i - y_k)^2 - r_k^2 
+        form (x_i - x_k)^2 + (y_i - y_k)^2 - r_k^2
         Args:
             g (float): constraint function g^a or g^b
 
@@ -177,12 +179,14 @@ class DecentralizedReactiveControl:
         else:  # delta_3 < g < delta_2
             return 0
 
+
 class MultiAgentPlanner(HJReach2DPlanner):
     """
-    Base Class for all the multi-agent computations, to try to maintain connectivity and avoid 
+    Base Class for all the multi-agent computations, to try to maintain connectivity and avoid
     collisions. Child Class of HJReach2dPlanner to run HJ as a navigation function for every platforms
     using multi-time reachability
     """
+
     def __init__(
         self,
         problem: NavigationProblem,
@@ -210,11 +214,11 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def get_action_HJ_decentralized_reactive_control(
         self, observation: ArenaObservation
     ) -> PlatformActionSet:
-        """ Reactive control for multi-agent, with HJ as navigation function
+        """Reactive control for multi-agent, with HJ as navigation function
 
         Args:
             observation (ArenaObservation): Arena Observation with states, currents
-                                            and Graph Observations 
+                                            and Graph Observations
 
         Returns:
             PlatformActionSet: A set of platform actions computed using reactive control and HJ
@@ -237,7 +241,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
 
         Args:
             observation (ArenaObservation): Arena Observation with states, currents
-                                            and Graph Observations 
+                                            and Graph Observations
 
         Returns:
             PlatformActionSet: A set of platform actions computed using flocking and HJ
@@ -249,7 +253,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         #     param_dict=self.multi_agent_settings["flocking"],
         #     platform_dict=self.platform_dict,
         # )
-        flocking_control = FlockingControlVariant(
+        flocking_control = FlockingControl(
             observation=observation,
             param_dict=self.multi_agent_settings["flocking"],
             platform_dict=self.platform_dict,
@@ -257,15 +261,17 @@ class MultiAgentPlanner(HJReach2DPlanner):
         for k in range(len(observation)):
             hj_navigation = super().get_action(observation[k])
             point = observation[k].platform_state.to_spatio_temporal_point()
-            #val = super().interpolate_value_function_in_hours(point=point) # interpolate TTR map value
+            # val = super().interpolate_value_function_in_hours(point=point) # interpolate TTR map value
             flocking_action = flocking_control.get_u_i(node_i=k, hj_action=hj_navigation)
             action_list.append(self.to_platform_action_bounds(flocking_action))
-            # compute the flocking correction angle to optimal input as proxy for energy consumption 
+            # compute the flocking correction angle to optimal input as proxy for energy consumption
             # map angle to [-pi,pi] and take the absolute value
-            flocking_correction_angle.append(abs(math.remainder(flocking_action.direction - hj_navigation.direction, math.tau)))
+            flocking_correction_angle.append(
+                abs(math.remainder(flocking_action.direction - hj_navigation.direction, math.tau))
+            )
         return PlatformActionSet(action_list), max(flocking_correction_angle)
 
-    def to_platform_action_bounds(self, action: PlatformAction)->PlatformAction:
+    def to_platform_action_bounds(self, action: PlatformAction) -> PlatformAction:
         """Bound magnitude to 0-1 of u_max and direction between [0, 2pi[
 
         Args:
@@ -275,5 +281,5 @@ class MultiAgentPlanner(HJReach2DPlanner):
             PlatformAction: scaled w.r.t u_max
         """
         action.direction = action.direction % (2 * np.pi)
-        action.magnitude = max(min(action.magnitude,1),1)
+        action.magnitude = max(min(action.magnitude, 1), 1)
         return action

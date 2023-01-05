@@ -5,10 +5,10 @@ from typing import List, Tuple, Union
 
 import numpy as np
 
-from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentVector import (
     OceanCurrentVector,
 )
+from ocean_navigation_simulator.utils import units
 
 
 @dataclasses.dataclass

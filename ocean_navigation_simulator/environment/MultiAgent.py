@@ -1,6 +1,9 @@
 import copy
-import networkx as nx
+import dataclasses
+import datetime as dt
 import logging
+import math
+from functools import partial
 from typing import (
     AnyStr,
     Callable,
@@ -11,25 +14,24 @@ from typing import (
     Tuple,
     Union,
 )
+
 import matplotlib
+import matplotlib.animation as animation
+import networkx as nx
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
-import matplotlib.animation as animation
-import numpy as np
-import math
+from scipy.integrate import simpson
+
+from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformStateSet,
 )
-from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.utils import units
-import datetime as dt
-from functools import partial
 from ocean_navigation_simulator.utils.plotting_utils import (
     get_lon_lat_time_interval_from_trajectory,
     idx_state,
 )
-import dataclasses
-from scipy.integrate import simpson
 
 
 @dataclasses.dataclass
@@ -348,7 +350,7 @@ class MultiAgent:
             list_of_graph (List[nx.Graph]): graphs at different times taken during the simulation
             dates (List[dt.datetime]): times at which the graphs were recorded
             success_rate_reach_target (float): number of platforms having reached target out of all platforms
-            energy_efficiency_proxy(float): average of the maximum deviation from the optimal control angle for all the platforms 
+            energy_efficiency_proxy(float): average of the maximum deviation from the optimal control angle for all the platforms
                                             at each simulation step
             logfile (str, optional): name of file to log to. Defaults to "logmetrics.log".
             formatLog (Optional[logging.Formatter], optional): log format. Defaults to None.
@@ -363,6 +365,8 @@ class MultiAgent:
         collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
         integrated_communication = simpson(isolated_nodes, dates)
         collision_metric = sum(collisions)
+        initial_max_graph_degree = max([deg for _, deg in list_of_graph[0].degree])
+        final_max_graph_degree = max([deg for _, deg in list_of_graph[-1].degree])
         if (
             success_rate_reach_target == 1
             and integrated_communication == 0
@@ -393,6 +397,18 @@ class MultiAgent:
         self.LOG_insert(
             logfile,
             formatLog,
+            f"Initial maximum degree of the graph = {initial_max_graph_degree}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Final maximum degree of the graph = {final_max_graph_degree}",
+            logging.INFO,
+        )
+        self.LOG_insert(
+            logfile,
+            formatLog,
             f"Mean maximum correction from optimal control, in degrees = {energy_efficiency_proxy*180/np.pi}",
             logging.INFO,
         )
@@ -403,11 +419,15 @@ class MultiAgent:
             logging.INFO,
         )
         return {
-            "isolated_platform_metric": integrated_communication,
-            "number_of_collision": collision_metric,
-            "reaching_target": success_rate_reach_target,
-            "Mean maximum correction from optimal control degrees": energy_efficiency_proxy*180/np.pi,
-            "mission_sucess": mission_success,
+            "Isolated_platform_metric": integrated_communication,
+            "Number_of_collision": collision_metric,
+            "Reaching_target": success_rate_reach_target,
+            "Mean maximum correction from optimal control degrees": energy_efficiency_proxy
+            * 180
+            / np.pi,
+            "Initial maximum degree of the graph": initial_max_graph_degree,
+            "Final maximum degree of the graph": final_max_graph_degree,
+            "Mission_sucess": mission_success,
         }
 
     # ---- Plot functions ----#

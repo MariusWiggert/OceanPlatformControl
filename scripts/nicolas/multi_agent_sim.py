@@ -4,9 +4,9 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
-import yaml
 import pandas as pd
+import yaml
+from tqdm import tqdm
 
 os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 # os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
@@ -158,8 +158,9 @@ for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
     max_flock_correction_list.append(max_flock_correction)
 
 metrics_dict = arena.save_metrics_to_log(
-    all_pltf_status=all_pltf_status, max_correction_from_opt_ctrl= max_flock_correction_list,
-    filename=f"{folder_save_results}/metrics.log"
+    all_pltf_status=all_pltf_status,
+    max_correction_from_opt_ctrl=max_flock_correction_list,
+    filename=f"{folder_save_results}/metrics.log",
 )
 metrics_df = pd.DataFrame(data=metrics_dict, index=[0])
 metrics_df.to_csv(f"{folder_save_results}/metrics.csv")

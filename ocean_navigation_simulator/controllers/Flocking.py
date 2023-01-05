@@ -9,21 +9,209 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
-import numpy as np
 import networkx as nx
-from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.Platform import (
-    PlatformAction,
-)
+import numpy as np
 import scipy.integrate as integrate
+
+from ocean_navigation_simulator.environment.Arena import ArenaObservation
+from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
 class FlockingControl:
+    def __init__(
+        self,
+        observation: ArenaObservation,
+        param_dict: dict,
+        platform_dict: dict,
+    ):
+        self.param_dict = param_dict
+        self.G_proximity = observation.graph_obs.G_communication
+        self.observation = observation
+        adjacency_communication = observation.graph_obs.adjacency_matrix_in_unit(
+            unit=self.param_dict["unit"], graph_type="communication"
+        )  # get adjacency for communication graph
+        self.binary_adjacency = np.where(
+            adjacency_communication > 0, True, False
+        )  # indicator values
+        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
+            unit=self.param_dict["unit"], graph_type="complete"
+        )  # complete adjacency matrix containing all distances between platforms
+        self.u_max_mps = platform_dict["u_max_in_mps"]
+        self.dt_in_s = platform_dict["dt_in_s"]
+        self.r = self.param_dict["interaction_range"]
+        self.list_all_platforms = list(range(self.adjacency_mat.shape[0]))
+        self.epsilon = 1e-3  # small value for the
+        self._set_grad_clipping_value()
+
+    def _set_grad_clipping_value(self):
+        """Low and High gradient clipping values are equal, so it does not matter whether the gradient clipping
+        value is computed with norm_qij = "grad_clip_range" or r-"grad_clip_range"
+        """
+        self.grad_clip_abs_val = np.absolute(
+            -self.r
+            * (self.r - 2 * self.param_dict["grad_clip_range"])
+            / (
+                self.param_dict["grad_clip_range"] ** 2
+                * (self.r - self.param_dict["grad_clip_range"]) ** 2
+            )
+        )
+
+    def gradient(self, norm_qij: float, inside_range: bool, grad_clip: bool = True) -> float:
+        """Gradient of the potential function, clipped when the magnitude approaches infinity
+
+        Args:
+            norm_qij (float): the euclidean norm of the distance between platform i and j
+            inside_range (bool): if the distance between i and j is within the interaction/communication range
+            grad_clip (bool, optional): Clips the gradient starting from the gradient
+                                        clipping range to the vertical asymptote. Defaults to True.
+
+        Returns:
+            float: gradient of potential function (magnitude)
+        """
+        if inside_range:
+            if grad_clip and (
+                norm_qij < self.param_dict["grad_clip_range"]
+                or norm_qij > self.r - self.param_dict["grad_clip_range"]
+            ):
+                grad = np.sign(-self.r * (self.r - 2 * norm_qij)) * self.grad_clip_abs_val
+            else:
+                grad = (
+                    -self.r * (self.r - 2 * norm_qij) / (norm_qij**2 * (self.r - norm_qij) ** 2)
+                )
+        else:
+            if grad_clip and (norm_qij - self.r < self.param_dict["grad_clip_range"]):
+                grad = self.grad_clip_abs_val
+            else:
+                grad = 1 / (norm_qij - self.r + self.epsilon)
+        return grad
+
+    def potential_func(self, norm_qij: float, inside_range: bool) -> float:
+        """Potential function responsible for the attraction repulsion behavior between platforms
+
+        Args:
+            norm_qij (float): the euclidean norm of the distance between platform i and j
+            inside_range (bool): if the distance between i and j is within the interaction/communication range
+
+        Returns:
+            float: value of the potential function
+        """
+        if inside_range:
+            return self.r / (norm_qij * (self.r - norm_qij))
+        else:
+            return np.log(norm_qij - self.r + self.epsilon)
+
+    def get_n_ij(self, i_node: int, j_neighbor: int) -> np.ndarray:
+        """Vector along the line connecting platform i to neighboring platform j
+
+        Args:
+            i_node (int): index of platform i (node)
+            j_neighbor (int): index of the neighbor
+        Returns:
+            np.ndarray: connecting vector, with dimensions corresponding to lon,lat
+        """
+        q_ij_lon = (
+            self.observation.platform_state.lon.m[j_neighbor]
+            - self.observation.platform_state.lon.m[i_node]
+        )
+        q_ij_lat = (
+            self.observation.platform_state.lat.m[j_neighbor]
+            - self.observation.platform_state.lat.m[i_node]
+        )
+        q_ij = np.vstack((q_ij_lon, q_ij_lat))
+        return q_ij / np.linalg.norm(q_ij)
+
+    @staticmethod
+    def softmax(array: np.ndarray) -> np.ndarray:
+        """Basic implementation of a softmax
+        Subtract the maximum for numerical stability and avoid large numbers
+
+        Args:
+            array (np.ndarray): array containing the different magnitudes
+
+        Returns:
+            np.ndarray: Softmax output in the same order as the original order
+        """
+        e_x = np.exp(array - np.max(array))
+        return e_x / e_x.sum(axis=0)
+
+    def get_u_i(self, node_i: int, hj_action: PlatformAction) -> PlatformAction:
+        """Obtain the flocking control input
+
+        Args:
+            node_i (int): the platform index for which the flocking control input is
+                          computed
+            hj_action (PlatformAction): the time-optimal reachability control
+
+        Returns:
+            PlatformAction: flocking control signal
+        """
+        neighbors_idx = list(self.list_all_platforms)
+        neighbors_idx.remove(node_i)  # no self-loop
+        grad = 0
+        for neighbor in neighbors_idx:
+            n_ij = self.get_n_ij(
+                i_node=node_i,
+                j_neighbor=neighbor,
+            )  # obtain direction vector pointing from i to j
+            grad += (
+                self.gradient(
+                    norm_qij=self.adjacency_mat[node_i, neighbor],
+                    inside_range=bool(self.binary_adjacency[node_i, neighbor]),
+                )
+                * n_ij.flatten()
+            )
+        grad_action = PlatformAction(
+            np.linalg.norm(grad, ord=2), direction=np.arctan2(grad[1], grad[0])
+        )
+        softmax_coeff = self.softmax(np.array([grad_action.magnitude, hj_action.magnitude]))
+        return grad_action.scaling(softmax_coeff[0]) + hj_action.scaling(softmax_coeff[1])
+
+    def plot_psi_and_phi_alpha(
+        self,
+        max_plot_factor: Optional[int] = 1.5,
+        step: Optional[int] = 0.05,
+        savefig: Optional[bool] = False,
+    ):
+        """Plot function to display the potential function psi and the gradient function phi
+
+        Args:
+            max_plot_factor (Optional[int], optional): _description_. Defaults to 1.5.
+            step (Optional[int], optional): _description_. Defaults to 0.05.
+            savefig (Optional[bool], optional): _description_. Defaults to False.
+        """
+        z_range = np.arange(start=0, stop=self.r * max_plot_factor, step=step)
+        inside_range_arr = np.where(z_range < self.r, 1, 0)
+        phi = [
+            self.gradient(norm_qij=z, inside_range=indicator)
+            for z, indicator in zip(z_range, inside_range_arr)
+        ]
+        psi = [
+            self.potential_func(norm_qij=z, inside_range=indicator)
+            for z, indicator in zip(z_range, inside_range_arr)
+        ]
+        fig, (ax1, ax2) = plt.subplots(2, 1)
+        ax1.plot(z_range, phi)
+        ax1.set_ylabel(r"$\phi$")
+        ax1.set_xticks([self.r / 2, self.r])
+        ax1.set_xticklabels([r"$\frac{r}{2}$", r"$r$"])
+        ax1.grid(axis="both", linestyle="--")
+        ax2.plot(z_range, psi)
+        ax2.set_ylabel(r"$\psi$")
+        ax2.set_xticks([self.r / 2, self.r])
+        ax2.set_xticklabels([r"$\frac{r}{2}$", r"$r$"])
+        ax2.set_xlabel(r"$\Vert z \Vert$")
+        ax2.grid(axis="both", linestyle="--")
+        if savefig:
+            plt.savefig("plot_gradient_and_potential.png")
+
+
+class FlockingControlVariant:
     """
     Basic implementation of flocking control, following the potential function
     / activation function defined in the base paper:
     http://ieeexplore.ieee.org/document/1605401/
     """
+
     def __init__(
         self,
         observation: ArenaObservation,
@@ -42,7 +230,7 @@ class FlockingControl:
         self.d_alpha = self.sigma_norm(self.param_dict["ideal_distance"])
         self.a, self.b = [self.param_dict[key] for key in ["a", "b"]]
         self.c = np.abs(self.a - self.b) / np.sqrt(4 * self.a * self.b)
-        #self.c = -self.a / np.sqrt(2 * self.a * self.b + self.b**2)
+        # self.c = -self.a / np.sqrt(2 * self.a * self.b + self.b**2)
         self.vect_bump_f = np.vectorize(self.bump_function, otypes=[float])
 
     def sigma_norm(self, z_norm):
@@ -86,7 +274,7 @@ class FlockingControl:
     def phi(self, z):
         # return 0.5 * (
         #     (self.a + self.b) * self.sigma_1(z + self.c) + self.a
-        # )  
+        # )
         return 0.5 * ((self.a + self.b) * self.sigma_1(z + self.c) + (self.a - self.b))
 
     def phi_alpha(self, z):
@@ -109,18 +297,20 @@ class FlockingControl:
         )  # columns are per neighbor
         # TODO check dimension mismatch: get a 3D array not expected
 
-    def get_velocity_diff_array(self, node_i: int, neighbors_idx: np.ndarray, sign_only: bool = False) -> np.ndarray:
+    def get_velocity_diff_array(
+        self, node_i: int, neighbors_idx: np.ndarray, sign_only: bool = False
+    ) -> np.ndarray:
         """Obtain the vectorized velocity difference between the platform for which the control input
         is computed and it's neighbors. Used for velocity matching
 
         Args:
             node_i (int): the actual platform index for which the flocking signal is calculated
             neighbors_idx (np.ndarray): the neighboring platform indices of the actual platform
-            sign_only (bool, optional): True if only the sign of the difference is returned. 
+            sign_only (bool, optional): True if only the sign of the difference is returned.
                                         Defaults to False, which corresponds to the actual difference of velocities
 
         Returns:
-            np.ndarray: the velocity difference as an array (n  x m) where n=2, for the directions u, v and 
+            np.ndarray: the velocity difference as an array (n  x m) where n=2, for the directions u, v and
                         m the number of neighbors
         """
         velocities = np.array(self.observation.platform_state.velocity)
@@ -136,7 +326,7 @@ class FlockingControl:
     def get_aij(self, q_ij_sigma):
         return self.vect_bump_f(q_ij_sigma / self.r_alpha)
 
-    def get_u_i(self, node_i: int, hj_action: PlatformAction)-> PlatformAction:
+    def get_u_i(self, node_i: int, hj_action: PlatformAction) -> PlatformAction:
         """Obtain the flocking control input
 
         Args:
@@ -173,162 +363,6 @@ class FlockingControl:
             )
 
             return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
-
-
-class FlockingControlVariant:
-    def __init__(
-        self,
-        observation: ArenaObservation,
-        param_dict: dict,
-        platform_dict: dict,
-    ):
-        self.param_dict = param_dict
-        self.G_proximity = observation.graph_obs.G_communication
-        self.observation = observation
-        adjacency_communication = observation.graph_obs.adjacency_matrix_in_unit(
-            unit=self.param_dict["unit"], graph_type="communication"
-        )  # get adjacency for communication graph
-        self.binary_adjacency = np.where(adjacency_communication > 0,True, False) # indicator values
-        self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
-            unit = self.param_dict["unit"], graph_type="complete"
-        ) #complete adjacency matrix containing all distances between platforms
-        self.u_max_mps = platform_dict["u_max_in_mps"]
-        self.dt_in_s = platform_dict["dt_in_s"]
-        self.r = self.param_dict["interaction_range"]
-        self.list_all_platforms = list(range(self.adjacency_mat.shape[0]))
-        self.epsilon = 1e-3 #small value for the 
-        self._set_grad_clipping_value()
-
-
-    def _set_grad_clipping_value(self):
-        """Low and High gradient clipping values are equal, so it does not matter whether the gradient clipping
-        value is computed with norm_qij = "grad_clip_range" or r-"grad_clip_range"
-        """
-        self.grad_clip_abs_val = np.absolute(-self.r*(self.r-2*self.param_dict["grad_clip_range"])/ \
-                (self.param_dict["grad_clip_range"]**2*(self.r-self.param_dict["grad_clip_range"])**2))
-
-    def gradient(self, norm_qij: float, inside_range: bool, grad_clip:bool = True)->float:
-        """Gradient of the potential function, clipped when the magnitude approaches infinity
-
-        Args:
-            norm_qij (float): the euclidean norm of the distance between platform i and j
-            inside_range (bool): if the distance between i and j is within the interaction/communication range
-            grad_clip (bool, optional): Clips the gradient starting from the gradient
-                                        clipping range to the vertical asymptote. Defaults to True.
-
-        Returns:
-            float: gradient of potential function (magnitude)
-        """
-        if inside_range:
-            if grad_clip and (norm_qij < self.param_dict["grad_clip_range"]  or norm_qij > self.r -self.param_dict["grad_clip_range"]):
-                grad = np.sign(-self.r*(self.r-2*norm_qij))*self.grad_clip_abs_val
-            else:
-                grad = -self.r*(self.r-2*norm_qij)/ \
-                (norm_qij**2*(self.r-norm_qij)**2) 
-        else:
-            if grad_clip and (norm_qij-self.r < self.param_dict["grad_clip_range"]):
-                grad = self.grad_clip_abs_val
-            else:
-                grad = 1/(norm_qij-self.r+self.epsilon)
-        return grad
-
-    def potential_func(self, norm_qij: float, inside_range: bool) -> float:
-        """Potential function responsible for the attraction repulsion behavior between platforms
-
-        Args:
-            norm_qij (float): the euclidean norm of the distance between platform i and j
-            inside_range (bool): if the distance between i and j is within the interaction/communication range
-
-        Returns:
-            float: value of the potential function
-        """
-        if inside_range:
-            return self.r/(norm_qij*(self.r-norm_qij))
-        else:
-            return np.log(norm_qij-self.r+self.epsilon)
-
-    def get_n_ij(self, i_node: int, j_neighbor: int) -> np.ndarray:
-        """Vector along the line connecting platform i to neighboring platform j
-
-        Args:
-            i_node (int): index of platform i (node)
-            j_neighbor (int): index of the neighbor
-        Returns:
-            np.ndarray: connecting vector, with dimensions corresponding to lon,lat
-        """
-        q_ij_lon = (
-            self.observation.platform_state.lon.m[j_neighbor]
-            - self.observation.platform_state.lon.m[i_node]
-        )
-        q_ij_lat = (
-            self.observation.platform_state.lat.m[j_neighbor]
-            - self.observation.platform_state.lat.m[i_node]
-        )
-        q_ij = np.vstack((q_ij_lon, q_ij_lat))
-        return q_ij/np.linalg.norm(q_ij)
-
-    @staticmethod
-    def softmax(array: np.ndarray)->np.ndarray:
-        """Basic implementation of a softmax
-        Subtract the maximum for numerical stability and avoid large numbers
-
-        Args:
-            array (np.ndarray): array containing the different magnitudes
-
-        Returns:
-            np.ndarray: Softmax output in the same order as the original order
-        """
-        e_x = np.exp(array - np.max(array))
-        return e_x/e_x.sum(axis=0)
-
-        
-    def get_u_i(self, node_i: int, hj_action: PlatformAction)-> PlatformAction:
-        """Obtain the flocking control input
-
-        Args:
-            node_i (int): the platform index for which the flocking control input is
-                          computed
-            hj_action (PlatformAction): the time-optimal reachability control
-
-        Returns:
-            PlatformAction: flocking control signal
-        """
-        neighbors_idx = list(self.list_all_platforms)
-        neighbors_idx.remove(node_i) # no self-loop 
-        grad = 0
-        for neighbor in neighbors_idx:
-            n_ij = self.get_n_ij(
-                i_node=node_i,
-                j_neighbor=neighbor,
-            ) #obtain direction vector pointing from i to j
-            grad += self.gradient(norm_qij=self.adjacency_mat[node_i, neighbor],
-                    inside_range=bool(self.binary_adjacency[node_i, neighbor]))*n_ij.flatten()
-        grad_action = PlatformAction(np.linalg.norm(grad, ord=2), 
-                direction=np.arctan2(grad[1], grad[0]))
-        softmax_coeff = self.softmax(np.array([grad_action.magnitude, hj_action.magnitude]))
-        return grad_action.scaling(softmax_coeff[0]) + hj_action.scaling(softmax_coeff[1])
-
-
-
-    def plot_psi_and_phi_alpha(self, max_plot_factor:Optional[int] = 1.5, step: Optional[int] = 0.05, savefig: Optional[bool] = False):
-        z_range = np.arange(start=0, stop=self.r*max_plot_factor, step=step)
-        inside_range_arr = np.where(z_range < self.r, 1, 0)
-        phi = [self.gradient(norm_qij=z, inside_range=indicator) for z, indicator in zip(z_range, inside_range_arr)]
-        psi = [self.pot_func(norm_qij=z, inside_range=indicator) for z, indicator in zip(z_range, inside_range_arr)]
-        fig, (ax1, ax2) = plt.subplots(2, 1)
-        ax1.plot(z_range, phi)
-        ax1.set_ylabel(r"$\phi$")
-        ax1.set_xticks([self.r/2, self.r])
-        ax1.set_xticklabels([r"$\frac{r_{\sigma}}{2}$", r"$r_{\sigma}$"])
-        ax1.grid(axis="both", linestyle="--")
-        ax2.plot(z_range, psi)
-        ax2.set_ylabel(r"$\psi$")
-        ax2.set_xticks([self.r/2, self.r])
-        ax2.set_xticklabels([r"$\frac{r_{\sigma}}{2}$", r"$r_{\sigma}$"])
-        ax2.set_xlabel(r"$\Vert z \Vert_{\sigma}$")
-        ax2.grid(axis="both", linestyle="--")
-        if savefig:
-            plt.savefig("plot_gradient_and_potential.png")
 
 
 # class FlockingControl2:
@@ -372,7 +406,7 @@ class FlockingControlVariant:
 #         nominator = -self.r_max**2*(self.r_max*np.sign(q_i-q_j)-2*q_i + 2*q_j)
 #         denominator = (q_i-q_j)**2 * (self.r_max-np.abs(q_i-q_j))**2
 #         return nominator/denominator
-    
+
 #     def get_pot_2(self, norm_q_ij):
 #         return norm_q_ij**2/(self.r_max-norm_q_ij)
 
@@ -538,4 +572,3 @@ class FlockingControlVariant:
 #                 direction=np.arctan2(u_i[1], u_i[0]),
 #             )
 #             return u_i_scaled + hj_action.scaling(self.param_dict["hj_factor"])
-

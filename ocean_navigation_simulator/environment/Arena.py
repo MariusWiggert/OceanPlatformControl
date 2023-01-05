@@ -7,7 +7,6 @@ import datetime as dt
 import logging
 import os
 import time
-import networkx as nx
 from typing import (
     AnyStr,
     Callable,
@@ -18,7 +17,9 @@ from typing import (
     Tuple,
     Union,
 )
+
 import matplotlib
+import networkx as nx
 import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -40,6 +41,10 @@ from ocean_navigation_simulator.data_sources.SeaweedGrowthField import (
 from ocean_navigation_simulator.data_sources.SolarIrradianceField import (
     SolarIrradianceField,
 )
+from ocean_navigation_simulator.environment.MultiAgent import (
+    GraphObservation,
+    MultiAgent,
+)
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -48,7 +53,6 @@ from ocean_navigation_simulator.environment.Platform import (
     PlatformAction,
     PlatformActionSet,
 )
-from ocean_navigation_simulator.environment.MultiAgent import MultiAgent, GraphObservation
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     PlatformStateSet,
@@ -950,20 +954,24 @@ class Arena:
         )
         return fig
 
-    def save_metrics_to_log(self, all_pltf_status: list, max_correction_from_opt_ctrl: list, filename: str) -> dict:
+    def save_metrics_to_log(
+        self, all_pltf_status: list, max_correction_from_opt_ctrl: list, filename: str
+    ) -> dict:
         """Compute and save metrics for the given multi-agent instance
         For now implemented are:
         1) Time-integral metric of # isolated platforms
         2) Number of collisions during simulation
         3) The fraction of total platforms reaching the target (1 = all platforms reached the target within simulation time)
-        4) The average of the maximum deviation from the optimal control angle for all the platforms 
+        4) The average of the maximum deviation from the optimal control angle for all the platforms
                                             at each simulation step as a proxy for energy efficiency
-        5) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
+        5) The initial maximum degree of the graph
+        6) The final maximum degree of the graph
+        7) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
 
         Args:
             all_pltf_status (list): list of platform status, obtained by calling problem_status through the simulation
                                     (see function above in arena)
-            max_correction_from_opt_ctrl(list): maximum deviation from the optimal control angle for all the platforms 
+            max_correction_from_opt_ctrl(list): maximum deviation from the optimal control angle for all the platforms
                                             at each simulation step
             filename (str): logging filename
 
@@ -979,7 +987,7 @@ class Arena:
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],
             success_rate_reach_target=success_rate_reach_target,
-            energy_efficiency_proxy = energy_efficiency_proxy,
+            energy_efficiency_proxy=energy_efficiency_proxy,
             logfile=filename,
         )
         return metrics_dict
