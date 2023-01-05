@@ -579,7 +579,7 @@ class Arena:
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend("lower right")
+        ax.legend(loc="lower right")
 
         if return_ax:
             return ax

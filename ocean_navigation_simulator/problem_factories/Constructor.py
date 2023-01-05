@@ -41,6 +41,10 @@ class Constructor:
             objective: dict which specifies which objective the experiment has under 'type' i.e 'type': "nav" for navigation
             ctrl_conf: dictionary which specifies the controller configuration
             observer_conf: dictionary which specifies the observer configuration
+            c3: if running on C3, the c3 object is passed in directly, locally pass in nothing
+            download_files: if the current files should be downloaded
+            timeout_in_sec: this is used to determine what current files to download such that there is enough data
+                            until the problem times out.
         """
         # Init
         self.mission_conf = mission_conf

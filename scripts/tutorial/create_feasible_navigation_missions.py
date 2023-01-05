@@ -1,4 +1,4 @@
-#%%
+# This script will generate a csv of feasible navigation problems for a specific time-frame and FC/HC Setting.
 import datetime
 import logging
 import os
@@ -14,6 +14,9 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
+# Settings for where the problem csv is saved
+results_folder = "/tmp/missions/"
+os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
 arena_config = {'casadi_cache_dict': {'deg_around_x_t': 2.0, 'time_around_x_t': 432000},
@@ -30,10 +33,10 @@ arena_config = {'casadi_cache_dict': {'deg_around_x_t': 2.0, 'time_around_x_t': 
                     'hindcast': {
                         'field': 'OceanCurrents',
                         'source': 'hindcast_files',
-                        'source_settings': {'folder': 'data/miss_gen_hindcast/', 'local': True, 'source': 'HYCOM', 'type': 'hindcast', 'currents': 'total'}},
+                        'source_settings': {'folder': 'data/miss_gen_hindcast/', 'local': False, 'source': 'HYCOM', 'type': 'hindcast', 'currents': 'total'}},
                     'forecast': {'field': 'OceanCurrents',
                                  'source': 'forecast_files',
-                                 'source_settings': {'folder': 'data/miss_gen_forecast/', 'local': True, 'source': 'Copernicus', 'type': 'forecast', 'currents': 'total'}}}}
+                                 'source_settings': {'folder': 'data/miss_gen_forecast/', 'local': False, 'source': 'Copernicus', 'type': 'forecast', 'currents': 'total'}}}}
 
 # change to this if basic setup works
 set_arena_loggers(logging.DEBUG)
@@ -41,10 +44,6 @@ logging.getLogger("MissionGenerator").setLevel(logging.DEBUG)
 
 # or this if you want to ignore all data warnings
 # logging.getLogger("MissionGenerator").setLevel(logging.FATAL)
-
-# TODO: some small issues with file downloading (Test with c3 cloud to figure out why)
-# TODO: Merge selectively into the experimentRunner branch to get it to work there. -> almost done
-# TODO: write C3 batch job for it, should be very light, probably just feeding in a json into the job.
 
 config = {
     "scenario_config": arena_config,
@@ -89,8 +88,6 @@ config = {
     "cache_hindcast": False,
 }
 
-results_folder = "/tmp/missions/"
-os.makedirs(results_folder, exist_ok=True)
 all_problems = []
 for worker in range(1):
     mission_generator = MissionGenerator(
@@ -106,11 +103,11 @@ for worker in range(1):
 df = pd.DataFrame([problem.to_dict() for problem in all_problems])
 df.to_csv(results_folder + "problems.csv")
 
-#%%
-df.to_csv("problems.csv")
+#%% To visualize the generated Navigation Problems
+# Note: those are not working right now, probably minor bugs to fix.
 # GenerationRunner.plot_starts_and_targets(
-#     results_folder,
-#     scenario_file="scripts/create_missixons_example/gulf_of_mexico_Copernicus_forecast_HYCOM_hindcast.yaml",
+#     results_folder=results_folder,
+#     scenario_config=arena_config
 # )
 # GenerationRunner.plot_target_dates_histogram(results_folder)
 # GenerationRunner.plot_ttr_histogram(results_folder)

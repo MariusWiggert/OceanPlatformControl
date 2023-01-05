@@ -14,6 +14,10 @@ from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 
+from ocean_navigation_simulator.utils.misc import set_arena_loggers
+import logging
+set_arena_loggers(logging.DEBUG)
+
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast",
                             # Note: uncomment this to download the hindcast data if not already locally available
