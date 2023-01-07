@@ -178,7 +178,8 @@ def bfs_min_distance(
     Returns:
         np.ndarray: Distance in km to closest land.
     """
-
+    # TODO: fix wraparound. Experiments with this function for garbage showed that it does not wrap around
+    # the map, as in do the -180 step to 179  and unsure about 90 to -90
     if connectivity == 4:
         dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     elif connectivity == 8:
@@ -419,8 +420,10 @@ if __name__ == "__main__":
 
     # Create min_distance to land map and test loading it
     low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    min_d_map_name = "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc"
-    # min_d_map = generate_shortest_distance_maps(low_res_loaded, save_path=min_d_map_name)
+    min_d_map_name = "data/bathymetry/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc"
+    min_d_map = generate_shortest_distance_maps(
+        low_res_loaded, save_path=min_d_map_name, elevation=-150
+    )
     min_d_map_loaded = xr.open_dataset(min_d_map_name)
     min_d_map_loaded = min_d_map_loaded.sel(lat=slice(15, 35), lon=slice(-100, -75))
     min_d_map_loaded["distance"].plot(cmap="jet_r")
