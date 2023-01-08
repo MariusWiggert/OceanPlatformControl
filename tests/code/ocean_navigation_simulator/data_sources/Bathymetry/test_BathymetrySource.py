@@ -22,7 +22,7 @@ from ocean_navigation_simulator.utils import units
 
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status, expected_bathymetry_source",
-    [("gulf_of_mexico_HYCOM_hindcast_local", [-80.7, 25.4], [-80.3, 24.6], -2, None)],
+    [("gulf_of_mexico_HYCOM_hindcast", [-80.7, 25.4], [-80.3, 24.6], -2, None)],
 )
 def test__is_on_land__start_on_land_no_bathymetry(
     scenario_name, start, stop, expected_problem_status, expected_bathymetry_source
@@ -56,7 +56,7 @@ def test__is_on_land__start_on_land_no_bathymetry(
 
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast_local", [-80.7, 25.4], [-80.3, 24.6], -2)],
+    [("safety_gulf_of_mexico_HYCOM_hindcast", [-80.7, 25.4], [-80.3, 24.6], -2)],
 )
 def test__is_on_land__start_on_land_with_bathymetry(
     scenario_name, start, stop, expected_problem_status
@@ -90,7 +90,7 @@ def test__is_on_land__start_on_land_with_bathymetry(
 
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast_local", [-81.35, 25.5], [-80.7, 25.4], -2)],
+    [("safety_gulf_of_mexico_HYCOM_hindcast", [-81.35, 25.5], [-80.7, 25.4], -2)],
 )
 def test__is_on_land__go_onto_land_with_bathymetry(
     scenario_name, start, stop, expected_problem_status

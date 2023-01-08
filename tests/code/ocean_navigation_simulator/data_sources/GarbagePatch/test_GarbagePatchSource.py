@@ -20,7 +20,7 @@ from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource imp
 # Test using gulf of mexico with fake garbage data
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast_local", [-86, 26], [-88, 27], -4)],
+    [("safety_gulf_of_mexico_HYCOM_hindcast", [-86, 26], [-88, 27], -4)],
 )
 def test__is_on_garbage__start_on_garbage_with_garbage_source(
     scenario_name, start, stop, expected_problem_status
@@ -55,7 +55,7 @@ def test__is_on_garbage__start_on_garbage_with_garbage_source(
 
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status",
-    [("gulf_of_mexico_HYCOM_hindcast_local", [-86, 26], [-88, 27], 0)],
+    [("gulf_of_mexico_HYCOM_hindcast", [-86, 26], [-88, 27], 0)],
 )
 def test__is_on_garbage__start_on_garbage_no_garbage_source(
     scenario_name, start, stop, expected_problem_status
@@ -90,7 +90,7 @@ def test__is_on_garbage__start_on_garbage_no_garbage_source(
 
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast_local", [-86, 22], [-88, 27], 0)],
+    [("safety_gulf_of_mexico_HYCOM_hindcast", [-86, 22], [-88, 27], 0)],
 )
 def test__is_on_garbage__no_garbage_with_garbage_source(
     scenario_name, start, stop, expected_problem_status
@@ -125,7 +125,7 @@ def test__is_on_garbage__no_garbage_with_garbage_source(
 
 @pytest.mark.parametrize(
     "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast_local", [-87, 24.9], [-87, 27], -4)],
+    [("safety_gulf_of_mexico_HYCOM_hindcast", [-87, 24.9], [-87, 27], -4)],
 )
 def test__is_on_garbage__go_into_garbage_with_garbage_source(
     scenario_name, start, stop, expected_problem_status
