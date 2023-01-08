@@ -55,7 +55,7 @@ observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 #%% Let controller run close-loop within the arena
 for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 5 days
-    action = planner.get_action(observation=observation)
+    action = planner.get_action(observation=observation, area_type="bathymetry")
     observation = arena.step(action)
 
 #%% Plot the arena trajectory on the map

@@ -20,12 +20,10 @@ class NaiveSafetyController(Controller):
         super().__init__(problem)
         self.specific_settings = specific_settings
         self.distance_map = dict()
-        self.distance_map["bathymetry"] = xr.open_dataset(
-            self.specific_settings["filepath_distance_map"]["bathymetry"]
-        )
-        self.distance_map["garbage"] = xr.open_dataset(
-            self.specific_settings["filepath_distance_map"]["garbage"]
-        )
+        for area_type in self.specific_settings["filepath_distance_map"]:
+            self.distance_map[area_type] = xr.open_dataset(
+                self.specific_settings["filepath_distance_map"][area_type]
+            )
 
     def find_bearing_to_max_distance_to_area(
         self,
@@ -54,14 +52,15 @@ class NaiveSafetyController(Controller):
             )
             for b in np.deg2rad(bearing)
         ]
+        try:
+            min_d_to_area = [
+                self.distance_map[area_type].interp(lon=p[0], lat=p[1])["distance"].data
+                for p in sampled_positions
+            ]
+        except KeyError:
+            raise KeyError(f"There is no distance_map for area_type '{area_type}'")
 
-        # TODO: Try if this map is available?
-        min_d_to_area = [
-            self.distance_map[area_type].interp(lon=p[0], lat=p[1])["distance"].data
-            for p in sampled_positions
-        ]
         bearing = bearing[np.argmax(min_d_to_area)]
-
         return bearing
 
     def get_action(
