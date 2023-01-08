@@ -7,7 +7,7 @@ specific_settings_navigation = {
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 5,
+    "T_goal_in_seconds": 3600 * 24 * 1,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
@@ -23,12 +23,15 @@ specific_settings_navigation = {
     "platform_dict": None,
 }
 
-specific_settings_safety = dict(
-    filepath_distance_map="data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
-)
+specific_settings_safety = {
+    "filepath_distance_map": {
+        "bathymetry": "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
+        "garbage": "data/garbage_patch/garbage_patch_distance_res_0.083_0.083_max.nc",
+    }
+}
 specific_settings_switching = dict(
-    safety_condition="off",
-    safe_distance_to_land=10,  # TODO: change to units,
+    safety_condition={"base_setting": "on", "area_type": ["bathymetry", "garbage"]},
+    safe_distance={"bathymetry": 10, "garbage": 10},  # TODO: change to units,
     safety_controller="ocean_navigation_simulator.controllers.NaiveSafetyController.NaiveSafetyController(problem, self.specific_settings_safety)",
     navigation_controller="ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner(problem, self.specific_settings_navigation)",
 )

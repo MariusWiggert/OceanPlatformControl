@@ -80,4 +80,4 @@ arena.plot_all_on_map(problem=problem, background="garbage")
 arena.plot_all_on_map(problem=problem)
 
 #%% Animate the trajectory
-larena.animate_trajectory(problem=problem, temporal_resolution=7200)
+arena.animate_trajectory(problem=problem, temporal_resolution=7200)

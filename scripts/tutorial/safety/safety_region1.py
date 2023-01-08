@@ -38,34 +38,32 @@ problem = NavigationProblem(
     target_radius=0.1,
 )
 #%%
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_T,
-    deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600 * 24 * 2,
-)
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=x_0.to_spatio_temporal_point(),
+#     x_T=x_T,
+#     deg_around_x0_xT_box=1,
+#     temp_horizon_in_s=3600 * 24 * 2,
+# )
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-ax = arena.garbage_source.plot_mask_from_xarray(
-    xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
-    var_to_plot="garbage",
-    contour=True,
-    hatching="///",
-    overlay=False,
-    ax=ax,
-)
-plt.show()
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# ax = arena.garbage_source.plot_mask_from_xarray(
+#     xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
+#     var_to_plot="garbage",
+#     contour=True,
+#     hatches="///",
+#     overlay=False,
+#     ax=ax,
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
-problem.plot(ax=ax)
-plt.show()
-
-ax = arena.garbage_source.plot_data_over_area(
-    x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.garbage_source.plot_data_over_area(
+#     x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
 #%%
 
 specific_settings_navigation["platform_dict"] = arena.platform.platform_dict
@@ -93,19 +91,19 @@ planner.navigation_controller.plot_reachability_snapshot(
     plot_in_h=True,
 )
 #%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 2 / 600))):  # 5 days
+for i in tqdm(range(int(3600 * 24 / 600))):  # 5 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
-    problem_status = arena.problem_status(problem=problem)
-    if problem_status != 0:
-        print(problem_status)
-    if problem_status == 1:
-        # TODO: fake it by going if i == 4, break, check what goes wrong
-        # TODO: error in plotting_utils.py in add_traj_and_ctrl_at_time:
-        #         ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
-        # IndexError: index 657 is out of bounds for axis 1 with size 657
-        # break
-        print("reached")
+    # problem_status = arena.problem_status(problem=problem)
+    # if problem_status != 0:
+    #     print(problem_status)
+    # if problem_status == 1:
+    # TODO: fake it by going if i == 4, break, check what goes wrong
+    # TODO: error in plotting_utils.py in add_traj_and_ctrl_at_time:
+    #         ctrl_trajectory[0, idx] * np.cos(ctrl_trajectory[1, idx]),  # u_vector
+    # IndexError: index 657 is out of bounds for axis 1 with size 657
+    # break
+    print("reached")
 
 #%%
 garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
