@@ -1,6 +1,6 @@
 import dataclasses
 import datetime
-from typing import Optional
+from typing import List, Optional
 
 import matplotlib
 from matplotlib import pyplot as plt

@@ -114,6 +114,8 @@ class Arena:
     ocean_field: OceanCurrentField = None
     solar_field: SolarIrradianceField = None
     seaweed_field: SeaweedGrowthField = None
+    bathymetry_source: BathymetrySource2d = None
+    garbage_source: GarbagePatchSource2d = None
     platform: Platform = None
     timeout: Union[datetime.timedelta, int] = None
 
@@ -176,8 +178,6 @@ class Arena:
                 forecast_source_dict=solar_dict["forecast"] if "forecast" in solar_dict else None,
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
-        else:
-            self.solar_field = None
         # Step 1.3 Seaweed Growth Field
         if seaweed_dict is not None and seaweed_dict["hindcast"] is not None:
             # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
@@ -194,18 +194,12 @@ class Arena:
                 forecast_source_dict=seaweed_dict["forecast"],
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
-        else:
-            self.seaweed_field = None
         # Step 1.4 Bathymetry Field
         # TODO: figure out if API of BathymetrySource2d should be like of the other sources
         if bathymetry_dict is not None:
             self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
-        else:
-            self.bathymetry_source = None
         if garbage_dict is not None:
             self.garbage_source = GarbagePatchSource2d(source_dict=garbage_dict)
-        else:
-            self.garbage_source = None
 
         self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
 
@@ -376,6 +370,7 @@ class Arena:
             -1  if problem timed out
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
+            -4  if platform is in Garbage patch
         """
         if self.is_timeout():
             return -1
