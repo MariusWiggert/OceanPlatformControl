@@ -2,7 +2,7 @@
 
 data_source_config: "gulf_of_mexico_HYCOM_hindcast_local"
 
-folder_to_save: "scenario_2_reactive"
+folder_to_save: "scenario_2_flocking_latest"
 
 days_sim: 2
 

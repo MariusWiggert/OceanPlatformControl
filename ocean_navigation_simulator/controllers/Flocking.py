@@ -82,7 +82,8 @@ class FlockingControl:
             if grad_clip and (norm_qij - self.r < self.param_dict["grad_clip_range"]):
                 grad = self.grad_clip_abs_val
             else:
-                grad = 1 / (norm_qij - self.r + self.epsilon)
+                # grad = 1 / (norm_qij - self.r + self.epsilon)
+                grad = 1 / (2*np.sqrt(norm_qij - self.r))
         return grad
 
     def potential_func(self, norm_qij: float, inside_range: bool) -> float:
@@ -98,7 +99,8 @@ class FlockingControl:
         if inside_range:
             return self.r / (norm_qij * (self.r - norm_qij))
         else:
-            return np.log(norm_qij - self.r + self.epsilon)
+            #return np.log(norm_qij - self.r + self.epsilon)
+            return np.sqrt(norm_qij - self.r)
 
     def get_n_ij(self, i_node: int, j_neighbor: int) -> np.ndarray:
         """Vector along the line connecting platform i to neighboring platform j

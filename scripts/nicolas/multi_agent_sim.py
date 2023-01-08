@@ -147,7 +147,7 @@ update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 max_ma_control_correction_list = []
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action, max_ma_control_correction = planner_set.get_action_HJ_decentralized_reactive_control(
+    action, max_ma_control_correction = planner_set.get_action_HJ_with_flocking(
         observation=observation
     )
     observation = arena.step(action)
