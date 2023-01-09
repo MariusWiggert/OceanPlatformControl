@@ -1,3 +1,6 @@
+"""File to simulate multi-agent scenarios with different controllers and HJ planner
+"""
+
 #%%
 import datetime
 import os
