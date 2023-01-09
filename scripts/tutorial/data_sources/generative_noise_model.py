@@ -75,5 +75,5 @@ for i in range(151, 152):
     print(i)
     arena.ocean_field.hindcast_data_source.set_noise_seed(seed_integer=i)
     arena.ocean_field.hindcast_data_source.plot_noise_at_time_over_area(
-        time=t_plot, x_interval=y_interval, y_interval=x_interval
+        time=t_plot, x_interval=x_interval, y_interval=y_interval
     )
