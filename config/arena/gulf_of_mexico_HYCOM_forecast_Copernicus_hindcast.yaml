@@ -1,6 +1,6 @@
 casadi_cache_dict:
-    deg_around_x_t: 1.5
-    time_around_x_t: 432000. # 3600 * 24 * 5
+    deg_around_x_t: 0.5
+    time_around_x_t: 36000. # 3600 * 24 * 5
 
 platform_dict:
     battery_cap_in_wh: 400.0
@@ -16,6 +16,7 @@ use_geographic_coordinate_system: True
 spatial_boundary: null
 
 ocean_dict:
+    region: "GOM"
     hindcast:
         field: 'OceanCurrents'
         source: 'opendap'
@@ -30,6 +31,7 @@ ocean_dict:
         source: 'forecast_files'
         source_settings:
             folder: "/tmp/hycom_forecast/"
+            local: False
             source: "HYCOM"
             type: "forecast"
 

@@ -2,7 +2,7 @@ problems:
   - initial_position:
       lon_in_deg: -89.55914008311899
       lat_in_deg: 24.17533581625168
-      datetime: '2022-04-12T12:00:00Z'
+      datetime: '2022-04-12T12:30:01Z'
     target:
       lon_in_deg: -86.24901329252816
       lat_in_deg: 22.136417898978024

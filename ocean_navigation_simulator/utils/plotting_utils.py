@@ -1,7 +1,8 @@
 from typing import AnyStr, Callable, List, Optional, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import font_manager
 
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -65,11 +66,14 @@ def animate_trajectory(
     ctrl_trajectory: np.ndarray,
     data_source: DataSource,
     margin: Optional[float] = 1,
+    x_interval: Optional[List[float]] = None,
+    y_interval: Optional[List[float]] = None,
     problem: Optional[NavigationProblem] = None,
     temporal_resolution: Optional[float] = None,
     add_ax_func_ext: Optional[Callable] = None,
     output: Optional[AnyStr] = "traj_animation.mp4",
-    **kwargs,
+    full_traj: Optional[bool] = True,
+    **kwargs
 ):
     """Plotting functions to animate a trajectory including the controls over a data_source.
     Args:
@@ -78,11 +82,14 @@ def animate_trajectory(
           data_source:       DataSource object over which to animate the data (often an OceanCurrent source)
           ## Optional ##
           margin:            Margin as box around x_0 and x_T to plot
+          x_interval:        If both x and y interval are present the margin is ignored.
+          y_interval:        If both x and y interval are present the margin is ignored.
           problem:           Navigation Problem object
           temporal_resolution:  The temporal resolution of the animation in seconds (per default same as data_source)
           add_ax_func_ext:  function handle what to add on top of the current visualization
                             signature needs to be such that it takes an axis object and time as input
                             e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
+          full_traj:        Boolean, True per default to disply full trajectory at all times, when False iteratively.
           # Other variables possible via kwargs see DataSource animate_data, such as:
           fps:              Frames per second
           output:           How to output the animation. Options are either saved to file or via html in jupyter/safari.
@@ -99,31 +106,36 @@ def animate_trajectory(
         markers = get_markers()
         # plot start position
         for k in range(state_trajectory.shape[0]):
-            marker = next(markers)
-            ax.scatter(
-                state_trajectory[k, 0, 0],
-                state_trajectory[k, 1, 0],
-                c="r",
-                marker=marker,
-                s=150,
-                label=f"Start for platform {k}",
-            )
-            ax.scatter(
-                state_trajectory[k, 0, -1],
-                state_trajectory[k, 1, -1],
-                c="orange",
-                marker=marker,
-                s=150,
-                label="Trajectory end" if k == 0 else "",
-            )
+            if full_traj:
+                traj_to_plot = state_trajectory[k,:,:]
+                marker = next(markers)
+                ax.scatter(
+                    state_trajectory[k, 0, -1],
+                    state_trajectory[k, 1, -1],
+                    c="orange",
+                    marker=marker,
+                    s=150,
+                    label="Trajectory end" if k == 0 else "",
+                )
+            else:
+                idx = np.searchsorted(a=state_trajectory[k, 2, :], v=time)
+                traj_to_plot = state_trajectory[k,:,(idx+1)]
             # add the trajectory to it
             ax.plot(
-                state_trajectory[k, 0, :],
-                state_trajectory[k, 1, :],
+                traj_to_plot[0, :],
+                traj_to_plot[1, :],
                 color="black",
                 linewidth=3,
                 linestyle="--",
                 label="State Trajectory" if k == 0 else "",
+            )
+            ax.scatter(
+                traj_to_plot[0, 0],
+                traj_to_plot[1, 0],
+                c="r",
+                marker=marker,
+                s=150,
+                label=f"Start for platform {k}",
             )
         # plot the goal
         if problem is not None:
@@ -132,8 +144,9 @@ def animate_trajectory(
                 problem.target_radius,
                 color="g",
                 fill=True,
-                alpha=0.5,
-                label="goal",
+                alpha=0.7,
+                label="Goal",
+                zorder=6,
             )
             ax.add_patch(goal_circle)
 
@@ -165,17 +178,33 @@ def animate_trajectory(
         ax.legend(loc="lower right", prop={"size": 8})
 
     # Step 2: Get the bounds for the data_source
-    x_interval, y_interval, t_interval = get_lon_lat_time_interval_from_trajectory(
+    x_interval_margin, y_interval_margin, t_interval = get_lon_lat_time_interval_from_trajectory(
         state_trajectory=state_trajectory, margin=margin
     )
 
     # Step 3: run the animation with the data_source and the extra function
     data_source.animate_data(
-        x_interval=x_interval,
-        y_interval=y_interval,
+        x_interval=x_interval if x_interval is not None else x_interval_margin,
+        y_interval=y_interval if y_interval is not None else y_interval_margin,
         t_interval=t_interval,
         temporal_resolution=temporal_resolution,
         add_ax_func=add_traj_and_ctrl_at_time,
         output=output,
         **kwargs,
     )
+
+
+def set_palatino_font(font_path="/package_data/font/Palatino_thin.ttf"):
+    font_manager.fontManager.addfont(font_path)
+    prop = font_manager.FontProperties(fname=font_path)
+
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.sans-serif"] = prop.get_name()
+    params = {
+        "legend.fontsize": "x-large",
+        "axes.labelsize": 21,
+        "axes.titlesize": 21,
+        "xtick.labelsize": 13,
+        "ytick.labelsize": 13,
+    }
+    plt.rcParams.update(params)

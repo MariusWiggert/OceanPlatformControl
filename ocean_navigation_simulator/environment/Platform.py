@@ -11,7 +11,6 @@ Typical usage:
 """
 import logging
 import math
-import os
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -152,7 +151,6 @@ class Platform:
 
         # initialize platform logger
         self.logger = logging.getLogger("arena.platform")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
 
         # Set the major member variables
         self.platform_dict = platform_dict
@@ -367,7 +365,3 @@ class Platform:
 
         self.logger.info(f"Platform: Set Dynamics F_x_next Function ({time.time() - start:.1f}s)")
         return F_next
-
-    def __del__(self):
-        # print('__del__ called in Platform')
-        pass

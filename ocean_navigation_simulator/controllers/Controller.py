@@ -1,6 +1,5 @@
 import abc
 import logging
-import os
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -16,7 +15,7 @@ class Controller(abc.ABC):
 
     gpus: float = 0.0
 
-    def __init__(self, problem: NavigationProblem):
+    def __init__(self, problem: NavigationProblem, specific_settings=None):
         """
         Basic constructor logging the problem given at construction.
         Args:
@@ -25,7 +24,9 @@ class Controller(abc.ABC):
         self.problem = problem
         # initialize logger
         self.logger = logging.getLogger("arena.controller")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        # saving the planned trajectories for inspection purposes
+        # Needs to be here so that logging works in C3
+        self.planned_trajs = []
 
     @abc.abstractmethod
     def get_action(self, observation: ArenaObservation) -> PlatformAction:

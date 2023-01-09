@@ -103,6 +103,11 @@ class HJReach2DPlanner(HJPlannerBase):
 
         return planner
 
+    @staticmethod
+    def from_pickle(dir):
+        with open(dir, "rb") as f:
+            return pickle.load(f)
+
 
 class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
     # TODO: this does not work after redesign with the state and action classes, needs to be adjusted if used.

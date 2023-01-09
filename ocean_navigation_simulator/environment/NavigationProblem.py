@@ -19,14 +19,15 @@ from ocean_navigation_simulator.utils.misc import get_markers
 
 @dataclasses.dataclass
 class NavigationProblem(Problem):
+
     start_state: Union[PlatformState, PlatformStateSet]
+    """class to hold the essential variables for a path planning problem (A -> B)"""
     end_region: SpatialPoint
     target_radius: float
-    timeout: datetime.timedelta = None
     platform_dict: dict = None
     x_range: List = None
     y_range: List = None
-    extra_info: dict = None
+    extra_info: dict = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         if type(self.start_state) is PlatformStateSet:
@@ -40,16 +41,21 @@ class NavigationProblem(Problem):
         else:
             return (state.date_time - self.start_state[id_to_comp].date_time).total_seconds()
 
-    def distance(self, state: PlatformState) -> float:
+
+    def distance(self, state: PlatformState) -> units.Distance:
         return self.end_region.distance(state.to_spatial_point())
 
-    def angle(self, state: PlatformState) -> float:
-        return self.end_region.angle(state.to_spatial_point())
+    def bearing(self, state: PlatformState) -> float:
+        return self.end_region.bearing(state.to_spatial_point())
 
     def is_done(self, state: PlatformState) -> int:
-        if self.passed_seconds(state) >= self.timeout.total_seconds():
-            return -1
-        elif state.distance(self.end_region).deg <= self.target_radius:
+        """
+        Get the problem status
+        Returns:
+            1   if problem was solved
+            0   if problem is still open
+        """
+        if state.distance(self.end_region).deg <= self.target_radius:
             return 1
         return 0
 
@@ -58,8 +64,8 @@ class NavigationProblem(Problem):
         ax: matplotlib.axes.Axes,
         problem_start_color: Optional[str] = "red",
         problem_target_color: Optional[str] = "green",
+        start_size=100,
     ) -> matplotlib.axes.Axes:
-
         markers = get_markers()
 
         if self.nb_platforms > 1:
@@ -82,7 +88,9 @@ class NavigationProblem(Problem):
                 marker="o",
                 label="start platform",
                 s=150,
+                zorder=6,
             )
+
 
         ax.add_patch(
             plt.Circle(
@@ -91,6 +99,7 @@ class NavigationProblem(Problem):
                 facecolor=problem_target_color,
                 edgecolor=problem_target_color,
                 label="goal",
+                zorder=6,
             )
         )
 
@@ -109,7 +118,6 @@ class NavigationProblem(Problem):
                 lat=units.Distance(deg=mission["x_T_lat"]),
             ),
             target_radius=mission["target_radius"],
-            timeout=datetime.timedelta(hours=mission["timeout_in_h"]),
             x_range=[
                 units.Distance(deg=mission["x_range_l"]),
                 units.Distance(deg=mission["x_range_h"]),
@@ -136,7 +144,6 @@ class NavigationProblem(Problem):
                 "x_T_lon": self.end_region.lon.deg,
                 "x_T_lat": self.end_region.lat.deg,
                 "target_radius": self.target_radius,
-                "timeout_in_h": self.timeout.total_seconds() / 3600,
             }
             | (
                 {
@@ -158,11 +165,6 @@ class NavigationProblem(Problem):
         )
 
     def __repr__(self):
-        return "Problem [start: {s}, end: {e}, optimal time: {ot:.1f}, timeout: {t:.1f}h".format(
-            s=self.start_state.to_spatio_temporal_point(),
-            e=self.end_region,
-            ot=self.extra_info["optimal_time_in_h"]
-            if "optimal_time_in_h" in self.extra_info
-            else float("inf"),
-            t=self.timeout.total_seconds() / 3600,
+        return "Problem [start: {s}, end: {e}, target_radius: {r:.2f}]".format(
+            s=self.start_state.to_spatio_temporal_point(), e=self.end_region, r=self.target_radius
         )

@@ -17,7 +17,6 @@ exclude = '''
     | casadi        # Folder used by Mac m1 computers
     | archive
     | data
-    | models
     | results
 
   )/

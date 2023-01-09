@@ -1,11 +1,11 @@
 import logging
-import os
 from typing import Dict, Optional
 
 import ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents as AnalyticalSources
 from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     ForecastFileSource,
+    GroundTruthFromNoise,
     HindcastFileSource,
     HindcastOpendapSource,
     OceanCurrentSource,
@@ -24,7 +24,6 @@ class OceanCurrentField(DataField):
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
         use_geographic_coordinate_system: Optional[bool] = True,
-        verbose: Optional[int] = 0,
     ):
         """Initialize the source objects from the respective settings dicts.
         Args:
@@ -40,7 +39,6 @@ class OceanCurrentField(DataField):
         """
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
         super().__init__(
             casadi_cache_dict,
             hindcast_source_dict,
@@ -62,13 +60,26 @@ class OceanCurrentField(DataField):
                 AnalyticalSources, source_dict["source_settings"]["name"]
             )
             return specific_analytical_current(source_dict)
+        elif source_dict["source"] == "generative_noise":
+            # First instantiate the base source from the respective dict
+            source_dict["base_source"]["use_geographic_coordinate_system"] = source_dict[
+                "use_geographic_coordinate_system"
+            ]
+            source_dict["base_source"]["casadi_cache_settings"] = source_dict[
+                "casadi_cache_settings"
+            ]
+            source_dict["base_source"]["field"] = source_dict["field"]
+            base_source = OceanCurrentField.instantiate_source_from_dict(
+                source_dict=source_dict["base_source"]
+            )
+            # return generative noise source
+            return GroundTruthFromNoise(
+                hindcast_data_source=base_source,
+                source_settings=source_dict["noise_source"]["source_settings"],
+            )
         else:
             raise ValueError(
                 "Selected source {} in the OceanCurrentSource dict is not implemented.".format(
                     source_dict["source"]
                 )
             )
-
-    def __del__(self):
-        # print('__del__ called in OceanCurrentField')
-        pass

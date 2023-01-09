@@ -3,9 +3,8 @@
      the seaweed as well as battery usage.
 """
 import dataclasses
-import datetime as dt
+import datetime
 import logging
-import os
 import time
 from typing import (
     AnyStr,
@@ -60,7 +59,10 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.utils.misc import get_markers
+
+from ocean_navigation_simulator.utils.misc import (
+    get_markers,
+    timing_logger,)
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
@@ -149,6 +151,7 @@ class Arena:
     solar_field: SolarIrradianceField = None
     seaweed_field: SeaweedGrowthField = None
     platform: Platform = None
+    timeout: Union[datetime.timedelta, int] = None
 
     def __init__(
         self,
@@ -162,8 +165,8 @@ class Arena:
         network_graph_dict: Optional[Dict] = None,
         multi_agent_graph_edges: Optional[List] = None,
         collect_trajectory: Optional[bool] = True,
-        is_multi_agent: Optional[bool] = False,
-        logging_level: Optional[AnyStr] = "INFO",
+        timeout: Union[datetime.timedelta, int] = None,
+
     ):
         """OceanPlatformArena constructor.
         Args:
@@ -185,11 +188,11 @@ class Arena:
                                              specify the seaweed growth data source. Details see SeaweedGrowthField.
             spatial_boundary:                dictionary containing the "x" and "y" spatial boundaries as list of [min, max]
             collect_trajectory:              boolean if True trajectory of states and actions is logged, otherwise not.
-            logging_level:                   Level applied for logging.
+            timeout:                         integer (in seconds) or timedelta object for max sim run (None sets no limit)
         """
         # initialize arena logger
         self.logger = logging.getLogger("arena")
-        self.logger.setLevel(os.environ.get("LOGLEVEL", "INFO").upper())
+        self.timeout = self.format_timeout(timeout)
 
         # Step 1: Initialize the DataFields from the respective Dictionaries
         start = time.time()
@@ -300,7 +303,9 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
-        platform_set = self.platform.simulate_step(action)
+
+        with timing_logger("Platform Step ({})", self.logger, logging.DEBUG):
+            platform_set = self.platform.simulate_step(action)
 
         if self.collect_trajectory:
             self.state_trajectory = np.append(
@@ -313,38 +318,85 @@ class Arena:
             graph_observation = self.multi_agent_net.update_graph(platform_set=platform_set)
             self.multi_agent_G_list.append(graph_observation)
 
-        return ArenaObservation(
-            platform_state=platform_set,
-            true_current_at_state=self.ocean_field.get_ground_truth(
-                platform_set.to_spatio_temporal_point()
-            ),
-            forecast_data_source=self.ocean_field.forecast_data_source,
-            graph_obs=graph_observation,
-        )
+        with timing_logger("Create Observation ({})", self.logger, logging.DEBUG):
+            obs =  ArenaObservation(
+                platform_state=platform_set,
+                true_current_at_state=self.ocean_field.get_ground_truth(
+                    platform_set.to_spatio_temporal_point()
+                ),
+                forecast_data_source=self.ocean_field.forecast_data_source,
+                graph_obs=graph_observation,
+            )
+        return obs
 
     def is_inside_arena(self, platform_id: int = 0, margin: Optional[float] = 0.0) -> bool:
-        # TODO: adapt for MultiAgent
+        # TODO: Check again if works for MultiAgent
         """Check if the current platform state is within the arena spatial boundary."""
-        if self.spatial_boundary is not None:
-            inside_x = (
-                self.spatial_boundary["x"][0].deg + margin
-                < self.platform.state_set[platform_id].lon.deg
-                < self.spatial_boundary["x"][1].deg - margin
-            )
-            inside_y = (
-                self.spatial_boundary["y"][0].deg + margin
-                < self.platform.state_set[platform_id].lat.deg
-                < self.spatial_boundary["y"][1].deg - margin
-            )
-            return inside_x and inside_y
-        return True
+        if self.spatial_boundary is None:
+            try:
+                x_boundary = [
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][0],
+                    self.ocean_field.hindcast_data_source.grid_dict["x_grid"][-1],
+                ]
+                y_boundary = [
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][0],
+                    self.ocean_field.hindcast_data_source.grid_dict["y_grid"][-1],
+                ]
+            except BaseException:
+                self.logger.warning(
+                    "Arena: Hindcast Ocean Source does not have x, y grid. Not checking if inside."
+                )
+                return True
+        else:
+            x_boundary = [x.deg for x in self.spatial_boundary["x"]]
+            y_boundary = [y.deg for y in self.spatial_boundary["y"]]
+
+        # calculate if inside or outside
+        inside_x = x_boundary[0] + margin < self.platform.state_set[platform_id].lon.deg < x_boundary[1] - margin
+        inside_y = y_boundary[0] + margin < self.platform.state_set[platform_id].lat.deg < y_boundary[1] - margin
+        return inside_x and inside_y
 
     def is_on_land(self, point: SpatialPoint = None, platform_id: int = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        # TODO: adapt for MultiAgent
-        if point is None:
-            point = self.platform.state_set[platform_id]
-        return self.ocean_field.hindcast_data_source.is_on_land(point)
+        # Check if x_grid exists (not for all data sources)
+        if self.ocean_field.hindcast_data_source.grid_dict.get("x_grid", None) is not None:
+            if point is None:
+                point = self.platform.state[platform_id]
+            return self.ocean_field.hindcast_data_source.is_on_land(point)
+        else:
+            return False
+
+    def is_timeout(self, platform_id: int = 0) -> bool:
+        # calculate passed_seconds
+        if self.timeout is not None:
+            total_seconds = (
+                self.platform.state_set[platform_id].date_time - self.initial_state.date_time
+            ).total_seconds()
+            return total_seconds >= self.timeout.total_seconds()
+        else:
+            return False
+
+    def final_distance_to_target(self, problem: NavigationProblem) -> float:
+        # TODO: adapt for multi-agent
+        # Step 1: calculate min distance
+        total_distance = problem.distance(
+            PlatformState.from_numpy(self.state_trajectory[-1, :])
+        ).deg
+        min_distance_to_target = total_distance - problem.target_radius
+        # Step 2: Set 0 when inside and the distance when outside
+        if min_distance_to_target <= 0:
+            min_distance_to_target = 0.0
+        return min_distance_to_target
+
+    @staticmethod
+    def format_timeout(timeout) -> Union[datetime.timedelta, None]:
+        """Helper function because we want timeout to be able to be from a dict/string."""
+        if isinstance(timeout, datetime.timedelta):
+            return timeout
+        elif timeout is not None:
+            return datetime.timedelta(seconds=timeout)
+        else:
+            return None
 
     def problem_status(
         self,
@@ -363,6 +415,8 @@ class Arena:
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
         """
+        if self.is_timeout():
+            return -1
         if self.is_on_land(platform_id=platform_id):
             return -2
         elif check_inside and not self.is_inside_arena(platform_id=platform_id, margin=margin):
@@ -410,7 +464,7 @@ class Arena:
         For now: assume all platforms are sampled at the same time, so it is sufficient to obtain the datatime of the first platform with index 0
         """
         return [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in state_trajectory[0, 2, ::1]
         ]
 
@@ -464,20 +518,26 @@ class Arena:
     def animate_trajectory(
         self,
         margin: Optional[float] = 1,
+        x_interval: Optional[List[float]] = None,
+        y_interval: Optional[List[float]] = None,
         problem: Optional[NavigationProblem] = None,
         temporal_resolution: Optional[float] = None,
         add_ax_func_ext: Optional[Callable] = None,
+        full_traj: Optional[bool] = True,
         output: Optional[AnyStr] = "traj_animation.mp4",
         **kwargs,
     ):
         """Plotting functions to animate the trajectory of the arena so far.
         Optional Args:
               margin:            Margin as box around x_0 and x_T to plot
+              x_interval:        If both x and y interval are present the margin is ignored.
+              y_interval:        If both x and y interval are present the margin is ignored.
               problem:           Navigation Problem object
               temporal_resolution:  The temporal resolution of the animation in seconds (per default same as data_source)
               add_ax_func_ext:  function handle what to add on top of the current visualization
                                 signature needs to be such that it takes an axis object and time as input
                                 e.g. def add(ax, time, x=10, y=4): ax.scatter(x,y) always adds a point at (10, 4)
+              full_traj:        Boolean, True per default to disply full trajectory at all times, when False iteratively.
               # Other variables possible via kwargs see DataSource animate_data, such as:
               fps:              Frames per second
               output:           How to output the animation. Options are either saved to file or via html in jupyter/safari.
@@ -492,8 +552,11 @@ class Arena:
             data_source=self.ocean_field.hindcast_data_source,
             problem=problem,
             margin=margin,
+            x_interval=x_interval,
+            y_interval=y_interval,
             temporal_resolution=temporal_resolution,
             add_ax_func_ext=add_ax_func_ext,
+            full_traj=full_traj,
             output=output,
             **kwargs,
         )
@@ -547,8 +610,9 @@ class Arena:
 
     def plot_all_on_map(
         self,
+        ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
-        index: Optional[int] = -1,
+        index: Optional[int] = 0,
         show_current_position: Optional[bool] = True,
         current_position_color: Optional[str] = "black",
         # State
@@ -601,7 +665,7 @@ class Arena:
             )
         else:
             raise Exception(
-                f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed."
+                f"Arena: Background '{background}' is not available only 'current', 'solar' or 'seaweed."
             )
 
         if show_state_trajectory:
@@ -652,7 +716,7 @@ class Arena:
         format_datetime_x_axis(ax)
 
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
         ax.plot(dates, self.state_trajectory[::stride, 3])
@@ -684,7 +748,7 @@ class Arena:
         format_datetime_x_axis(ax)
 
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
         ax.plot(dates, self.state_trajectory[::stride, 3], marker=".")
@@ -720,7 +784,7 @@ class Arena:
         # TODO: Adapt to MULTIAGENT
         # plot
         dates = [
-            dt.datetime.fromtimestamp(posix, tz=dt.timezone.utc)
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[:-1:stride, 2]
         ]
         if to_plot == "both" or to_plot == "thrust":
@@ -822,7 +886,7 @@ class Arena:
             else:
                 pos[key] = (lon, lat)
 
-        t = dt.datetime.fromtimestamp(t_interval[0], tz=dt.timezone.utc)
+        t = datetime.datetime.fromtimestamp(t_interval[0], tz=datetime.timezone.utc)
         plt.figure(figsize=figsize)
         ax = self.multi_agent_net.plot_network_graph(
             G,

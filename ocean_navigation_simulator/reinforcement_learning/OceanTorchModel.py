@@ -1,10 +1,12 @@
+import logging
+from typing import Optional
+
 import gym
 import numpy as np
 import torch
 from ray.rllib.models.torch.misc import SlimConv2d, SlimFC, normc_initializer
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models.utils import get_activation_fn
-from ray.rllib.utils.torch_utils import reduce_mean_ignore_inf
 from ray.rllib.utils.typing import ModelConfigDict, TensorType
 from torch import nn
 
@@ -17,6 +19,8 @@ from torch import nn
 #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/tf/tf_modelv2.py
 #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/models/modelv2.py
 #   https://github.com/ray-project/ray/blob/releases/1.13.0/rllib/agents/dqn/dqn_tf_policy.py
+
+logger = logging.getLogger("ocean_torch_model")
 
 
 class OceanCNN(nn.Module):
@@ -54,7 +58,16 @@ class OceanCNN(nn.Module):
 class OceanDenseNet(nn.Module):
     """helper model to build dense networks"""
 
-    def __init__(self, name, input_size, units, activation, initializer_std, input_activation=None):
+    def __init__(
+        self,
+        name,
+        input_size,
+        units,
+        activation,
+        initializer,
+        input_activation=None,
+        residual=False,
+    ):
         super().__init__()
         self.name = name
 
@@ -64,16 +77,28 @@ class OceanDenseNet(nn.Module):
             layers.append(get_activation_fn(input_activation, "torch")())
 
         for i in range(len(units)):
+            if residual and i == len(units) - 1:
+                _initializer = nn.init._no_grad_zero_
+            elif initializer[i] == "xavier_uniform":
+                _initializer = nn.init.xavier_uniform_
+            elif isinstance(initializer[i], (int, float)):
+                _initializer = normc_initializer(initializer[i])
+            else:
+                raise ValueError("Initalizer {initializer[i]} not valid.")
+
             layers.append(
                 SlimFC(
                     in_size=int(np.product(input_size)) if i == 0 else units[i - 1],
                     out_size=units[i],
-                    initializer=normc_initializer(initializer_std[i])
-                    if initializer_std[i]
-                    else None,
+                    initializer=_initializer,
                     activation_fn=activation[i],
                 )
             )
+
+            if residual and i == len(units) - 1:
+                linear = list(layers[-1].modules())[2]
+                with torch.no_grad():
+                    linear.bias.data[0] = torch.tensor([1])
 
         self._model = nn.Sequential(*layers)
 
@@ -95,7 +120,7 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         meta: dict,
         joined: dict,
         dueling_heads: dict,
-        **kwargs
+        **kwargs,
     ):
         nn.Module.__init__(self)
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
@@ -125,7 +150,7 @@ class OceanTorchModel(TorchModelV2, nn.Module):
                 input_size=self.map_in_shape,
                 units=self.map_config["units"],
                 activation=self.map_config["activation"],
-                initializer_std=self.map_config["initializer_std"],
+                initializer=self.map_config["initializer"],
             )
             self.map_out_shape = self.map_config["units"][-1]
 
@@ -141,7 +166,7 @@ class OceanTorchModel(TorchModelV2, nn.Module):
                 input_size=self.meta_in_shape,
                 units=self.meta_config["units"],
                 activation=self.meta_config["activation"],
-                initializer_std=self.meta_config["initializer_std"],
+                initializer=self.meta_config["initializer"],
                 input_activation=self.meta_config["input_activation"],
             )
             self.meta_out_shape = (
@@ -160,7 +185,7 @@ class OceanTorchModel(TorchModelV2, nn.Module):
                 input_size=self.joined_in_shape,
                 units=self.joined_config["units"],
                 activation=self.joined_config["activation"],
-                initializer_std=self.joined_config["initializer_std"],
+                initializer=self.joined_config["initializer"],
             )
             self.joined_out_shape = self.joined_config["units"][-1]
         else:
@@ -173,14 +198,15 @@ class OceanTorchModel(TorchModelV2, nn.Module):
             input_size=self.dueling_in_shape,
             units=self.dueling_heads_config["units"] + [action_space.n],
             activation=self.dueling_heads_config["activation"],
-            initializer_std=self.dueling_heads_config["initializer_std"],
+            initializer=self.dueling_heads_config["initializer"],
+            residual=self.dueling_heads_config["residual"],
         )
         self.state_head = OceanDenseNet(
             name="State Head",
             input_size=self.dueling_in_shape,
             units=self.dueling_heads_config["units"] + [1],
             activation=self.dueling_heads_config["activation"],
-            initializer_std=self.dueling_heads_config["initializer_std"],
+            initializer=self.dueling_heads_config["initializer"],
         )
 
     def forward(self, map: TensorType, meta: TensorType = None):
@@ -227,8 +253,32 @@ class OceanTorchModel(TorchModelV2, nn.Module):
         advantages_mean = reduce_mean_ignore_inf(advantage_out, 1)
         values = state_out + advantage_out - advantages_mean[:, None]
 
+        if torch.any(torch.isnan(values)):
+            logger.error("Nan in torch model.")
+            logger.error(f" Inputs: map:{map}, meta:{meta}")
+            logger.error(
+                f" Models: map_out:{map_out}, joined_out:{joined_out}, advantage_out:{advantage_out}, state_out:{state_out}"
+            )
+            logger.error(f" Output: advantages_mean:{advantages_mean}, values:{values}")
+
         return values
 
     def __call__(self, *args):
         with self.context():
             return self.forward(*args)
+
+
+def reduce_mean_ignore_inf(x: TensorType, axis: Optional[int] = None) -> TensorType:
+    """Same as torch.mean() but ignores -inf values.
+
+    Args:
+        x: The input tensor to reduce mean over.
+        axis: The axis over which to reduce. None for all axes.
+
+    Returns:
+        The mean reduced inputs, ignoring inf values.
+    """
+    mask = torch.ne(x, float("-inf"))
+    x_zeroed = torch.where(mask, x, torch.zeros_like(x))
+    non_zero = torch.sum(mask.float(), axis)
+    return torch.sum(x_zeroed, axis) / torch.max(non_zero, torch.ones_like(non_zero))

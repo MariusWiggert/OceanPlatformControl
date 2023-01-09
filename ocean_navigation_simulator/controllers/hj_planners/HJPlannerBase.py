@@ -6,12 +6,13 @@ import time
 from bisect import bisect
 from datetime import datetime, timezone
 from functools import partial
-from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
+from typing import AnyStr, Callable, List, Optional, Tuple, Union
 
 # Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
 import hj_reachability as hj
 import jax.numpy as jnp
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -46,7 +47,7 @@ class HJPlannerBase(Controller):
         See Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem: NavigationProblem, specific_settings: Optional[Dict] = None):
+    def __init__(self, problem: NavigationProblem, specific_settings: dict):
         """
         Constructor for the HJ Planner Baseclass.
         Args:
@@ -77,24 +78,14 @@ class HJPlannerBase(Controller):
         self.specific_settings = {
             "replan_on_new_fmrc": True,
             "replan_every_X_seconds": None,
-            "direction": "multi-time-reach-back",
             "n_time_vector": 199,
-            # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-            "deg_around_xt_xT_box": 4.0,  # area over which to run HJ_reachability
+            "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
             "accuracy": "high",
             "artificial_dissipation_scheme": "local_local",
-            "T_goal_in_seconds": problem.timeout.total_seconds(),
-            # the maximum allowed time for the navigation problem
             "use_geographic_coordinate_system": True,
-            "progress_bar": True,
-            "initial_set_radii": [problem.target_radius, problem.target_radius],
-            # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
-            # Note: grid_res should always be SMALLER than initial_set_radii, otherwise reachability behaves weirdly.
-            "grid_res": 0.04,
+            "progress_bar": False,
             # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             "d_max": 0.0,
-            # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
-            # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
             "platform_dict": problem.platform_dict,
         } | specific_settings
 
@@ -145,7 +136,7 @@ class HJPlannerBase(Controller):
             PlatformAction object
         """
         # an easy way of finding for each time, which index of control signal to apply
-        idx = bisect.bisect_right(self.times, state.date_time.timestamp()) - 1
+        idx = bisect(self.times, state.date_time.timestamp()) - 1
         if idx == len(self.times) - 1:
             idx = idx - 1
             self.logger.warning(
@@ -171,7 +162,7 @@ class HJPlannerBase(Controller):
         self.logger.debug(f"HJPlannerBase: Get Action from Plan ({time.time() - start:.1f}s)")
         return action
 
-    def replan_if_necessary(self, observation: ArenaObservation):
+    def replan_if_necessary(self, observation: ArenaObservation) -> bool:
         if self._check_for_replanning(observation):
             if "load_plan" in self.specific_settings and self.specific_settings["load_plan"]:
                 folder = f'{self.specific_settings["planner_path"]}forecast_planner_idx_{self.planner_cache_index+1}/'
@@ -182,9 +173,6 @@ class HJPlannerBase(Controller):
                 # log x_t and data_source for plotting and easier access later
                 self.x_t = observation.platform_state
                 self.last_data_source = observation.forecast_data_source
-                # If the data_source is an observer, fit the model with the most recent data
-                if isinstance(self.last_data_source, Observer):
-                    self.last_data_source.fit()
                 # Update the data used in the HJ Reachability Planning
                 self._update_current_data(observation=observation)
                 self._plan(observation.platform_state)
@@ -202,6 +190,8 @@ class HJPlannerBase(Controller):
                 self.logger.info(
                     f"HJPlannerBase: Re-planning finished ({time.time() - start:.1f}s)"
                 )
+            return True
+        return False
 
     def _check_for_replanning(self, observation: ArenaObservation) -> bool:
         """Helper Function to check if we want to replan with HJ Reachability.
@@ -210,7 +200,10 @@ class HJPlannerBase(Controller):
         """
 
         # Check for re-planning with new forecast (or first time so no idx set yet)
-        if self.specific_settings["replan_on_new_fmrc"] or self.last_fmrc_time_planned_with is None:
+        if (
+            self.specific_settings.get("replan_on_new_fmrc", False)
+            or self.last_fmrc_time_planned_with is None
+        ):
             old = self.last_fmrc_time_planned_with
             if self._new_forecast_data_available(observation):
                 # If the data_source is an observer, delete all error measurements from the old forecast.
@@ -261,7 +254,9 @@ class HJPlannerBase(Controller):
         Returns:
             PlatformAction to send to the simulation
         """
-        if self.specific_settings["direction"] == "forward":
+        if self.specific_settings["direction"] == "forward" or not self.specific_settings.get(
+            "closed_loop", True
+        ):
             u_out = self.get_open_loop_control_from_plan(state=state)
         else:
             # check if time is outside times and throw warning if yes but continue with existing value function.
@@ -357,7 +352,7 @@ class HJPlannerBase(Controller):
         Args:
             x_t: Platform state used as start/target of HJ Reachability computation, depending on 'direction'.
         """
-
+        self.problem.start_state = x_t
         # run data checks if the right current data is loaded in the interpolation function
         self._check_data_settings_compatibility(x_t=x_t)
 
@@ -370,7 +365,11 @@ class HJPlannerBase(Controller):
                 dir="forward",
                 x_reach_end=self.get_x_from_full_state(self.problem.end_region),
             )
-            self._extract_trajectory(x_start=self.get_x_from_full_state(self.problem.end_region))
+            # log values for closed-loop trajectory extraction
+            x_start_backtracking = self.get_x_from_full_state(self.problem.end_region)
+            t_start_backtracking = (
+                x_t.date_time.timestamp() + self.specific_settings["T_goal_in_seconds"]
+            )
 
         elif self.specific_settings["direction"] == "backward":
             # Note: no trajectory is extracted as the value function is used for closed-loop control
@@ -380,9 +379,11 @@ class HJPlannerBase(Controller):
                 T_max_in_seconds=self.specific_settings["T_goal_in_seconds"],
                 dir="backward",
             )
-            self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
             # arrange to forward times by convention for plotting and open-loop control
-            self._flip_value_func_to_forward_times()
+            self._set_value_func_to_forward_time()
+            # log values for closed-loop trajectory extraction
+            x_start_backtracking = self.get_x_from_full_state(x_t)
+            t_start_backtracking = x_t.date_time.timestamp()
 
         elif self.specific_settings["direction"] == "forward-backward":
             # Step 1: run the set forward to get the earliest possible arrival time
@@ -403,9 +404,11 @@ class HJPlannerBase(Controller):
                 + self.specific_settings["fwd_back_buffer_in_seconds"],
                 dir="backward",
             )
-            self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
             # arrange to forward times by convention for plotting and open-loop control
-            self._flip_value_func_to_forward_times()
+            self._set_value_func_to_forward_time()
+            # log values for closed-loop trajectory extraction
+            x_start_backtracking = self.get_x_from_full_state(x_t)
+            t_start_backtracking = x_t.date_time.timestamp()
         elif self.specific_settings["direction"] == "multi-time-reach-back":
             # Step 1: run multi-reachability backwards in time
             self._run_hj_reachability(
@@ -414,21 +417,12 @@ class HJPlannerBase(Controller):
                 T_max_in_seconds=self.specific_settings["T_goal_in_seconds"],
                 dir="multi-time-reach-back",
             )
+            # arrange to forward times by convention for plotting and open-loop control
+            self._set_value_func_to_forward_time()
 
-            # Now just extract it forwards releasing the vehicle at t=0
-            def termination_condn(x_target, r, x, t):
-                return np.linalg.norm(x_target - x) <= r
-
-            termination_condn = partial(
-                termination_condn,
-                jnp.array(self.problem.end_region.__array__()),
-                self.problem.target_radius,
-            )
-            self._extract_trajectory(
-                self.get_x_from_full_state(x_t), termination_condn=termination_condn
-            )
-            # arrange to forward times by convention for plotting and open-loop control (aka closed-loop with this)
-            self._flip_value_func_to_forward_times()
+            # log values for closed-loop trajectory extraction
+            x_start_backtracking = self.get_x_from_full_state(x_t)
+            t_start_backtracking = x_t.date_time.timestamp()
             if self.all_values.min() < -2:
                 raise ValueError(
                     "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
@@ -444,6 +438,20 @@ class HJPlannerBase(Controller):
             raise ValueError(
                 "HJ Planner has NaNs in all values. Something went wrong in solving the PDE."
             )
+
+        # extract trajectory for open_loop control or because of plotting/logging
+        if (
+            self.specific_settings["direction"] == "forward"
+            or self.specific_settings.get("calc_opt_traj_after_planning", True)
+            or not self.specific_settings.get("closed_loop", True)
+        ):
+            self.times, self.x_traj, self.contr_seq, self.distr_seq = self._extract_trajectory(
+                x_start=x_start_backtracking,
+                t_start=t_start_backtracking,
+                num_traj_disc=self.specific_settings.get("num_traj_disc", None),
+                dt_in_sec=self.specific_settings.get("traj_dt_in_sec", None),
+            )
+            self._log_traj_in_plan_dict(self.times, self.x_traj, self.contr_seq)
 
         self.last_planning_posix = x_t.date_time.timestamp()
 
@@ -553,8 +561,9 @@ class HJPlannerBase(Controller):
     def _extract_trajectory(
         self,
         x_start: jnp.ndarray,
-        traj_rel_times_vector: jnp.ndarray = None,
-        termination_condn: Callable = None,
+        t_start: float,  # in posix time!
+        num_traj_disc: Optional[int] = None,
+        dt_in_sec: Optional[int] = None,
     ):
         """Backtrack the reachable front to extract a trajectory etc.
 
@@ -565,42 +574,88 @@ class HJPlannerBase(Controller):
                                     Defaults to self.reach_times.
         termination_condn:          function to evaluate if the calculation should be terminated (e.g. because reached)
         """
-        # setting default times vector for the trajectory
-        if traj_rel_times_vector is None:
-            traj_rel_times_vector = self.reach_times
-        else:
-            traj_rel_times_vector = traj_rel_times_vector + self.reach_times[0]
+        # Note: the value function self.all_values and self.reach_times are per default in forward time!
 
+        # Step 0: get all_values and reach_times in the correct direction
+        if self.specific_settings["direction"] == "forward":
+            backtracking_reach_times, backtracking_all_values = self.reach_times, self.all_values
+            t_rel_start = t_start - self.current_data_t_0
+            t_rel_stop = self.reach_times[-1]
+            if t_rel_start >= t_rel_stop:
+                raise ValueError("t_start is after the last time a value function is available.")
+        else:
+            backtracking_reach_times, backtracking_all_values = [
+                np.flip(seq, axis=0) for seq in [self.reach_times, self.all_values]
+            ]
+            t_rel_stop = t_start - self.current_data_t_0 + self.reach_times[0]
+            t_rel_start = self.reach_times[-1]
+            if t_rel_start <= t_rel_stop:
+                raise ValueError("t_start is after the last time a value function is available.")
+
+        # Step 1: get the traj_rel_times_vector
+        if num_traj_disc:
+            traj_rel_times_vector = np.linspace(
+                start=t_rel_start, stop=t_rel_stop, num=num_traj_disc, endpoint=True
+            )
+        elif dt_in_sec:
+            traj_rel_times_vector = np.arange(
+                start=t_rel_start,
+                stop=t_rel_stop,
+                step=dt_in_sec if self.specific_settings["direction"] == "forward" else -dt_in_sec,
+            )
+        # setting default times vector for the trajectory
+        else:  # default is the same as
+            traj_rel_times_vector = backtracking_reach_times
+
+        # Set up termination condition (only needed for multi-time backwards reachability)
+        def termination_condn(x_target, r, x, t):
+            return np.linalg.norm(x_target - x) <= r
+
+        termination_condn = partial(
+            termination_condn,
+            jnp.array(self.problem.end_region.__array__()),
+            self.problem.target_radius,
+        )
+
+        # Step 2: backtrack to get the trajectory
         (
-            self.times,
-            self.x_traj,
-            self.contr_seq,
-            self.distr_seq,
+            times,
+            x_traj,
+            contr_seq,
+            distr_seq,
         ) = self.nondim_dynamics.dimensional_dynamics.backtrack_trajectory(
             grid=self.grid,
             x_init=x_start,
-            times=self.reach_times,
-            all_values=self.all_values,
+            times=backtracking_reach_times,
+            all_values=backtracking_all_values,
             traj_times=traj_rel_times_vector,
-            termination_condn=termination_condn,
+            termination_condn=None
+            if self.specific_settings["direction"] != "multi-time-reach-back"
+            else termination_condn,
         )
 
         # for open_loop control the times vector must be in absolute times
-        self.times = self.times + self.current_data_t_0
+        times = times + self.current_data_t_0
 
         if self.specific_settings["direction"] in [
             "backward",
             "multi-time-reach-back",
             "forward-backward",
         ]:
-            self._flip_traj_to_forward_times()
+            times = np.flip(times, axis=0)
+            x_traj, contr_seq, distr_seq = [
+                np.flip(seq, axis=1) for seq in [x_traj, contr_seq, distr_seq]
+            ]
 
-        # log the planned trajectory for later inspection purpose
+        return times, x_traj, contr_seq, distr_seq
+
+    def _log_traj_in_plan_dict(self, times, x_traj, contr_seq):
+        """Helper function to log plans throughout the closed-loop control."""
         # Step 1: concatenate to reduce file size
-        times_vec = self.times.reshape(1, -1)
-        trajectory = np.concatenate((self.x_traj, times_vec), axis=0)
+        times_vec = times.reshape(1, -1)
+        trajectory = np.concatenate((x_traj, times_vec), axis=0)
 
-        plan_dict = {"traj": trajectory, "ctrl": self.contr_seq}
+        plan_dict = {"traj": trajectory, "ctrl": contr_seq}
         self.planned_trajs.append(plan_dict)
 
     def _update_current_data(self, observation: ArenaObservation):
@@ -629,6 +684,7 @@ class HJPlannerBase(Controller):
             y_interval=y_interval,
             t_interval=t_interval,
             spatial_resolution=self.specific_settings["grid_res"],
+            throw_exceptions=True,
         )
 
         # calculate relative posix_time (we use it in interpolation because jax uses float32 and otherwise cuts off)
@@ -653,7 +709,7 @@ class HJPlannerBase(Controller):
         self.nondim_dynamics.offset_vec = self.offset_vec
 
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
-        self.logger.debug("HJPlannerBase: Cache Size ", hj.solver._solve._cache_size())
+        self.logger.debug("HJPlannerBase: Cache Size " + str(hj.solver._solve._cache_size()))
         hj.solver._solve._clear_cache()
         # xla._xla_callable.cache_clear()
 
@@ -691,25 +747,16 @@ class HJPlannerBase(Controller):
             offset_vec=self.offset_vec,
         )
 
-    def _flip_traj_to_forward_times(self):
-        """Arrange traj class values to forward for easier access: traj_times, x_traj, contr_seq, distr_seq"""
-        # arrange everything forward in time for easier access if we ran it backwards
-        if self.times[0] > self.times[-1]:
-            self.times = np.flip(self.times, axis=0)
-            self.x_traj, self.contr_seq, self.distr_seq = [
-                np.flip(seq, axis=1) for seq in [self.x_traj, self.contr_seq, self.distr_seq]
-            ]
-        else:
-            raise ValueError("Trajectory is already in forward time.")
-
-    def _flip_value_func_to_forward_times(self):
+    def _set_value_func_to_forward_time(self):
         """Arrange class values to forward for easier access: reach_times and all_values."""
         if self.reach_times[0] > self.reach_times[-1]:
             self.reach_times, self.all_values = [
                 np.flip(seq, axis=0) for seq in [self.reach_times, self.all_values]
             ]
         else:
-            raise ValueError("Reachability Values are already in forward time.")
+            raise ValueError(
+                "Reachability Values are already in forward time, this should not happen."
+            )
 
     # PLOTTING FUNCTIONS #
     def plot_reachability_snapshot(
@@ -737,7 +784,7 @@ class HJPlannerBase(Controller):
             granularity_in_h:       the granularity of the color-coding
             plot_in_h:              if we want to plot in h (or leave it in seconds)
             ### Other optional arguments
-            add_drawing:            A callable to add a drawing to the snapshot.
+            add_drawing:            A callable to add a drawing to the snapshot, taking in (ax, rel_time_in_seconds)
         """
         if self.grid.ndim != 2:
             raise ValueError("plot_reachability is currently only implemented for 2D sets")
@@ -803,29 +850,36 @@ class HJPlannerBase(Controller):
             self.problem.start_state.lat.deg,
             color="r",
             marker="o",
+            zorder=6,
         )
         ax.scatter(
-            self.problem.end_region.lon.deg, self.problem.end_region.lat.deg, color="g", marker="x"
+            self.problem.end_region.lon.deg,
+            self.problem.end_region.lat.deg,
+            color="g",
+            marker="x",
+            zorder=6,
         )
 
         if self.specific_settings["use_geographic_coordinate_system"]:
             ax.set_title(
-                "Multi-Reach at time {}".format(
+                "Value Function at time {}".format(
                     datetime.fromtimestamp(
                         self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0,
                         tz=timezone.utc,
-                    ).strftime("%Y-%m-%d %H:%M:%S UTC")
-                )
+                    ).strftime("%Y-%m-%d %H:%M UTC")
+                ),
+                fontsize=20,
             )
         else:
             ax.set_title(
-                "Multi-Reach at time {} hours".format(
+                "Value Function at time {} hours".format(
                     self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0
                 )
             )
 
         if add_drawing is not None:
             add_drawing(ax, rel_time_in_seconds)
+        ax.set_facecolor("white")
 
         # adjust the fig_size
         fig = plt.gcf()
@@ -870,8 +924,15 @@ class HJPlannerBase(Controller):
         plot_in_h: bool = True,
         granularity_in_h: int = 1,
         filename: AnyStr = "reachability_animation.mp4",
+        temporal_resolution: Optional[int] = None,
+        spatial_resolution: Optional[float] = None,
         with_opt_ctrl: Optional[bool] = False,
         forward_time: Optional[bool] = False,
+        data_source_for_plt: Optional = None,
+        t_end: Optional[datetime] = None,
+        fps: Optional[int] = 10,
+        with_background: Optional[bool] = True,
+        background_animation_args: Optional[dict] = {},
         **kwargs,
     ):
         """Create an animation of the reachability computation.
@@ -880,9 +941,11 @@ class HJPlannerBase(Controller):
            plot_in_h:          if the value function units should be converted to hours
            granularity_in_h:   with which granularity to plot the value function
            filename:           filename under which to save the animation
+           temporal_resolution: the temporal resolution in seconds, per default same as data_source
            with_opt_ctrl:      if True the optimal trajectory and control is added as overlay.
            forward_time:       forward_time manually force forward time (otherwise in direction of calculation)
-           kwargs:             See plot_reachability_snapshot for further arguments
+           data_source_for_plt:the data source to plot as background with data_source.animate_data()
+           kwargs:             See plot_reachability_snapshot for further arguments (can also add drawings)
 
         """
         os.makedirs("generated_media", exist_ok=True)
@@ -933,38 +996,93 @@ class HJPlannerBase(Controller):
                 )
                 # get the planned idx of current time
                 idx = np.searchsorted(a=self.times, v=time)
+                # make sure it does not go over the array length
+                idx = min(idx, len(self.times) - 2)
                 # plot the control arrow for the specific time
-                ax.scatter(self.x_traj[0, idx], self.x_traj[1, idx], c="m", marker="o", s=20)
+                ax.scatter(
+                    self.x_traj[0, idx], self.x_traj[1, idx], c="m", marker="o", s=20, zorder=9
+                )
                 ax.quiver(
                     self.x_traj[0, idx],
                     self.x_traj[1, idx],
-                    self.contr_seq[0, min(idx, len(self.times) - 1)]
-                    * np.cos(self.contr_seq[1, min(idx, len(self.times) - 1)]),  # u_vector
-                    self.contr_seq[0, min(idx, len(self.times) - 1)]
-                    * np.sin(self.contr_seq[1, min(idx, len(self.times) - 1)]),  # v_vector
+                    self.contr_seq[0, idx] * np.cos(self.contr_seq[1, idx]),  # u_vector
+                    self.contr_seq[0, idx] * np.sin(self.contr_seq[1, idx]),  # v_vector
                     color="magenta",
                     scale=10,
                     label="Control",
+                    zorder=10,
                 )
-                ax.legend(loc="upper right")
+                ax.legend(loc="lower right")
 
-        self.last_data_source.animate_data(
-            x_interval=[self.grid.domain.lo[0], self.grid.domain.hi[0]],
-            y_interval=[self.grid.domain.lo[1], self.grid.domain.hi[1]],
-            t_interval=[
+        # Plot with the Data Source in the background
+        if data_source_for_plt is None:
+            data_source_for_plt = self.last_data_source
+
+        if t_end is not None:
+            t_interval_to_animate = [self.current_data_t_0 + self.reach_times[0], t_end.timestamp()]
+        else:
+            t_interval_to_animate = [
                 self.current_data_t_0 + rel_time
                 for rel_time in [self.reach_times[0], self.reach_times[-1]]
-            ],
-            forward_time=forward_time | (self.specific_settings["direction"] == "forward"),
-            add_ax_func=add_reachability_snapshot,
-            colorbar=False,
-            output=filename,
-        )
+            ]
+
+        if with_background:
+            data_source_for_plt.animate_data(
+                x_interval=[self.grid.domain.lo[0], self.grid.domain.hi[0]],
+                y_interval=[self.grid.domain.lo[1], self.grid.domain.hi[1]],
+                t_interval=t_interval_to_animate,
+                temporal_resolution=temporal_resolution,
+                spatial_resolution=spatial_resolution,
+                forward_time=forward_time | (self.specific_settings["direction"] == "forward"),
+                add_ax_func=add_reachability_snapshot,
+                colorbar=False,
+                output=filename,
+                fps=fps,
+                **background_animation_args,
+            )
+
+        else:
+            # create global figure object where the animation happens
+            if "figsize" in kwargs:
+                fig = plt.figure(figsize=kwargs["figsize"])
+            else:
+                fig = plt.figure(figsize=(12, 12))
+
+            temporal_vector = np.arange(len(self.reach_times))
+            if temporal_resolution is not None:
+                temporal_vector = np.arange(
+                    start=t_interval_to_animate[0],
+                    stop=t_interval_to_animate[1],
+                    step=temporal_resolution,
+                )
+
+            def render_func(time_idx, temporal_vector=temporal_vector):
+                # reset plot this is needed for matplotlib.animation
+                plt.clf()
+                # Step 2: Create ax object
+                if data_source_for_plt.source_config_dict["use_geographic_coordinate_system"]:
+                    ax = DataSource.set_up_geographic_ax()
+                else:
+                    ax = plt.axes()
+                # get from time_idx to posix_time
+                add_reachability_snapshot(ax, temporal_vector[time_idx])
+
+            # set time direction of the animation
+            frames_vector = np.where(
+                forward_time,
+                np.arange(len(temporal_vector)),
+                np.flip(np.arange(len(temporal_vector))),
+            )
+            # create animation function object (it's not yet executed)
+            ani = animation.FuncAnimation(fig, func=render_func, frames=frames_vector, repeat=False)
+
+            # render the animation with the keyword arguments
+            DataSource.render_animation(animation_object=ani, output=filename, fps=fps)
 
     def vis_value_func_along_traj(
         self, time_to_reach=False, return_ax=False, plot_in_h=True, figsize=(12, 12)
     ):
-        """Plot the Value function along the most recently planned trajectory.
+        """Plot the Value function along the most recently planned trajectory. Only works for 2D trajectories right now.
         Args:
            time_to_reach:       if True we plot the value function otherwise just the zero level set
            return_ax:           return ax object to plot more on top
@@ -985,7 +1103,7 @@ class HJPlannerBase(Controller):
         reach_times = self.reach_times - self.reach_times[0]
 
         traj_times = (
-            self.planned_trajs[-1]["traj"][3, :] - self.current_data_t_0 - self.reach_times[0]
+            self.planned_trajs[-1]["traj"][2, :] - self.current_data_t_0 - self.reach_times[0]
         )
 
         if plot_in_h:
@@ -1053,14 +1171,18 @@ class HJPlannerBase(Controller):
             ),
             values=ttr_values,
             method="linear",
+            bounds_error=False,
+            fill_value=None,
         )
 
     def interpolate_value_function_in_hours(
         self,
         observation: ArenaObservation = None,
         point: SpatioTemporalPoint = None,
-        width_deg: float = 0,
-        width: int = 1,
+        width_deg: Optional[float] = 0,
+        width: Optional[int] = 1,
+        allow_spacial_extrapolation: Optional[bool] = False,
+        allow_temporal_extrapolation: Optional[bool] = False,
     ) -> np.ndarray:
         """
         Get interpolated TTR value in hours either for a single point or on a grid (if width's passed)
@@ -1070,10 +1192,11 @@ class HJPlannerBase(Controller):
             width_deg: width in degrees for the grid
             width: width in points for the grid
         """
-        if observation is not None:
+        if observation is not None and isinstance(observation, ArenaObservation):
             self.replan_if_necessary(observation)
             point = observation.platform_state.to_spatio_temporal_point()
-        elif point is None:
+
+        if not type(point) in [SpatioTemporalPoint, PlatformState]:
             raise Exception(
                 "Either ArenaObservation or SpatioTemporalPoint has to be given for interpolation."
             )
@@ -1081,28 +1204,44 @@ class HJPlannerBase(Controller):
         out_x = np.linspace(point.lon.deg - width_deg / 2, point.lon.deg + width_deg / 2, width)
         out_y = np.linspace(point.lat.deg - width_deg / 2, point.lat.deg + width_deg / 2, width)
         out_t = point.date_time.timestamp()
+
+        # Sanitize Inputs:
+        extrapolate_x = (
+            out_x[0] <= self.grid.coordinate_vectors[0][0]
+            or self.grid.coordinate_vectors[0][-1] <= out_x[-1]
+        )
+        extrapolate_y = (
+            out_y[0] <= self.grid.coordinate_vectors[1][0]
+            or self.grid.coordinate_vectors[1][-1] <= out_y[-1]
+        )
+        extrapolate_t = not (
+            self.current_data_t_0 + self.reach_times[0]
+            <= out_t
+            <= self.current_data_t_0 + self.reach_times[-1]
+        )
+        if extrapolate_x or extrapolate_y or extrapolate_t:
+            message = (
+                f"Extrapolating in {'x' if extrapolate_x else 'y' if extrapolate_y else 't'}. "
+                + f"Requested: out_t: {out_t:.0f} out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}] out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]. "
+                + "Available:"
+                + f" in_t: [{self.current_data_t_0+self.reach_times[0]:.0f}, {self.current_data_t_0+self.reach_times[-1]:.0f}]"
+                + f" in_x: [{self.grid.coordinate_vectors[0][0]:.2f}, {self.grid.coordinate_vectors[0][-1]:.2f}]"
+                + f" in_y: [{self.grid.coordinate_vectors[1][0]:.2f}, {self.grid.coordinate_vectors[1][-1]:.2f}]"
+            )
+            if (allow_spacial_extrapolation and not extrapolate_t) or (
+                allow_temporal_extrapolation and not (extrapolate_x or extrapolate_y)
+            ):
+                self.logger.warning(message)
+            else:
+                raise ValueError(message)
+
         mx, my = np.meshgrid(out_x, out_y)
 
-        try:
-            return (
-                self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel()))
-                .reshape((width, width))
-                .squeeze()
-            )
-        except BaseException:
-            print(
-                "Requested:",
-                f"  out_t: {out_t:.0f}",
-                f"  out_x: [{out_x[0]:.2f}, {out_x[-1]:.2f}]",
-                f"  out_y: [{out_y[0]:.2f}, {out_y[-1]:.2f}]",
-            )
-            print(
-                f"Available:"
-                f"  reach_times: [{self.current_data_t_0+self.reach_times[0]:.0f}, {self.current_data_t_0+self.reach_times[-1]:.0f}]",
-                f"  self.grid.states.x: [{self.grid.states[0, 0, 1]:.2f}, {self.grid.states[0, -1, 1]:.2f}]",
-                f"  self.grid.states.x: [{self.grid.states[0, 0, 0]:.2f}, {self.grid.states[-1, 0, 0]:.2f}]",
-            )
-            raise
+        return (
+            self.interpolator((np.repeat(out_t, my.size), mx.ravel(), my.ravel()))
+            .reshape((width, width))
+            .squeeze()
+        )
 
     ## Saving & Loading Planner State
     def save_planner_state(self, folder):
@@ -1135,6 +1274,10 @@ class HJPlannerBase(Controller):
             pickle.dump(self.initial_values, file)
 
         self.logger.info(f"HJPlannerBase: Saving plan to {folder}")
+
+    def pickle(self, dir):
+        with open(dir, "wb") as f:
+            pickle.dump(self, f)
 
     def restore_state(self, folder):
         # Used in Replanning

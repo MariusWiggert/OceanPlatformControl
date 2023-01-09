@@ -3,9 +3,7 @@
 
 """Common unit conversion functions and classes."""
 
-import contextlib
 import datetime as datetime
-import time
 import typing
 from math import floor, log10
 from typing import Optional, Union
@@ -16,16 +14,6 @@ import numpy as np
 
 _METERS_PER_FOOT = 0.3048
 _METERS_PER_DEG_LAT_LON = 111120
-
-
-@contextlib.contextmanager
-def timing(string, verbose: Optional[int] = 0):
-    """Simple tool to check how long a specific code-part takes."""
-    if verbose > 0:
-        start = time.time()
-    yield
-    if verbose > 0:
-        print(string.format(time.time() - start))
 
 
 class Distance:
