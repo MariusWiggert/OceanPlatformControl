@@ -81,8 +81,8 @@ class GarbagePatchSource2d(DataSource2d):
     def plot_data_from_xarray(
         xarray: xr,
         var_to_plot: AnyStr = "garbage",
-        vmin: Optional[float] = 1,
-        vmax: Optional[float] = 0,
+        vmin: Optional[float] = 0.0,
+        vmax: Optional[float] = 1.0,
         alpha: Optional[float] = 1.0,
         ax: plt.axes = None,
         fill_nan: bool = True,
