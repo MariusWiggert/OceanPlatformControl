@@ -16,7 +16,7 @@ from warnings import warn
 from tqdm import tqdm
 
 
-def predict_fixed_batch(model, dataloader, device) -> dict:
+def predict_fixed_batch(model, dataloader, device, all_cfgs) -> dict:
     """Performs prediction on a fixed batch to be able to assess performance qualitatively.
     This batch is visualized and saved on weights and biases."""
 
@@ -26,7 +26,12 @@ def predict_fixed_batch(model, dataloader, device) -> dict:
         samples = data[0]
         ground_truth = data[1]
         samples = samples.to(device)
-        model_output = model(samples).cpu().detach()
+        if all_cfgs["generator"]["dropout"] == False:
+            latent = torch.rand((all_cfgs["train"]["batch_size"], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
+            target_fake = model(samples, latent)
+        else:
+            target_fake = model(samples)
+        model_output = target_fake.cpu().detach()
         samples = samples.cpu().detach()[:, :2]
 
     # logging final images to weights and biases
@@ -129,7 +134,7 @@ def gan_loss_gen(disc_fake):
     return gen_loss
 
 
-def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, cfgs_train):
+def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, cfgs_train, cfgs_gen):
     gen_loss_sum, disc_loss_sum = 0, 0
     [model.train() for model in models]
     with torch.enable_grad():
@@ -139,7 +144,11 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 data, target = data.to(device).float(), target.to(device).float()
 
                 # train discriminator
-                target_fake = models[0](data)
+                if cfgs_gen["dropout"] == False:
+                    latent = torch.rand((cfgs_train["batch_size"], cfgs_gen["latent_size"], 1, 1)).to(device)
+                    target_fake = models[0](data, latent)
+                else:
+                    target_fake = models[0](data)
                 # mask the generator output to match target (buoy data)
                 mask = torch.where(target != 0, 1, 0)
                 target_fake = torch.mul(target_fake, mask).float()
@@ -183,7 +192,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
 def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False):
     total_loss = 0
     [model.eval() for model in models]
-    enable_dropout(models[0])
+    if all_cfgs["generator"]["dropout"] == False:
+        enable_dropout(models[0], all_cfgs["validation"]["layers"])
     cfgs_train = all_cfgs["train"]
     metrics_names = all_cfgs["metrics"]
     with torch.no_grad():
@@ -194,7 +204,11 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
             for idx, (data, target) in enumerate(tepoch):
                 data, target = data.to(device).float(), target.to(device).float()
 
-                target_fake = models[0](data)
+                if all_cfgs["generator"]["dropout"] == False:
+                    latent = torch.rand((all_cfgs["train"]["batch_size"], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
+                    target_fake = models[0](data, latent)
+                else:
+                    target_fake = models[0](data)
                 if save_data:
                     save_dir = save_input_output_pairs(data, target_fake, all_cfgs, idx)
                 mask = torch.where(target != 0, 1, 0)
@@ -234,7 +248,7 @@ def clean_up_training(models, optimizers, name_extensions, dataloader, all_cfgs:
         save_checkpoint(models[i],
                         optimizers[i],
                         f"{os.path.join(all_cfgs['save_base_path'], all_cfgs['model_save_name'].split('.')[0])}_{name_extensions[i]}.pth")
-    _ = predict_fixed_batch(models[0], dataloader, device)
+    _ = predict_fixed_batch(models[0], dataloader, device, all_cfgs)
     wandb.finish()
 
 
@@ -311,7 +325,8 @@ def main(sweep: Optional[bool] = False):
                                                     (gen_optimizer, disc_optimizer),
                                                     train_loader,
                                                     device,
-                                                    cfgs_train)
+                                                    cfgs_train,
+                                                    cfgs_gen)
             train_losses_gen.append(train_loss_gen)
             train_losses_disc.append(train_loss_disc)
             to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc}
@@ -380,7 +395,7 @@ def test(data: str = "test"):
     gen.load_state_dict(checkpoint["state_dict"])
 
     gen.eval()
-    enable_dropout(gen)
+    enable_dropout(gen, all_cfgs["validation"]["layers"])
     save_dirs = []
     repeated_data = None
     # iterate twice: once for all test/val FCs, once for repeated FC
@@ -406,5 +421,5 @@ def test(data: str = "test"):
 
 
 if __name__ == "__main__":
-    # main()
-    print(test(data="test"))
+    main()
+    # print(test(data="test"))

@@ -26,7 +26,7 @@ class Block(nn.Module):
 
 class Generator(nn.Module):
     def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
-                 dropout_val=0.5):
+                 dropout_val=0.5, latent_size=32):
         """
         Parameters:
             dropout_all - set dropout on all layers
@@ -34,7 +34,6 @@ class Generator(nn.Module):
         """
         super().__init__()
         norm_layer = get_norm_layer(norm_type=norm)
-        # print(f"dropout values: {dropout_val}")
 
         self.initial_down = nn.Sequential(
             nn.Conv2d(in_channels, features, 4, 2, 1, padding_mode="reflect"),
@@ -55,21 +54,30 @@ class Generator(nn.Module):
 
         self.bottleneck = nn.Sequential(nn.Conv2d(features * 8, features * 8, 4, 2, 1), nn.ReLU())
 
+        features_new = features + int(latent_size/8)
         if dropout:
-            self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=dropout)
-            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=dropout)
-            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer, use_dropout=dropout)
-        else:
             self.up1 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+            self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+            self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+            self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+            self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout, dropout_val=dropout_val)
+        else:
+            self.up1 = Block(features_new * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
                              use_dropout=dropout_all, dropout_val=dropout_val)
             self.up2 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
                              use_dropout=dropout_all, dropout_val=dropout_val)
             self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
                              use_dropout=dropout_all, dropout_val=dropout_val)
-        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                         use_dropout=dropout_all, dropout_val=dropout_val)
-        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
-                         use_dropout=dropout_all, dropout_val=dropout_val)
+            self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout_all, dropout_val=dropout_val)
+            self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
+                             use_dropout=dropout_all, dropout_val=dropout_val)
+
         self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer,
                          use_dropout=dropout_all, dropout_val=dropout_val)
         self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer,
@@ -79,7 +87,7 @@ class Generator(nn.Module):
             # nn.Tanh(),
         )
 
-    def forward(self, x):
+    def forward(self, x, latent):
         d1 = self.initial_down(x)
         d2 = self.down1(d1)
         d3 = self.down2(d2)
@@ -88,7 +96,7 @@ class Generator(nn.Module):
         d6 = self.down5(d5)
         d7 = self.down6(d6)
         bottleneck = self.bottleneck(d7)
-        up1 = self.up1(bottleneck)
+        up1 = self.up1(torch.cat([bottleneck, latent], 1))
         up2 = self.up2(torch.cat([up1, d7], 1))
         up3 = self.up3(torch.cat([up2, d6], 1))
         up4 = self.up4(torch.cat([up3, d5], 1))
@@ -100,8 +108,10 @@ class Generator(nn.Module):
 
 def test():
     x = torch.randn((1, 2, 256, 256))
-    model = Generator(in_channels=2, features=64)
-    preds = model(x)
+    latent_size = 128
+    model = Generator(in_channels=2, out_channels=2,  features=64, dropout=False, latent_size=latent_size)
+    latent = torch.rand((1, latent_size, 1, 1))
+    preds = model(x, latent)
     print(preds.shape)
 
 

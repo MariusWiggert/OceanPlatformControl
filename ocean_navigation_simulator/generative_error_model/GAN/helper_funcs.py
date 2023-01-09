@@ -68,7 +68,8 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
                           norm=model_configs["norm_type"],
                           dropout_all=model_configs["dropout_all"],
                           dropout=model_configs["dropout"],
-                          dropout_val=model_configs["dropout_val"])
+                          dropout_val=model_configs["dropout_val"],
+                          latent_size=model_configs["latent_size"])
     elif model_type == "discriminator":
         model = Discriminator(in_channels=model_configs["in_channels"],
                               features=model_configs["features"],
@@ -208,12 +209,12 @@ def _save_data(data: torch.tensor, save_file_path: str) -> None:
     np.save(save_file_path, data)
 
 
-def enable_dropout(m):
-    """Enable specific Dropout layers in generator like in Pix2pix."""
+def enable_dropout(m, layers: list):
+    """Enable specific Dropout layers in generator like in Pix2pix for validation/testing."""
 
     for name, layer in m.named_modules():
         if layer.__class__.__name__.startswith('Dropout') and\
-                ("up" in name and any(str(x) in name for x in [1, 2, 3])):
+                ("up" in name and any(str(x) in name for x in layers)):
             layer.train()
     # print("-> Enabled dropout in gen")
 

@@ -1,7 +1,7 @@
 model: ["generator", "discriminator"]
 save_model: False
 dataset_type: "forecastbuoy"
-wandb_mode: "offline"
+wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 
@@ -13,19 +13,21 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2022-12-13_07:10:04.pth"
 #test_load_chkpt: "2022-12-15_07:12:21.pth"  # fixed disc
 #test_load_chkpt: "2022-12-16_10:03:55.pth"  # add spectral norm -> also change in test
-test_load_chkpt: "2022-12-17_09:37:04.pth"  # 4 dropout layers -> also change for test
+#test_load_chkpt: "2023-01-05_09:17:23.pth"  # 4 dropout layers -> also change for test
+test_load_chkpt: "2023-01-06_12:06:43.pth"  # 5 dropout layers -> also change for test
 
 generator:
   in_channels: 2
   out_channels: 2
   features: 64
-  dropout: True
-  dropout_all: False
+  dropout: False
+  dropout_all: True
   dropout_val: 0.3
+  latent_size: 128
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
-  load_from_chkpt: True
+  load_from_chkpt: False
   chkpt: "2022-11-17_17:59:56.pth"
   freeze_encoder: True
   init_decoder: True
@@ -72,6 +74,11 @@ train:
     factor: 0.2
     threshold: 0.0001
     patience: 3
+
+validation:
+  enable_dropout: True
+  # layers in decoder to use dropout
+  layers: [1, 2, 3, 4, 5]
 
 dataset:
   forecasts: "data/drifter_data/forecasts_preprocessed"
