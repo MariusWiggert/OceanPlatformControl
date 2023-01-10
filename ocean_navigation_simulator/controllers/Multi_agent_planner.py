@@ -52,13 +52,26 @@ class MultiAgentPlanner(HJReach2DPlanner):
         self,
         problem: NavigationProblem,
         multi_agent_settings: Dict,
-        specific_settings: Optional[Dict] = None,
     ):
-        super().__init__(problem, specific_settings=specific_settings)
+        super().__init__(problem, specific_settings=multi_agent_settings["hj_specific_settings"])
         self.multi_agent_settings = multi_agent_settings
-        self.platform_dict = specific_settings["platform_dict"]
+        self.platform_dict = problem.platform_dict
+        self.controller_type = multi_agent_settings["high_level_ctrl"]
 
-    def get_action_HJ_naive(self, observation: ArenaObservation) -> PlatformActionSet:
+
+    def get_action(self, observation: ArenaObservation) -> PlatformActionSet:
+        if self.controller_type=="hj_naive":
+            return self._get_action_hj_naive(observation=observation)
+        elif self.controller_type=="reactive_control":
+            return self._get_action_hj_decentralized_reactive_control(observation=observation)
+        elif self.controller_type=="flocking":
+            return self._get_action_hj_with_flocking(observation=observation)
+        else:
+            raise ValueError("the controller specified in the config is not implemented or must \
+            not be empty")
+
+
+    def _get_action_hj_naive(self, observation: ArenaObservation) -> PlatformActionSet:
         """Obtain pure HJ action for each platform, without multi-agent constraints consideration
 
         Args:
@@ -81,7 +94,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
             )  # interpolate TTR map value
         return np.array(ttr_values_list)
 
-    def get_action_HJ_decentralized_reactive_control(
+    def _get_action_hj_decentralized_reactive_control(
         self, observation: ArenaObservation
     ) -> PlatformActionSet:
         """Reactive control for multi-agent, with HJ as navigation function
@@ -97,7 +110,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         reactive_control_correction_angle = []
         reactive_control = DecentralizedReactiveControl(
             observation=observation,
-            param_dict=self.multi_agent_settings["reactive_control"],
+            param_dict=self.multi_agent_settings["reactive_control_config"],
             platform_dict=self.platform_dict,
             ttr_values_arr=self.get_hj_ttr_values(observation=observation),
             nb_max_neighbors=2,
@@ -113,7 +126,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
             )
         return PlatformActionSet(action_list), max(reactive_control_correction_angle)
 
-    def get_action_HJ_with_flocking(self, observation: ArenaObservation) -> PlatformActionSet:
+    def _get_action_hj_with_flocking(self, observation: ArenaObservation) -> PlatformActionSet:
         """multi-agent control input based on flocking and using HJ to reach the target
 
         Args:
@@ -127,7 +140,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         flocking_correction_angle = []
         flocking_control = FlockingControl(
             observation=observation,
-            param_dict=self.multi_agent_settings["flocking"],
+            param_dict=self.multi_agent_settings["flocking_config"],
             platform_dict=self.platform_dict,
         )
         for k in range(len(observation)):

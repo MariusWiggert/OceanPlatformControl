@@ -114,18 +114,16 @@ specific_settings = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     "platform_dict": arena.platform.platform_dict,
 }
-# multi_agent_planner_settings = {"planner": "hj_planner"
-#                         "": {"communication_thrld": multi_ag_config["multi_agent_param"]
-
-#                         }}
+multi_agent_ctrl_settings = {"high_level_ctrl": "flocking",
+                            "hj_specific_settings": specific_settings,
+                            "flocking_config": multi_ag_config["multi_agent_param"]["flocking"]}
 planner_set = MultiAgentPlanner(
     problem=copy.deepcopy(problem),
-    multi_agent_settings=multi_ag_config["multi_agent_param"],
-    specific_settings=specific_settings,
+    multi_agent_settings=multi_agent_ctrl_settings,
 )
 # first observation of initial states
 observation = arena.reset(platform_set=platform_set)
-action = planner_set.get_action_HJ_naive(observation=observation)  # get first action to take
+action = planner_set.get_action(observation=observation)  # get first action to take
 all_pltf_status = [
     arena.problem_status(problem=problem, platform_id=id) for id in range(len(platform_set))
 ]
@@ -147,7 +145,7 @@ update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 max_ma_control_correction_list = []
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action, max_ma_control_correction = planner_set.get_action_HJ_with_flocking(
+    action, max_ma_control_correction = planner_set.get_action(
         observation=observation
     )
     observation = arena.step(action)
