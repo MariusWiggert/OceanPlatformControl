@@ -154,11 +154,16 @@ arenaConfig = {
                 "type": "forecast",
             },
         },
-        "hindcast": {
-            "field": "OceanCurrents",
-            "source": "hindcast_files",
-            "source_settings": {"folder": "tmp/hindcast/", "source": "HYCOM", "type": "hindcast"},
-        },
+        "hindcast": None
+        #     "field": "OceanCurrents",
+        #     "source": "hindcast_files",
+        #     "source_settings": {"folder": "tmp/hindcast/", "source": "HYCOM", "type": "hindcast"},
+        # },
+        # "hindcast": {
+        #     "field": "OceanCurrents",
+        #     "source": "hindcast_files",
+        #     "source_settings": {"folder": "tmp/hindcast/", "source": "HYCOM", "type": "hindcast"},
+        # },
     },
     "platform_dict": {
         "battery_cap_in_wh": 400.0,
@@ -183,17 +188,18 @@ constructor = Constructor(
     objective_conf=objective_conf,
     ctrl_conf=StraightLineConfig,  # here different controller configs can be put in
     observer_conf=NoObserver,  # here the other observers can also be put int
-    download_files=True,
+    download_files=False,
     timeout_in_sec=arenaConfig["timeout"],
+    create_arena=False
 )
 
 # Step 1.1 Retrieve problem
 problem = constructor.problem
 
 # Step 1.2: Retrieve arena
-arena = constructor.arena
-observation = arena.reset(platform_state=problem.start_state)
-problem_status = arena.problem_status(problem=problem)
+# arena = constructor.arena
+# observation = arena.reset(platform_state=problem.start_state)
+# problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
 # import matplotlib.pyplot as plt
 # t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
