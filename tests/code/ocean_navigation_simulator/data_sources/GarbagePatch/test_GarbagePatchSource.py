@@ -16,21 +16,82 @@ from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource imp
     GarbagePatchSource2d,
 )
 
+############################################################################################################
+## Tests will all fail, as long as we do not have Copernicus HC data to work with.
+## Using forecast does not work to fix it, as fc are overlapping in time, which leads to (next line)
+## ValueError: Resulting object does not have monotonic global indexes along dimension time
+## Need HC data to figure out if these tests actually work with region 1.
+############################################################################################################
 
-# Test using gulf of mexico with fake garbage data
+
+@pytest.fixture(scope="module")
+def scenario_config():
+    scenario_config = {
+        "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 36000.0},
+        "platform_dict": {
+            "battery_cap_in_wh": 400.0,
+            "u_max_in_mps": 0.1,
+            "motor_efficiency": 1.0,
+            "solar_panel_size": 0.5,
+            "solar_efficiency": 0.2,
+            "drag_factor": 675.0,
+            "dt_in_s": 600.0,
+        },
+        "use_geographic_coordinate_system": True,
+        "spatial_boundary": None,
+        "timeout": 259200,
+        "ocean_dict": {
+            "region": "Region 1",
+            "hindcast": {
+                "field": "OceanCurrents",
+                "source": "hindcast_files",
+                "source_settings": {
+                    "local": True,
+                    "folder": "data/tests/test_GarbagePatchSource/",
+                    "source": "copernicus",
+                    "type": "hindcast",
+                },
+            },
+            "forecast": None,
+        },
+        "bathymetry_dict": None,
+        "garbage_dict": {
+            "field": "Garbage",
+            "source": "Lebreton",
+            "source_settings": {
+                "filepath": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_global_res_0.083_0.083.nc"
+            },
+            "casadi_cache_settings": {"deg_around_x_t": 10},
+            "use_geographic_coordinate_system": True,
+        },
+        "solar_dict": {"hindcast": None, "forecast": None},
+        "seaweed_dict": {"hindcast": None, "forecast": None},
+    }
+    t_interval = [datetime.datetime(2022, 10, 2, 0, 0, 0), datetime.datetime(2022, 10, 5, 0, 0, 0)]
+    # download files if not there yet
+    ArenaFactory.download_required_files(
+        archive_source="copernicus",
+        archive_type="hindcast",  # TODO: This is currently breaking everything.
+        region="Region 1",
+        download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
+        t_interval=t_interval,
+    )
+    return scenario_config
+
+
 @pytest.mark.parametrize(
-    "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast", [-86, 26], [-88, 27], -4)],
+    "start, stop, expected_problem_status",
+    [([-158, 29], [-158, 30], -4)],
 )
 def test__is_on_garbage__start_on_garbage_with_garbage_source(
-    scenario_name, start, stop, expected_problem_status
+    scenario_config, start, stop, expected_problem_status
 ):
-    arena = ArenaFactory.create(scenario_name=scenario_name)
+    arena = ArenaFactory.create(scenario_config=scenario_config)
     assert isinstance(arena.garbage_source, GarbagePatchSource2d)
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 
@@ -54,53 +115,18 @@ def test__is_on_garbage__start_on_garbage_with_garbage_source(
 
 
 @pytest.mark.parametrize(
-    "scenario_name, start, stop, expected_problem_status",
-    [("gulf_of_mexico_HYCOM_hindcast", [-86, 26], [-88, 27], 0)],
-)
-def test__is_on_garbage__start_on_garbage_no_garbage_source(
-    scenario_name, start, stop, expected_problem_status
-):
-    arena = ArenaFactory.create(scenario_name=scenario_name)
-    assert arena.garbage_source is None
-    x_0 = PlatformState(
-        lon=units.Distance(deg=start[0]),
-        lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
-    )
-    x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
-
-    problem = NavigationProblem(
-        start_state=x_0,
-        end_region=x_T,
-        target_radius=0.1,
-    )
-
-    planner = NaiveController(problem)
-    observation = arena.reset(platform_state=x_0)
-
-    for i in range(int(3600 * 24 * 0.25 / 600)):  # 0.25 days
-        action = planner.get_action(observation=observation)
-        observation = arena.step(action)
-        problem_status = arena.problem_status(problem=problem)
-        if problem_status != 0:
-            break
-
-    assert problem_status == expected_problem_status
-
-
-@pytest.mark.parametrize(
-    "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast", [-86, 22], [-88, 27], 0)],
+    "start, stop, expected_problem_status",
+    [([-158, 28], [-158, 30], 0)],
 )
 def test__is_on_garbage__no_garbage_with_garbage_source(
-    scenario_name, start, stop, expected_problem_status
+    scenario_config, start, stop, expected_problem_status
 ):
-    arena = ArenaFactory.create(scenario_name=scenario_name)
+    arena = ArenaFactory.create(scenario_config=scenario_config)
     assert isinstance(arena.garbage_source, GarbagePatchSource2d)
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 
@@ -124,19 +150,19 @@ def test__is_on_garbage__no_garbage_with_garbage_source(
 
 
 @pytest.mark.parametrize(
-    "scenario_name, start, stop, expected_problem_status",
-    [("safety_gulf_of_mexico_HYCOM_hindcast", [-87, 24.9], [-87, 27], -4)],
+    "start, stop, expected_problem_status",
+    [([-159.15, 28.5], [-158, 29], -4)],
 )
 def test__is_on_garbage__go_into_garbage_with_garbage_source(
-    scenario_name, start, stop, expected_problem_status
+    scenario_config, start, stop, expected_problem_status
 ):
     # Also test trajectory
-    arena = ArenaFactory.create(scenario_name=scenario_name)
+    arena = ArenaFactory.create(scenario_config=scenario_config)
     assert isinstance(arena.garbage_source, GarbagePatchSource2d)
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2021, 11, 24, 12, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 
@@ -165,3 +191,41 @@ def test__is_on_garbage__go_into_garbage_with_garbage_source(
     assert problem_status == expected_problem_status
     # Need to have a higher value than 0. 0 (bool) means no garbage, higher value means garbage
     assert arena.state_trajectory[-1][5] > 0
+
+
+@pytest.mark.parametrize(
+    "start, stop, expected_problem_status",
+    [([-158, 29], [-158, 30], 0)],
+)
+def test__is_on_garbage__start_on_garbage_no_garbage_source(
+    scenario_config, start, stop, expected_problem_status
+):
+    # Hacky overwrite so we can use the fixture.
+    # This test has to be last to not overrride the garbage_dict.
+    scenario_config["garbage_dict"] = None
+    arena = ArenaFactory.create(scenario_config=scenario_config)
+    assert arena.garbage_source is None
+    x_0 = PlatformState(
+        lon=units.Distance(deg=start[0]),
+        lat=units.Distance(deg=start[1]),
+        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
+    )
+    x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
+
+    problem = NavigationProblem(
+        start_state=x_0,
+        end_region=x_T,
+        target_radius=0.1,
+    )
+
+    planner = NaiveController(problem)
+    observation = arena.reset(platform_state=x_0)
+
+    for i in range(int(3600 * 24 * 0.25 / 600)):  # 0.25 days
+        action = planner.get_action(observation=observation)
+        observation = arena.step(action)
+        problem_status = arena.problem_status(problem=problem)
+        if problem_status != 0:
+            break
+
+    assert problem_status == expected_problem_status

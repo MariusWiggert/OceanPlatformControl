@@ -66,7 +66,7 @@ def scenario_config():
         archive_source="HYCOM",
         archive_type="hindcast",  # should be hindcast once that works on C3
         region="GOM",
-        download_folder="data/tests/test_BathymetrySource/",
+        download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
         t_interval=t_interval,
     )
     return scenario_config
