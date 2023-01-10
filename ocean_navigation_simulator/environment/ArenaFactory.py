@@ -7,6 +7,7 @@ from typing import List, Optional
 
 import mergedeep
 import yaml
+from tqdm import tqdm
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     get_grid_dict_from_file,
@@ -463,7 +464,7 @@ class ArenaFactory:
         downloaded_files = []
         temp_folder = f"{download_folder}{os.getpid()}/"
         try:
-            for file in files.objs:
+            for file in tqdm(files.objs):
                 filename = os.path.basename(file.file.contentLocation)
                 url = file.file.url
                 filesize = file.file.contentLength
