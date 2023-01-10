@@ -166,7 +166,7 @@ class PlatformState:
             date_time=dt,
             battery_charge=units.Energy(joule=point_dict.get("battery_charge", 100)),
             seaweed_mass=units.Mass(kg=point_dict.get("seaweed_mass", 100)),
-            inside_garbage=(point_dict["inside_garbage"]),
+            inside_garbage=point_dict.get("inside_garbage",0),
         )
 
     def distance(self, other) -> units.Distance:

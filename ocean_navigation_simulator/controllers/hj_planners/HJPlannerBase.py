@@ -86,7 +86,7 @@ class HJPlannerBase(Controller):
             "progress_bar": False,
             # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             "d_max": 0.0,
-            "platform_dict": problem.platform_dict,
+            "platform_dict": problem.platform_dict if problem is not None else None,
         } | specific_settings
 
         # initialize vectors for open_loop control
@@ -1274,10 +1274,6 @@ class HJPlannerBase(Controller):
             pickle.dump(self.initial_values, file)
 
         self.logger.info(f"HJPlannerBase: Saving plan to {folder}")
-
-    def pickle(self, dir):
-        with open(dir, "wb") as f:
-            pickle.dump(self, f)
 
     def restore_state(self, folder):
         # Used in Replanning
