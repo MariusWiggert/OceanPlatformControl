@@ -19,11 +19,11 @@ from ocean_navigation_simulator.utils.misc import get_markers
 
 @dataclasses.dataclass
 class NavigationProblem(Problem):
-
-    start_state: Union[PlatformState, PlatformStateSet]
     """class to hold the essential variables for a path planning problem (A -> B)"""
+    start_state: Union[PlatformState, PlatformStateSet]
     end_region: SpatialPoint
     target_radius: float
+    timeout: datetime.timedelta = None
     platform_dict: dict = None
     x_range: List = None
     y_range: List = None

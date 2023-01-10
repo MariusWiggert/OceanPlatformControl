@@ -26,9 +26,9 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
     SpatioTemporalPoint,
 )
-from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
-    OceanCurrentNoiseField,
-)
+# from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
+#     OceanCurrentNoiseField,
+# ) # import Jonas Work -> but need opensimplex lib
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.units import (
     get_datetime_from_np64,

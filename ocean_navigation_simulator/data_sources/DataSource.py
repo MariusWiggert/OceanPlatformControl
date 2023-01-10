@@ -104,7 +104,9 @@ class DataSource(abc.ABC):
         # Step 1: Create the intervals to query data for
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
             x_0=states.to_spatio_temporal_point(),
-            x_T=states.to_spatial_point(),
+            x_T=states[
+                0
+            ].to_spatial_point(),  # no terminal set here so can give any state, won't change bounds
             deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"].get(
                 "deg_around_x_t", 0
             ),

@@ -361,7 +361,7 @@ class Arena:
         # Check if x_grid exists (not for all data sources)
         if self.ocean_field.hindcast_data_source.grid_dict.get("x_grid", None) is not None:
             if point is None:
-                point = self.platform.state[platform_id]
+                point = self.platform.state_set[platform_id]
             return self.ocean_field.hindcast_data_source.is_on_land(point)
         else:
             return False

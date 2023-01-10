@@ -352,7 +352,7 @@ class HJPlannerBase(Controller):
         Args:
             x_t: Platform state used as start/target of HJ Reachability computation, depending on 'direction'.
         """
-        self.problem.start_state = x_t
+        #self.problem.start_state = x_t
         # run data checks if the right current data is loaded in the interpolation function
         self._check_data_settings_compatibility(x_t=x_t)
 

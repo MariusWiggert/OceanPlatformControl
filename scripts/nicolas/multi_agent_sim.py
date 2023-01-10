@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from tqdm import tqdm
-
+import copy
 os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 # os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
 from ocean_navigation_simulator.controllers.Multi_agent_planner import (
@@ -119,7 +119,7 @@ specific_settings = {
 
 #                         }}
 planner_set = MultiAgentPlanner(
-    problem=problem,
+    problem=copy.deepcopy(problem),
     multi_agent_settings=multi_ag_config["multi_agent_param"],
     specific_settings=specific_settings,
 )

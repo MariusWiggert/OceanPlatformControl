@@ -263,13 +263,12 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]".format(
+        return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg,  velocity: {v}]".format(
             x=self.lon.deg,
             y=self.lat.deg,
             t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
             b=self.battery_charge.joule,
             m=self.seaweed_mass.kg,
-            t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
             v=str(self.velocity),
         )
 
