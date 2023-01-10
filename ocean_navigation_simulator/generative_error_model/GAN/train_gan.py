@@ -27,7 +27,7 @@ def predict_fixed_batch(model, dataloader, device, all_cfgs) -> dict:
         ground_truth = data[1]
         samples = samples.to(device)
         if all_cfgs["generator"]["dropout"] == False:
-            latent = torch.rand((all_cfgs["train"]["batch_size"], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
+            latent = torch.rand((samples.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
             target_fake = model(samples, latent)
         else:
             target_fake = model(samples)
@@ -145,7 +145,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
 
                 # train discriminator
                 if cfgs_gen["dropout"] == False:
-                    latent = torch.rand((cfgs_train["batch_size"], cfgs_gen["latent_size"], 1, 1)).to(device)
+                    latent = torch.rand((data.shape[0], cfgs_gen["latent_size"], 1, 1)).to(device)
                     target_fake = models[0](data, latent)
                 else:
                     target_fake = models[0](data)
@@ -205,7 +205,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
                 data, target = data.to(device).float(), target.to(device).float()
 
                 if all_cfgs["generator"]["dropout"] == False:
-                    latent = torch.rand((all_cfgs["train"]["batch_size"], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
+                    latent = torch.rand((data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
                     target_fake = models[0](data, latent)
                 else:
                     target_fake = models[0](data)
@@ -278,7 +278,7 @@ def main(sweep: Optional[bool] = False):
     # define model and optimizer and load from checkpoint if specified
     print(f"-> Model: {model_types}.")
     print(f"-> Gen Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}.")
-    print(f"-> Gen Losses: {cfgs_train['loss']['disc']} with weightings {cfgs_train['loss']['disc_weighting']}.")
+    print(f"-> Disc Losses: {cfgs_train['loss']['disc']} with weightings {cfgs_train['loss']['disc_weighting']}.")
 
     generator = get_model(model_types[0], cfgs_gen, device)
     discriminator = get_model(model_types[1], cfgs_disc, device)
@@ -350,7 +350,7 @@ def main(sweep: Optional[bool] = False):
                 disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{all_cfgs['model_save_name']}_disc.pth")
                 save_checkpoint(discriminator, disc_optimizer, disc_checkpoint_path)
 
-            visualisations = predict_fixed_batch(generator, fixed_batch_loader, device)
+            visualisations = predict_fixed_batch(generator, fixed_batch_loader, device, all_cfgs)
             to_log |= visualisations
 
             wandb.log(to_log)
