@@ -1,5 +1,6 @@
 auto_mix_prep==0.2.0
 casadi~=3.5.5
+cmocean==2.0
 dask==2022.3.0
 DateTime==4.6
 filterpy==1.4.5

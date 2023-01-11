@@ -31,6 +31,7 @@ class Constructor:
         c3=None,
         download_files=False,
         timeout_in_sec=0,
+        create_arena=True,
     ):
         """Creates the arena, problem, observer and controller objects
 
@@ -51,27 +52,27 @@ class Constructor:
         self.ctrl_conf = ctrl_conf
         self.observer_conf = observer_conf
 
-        # Add mission seed to arena for potential forecast generation (i.e. Jonas work)
-        if "seed" in self.mission_conf:
-            arena_conf["seed"] = self.mission_conf["seed"]
-
-        # get t_interval for downloading files
-        point_to_check = SpatioTemporalPoint.from_dict(mission_conf["x_0"][0])
-        t_interval = [
-            point_to_check.date_time,
-            point_to_check.date_time
-            + datetime.timedelta(
-                seconds=timeout_in_sec + arena_conf["casadi_cache_dict"]["time_around_x_t"] + 7200
-            ),
-        ]
-
         # Create arena from config
-        self.arena = ArenaFactory.create(
-            scenario_config=arena_conf, t_interval=t_interval if download_files else None, c3=c3
-        )
+        if create_arena:
+            # Add mission seed to arena for potential forecast generation (i.e. Jonas work)
+            if "seed" in self.mission_conf:
+                arena_conf["seed"] = self.mission_conf["seed"]
+
+            # get t_interval for downloading files
+            point_to_check = SpatioTemporalPoint.from_dict(mission_conf["x_0"][0])
+            t_interval = [
+                point_to_check.date_time,
+                point_to_check.date_time
+                + datetime.timedelta(
+                    seconds=timeout_in_sec + arena_conf["casadi_cache_dict"]["time_around_x_t"] + 7200
+                ),
+            ]
+            self.arena = ArenaFactory.create(
+                scenario_config=arena_conf, t_interval=t_interval if download_files else None, c3=c3
+            )
 
         # Add platform_dict from arena to controll config
-        self.platform_dict = self.arena.platform.platform_dict
+        self.platform_dict = arena_conf['platform_dict']
 
         # Create problem from config
         self.problem = self.__problem_constructor()

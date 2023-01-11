@@ -13,6 +13,13 @@ import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
 
+from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
+    BathymetrySource2d,
+)
+
+from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
+    GarbagePatchSource2d,
+)
 from ocean_navigation_simulator.data_sources.OceanCurrentField import (
     OceanCurrentField,
 )
@@ -103,9 +110,12 @@ class ArenaObservation:
 class Arena:
     """A OceanPlatformArena in which an ocean platform moves through a current field."""
 
+    # TODO: we never need this if it is none. why do we have it?
     ocean_field: OceanCurrentField = None
     solar_field: SolarIrradianceField = None
     seaweed_field: SeaweedGrowthField = None
+    bathymetry_source: BathymetrySource2d = None
+    garbage_source: GarbagePatchSource2d = None
     platform: Platform = None
     timeout: Union[datetime.timedelta, int] = None
 
@@ -117,6 +127,8 @@ class Arena:
         use_geographic_coordinate_system: bool,
         solar_dict: Optional[Dict] = None,
         seaweed_dict: Optional[Dict] = None,
+        bathymetry_dict: Optional[Dict] = None,
+        garbage_dict: Optional[Dict] = None,
         spatial_boundary: Optional[Dict] = None,
         collect_trajectory: Optional[bool] = True,
         timeout: Union[datetime.timedelta, int] = None,
@@ -139,6 +151,8 @@ class Arena:
                                              specify the solar irradiance data source. Details see SolarIrradianceField.
             seaweed_dict:                    Dictionary containing dicts for "hindcast" and optinally "forecast" which
                                              specify the seaweed growth data source. Details see SeaweedGrowthField.
+            bathymetry_dict:                 Directory containing source, source_settings, casadi_cache_settings and
+            garbage_dict:                 Directory containing source, source_settings, casadi_cache_settings and
             spatial_boundary:                dictionary containing the "x" and "y" spatial boundaries as list of [min, max]
             collect_trajectory:              boolean if True trajectory of states and actions is logged, otherwise not.
             timeout:                         integer (in seconds) or timedelta object for max sim run (None sets no limit)
@@ -164,8 +178,6 @@ class Arena:
                 forecast_source_dict=solar_dict["forecast"] if "forecast" in solar_dict else None,
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
-        else:
-            self.solar_field = None
         # Step 1.3 Seaweed Growth Field
         if seaweed_dict is not None and seaweed_dict["hindcast"] is not None:
             # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
@@ -182,8 +194,12 @@ class Arena:
                 forecast_source_dict=seaweed_dict["forecast"],
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
-        else:
-            self.seaweed_field = None
+        # Step 1.4 Bathymetry Field
+        # TODO: figure out if API of BathymetrySource2d should be like of the other sources
+        if bathymetry_dict is not None:
+            self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
+        if garbage_dict is not None:
+            self.garbage_source = GarbagePatchSource2d(source_dict=garbage_dict)
 
         self.logger.info(f"Arena: Generate Sources ({time.time() - start:.1f}s)")
 
@@ -199,6 +215,8 @@ class Arena:
             seaweed_source=self.seaweed_field.hindcast_data_source
             if self.seaweed_field is not None
             else None,
+            bathymetry_source=self.bathymetry_source,
+            garbage_source=self.garbage_source,
         )
 
         self.logger.info(f"Arena: Generate Platform ({time.time() - start:.1f}s)")
@@ -239,6 +257,7 @@ class Arena:
         Returns:
             Arena Observation including platform state, true current at platform, forecasts
         """
+        # TODO: add garbage patch accumulation
         with timing_logger("Platform Step ({})", self.logger, logging.DEBUG):
             state = self.platform.simulate_step(action)
 
@@ -286,15 +305,28 @@ class Arena:
         inside_y = y_boundary[0] + margin < self.platform.state.lat.deg < y_boundary[1] - margin
         return inside_x and inside_y
 
-    def is_on_land(self, point: SpatialPoint = None) -> bool:
+    def is_on_land(self, point: SpatialPoint = None, elevation: float = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        # Check if x_grid exists (not for all data sources)
-        if self.ocean_field.hindcast_data_source.grid_dict.get("x_grid", None) is not None:
+        if self.bathymetry_source:
             if point is None:
-                point = self.platform.state
-            return self.ocean_field.hindcast_data_source.is_on_land(point)
+                point = self.platform.state.to_spatial_point()
+            return self.bathymetry_source.is_higher_than(point, elevation)
         else:
-            return False
+            # Check if x_grid exists (not for all data sources)
+            if self.ocean_field.hindcast_data_source.grid_dict.get("x_grid", None) is not None:
+                if point is None:
+                    point = self.platform.state
+                return self.ocean_field.hindcast_data_source.is_on_land(point)
+            else:
+                return False
+
+    def is_in_garbage_patch(self, point: SpatioTemporalPoint = None) -> bool:
+        if self.garbage_source:
+            if point is None:
+                point = self.platform.state.to_spatial_point()
+            return self.garbage_source.is_in_garbage_patch(point)
+        else:
+            return 0
 
     def is_timeout(self) -> bool:
         # calculate passed_seconds
@@ -338,6 +370,7 @@ class Arena:
             -1  if problem timed out
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
+            -4  if platform is in Garbage patch
         """
         if self.is_timeout():
             return -1
@@ -345,6 +378,8 @@ class Arena:
             return -3
         if self.is_on_land():
             return -2
+        if self.is_in_garbage_patch():
+            return -4
         else:
             return problem.is_done(self.platform.state)
 
@@ -369,6 +404,8 @@ class Arena:
             return "Stranded"
         elif problem_status == -3:
             return "Outside Arena"
+        elif problem_status == -4:
+            return "In garbage patch"
         else:
             return "Invalid"
 

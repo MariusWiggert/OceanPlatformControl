@@ -203,7 +203,7 @@ class OceanCurrentSource(DataSource):
         Args:
             point:    SpatialPoint object where to calculate distance to land
         Returns:
-            bool:     True if on land and false otherwise
+            units.Distance:     Distance to closest land
         """
         if not self.grid_dict["x_grid"].min() < point.lon.deg < self.grid_dict["x_grid"].max():
             raise ValueError(

@@ -133,6 +133,7 @@ class PlatformState:
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
     battery_charge: units.Energy = units.Energy(joule=100)
     seaweed_mass: units.Mass = units.Mass(kg=100)
+    inside_garbage: bool = False
 
     def __array__(self):
         return np.array(
@@ -142,6 +143,7 @@ class PlatformState:
                 self.date_time.timestamp(),
                 self.battery_charge.joule,
                 self.seaweed_mass.kg,
+                self.inside_garbage,
             ]
         )
 
@@ -164,6 +166,7 @@ class PlatformState:
             date_time=dt,
             battery_charge=units.Energy(joule=point_dict.get("battery_charge", 100)),
             seaweed_mass=units.Mass(kg=point_dict.get("seaweed_mass", 100)),
+            inside_garbage=point_dict.get("inside_garbage",0),
         )
 
     def distance(self, other) -> units.Distance:
@@ -189,6 +192,7 @@ class PlatformState:
             date_time=datetime.datetime.fromtimestamp(numpy_array[2], tz=datetime.timezone.utc),
             battery_charge=units.Energy(joule=numpy_array[3]),
             seaweed_mass=units.Mass(kg=numpy_array[4]),
+            inside_garbage=numpy_array[5],
         )
 
     @staticmethod
@@ -208,10 +212,11 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg]".format(
+        return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg, inside_garbage: {g}]".format(
             x=self.lon.deg,
             y=self.lat.deg,
             t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
             b=self.battery_charge.joule,
             m=self.seaweed_mass.kg,
+            g=self.inside_garbage,
         )

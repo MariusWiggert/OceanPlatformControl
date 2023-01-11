@@ -18,6 +18,10 @@ from typing import Dict, Optional
 import casadi as ca
 import numpy as np
 
+from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import BathymetrySource2d
+from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
+    GarbagePatchSource2d,
+)
 from ocean_navigation_simulator.data_sources import OceanCurrentSource
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthSource,
@@ -74,6 +78,8 @@ class Platform:
     ocean_source: OceanCurrentSource = None
     solar_source: SolarIrradianceSource = None
     seaweed_source: SeaweedGrowthSource = None
+    bathymetry_source: BathymetrySource2d = None,
+    garbage_source: GarbagePatchSource2d = None,
     state: PlatformState = None
 
     def __init__(
@@ -83,6 +89,8 @@ class Platform:
         use_geographic_coordinate_system: bool,
         solar_source: Optional[SolarIrradianceSource] = None,
         seaweed_source: Optional[SeaweedGrowthSource] = None,
+        bathymetry_source: Optional[BathymetrySource2d] = None,
+        garbage_source: Optional[GarbagePatchSource2d] = None,
     ):
 
         # initialize platform logger
@@ -94,6 +102,8 @@ class Platform:
         self.ocean_source = ocean_source
         self.solar_source = solar_source
         self.seaweed_source = seaweed_source
+        self.bathymetry_source = bathymetry_source
+        self.garbage_source = garbage_source
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
         self.model_battery = self.solar_source is not None
@@ -129,11 +139,27 @@ class Platform:
         # check if the cached dynamics need to be updated
         self.update_dynamics(self.state)
         # step forward with F_x_next and convert from casadi to numpy array
-        state_numpy = (
-            np.array(self.F_x_next(np.array(self.state), np.array(action), self.dt_in_s))
+        f_state = (
+            np.array(
+                self.F_x_next(
+                    np.array(self.state),
+                    np.array(action),
+                    self.dt_in_s,
+                ),
+            )
             .astype("float64")
             .flatten()
         )
+        # Append if the platform is in garbage to the trajectory
+        garbage_state = (
+            np.array(self.garbage_source.is_in_garbage_patch(self.state.to_spatial_point()))
+            .astype("float64")
+            .flatten()
+            if self.garbage_source
+            else np.array([0])
+        )
+
+        state_numpy = np.concatenate([f_state, garbage_state])
         self.state = PlatformState.from_numpy(state_numpy)
 
         return self.state
@@ -150,6 +176,10 @@ class Platform:
             self.solar_source.update_casadi_dynamics(state)
         if self.seaweed_source is not None:
             self.seaweed_source.set_casadi_function()
+        if self.bathymetry_source is not None:
+            self.bathymetry_source.update_casadi_dynamics(state)
+        if self.garbage_source is not None:
+            self.garbage_source.update_casadi_dynamics(state)
         self.F_x_next = self.get_casadi_dynamics()
 
         self.logger.info(f"Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)")
@@ -169,12 +199,24 @@ class Platform:
             self.solar_source is not None
             and self.solar_source.check_for_casadi_dynamics_update(state)
         )
+        bathymetry_change = (
+            self.bathymetry_source is not None
+            and self.bathymetry_source.check_for_casadi_dynamics_update(state)
+        )
+        garbage_change = (
+            self.garbage_source is not None
+            and self.garbage_source.check_for_casadi_dynamics_update(state)
+        )
         # propagate the newly cached functions in the source objects to F_x_next and seaweed source.
         if ocean_change or solar_change:
             if solar_change:
                 self.seaweed_source.set_casadi_function()
             self.F_x_next = self.get_casadi_dynamics()
             self.logger.info(f"Platform: Update Casadi + Dynamics ({time.time() - start:.1f}s)")
+        if garbage_change or bathymetry_change:
+            self.logger.info(
+                f"Platform: Update Safety Casadi Dynamics ({time.time() - start:.1f}s)"
+            )
 
     def get_casadi_dynamics(self):
         """Function to construct the F_x_next symbolic casadi function to be used in simulation."""
@@ -190,6 +232,9 @@ class Platform:
         sym_dt = ca.MX.sym("dt")  # in s
         sym_u_thrust = ca.MX.sym("u_thrust")  # in % of u_max
         sym_u_angle = ca.MX.sym("u_angle")  # in radians
+        sym_is_in_garbage = ca.MX.sym(
+            "garbage"
+        )  # This is just a placeholder to account of garbage in the state
 
         # Model Battery: Intermediate Variables for capping thrust so that battery never goes below 0
         if self.model_battery:
@@ -253,7 +298,14 @@ class Platform:
         F_next = ca.Function(
             "F_x_next",
             [
-                ca.vertcat(sym_lon_degree, sym_lat_degree, sym_time, sym_battery, sym_seaweed_mass),
+                ca.vertcat(
+                    sym_lon_degree,
+                    sym_lat_degree,
+                    sym_time,
+                    sym_battery,
+                    sym_seaweed_mass,
+                    sym_is_in_garbage,
+                ),
                 ca.vertcat(sym_u_thrust, sym_u_angle),
                 sym_dt,
             ],

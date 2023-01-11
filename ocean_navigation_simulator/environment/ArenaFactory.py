@@ -7,6 +7,7 @@ from typing import List, Optional
 
 import mergedeep
 import yaml
+from tqdm import tqdm
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     get_grid_dict_from_file,
@@ -196,8 +197,8 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["forecast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                                "region", "GOM"
+                            region=config["ocean_dict"].get(
+                                "area", "GOM"
                             ),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
@@ -220,6 +221,8 @@ class ArenaFactory:
                 ),
                 solar_dict=config.get("solar_dict", None),
                 seaweed_dict=config.get("seaweed_dict", None),
+                bathymetry_dict=config.get("bathymetry_dict", None),
+                garbage_dict=config.get("garbage_dict", None),
                 spatial_boundary=config.get("spatial_boundary", None),
                 timeout=config.get("timeout", None),
             )
@@ -461,7 +464,7 @@ class ArenaFactory:
         downloaded_files = []
         temp_folder = f"{download_folder}{os.getpid()}/"
         try:
-            for file in files.objs:
+            for file in tqdm(files.objs):
                 filename = os.path.basename(file.file.contentLocation)
                 url = file.file.url
                 filesize = file.file.contentLength
