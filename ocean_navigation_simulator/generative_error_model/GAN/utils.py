@@ -137,3 +137,20 @@ def load_checkpoint(checkpoint_path, model, optimizer, lr, device):
     # If we don't do this then it will just have learning rate of old checkpoint
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
+
+
+def load_encoder(checkpoint_path, model, optimizer, lr, device):
+    print("=> Loading encoder")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    pretrained_dict = checkpoint["state_dict"]
+
+    model_dict = model.state_dict()
+    for name, param in pretrained_dict.items():
+        if "down" in name or "bottleneck" in name:
+            model_dict[name] = param
+
+    model.load_state_dict(model_dict)
+
+    # If we don't do this then it will just have learning rate of old checkpoint
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr

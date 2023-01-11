@@ -230,7 +230,7 @@ def init_decoder_weights(generator):
                 nn.init.xavier_normal_(layer.weight.data, gain=0.02)
                 if layer.bias is not None:
                     nn.init.constant_(layer.bias.data, 0.0)
-    print(f"-> Reset decoder weights")
+    print(f"=> Reset decoder weights")
 
 
 def freeze_encoder_weights(generator):
@@ -242,5 +242,5 @@ def freeze_encoder_weights(generator):
                 param.requires_grad = False
             else:
                 param.requires_grad = True
-        print("-> Frozen generator encoder")
+        print("=> Frozen generator encoder")
 

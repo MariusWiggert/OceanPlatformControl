@@ -1,5 +1,5 @@
 from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse, sparse_mse, total_variation,\
-    mass_conservation, init_weights, save_checkpoint, load_checkpoint
+    mass_conservation, init_weights, save_checkpoint, load_checkpoint, load_encoder
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
 from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
@@ -294,8 +294,12 @@ def main(sweep: Optional[bool] = False):
 
     # load models/instantiate models
     if cfgs_gen["load_from_chkpt"]:
-        gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
-        load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
+        if cfgs_gen["load_encoder_only"]:
+            gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
+            load_encoder(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
+        else:
+            gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
+            load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
         if cfgs_gen["init_decoder"]:
             init_decoder_weights(generator)
         if cfgs_gen["freeze_encoder"]:
@@ -410,11 +414,19 @@ def test(data: str = "test"):
                         repeated_data = data
                     if idx == 10:
                         break
-                    target_fake = gen(repeated_data)
+                    if all_cfgs["generator"]["dropout"] is False:
+                        latent = torch.rand((data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
+                        target_fake = gen(repeated_data, latent)
+                    else:
+                        target_fake = gen(repeated_data)
                     save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
                 # normal samples
                 else:
-                    target_fake = gen(data)
+                    if all_cfgs["generator"]["dropout"] is False:
+                        latent = torch.rand((data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)).to(device)
+                        target_fake = gen(data, latent)
+                    else:
+                        target_fake = gen(data)
                     save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
         save_dirs.append(save_dir)
     return save_dirs

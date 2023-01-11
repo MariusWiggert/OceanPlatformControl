@@ -59,6 +59,9 @@ from ocean_navigation_simulator.generative_error_model.GAN.utils import get_norm
 
 
 class Block(nn.Module):
+    """Does not use MaxPool2d unlike other Block. Since currents cannot be mapped to some
+    known range (e.g. positives only), MaxPool would ignore negatives."""
+
     def __init__(self, in_channels, out_channels, stride=2, norm_layer=nn.BatchNorm2d):
         super(Block, self).__init__()
         self.conv = nn.Sequential(

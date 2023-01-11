@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn.utils import spectral_norm
 from torch.autograd import Variable
 from torch.nn import init
+import numpy as np
 
 
 def snconv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True):
@@ -54,10 +55,10 @@ class GRU(nn.Module):
                 init.xavier_uniform_(params)
 
             # initialize forget gate bias
-            elif 'gru.bias_ih_l' in name:
+            elif 'gru.bias_ih' in name:
                 b_ir, b_iz, b_in = params.chunk(3, 0)
                 init.constant_(b_iz, init_forget_bias)
-            elif 'gru.bias_hh_l' in name:
+            elif 'gru.bias_hh' in name:
                 b_hr, b_hz, b_hn = params.chunk(3, 0)
                 init.constant_(b_hz, init_forget_bias)
             else:
@@ -72,12 +73,12 @@ class GRU(nn.Module):
 
 
 class CGRU(nn.Module):
-    def __init__(self, latent_size, conditional_embedding, batch):
+    def __init__(self, latent_size, hidden_size, batch):
         super(CGRU, self).__init__()
         self.latent_size = latent_size
         self.batch = batch
         self.fc = snlinear(latent_size, latent_size)
-        self.gru = GRU(latent_size, 2048, gpu=False)
+        self.gru = GRU(latent_size, hidden_size, gpu=False)
         self.gru.init_weights()
 
     def forward(self, z, n_frames):
@@ -87,16 +88,40 @@ class CGRU(nn.Module):
         return h1.contiguous().view(-1, h1.size(2))
 
 
+def cosine_similarity(u, v):
+    return np.dot(u, v)/(np.linalg.norm(u)*np.linalg.norm(v))
+
+
 def test():
     input_size = 128
     hidden_size = 2048
     batch = 2
-    n_frames = 10
-    gru = GRU(input_size, hidden_size, gpu=False)
-    gru.init_weights()
-    gru.init_hidden(batch)
+    n_frames = 192
+    # gru = GRU(input_size, hidden_size, gpu=False)
+    # gru.init_weights()
+    # gru.init_hidden(batch)
     latent = torch.rand((batch, input_size))
-    print(gru(latent, n_frames).shape)
+    # latent = torch.normal(torch.zeros(batch, input_size), torch.ones(batch, input_size))
+    # outputs = gru(latent, n_frames)
+
+    cgru = CGRU(input_size, hidden_size, batch)
+    outputs = cgru(latent, n_frames)
+
+    similarities = []
+    for i in range(outputs.shape[0]-1):
+        similarities.append(cosine_similarity(outputs[i].detach().numpy(),
+                                              outputs[i+1].detach().numpy()))
+    l2 = [np.linalg.norm(x) for x in np.array(outputs.detach().numpy()).reshape((n_frames*batch, 128))]
+
+    import matplotlib.pyplot as plt
+    plt.plot(list(range(batch*n_frames-1)), similarities, label="cosine similarity")
+    plt.plot(list(range(batch*n_frames)), l2, label="l2 norm")
+    plt.legend()
+    plt.show()
+
+    print(l2[-30:])
+    print()
+    print(similarities[-30:])
 
 
 if __name__ == "__main__":
