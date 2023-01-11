@@ -20,6 +20,7 @@ from ocean_navigation_simulator.utils.misc import get_markers
 @dataclasses.dataclass
 class NavigationProblem(Problem):
     """class to hold the essential variables for a path planning problem (A -> B)"""
+
     start_state: Union[PlatformState, PlatformStateSet]
     end_region: SpatialPoint
     target_radius: float
@@ -40,7 +41,6 @@ class NavigationProblem(Problem):
             return (state.date_time - self.start_state.date_time).total_seconds()
         else:
             return (state.date_time - self.start_state[id_to_comp].date_time).total_seconds()
-
 
     def distance(self, state: PlatformState) -> units.Distance:
         return self.end_region.distance(state.to_spatial_point())
@@ -90,7 +90,6 @@ class NavigationProblem(Problem):
                 s=150,
                 zorder=6,
             )
-
 
         ax.add_patch(
             plt.Circle(

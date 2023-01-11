@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.MultiAgent import MultiAgent

@@ -48,7 +48,6 @@ class ArenaFactory:
         folder_scenario: str = "config/arena/",
         scenario_name: str = None,
         scenario_config: Optional[dict] = {},
-        scenario_config_multi_agent: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,
         points: Optional[List[SpatialPoint]] = None,
         x_interval: Optional[List[units.Distance]] = None,
@@ -96,7 +95,7 @@ class ArenaFactory:
 
             # Sep 2: Merge scenario_config, so we can overwrite the file settings
             # https://mergedeep.readthedocs.io/en/latest/
-            mergedeep.merge(config, scenario_config, scenario_config_multi_agent)
+            mergedeep.merge(config, scenario_config)
 
             # Step 3: Add Spatial Boundary
             if x_interval is not None and y_interval is not None:
@@ -223,7 +222,7 @@ class ArenaFactory:
                 seaweed_dict=config.get("seaweed_dict", None),
                 spatial_boundary=config.get("spatial_boundary", None),
                 timeout=config.get("timeout", None),
-                network_graph_dict=config.get("network_graph_dict", None)
+                network_graph_dict=config.get("multi_agent_constraints", None),
             )
 
     @staticmethod

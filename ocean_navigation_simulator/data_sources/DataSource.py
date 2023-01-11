@@ -128,38 +128,6 @@ class DataSource(abc.ABC):
 
         self.initialize_casadi_functions(grid, xarray)
 
-    # @staticmethod
-    # def convert_to_x_y_time_bounds(
-    #     x_0: SpatioTemporalPoint,
-    #     x_T: SpatialPoint,
-    #     deg_around_x0_xT_box: float,
-    #     temp_horizon_in_s: float,
-    # ):
-    #     """Helper function for spatio-temporal subsetting
-    #     Args:
-    #         x_0: SpatioTemporalPoint
-    #         x_T: SpatialPoint goal locations
-    #         deg_around_x0_xT_box: buffer around the box in degree
-    #         temp_horizon_in_s: maximum temp_horizon to look ahead of x_0 time in seconds
-
-    #     Returns:
-    #         t_interval: if time-varying: [t_0, t_T] as utc datetime objects
-    #                     where t_0 and t_T are the start and end respectively
-    #         lat_bnds: [y_lower, y_upper] in degrees
-    #         lon_bnds: [x_lower, x_upper] in degrees
-    #     """
-    #     t_interval = [x_0.date_time, x_0.date_time + datetime.timedelta(seconds=temp_horizon_in_s)]
-    #     lon_bnds = [
-    #         min(x_0.lon.deg, x_T.lon.deg) - deg_around_x0_xT_box,
-    #         max(x_0.lon.deg, x_T.lon.deg) + deg_around_x0_xT_box,
-    #     ]
-    #     lat_bnds = [
-    #         min(x_0.lat.deg, x_T.lat.deg) - deg_around_x0_xT_box,
-    #         max(x_0.lat.deg, x_T.lat.deg) + deg_around_x0_xT_box,
-    #     ]
-
-    #     return t_interval, lat_bnds, lon_bnds
-
     @staticmethod
     def enforce_utc_datetime_object(time: Union[datetime.datetime, int]):
         """Takes a datetime object or posix timestamp and makes it timezone-aware by setting it to be in UTC."""

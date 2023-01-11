@@ -1,4 +1,5 @@
 #%%
+import copy
 import datetime
 import os
 
@@ -7,10 +8,10 @@ import numpy as np
 import pandas as pd
 import yaml
 from tqdm import tqdm
-import copy
+
 os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
 # os.chdir("/home/nicolas/codeRepo/OceanPlatformControl")
-from ocean_navigation_simulator.controllers.Multi_agent_planner import (
+from ocean_navigation_simulator.controllers.MultiAgentPlanner import (
     MultiAgentPlanner,
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
@@ -42,7 +43,7 @@ with open(f"{folder_save_results}/config.yaml", "w") as fp:
 #%% Initialize the Arena, target region and the platform states
 arena = ArenaFactory.create(
     scenario_name=multi_ag_config["data_source_config"],
-    scenario_config_multi_agent=multi_ag_config["multi_agent_param"],
+    scenario_config=multi_ag_config["multi_agent_param"],
 )
 x_T = SpatialPoint(
     lon=units.Distance(deg=target_dict["lon"]), lat=units.Distance(deg=target_dict["lat"])
@@ -114,9 +115,11 @@ specific_settings = {
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
     "platform_dict": arena.platform.platform_dict,
 }
-multi_agent_ctrl_settings = {"high_level_ctrl": "flocking",
-                            "hj_specific_settings": specific_settings,
-                            "flocking_config": multi_ag_config["multi_agent_param"]["flocking"]}
+multi_agent_ctrl_settings = {
+    "high_level_ctrl": "flocking",
+    "hj_specific_settings": specific_settings,
+    "flocking_config": multi_ag_config["multi_agent_param"]["flocking"],
+}
 planner_set = MultiAgentPlanner(
     problem=copy.deepcopy(problem),
     multi_agent_settings=multi_agent_ctrl_settings,
@@ -145,14 +148,13 @@ update_rate_s = arena.platform.platform_dict["dt_in_s"]  # 10 mins
 day_sim = multi_ag_config["days_sim"]
 max_ma_control_correction_list = []
 for i in tqdm(range(int(3600 * 24 * day_sim / update_rate_s))):  #
-    action, max_ma_control_correction = planner_set.get_action(
-        observation=observation
-    )
+    action, max_ma_control_correction = planner_set.get_action(observation=observation)
     observation = arena.step(action)
     # check if platforms have reached target
-    new_status = [
-        arena.problem_status(problem=problem, platform_id=id) for id in range(len(platform_set))
-    ]
+    new_status = arena.problem_status(problem=problem)
+    # new_status = [
+    #     arena.problem_status(problem=problem, platform_id=id) for id in range(len(platform_set))
+    # ]
     # for the final metric, look if platform was able to reach target within T, so keep only max (=1 if pltf reached target)
     all_pltf_status = list(map(max, zip(all_pltf_status, new_status)))
     max_ma_control_correction_list.append(max_ma_control_correction)

@@ -9,6 +9,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
     SpatialPoint,
     SpatioTemporalPoint,
 )
@@ -55,11 +56,15 @@ class Constructor:
         if "seed" in self.mission_conf:
             arena_conf["seed"] = self.mission_conf["seed"]
 
+        date_time_min = min(list(map(lambda point: point["date_time"], mission_conf["x_0"])))
+        try:
+            dt = datetime.datetime.strptime(date_time_min, "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(date_time_min)
         # get t_interval for downloading files
-        point_to_check = SpatioTemporalPoint.from_dict(mission_conf["x_0"][0])
         t_interval = [
-            point_to_check.date_time,
-            point_to_check.date_time
+            dt,
+            dt
             + datetime.timedelta(
                 seconds=timeout_in_sec + arena_conf["casadi_cache_dict"]["time_around_x_t"] + 7200
             ),
@@ -112,7 +117,7 @@ class Constructor:
 
         if self.objective_conf["type"] == "nav":
             return NavigationProblem(
-                start_state=X_0[0],
+                start_state=PlatformStateSet(platform_list=X_0),
                 end_region=x_T,
                 target_radius=self.mission_conf["target_radius"],
                 platform_dict=self.platform_dict,
@@ -133,12 +138,6 @@ class Constructor:
         #             target_radius=self.mission_conf["target_radius"],
         #             safety_criteria = self.mission_conf["safety_criteria"])
         # elif(self.objective=="multi-agent-nav"):
-        #     # TODO: code multiAgentNavProblem problem class
-        #     return multiAgentNavProblem(
-        #             start_state=X_0[0],
-        #             end_region=x_T,
-        #             arget_radius=self.mission_conf["target_radius"],
-        #             timeout=self.mission_conf["timeout"],)
 
     def __controller_constructor(self) -> Type[Controller]:
         """Constructs and returns the controller object depending controller configuration

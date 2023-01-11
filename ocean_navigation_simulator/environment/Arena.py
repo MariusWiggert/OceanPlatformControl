@@ -59,10 +59,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
-
-from ocean_navigation_simulator.utils.misc import (
-    get_markers,
-    timing_logger,)
+from ocean_navigation_simulator.utils.misc import get_markers, timing_logger
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
@@ -166,7 +163,6 @@ class Arena:
         multi_agent_graph_edges: Optional[List] = None,
         collect_trajectory: Optional[bool] = True,
         timeout: Union[datetime.timedelta, int] = None,
-
     ):
         """OceanPlatformArena constructor.
         Args:
@@ -278,7 +274,7 @@ class Arena:
         """
         self.platform.initialize_dynamics(platform_set)
         self.ocean_field.forecast_data_source.update_casadi_dynamics(platform_set)
-        self.initial_states = self.platform.set_state(platform_set)
+        self.initial_state = self.platform.set_state(platform_set)
 
         self.state_trajectory = np.atleast_3d(np.array(platform_set))
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
@@ -319,7 +315,7 @@ class Arena:
             self.multi_agent_G_list.append(graph_observation)
 
         with timing_logger("Create Observation ({})", self.logger, logging.DEBUG):
-            obs =  ArenaObservation(
+            obs = ArenaObservation(
                 platform_state=platform_set,
                 true_current_at_state=self.ocean_field.get_ground_truth(
                     platform_set.to_spatio_temporal_point()
@@ -352,8 +348,16 @@ class Arena:
             y_boundary = [y.deg for y in self.spatial_boundary["y"]]
 
         # calculate if inside or outside
-        inside_x = x_boundary[0] + margin < self.platform.state_set[platform_id].lon.deg < x_boundary[1] - margin
-        inside_y = y_boundary[0] + margin < self.platform.state_set[platform_id].lat.deg < y_boundary[1] - margin
+        inside_x = (
+            x_boundary[0] + margin
+            < self.platform.state_set[platform_id].lon.deg
+            < x_boundary[1] - margin
+        )
+        inside_y = (
+            y_boundary[0] + margin
+            < self.platform.state_set[platform_id].lat.deg
+            < y_boundary[1] - margin
+        )
         return inside_x and inside_y
 
     def is_on_land(self, point: SpatialPoint = None, platform_id: int = 0) -> bool:
@@ -370,7 +374,8 @@ class Arena:
         # calculate passed_seconds
         if self.timeout is not None:
             total_seconds = (
-                self.platform.state_set[platform_id].date_time - self.initial_state.date_time
+                self.platform.state_set[platform_id].date_time
+                - self.initial_state[platform_id].date_time
             ).total_seconds()
             return total_seconds >= self.timeout.total_seconds()
         else:
@@ -401,10 +406,9 @@ class Arena:
     def problem_status(
         self,
         problem: Problem,
-        platform_id: int = 0,
         check_inside: Optional[bool] = True,
         margin: Optional[float] = 0.0,
-    ) -> int:
+    ) -> list[int]:
         """
         Get the problem status
         # for multi agent return a problem status for platform individually
@@ -415,17 +419,21 @@ class Arena:
             -2  if platform stranded
             -3  if platform left specified arena region (spatial boundaries)
         """
-        if self.is_timeout():
-            return -1
-        if self.is_on_land(platform_id=platform_id):
-            return -2
-        elif check_inside and not self.is_inside_arena(platform_id=platform_id, margin=margin):
-            return -3
-        else:
-            return problem.is_done(self.platform.state_set[platform_id])
+        states_status_list = []
+        for platform_id in range(problem.nb_platforms):
+            if self.is_timeout(platform_id=platform_id):
+                states_status_list.append(-1)
+            elif self.is_on_land(platform_id=platform_id):
+                states_status_list.append(-2)
+            elif check_inside and not self.is_inside_arena(platform_id=platform_id, margin=margin):
+                states_status_list.append(-3)
+            else:
+                states_status_list.append(problem.is_done(self.platform.state_set[platform_id]))
+        return states_status_list
 
-    def problem_status_text(self, problem_status):
+    def problem_status_text(self, problem_status: list):
         """
+        Adapted to multi-agent
         Get a text to the problem status.Can be used for debugging.
         Returns:
             'Success'       if problem was solved
@@ -435,16 +443,16 @@ class Arena:
             'Outside Arena' if platform left specified araena region (spatial boundaries)
             'Invalid'       otherwise
         """
-        if problem_status == 1:
-            return "Success"
-        elif problem_status == 0:
-            return "Running"
-        elif problem_status == -1:
-            return "Timeout"
-        elif problem_status == -2:
-            return "Stranded"
-        elif problem_status == -3:
-            return "Outside Arena"
+        if all(status == 1 for status in problem_status):
+            return "Success: all the platforms reached the target within time"
+        elif any(status == 0 for status in problem_status):
+            return "Problem still running for at least one of the platforms"
+        elif any(status == -1 for status in problem_status):
+            return "Timeout for at least one of the platforms"
+        elif any(status == 2 for status in problem_status):
+            return "Stranded for at least one of the platforms"
+        elif any(status == -3 for status in problem_status):
+            return "Outside Arena for at least one of the platforms"
         else:
             return "Invalid"
 

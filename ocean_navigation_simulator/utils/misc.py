@@ -180,6 +180,7 @@ def get_process_information_dict() -> dict:
 def get_markers():
     return itertools.cycle((".", "+", "*", "x", "p", "h", "d", "1", "P", "H"))
 
+
 class bcolors:
     """
     Helper class to use colors in the console.

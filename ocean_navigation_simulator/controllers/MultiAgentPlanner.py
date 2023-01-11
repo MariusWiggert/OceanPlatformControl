@@ -51,25 +51,25 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def __init__(
         self,
         problem: NavigationProblem,
-        multi_agent_settings: Dict,
+        specific_settings: Dict,
     ):
-        super().__init__(problem, specific_settings=multi_agent_settings["hj_specific_settings"])
-        self.multi_agent_settings = multi_agent_settings
+        super().__init__(problem, specific_settings=specific_settings["hj_specific_settings"])
+        self.multi_agent_settings = specific_settings
         self.platform_dict = problem.platform_dict
-        self.controller_type = multi_agent_settings["high_level_ctrl"]
-
+        self.controller_type = specific_settings["high_level_ctrl"]
 
     def get_action(self, observation: ArenaObservation) -> PlatformActionSet:
-        if self.controller_type=="hj_naive":
+        if self.controller_type == "hj_naive":
             return self._get_action_hj_naive(observation=observation)
-        elif self.controller_type=="reactive_control":
+        elif self.controller_type == "reactive_control":
             return self._get_action_hj_decentralized_reactive_control(observation=observation)
-        elif self.controller_type=="flocking":
+        elif self.controller_type == "flocking":
             return self._get_action_hj_with_flocking(observation=observation)
         else:
-            raise ValueError("the controller specified in the config is not implemented or must \
-            not be empty")
-
+            raise ValueError(
+                "the controller specified in the config is not implemented or must \
+            not be empty"
+            )
 
     def _get_action_hj_naive(self, observation: ArenaObservation) -> PlatformActionSet:
         """Obtain pure HJ action for each platform, without multi-agent constraints consideration
@@ -81,9 +81,10 @@ class MultiAgentPlanner(HJReach2DPlanner):
             PlatformActionSet: A set of platform actions
         """
         action_list = []
+        ctrl_correction_angle = 0
         for k in range(len(observation)):
             action_list.append(super().get_action(observation[k]))
-        return PlatformActionSet(action_list)
+        return PlatformActionSet(action_list), ctrl_correction_angle
 
     def get_hj_ttr_values(self, observation: ArenaObservation) -> np.ndarray:
         ttr_values_list = []

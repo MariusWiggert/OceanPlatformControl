@@ -73,7 +73,7 @@ def animate_trajectory(
     add_ax_func_ext: Optional[Callable] = None,
     output: Optional[AnyStr] = "traj_animation.mp4",
     full_traj: Optional[bool] = True,
-    **kwargs
+    **kwargs,
 ):
     """Plotting functions to animate a trajectory including the controls over a data_source.
     Args:
@@ -107,7 +107,7 @@ def animate_trajectory(
         # plot start position
         for k in range(state_trajectory.shape[0]):
             if full_traj:
-                traj_to_plot = state_trajectory[k,:,:]
+                traj_to_plot = state_trajectory[k, :, :]
                 marker = next(markers)
                 ax.scatter(
                     state_trajectory[k, 0, -1],
@@ -119,7 +119,7 @@ def animate_trajectory(
                 )
             else:
                 idx = np.searchsorted(a=state_trajectory[k, 2, :], v=time)
-                traj_to_plot = state_trajectory[k,:,(idx+1)]
+                traj_to_plot = state_trajectory[k, :, (idx + 1)]
             # add the trajectory to it
             ax.plot(
                 traj_to_plot[0, :],
