@@ -1,11 +1,12 @@
 # Vectorized and adapted version of:
 # https://github.com/google/balloon-learning-environment/blob/master/balloon_learning_environment/env/wind_field.py
-from ocean_navigation_simulator.utils import units
-
 import dataclasses
-import opensimplex
-import numpy as np
 from typing import List
+
+import numpy as np
+import opensimplex
+
+from ocean_navigation_simulator.utils import units
 
 
 @dataclasses.dataclass(frozen=True)

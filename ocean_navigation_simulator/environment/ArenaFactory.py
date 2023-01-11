@@ -1,12 +1,13 @@
+import contextlib
 import datetime
 import logging
 import os
 import shutil
 from typing import List, Optional
-import contextlib
 
 import mergedeep
 import yaml
+from tqdm import tqdm
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     get_grid_dict_from_file,
@@ -45,6 +46,7 @@ class ArenaFactory:
     @staticmethod
     def create(
         scenario_file: str = None,
+        folder_scenario: str = "config/arena/",
         scenario_name: str = None,
         scenario_config: Optional[dict] = {},
         problem: Optional[NavigationProblem] = None,
@@ -87,7 +89,7 @@ class ArenaFactory:
                 with open(scenario_file) as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
             elif scenario_name is not None:
-                with open(f"config/arena/{scenario_name}.yaml") as f:
+                with open(os.path.join(folder_scenario, f"{scenario_name}.yaml")) as f:
                     config = yaml.load(f, Loader=yaml.FullLoader)
             else:
                 config = {}
@@ -195,8 +197,8 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["forecast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                                "region", "GOM"
+                            region=config["ocean_dict"].get(
+                                "area", "GOM"
                             ),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
@@ -211,7 +213,7 @@ class ArenaFactory:
 
             # Step 7: Create Arena
             return Arena(
-                casadi_cache_dict=config["casadi_cache_dict"],
+                casadi_cache_dict=config.get("casadi_cache_dict", {}),
                 platform_dict=config["platform_dict"],
                 ocean_dict=config["ocean_dict"],
                 use_geographic_coordinate_system=config.get(
@@ -462,7 +464,7 @@ class ArenaFactory:
         downloaded_files = []
         temp_folder = f"{download_folder}{os.getpid()}/"
         try:
-            for file in files.objs:
+            for file in tqdm(files.objs):
                 filename = os.path.basename(file.file.contentLocation)
                 url = file.file.url
                 filesize = file.file.contentLength

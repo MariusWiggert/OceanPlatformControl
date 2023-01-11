@@ -43,7 +43,11 @@ class NoObserver:
             the computed xarray
         """
         forecasts = self.forecast_data_source.get_data_over_area(
-            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution,
+            x_interval,
+            y_interval,
+            t_interval,
+            spatial_resolution,
+            temporal_resolution,
             throw_exceptions=throw_exceptions,
         )
 

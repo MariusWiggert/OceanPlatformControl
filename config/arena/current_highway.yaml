@@ -17,6 +17,8 @@ spatial_boundary:
     x: [0, 10]
     y: [0, 10]
 
+timeout: 100 # Time Units
+
 ocean_dict:
     hindcast:
         field: 'OceanCurrents'
