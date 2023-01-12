@@ -29,6 +29,7 @@ def generate_shortest_distance_maps(xarray: xr, cutoff: float = 0, save_path=Non
     ds = convert_np_to_xr(min_d_map, lat, lon)
 
     if save_path is not None:
+        ds = ds.astype("float32")
         ds.to_netcdf(save_path)
     return ds
 

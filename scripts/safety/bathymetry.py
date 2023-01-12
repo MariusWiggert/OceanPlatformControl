@@ -63,6 +63,7 @@ def generate_global_bathymetry_maps(
         op (str, optional): Operation of coarsening. . Defaults to "max".
     """
     low_res = coarsen(filename, res_lat, res_lon, op)
+    low_res = low_res.astype("float32")
     low_res.to_netcdf(f"data/bathymetry/bathymetry_global_res_{res_lat:.3f}_{res_lon:.3f}_{op}.nc")
     print("Saved global bathymetry map with lower resolution")
 
@@ -83,6 +84,7 @@ def generate_shortest_distance_maps(xarray: xr, elevation: float = 0, save_path=
     ds = convert_np_to_xr(min_d_map, lat, lon)
 
     if save_path is not None:
+        ds = ds.astype("float32")
         ds.to_netcdf(save_path)
     return ds
 
