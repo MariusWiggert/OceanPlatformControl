@@ -3,6 +3,7 @@ import abc
 import datetime
 import logging
 import os
+import time
 from functools import partial
 from typing import Any, AnyStr, Callable, List, Optional, Tuple, Union
 
@@ -790,6 +791,7 @@ class AnalyticalSource(abc.ABC):
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """
 
+        start = time.time()
         # Step 0.0: if t_interval is in datetime convert to POSIX
         if isinstance(t_interval[0], datetime.datetime):
             t_interval_posix = [time.timestamp() for time in t_interval]
@@ -819,6 +821,10 @@ class AnalyticalSource(abc.ABC):
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
         self.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
+
+        self.logger.info(
+            f"AnalyticalSource: get Data over Area finished ({time.time() - start:.1f}s)"
+        )
 
         return subset
 
