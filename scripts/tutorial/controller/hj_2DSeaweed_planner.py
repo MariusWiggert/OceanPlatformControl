@@ -27,10 +27,9 @@ os.chdir(
 )
 set_arena_loggers(logging.INFO)
 
-scenario_name = "gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed"
+scenario_name = "Region_3_HYCOM_FC_daily+monthly_averages_Copernicus_HC_solar_seaweed" #"Region_3_Copernicus_HC_solar_seaweed"
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
-# arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local_solar_seaweed")
 arena = ArenaFactory.create(scenario_name=scenario_name)
 # we can also download the respective files directly to a temp folder, then t_interval needs to be set
 # % Specify Navigation Problem
@@ -70,30 +69,30 @@ problem = SeaweedProblem(
 # %% Plot the problem on the map
 
 
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_0.to_spatio_temporal_point(),
-    deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600,
-)
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=x_0.to_spatio_temporal_point(),
+#     x_T=x_0.to_spatio_temporal_point(),
+#     deg_around_x0_xT_box=1,
+#     temp_horizon_in_s=3600,
+# )
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
-ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
-ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
 
 # %% Instantiate the HJ Planner
@@ -103,10 +102,11 @@ specific_settings = {
     "direction": "backward",
     "n_time_vector": 200,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+    "deg_around_xt_xT_box_global": 3,  # area over which to run HJ_reachability on the first global run
     "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 12,
+    "T_goal_in_seconds": 3600 * 24 * 20,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
@@ -144,7 +144,7 @@ planner.save_planner_state("saved_planner/")
 dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
 
-for i in tqdm(range(int(3600 * 24 * 12 / dt_in_s))):
+for i in tqdm(range(int(3600 * 24 * 20 / dt_in_s))):
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
