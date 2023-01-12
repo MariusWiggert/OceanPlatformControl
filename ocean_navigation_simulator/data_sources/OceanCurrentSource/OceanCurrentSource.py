@@ -103,7 +103,7 @@ class OceanCurrentSource(DataSource):
             xarray = xarray.isel(time=time_idx)
         # calculate magnitude if not in there yet
         if "magnitude" not in xarray.keys():
-            xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
+            xarray = xarray.assign(magnitude=lambda x: (x.water_u ** 2 + x.water_v ** 2) ** 0.5)
         time = get_datetime_from_np64(xarray["time"].data)
 
         # Step 2: Create ax object
@@ -660,8 +660,11 @@ class LongTermAverageSource(OceanCurrentSource):
         subset = monthly_average_dataframe.sel(
             time=slice(remaining_t_interval[0], remaining_t_interval[1]),
         )
+        # round to deal with numerical issues which would occure otherwise while concatenating the to xarrays
         subset["lat"] = subset["lat"].data.round(decimals=4)
+        subset["lon"] = subset["lon"].data.round(decimals=4)
         forecast_dataframe["lat"] = forecast_dataframe["lat"].data.round(decimals=4)
+        forecast_dataframe["lon"] = forecast_dataframe["lon"].data.round(decimals=4)
         return xr.concat([forecast_dataframe, subset], dim="time")
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
