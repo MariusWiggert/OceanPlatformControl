@@ -106,7 +106,7 @@ def animate_trajectory(
             label="State Trajectory",
         )
         # plot the goal
-        if problem is not None:
+        if problem is not None and hasattr(problem, "end_region"):
             goal_circle = plt.Circle(
                 (problem.end_region.lon.deg, problem.end_region.lat.deg),
                 problem.target_radius,
