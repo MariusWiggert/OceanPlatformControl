@@ -36,7 +36,6 @@ ocean_dict:
           average:
             field: 'OceanCurrents'
             source: 'hindcast_files'
-            
             source_settings:
               folder: "/Users/matthiaskiller/Desktop/data/Copernicus/Averages_monthly/"
               currents: 'normal'
