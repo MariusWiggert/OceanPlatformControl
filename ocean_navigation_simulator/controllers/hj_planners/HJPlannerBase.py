@@ -110,15 +110,13 @@ class HJPlannerBase(Controller):
         self.diss_scheme = self._get_dissipation_schema()
         self.x_traj, self.contr_seq, self.distr_seq = [None] * 3
         # Initialize variables needed for solving the PDE in non_dimensional terms
-        self.characteristic_vec, self.offset_vec, self.nonDimGrid, self.nondim_dynamics = [None] * 4
+        self.characteristic_vec, self.offset_vec, self.nonDimGrid, self.dim_dynamics = [None] * 4
 
         self.planner_cache_index = 0
 
         # Initialize the non_dimensional_dynamics and within it the dimensional_dynamics
         # Note: as initialized here, it's not usable, only after 'update_current_data' is called for the first time.
-        self.nondim_dynamics = hj.dynamics.NonDimDynamics(
-            dimensional_dynamics=self.get_dim_dynamical_system()
-        )
+        self.dim_dynamics = self.get_dim_dynamical_system()
 
         if (
             self.specific_settings["d_max"] > 0
@@ -270,7 +268,7 @@ class HJPlannerBase(Controller):
 
             # Extract the optimal control from the calculated value function at the specific platform state.
             try:
-                u_out, _ = self.nondim_dynamics.dimensional_dynamics.get_opt_ctrl_from_values(
+                u_out, _ = self.dim_dynamics.get_opt_ctrl_from_values(
                     grid=self.grid,
                     x=self.get_x_from_full_state(state),
                     time=rel_time,
@@ -469,30 +467,23 @@ class HJPlannerBase(Controller):
         Output:             None, everything is set as class variable
         """
 
-        # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
-        self.nondim_dynamics.tau_c = min(
-            T_max_in_seconds, int(self.current_data_t_T - self.current_data_t_0)
-        )
-        # This is in relative seconds since current data t_0
-        self.nondim_dynamics.t_0 = t_start.timestamp() - self.current_data_t_0
-
         # save initial_values for later access
         self.initial_values = initial_values
 
         n_time_vector = self.get_time_vector(T_max_in_seconds)
 
         # set up the non_dimensional time-vector for which to save the value function
-        solve_times = np.linspace(0, 1, n_time_vector + 1)
+        solve_times = np.linspace(0, T_max_in_seconds, n_time_vector + 1)
 
         self.logger.info(f"HJPlannerBase: Running {dir}")
 
         if dir == "backward" or dir == "multi-time-reach-back":
             solve_times = np.flip(solve_times, axis=0)
-            self.nondim_dynamics.dimensional_dynamics.control_mode = "min"
-            self.nondim_dynamics.dimensional_dynamics.disturbance_mode = "max"
+            self.dim_dynamics.control_mode = "min"
+            self.dim_dynamics.disturbance_mode = "max"
         elif dir == "forward":
-            self.nondim_dynamics.dimensional_dynamics.control_mode = "max"
-            self.nondim_dynamics.dimensional_dynamics.disturbance_mode = "min"
+            self.dim_dynamics.control_mode = "max"
+            self.dim_dynamics.disturbance_mode = "min"
 
         # specific settings for multi-time-reach-back
         if dir == "multi-time-reach-back":
@@ -513,27 +504,22 @@ class HJPlannerBase(Controller):
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(
             accuracy=self.specific_settings["accuracy"],
-            x_init=self._get_non_dim_state(x_reach_end) if x_reach_end is not None else None,
+            x_init=x_reach_end if x_reach_end is not None else None,
             artificial_dissipation_scheme=self.diss_scheme,
             hamiltonian_postprocessor=hamiltonian_postprocessor,
         )
 
         # solve the PDE in non_dimensional to get the value function V(s,t)
         start = time.time()
-        non_dim_reach_times, self.all_values = hj.solve(
+        self.reach_times, self.all_values = hj.solve(
             solver_settings=solver_settings,
-            dynamics=self.nondim_dynamics,
-            grid=self.nonDimGrid,
+            dynamics=self.dim_dynamics,
+            grid=self.grid,
             times=solve_times,
             initial_values=initial_values,
             progress_bar=self.specific_settings["progress_bar"],
         )
         self.logger.info(f"HJPlannerBase: hj.solve finished ({time.time() - start:.1f}s)")
-
-        # scale up the reach_times to be dimensional_times in seconds again
-        self.reach_times = (
-            non_dim_reach_times * self.nondim_dynamics.tau_c + self.nondim_dynamics.t_0
-        )
 
     def _get_t_earliest_for_target_region(self) -> Tuple:
         """Helper Function to get the earliest time the forward reachable set overlaps with the target region."""
@@ -567,6 +553,8 @@ class HJPlannerBase(Controller):
                                     Defaults to self.reach_times.
         termination_condn:          function to evaluate if the calculation should be terminated (e.g. because reached)
         """
+        self.logger.info("HJPlannerBase: start extract_trajectory")
+        start = time.time()
         # setting default times vector for the trajectory
         if traj_rel_times_vector is None:
             traj_rel_times_vector = self.reach_times
@@ -578,7 +566,7 @@ class HJPlannerBase(Controller):
             self.x_traj,
             self.contr_seq,
             self.distr_seq,
-        ) = self.nondim_dynamics.dimensional_dynamics.backtrack_trajectory(
+        ) = self.dim_dynamics.backtrack_trajectory(
             grid=self.grid,
             x_init=x_start,
             times=self.reach_times,
@@ -604,6 +592,7 @@ class HJPlannerBase(Controller):
 
         plan_dict = {"traj": trajectory, "ctrl": self.contr_seq}
         self.planned_trajs.append(plan_dict)
+        self.logger.info(f"HJPlannerBase: extract_trajectory finished ({time.time() - start:.1f}s)")
 
     def _update_current_data(self, observation: ArenaObservation):
         """Helper function to load new current data into the interpolation.
@@ -641,7 +630,7 @@ class HJPlannerBase(Controller):
         )
 
         # feed in the current data to the Platform classes
-        self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(data_xarray)
+        self.dim_dynamics.update_jax_interpolant(data_xarray)
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = units.get_posix_time_from_np64(data_xarray["time"][0]).data
@@ -650,10 +639,6 @@ class HJPlannerBase(Controller):
 
         # initialize the grids and dynamics to solve the PDE with
         self.initialize_hj_grid(data_xarray)
-        self._initialize_non_dim_grid()
-        # update non_dimensional_dynamics with the new non_dim scaling and offset
-        self.nondim_dynamics.characteristic_vec = self.characteristic_vec
-        self.nondim_dynamics.offset_vec = self.offset_vec
 
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
         self.logger.debug("HJPlannerBase: Cache Size " + str(hj.solver._solve._cache_size()))
