@@ -85,7 +85,7 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
-    graph_obs: Union[GraphObservation, None]
+    graph_obs: Optional[GraphObservation] = None
 
     def __len__(self):
         if type(self.platform_state) is PlatformStateSet:
@@ -254,7 +254,9 @@ class Arena:
                 if multi_agent_graph_edges is not None
                 else None,
             )
-            self.is_multi_agent = True
+            self.use_graph_reprs = True
+        else:
+            self.use_graph_reprs = False
 
         # Step 4: Initialize Variables
         self.spatial_boundary = spatial_boundary
@@ -279,7 +281,7 @@ class Arena:
         self.state_trajectory = np.atleast_3d(np.array(platform_set))
         # object should be a PlatformStateSet otherwise len is not the number of platforms but the number of states
         self.action_trajectory = np.zeros(shape=(len(platform_set), 2, 0))
-        if self.is_multi_agent:
+        if self.use_graph_reprs:
             self.multi_agent_G_list[0] = self.multi_agent_net.set_graph(platform_set=platform_set)
 
         observation = ArenaObservation(
@@ -288,7 +290,7 @@ class Arena:
                 platform_set.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
-            graph_obs=self.multi_agent_G_list[0] if self.is_multi_agent else None,
+            graph_obs=self.multi_agent_G_list[0] if self.use_graph_reprs else None,
         )
         return observation
 
@@ -310,7 +312,7 @@ class Arena:
             self.action_trajectory = np.append(
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
-        if self.is_multi_agent:
+        if self.use_graph_reprs:
             graph_observation = self.multi_agent_net.update_graph(platform_set=platform_set)
             self.multi_agent_G_list.append(graph_observation)
 

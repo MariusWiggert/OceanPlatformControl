@@ -14,7 +14,8 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 # Settings for where the problem csv is saved
-results_folder = "/tmp/missions/"
+my_path = os.getcwd()
+results_folder = os.path.join(my_path,'tmp/missions/')
 os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
@@ -41,6 +42,7 @@ arena_config = {
                 "source": "HYCOM",
                 "type": "hindcast",
                 "currents": "total",
+              #  "region": "Region 1"
             },
         },
         "forecast": {
@@ -52,8 +54,15 @@ arena_config = {
                 "source": "Copernicus",
                 "type": "forecast",
                 "currents": "total",
+                #"region": "Region 1",
             },
         },
+    },
+    "multi_agent_constraints": {
+        "unit": "km",
+        "communication_thrsld": 9,
+        "epsilon_margin": 1,  # when add edges based on hysteresis
+        "collision_thrsld": 0.2,
     },
 }
 
@@ -72,6 +81,8 @@ config = {
     # Combined: [-98.0, -76.416664], [18.1200008392334, 30.0]
     "x_range": [-95.9, -78.52],
     "y_range": [20.22, 27.9],
+    # "x_range": [-160, -105],
+    # "y_range": [15, 40],
     "t_range": [  # ['2022-08-01T00:00:00+00:00', '2022-08-30T00:00:00+00:00'],
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
         datetime.datetime(year=2022, month=8, day=1, tzinfo=datetime.timezone.utc),
@@ -96,6 +107,8 @@ config = {
     ##### Start Sampling #####
     "feasible_missions_per_target": 8,
     "random_missions_per_target": 8,
+    "multi_agent": True,
+    "multi_agent_nb_platforms": 4, 
     "min_distance_from_hj_frame": 0.5,
     "min_distance_from_land": 0.5,
     "feasible_mission_time_in_h": [100, 120],
@@ -105,6 +118,7 @@ config = {
     "animate_batch": False,
     "cache_forecast": False,
     "cache_hindcast": False,
+
 }
 
 all_problems = []
@@ -123,10 +137,11 @@ df = pd.DataFrame([problem.to_dict() for problem in all_problems])
 df.to_csv(results_folder + "problems.csv")
 
 #%% To visualize the generated Navigation Problems
-# Note: those are not working right now, probably minor bugs to fix.
-# GenerationRunner.plot_starts_and_targets(
-#     results_folder=results_folder,
-#     scenario_config=arena_config
-# )
-# GenerationRunner.plot_target_dates_histogram(results_folder)
 GenerationRunner.plot_ttr_histogram(results_folder)
+# Note: those are not working right now, probably minor bugs to fix.
+GenerationRunner.plot_starts_and_targets(
+    results_folder=results_folder,
+    scenario_config=arena_config
+)
+GenerationRunner.plot_target_dates_histogram(results_folder)
+

@@ -28,6 +28,8 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
+    SpatialPoint,
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
@@ -234,12 +236,11 @@ class MissionGenerator:
                 tz=datetime.timezone.utc,
             ),
         )
-        fake_start = PlatformState(
+        fake_start = PlatformStateSet(platform_list = [PlatformState(
             lon=fake_target.lon,
             lat=fake_target.lat,
             date_time=fake_target.date_time
-            - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
-        )
+            - datetime.timedelta(hours=self.config["problem_timeout_in_h"]))])
 
         ##### Step 2: Reject if files are missing or corrupted #####
         try:
@@ -249,7 +250,7 @@ class MissionGenerator:
                 x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
                 y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
                 t_interval=[
-                    fake_start.date_time - datetime.timedelta(hours=1),
+                    fake_start.get_date_time() - datetime.timedelta(hours=1),
                     fake_target.date_time + datetime.timedelta(days=1, hours=1),
                 ],
                 throw_exceptions=True,
@@ -306,7 +307,7 @@ class MissionGenerator:
                 )
                 self.hindcast_planner.replan_if_necessary(
                     ArenaObservation(
-                        platform_state=fake_start,
+                        platform_state=fake_start.platform_list[0], # only 1 platform in the set and want a PlatformState object
                         true_current_at_state=self.arena.ocean_field.get_ground_truth(
                             fake_start.to_spatio_temporal_point()
                         ),
@@ -324,8 +325,8 @@ class MissionGenerator:
 
         ##### Overwrite with biggest available time in hj planner #####
         real_target = SpatioTemporalPoint(
-            lon=fake_start.lon,
-            lat=fake_start.lat,
+            lon=fake_start.lon[0], # avoid unnecessary array representation, as just 1 point in array
+            lat=fake_start.lat[0],
             # Largest available time in hj planner
             date_time=datetime.datetime.fromtimestamp(
                 math.floor(
@@ -361,7 +362,10 @@ class MissionGenerator:
             int(self.config["feasible_mission_time_in_h"][0] * 3600),
             int(self.config["feasible_mission_time_in_h"][1] * 3600),
         ]
-        feasible_points = self.sample_feasible_points(sampling_frame, mission_time)
+        if self.config["multi_agent"]:
+            feasible_points = self.sample_connected_feasible_points(sampling_frame=sampling_frame,
+                                                                mission_time=mission_time)
+        #feasible_points = self.sample_feasible_points(sampling_frame, mission_time)
         random_points = self.sample_random_points(sampling_frame)
 
         if len(feasible_points) < self.config["feasible_missions_per_target"]:
@@ -378,6 +382,83 @@ class MissionGenerator:
             )
 
         return feasible_points + random_points
+
+    def sample_connected_feasible_points(
+        self, sampling_frame, mission_time
+    ) -> List[Tuple[bool, SpatioTemporalPoint, Distance]]:
+        planner = self.hindcast_planner
+
+        # Step 1: Find reachable points with minimum distance from frame
+        reach_times = (planner.all_values[0] - planner.all_values.min()) * (
+            planner.current_data_t_T - planner.current_data_t_0
+        )
+        reachable_condition = (mission_time[0] < reach_times) & (reach_times < mission_time[1])
+        frame_condition_x = (sampling_frame["x"][0] < planner.grid.states[:, :, 0]) & (
+            planner.grid.states[:, :, 0] < sampling_frame["x"][1]
+        )
+        frame_condition_y = (sampling_frame["y"][0] < planner.grid.states[:, :, 1]) & (
+            planner.grid.states[:, :, 1] < sampling_frame["y"][1]
+        )
+        points_to_sample = np.argwhere(reachable_condition & frame_condition_x & frame_condition_y)
+
+        logger.info(
+            "Sampling Ratio: {n}/{d} = {ratio:.2%}".format(
+                n=points_to_sample.shape[0],
+                d=planner.all_values[0].size,
+                ratio=points_to_sample.shape[0] / planner.all_values[0].size,
+            )
+        )
+        # Step 2: Return List of SpatioTemporalPoint
+        sampled_points = []
+        lon_point_deg_arr = np.array([])
+        lat_point_deg_arr = np.array([])
+        while len(sampled_points) < self.config["multi_agent_nb_platforms"]:
+             # Sample Coordinates
+            sample_index = self.random.integers(points_to_sample.shape[0])
+            sampled_point = points_to_sample[sample_index]
+            points_to_sample = np.delete(points_to_sample, sample_index, axis=0)
+            coordinates = planner.grid.states[sampled_point[0], sampled_point[1], :]
+
+            # Add Noise
+            noise = (
+                self.config["hj_specific_settings"]["grid_res"] * self.random.uniform(-0.5, 0.5),
+                self.config["hj_specific_settings"]["grid_res"] * self.random.uniform(-0.5, 0.5),
+            )
+
+            # Format
+            lon_point_deg = coordinates[0] + noise[0]
+            lat_point_deg = coordinates[1] + noise[1]
+            point = SpatioTemporalPoint(
+                lon=units.Distance(deg=lon_point_deg),
+                lat=units.Distance(deg=lat_point_deg),
+                # Smallest available time in hj planner
+                date_time=datetime.datetime.fromtimestamp(
+                    math.ceil(planner.current_data_t_0 + planner.reach_times[0]),
+                    tz=datetime.timezone.utc,
+                ),
+            )
+
+            # Add if far enough from shore
+            distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
+                point.to_spatial_point()
+            )
+            if len(sampled_points) == 0 and (distance_to_shore.deg > self.config["min_distance_from_land"]):
+                sampled_points.append((False, point, distance_to_shore))
+                lon_point_deg_arr = np.array([lon_point_deg])
+                lat_point_deg_arr = np.array([lat_point_deg])
+                
+            elif (distance_to_shore.deg > self.config["min_distance_from_land"]):
+                dist_to_platf = point.to_spatial_point().distance(SpatialPoint(lon=units.Distance(deg=lon_point_deg_arr),
+                                                               lat=units.Distance(deg=lat_point_deg_arr)))
+                if any( #connected to at least one of the other members
+                    self.config["scenario_config"]["multi_agent_constraints"]["communication_thrsld"] < dist.km < \
+                         self.config["scenario_config"]["multi_agent_constraints"]["communication_thrsld"]  for dist in dist_to_platf):
+                    sampled_points.append((False, point, distance_to_shore))
+                    lon_point_deg_arr = np.array([lon_point_deg])
+                    lat_point_deg_arr = np.array([lat_point_deg])     
+            else:        
+                self.performance["start_resampling"] += 1
+            
 
     def sample_feasible_points(
         self, sampling_frame, mission_time

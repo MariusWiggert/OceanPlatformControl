@@ -262,6 +262,12 @@ class PlatformState:
         """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
+    def replace_velocity(self, u_mps, v_mps):
+        self.velocity = OceanCurrentVector(
+                u=units.Velocity(mps=u_mps), v=units.Velocity(mps=v_mps)
+            )
+
+
     def __repr__(self):
         return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg,  velocity: {v}]".format(
             x=self.lon.deg,
@@ -324,13 +330,16 @@ class PlatformStateSet:
         return np.array([platform.date_time.timestamp() for platform in self.platform_list])
 
     def replace_velocities(self, u_mps, v_mps):
-        for pltf_id in range(len(self)):  # update individual list
-            self.platform_list[pltf_id].velocity = OceanCurrentVector(
-                u=units.Velocity(mps=u_mps[pltf_id]), v=units.Velocity(mps=v_mps[pltf_id])
-            )
+        nb_platforms = len(self)
+        for pltf_id in range(nb_platforms):  # update individual PlatformState attributes
+            self.platform_list[pltf_id].replace_velocity(u_mps=u_mps[pltf_id] if nb_platforms>1 else u_mps,
+                                                    v_mps=v_mps[pltf_id] if nb_platforms>1 else v_mps)
+            # self.platform_list[pltf_id].velocity = OceanCurrentVector(
+            #     u=units.Velocity(mps=u_mps[pltf_id]), v=units.Velocity(mps=v_mps[pltf_id])
+            # )
         self.velocity = OceanCurrentVector(
             u=units.Velocity(mps=u_mps), v=units.Velocity(mps=v_mps)
-        )  # update attribute
+        )  # update attribute of this class
 
     def get_distance_btw_platforms(self, from_nodes, to_nodes):
         lon_from, lat_from = self.lon[from_nodes], self.lat[from_nodes]
