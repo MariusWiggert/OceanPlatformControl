@@ -8,6 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 import scipy
 import xarray as xr
+from scipy.interpolate import interp1d
 
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
     HJPlannerBase,
@@ -47,13 +48,13 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         super().__init__(problem, specific_settings)
 
         # set first_plan to True so we plan on the first run over the whole time horizon
-        self.specific_settings["first_plan"] = True
-        self.previous_reach_times, self.previous_all_values = [None] * 2
-        # TODO: retrieve forecast_length rather than specifiying it
-        if "forecast_length" not in self.specific_settings:
-            raise KeyError(
-                '"forecast_length" is not defined in specific_settings. Please provide the forecast length.'
-            )
+        self.first_plan = True
+        (
+            self.reach_times_global,
+            self.all_values_global,
+            self.all_values_subset,
+            self.grid_global,
+        ) = [None] * 4
 
     def get_x_from_full_state(
         self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]
@@ -93,9 +94,9 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
     def get_initial_values(self, direction) -> jnp.ndarray:
         """Setting the initial values for the HJ PDE solver."""
         if direction == "forward":
-            return jnp.zeros(self.nonDimGrid.shape)
+            return jnp.zeros(self.grid.shape)
         elif direction == "backward":
-            return jnp.zeros(self.nonDimGrid.shape)
+            return jnp.zeros(self.grid.shape)
         elif direction == "multi-time-reach-back":
             raise NotImplementedError("HJPlanner: Multi-Time-Reach not implemented yet")
         else:
@@ -113,25 +114,22 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         """
         return np.argmin(abs(array - value))
 
-    # Functions to access the Value Function from outside #
-    def set_interpolator(self):
-        """Helper Function to create an interpolator for the value function for fast computation."""
-        ttr_values = self.all_values - self.all_values.min(axis=(1, 2))[:, None, None]
-        ttr_values = (
-            ttr_values
-            / np.abs(self.all_values.min())
-            * (self.reach_times[-1] - self.reach_times[0])
-            / 3600
-        )
+    def set_subset_interpolator(self):
+        """Helper Function to create an interpolator for the value function for retrieving interpolated subsets and fast computation"""
 
-        self.interpolator = scipy.interpolate.RegularGridInterpolator(
+        self.reach_times_global_flipped, self.all_values_global_flipped = [
+            np.flip(seq, axis=0) for seq in [self.reach_times_global, self.all_values_global]
+        ]
+        self.subset_interpolator = scipy.interpolate.RegularGridInterpolator(
             points=(
-                self.current_data_t_0 + self.reach_times,
-                self.grid.states[:, 0, 0],
-                self.grid.states[0, :, 1],
+                self.reach_times_global_flipped,
+                self.grid_global.coordinate_vectors[0],
+                self.grid_global.coordinate_vectors[1],
             ),
-            values=ttr_values,
+            values=self.all_values_global_flipped,
             method="linear",
+            bounds_error=False,
+            fill_value=None,
         )
 
     def _plan(self, x_t: PlatformState):
@@ -158,19 +156,52 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             # Note: no trajectory is extracted as the value function is used for closed-loop control
 
             # Check whether we plan the first time over the whole time-horizon or only over days with new forecast and recycle value fct. for the remaining days
-            if self.specific_settings["first_plan"]:
+            if self.first_plan:
                 initial_values = self.get_initial_values(direction="backward")
                 T_max_in_seconds = self.specific_settings["T_goal_in_seconds"]
             elif (
-                not self.specific_settings["first_plan"]
-                and self.specific_settings["forecast_length"]
-                < self.specific_settings["T_goal_in_seconds"]
+                not self.first_plan
+                and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
             ):
+                # Get index of closest global reach time for the end of the forecast horizon
                 time_idx = self._get_idx_closest_value_in_array(
-                    self.previous_reach_times, self.specific_settings["forecast_length"]
+                    self.reach_times_global, self.forecast_from_start
                 )
-                initial_values = self.all_values[time_idx]
-                T_max_in_seconds = self.specific_settings["forecast_length"]
+
+                # Interpolation:
+                # Create 3D arrays for the coordinates
+                T, LON, LAT = np.meshgrid(
+                    self.reach_times_global_flipped,
+                    self.grid.states[:, 0, 0],
+                    self.grid.states[0, :, 1],
+                    indexing="ij",
+                )
+                # Flatten the arrays into lists
+                coords = np.stack((T.flatten(), LON.flatten(), LAT.flatten()), axis=1)
+
+                # Call the interpolation function
+                interpolated = self.subset_interpolator(coords)
+
+                # Reshape the result into a 3D array
+                self.all_values_subset_flipped = interpolated.reshape(
+                    (
+                        len(self.reach_times_global_flipped),
+                        len(self.grid.states[:, 0, 0]),
+                        len(self.grid.states[0, :, 1]),
+                    )
+                )
+
+                # Flip from forward time to backward time
+                self.all_values_subset = np.flip(self.all_values_subset_flipped, axis=0)
+
+                # Get value function at end of FC Horizon
+                # initial_values = self.all_values_subset[-time_idx]
+                initial_values = interp1d(
+                    self.reach_times_global, self.all_values_subset, axis=0, kind="linear"
+                )(self.forecast_from_start).squeeze()
+
+                # Get T_max only for FC - so replanning only runs over this timeframe
+                T_max_in_seconds = int(self.forecast_length)
 
             self._run_hj_reachability(
                 initial_values=initial_values,
@@ -180,31 +211,41 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             )
 
             if (
-                self.specific_settings["first_plan"]
-                and self.specific_settings["forecast_length"]
-                < self.specific_settings["T_goal_in_seconds"]
+                self.first_plan
+                and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
             ):
                 # Set first_plan to False after first planning is finished
-                self.specific_settings["first_plan"] = False
+                self.first_plan = False
+
+                # Save global value fct., reach times & grid for later re-use
+                self.all_values_global = self.all_values
+                self.reach_times_global = self.reach_times
+                self.grid_global = self.grid
+
+                # Save initial start time
+                self.x_0_time = np.datetime64(x_t.date_time, "ns")
+
+                # Set value fct. subset interpolator
+                self.set_subset_interpolator()
+
             elif (
-                not self.specific_settings["first_plan"]
-                and self.specific_settings["forecast_length"]
-                < self.specific_settings["T_goal_in_seconds"]
+                not self.first_plan
+                and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
             ):
-                # concatenate the the static part and the new part of the value fct. based on new FC data
-                print("concatentate")
-                self.reach_times = jnp.append(
-                    self.previous_reach_times[:time_idx], self.reach_times, axis=0
+                self.logger.info("HJBSeaweed2DPlanner: concatenate pre-computed and new value fct.")
+                # Concatenate the the static part and the new part of the value fct. based on new FC data
+                # Shift global reach times to account for temporal progress
+                time_progress = self.current_data_t_0 - units.get_posix_time_from_np64(
+                    self.x_0_time
                 )
-                self.all_values = jnp.append(
-                    self.previous_all_values[:time_idx], self.all_values, axis=0
+                self.reach_times = jnp.concatenate(
+                    [self.reach_times_global[:time_idx] - time_progress, self.reach_times], axis=0
+                )
+                self.all_values = jnp.concatenate(
+                    [self.all_values_subset[:time_idx], self.all_values], axis=0
                 )
 
             self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
-
-            # save current non-flipped reach times and value fct. for next replanning
-            self.previous_reach_times = self.reach_times
-            self.previous_all_values = self.all_values
 
             # arrange to forward times by convention for plotting and open-loop control
             self._flip_value_func_to_forward_times()
@@ -234,11 +275,36 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         """
         start = time.time()
 
+        # Extract FC length in seconds
+        # TODO: check use of self.current_data_t_T
+        self.forecast_length = (
+            observation.forecast_data_source.forecast_data_source.DataArray.time.max()
+            - np.datetime64(observation.platform_state.date_time, "ns")
+        ) / np.timedelta64(1, "s")
+
+        if self.first_plan and self.forecast_length < self.specific_settings["T_goal_in_seconds"]:
+            deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box_global"]
+        else:
+            deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box"]
+
+        if (
+            not self.first_plan
+            and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
+        ):
+            # Extract relative FC Horizon from inital time
+            # TODO: check use of self.current_data_t_T & posix time
+            self.forecast_from_start = (
+                units.get_posix_time_from_np64(
+                    observation.forecast_data_source.forecast_data_source.DataArray.time.max()
+                )
+                - units.get_posix_time_from_np64(self.x_0_time)
+            ).data
+
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
             x_0=observation.platform_state.to_spatio_temporal_point(),
             x_T=observation.platform_state.to_spatio_temporal_point(),
-            deg_around_x0_xT_box=self.specific_settings["deg_around_xt_xT_box"],
+            deg_around_x0_xT_box=deg_around_x0_xT_box,
             temp_horizon_in_s=self.specific_settings["T_goal_in_seconds"],
         )
         # adjust if specified explicitly in settings
@@ -255,18 +321,12 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
             spatial_resolution=self.specific_settings["grid_res"],
         )
 
-        # get seaweed growth rate data subset from analytical function as xarray
-        # path = "./data/seaweed/seaweed_precomputed_over_area.nc"
-        # if os.path.exists(path):
-        #     seaweed_xarray = xr.open_dataset(path)
-        # else:
         seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.get_data_over_area(
             x_interval=x_interval,
             y_interval=y_interval,
             t_interval=t_interval,
             spatial_resolution=self.specific_settings["grid_res"],
         )
-        # seaweed_xarray.to_netcdf(path=path)
 
         # calculate relative posix_time (we use it in interpolation because jax uses float32 and otherwise cuts off)
         data_xarray = data_xarray.assign(
@@ -279,9 +339,7 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         )
 
         # feed in the current data to the Platform classes
-        self.nondim_dynamics.dimensional_dynamics.update_jax_interpolant(
-            data_xarray, seaweed_xarray
-        )
+        self.dim_dynamics.update_jax_interpolant(data_xarray, seaweed_xarray)
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = units.get_posix_time_from_np64(data_xarray["time"][0]).data
@@ -290,7 +348,6 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
 
         # initialize the grids and dynamics to solve the PDE with
         self.initialize_hj_grid(data_xarray)
-        self._initialize_non_dim_grid()
 
         # import plotly.graph_objects as go
         # import numpy as np
@@ -306,14 +363,9 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         # fig.show()
 
         # update non_dimensional_dynamics with the new non_dim scaling and offset
-        self.nondim_dynamics.characteristic_vec = self.characteristic_vec
-        self.nondim_dynamics.offset_vec = self.offset_vec
-
-        self.nondim_dynamics.dimensional_dynamics.characteristic_vec = self.characteristic_vec
-        self.nondim_dynamics.dimensional_dynamics.offset_vec = self.offset_vec
 
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
-        self.logger.debug("HJPlannerBase: Cache Size " + str(hj.solver._solve._cache_size()))
+        self.logger.debug("HJBSeaweed2DPlanner: Cache Size " + str(hj.solver._solve._cache_size()))
         hj.solver._solve._clear_cache()
         # xla._xla_callable.cache_clear()
 
@@ -333,7 +385,9 @@ class HJBSeaweed2DPlanner(HJPlannerBase):
         #     self.nondim_dynamics.dimensional_dynamics.set_currents_from_analytical(self.forecast_data_source)
         #     self.forecast_data_source['content'].current_run_t_0 = grids_dict['t_grid'][0]
 
-        self.logger.info(f"HJPlannerBase: Loading new Current Data ({time.time() - start:.1f}s)")
+        self.logger.info(
+            f"HJBSeaweed2DPlanner: Loading new Current Data ({time.time() - start:.1f}s)"
+        )
 
     def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok=True)
