@@ -10,8 +10,8 @@ import scipy
 import xarray as xr
 from scipy.interpolate import interp1d
 
-from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
-    HJPlannerBase,
+from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import (
+    HJPlannerBaseDim,
 )
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dSeaweedForSim import (
     Platform2dSeaweedForSim,
@@ -30,7 +30,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 from ocean_navigation_simulator.utils import units
 
 
-class HJBSeaweed2DPlanner(HJPlannerBase):
+class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     """Reachability planner for 2D (lat, lon) reachability computation."""
 
     gpus: float = 1.0

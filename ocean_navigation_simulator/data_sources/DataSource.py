@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from IPython.display import HTML
+from matplotlib.figure import Figure
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
@@ -96,8 +98,12 @@ class DataSource(abc.ABC):
         t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
             x_0=state.to_spatio_temporal_point(),
             x_T=state.to_spatial_point(),
-            deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"]["deg_around_x_t"],
-            temp_horizon_in_s=self.source_config_dict["casadi_cache_settings"]["time_around_x_t"],
+            deg_around_x0_xT_box=self.source_config_dict["casadi_cache_settings"].get(
+                "deg_around_x_t", 0
+            ),
+            temp_horizon_in_s=self.source_config_dict["casadi_cache_settings"].get(
+                "time_around_x_t", 0
+            ),
         )
 
         # Step 2: Get the data from itself and update casadi_grid_dict
@@ -192,10 +198,10 @@ class DataSource(abc.ABC):
         logger: logging.Logger,
         throw_exception: Optional[bool] = True,
     ):
+        """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         temporal_error = False
         spatial_error = False
 
-        """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         # Step 1: collateral check is any dimension 0?
         if 0 in (len(array.coords["lat"]), len(array.coords["lon"]), len(array.coords["time"])):
             # check which dimension for more informative errors
@@ -215,9 +221,9 @@ class DataSource(abc.ABC):
             or array.coords["lon"].data[-1] <= x_interval[1]
         ):
             spatial_error = f"Part of the x requested area is outside of file (requested: [{x_interval[0]}, {x_interval[1]}])."
-        if units.get_datetime_from_np64(array.coords["time"].data[0]) >= t_interval[0]:
+        if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
             temporal_error = f"The starting time is not in the array (requested: [{t_interval[0]}, {t_interval[1]}])."
-        if units.get_datetime_from_np64(array.coords["time"].data[-1]) <= t_interval[1]:
+        if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
             temporal_error = f"The requested final time is not part of the subset (requested: [{t_interval[0]}, {t_interval[1]}])."
 
         if temporal_error or spatial_error:
@@ -281,7 +287,7 @@ class DataSource(abc.ABC):
     def set_up_geographic_ax() -> matplotlib.pyplot.axes:
         """Helper function to set up a geographic ax object to plot on."""
         ax = plt.axes(projection=ccrs.PlateCarree())
-        grid_lines = ax.gridlines(draw_labels=True, zorder=5)
+        grid_lines = ax.gridlines(draw_labels=True, zorder=4, color="silver", alpha=1)
         grid_lines.top_labels = False
         grid_lines.right_labels = False
         ax.add_feature(cfeature.LAND, zorder=3, edgecolor="black")
@@ -417,7 +423,11 @@ class DataSource(abc.ABC):
         alpha: Optional[float] = 1.0,
         ax: plt.axes = None,
         fill_nan: bool = True,
-    ) -> matplotlib.pyplot.axes:
+        colorbar: bool = True,
+        return_cbar: bool = False,
+        set_title: bool = True,
+        **kwargs,
+    ) -> Union[matplotlib.pyplot.axes, Tuple[matplotlib.pyplot.axes, Figure.colorbar]]:
         """Base function to plot a specific var_to_plot of the x_array. If xarray has a time-dimension time_idx is selected,
         if xarray's time dimension is already collapsed (e.g. after interpolation) it's directly plotted.
         All other functions build on top of it, it creates the ax object and returns it.
@@ -453,14 +463,33 @@ class DataSource(abc.ABC):
             vmax = xarray[var_to_plot].max()
         if vmin is None:
             vmin = xarray[var_to_plot].min()
-        xarray[var_to_plot].plot(cmap="viridis", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax)
+        im = xarray[var_to_plot].plot(
+            cmap="viridis", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+        )
+
+        # set and format colorbar
+        if colorbar:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
+            cbar = plt.colorbar(im, orientation="vertical", cax=cax)
+            cbar.ax.set_ylabel("current velocity in m/s")
+            cbar.set_ticks(cbar.get_ticks())
+            precision = 1
+            if int(vmin * 10) == int(vmax * 10):
+                precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
+            cbar.set_ticklabels(
+                ["{:.{prec}f}".format(elem, prec=precision) for elem in cbar.get_ticks().tolist()]
+            )
 
         # Label the plot
-        ax.set_title(
-            "Variable: {var} \n at Time: {t}".format(
-                var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+        if set_title:
+            ax.set_title(
+                "Variable: {var} \n at Time: {t}".format(
+                    var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+                )
             )
-        )
+        if return_cbar:
+            return ax, cbar
 
         return ax
 
@@ -496,13 +525,19 @@ class DataSource(abc.ABC):
         """
 
         # Step 1: get the data_subset for animation
-        xarray = self.get_data_over_area(
-            x_interval=x_interval,
-            y_interval=y_interval,
-            t_interval=t_interval,
-            spatial_resolution=spatial_resolution,
-            temporal_resolution=temporal_resolution,
-        )
+        get_data_dict = {
+            "x_interval": x_interval,
+            "y_interval": y_interval,
+            "t_interval": t_interval,
+            "spatial_resolution": spatial_resolution,
+            "temporal_resolution": temporal_resolution,
+        }
+        # If we only want to animate noise, add this to the get_data_dict
+        if "noise_only" in kwargs:
+            get_data_dict.update({"noise_only": kwargs["noise_only"]})
+            del kwargs["noise_only"]
+
+        xarray = self.get_data_over_area(**get_data_dict)
 
         # Calculate min and max over the full tempo-spatial array
         if self.source_config_dict["field"] == "OceanCurrents":
@@ -518,6 +553,12 @@ class DataSource(abc.ABC):
                 xarray[list(xarray.keys())[0]].min().item(), sig_digit=2
             )
 
+        # add vmin and vmax to kwargs if not already in it
+        if "vmax" not in kwargs:
+            kwargs.update({"vmax": vmax})
+        if "vmin" not in kwargs:
+            kwargs.update({"vmin": vmin})
+
         # create global figure object where the animation happens
         if "figsize" in kwargs:
             fig = plt.figure(figsize=kwargs["figsize"])
@@ -532,8 +573,6 @@ class DataSource(abc.ABC):
                 ax = self.plot_xarray_for_animation(
                     time_idx=time_idx,
                     xarray=xarray,
-                    vmin=vmin,
-                    vmax=vmax,
                     reset_plot=True,
                     **kwargs,
                 )
@@ -548,8 +587,6 @@ class DataSource(abc.ABC):
             render_frame = partial(
                 self.plot_xarray_for_animation,
                 xarray=xarray,
-                vmin=vmin,
-                vmax=vmax,
                 reset_plot=True,
                 **kwargs,
             )
@@ -564,7 +601,7 @@ class DataSource(abc.ABC):
         # render the animation with the keyword arguments
         self.render_animation(animation_object=ani, output=output, fps=fps)
 
-    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> datetime:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.
         Args:
@@ -615,7 +652,7 @@ class XarraySource(abc.ABC):
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
           throw_exceptions:    if True an exception is thrown when requesting data not available otherwise warning
-          spatial_tolerance:   how much the spatial interval is extended to make sure the requested interval is inside
+          spatial_tolerance:   how much spatial grid sizes the interval is extended to make sure it is inside
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN)
         """

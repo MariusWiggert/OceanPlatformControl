@@ -1,3 +1,4 @@
+import datetime
 from importlib import import_module
 from typing import Type, Union
 
@@ -9,6 +10,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
+    SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
@@ -16,7 +18,8 @@ from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
 
 class Constructor:
-    """Class that constructs arena, problem, observer and controller objects from experiment objective, mission, arena, controller and observer configuration"""
+    """Class that constructs arena, problem, observer and controller objects from configuration files of
+    experiment objective, mission, arena, controller and observer"""
 
     def __init__(
         self,
@@ -25,6 +28,10 @@ class Constructor:
         objective_conf: dict,
         ctrl_conf: dict,
         observer_conf: dict,
+        c3=None,
+        download_files=False,
+        timeout_in_sec=0,
+        create_arena=True,
     ):
         """Creates the arena, problem, observer and controller objects
 
@@ -34,6 +41,10 @@ class Constructor:
             objective: dict which specifies which objective the experiment has under 'type' i.e 'type': "nav" for navigation
             ctrl_conf: dictionary which specifies the controller configuration
             observer_conf: dictionary which specifies the observer configuration
+            c3: if running on C3, the c3 object is passed in directly, locally pass in nothing
+            download_files: if the current files should be downloaded
+            timeout_in_sec: this is used to determine what current files to download such that there is enough data
+                            until the problem times out.
         """
         # Init
         self.mission_conf = mission_conf
@@ -41,15 +52,29 @@ class Constructor:
         self.ctrl_conf = ctrl_conf
         self.observer_conf = observer_conf
 
-        # Add mission seed to arena for potential forecast generation (i.e. Jonas work)
-        if "seed" in self.mission_conf:
-            arena_conf["seed"] = self.mission_conf["seed"]
-
         # Create arena from config
-        self.arena = ArenaFactory.create(scenario_config=arena_conf)
+        if create_arena:
+            # Add mission seed to arena for potential forecast generation (i.e. Jonas work)
+            if "seed" in self.mission_conf:
+                arena_conf["seed"] = self.mission_conf["seed"]
+
+            # get t_interval for downloading files
+            point_to_check = SpatioTemporalPoint.from_dict(mission_conf["x_0"][0])
+            t_interval = [
+                point_to_check.date_time,
+                point_to_check.date_time
+                + datetime.timedelta(
+                    seconds=timeout_in_sec
+                    + arena_conf["casadi_cache_dict"]["time_around_x_t"]
+                    + 7200
+                ),
+            ]
+            self.arena = ArenaFactory.create(
+                scenario_config=arena_conf, t_interval=t_interval if download_files else None, c3=c3
+            )
 
         # Add platform_dict from arena to controll config
-        self.platform_dict = self.arena.platform.platform_dict
+        self.platform_dict = arena_conf["platform_dict"]
 
         # Create problem from config
         self.problem = self.__problem_constructor()

@@ -1,0 +1,3217 @@
+problems:
+- initial_position:
+    lon_in_deg: -89.60333644630238
+    lat_in_deg: 23.6507214294803
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -87.83039612418757
+    lat_in_deg: 26.206053702560673
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.39968453289997
+    lat_in_deg: 25.037358928463252
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.50212447284123
+    lat_in_deg: 25.256235219285145
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.78099892946989
+    lat_in_deg: 26.025602545172177
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -93.03871235717443
+    lat_in_deg: 23.886497477628915
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.94043888497342
+    lat_in_deg: 23.42189453696486
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.91661917619243
+    lat_in_deg: 22.69418939034689
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.8302890680269
+    lat_in_deg: 24.15068155392949
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -85.80039407891601
+    lat_in_deg: 23.448700951214978
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.28372851032586
+    lat_in_deg: 26.32509785125958
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -91.51692980283448
+    lat_in_deg: 24.904581985860425
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.15649307682327
+    lat_in_deg: 25.13305520443069
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -88.31150739160675
+    lat_in_deg: 22.890522325138853
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.25847574893918
+    lat_in_deg: 24.94965085443514
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.31372860599215
+    lat_in_deg: 24.367868772297605
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.6406697750643
+    lat_in_deg: 24.832751655374903
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -89.7147087761171
+    lat_in_deg: 23.778335871982662
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.83904299432997
+    lat_in_deg: 24.794904786702322
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.90822238908348
+    lat_in_deg: 24.29173656985311
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -85.78278853448862
+    lat_in_deg: 23.496667522652277
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -88.45581560044654
+    lat_in_deg: 25.086625608981294
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.0780959751417
+    lat_in_deg: 23.957880998284267
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -95.11273404862285
+    lat_in_deg: 24.639065389330618
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.74549440200875
+    lat_in_deg: 26.275982338620093
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -94.67733082228578
+    lat_in_deg: 23.838555733177817
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.27328033155582
+    lat_in_deg: 23.33024814238406
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.94032886011807
+    lat_in_deg: 24.93021456638197
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.71836742553855
+    lat_in_deg: 23.64380726710276
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -92.74432993674647
+    lat_in_deg: 24.362550122643533
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.81325921642292
+    lat_in_deg: 23.412115058057964
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -89.10659795861807
+    lat_in_deg: 26.24059792163762
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.34035689919324
+    lat_in_deg: 24.35577716570796
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.8959770613389
+    lat_in_deg: 26.128302482441484
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.22229528836714
+    lat_in_deg: 23.07606049688254
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.50366036236632
+    lat_in_deg: 26.102048642060655
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.29611037729654
+    lat_in_deg: 25.287643457079707
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.19165726971256
+    lat_in_deg: 25.099464514477674
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.33927834399947
+    lat_in_deg: 25.45347824780078
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -93.44766871849268
+    lat_in_deg: 25.558119020851482
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.38452501042589
+    lat_in_deg: 25.971329884114795
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -91.2919004736283
+    lat_in_deg: 23.670468532442474
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.65620824745557
+    lat_in_deg: 23.2155785264656
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.73238057863136
+    lat_in_deg: 22.75709821005587
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.21920773261698
+    lat_in_deg: 23.125638398902986
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -93.27419631961932
+    lat_in_deg: 26.23530343985614
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.93045013782346
+    lat_in_deg: 25.464471272681124
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.73808081324498
+    lat_in_deg: 22.933560023170028
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.99206142765092
+    lat_in_deg: 26.25023272814279
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -87.56744183449054
+    lat_in_deg: 23.485544784375865
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.81171636559067
+    lat_in_deg: 25.733003617372486
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -88.83993666537141
+    lat_in_deg: 24.815634648532036
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.14724893426337
+    lat_in_deg: 23.91492099182564
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.24104824921693
+    lat_in_deg: 23.596414774587085
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.94367988371297
+    lat_in_deg: 24.240084670558474
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -94.02015128591654
+    lat_in_deg: 24.696553862345063
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.91228361511341
+    lat_in_deg: 23.63683111830787
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -92.314348399672
+    lat_in_deg: 25.612463974485912
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.67531515847375
+    lat_in_deg: 23.29569842306856
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -87.28038651762769
+    lat_in_deg: 26.07548519521027
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.57371756287779
+    lat_in_deg: 26.078549342611943
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -87.57436286163019
+    lat_in_deg: 23.696193116052658
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.8843374468092
+    lat_in_deg: 25.777732043842185
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -87.9391561719852
+    lat_in_deg: 24.778258347313475
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.32354208625074
+    lat_in_deg: 23.624092547793115
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -94.50917828750134
+    lat_in_deg: 25.836791082932844
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.89620833296364
+    lat_in_deg: 26.25924542231109
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -86.48265037129507
+    lat_in_deg: 23.176712336686993
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.51009792134425
+    lat_in_deg: 24.450342303183756
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -89.50912371395903
+    lat_in_deg: 23.62639770137002
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -85.9041572603577
+    lat_in_deg: 24.42933226130298
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -88.84659248487941
+    lat_in_deg: 25.43686159641965
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.16698687587025
+    lat_in_deg: 22.787620803179024
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.13655990220967
+    lat_in_deg: 23.71210793281579
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.99353212441957
+    lat_in_deg: 23.830764382902043
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.71439560789484
+    lat_in_deg: 25.947029288501096
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.30152143249575
+    lat_in_deg: 25.53859885562258
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -86.17285277935488
+    lat_in_deg: 23.271042863643075
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.18645358622037
+    lat_in_deg: 23.432040183820515
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -94.28645630831258
+    lat_in_deg: 23.683085069543324
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.20468700810413
+    lat_in_deg: 25.363650015213203
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -90.58658968780881
+    lat_in_deg: 22.707562389836397
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.38752177812923
+    lat_in_deg: 23.32644939858776
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -94.55676971532452
+    lat_in_deg: 25.55521672574433
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.79802202349471
+    lat_in_deg: 23.661075003524843
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.03395970610006
+    lat_in_deg: 25.822931402810447
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.43237685253017
+    lat_in_deg: 25.241008468677514
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.57026226184036
+    lat_in_deg: 22.982140082010133
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.89402338343947
+    lat_in_deg: 22.704971171821597
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -87.59923404715803
+    lat_in_deg: 25.734115990314816
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.7054362516643
+    lat_in_deg: 25.763521738408826
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.60194202631106
+    lat_in_deg: 25.966903165352978
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.22000896523411
+    lat_in_deg: 23.679161887535173
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -95.24475445483255
+    lat_in_deg: 26.039976601564522
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.40723581882231
+    lat_in_deg: 24.011391054037652
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -89.28177895153996
+    lat_in_deg: 22.823939080367772
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.54394161435259
+    lat_in_deg: 24.164724956621875
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -92.63813077718055
+    lat_in_deg: 24.479421375833578
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.46058185523407
+    lat_in_deg: 23.224247990874364
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.95362398497333
+    lat_in_deg: 25.944931432380542
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.7065382717121
+    lat_in_deg: 24.626159939514572
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -90.81511473715075
+    lat_in_deg: 24.52720151315458
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.71619910827849
+    lat_in_deg: 23.73615583061796
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.89550677211902
+    lat_in_deg: 25.046398234281472
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.11050230518349
+    lat_in_deg: 22.669480921574674
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -87.29684277666769
+    lat_in_deg: 25.196075373846455
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.87714696355016
+    lat_in_deg: 23.75335770130328
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -90.76702964058705
+    lat_in_deg: 23.738843948117783
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.20737899789242
+    lat_in_deg: 23.82999668039831
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -88.07922457193891
+    lat_in_deg: 26.31379106773178
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.95887923589265
+    lat_in_deg: 23.784616382211404
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.91522924299828
+    lat_in_deg: 23.144901498547785
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.45199152036707
+    lat_in_deg: 25.787498609583757
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.80206965250935
+    lat_in_deg: 22.98565467232781
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.95764269036796
+    lat_in_deg: 26.282676460047913
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -86.72040858530437
+    lat_in_deg: 23.429206260292155
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.12010307197667
+    lat_in_deg: 23.36452875173403
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.78419942747477
+    lat_in_deg: 24.96940601191576
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.4539800261907
+    lat_in_deg: 25.97070142121929
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.75247404209762
+    lat_in_deg: 22.940696509357217
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.84823907823488
+    lat_in_deg: 24.067557213106973
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -94.50889055984668
+    lat_in_deg: 25.67813912813757
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.34664961463284
+    lat_in_deg: 25.77052056876277
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -92.72407411689646
+    lat_in_deg: 24.098653896357494
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.18923535990578
+    lat_in_deg: 23.659621823183773
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.06385892270383
+    lat_in_deg: 26.141320215299352
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.88115465444355
+    lat_in_deg: 25.210474817805846
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -92.17617480839262
+    lat_in_deg: 23.111445779275346
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.88924468347243
+    lat_in_deg: 24.970816065536116
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.82347864792139
+    lat_in_deg: 24.447252290157866
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.24293732220308
+    lat_in_deg: 25.449248623318443
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -91.1825097405826
+    lat_in_deg: 24.89533217719739
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.00315240844093
+    lat_in_deg: 24.937909862791862
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.93876379963669
+    lat_in_deg: 24.406343436220777
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.28799841032135
+    lat_in_deg: 23.033386381801236
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -94.65238611257979
+    lat_in_deg: 25.053958381269634
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.13539587067632
+    lat_in_deg: 22.739096024822025
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.33947441615082
+    lat_in_deg: 24.10139688430596
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.9592726570978
+    lat_in_deg: 25.83951113073827
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -92.67828625842074
+    lat_in_deg: 23.72524022551421
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.00398874380608
+    lat_in_deg: 25.807901470371455
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -94.27221527027126
+    lat_in_deg: 22.96807015686061
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -85.80146298225402
+    lat_in_deg: 25.406791881594394
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -87.97074373088716
+    lat_in_deg: 23.178056490114216
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.16271654413862
+    lat_in_deg: 25.33698015956262
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.22124468984188
+    lat_in_deg: 25.90129035224712
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.66061710746067
+    lat_in_deg: 23.313508417999877
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.2137111516758
+    lat_in_deg: 26.008121433156262
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.57060124908062
+    lat_in_deg: 24.299168184443893
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -87.61075168623003
+    lat_in_deg: 23.344008000537624
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.2823790917164
+    lat_in_deg: 24.01028192035031
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.03691350754418
+    lat_in_deg: 25.454435846927012
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.04621006690364
+    lat_in_deg: 26.109437543981556
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -93.05285004228877
+    lat_in_deg: 25.31372624580691
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.9784664165463
+    lat_in_deg: 24.228240305301192
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.88733815299
+    lat_in_deg: 25.328924470966193
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.05653731160606
+    lat_in_deg: 24.752541007518097
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -86.11924734979443
+    lat_in_deg: 23.730108568739208
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.23570000754343
+    lat_in_deg: 24.03447754197414
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.68298165726398
+    lat_in_deg: 25.953814130112796
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.95697279804128
+    lat_in_deg: 24.509719571722044
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -90.06817895478227
+    lat_in_deg: 25.662069580519525
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.91115407095614
+    lat_in_deg: 22.739443498862716
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -91.35959599855573
+    lat_in_deg: 24.517811237772467
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.82200367793716
+    lat_in_deg: 22.787621577136694
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -93.8462002304264
+    lat_in_deg: 25.74072977756769
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.46352174965122
+    lat_in_deg: 26.127100338445413
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.56782648630495
+    lat_in_deg: 26.317711234293157
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.65502913434571
+    lat_in_deg: 24.344752058667446
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -92.16811481530397
+    lat_in_deg: 26.17708411694434
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.98101366402861
+    lat_in_deg: 23.933590054714376
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.08759122275177
+    lat_in_deg: 24.082641332013022
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.29535975693804
+    lat_in_deg: 24.29882333037539
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -94.25453110017287
+    lat_in_deg: 25.256082633283658
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.81345262924738
+    lat_in_deg: 25.993308431002497
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.33698377900912
+    lat_in_deg: 24.111781804715672
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.0351397335084
+    lat_in_deg: 24.577348699267816
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.14350504119069
+    lat_in_deg: 24.471965941551584
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.22619168437977
+    lat_in_deg: 25.64982702989316
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -89.66273238582347
+    lat_in_deg: 23.716873377620324
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.02328333755793
+    lat_in_deg: 25.077452767940688
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -92.10790786884432
+    lat_in_deg: 25.475110802705323
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.99503806563133
+    lat_in_deg: 24.201543206596643
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -93.87576310898046
+    lat_in_deg: 25.373918417972163
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.76231170967463
+    lat_in_deg: 25.38425569526469
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -94.74079979212023
+    lat_in_deg: 24.488907073577984
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.19293162564178
+    lat_in_deg: 24.966408714468077
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -93.02883640165751
+    lat_in_deg: 26.243391295789312
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.71230434145774
+    lat_in_deg: 25.73727312174755
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.81431166837802
+    lat_in_deg: 25.51234878922764
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.9077897856258
+    lat_in_deg: 26.148549002887343
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.73892441005685
+    lat_in_deg: 23.266398044762017
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.09028822469784
+    lat_in_deg: 24.483644993861365
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.19271571428771
+    lat_in_deg: 24.26459229822902
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.17179061180859
+    lat_in_deg: 25.25561725814031
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.42919036394757
+    lat_in_deg: 23.116181171067467
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.15434616843187
+    lat_in_deg: 26.19706792972456
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.14734595210997
+    lat_in_deg: 25.402719070175607
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.84673991532718
+    lat_in_deg: 23.571564328275247
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.10232454096872
+    lat_in_deg: 25.034856733986285
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.21067747202787
+    lat_in_deg: 22.73075835310334
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -88.47561619479256
+    lat_in_deg: 25.82960457142501
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.15110234415266
+    lat_in_deg: 24.797742080771826
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.32406983613375
+    lat_in_deg: 23.501236157055732
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.33783627779931
+    lat_in_deg: 23.11151420564169
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.44356147888432
+    lat_in_deg: 23.277379774619003
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.73825168516025
+    lat_in_deg: 23.885454514748606
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.82128687033233
+    lat_in_deg: 24.295252585287756
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.77083734284275
+    lat_in_deg: 24.037638519190924
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -87.50492649026489
+    lat_in_deg: 26.16805829468039
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.75960935464492
+    lat_in_deg: 24.240814875219584
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.49655993369727
+    lat_in_deg: 22.763607395055846
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.95337023002996
+    lat_in_deg: 24.57484467036059
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.43024272928233
+    lat_in_deg: 22.756365078339375
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.16311065372615
+    lat_in_deg: 24.638487331158917
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.25585209692221
+    lat_in_deg: 24.30986782905323
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.71440339027725
+    lat_in_deg: 24.26516775902336
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -89.69448004009159
+    lat_in_deg: 25.155214708828836
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.71685363830841
+    lat_in_deg: 23.842319620378674
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -91.64093320177193
+    lat_in_deg: 23.38215239020699
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.11420433980791
+    lat_in_deg: 22.965678206847652
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.22217432317808
+    lat_in_deg: 22.849217938529403
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.01706515775585
+    lat_in_deg: 25.850530825595595
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -94.3476286548339
+    lat_in_deg: 23.039367153400374
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.469863914058
+    lat_in_deg: 24.52004743154621
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -90.45830738036683
+    lat_in_deg: 23.658510397923894
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.44295872647002
+    lat_in_deg: 24.63436820027591
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.75925636258579
+    lat_in_deg: 23.062496057349254
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.44925551170267
+    lat_in_deg: 23.369080409829095
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -86.57970840874613
+    lat_in_deg: 24.56855522638024
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.63828250415312
+    lat_in_deg: 22.833800508720184
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -94.59009191795573
+    lat_in_deg: 23.813525774400812
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.86278982379422
+    lat_in_deg: 25.780326072238285
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -92.65799267498082
+    lat_in_deg: 23.24058452343491
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.17850879587351
+    lat_in_deg: 22.6967395744607
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -95.04140945933594
+    lat_in_deg: 23.91199271795514
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.01469553968457
+    lat_in_deg: 24.898443783801778
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -88.71097328969469
+    lat_in_deg: 22.80896915927812
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.26971591490216
+    lat_in_deg: 23.283388829371624
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.20939720152977
+    lat_in_deg: 22.728871215395856
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.45863158125265
+    lat_in_deg: 23.565560863264082
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -91.88611839759174
+    lat_in_deg: 25.509872609905187
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.93782854053202
+    lat_in_deg: 24.555745934793944
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -89.93586544422307
+    lat_in_deg: 25.38328151453255
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.6042925577984
+    lat_in_deg: 24.543435417633855
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -94.53093718920208
+    lat_in_deg: 25.595952217073535
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.62569963657837
+    lat_in_deg: 22.911755777001645
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -92.69615121088917
+    lat_in_deg: 26.021108923124455
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.98868475659106
+    lat_in_deg: 25.69676192391801
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -90.16257407126236
+    lat_in_deg: 24.398247847791897
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.18813865352203
+    lat_in_deg: 24.084023507607757
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.08695065787678
+    lat_in_deg: 25.210934939369555
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.29313443258928
+    lat_in_deg: 25.15262552995909
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -90.38905712378535
+    lat_in_deg: 24.85546715170945
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.59138418591732
+    lat_in_deg: 23.993350662410556
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -89.22279600005022
+    lat_in_deg: 26.00899706428701
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.41717959576526
+    lat_in_deg: 22.800904083535734
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -89.66446854151302
+    lat_in_deg: 25.649993534122032
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.02517363973834
+    lat_in_deg: 26.063265843785086
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -93.05193652841204
+    lat_in_deg: 23.659232625605405
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.3610266023758
+    lat_in_deg: 23.94172033046506
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -86.32619623923294
+    lat_in_deg: 26.29384826169214
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.19112947520767
+    lat_in_deg: 23.29631352345231
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.40501309301652
+    lat_in_deg: 25.84245348050398
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.18045123706034
+    lat_in_deg: 24.654426780011757
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -90.01563174230002
+    lat_in_deg: 23.375836965280087
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.55101263954504
+    lat_in_deg: 25.26469713211077
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.66029357120212
+    lat_in_deg: 25.191127439571215
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.72261216911228
+    lat_in_deg: 23.886039202657912
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -87.71357095043263
+    lat_in_deg: 24.672621274608154
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.84085797056647
+    lat_in_deg: 25.53909195743438
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -91.96922701472114
+    lat_in_deg: 23.271254744689415
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.80284596914399
+    lat_in_deg: 23.09189343485391
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.82719946805894
+    lat_in_deg: 25.45304428201668
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.54515563582927
+    lat_in_deg: 24.93157879137837
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -87.46210117046866
+    lat_in_deg: 24.52192579767924
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.81243684211863
+    lat_in_deg: 26.296744376985437
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -89.0079411111711
+    lat_in_deg: 24.952183442433252
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.09447008288174
+    lat_in_deg: 24.971561087050453
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.28970919693937
+    lat_in_deg: 26.315568819288043
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.49360004726438
+    lat_in_deg: 22.72267122727086
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.16951837951584
+    lat_in_deg: 25.342659424811103
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.2960234088333
+    lat_in_deg: 25.698185258876272
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -92.52814975063939
+    lat_in_deg: 24.279765072928924
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.80844484215193
+    lat_in_deg: 25.077585070638218
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -92.43294906230415
+    lat_in_deg: 23.070084083950526
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.7329840058187
+    lat_in_deg: 25.120511742479263
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.79270322566393
+    lat_in_deg: 25.67832775814783
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.18268923395681
+    lat_in_deg: 24.454457258058905
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -91.23531529017042
+    lat_in_deg: 25.44744630488457
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.40013109939207
+    lat_in_deg: 24.49997734127607
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -94.17808938514209
+    lat_in_deg: 25.89854381243842
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.52032074773786
+    lat_in_deg: 24.092985159677294
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.74953262715466
+    lat_in_deg: 25.50570367461994
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.48404683767964
+    lat_in_deg: 23.16473850390371
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.59180781065311
+    lat_in_deg: 23.286648907437332
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.20627441751546
+    lat_in_deg: 25.648533183167412
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.22030878989366
+    lat_in_deg: 24.77844716311662
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.30421114492223
+    lat_in_deg: 23.114103290359154
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -92.84253245317169
+    lat_in_deg: 26.189797227864993
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.89442811082506
+    lat_in_deg: 25.308153175329497
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -93.6980812712427
+    lat_in_deg: 23.961836211272782
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.35685007552289
+    lat_in_deg: 22.798029879480016
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -93.5057555400038
+    lat_in_deg: 25.68819538431059
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.16333651985393
+    lat_in_deg: 23.477324804961547
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -89.81079466345928
+    lat_in_deg: 26.11530169581846
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.3028349131385
+    lat_in_deg: 23.561756244053218
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -92.05966578941408
+    lat_in_deg: 26.12819067411205
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.81880550810817
+    lat_in_deg: 23.63824063615957
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -89.37269855193406
+    lat_in_deg: 25.55907409343361
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.84225259460777
+    lat_in_deg: 24.464194278433304
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.75656737408727
+    lat_in_deg: 24.85353619948476
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.4881019659315
+    lat_in_deg: 24.61870151863282
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -94.2219325086281
+    lat_in_deg: 23.135727825189157
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.7653809606802
+    lat_in_deg: 22.975229555954858
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -90.86186691062409
+    lat_in_deg: 23.266460003241523
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.2241628644645
+    lat_in_deg: 25.34530178875422
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -90.43520344882005
+    lat_in_deg: 22.801158589010203
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.4068080926867
+    lat_in_deg: 24.431671130339147
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.92195564392406
+    lat_in_deg: 26.261171938519183
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.43004741262794
+    lat_in_deg: 24.037685005842896
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -95.26127966078697
+    lat_in_deg: 25.32499396977155
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.04050587491767
+    lat_in_deg: 24.427550175071243
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -90.07331742482806
+    lat_in_deg: 23.7382791729561
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.93751638785814
+    lat_in_deg: 23.47308859046136
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -86.09269096015737
+    lat_in_deg: 25.97701741391768
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.06928005386122
+    lat_in_deg: 24.359553962036735
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.35805678280171
+    lat_in_deg: 25.88346629091004
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.95827425897556
+    lat_in_deg: 24.73388825584867
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -87.54353359298767
+    lat_in_deg: 22.773768890184666
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.12235192974521
+    lat_in_deg: 25.617206056793297
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -92.23103096038272
+    lat_in_deg: 24.471211526373768
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.91741951465244
+    lat_in_deg: 22.733610873004857
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -94.45984869226685
+    lat_in_deg: 25.43434274486301
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.34256084267884
+    lat_in_deg: 25.01020179326733
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -89.50590364896519
+    lat_in_deg: 23.734891487114634
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.20224850204875
+    lat_in_deg: 23.661366144994066
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -92.41835653021612
+    lat_in_deg: 25.048083816617424
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.58219353906249
+    lat_in_deg: 24.590783328033694
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -95.16275671152422
+    lat_in_deg: 22.85477234749212
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.83220128998009
+    lat_in_deg: 23.55989653657674
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.72675229458876
+    lat_in_deg: 23.38893762733331
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.1624724188452
+    lat_in_deg: 25.227213394588432
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.71739525326063
+    lat_in_deg: 23.30506926212499
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.57051632176635
+    lat_in_deg: 25.226458747173833
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.599814699734
+    lat_in_deg: 24.521908004594394
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.64579686049356
+    lat_in_deg: 25.682765293391203
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.6995443756541
+    lat_in_deg: 26.272397827498295
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.87297527201844
+    lat_in_deg: 25.31903484893249
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -88.35117826220362
+    lat_in_deg: 23.49871063250407
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.51851796325069
+    lat_in_deg: 23.410553778303456
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -94.6282763845737
+    lat_in_deg: 23.36112734167999
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.29290937538946
+    lat_in_deg: 23.964238476254543
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.39237225639292
+    lat_in_deg: 23.706614213211612
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.29126000531349
+    lat_in_deg: 26.2068162721093
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -87.05923337371567
+    lat_in_deg: 23.10533210257755
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.9137266141017
+    lat_in_deg: 25.95196912261042
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.2172912251834
+    lat_in_deg: 22.92079473622337
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.7800359166652
+    lat_in_deg: 23.422121971810558
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.67260379249133
+    lat_in_deg: 23.55214506698584
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.79606963792693
+    lat_in_deg: 23.457579389696427
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.90621137433054
+    lat_in_deg: 23.44991185378153
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.16865460799549
+    lat_in_deg: 23.848173977146104
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -94.2645171795711
+    lat_in_deg: 23.55038991185063
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.93812135133886
+    lat_in_deg: 22.78394265699309
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -94.6386515397702
+    lat_in_deg: 24.326724920631655
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.31854953576502
+    lat_in_deg: 25.61973987788054
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -92.63196964422106
+    lat_in_deg: 23.00660216986241
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.47247558979048
+    lat_in_deg: 26.251758319942127
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -87.41669693129485
+    lat_in_deg: 23.142107350318188
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.28291362072903
+    lat_in_deg: 23.075699587218683
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.55619279456171
+    lat_in_deg: 25.66248825274718
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.06746683740066
+    lat_in_deg: 24.073765170763654
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.0157323601283
+    lat_in_deg: 24.673729412909694
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.70284483436207
+    lat_in_deg: 24.041129782000862
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -89.7632811079387
+    lat_in_deg: 24.594998202298544
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.58966955395358
+    lat_in_deg: 25.010361834697807
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.96371529343945
+    lat_in_deg: 23.343807115129827
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.12903686154377
+    lat_in_deg: 25.088340308054967
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.85585898444255
+    lat_in_deg: 22.96567623885224
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.223164402073
+    lat_in_deg: 26.152301206422276
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -86.19685315195231
+    lat_in_deg: 25.435028155890127
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.0728109971044
+    lat_in_deg: 23.996163740150575
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -93.80837322566816
+    lat_in_deg: 25.475940650796883
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.57720493002189
+    lat_in_deg: 25.81170208446664
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -93.42049468190484
+    lat_in_deg: 24.551248277909604
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.54422318188288
+    lat_in_deg: 23.74092037932998
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -87.15547893681577
+    lat_in_deg: 25.732638568051826
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.27127079953004
+    lat_in_deg: 24.50085318327712
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.24953083812181
+    lat_in_deg: 25.237146614767063
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.34899077273592
+    lat_in_deg: 24.998210876821812
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -88.34802234303899
+    lat_in_deg: 24.181370074958274
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.50462550044028
+    lat_in_deg: 24.081952099015318
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.61409669371363
+    lat_in_deg: 24.146985243102996
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.86471206153183
+    lat_in_deg: 25.538696601623023
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -92.56093891572485
+    lat_in_deg: 23.98840593134369
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.39656189207524
+    lat_in_deg: 22.744483303066392
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -94.46162385051828
+    lat_in_deg: 25.666585874213435
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.64389299967006
+    lat_in_deg: 25.87457662056387
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -90.71419903648679
+    lat_in_deg: 25.37832945239719
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.9383346859418
+    lat_in_deg: 23.910011648555145
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.9019318420229
+    lat_in_deg: 23.236737424283948
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.96582284603855
+    lat_in_deg: 25.907943721912737
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.27435372028415
+    lat_in_deg: 24.349407756098167
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.72436774230324
+    lat_in_deg: 23.857210214577456
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -90.62292792268755
+    lat_in_deg: 24.984769211844178
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.59595212116326
+    lat_in_deg: 25.71605818994838
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -94.61379929693292
+    lat_in_deg: 24.96396854414428
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.87649677716018
+    lat_in_deg: 23.770094194476087
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -88.22446452227344
+    lat_in_deg: 25.394829659303213
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.51939384330711
+    lat_in_deg: 25.26025092343349
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -90.3691636766376
+    lat_in_deg: 22.759972543867082
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.58832579312607
+    lat_in_deg: 25.996601973774037
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.46190759920036
+    lat_in_deg: 24.80682551770109
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.83979756379262
+    lat_in_deg: 24.189474345204662
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -89.70536511078218
+    lat_in_deg: 25.39842556227957
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.7238731483906
+    lat_in_deg: 24.162458896883095
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -91.48433555248224
+    lat_in_deg: 26.320585808846264
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.38860659322381
+    lat_in_deg: 25.09586153188007
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -89.03659381234952
+    lat_in_deg: 23.464541790390506
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.65791856734678
+    lat_in_deg: 26.058543533415413
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.45842869177444
+    lat_in_deg: 23.859615453899977
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.56637543007768
+    lat_in_deg: 25.25890722676467
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -89.54281384815788
+    lat_in_deg: 22.89707765293744
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.35426584088641
+    lat_in_deg: 23.038865851767056
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -87.49954278081687
+    lat_in_deg: 26.02926530705928
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.9089568290015
+    lat_in_deg: 23.921166814036646
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.6834015315699
+    lat_in_deg: 25.326690561262843
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.06836411016589
+    lat_in_deg: 22.975755182621167
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.06112343928649
+    lat_in_deg: 23.82217825035283
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.32445165048732
+    lat_in_deg: 23.341209485736425
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -90.85859122972164
+    lat_in_deg: 25.23661783143082
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.3421036548031
+    lat_in_deg: 23.703209318320724
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -94.57771526122295
+    lat_in_deg: 25.865402916698894
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.18783783003677
+    lat_in_deg: 23.613203528494566
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.27715230436084
+    lat_in_deg: 23.972614839332838
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.10799430552309
+    lat_in_deg: 23.852262007060794
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -92.03599300078496
+    lat_in_deg: 22.80351797147753
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.77649280909482
+    lat_in_deg: 23.683208879209726
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -88.9757292621937
+    lat_in_deg: 26.219010736567427
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.70265837709152
+    lat_in_deg: 22.84056131135287
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.31291143806517
+    lat_in_deg: 25.926195400992516
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.41073918341168
+    lat_in_deg: 25.391404769592707
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -94.26792554603702
+    lat_in_deg: 24.162776876024257
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.73862598839688
+    lat_in_deg: 25.085972542130484
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -90.80868247751283
+    lat_in_deg: 24.588183866823684
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.0587264077528
+    lat_in_deg: 25.609084799199067
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -92.04088136360927
+    lat_in_deg: 24.726026346497665
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.60177347254232
+    lat_in_deg: 24.26161484309147
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -86.66600643217737
+    lat_in_deg: 23.234817737362448
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.76944557887488
+    lat_in_deg: 23.0505403653716
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -87.80938635910238
+    lat_in_deg: 24.00505062045872
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.20798011092327
+    lat_in_deg: 24.920550081300274
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -92.09932222240795
+    lat_in_deg: 24.824183366101703
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.49042994625562
+    lat_in_deg: 23.204553723890115
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -91.41040029425336
+    lat_in_deg: 22.77274618063318
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.17876147400929
+    lat_in_deg: 24.664809638365753
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -88.19477329225849
+    lat_in_deg: 25.54165337746537
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.93474720302714
+    lat_in_deg: 25.996075672892335
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -89.22987266723565
+    lat_in_deg: 24.460922860546457
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.19315515503095
+    lat_in_deg: 25.02481027348942
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.8948912695988
+    lat_in_deg: 23.484140815472394
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.94821265907547
+    lat_in_deg: 24.23864617747952
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.25042242413497
+    lat_in_deg: 22.691077678224513
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.46515260447372
+    lat_in_deg: 23.886503529531165
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.46252136972225
+    lat_in_deg: 23.056551183465952
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.33128765646387
+    lat_in_deg: 25.389170910497608
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.43187406975389
+    lat_in_deg: 25.6329008950051
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.96114705328728
+    lat_in_deg: 25.551996123292746
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -88.85598820726605
+    lat_in_deg: 25.37584575399762
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.15863580382124
+    lat_in_deg: 24.350124240224183
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -92.05016764329713
+    lat_in_deg: 24.24782024893082
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.22735610148247
+    lat_in_deg: 26.098348828463667
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -86.40689717683696
+    lat_in_deg: 24.787604053149185
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.33163940753536
+    lat_in_deg: 24.49791852550613
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -92.24165153805617
+    lat_in_deg: 24.851493663345508
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.12964016518858
+    lat_in_deg: 26.326148213852264
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.24179569076719
+    lat_in_deg: 25.171421101855415
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.68815138851318
+    lat_in_deg: 25.506807195039617
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.94520199642385
+    lat_in_deg: 22.930925243504937
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.64868276579651
+    lat_in_deg: 24.003722387758913
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.66272825747981
+    lat_in_deg: 23.133598209328103
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.4256249251638
+    lat_in_deg: 22.947793702499588
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -94.55763239179919
+    lat_in_deg: 26.05514216065152
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.43656187272063
+    lat_in_deg: 24.993046764173727
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -93.47303982380215
+    lat_in_deg: 25.665982172829285
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.2171611055234
+    lat_in_deg: 24.564963755737004
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -92.32100165676846
+    lat_in_deg: 24.76298962291983
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.16638848899528
+    lat_in_deg: 24.7840672500072
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.14050694820891
+    lat_in_deg: 25.693825350928226
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.83255435344194
+    lat_in_deg: 22.758061076175036
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -94.38576740985425
+    lat_in_deg: 24.534051926430838
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.39459597173548
+    lat_in_deg: 23.685159585169245
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -91.42252279104872
+    lat_in_deg: 26.090147689431436
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.6879821496251
+    lat_in_deg: 25.967364484664884
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -94.66555217129643
+    lat_in_deg: 25.068967480178063
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.94503289893365
+    lat_in_deg: 24.38235758796745
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -94.68893662712841
+    lat_in_deg: 25.846609185892326
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.77283701810224
+    lat_in_deg: 25.228221101909618
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -92.97456856294812
+    lat_in_deg: 22.69064923596684
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.1753858921542
+    lat_in_deg: 24.3169320267451
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.11315624037336
+    lat_in_deg: 24.8607977927029
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.63418575201771
+    lat_in_deg: 25.41523373300716
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -90.70694305324315
+    lat_in_deg: 24.364381415077716
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.11111209027476
+    lat_in_deg: 23.890363727632238
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -95.18128934166471
+    lat_in_deg: 24.38740704231852
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.7776846195758
+    lat_in_deg: 23.429620502925488
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.14868135225025
+    lat_in_deg: 25.091361226389388
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.13080680376028
+    lat_in_deg: 23.884350524055222
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -91.04251240191398
+    lat_in_deg: 24.2524240209977
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.49667649379833
+    lat_in_deg: 23.730370898270998
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -88.99636036388397
+    lat_in_deg: 25.5809440422619
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.94771190251276
+    lat_in_deg: 25.561588285711206
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.8771946008416
+    lat_in_deg: 23.122298034741394
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.43537775093611
+    lat_in_deg: 24.54152914215944
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.62982906591614
+    lat_in_deg: 25.8838916072222
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.69910483895865
+    lat_in_deg: 26.088614774476092
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -89.71538788948362
+    lat_in_deg: 23.72056851821496
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.29354310127903
+    lat_in_deg: 22.914203787349237
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -92.51098591619647
+    lat_in_deg: 25.09502651609123
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.69589617601778
+    lat_in_deg: 25.0872425734395
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -88.58894750471399
+    lat_in_deg: 24.946138478848912
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.38620364657723
+    lat_in_deg: 25.134887431431622
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -93.49624918184338
+    lat_in_deg: 25.10925190534459
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.8560543138106
+    lat_in_deg: 23.849977102265257
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.48744984601247
+    lat_in_deg: 25.86560437107103
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.97432604531629
+    lat_in_deg: 25.755942834590453
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -89.87465521652119
+    lat_in_deg: 26.01105293776826
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.71071919846636
+    lat_in_deg: 23.357216420285432
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -93.34058409989977
+    lat_in_deg: 25.01759318832194
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.77312821746102
+    lat_in_deg: 23.317845805916722
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -91.03706294454142
+    lat_in_deg: 24.7966923949685
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.2385794833231
+    lat_in_deg: 24.46989764806925
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -90.56806562083229
+    lat_in_deg: 22.8757219608029
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.55351249392302
+    lat_in_deg: 24.37673135486153
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.65460381018076
+    lat_in_deg: 24.613950788841045
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.2733778660852
+    lat_in_deg: 26.226853352091812
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -93.02726682933432
+    lat_in_deg: 24.07556870746373
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.3610083545923
+    lat_in_deg: 22.803433936161685
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -87.38265410531187
+    lat_in_deg: 23.699227649814492
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.25044712929453
+    lat_in_deg: 24.721058849213872
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -88.79535016731579
+    lat_in_deg: 22.811729302249955
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.89718802408844
+    lat_in_deg: 25.982306948473713
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -86.78929347874124
+    lat_in_deg: 26.10076329751367
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.3348491707915
+    lat_in_deg: 22.754366364602443
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -88.24558712371051
+    lat_in_deg: 25.208367360303455
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.48059962571271
+    lat_in_deg: 26.313966580178608
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.78681042679324
+    lat_in_deg: 24.759444092913952
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.74703922124483
+    lat_in_deg: 24.69033857718107
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -89.84583098554387
+    lat_in_deg: 24.955913450124843
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.34340715568193
+    lat_in_deg: 24.039620950024744
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -90.23249858317168
+    lat_in_deg: 25.191224673200377
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.8470957518701
+    lat_in_deg: 23.626590884066097
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.82342154684407
+    lat_in_deg: 22.89828139388567
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.48061669894919
+    lat_in_deg: 24.074331434665794
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -94.58494414417466
+    lat_in_deg: 23.884090733325124
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.18703690373097
+    lat_in_deg: 25.26690357147048
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -89.11618454287003
+    lat_in_deg: 24.22137283555081
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.64314311153409
+    lat_in_deg: 25.325375562803053
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.57618993816324
+    lat_in_deg: 25.84193983177367
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.19400517964061
+    lat_in_deg: 24.745078280279728
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -87.10770061091283
+    lat_in_deg: 24.360676770557596
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.36272931043413
+    lat_in_deg: 23.71286469812401
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -91.31191171866097
+    lat_in_deg: 22.725259749456754
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.48676973097977
+    lat_in_deg: 25.952142746392575
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -87.37662212026287
+    lat_in_deg: 25.95685986188954
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.43966370553684
+    lat_in_deg: 24.068282459410366
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.39128565598277
+    lat_in_deg: 23.45149102089684
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.53152972636609
+    lat_in_deg: 23.364820077030547
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -90.63455686453655
+    lat_in_deg: 23.154432360173438
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.3387745521679
+    lat_in_deg: 23.519024215365892
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.31899309651332
+    lat_in_deg: 24.263309356767603
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.09672467623294
+    lat_in_deg: 24.21672625436384
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -88.00037245091768
+    lat_in_deg: 23.92407747440402
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.12848258480777
+    lat_in_deg: 23.99312718523375
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.1141217260416
+    lat_in_deg: 23.22718395968424
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.47316736429066
+    lat_in_deg: 24.548481333514975
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -90.87599975433315
+    lat_in_deg: 22.83741125388227
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.75835298779172
+    lat_in_deg: 25.83771314750997
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -94.63444824398088
+    lat_in_deg: 22.85350512632419
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.6889342670148
+    lat_in_deg: 25.067347831587004
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -91.78134608785446
+    lat_in_deg: 23.963277457003166
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.23144905361315
+    lat_in_deg: 23.198550915283725
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -92.29102883923301
+    lat_in_deg: 24.21194588985746
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.26950047532837
+    lat_in_deg: 22.67730429580609
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -88.23296347978663
+    lat_in_deg: 25.787240864224078
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.39669875472809
+    lat_in_deg: 26.323555890766603
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.67359925308452
+    lat_in_deg: 23.225755618696653
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.7578084761845
+    lat_in_deg: 25.598754355060528
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -93.49866931128992
+    lat_in_deg: 22.754882175257915
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.02988464240575
+    lat_in_deg: 25.811564081741455
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.13323014335583
+    lat_in_deg: 25.605925774610863
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.93956387396761
+    lat_in_deg: 24.664252675193396
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -92.6084771985808
+    lat_in_deg: 23.067398869321078
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.81929584838527
+    lat_in_deg: 23.601395979894658
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -92.73506156861947
+    lat_in_deg: 25.909860378293693
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.88286538944129
+    lat_in_deg: 26.136421271044775
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -92.5831816761276
+    lat_in_deg: 23.040742010591394
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -85.98450347734598
+    lat_in_deg: 25.499048826037022
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.03305206589904
+    lat_in_deg: 24.88310084539433
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.79962465907506
+    lat_in_deg: 23.947491888567136
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.75937376035819
+    lat_in_deg: 22.992020450438044
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.30098374865356
+    lat_in_deg: 23.18999714251051
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -87.54544898932294
+    lat_in_deg: 24.632241435876704
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.45754825872638
+    lat_in_deg: 23.27478594259705
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -90.49494905728461
+    lat_in_deg: 23.94354359716592
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.30094434579398
+    lat_in_deg: 24.773230045376614
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -94.30981079981409
+    lat_in_deg: 23.98597972082977
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.39903469956221
+    lat_in_deg: 25.620297889981295
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -88.12774124615251
+    lat_in_deg: 23.03483582539738
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.16821143532869
+    lat_in_deg: 24.447481770700136
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -92.32020230524424
+    lat_in_deg: 25.69723550907514
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.96620239259643
+    lat_in_deg: 23.233363301510288
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -89.88186235386902
+    lat_in_deg: 23.633221947946357
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.53524507636821
+    lat_in_deg: 23.769564097828457
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -89.2782788024431
+    lat_in_deg: 25.90945747133829
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.05304153644816
+    lat_in_deg: 24.021710273996266
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -92.07343411348542
+    lat_in_deg: 24.91332679282711
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.71702591378009
+    lat_in_deg: 24.62689776049395
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -95.35557349551591
+    lat_in_deg: 22.98035378278101
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.32291944993702
+    lat_in_deg: 23.61568200577803
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -92.4157744187979
+    lat_in_deg: 23.943231319957178
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.66147721014494
+    lat_in_deg: 24.606883109781037
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -92.03617940430294
+    lat_in_deg: 22.93929447877281
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.86991636935383
+    lat_in_deg: 25.24588774166374
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -89.93755354820688
+    lat_in_deg: 24.209408751629823
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.74146439128913
+    lat_in_deg: 24.9130014281865
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -92.68540742463095
+    lat_in_deg: 23.909886365960432
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.99195544624989
+    lat_in_deg: 23.55593519034599
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -95.06438545853572
+    lat_in_deg: 23.07301259692965
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.54519520768895
+    lat_in_deg: 24.9164389391221
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -94.52555859535548
+    lat_in_deg: 24.027352616494433
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.42315363794141
+    lat_in_deg: 26.294243090843267
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -88.39135425108576
+    lat_in_deg: 25.60053357707804
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.65802379539392
+    lat_in_deg: 24.37774610847464
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.65762572965819
+    lat_in_deg: 23.555901447005883
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.40790276207467
+    lat_in_deg: 23.82712544839075
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -86.32464419399136
+    lat_in_deg: 24.235239420177468
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.66115163304718
+    lat_in_deg: 25.76248619901945
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.58533266032137
+    lat_in_deg: 25.301641259102954
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.1554919267549
+    lat_in_deg: 26.24541674512956
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -93.13690890518627
+    lat_in_deg: 23.294169360366073
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.34891929223531
+    lat_in_deg: 23.311578309313482
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -86.49895664594418
+    lat_in_deg: 24.556870775512465
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.37472163932277
+    lat_in_deg: 23.154880316346894
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.00456091404816
+    lat_in_deg: 25.168677363715965
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.75834551782552
+    lat_in_deg: 24.5729906633669
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.25942010783233
+    lat_in_deg: 22.724297528514885
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.70329620927639
+    lat_in_deg: 25.930250311460448
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -89.7121092824012
+    lat_in_deg: 25.142795993661668
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.47139595373216
+    lat_in_deg: 25.730506675493405
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -90.58003591899411
+    lat_in_deg: 25.827449844426702
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.85211587021745
+    lat_in_deg: 23.132135098196855
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -93.62648750211834
+    lat_in_deg: 24.537803074544843
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.27953455193739
+    lat_in_deg: 25.320131425381756
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -89.37889090347083
+    lat_in_deg: 25.579034144247263
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.4334992869912
+    lat_in_deg: 23.19346118014961
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -88.02050450009739
+    lat_in_deg: 25.868242454422415
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.12466026746651
+    lat_in_deg: 24.173641040299742
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -93.08151067564594
+    lat_in_deg: 23.20923652181395
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.29468020538951
+    lat_in_deg: 22.689133538653333
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -92.18474147910764
+    lat_in_deg: 22.725486398224668
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.44044972054611
+    lat_in_deg: 25.275445596975704
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -94.54197854164796
+    lat_in_deg: 25.04401659382094
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.75693285328973
+    lat_in_deg: 25.900165957127275
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -88.532392077177
+    lat_in_deg: 23.346583188556753
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.7611855425137
+    lat_in_deg: 22.71665819166891
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -93.27248302806194
+    lat_in_deg: 25.44737334252073
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.73905758720441
+    lat_in_deg: 25.863444503224777
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -89.65318760322684
+    lat_in_deg: 23.412088410489847
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.79307924896025
+    lat_in_deg: 26.266503568125408
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -92.92519534357501
+    lat_in_deg: 23.15915972664754
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.16419390036268
+    lat_in_deg: 25.881286267537956
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -92.30274020793742
+    lat_in_deg: 23.38969429400315
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.5729310626422
+    lat_in_deg: 25.063037604423712
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -91.57944449087876
+    lat_in_deg: 25.90688507660022
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.77919795447391
+    lat_in_deg: 24.382022951093422
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -86.04993826714191
+    lat_in_deg: 22.890653791317387
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.406946846756
+    lat_in_deg: 25.261261505449895
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -94.30002900080403
+    lat_in_deg: 22.79361477837336
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.95889434856186
+    lat_in_deg: 24.942875422803898
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.82001743793694
+    lat_in_deg: 26.162307700165574
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.78257236360405
+    lat_in_deg: 24.395684142607678
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -91.89239431011856
+    lat_in_deg: 24.35043071618145
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -85.9171512574089
+    lat_in_deg: 23.33830375576657
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -89.02564016206563
+    lat_in_deg: 23.439975488577023
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.81007413090343
+    lat_in_deg: 25.430262597404163
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -93.89804164763098
+    lat_in_deg: 25.801068513298404
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.43975328947961
+    lat_in_deg: 22.861772633057605
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -94.37785668540204
+    lat_in_deg: 25.827072353184644
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.31646373593453
+    lat_in_deg: 23.97106981099593
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -85.93524361015231
+    lat_in_deg: 25.97177746685083
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.77122106682128
+    lat_in_deg: 25.528093344888898
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -91.70346855201122
+    lat_in_deg: 25.016297565790293
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.34063232751852
+    lat_in_deg: 24.86743996692104
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -87.25358624914443
+    lat_in_deg: 24.48903948909118
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.5224886731895
+    lat_in_deg: 25.894224886510138
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.38497384709979
+    lat_in_deg: 24.677993395070093
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.14610735984697
+    lat_in_deg: 26.15523026654661
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.25075797257392
+    lat_in_deg: 25.970338448120884
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.07314930587238
+    lat_in_deg: 25.994125312134965
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -93.93622716432077
+    lat_in_deg: 23.006126479825486
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.23695178178319
+    lat_in_deg: 26.24894567892494
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.14411653330161
+    lat_in_deg: 25.921210210327857
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.22204217066708
+    lat_in_deg: 23.86239964895627
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -91.23708547950183
+    lat_in_deg: 24.73594069750205
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.58735413712688
+    lat_in_deg: 22.757542545944506
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -86.47873417038873
+    lat_in_deg: 25.663399077326634
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.55333818917057
+    lat_in_deg: 22.984892561596222
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.53758100091706
+    lat_in_deg: 25.3533864648248
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.6887031312288
+    lat_in_deg: 22.959526617787578
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -93.75044926854703
+    lat_in_deg: 23.50610781234481
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.79909211624408
+    lat_in_deg: 25.720419781866934
+    datetime: '2022-08-08T15:30:01Z'
+  target:
+    lon_in_deg: -90.6275165134759
+    lat_in_deg: 22.72262835655099
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.28001596048315
+    lat_in_deg: 25.022664242082506
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -89.3469546876119
+    lat_in_deg: 25.53931427417836
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.49428430021526
+    lat_in_deg: 23.752646743126412
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.38362543616911
+    lat_in_deg: 26.223158933668948
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.18243980153584
+    lat_in_deg: 25.270667581735626
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.3204022063711
+    lat_in_deg: 24.053383220754036
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.51557126327349
+    lat_in_deg: 23.235872404651285
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.40694229523326
+    lat_in_deg: 23.333167577644907
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.24138106617305
+    lat_in_deg: 24.843220660481904
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -91.24476036126617
+    lat_in_deg: 24.035289214483814
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.20036033174465
+    lat_in_deg: 25.33901132045502
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -90.09400087183617
+    lat_in_deg: 22.871793065709692
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.4661167294774
+    lat_in_deg: 24.227386391711665
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -90.88583944608233
+    lat_in_deg: 25.963822267988707
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.47705626012836
+    lat_in_deg: 24.549456963286953
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -87.39798829688458
+    lat_in_deg: 24.988069422472115
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.3951520708939
+    lat_in_deg: 24.522189170757542
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -89.35786429615584
+    lat_in_deg: 25.191459956802646
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.97059413419562
+    lat_in_deg: 24.448729181186263
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -87.13955618469957
+    lat_in_deg: 25.73646538869922
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.50530923466818
+    lat_in_deg: 23.212697440445613
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -93.1601270965471
+    lat_in_deg: 26.253133918879424
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.2949129878339
+    lat_in_deg: 23.378755051064495
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -93.66780538100187
+    lat_in_deg: 26.02933258198413
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.30170641967233
+    lat_in_deg: 24.922660467699263
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -92.21861124457945
+    lat_in_deg: 25.332006962671077
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -85.84824921843088
+    lat_in_deg: 22.963269035476607
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -87.46708319788395
+    lat_in_deg: 25.618907745579097
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.79968917945692
+    lat_in_deg: 25.635415550845817
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -89.3233934818258
+    lat_in_deg: 23.753661042542372
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.48712936422686
+    lat_in_deg: 24.992331596918447
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -91.59694988853373
+    lat_in_deg: 25.037682652324666
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.83283670987578
+    lat_in_deg: 25.374441609533267
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -90.86005994104603
+    lat_in_deg: 23.015754181612753
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.34643780809604
+    lat_in_deg: 23.951477601995137
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -93.7240116316401
+    lat_in_deg: 25.956517034331767
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.49928340587108
+    lat_in_deg: 25.37223735297718
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -93.34874273273432
+    lat_in_deg: 24.125793629346305
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.18522648562792
+    lat_in_deg: 25.013967032803485
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.20561424152751
+    lat_in_deg: 25.755787911209143
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.03877533520019
+    lat_in_deg: 23.085931016717442
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -89.49206713835578
+    lat_in_deg: 24.8712370890065
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.04865193766604
+    lat_in_deg: 23.681269440126094
+    datetime: '2022-07-30T12:30:01Z'
+  target:
+    lon_in_deg: -87.9797411347821
+    lat_in_deg: 23.176465621233103
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.48819243655805
+    lat_in_deg: 24.26236542782036
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -89.16289535326824
+    lat_in_deg: 25.8495026994414
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.24460622070411
+    lat_in_deg: 22.916662081702217
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.69952546144185
+    lat_in_deg: 25.993363057753236
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.59649977222962
+    lat_in_deg: 24.711276954541894
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -92.5991526760438
+    lat_in_deg: 25.52190384210665
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.90339662567102
+    lat_in_deg: 25.894210242528498
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -88.36789184028328
+    lat_in_deg: 23.150436531377288
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -92.20303874649652
+    lat_in_deg: 25.015331001768065
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -95.05949188927568
+    lat_in_deg: 26.245662605334235
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.99904353874719
+    lat_in_deg: 22.802739592421304
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -86.8891378640793
+    lat_in_deg: 22.841817799841618
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.12253139965318
+    lat_in_deg: 23.561722472740936
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -90.19069108173596
+    lat_in_deg: 24.07107164263163
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -94.7872131240243
+    lat_in_deg: 24.26321465690813
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -91.6778556236472
+    lat_in_deg: 24.19295551888773
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.69610113835641
+    lat_in_deg: 23.659873939403035
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -89.45088717691435
+    lat_in_deg: 25.10354782688348
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -87.54626034540773
+    lat_in_deg: 26.01827614106886
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -90.53658252689235
+    lat_in_deg: 25.163282771183585
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.92361736365702
+    lat_in_deg: 25.317733462256914
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -91.95474772251696
+    lat_in_deg: 24.621106475107915
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.73356606773775
+    lat_in_deg: 24.332916041938965
+    datetime: '2022-07-29T12:30:01Z'
+  target:
+    lon_in_deg: -93.65141967219658
+    lat_in_deg: 23.25626811686164
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -89.22830284732933
+    lat_in_deg: 23.211243194120414
+    datetime: '2022-07-31T12:30:01Z'
+  target:
+    lon_in_deg: -87.91971196524494
+    lat_in_deg: 26.032702092448066
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.44257529322185
+    lat_in_deg: 23.101333115141014
+    datetime: '2022-08-06T15:30:01Z'
+  target:
+    lon_in_deg: -92.4842978997472
+    lat_in_deg: 25.44748085337703
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.6668444398183
+    lat_in_deg: 24.784488148720722
+    datetime: '2022-08-11T15:30:01Z'
+  target:
+    lon_in_deg: -94.48520482032751
+    lat_in_deg: 23.46923715472655
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -86.54820066664459
+    lat_in_deg: 25.124721515048666
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -88.48036286452998
+    lat_in_deg: 22.6875531473134
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -93.24556111117569
+    lat_in_deg: 26.059459291984616
+    datetime: '2022-08-09T15:30:01Z'
+  target:
+    lon_in_deg: -90.18762172859647
+    lat_in_deg: 25.49196731486274
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.32765192943974
+    lat_in_deg: 24.659406024855016
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -91.11885570486741
+    lat_in_deg: 23.287465102050756
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -95.09619322970363
+    lat_in_deg: 24.832451336613794
+    datetime: '2022-08-12T15:30:01Z'
+  target:
+    lon_in_deg: -92.4244453551689
+    lat_in_deg: 23.24034464843432
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.85419127949719
+    lat_in_deg: 24.187622093501382
+    datetime: '2022-08-07T15:30:01Z'
+  target:
+    lon_in_deg: -88.74989344958799
+    lat_in_deg: 23.996898747138868
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -90.94761133610533
+    lat_in_deg: 25.046974615364945
+    datetime: '2022-08-13T15:30:01Z'
+  target:
+    lon_in_deg: -94.02808144417888
+    lat_in_deg: 24.618320530009434
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -88.37284719847916
+    lat_in_deg: 23.95875763662183
+    datetime: '2022-08-14T15:30:01Z'
+  target:
+    lon_in_deg: -90.83246107171557
+    lat_in_deg: 25.862264927443082
+    radius_in_m: 1
+- initial_position:
+    lon_in_deg: -91.8405061009302
+    lat_in_deg: 22.77587758153894
+    datetime: '2022-08-10T15:30:01Z'
+  target:
+    lon_in_deg: -89.19366557244756
+    lat_in_deg: 24.40905718844334
+    radius_in_m: 1

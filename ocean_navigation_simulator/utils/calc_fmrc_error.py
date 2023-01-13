@@ -1,179 +1,114 @@
-from datetime import timedelta
+import datetime
+from typing import Dict
 
 import numpy as np
-import xarray as xr
 
-import ocean_navigation_simulator.utils as utils
+from ocean_navigation_simulator.data_sources.DataSource import DataSource
+from ocean_navigation_simulator.environment.Arena import Arena
+from ocean_navigation_simulator.environment.Problem import Problem
 
 
-# Note: for now just the logic for HYCOM
-def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time=3600):
-    # Step 0: make sure we're in analytical current case
-    if problem.hindcast_data_source["data_source_type"] == "analytical_function":
-        raise ValueError(
-            "problem.hindcast_data_source['data_source_type'] is 'analytical_function'"
-        )
-    if problem.forecast_data_source["data_source_type"] == "analytical_function":
-        raise ValueError(
-            "problem.forecast_data_source['data_source_type'] is 'analytical_function'"
-        )
-    # make sure T_horizon is an int
-    T_horizon = int(T_horizon)
-
-    # Step 1: extract data from them
-    t_interval, lat_interval, lon_interval = utils.simulation_utils.convert_to_lat_lon_time_bounds(
-        problem.x_0,
-        problem.x_T,
+def calc_fmrc_errors(
+    problem: Problem,
+    arena: Arena,
+    t_horizon_in_h: int,
+    deg_around_x0_xT_box: float,
+    T_goal_in_seconds: int,
+) -> Dict:
+    """Calculating the forecast errors for a specific problem and returns a dict with RMSE, vector correlation, and abs angle difference.
+    First we calculate the errors for each forecast for t_horizon_in_h and get the mean over space.
+    Then we get the mean over all forecasts that the problem is affected by.
+    The output arrays are then 1D arrays with the error across forecast_lag_time in hours (or standard unit of fc).
+    """
+    # Get intervals over which to calculate the error
+    t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
+        x_0=problem.start_state.to_spatio_temporal_point(),
+        x_T=problem.end_region,
         deg_around_x0_xT_box=deg_around_x0_xT_box,
-        temp_horizon_in_h=T_horizon,
-        hours_to_hj_solve_timescale=hours_to_abs_time,
+        temp_horizon_in_s=T_goal_in_seconds,
     )
 
-    # Go over all relevant forecasts
-    dict_of_relevant_fmrcs = list(
-        filter(
-            lambda dic: dic["t_range"][0] < problem.t_0 + timedelta(hours=T_horizon),
-            problem.forecast_data_source["content"],
+    # Get the starting forecast time and last fc_time
+    forecast_time_start = (
+        arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(
+            problem.start_state.date_time
         )
     )
+    last_fc_time = arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(
+        t_interval[1]
+    )
+    t_horizon_in_h = int(t_horizon_in_h)
 
     # initialize lists for logging arrays for the individual forecasts
     RMSE_across_fmrc = []
     angle_diff_across_fmrc = []
     vec_corr_across_fmrc = []
 
-    for fmrc_dict in dict_of_relevant_fmrcs:
-        HYCOM_Forecast = xr.open_dataset(fmrc_dict["file"])
-        HYCOM_Forecast = HYCOM_Forecast.fillna(0).isel(depth=0)
-        # subset in time and space for mission
-        HYCOM_Forecast = HYCOM_Forecast.sel(
-            time=slice(
-                HYCOM_Forecast["time"].data[0],
-                HYCOM_Forecast["time"].data[0] + np.timedelta64(T_horizon, "h"),
-            ),
-            lat=slice(lat_interval[0], lat_interval[1]),
-            lon=slice(lon_interval[0], lon_interval[1]),
+    # Iterate over all forecasts until forecast_time_start is bigger than final time
+    while forecast_time_start < last_fc_time:
+        request_data_t_interval = [
+            forecast_time_start,
+            forecast_time_start + datetime.timedelta(hours=t_horizon_in_h),
+        ]
+        # % get forecast for first time-interval
+        fc_data = arena.ocean_field.forecast_data_source.get_data_over_area(
+            x_interval=x_interval, y_interval=y_interval, t_interval=request_data_t_interval
         )
-        # check if right length
-        if HYCOM_Forecast["time"].shape[0] != T_horizon + 1:
-            continue
-        # subset Hindcast to match with Forecast
-        t_interval = [HYCOM_Forecast.variables["time"][0], HYCOM_Forecast.variables["time"][-1]]
-        if problem.hindcast_data_source["data_source_type"] == "cop_opendap":
-            Hindcast = get_hindcast_from_copernicus(
-                HYCOM_Forecast, t_interval, lat_interval, lon_interval, problem
+        # align the interval
+        fc_data = fc_data.sel(
+            time=slice(
+                request_data_t_interval[0].replace(tzinfo=None),
+                request_data_t_interval[1].replace(tzinfo=None),
             )
-        elif problem.hindcast_data_source["data_source_type"] == "multiple_daily_nc_files":
-            Hindcast = get_hindcast_from_hycom(t_interval, lat_interval, lon_interval, problem)
-        else:
-            raise ValueError(
-                "Data source only opendap and multiple_daily_nc_files implemented right now"
-            )
-
-        # Extract data arrays for the calculation
-        u_data_forecast = HYCOM_Forecast["water_u"].data
-        v_data_forecast = HYCOM_Forecast["water_v"].data
-        u_data_hindcast = Hindcast["water_u"].data
-        v_data_hindcast = Hindcast["water_v"].data
-
-        # Step 2: Calculate error metrics over time
+        )
+        # % get hindcast data over a slightly bigger area!
+        x_increment = 0.2
+        y_increment = 0.2
+        hc_data = arena.ocean_field.hindcast_data_source.get_data_over_area(
+            x_interval=[x - ((-1) ** i) * x_increment for i, x in enumerate(x_interval)],
+            y_interval=[y - ((-1) ** i) * y_increment for i, y in enumerate(y_interval)],
+            t_interval=[
+                request_data_t_interval[0] - datetime.timedelta(hours=3),
+                request_data_t_interval[1] + datetime.timedelta(hours=3),
+            ],
+        )
+        hc_correct_size = hc_data.interp_like(fc_data)
+        # get data
         RMSE_across_fmrc.append(
-            calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
+            calc_speed_RMSE(
+                fc_data["water_u"].data,
+                fc_data["water_v"].data,
+                hc_correct_size["water_u"].data,
+                hc_correct_size["water_v"].data,
+            )
         )
         angle_diff_across_fmrc.append(
             calc_abs_angle_difference(
-                u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast
+                fc_data["water_u"].data,
+                fc_data["water_v"].data,
+                hc_correct_size["water_u"].data,
+                hc_correct_size["water_v"].data,
             )
         )
         vec_corr_across_fmrc.append(
             calc_vector_corr_over_time(
-                HYCOM_Forecast.to_array().to_numpy().transpose((1, 2, 3, 0)),
-                Hindcast.to_array().to_numpy().transpose((1, 2, 3, 0)),
+                fc_data.to_array().to_numpy().transpose((1, 3, 2, 0)),
+                hc_correct_size.to_array().to_numpy().transpose((1, 3, 2, 0)),
             )
         )
+        # prep for next round
+        next_time = forecast_time_start + datetime.timedelta(days=1, hours=5)
+        forecast_time_start = (
+            arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(next_time)
+        )
 
+    # Return the results dict
     return {
         "RMSE_velocity": np.array(RMSE_across_fmrc).mean(axis=0),
         "angle_diff": np.array(angle_diff_across_fmrc).mean(axis=0),
         "vector_correlation": np.array(vec_corr_across_fmrc).mean(axis=0),
     }
 
-
-def get_hindcast_from_hycom(t_interval, lat_interval, lon_interval, problem):
-    # Interpolate Hindcast to the Forecast axis
-    HYCOM_Hindcast = xr.open_mfdataset(
-        [h_dict["file"] for h_dict in problem.hindcast_data_source["content"]]
-    )
-    HYCOM_Hindcast = HYCOM_Hindcast.fillna(0).isel(depth=0)
-    HYCOM_Hindcast["time"] = HYCOM_Hindcast["time"].dt.round("H")
-    HYCOM_Hindcast = HYCOM_Hindcast.sel(
-        time=slice(t_interval[0], t_interval[1]),
-        lat=slice(lat_interval[0], lat_interval[1]),
-        lon=slice(lon_interval[0], lon_interval[1]),
-    )
-    return HYCOM_Hindcast
-
-
-def get_hindcast_from_copernicus(HYCOM_Forecast, t_interval, lat_interval, lon_interval, problem):
-    """Helper function to get a copernicus Hindcast frame aligned with HYCOM_Forecast."""
-    t_interval[0] = t_interval[0] - np.timedelta64(3, "h")
-    t_interval[1] = t_interval[1] + np.timedelta64(3, "h")
-    subsetted_frame = problem.hindcast_data_source["content"].sel(
-        time=slice(t_interval[0], t_interval[1]),
-        latitude=slice(lat_interval[0], lat_interval[1]),
-        longitude=slice(lon_interval[0], lon_interval[1]),
-    )
-
-    DS_renamed_subsetted_frame = subsetted_frame.rename(
-        {"vo": "water_v", "uo": "water_u", "latitude": "lat", "longitude": "lon"}
-    )
-    DS_renamed_subsetted_frame = DS_renamed_subsetted_frame.fillna(0)
-    Copernicus_right_time = DS_renamed_subsetted_frame.interp(time=HYCOM_Forecast["time"])
-    # interpolate 2D in space
-    Copernicus_H_final = Copernicus_right_time.interp(
-        lon=HYCOM_Forecast["lon"].data, lat=HYCOM_Forecast["lat"].data, method="linear"
-    )
-
-    # again fill na with 0
-    Copernicus_H_final = Copernicus_H_final.fillna(0)
-    # return aligned dataframe
-    return Copernicus_H_final
-
-
-# # Note: for now just the logic for analytical currents (a bit easier)
-# def calc_fmrc_errors(problem, T_horizon, deg_around_x0_xT_box, hours_to_abs_time=1):
-#     # Step 0: make sure we're in analytical current case
-#     if not problem.hindcast_data_source['data_source_type'] == 'analytical_function':
-#         raise ValueError("problem.hindcast_data_source['data_source_type'] is not 'analytical_function'")
-#     if not problem.forecast_data_source['data_source_type'] == 'analytical_function':
-#         raise ValueError("problem.forecast_data_source['data_source_type'] is not 'analytical_function'")
-#
-#     # Step 1: extract data from them
-#     t_interval, lat_interval, lon_interval = utils.simulation_utils.convert_to_lat_lon_time_bounds(
-#         problem.x_0, problem.x_T,
-#         deg_around_x0_xT_box=deg_around_x0_xT_box,
-#         temp_horizon_in_h=T_horizon,
-#         hours_to_hj_solve_timescale=hours_to_abs_time)
-#
-#     ana_cur = problem.hindcast_data_source['content']
-#
-#     # limit it to inside
-#     y_interval = [max(lat_interval[0], ana_cur.spatial_domain.lo[1] + ana_cur.boundary_buffers[1]),
-#                   min(lat_interval[1], ana_cur.spatial_domain.hi[1] - ana_cur.boundary_buffers[1])]
-#     x_interval = [max(lon_interval[0], ana_cur.spatial_domain.lo[0] + ana_cur.boundary_buffers[0]),
-#                   min(lon_interval[1], ana_cur.spatial_domain.hi[0] - ana_cur.boundary_buffers[0])]
-#
-#     grids_dict_hindcast, u_data_hindcast, v_data_hindcast = utils.simulation_utils.get_current_data_subset(
-#         t_interval, y_interval, x_interval, problem.hindcast_data_source)
-#     grids_dict_forecast, u_data_forecast, v_data_forecast = utils.simulation_utils.get_current_data_subset(
-#         t_interval, y_interval, x_interval, problem.forecast_data_source)
-#
-#     # Step 2: Calculate things and return them as dict
-#     RMSE = calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
-#     angle_diff = calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
-#     vec_corr = calc_vector_correlation(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast)
-#
-#     return {'RMSE_velocity': RMSE, 'angle_diff': angle_diff, 'vector_correlation':vec_corr}
 
 # HELPER FUNCTIONS
 def calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
@@ -182,14 +117,6 @@ def calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hi
         (u_data_forecast - u_data_hindcast) ** 2 + (v_data_forecast - v_data_hindcast) ** 2
     ).mean(axis=(1, 2))
     return RMSE_speed
-
-
-# turns out this doesn't consider the angle so it's equivalent to RMSE...
-def error_vector_magnitude(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
-    error_vector = np.stack((u_data_hindcast, v_data_hindcast)) - np.stack(
-        (u_data_forecast, v_data_forecast)
-    )
-    return np.linalg.norm(error_vector, axis=0).mean(axis=(1, 2))
 
 
 def calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):

@@ -62,21 +62,21 @@ class HJReach2DPlanner(HJPlannerBase):
             return hj.shapes.shape_ellipse(
                 grid=self.grid,
                 center=self.get_x_from_full_state(center),
-                radii=self.specific_settings["initial_set_radii"]
+                radii=self.specific_settings["initial_set_radii"],
             )
         elif direction == "backward":
             center = self.problem.end_region
             return hj.shapes.shape_ellipse(
                 grid=self.grid,
                 center=self.get_x_from_full_state(center),
-                radii=[self.problem.target_radius, self.problem.target_radius]
+                radii=[self.problem.target_radius, self.problem.target_radius],
             )
         elif direction == "multi-time-reach-back":
             center = self.problem.end_region
             signed_distance = hj.shapes.shape_ellipse(
                 grid=self.grid,
                 center=self.get_x_from_full_state(center),
-                radii=[self.problem.target_radius, self.problem.target_radius]
+                radii=[self.problem.target_radius, self.problem.target_radius],
             )
             return np.maximum(signed_distance, np.zeros(signed_distance.shape))
         else:
@@ -163,10 +163,7 @@ class HJReach2DPlannerWithErrorHeuristic(HJReach2DPlanner):
         )
         u_straight = self.get_straight_line_action(state)
         # compute EVM
-        EVM = (
-            jnp.linalg.norm(cur_forecasted - last_sensed_vec)
-            / self.dim_dynamics.space_coeff
-        )
+        EVM = jnp.linalg.norm(cur_forecasted - last_sensed_vec) / self.dim_dynamics.space_coeff
         # check if above threshold, if yes do weighting heuristic
         if EVM >= self.specific_settings["EVM_threshold"]:
             print("EVM above threshold = ", EVM)

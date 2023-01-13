@@ -96,7 +96,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         DataArray = DataArray.assign(R_resp=compute_R_resp(DataArray["Temperature"]))
         # Just to conserve RAM
         DataArray = DataArray.drop(["Temperature", "no3", "po4"])
-        
+
         return DataArray
 
     @staticmethod

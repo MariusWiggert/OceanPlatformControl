@@ -1,5 +1,6 @@
 #%%
 import datetime
+import logging
 import os
 
 import matplotlib.pyplot as plt
@@ -15,9 +16,18 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils.misc import set_arena_loggers
+
+set_arena_loggers(logging.DEBUG)
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
-arena = ArenaFactory.create(scenario_name="gulf_of_mexico_HYCOM_hindcast_local")
+arena = ArenaFactory.create(
+    scenario_name="gulf_of_mexico_HYCOM_hindcast",
+    # Note: uncomment this to download the hindcast data if not already locally available
+    # t_interval=[
+    #     datetime.datetime(2021, 11, 23, 12, 0, tzinfo=datetime.timezone.utc),
+    #     datetime.datetime(2021, 11, 30, 12, 0, tzinfo=datetime.timezone.utc)]
+)
 # we can also download the respective files directly to a temp folder, then t_interval needs to be set
 # % Specify Navigation Problem
 x_0 = PlatformState(
@@ -43,12 +53,13 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 )
 problem.plot(ax=ax)
 plt.show()
-# %% Instantiate the HJ Planner
+# %% Instantiate and runm the HJ Planner
 specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
-    "direction": "backward",
+    "direction": "multi-time-reach-back",
     "n_time_vector": 200,
+    "closed_loop": True,  # to run closed-loop or open-loop
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
@@ -77,7 +88,7 @@ planner.plot_reachability_snapshot(
     rel_time_in_seconds=0,
     granularity_in_h=5,
     alpha_color=1,
-    time_to_reach=False,
+    time_to_reach=True,
     fig_size_inches=(12, 12),
     plot_in_h=True,
 )
@@ -95,7 +106,8 @@ planner.plot_reachability_snapshot(
 # loaded_planner._update_current_data(observation=observation)
 # planner = loaded_planner
 # %% Let the controller run closed-loop within the arena (the simulation loop)
-for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 3 days
+# Note this runs the sim for a fixed time horizon (does not terminate when reaching the goal)
+for i in tqdm(range(int(3600 * 24 * 5 / 600))):  # 5 days
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 

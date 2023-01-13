@@ -2,7 +2,7 @@
 source: https://github.com/google/balloon-learning-environment/blob/cdb2e582f2b03c41f037bf76142d31611f5e0316/balloon_learning_environment/env/wind_gp.py
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 from sklearn import gaussian_process
@@ -12,9 +12,8 @@ from ocean_navigation_simulator.ocean_observer.models.OceanCurrentModel import (
     OceanCurrentModel,
 )
 
-# TODO: change to use loggers
 
-
+# Class of the Gaussian Process model
 class OceanCurrentGP(OceanCurrentModel):
     """Wrapper around a Gaussian Process that handles ocean currents.
     This object models deviations from the forecast ("errors") using a Gaussian
@@ -24,39 +23,34 @@ class OceanCurrentGP(OceanCurrentModel):
     the GP's confidence about that current.
     """
 
-    def __init__(self, config_dict: Dict[str, Any], verbose: Optional[int] = 10):
+    def __init__(self, config_dict: Dict[str, Any]):
         """Constructor for the OceanCurrentGP.
 
         Args:
           config_dict: the config dictionary that setups the parameters for the Gaussian Processing
         """
         super().__init__()
-        self.verbose = verbose
         self.config_dict = config_dict
         self.life_span_observations_in_sec = config_dict.get(
             "life_span_observations_in_sec", 24 * 3600
         )  # 24 hours.
 
         parameters_model = {}
-        # Base: {'type': 'matern',
-        # 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849},
-        # 'sigma_exp_squared': 2.3561,
-        # 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
         if "kernel" in self.config_dict:
-            parameters_model["kernel"] = self.__get_kernel(self.config_dict["kernel"]) * (
-                self.__get_kernel(self.config_dict["kernel_2"], False)
-                if "kernel_2" in self.config_dict
-                else 1
-            )
+            print("ker:", self.config_dict)
+            if "kernel_2" in self.config_dict:
+                parameters_model["kernel"] = self.__get_kernel(
+                    self.config_dict["kernel"]
+                ) * self.__get_kernel(self.config_dict["kernel_2"], False)
+            else:
+                parameters_model["kernel"] = self.__get_kernel(self.config_dict["kernel"])
         if "sigma_noise_squared" in self.config_dict:
             parameters_model["alpha"] = self.config_dict["sigma_noise_squared"]
         if "optimizer" in self.config_dict:
             parameters_model["optimizer"] = self.config_dict["optimizer"]
-        if self.verbose > 0:
-            print("PARAMETERS_MODEL:", parameters_model)
+        print("parameters model:", parameters_model)
         self.model = gaussian_process.GaussianProcessRegressor(**parameters_model)
-        if self.verbose > 0:
-            print(f"Gaussian Process created: {self.model}")
+        print(f"Gaussian Process created: {self.model}")
 
     def __get_kernel(self, dic_config: dict[str, Any], first_kernel: bool = True) -> Kernel:
         """Get the GP kernel based on the dictionary generated based on the Yaml file.
@@ -77,7 +71,11 @@ class OceanCurrentGP(OceanCurrentModel):
 
         if scales is not None:
             params["length_scale"] = np.array(
-                [scales.get("longitude", 1), scales.get("latitude", 1), scales.get("time", 1)]
+                [
+                    scales.get("longitude", 1),
+                    scales.get("latitude", 1),
+                    scales.get("time", 1),
+                ]
             )
         if type_kernel.lower() == "rbf":
             return factor * gaussian_process.kernels.RBF(**params)  # + basic_kernel

@@ -14,6 +14,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 
 
+# Abstract class used as model of the OceanCurrentGP
 class OceanCurrentModel(ABC):
     """Abstract class that describe what the OceanCurrentModel used by the observer to predict current should be able to
     do"""

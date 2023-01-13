@@ -27,7 +27,7 @@ os.chdir(
 )
 set_arena_loggers(logging.INFO)
 
-scenario_name = "Region_3_HYCOM_FC_daily+monthly_averages_Copernicus_HC_solar_seaweed" #"Region_3_Copernicus_HC_solar_seaweed"
+scenario_name = "Region_3_HYCOM_FC_daily+monthly_averages_Copernicus_HC_solar_seaweed"  # "Region_3_Copernicus_HC_solar_seaweed"
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(scenario_name=scenario_name)

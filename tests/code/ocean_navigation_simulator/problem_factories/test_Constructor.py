@@ -50,7 +50,7 @@ def test_Constructor():
 
     x_T = {"lon": -80.3, "lat": 24.6}
 
-    with open(f"config/arena/gulf_of_mexico_HYCOM_hindcast_local.yaml") as f:
+    with open("config/arena/gulf_of_mexico_HYCOM_hindcast_local.yaml") as f:
         arena_config = yaml.load(f, Loader=yaml.FullLoader)
 
     mission_config = {
