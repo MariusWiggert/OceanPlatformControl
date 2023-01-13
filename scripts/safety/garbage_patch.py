@@ -167,7 +167,7 @@ def create_xarray_around_points(
 # TODO: figure out why alpha complex with alpha value zero does not return the complex hull
 # TODO: there will be errors in areas where the convex hull should wrap around, hence at +-180°
 def create_xarray_mask(
-    xarray: xr,
+    ds: xr,
     x_range: List[float],
     y_range: List[float],
     res_lat: float = 1 / 12,
@@ -178,7 +178,7 @@ def create_xarray_mask(
     """Create an xarray mask of garbage patches
 
     Args:
-        xarray (xr): xarray containing lat, lon columns of positions within a garbage patch.
+        ds (xr): xarray dataset containing lat, lon columns of positions within a garbage patch.
         x_range (List[float]): List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
         y_range (List[float]): List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
         res_lat (float, optional): Target resolution lat in degree. Defaults to 1/12.
