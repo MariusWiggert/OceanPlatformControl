@@ -15,7 +15,7 @@ from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 # Settings for where the problem csv is saved
 my_path = os.getcwd()
-results_folder = os.path.join(my_path,'tmp/missions/')
+results_folder = os.path.join(my_path, "tmp/missions/")
 os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
@@ -42,7 +42,7 @@ arena_config = {
                 "source": "HYCOM",
                 "type": "hindcast",
                 "currents": "total",
-              #  "region": "Region 1"
+                #  "region": "Region 1"
             },
         },
         "forecast": {
@@ -54,7 +54,7 @@ arena_config = {
                 "source": "Copernicus",
                 "type": "forecast",
                 "currents": "total",
-                #"region": "Region 1",
+                # "region": "Region 1",
             },
         },
     },
@@ -105,10 +105,13 @@ config = {
     },
     "hj_planner_box": 2.0,
     ##### Start Sampling #####
-    "feasible_missions_per_target": 8,
+    "feasible_missions_per_target": 2,
     "random_missions_per_target": 8,
-    "multi_agent": True,
-    "multi_agent_nb_platforms": 4, 
+    "multi_agent": {
+        "is_multi_agent": True,
+        "nb_platforms": 4,
+        "sampling_range_radius_km": 15,
+    },
     "min_distance_from_hj_frame": 0.5,
     "min_distance_from_land": 0.5,
     "feasible_mission_time_in_h": [100, 120],
@@ -118,7 +121,6 @@ config = {
     "animate_batch": False,
     "cache_forecast": False,
     "cache_hindcast": False,
-
 }
 
 all_problems = []
@@ -140,8 +142,6 @@ df.to_csv(results_folder + "problems.csv")
 GenerationRunner.plot_ttr_histogram(results_folder)
 # Note: those are not working right now, probably minor bugs to fix.
 GenerationRunner.plot_starts_and_targets(
-    results_folder=results_folder,
-    scenario_config=arena_config
+    results_folder=results_folder, scenario_config=arena_config
 )
 GenerationRunner.plot_target_dates_histogram(results_folder)
-

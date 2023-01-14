@@ -1,7 +1,7 @@
 import dataclasses
 import datetime
 import json
-
+from ast import literal_eval
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
 )
@@ -10,6 +10,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
+    PlatformStateSet,
     SpatialPoint,
 )
 from ocean_navigation_simulator.utils import units
@@ -32,28 +33,58 @@ class CachedNavigationProblem(NavigationProblem):
 
             return v
 
-        return CachedNavigationProblem(
-            start_state=PlatformState(
-                lon=units.Distance(deg=mission["x_0_lon"]),
-                lat=units.Distance(deg=mission["x_0_lat"]),
-                date_time=datetime.datetime.fromisoformat(mission["t_0"]),
-            ),
-            end_region=SpatialPoint(
-                lon=units.Distance(deg=mission["x_T_lon"]),
-                lat=units.Distance(deg=mission["x_T_lat"]),
-            ),
-            target_radius=mission["target_radius"],
-            extra_info={k: mutate_read(k, v) for k, v in mission.to_dict().items()},
-        )
+        if mission["multi_agent"]:
+            return CachedNavigationProblem(
+                start_state=PlatformStateSet(
+                    platform_list=[
+                        PlatformState(
+                            lon=units.Distance(deg=lon_0),
+                            lat=units.Distance(deg=lat_0),
+                            date_time=datetime.datetime.fromisoformat(t_0),
+                        )
+                        for lon_0, lat_0, t_0 in zip(
+                            literal_eval(mission["x_0_lon"]),
+                            literal_eval(mission["x_0_lat"]),
+                            literal_eval(mission["t_0"]),
+                        )
+                    ]
+                ),
+                end_region=SpatialPoint(
+                    lon=units.Distance(deg=mission["x_T_lon"]),
+                    lat=units.Distance(deg=mission["x_T_lat"]),
+                ),
+                target_radius=mission["target_radius"],
+                extra_info={k: mutate_read(k, v) for k, v in mission.to_dict().items()},
+            )
+        else:
+            return CachedNavigationProblem(
+                start_state=PlatformState(
+                    lon=units.Distance(deg=mission["x_0_lon"]),
+                    lat=units.Distance(deg=mission["x_0_lat"]),
+                    date_time=datetime.datetime.fromisoformat(mission["t_0"]),
+                ),
+                end_region=SpatialPoint(
+                    lon=units.Distance(deg=mission["x_T_lon"]),
+                    lat=units.Distance(deg=mission["x_T_lat"]),
+                ),
+                target_radius=mission["target_radius"],
+                extra_info={k: mutate_read(k, v) for k, v in mission.to_dict().items()},
+            )
 
     def to_dict(self) -> dict:
         def mutate_write(k, v):
             return v
 
         return {k: mutate_write(k, v) for k, v in self.extra_info.items()} | {
-            "t_0": self.start_state.date_time.isoformat(),
-            "x_0_lon": self.start_state.lon.deg,
-            "x_0_lat": self.start_state.lat.deg,
+            "t_0": [start.isoformat() for start in self.start_state.date_time]
+            if self.nb_platforms > 1
+            else self.start_state.date_time.isoformat(),
+            "x_0_lon": self.start_state.lon.deg.tolist()
+            if self.nb_platforms > 1
+            else self.start_state.lon.deg,
+            "x_0_lat": self.start_state.lat.deg.tolist()
+            if self.nb_platforms > 1
+            else self.start_state.lat.deg,
             "x_T_lon": self.end_region.lon.deg,
             "x_T_lat": self.end_region.lat.deg,
             "target_radius": self.target_radius,
@@ -62,16 +93,30 @@ class CachedNavigationProblem(NavigationProblem):
     def to_c3_mission_config(self):
         """To easily populate c3 database with missions."""
         prob_dict = self.to_dict()
-        x_0 = {
-            "lon": prob_dict["x_0_lon"].tolist(),
-            "lat": prob_dict["x_0_lat"].tolist(),
-            "date_time": prob_dict["t_0"],
-        }
+        if self.nb_platforms > 1:  # multi-agent scenario
+            x_0 = [
+                {
+                    "lon": lon_0,
+                    "lat": lat_0,
+                    "date_time": t_0,
+                }
+                for lon_0, lat_0, t_0 in zip(
+                    prob_dict["x_0_lon"], prob_dict["x_0_lat"], prob_dict["t_0"]
+                )
+            ]
+        else:
+            x_0 = [
+                {
+                    "lon": prob_dict["x_0_lon"].tolist(),
+                    "lat": prob_dict["x_0_lat"].tolist(),
+                    "date_time": prob_dict["t_0"],
+                }
+            ]  # Evaluation runner assumes it is a list (for multi-agent)
 
         x_T = {"lon": prob_dict["x_T_lon"], "lat": prob_dict["x_T_lat"]}
 
         mission_config = {
-            "x_0": [x_0],  # Evaluation runner assumes it is a list (for multi-agent)
+            "x_0": x_0,
             "x_T": x_T,
             "target_radius": prob_dict["target_radius"],
             "seed": prob_dict.get("factory_seed", None),

@@ -263,10 +263,7 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def replace_velocity(self, u_mps, v_mps):
-        self.velocity = OceanCurrentVector(
-                u=units.Velocity(mps=u_mps), v=units.Velocity(mps=v_mps)
-            )
-
+        self.velocity = OceanCurrentVector(u=units.Velocity(mps=u_mps), v=units.Velocity(mps=v_mps))
 
     def __repr__(self):
         return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg,  velocity: {v}]".format(
@@ -332,8 +329,10 @@ class PlatformStateSet:
     def replace_velocities(self, u_mps, v_mps):
         nb_platforms = len(self)
         for pltf_id in range(nb_platforms):  # update individual PlatformState attributes
-            self.platform_list[pltf_id].replace_velocity(u_mps=u_mps[pltf_id] if nb_platforms>1 else u_mps,
-                                                    v_mps=v_mps[pltf_id] if nb_platforms>1 else v_mps)
+            self.platform_list[pltf_id].replace_velocity(
+                u_mps=u_mps[pltf_id] if nb_platforms > 1 else u_mps,
+                v_mps=v_mps[pltf_id] if nb_platforms > 1 else v_mps,
+            )
             # self.platform_list[pltf_id].velocity = OceanCurrentVector(
             #     u=units.Velocity(mps=u_mps[pltf_id]), v=units.Velocity(mps=v_mps[pltf_id])
             # )

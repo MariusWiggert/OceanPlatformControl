@@ -106,11 +106,22 @@ class ArenaFactory:
 
             # Step 4: Add point to check for coverage
             if problem is not None:
-                points = [problem.start_state.to_spatial_point(), problem.end_region]
+                if multi_agent_pb := problem.nb_platforms > 1:
+                    points = [
+                        point.to_spatial_point() for point in problem.start_state.platform_list
+                    ]
+                    points.append(problem.end_region)
+                else:
+                    points = [problem.start_state.to_spatial_point(), problem.end_region]
                 if t_interval is None:
+                    t_0 = (
+                        min(problem.start_state.date_time)
+                        if multi_agent_pb
+                        else problem.start_state.date_time
+                    )
                     t_interval = [
-                        problem.start_state.date_time,
-                        problem.start_state.date_time
+                        t_0,
+                        t_0
                         + datetime.timedelta(
                             seconds=config["casadi_cache_dict"]["time_around_x_t"]
                             + config.get("timeout", 0)

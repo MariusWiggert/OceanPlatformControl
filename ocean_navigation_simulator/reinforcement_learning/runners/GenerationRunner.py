@@ -7,14 +7,14 @@ import shutil
 import sys
 import warnings
 from typing import Optional
-
+import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
 import pytz
 import ray
 import seaborn as sns
 from matplotlib import pyplot as plt
-
+from ast import literal_eval
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
     CachedNavigationProblem,
@@ -319,17 +319,49 @@ class GenerationRunner:
                 # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
                 x_interval=[-97.9, -76.41],
                 y_interval=[18.13, 31.92],
-                time=problem.start_state.date_time,
+                time=problem.start_state[0].date_time
+                if problem.nb_platforms > 1
+                else problem.start_state.date_time,
                 spatial_resolution=0.2,
                 return_ax=True,
                 figsize=(32, 24),
             )
-        ax.scatter(
-            problems_df["x_0_lon"], problems_df["x_0_lat"], c="red", marker="o", s=6, label="starts"
-        )
-        ax.scatter(
-            target_df["x_T_lon"], target_df["x_T_lat"], c="green", marker="x", s=12, label="targets"
-        )
+        if all(problems_df["multi_agent"].tolist()):
+            colors = cm.rainbow(np.linspace(0, 1, (len(problems_df))))
+            for k in range(len(problems_df)):
+                ax.scatter(
+                    literal_eval(problems_df["x_0_lon"][k]),
+                    literal_eval(problems_df["x_0_lat"][k]),
+                    c=colors[k],
+                    marker="o",
+                    s=10,
+                    label="starts",
+                )
+                ax.scatter(
+                    target_df["x_T_lon"],
+                    target_df["x_T_lat"],
+                    c="green",
+                    marker="x",
+                    s=16,
+                    label="targets",
+                )
+        else:
+            ax.scatter(
+                problems_df["x_0_lon"],
+                problems_df["x_0_lat"],
+                c="red",
+                marker="o",
+                s=6,
+                label="starts",
+            )
+            ax.scatter(
+                target_df["x_T_lon"],
+                target_df["x_T_lat"],
+                c="green",
+                marker="x",
+                s=12,
+                label="targets",
+            )
         ax.legend()
         ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.png")
         ax.get_figure().show()
@@ -413,11 +445,14 @@ class GenerationRunner:
         df = pd.read_csv(f"{results_folder}problems.csv")
         analysis_folder = results_folder + "analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
-
+        plot_title = "Mission Time-To-Reach Histogram"
         if "random" in df:
             df = df[~df["random"]]
 
-        if "ttr_in_h" in df:
+        if "max_ttr_among_platforms" in df:  # multiagent
+            ttr = df["max_ttr_among_platforms"].tolist()
+            plot_title = "Mission Max Time-To-Reach Histogram"
+        elif "ttr_in_h" in df:
             ttr = df["ttr_in_h"].tolist()
         elif "optimal_time_in_h" in df:
             ttr = df["optimal_time_in_h"].tolist()
@@ -427,6 +462,6 @@ class GenerationRunner:
         # Step 2: Plot
         plt.figure()
         plt.hist(ttr, bins=100)
-        plt.title("Mission Time-To-Reach Histogram")
+        plt.title(plot_title)
         plt.savefig(analysis_folder + "ttr.png", dpi=300)
         plt.show()
