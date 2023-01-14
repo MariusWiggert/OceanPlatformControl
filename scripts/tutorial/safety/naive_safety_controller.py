@@ -14,7 +14,22 @@ from ocean_navigation_simulator.utils import units
 
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
-arena = ArenaFactory.create(scenario_name="safety_gulf_of_mexico_HYCOM_hindcast_local")
+arena = ArenaFactory.create(scenario_name="safety_gulf_of_mexico_HYCOM_hindcast")
+
+
+def add_ax_func_ext(ax, time):
+    ax = arena.bathymetry_source.plot_mask_from_xarray(
+        xarray=arena.bathymetry_source.get_data_over_area(
+            x_interval=[-98, -78], y_interval=[20, 31]
+        ),  # x_interval=lon_bnds, y_interval=lat_bnds),
+        var_to_plot="elevation",
+        contour=True,
+        hatches="///",
+        overlay=False,
+        ax=ax,
+        masking_val=-150,
+    )
+
 
 # -87.5, 29, should go directly down, did it and lead to more or less canceling out the currents
 # -83, 28.5, near florida west coast, should go to middle, with lots of actuation it does, with 0.1m/s it is not moving much
@@ -42,23 +57,22 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
 # problem.plot(ax=ax)
 # plt.show()
 
-specific_settings = {
-    # "d_land_min": 20,
+specific_settings_safety = {
     "filepath_distance_map": {
-        "garbage": "data/garbage_patch/garbage_patch_distance_res_0.083_0.083_max.nc",
-        "bathymetry": "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
-    },
+        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
+        "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
+    }
 }
-planner = NaiveSafetyController(problem, specific_settings)
+planner = NaiveSafetyController(problem, specific_settings_safety)
 # % Run reachability planner
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 #%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 5 days
+for i in tqdm(range(int(3600 * 24 * 0.5 / 600))):  # 5 days
     action = planner.get_action(observation=observation, area_type="bathymetry")
     observation = arena.step(action)
 
-#%% Plot the arena trajectory on the map
-arena.plot_all_on_map(problem=problem, background="bathymetry")
+# #%% Plot the arena trajectory on the map
+# arena.plot_all_on_map(problem=problem, background="bathymetry")
 #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200)
+arena.animate_trajectory(add_ax_func_ext=add_ax_func_ext, problem=problem, temporal_resolution=7200)
