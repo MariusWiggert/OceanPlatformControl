@@ -85,8 +85,15 @@ def animate_trajectory(
           forward_time:     If True, animation is forward in time, if false backwards
           **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
     """
+    # Step 1: Get the bounds for the data_source
+    x_interval_margin, y_interval_margin, t_interval = get_lon_lat_time_interval_from_trajectory(
+        state_trajectory=state_trajectory, margin=margin
+    )
 
-    # Step 1: Define callable function of trajectory for each time to add on top of data_source plot
+    x_interval = x_interval if x_interval is not None else x_interval_margin
+    y_interval = y_interval if y_interval is not None else y_interval_margin
+
+    # Step 2: Define callable function of trajectory for each time to add on top of data_source plot
     def add_traj_and_ctrl_at_time(ax, time):
         # get the planned idx of current time
         idx = min(np.searchsorted(a=state_trajectory[2, :], v=time), ctrl_trajectory.shape[1] - 1)
@@ -157,18 +164,13 @@ def animate_trajectory(
         )
         # if there's a func plot it
         if add_ax_func_ext is not None:
-            add_ax_func_ext(ax, time)
+            add_ax_func_ext(ax, time, x_interval=x_interval, y_interval=y_interval, **kwargs)
         ax.legend(loc="lower right")
-
-    # Step 2: Get the bounds for the data_source
-    x_interval_margin, y_interval_margin, t_interval = get_lon_lat_time_interval_from_trajectory(
-        state_trajectory=state_trajectory, margin=margin
-    )
 
     # Step 3: run the animation with the data_source and the extra function
     data_source.animate_data(
-        x_interval=x_interval if x_interval is not None else x_interval_margin,
-        y_interval=y_interval if y_interval is not None else y_interval_margin,
+        x_interval=x_interval,
+        y_interval=y_interval,
         t_interval=t_interval,
         temporal_resolution=temporal_resolution,
         add_ax_func=add_traj_and_ctrl_at_time,

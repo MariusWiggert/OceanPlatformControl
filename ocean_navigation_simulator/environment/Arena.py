@@ -195,7 +195,6 @@ class Arena:
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
         # Step 1.4 Bathymetry Field
-        # TODO: figure out if API of BathymetrySource2d should be like of the other sources
         if bathymetry_dict is not None:
             self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
         if garbage_dict is not None:
@@ -770,4 +769,32 @@ class Arena:
         plt.title("Inside Garbage Patch Trajectory")
         plt.xlabel("time")
 
+        return ax
+
+    # TODO: Cache the added stuff? All images in animation will have the same overlay.
+    def add_ax_func_ext_overlay(
+        self,
+        ax: matplotlib.axes.Axes,
+        posix_time: datetime.datetime,
+        **kwargs,
+    ) -> matplotlib.axes.Axes:
+        x_interval = kwargs.get("x_interval", [-180, 180])
+        y_interval = kwargs.get("y_interval", [-90, 90])
+        masking_val_bathymetry = kwargs.get("masking_val_bathymetry", -150)
+
+        if self.bathymetry_source:
+            ax = self.bathymetry_source.plot_mask_from_xarray(
+                self.bathymetry_source.get_data_over_area(
+                    x_interval=x_interval, y_interval=y_interval
+                ),
+                ax=ax,
+                masking_val=masking_val_bathymetry,
+            )
+        if self.garbage_source:
+            ax = self.garbage_source.plot_mask_from_xarray(
+                self.garbage_source.get_data_over_area(
+                    x_interval=x_interval, y_interval=y_interval
+                ),
+                ax=ax,
+            )
         return ax
