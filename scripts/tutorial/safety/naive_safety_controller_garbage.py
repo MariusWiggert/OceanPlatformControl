@@ -36,27 +36,27 @@ problem = NavigationProblem(
     target_radius=0.1,
 )
 
-# Not necessary, but good to visualize
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_T,
-    deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600,
-)
+# # Not necessary, but good to visualize
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=x_0.to_spatio_temporal_point(),
+#     x_T=x_T,
+#     deg_around_x0_xT_box=1,
+#     temp_horizon_in_s=3600,
+# )
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-ax = arena.garbage_source.plot_mask_from_xarray(
-    xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
-    var_to_plot="garbage",
-    contour=True,
-    hatches="///",
-    overlay=False,
-    ax=ax,
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# ax = arena.garbage_source.plot_mask_from_xarray(
+#     xarray=arena.garbage_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
+#     var_to_plot="garbage",
+#     contour=True,
+#     hatches="///",
+#     overlay=False,
+#     ax=ax,
+# )
+# problem.plot(ax=ax)
+# plt.show()
 ##
 
 
@@ -71,7 +71,7 @@ planner = NaiveSafetyController(problem, specific_settings)
 # % Run reachability planner
 observation = arena.reset(platform_state=x_0)
 #%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 5 days
+for i in tqdm(range(int(3600 * 24 * 2 / 600))):  # 5 days
     action = planner.get_action(observation=observation, area_type="garbage")
     observation = arena.step(action)
 
@@ -80,4 +80,6 @@ arena.plot_all_on_map(problem=problem, background="garbage")
 arena.plot_all_on_map(problem=problem)
 
 #%% Animate the trajectory
-arena.animate_trajectory(problem=problem, temporal_resolution=7200)
+arena.animate_trajectory(
+    add_ax_func_ext=arena.add_ax_func_ext_overlay, problem=problem, temporal_resolution=7200
+)
