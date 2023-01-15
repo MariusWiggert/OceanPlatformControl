@@ -40,8 +40,8 @@ specific_settings_navigation = {
 
 specific_settings_safety = {
     "filepath_distance_map": {
-        "bathymetry": "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc",
-        "garbage": "data/garbage_patch/garbage_patch_distance_res_0.083_0.083_max.nc",
+        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max_elevation_-150.nc",
+        "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
     }
 }
 specific_settings_switching = dict(
