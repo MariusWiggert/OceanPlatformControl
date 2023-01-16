@@ -88,7 +88,9 @@ def loss_function(losses: List[str], loss_weightings: List[float], target: Optio
         "total_variation": total_variation,
         "mass_conservation": mass_conservation,
         "gan_gen": gan_loss_gen,
-        "gan_disc": gan_loss_disc
+        "gan_disc": gan_loss_disc,
+        "gan_hinge_gen": gan_hinge_loss_gen,
+        "gan_hinge_disc": gan_hinge_loss_disc
     }
 
     if len(losses) != len(loss_weightings):
@@ -97,9 +99,9 @@ def loss_function(losses: List[str], loss_weightings: List[float], target: Optio
     for loss_type, weight in zip(losses, loss_weightings):
         if loss_type in ["mse", "l1", "sparse_mse"]:
             loss += weight * loss_map[loss_type](target_fake, target)
-        elif loss_type == "gan_gen":
+        elif loss_type in ["gan_gen", "gan_hinge_gen"]:
             loss += weight * loss_map[loss_type](disc_fake)
-        elif loss_type == "gan_disc":
+        elif loss_type in ["gan_disc", "gan_hinge_disc"]:
             loss += weight * loss_map[loss_type](disc_real, disc_fake)
         else:
             loss += weight * loss_map[loss_type](target_fake)
@@ -122,8 +124,22 @@ def gan_loss_disc(disc_real, disc_fake):
     return disc_loss
 
 
+def gan_hinge_loss_disc(disc_real, disc_fake):
+    """
+    A slight change from hinge loss in that only update weights once for both losses and not
+    individually for each one.
+    """
+    disc_real_loss = nn.ReLU()(torch.ones_like(disc_real) - disc_real).mean()
+    disc_fake_loss = nn.ReLU()(torch.ones_like(disc_fake) - disc_fake).mean()
+    disc_loss = (disc_real_loss + disc_fake_loss) / 2
+    return disc_loss
+
+
 def gan_loss_gen(disc_fake):
     """
+    Uses the heuristically motivated trick to maximise the log probability of the discriminator
+    being mistaken. Can still learn if discriminator rejects all generated samples.
+
     Parameters:
         disc_fake - output of discriminator for fake examples
         target_fake - output of generator
@@ -132,6 +148,10 @@ def gan_loss_gen(disc_fake):
     bce_loss = nn.BCEWithLogitsLoss()
     gen_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
     return gen_loss
+
+
+def gan_hinge_loss_gen(disc_fake):
+    return -disc_fake.mean()
 
 
 def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, cfgs_train, cfgs_gen):
@@ -150,10 +170,10 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 else:
                     target_fake = models[0](data)
                 # mask the generator output to match target (buoy data)
-                mask = torch.where(target != 0, 1, 0)
+                mask = torch.where(target != 0, 1, 0).int()
                 target_fake = torch.mul(target_fake, mask).float()
                 # check whether same num of non-zero values in target and target_fake
-                assert mask.sum() == torch.where(target_fake != 0, 1, 0).sum()
+                assert mask.sum() == torch.where(target_fake != 0, 1, 0).int().sum()
                 # compute real and fake outputs of discriminator
                 disc_real = models[1](data, target)
                 disc_fake = models[1](data, target_fake)  # need to call detach to remove from comp graph
@@ -164,7 +184,6 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 disc_loss_sum += disc_loss.item()
 
                 optimizers[1].zero_grad()
-                # disc_loss = torch.autograd.Variable(disc_loss, requires_grad=True)
                 disc_loss.backward(retain_graph=True)
                 optimizers[1].step()
 
@@ -292,8 +311,9 @@ def main(sweep: Optional[bool] = False):
         gen_lr_scheduler = get_scheduler(gen_optimizer, cfgs_lr_scheduler)
         disc_lr_scheduler = get_scheduler(disc_optimizer, cfgs_lr_scheduler)
 
-    # load models/instantiate models
+    # load model weights for generator
     if cfgs_gen["load_from_chkpt"]:
+        init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
         if cfgs_gen["load_encoder_only"]:
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
             load_encoder(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
@@ -306,6 +326,8 @@ def main(sweep: Optional[bool] = False):
             freeze_encoder_weights(generator)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
+
+    # load model weights for discriminator
     if cfgs_disc["load_from_chkpt"]:
         disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["chkpt"])
         load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)

@@ -106,7 +106,7 @@ def get_norm_layer(norm_type='instance'):
     if norm_type == 'batch':
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
     elif norm_type == 'instance':
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=True, track_running_stats=False)
     elif norm_type == 'spectral':
         norm_layer = nn.utils.spectral_norm
     elif norm_type == 'no_norm':
@@ -116,7 +116,7 @@ def get_norm_layer(norm_type='instance'):
     return norm_layer
 
 
-# _____________________________ SAVING __________________________________ #
+# _____________________________ SAVING/LOADING ______________________________ #
 
 
 def save_checkpoint(model, optimizer, file_path="my_checkpoint.pth"):
@@ -150,6 +150,7 @@ def load_encoder(checkpoint_path, model, optimizer, lr, device):
             model_dict[name] = param
 
     model.load_state_dict(model_dict)
+    # optimizer.load_state_dict(checkpoint["optimizer"])
 
     # If we don't do this then it will just have learning rate of old checkpoint
     for param_group in optimizer.param_groups:

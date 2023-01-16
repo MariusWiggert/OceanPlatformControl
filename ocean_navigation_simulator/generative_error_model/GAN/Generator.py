@@ -26,7 +26,7 @@ class Block(nn.Module):
 
 class Generator(nn.Module):
     def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
-                 dropout_val=0.5, latent_size=32):
+                 dropout_val=0.5, latent_size=0):
         """
         Parameters:
             dropout_all - set dropout on all layers
