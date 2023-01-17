@@ -29,7 +29,7 @@ generator:
   # adds dropout to all layers to avoid overfitting
   dropout_all: True
   dropout_val: 0.3
-  latent_size: 512
+  latent_size: 256
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
