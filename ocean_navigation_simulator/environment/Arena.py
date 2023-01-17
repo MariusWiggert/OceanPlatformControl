@@ -1036,6 +1036,7 @@ class Arena:
         1) Time-integral metric of # isolated platforms
         2) Number of collisions during simulation
         3) The fraction of total platforms reaching the target (1 = all platforms reached the target within simulation time)
+        4) Beta Index: Measures the level of connectivity in a graph
         4) The average of the maximum deviation from the optimal control angle for all the platforms
                                             at each simulation step as a proxy for energy efficiency
         5) The initial maximum degree of the graph

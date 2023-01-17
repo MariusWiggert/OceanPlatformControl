@@ -105,7 +105,7 @@ config = {
     },
     "hj_planner_box": 2.0,
     ##### Start Sampling #####
-    "feasible_missions_per_target": 2,
+    "feasible_missions_per_target": 4,
     "random_missions_per_target": 8,
     "multi_agent": {
         "is_multi_agent": True,

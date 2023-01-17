@@ -106,6 +106,7 @@ def animate_trajectory(
         markers = get_markers()
         # plot start position
         for k in range(state_trajectory.shape[0]):
+            idx = min(np.searchsorted(a=state_trajectory[k,2,:], v=time), ctrl_trajectory.shape[2] - 1)
             if full_traj:
                 traj_to_plot = state_trajectory[k, :, :]
                 marker = next(markers)
@@ -124,9 +125,9 @@ def animate_trajectory(
             ax.plot(
                 traj_to_plot[0, :],
                 traj_to_plot[1, :],
-                color="black",
-                linewidth=3,
-                linestyle="--",
+                color=kwargs.get("traj_color", "black"),
+                linewidth=kwargs.get("traj_linewidth", 3),
+                linestyle=kwargs.get("traj_linestyle", "--"),
                 label="State Trajectory" if k == 0 else "",
             )
             ax.scatter(
@@ -136,6 +137,23 @@ def animate_trajectory(
                 marker=marker,
                 s=150,
                 label=f"Start for platform {k}",
+            )
+            # plot the control arrow for the specific time
+            ax.scatter(
+                state_trajectory[k, 0, idx],
+                state_trajectory[k, 1, idx],
+                c=kwargs.get("x_t_marker_color", "m"),
+                marker="o",
+                s=kwargs.get("x_t_marker_size", 20),
+            )
+            ax.quiver(
+                state_trajectory[k, 0, idx],
+                state_trajectory[k, 1, idx],
+                ctrl_trajectory[k, 0, idx] * np.cos(ctrl_trajectory[k, 1, idx]),  # u_vector
+                ctrl_trajectory[k, 0, idx] * np.sin(ctrl_trajectory[k, 1, idx]),  # v_vector
+                color=kwargs.get("ctrl_color", "magenta"),
+                scale=kwargs.get("ctrl_scale", 5),
+                label="Control" if k == 0 else "",
             )
         # plot the goal
         if problem is not None:
@@ -149,32 +167,6 @@ def animate_trajectory(
                 zorder=6,
             )
             ax.add_patch(goal_circle)
-
-        # plot the control arrow for the specific time
-        for k in range(state_trajectory.shape[0]):
-            # get the planned idx of current time
-            idx = np.searchsorted(a=state_trajectory[k, 2, :], v=time)
-            if (
-                idx < state_trajectory.shape[2]
-            ):  # if platforms did not start at the same time, some trajectories might finish sooner and there is no more control input
-                ax.scatter(
-                    state_trajectory[k, 0, idx],
-                    state_trajectory[k, 1, idx],
-                    c="m",
-                    marker="o",
-                    s=20,
-                )
-                ax.quiver(
-                    state_trajectory[k, 0, idx],
-                    state_trajectory[k, 1, idx],
-                    ctrl_trajectory[k, 0, idx] * np.cos(ctrl_trajectory[k, 1, idx]),  # u_vector
-                    ctrl_trajectory[k, 0, idx] * np.sin(ctrl_trajectory[k, 1, idx]),  # v_vector
-                    color="magenta",
-                    scale=5,
-                    label="Control" if k == 0 else "",
-                )
-            else:
-                continue
         ax.legend(loc="lower right", prop={"size": 8})
 
     # Step 2: Get the bounds for the data_source

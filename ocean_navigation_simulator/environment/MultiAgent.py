@@ -365,6 +365,7 @@ class MultiAgent:
         collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
         integrated_communication = simpson(isolated_nodes, dates)
         collision_metric = sum(collisions)
+        beta_connectivity_list = [len(G.edges)/len(G.nodes) for G in list_of_graph]
         initial_max_graph_degree = max([deg for _, deg in list_of_graph[0].degree])
         final_max_graph_degree = max([deg for _, deg in list_of_graph[-1].degree])
         if (
@@ -394,6 +395,13 @@ class MultiAgent:
             f"Fraction of platforms reaching target = {success_rate_reach_target}",
             logging.INFO,
         )
+        self.LOG_insert(
+            logfile,
+            formatLog,
+            f"Average Beta Index = {sum(beta_connectivity_list)/len(beta_connectivity_list)}",
+            logging.INFO,
+        )
+
         self.LOG_insert(
             logfile,
             formatLog,

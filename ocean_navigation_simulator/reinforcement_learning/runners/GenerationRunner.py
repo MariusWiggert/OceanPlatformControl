@@ -7,6 +7,7 @@ import shutil
 import sys
 import warnings
 from typing import Optional
+import random
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
@@ -301,7 +302,9 @@ class GenerationRunner:
         analysis_folder = f"{results_folder}analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
 
-        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0])
+        # For now all problems have the same target
+        # So it is enough to extract only one to get the data range 
+        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0]) 
 
         # Step 2:
         arena = ArenaFactory.create(
@@ -317,8 +320,8 @@ class GenerationRunner:
             ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
                 # Plot currents over full GOM
                 # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
-                x_interval=[-97.9, -76.41],
-                y_interval=[18.13, 31.92],
+                x_interval=[lon.deg for lon in problem.extra_info["x_cache"]], #[-97.9, -76.41],
+                y_interval=[lat.deg for lat in problem.extra_info["y_cache"]],#[18.13, 31.92],
                 time=problem.start_state[0].date_time
                 if problem.nb_platforms > 1
                 else problem.start_state.date_time,
@@ -327,24 +330,25 @@ class GenerationRunner:
                 figsize=(32, 24),
             )
         if all(problems_df["multi_agent"].tolist()):
-            colors = cm.rainbow(np.linspace(0, 1, (len(problems_df))))
+            colors = ['r', 'm', 'y', 'k', 'y', 'b'] #cm.rainbow(np.linspace(0, 1, (len(problems_df))))
             for k in range(len(problems_df)):
+                pb_color = random.choice(colors)
                 ax.scatter(
                     literal_eval(problems_df["x_0_lon"][k]),
                     literal_eval(problems_df["x_0_lat"][k]),
-                    c=colors[k],
+                    c=pb_color,
                     marker="o",
                     s=10,
                     label="starts",
                 )
-                ax.scatter(
-                    target_df["x_T_lon"],
-                    target_df["x_T_lat"],
-                    c="green",
-                    marker="x",
-                    s=16,
-                    label="targets",
-                )
+            ax.scatter(
+                target_df["x_T_lon"],
+                target_df["x_T_lat"],
+                c="green",
+                marker="x",
+                s=15,
+                label="targets",
+            )
         else:
             ax.scatter(
                 problems_df["x_0_lon"],
