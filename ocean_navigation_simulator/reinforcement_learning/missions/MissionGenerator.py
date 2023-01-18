@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
@@ -54,6 +55,11 @@ class MissionGenerator:
             config["t_range"] = [datetime.datetime.fromisoformat(t) for t in config["t_range"]]
         self.config = config
         self.c3 = c3
+        # Load distance maps
+        for area_type in self.config["filepath_distance_map"]:
+            self.distance_map[area_type] = xr.open_dataset(
+                self.config["filepath_distance_map"][area_type]
+            )
 
         self.random = np.random.default_rng(self.config["seed"])
 
@@ -214,6 +220,7 @@ class MissionGenerator:
         start_time = time.time()
 
         ##### Step 1: Generate Target (x,y,t_T) #####
+        # TODO: adapt to multiple areas either here or level above
         # Planner starts from timeout backwards (this is a trick, so we can use the planner after max_mission_range)!
         fake_target = SpatioTemporalPoint(
             lon=units.Distance(
@@ -242,6 +249,7 @@ class MissionGenerator:
         )
 
         ##### Step 2: Reject if files are missing or corrupted #####
+        # TODO: fix since c3 is broken
         try:
             self.arena = ArenaFactory.create(
                 scenario_file=self.config.get("scenario_file", None),
@@ -265,16 +273,25 @@ class MissionGenerator:
             self.errors.append(str(e))
             return False
 
-        # Step 3: Reject if to close to land
-        distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
-            fake_target.to_spatial_point()
-        )
-        if distance_to_shore.deg < self.config["target_distance_from_land"]:
-            logger.warning(
-                f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
-            )
-            self.performance["target_resampling"] += 1
-            return False
+            # Step 3: Reject if to close to land
+            distance_to_shore = self.distance_to_area(fake_target, "bathymetry")
+            if "min_distance_from_land" in self.config:
+                if distance_to_shore < self.config["min_distance_from_land"]
+                self.performance["target_resampling"] += 1
+                logger.warning(
+                    f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
+                )
+                return False
+
+            # Reject if too safe because too far to land and garbage
+            if "max_distance_from_land" in self.config and "max_distance_from_garbage" in self.config:
+                distance_to_garbage = self.distance_to_area(fake_target, "garbage")
+                if (distance_to_shore > self.config["max_distance_from_land"]) and (distance_to_garbage > self.config["max_distance_from_land"]): 
+                    self.performance["target_resampling"] += 1
+                    logger.warning(
+                        f"Target aborted because too far to land and garbage (too safe): {fake_target.to_spatial_point()} = {distance_to_shore}, {distance_to_garbage}."
+                    )
+                    return False
 
         ##### Step 3: Run multi-time-back HJ Planner #####
         try:
@@ -379,6 +396,35 @@ class MissionGenerator:
 
         return feasible_points + random_points
 
+    def distance_to_area(self, point: SpatioTemporalPoint, area_type: str) -> bool:
+        if area_type == "garbage":
+            distance_to_garbage = units.Distance(
+                km=(
+                    self.distance_map[area_type]
+                    .interp(
+                        point.to_spatial_point(),
+                    )["distance"]
+                    .data
+                )
+            )
+            return distance_to_garbage.deg
+        # Use bathymetry map to determine distance from a certain depth
+        elif area_type == "bathymetry":
+            distance_to_shore = units.Distance(
+                km=(
+                    self.distance_map[area_type]
+                    .interp(
+                        point.to_spatial_point(),
+                    )["distance"]
+                    .data
+                )
+            )
+            return distance_to_shore.deg
+        else:
+            raise NotImplementedError(
+                f"Only garbage and bathymetry are supported as area_type, passed: {area_type}."
+            )
+
     def sample_feasible_points(
         self, sampling_frame, mission_time
     ) -> List[Tuple[bool, SpatioTemporalPoint, Distance]]:
@@ -434,9 +480,7 @@ class MissionGenerator:
             )
 
             # Add if far enough from shore
-            distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
-                point.to_spatial_point()
-            )
+            distance_to_shore = self.distance_to_area(point, "bathymetry")
             if distance_to_shore.deg > self.config["min_distance_from_land"]:
                 sampled_points.append((False, point, distance_to_shore))
             else:
@@ -471,9 +515,7 @@ class MissionGenerator:
             )
 
             # Add if far enough from shore
-            distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
-                point.to_spatial_point()
-            )
+            distance_to_shore = self.distance_to_area(point, "bathymetry")
             if distance_to_shore.deg > self.config["min_distance_from_land"]:
                 sampled_points.append((True, point, distance_to_shore))
             else:

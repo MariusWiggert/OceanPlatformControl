@@ -14,7 +14,7 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 # Settings for where the problem csv is saved
-results_folder = "/tmp/missions/"
+results_folder = "missions/"  # /tmp/missions/"
 os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
@@ -78,7 +78,6 @@ config = {
         datetime.datetime(year=2022, month=8, day=30, tzinfo=datetime.timezone.utc),
     ],
     "problem_timeout_in_h": 140,
-    "target_distance_from_land": 0.5,
     "problem_target_radius": 0.1,
     ##### HJ Planner #####
     "hj_specific_settings": {
@@ -97,7 +96,9 @@ config = {
     "feasible_missions_per_target": 8,
     "random_missions_per_target": 8,
     "min_distance_from_hj_frame": 0.5,
-    "min_distance_from_land": 0.5,
+    "min_distance_from_land": 0.2,
+    "max_distance_from_land": 1.5,
+    "max_distance_from_garbage": 0.2,
     "feasible_mission_time_in_h": [100, 120],
     "random_min_distance_from_target": 0.5,
     ##### Actions #####
@@ -105,6 +106,11 @@ config = {
     "animate_batch": False,
     "cache_forecast": False,
     "cache_hindcast": False,
+    ##### Distance maps #####
+    "filepath_distance_map": {
+        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max_elevation_-150.nc",
+        "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
+    },
 }
 
 all_problems = []
