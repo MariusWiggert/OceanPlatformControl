@@ -14,7 +14,7 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 # Settings for where the problem csv is saved
-results_folder = "missions/"  # /tmp/missions/"
+results_folder = "generated_data/missions/"  # /tmp/missions/"
 os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
@@ -108,11 +108,10 @@ config = {
     "cache_hindcast": False,
     ##### Distance maps #####
     "filepath_distance_map": {
-        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max_elevation_-150.nc",
+        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
         "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
     },
 }
-
 all_problems = []
 for worker in range(1):
     mission_generator = MissionGenerator(
@@ -128,6 +127,8 @@ for worker in range(1):
 df = pd.DataFrame([problem.to_dict() for problem in all_problems])
 df.to_csv(results_folder + "problems.csv")
 
+mission_generator.plot_last_batch_snapshot(filename=results_folder + "problems.png")
+
 #%% To visualize the generated Navigation Problems
 # Note: those are not working right now, probably minor bugs to fix.
 # GenerationRunner.plot_starts_and_targets(
@@ -135,4 +136,4 @@ df.to_csv(results_folder + "problems.csv")
 #     scenario_config=arena_config
 # )
 # GenerationRunner.plot_target_dates_histogram(results_folder)
-GenerationRunner.plot_ttr_histogram(results_folder)
+# GenerationRunner.plot_ttr_histogram(results_folder)

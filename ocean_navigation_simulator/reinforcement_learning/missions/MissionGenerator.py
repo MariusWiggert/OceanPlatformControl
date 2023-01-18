@@ -56,6 +56,7 @@ class MissionGenerator:
         self.config = config
         self.c3 = c3
         # Load distance maps
+        self.distance_map = dict()
         for area_type in self.config["filepath_distance_map"]:
             self.distance_map[area_type] = xr.open_dataset(
                 self.config["filepath_distance_map"][area_type]
@@ -192,7 +193,7 @@ class MissionGenerator:
                         "feasible": feasible,
                         "ttr_in_h": ttr,
                         "random": random,
-                        "distance_to_shore_deg": distance_to_shore.deg,
+                        "distance_to_shore_deg": distance_to_shore,
                         # Planner Caching
                         "x_cache": self.hj_planner_frame["x_interval"],
                         "y_cache": self.hj_planner_frame["y_interval"],
@@ -276,17 +277,22 @@ class MissionGenerator:
             # Step 3: Reject if to close to land
             distance_to_shore = self.distance_to_area(fake_target, "bathymetry")
             if "min_distance_from_land" in self.config:
-                if distance_to_shore < self.config["min_distance_from_land"]
-                self.performance["target_resampling"] += 1
-                logger.warning(
-                    f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
-                )
-                return False
+                if distance_to_shore < self.config["min_distance_from_land"]:
+                    self.performance["target_resampling"] += 1
+                    logger.warning(
+                        f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
+                    )
+                    return False
 
             # Reject if too safe because too far to land and garbage
-            if "max_distance_from_land" in self.config and "max_distance_from_garbage" in self.config:
+            if (
+                "max_distance_from_land" in self.config
+                and "max_distance_from_garbage" in self.config
+            ):
                 distance_to_garbage = self.distance_to_area(fake_target, "garbage")
-                if (distance_to_shore > self.config["max_distance_from_land"]) and (distance_to_garbage > self.config["max_distance_from_land"]): 
+                if (distance_to_shore > self.config["max_distance_from_land"]) and (
+                    distance_to_garbage > self.config["max_distance_from_land"]
+                ):
                     self.performance["target_resampling"] += 1
                     logger.warning(
                         f"Target aborted because too far to land and garbage (too safe): {fake_target.to_spatial_point()} = {distance_to_shore}, {distance_to_garbage}."
@@ -402,7 +408,8 @@ class MissionGenerator:
                 km=(
                     self.distance_map[area_type]
                     .interp(
-                        point.to_spatial_point(),
+                        lon=point.lon.deg,
+                        lat=point.lat.deg,
                     )["distance"]
                     .data
                 )
@@ -410,12 +417,11 @@ class MissionGenerator:
             return distance_to_garbage.deg
         # Use bathymetry map to determine distance from a certain depth
         elif area_type == "bathymetry":
+            # TODO: spatial point
             distance_to_shore = units.Distance(
                 km=(
                     self.distance_map[area_type]
-                    .interp(
-                        point.to_spatial_point(),
-                    )["distance"]
+                    .interp(lon=point.lon.deg, lat=point.lat.deg)["distance"]
                     .data
                 )
             )
@@ -481,7 +487,7 @@ class MissionGenerator:
 
             # Add if far enough from shore
             distance_to_shore = self.distance_to_area(point, "bathymetry")
-            if distance_to_shore.deg > self.config["min_distance_from_land"]:
+            if distance_to_shore > self.config["min_distance_from_land"]:
                 sampled_points.append((False, point, distance_to_shore))
             else:
                 self.performance["start_resampling"] += 1
@@ -516,7 +522,7 @@ class MissionGenerator:
 
             # Add if far enough from shore
             distance_to_shore = self.distance_to_area(point, "bathymetry")
-            if distance_to_shore.deg > self.config["min_distance_from_land"]:
+            if distance_to_shore > self.config["min_distance_from_land"]:
                 sampled_points.append((True, point, distance_to_shore))
             else:
                 self.performance["start_resampling"] += 1
