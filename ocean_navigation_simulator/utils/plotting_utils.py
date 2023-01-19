@@ -106,7 +106,9 @@ def animate_trajectory(
         markers = get_markers()
         # plot start position
         for k in range(state_trajectory.shape[0]):
-            idx = min(np.searchsorted(a=state_trajectory[k,2,:], v=time), ctrl_trajectory.shape[2] - 1)
+            idx = min(
+                np.searchsorted(a=state_trajectory[k, 2, :], v=time), ctrl_trajectory.shape[2] - 1
+            )
             if full_traj:
                 traj_to_plot = state_trajectory[k, :, :]
                 marker = next(markers)

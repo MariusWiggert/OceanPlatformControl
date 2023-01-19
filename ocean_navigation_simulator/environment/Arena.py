@@ -1037,11 +1037,11 @@ class Arena:
         2) Number of collisions during simulation
         3) The fraction of total platforms reaching the target (1 = all platforms reached the target within simulation time)
         4) Beta Index: Measures the level of connectivity in a graph
-        4) The average of the maximum deviation from the optimal control angle for all the platforms
+        5) The average of the maximum deviation from the optimal control angle for all the platforms
                                             at each simulation step as a proxy for energy efficiency
-        5) The initial maximum degree of the graph
-        6) The final maximum degree of the graph
-        7) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
+        6) The initial maximum degree of the graph
+        7) The final maximum degree of the graph
+        8) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
 
         Args:
             all_pltf_status (list): list of platform status, obtained by calling problem_status through the simulation

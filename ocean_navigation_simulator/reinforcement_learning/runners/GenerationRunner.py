@@ -16,6 +16,7 @@ import ray
 import seaborn as sns
 from matplotlib import pyplot as plt
 from ast import literal_eval
+import itertools
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
     CachedNavigationProblem,
@@ -292,7 +293,11 @@ class GenerationRunner:
 
     @staticmethod
     def plot_starts_and_targets(
-        results_folder: str, scenario_file: str = None, scenario_config: dir = None, c3=None
+        results_folder: str,
+        scenario_file: str = None,
+        scenario_config: dir = None,
+        c3=None,
+        margin_deg_plot: int = 0.25,
     ):
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
@@ -303,8 +308,8 @@ class GenerationRunner:
         os.makedirs(analysis_folder, exist_ok=True)
 
         # For now all problems have the same target
-        # So it is enough to extract only one to get the data range 
-        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0]) 
+        # So it is enough to extract only one to get the data range
+        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0])
 
         # Step 2:
         arena = ArenaFactory.create(
@@ -317,55 +322,69 @@ class GenerationRunner:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
+            x0_lon_list = [
+                literal_eval(problems_df["x_0_lon"][idx]) for idx in range(len(problems_df))
+            ]
+            x0_lat_list = [
+                literal_eval(problems_df["x_0_lat"][idx]) for idx in range(len(problems_df))
+            ]
+            x_bnds = [min(itertools.chain(*x0_lon_list)), max(itertools.chain(*x0_lon_list))]
+            y_bnds = [min(itertools.chain(*x0_lat_list)), max(itertools.chain(*x0_lat_list))]
             ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
                 # Plot currents over full GOM
                 # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
-                x_interval=[lon.deg for lon in problem.extra_info["x_cache"]], #[-97.9, -76.41],
-                y_interval=[lat.deg for lat in problem.extra_info["y_cache"]],#[18.13, 31.92],
+                x_interval=[
+                    min(x_bnds[0], min(problems_df["x_T_lon"])) - margin_deg_plot,
+                    max(x_bnds[1], max(problems_df["x_T_lon"])) + margin_deg_plot,
+                ],
+                y_interval=[
+                    min(y_bnds[0], min(problems_df["x_T_lat"])) - margin_deg_plot,
+                    max(y_bnds[1], max(problems_df["x_T_lat"])) + margin_deg_plot,
+                ],
                 time=problem.start_state[0].date_time
                 if problem.nb_platforms > 1
                 else problem.start_state.date_time,
                 spatial_resolution=0.2,
                 return_ax=True,
-                figsize=(32, 24),
+                figsize=(18, 12),
             )
+        # plot starts
         if all(problems_df["multi_agent"].tolist()):
-            colors = ['r', 'm', 'y', 'k', 'y', 'b'] #cm.rainbow(np.linspace(0, 1, (len(problems_df))))
+            markers = [".", "+", "*", "x", "p", "h", "d", "1", "P", "H"]
+            # colors = ['r', 'm', 'y', 'k', 'y', 'b'] #cm.rainbow(np.linspace(0, 1, (len(problems_df))))
             for k in range(len(problems_df)):
-                pb_color = random.choice(colors)
+                pb_marker = random.choice(markers)
                 ax.scatter(
                     literal_eval(problems_df["x_0_lon"][k]),
                     literal_eval(problems_df["x_0_lat"][k]),
-                    c=pb_color,
-                    marker="o",
-                    s=10,
-                    label="starts",
+                    c="red",
+                    marker=pb_marker,
+                    s=15,
+                    linewidth=2,
+                    label="starts"
+                    if k == 0
+                    else None,  # avoid repeating the same legend for each marker
                 )
-            ax.scatter(
-                target_df["x_T_lon"],
-                target_df["x_T_lat"],
-                c="green",
-                marker="x",
-                s=15,
-                label="targets",
-            )
         else:
             ax.scatter(
                 problems_df["x_0_lon"],
                 problems_df["x_0_lat"],
                 c="red",
                 marker="o",
-                s=6,
+                s=15,
+                linewidth=2,
                 label="starts",
             )
-            ax.scatter(
-                target_df["x_T_lon"],
-                target_df["x_T_lat"],
-                c="green",
-                marker="x",
-                s=12,
-                label="targets",
-            )
+        # plot targets
+        ax.scatter(
+            target_df["x_T_lon"],
+            target_df["x_T_lat"],
+            c="green",
+            marker="x",
+            linewidth=4,
+            s=75,
+            label="targets",
+        )
         ax.legend()
         ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.png")
         ax.get_figure().show()

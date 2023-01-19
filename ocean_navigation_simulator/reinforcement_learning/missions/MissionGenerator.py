@@ -495,8 +495,12 @@ class MissionGenerator:
             )
         )
         sampling_radius = units.Distance(km=self.config["multi_agent"]["sampling_range_radius_km"])
+        nb_mission_found = 0
         # Step 2: Return List of SpatioTemporalPoint
-        for _ in range(min(self.config["feasible_missions_per_target"], points_to_sample.shape[0])):
+        while nb_mission_found < min(
+            self.config["feasible_missions_per_target"], points_to_sample.shape[0]
+        ):
+            self.performance["start_resampling"] = 0
             sample_index = self.random.integers(points_to_sample.shape[0])
             sampled_point = points_to_sample[sample_index]
             points_to_sample = np.delete(points_to_sample, sample_index, axis=0)
@@ -521,51 +525,58 @@ class MissionGenerator:
                 distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
                     point.to_spatial_point()
                 )
-                if len(mission_connected_points) == 0 and (
-                    distance_to_shore.deg > self.config["min_distance_from_land"]
-                ):
-                    mission_connected_points.append((False, point, distance_to_shore))
-                    sampled_spatial_points = np.array(point.to_spatial_point()).reshape(2, -1)
 
-                elif distance_to_shore.deg > self.config["min_distance_from_land"]:
-                    dist_to_platf = point.to_spatial_point().haversine(
-                        SpatialPoint(
-                            lon=units.Distance(deg=sampled_spatial_points[0]),
-                            lat=units.Distance(deg=sampled_spatial_points[1]),
-                        )
-                    )
-                    if any(  # connected to at least one of the other members
-                        self.config["scenario_config"]["multi_agent_constraints"][
-                            "collision_thrsld"
-                        ]
-                        < dist.km
-                        < self.config["scenario_config"]["multi_agent_constraints"][
-                            "communication_thrsld"
-                        ]
-                        for dist in dist_to_platf
-                    ):
+                if distance_to_shore.deg > self.config["min_distance_from_land"]:
+                    if len(mission_connected_points) == 0:
                         mission_connected_points.append((False, point, distance_to_shore))
-                        sampled_spatial_points = np.append(
-                            sampled_spatial_points,
-                            np.array(point.to_spatial_point()).reshape(2, -1),
-                            axis=1,
+                        sampled_spatial_points = np.array(point.to_spatial_point()).reshape(2, -1)
+                    else:
+                        dist_to_platf = point.to_spatial_point().haversine(
+                            SpatialPoint(
+                                lon=units.Distance(deg=sampled_spatial_points[0]),
+                                lat=units.Distance(deg=sampled_spatial_points[1]),
+                            )
                         )
+                        if any(  # connected to at least one of the other members
+                            self.config["scenario_config"]["multi_agent_constraints"][
+                                "collision_thrsld"
+                            ]
+                            < dist.km
+                            < self.config["scenario_config"]["multi_agent_constraints"][
+                                "communication_thrsld"
+                            ]
+                            for dist in dist_to_platf
+                        ):
+                            mission_connected_points.append((False, point, distance_to_shore))
+                            sampled_spatial_points = np.append(
+                                sampled_spatial_points,
+                                np.array(point.to_spatial_point()).reshape(2, -1),
+                                axis=1,
+                            )
                 else:
                     self.performance["start_resampling"] += 1
-            feasible_missions.append(mission_connected_points)
-            list_spatio_temp_points.append(
-                SpatioTemporalPoint(
-                    lon=units.Distance(deg=sampled_spatial_points[0]),
-                    lat=units.Distance(deg=sampled_spatial_points[1]),
-                    date_time=np.repeat(
-                        datetime.datetime.fromtimestamp(
-                            math.ceil(planner.current_data_t_0 + planner.reach_times[0]),
-                            tz=datetime.timezone.utc,
+                    if self.performance["start_resampling"] > 10:
+                        break
+            if (
+                len(mission_connected_points) == self.config["multi_agent"]["nb_platforms"]
+            ):  # only append if we were able to find enough starts for multi-agents
+                feasible_missions.append(mission_connected_points)
+                list_spatio_temp_points.append(
+                    SpatioTemporalPoint(
+                        lon=units.Distance(deg=sampled_spatial_points[0]),
+                        lat=units.Distance(deg=sampled_spatial_points[1]),
+                        date_time=np.repeat(
+                            datetime.datetime.fromtimestamp(
+                                math.ceil(planner.current_data_t_0 + planner.reach_times[0]),
+                                tz=datetime.timezone.utc,
+                            ),
+                            self.config["multi_agent"]["nb_platforms"],
                         ),
-                        self.config["multi_agent"]["nb_platforms"],
-                    ),
+                    )
                 )
-            )
+                nb_mission_found += 1
+            else:
+                continue
         return feasible_missions, list_spatio_temp_points
 
     def sample_feasible_points(

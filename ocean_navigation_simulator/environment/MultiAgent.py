@@ -359,13 +359,15 @@ class MultiAgent:
             dict: also returns the metrics as a dictionary
         """
         if formatLog is None:
-            formatLog = logging.Formatter("%(asctime)s METRIC LOG:  %(message)s")
+            formatLog = logging.Formatter(
+                "%(asctime)s METRICS LOG:  %(message)s", "%Y-%m-%d %H:%M:%S"
+            )
 
         isolated_nodes = self.get_isolate_nodes(list_of_graph=list_of_graph, stride_temporal_res=1)
         collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
         integrated_communication = simpson(isolated_nodes, dates)
         collision_metric = sum(collisions)
-        beta_connectivity_list = [len(G.edges)/len(G.nodes) for G in list_of_graph]
+        beta_connectivity_list = [len(G.edges) / len(G.nodes) for G in list_of_graph]
         initial_max_graph_degree = max([deg for _, deg in list_of_graph[0].degree])
         final_max_graph_degree = max([deg for _, deg in list_of_graph[-1].degree])
         if (
@@ -380,52 +382,22 @@ class MultiAgent:
         self.LOG_insert(
             logfile,
             formatLog,
-            f"Integral metric of isolated platforms = {integrated_communication}",
+            f"\nIntegral metric of isolated platforms = {integrated_communication}\
+            \nNumber of collisions = {collision_metric}\
+            \nFraction of platforms reaching target = {success_rate_reach_target}\
+            \nAverage Beta Index = {sum(beta_connectivity_list)/len(beta_connectivity_list)}\
+            \nInitial maximum degree of the graph = {initial_max_graph_degree}\
+            \nFinal maximum degree of the graph = {final_max_graph_degree}\
+            \nMean maximum correction from optimal control, in degrees = {energy_efficiency_proxy*180/np.pi}",
             logging.INFO,
         )
         self.LOG_insert(
             logfile,
-            formatLog,
-            f"Number of collisions = {collision_metric}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Fraction of platforms reaching target = {success_rate_reach_target}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Average Beta Index = {sum(beta_connectivity_list)/len(beta_connectivity_list)}",
+            logging.Formatter("Mission Success: %(message)s"),
+            True if mission_success else False,
             logging.INFO,
         )
 
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Initial maximum degree of the graph = {initial_max_graph_degree}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Final maximum degree of the graph = {final_max_graph_degree}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Mean maximum correction from optimal control, in degrees = {energy_efficiency_proxy*180/np.pi}",
-            logging.INFO,
-        )
-        self.LOG_insert(
-            logfile,
-            formatLog,
-            f"Mission Success !" if mission_success else f"Mission failed",
-            logging.INFO,
-        )
         return {
             "Isolated_platform_metric": integrated_communication,
             "Number_of_collision": collision_metric,
@@ -433,6 +405,7 @@ class MultiAgent:
             "Mean maximum correction from optimal control degrees": energy_efficiency_proxy
             * 180
             / np.pi,
+            "Average Beta Index": sum(beta_connectivity_list) / len(beta_connectivity_list),
             "Initial maximum degree of the graph": initial_max_graph_degree,
             "Final maximum degree of the graph": final_max_graph_degree,
             "Mission_sucess": mission_success,

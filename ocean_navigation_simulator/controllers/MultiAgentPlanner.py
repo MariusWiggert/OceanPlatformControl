@@ -109,6 +109,9 @@ class MultiAgentPlanner(HJReach2DPlanner):
         """
         action_list = []
         reactive_control_correction_angle = []
+        super().get_action(
+            observation[0]
+        )  # intialize the planner, needed first time before getting the ttr values
         reactive_control = DecentralizedReactiveControl(
             observation=observation,
             param_dict=self.multi_agent_settings["reactive_control_config"],
