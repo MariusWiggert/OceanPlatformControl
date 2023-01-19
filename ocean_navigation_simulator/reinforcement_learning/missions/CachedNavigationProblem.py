@@ -2,6 +2,7 @@ import dataclasses
 import datetime
 import json
 from ast import literal_eval
+
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJReach2DPlanner,
 )

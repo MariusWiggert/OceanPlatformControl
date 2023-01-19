@@ -1,13 +1,16 @@
 import datetime
+import itertools
 import logging
 import os
 import pickle
 import pprint
+import random
 import shutil
 import sys
 import warnings
+from ast import literal_eval
 from typing import Optional
-import random
+
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
@@ -15,8 +18,7 @@ import pytz
 import ray
 import seaborn as sns
 from matplotlib import pyplot as plt
-from ast import literal_eval
-import itertools
+
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
     CachedNavigationProblem,
