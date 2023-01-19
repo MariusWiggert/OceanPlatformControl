@@ -135,5 +135,5 @@ mission_generator.plot_last_batch_snapshot(filename=results_folder + "problems.p
 #     results_folder=results_folder,
 #     scenario_config=arena_config
 # )
-# GenerationRunner.plot_target_dates_histogram(results_folder)
+GenerationRunner.plot_target_dates_histogram(results_folder)
 # GenerationRunner.plot_ttr_histogram(results_folder)

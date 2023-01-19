@@ -16,6 +16,7 @@ from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource imp
     GarbagePatchSource2d,
 )
 
+
 # Might crash due to wrong meta data, other than that it works
 @pytest.fixture(scope="module")
 def scenario_config():
@@ -41,7 +42,7 @@ def scenario_config():
                 "source_settings": {
                     "local": True,
                     "folder": "data/tests/test_GarbagePatchSource/",
-                    "source": "copernicus",
+                    "source": "HYCOM",
                     "type": "hindcast",
                 },
             },
@@ -64,7 +65,7 @@ def scenario_config():
     # download files if not there yet
     ArenaFactory.download_required_files(
         archive_source="HYCOM",
-        archive_type="hindcast",  # TODO: This is currently breaking everything.
+        archive_type="hindcast",
         region="Region 1",
         download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
         t_interval=t_interval,
