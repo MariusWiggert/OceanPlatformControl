@@ -1,17 +1,11 @@
+from importlib import import_module
+
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 from ocean_navigation_simulator.environment.Platform import PlatformAction
-
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJReach2DPlanner,
-)
-from ocean_navigation_simulator.controllers.NaiveSafetyController import NaiveSafetyController
-
-# Ugly import to enable importing all controllers using eval
-import ocean_navigation_simulator.controllers
 
 
 class SwitchingController(Controller):
@@ -27,10 +21,17 @@ class SwitchingController(Controller):
         self.specific_settings = specific_settings
         self.specific_settings_navigation = specific_settings_navigation
         self.specific_settings_safety = specific_settings_safety
-        # Eval to execute and import the controller we want to prevent a long switch case with more imports.
-        # TODO: discuss method
-        self.navigation_controller = eval(self.specific_settings["navigation_controller"])
-        self.safety_controller = eval(self.specific_settings["safety_controller"])
+        # Load module that is needed for the specific controller
+        NavigationControllerClass = self.__import_class_from_string(
+            self.specific_settings["navigation_controller"]
+        )
+        self.navigation_controller = NavigationControllerClass(
+            problem, self.specific_settings_navigation
+        )
+        SafetyControllerClass = self.__import_class_from_string(
+            self.specific_settings["safety_controller"]
+        )
+        self.safety_controller = SafetyControllerClass(problem, self.specific_settings_safety)
         self.safety_status = False
 
     def safety_condition(self, observation: ArenaObservation) -> str:
@@ -86,3 +87,30 @@ class SwitchingController(Controller):
             return self.safety_controller.get_action(observation, area_type=safety_status)
         else:
             return self.navigation_controller.get_action(observation)
+
+    def __import_class_from_string(self, controller_str: str):
+        """Import a dotted module path from controller_str and return the attribute/class designated by the last name in the path. Raise ImportError if the import failed.
+        Args:
+            controller_str: specified controller string, e.g.
+                ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner
+
+        Returns:
+            Class specified in controller_str
+        Raises:
+            ImportError: if module path is not valid.
+            ImportError: if class name is not valid.
+        """
+
+        try:
+            module_path, class_name = controller_str.rsplit(".", 1)
+        except ValueError:
+            raise ImportError("%s doesn't look like a module path" % controller_str)
+
+        module = import_module(module_path)
+
+        try:
+            return getattr(module, class_name)
+        except AttributeError as err:
+            raise ImportError(
+                'Module "%s" does not define a "%s" attribute/class' % (module_path, class_name)
+            ) from err
