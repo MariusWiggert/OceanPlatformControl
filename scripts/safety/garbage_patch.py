@@ -8,9 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.spatial import ConvexHull, Delaunay
-
 from bathymetry import bfs_min_distance, convert_np_to_xr
+from scipy.spatial import ConvexHull, Delaunay
 
 
 def generate_shortest_distance_maps(xarray: xr, cutoff: float = 0, save_path=None) -> xr:

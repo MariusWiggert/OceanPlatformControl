@@ -426,9 +426,12 @@ if __name__ == "__main__":
 
     # Create min_distance to land map and test loading it
     low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    min_d_map_name = "data/bathymetry/bathymetry_distance_res_0.083_0.083_max_elevation_0.nc"
+    elevation = 0
+    min_d_map_name = (
+        f"data/bathymetry/bathymetry_distance_res_0.083_0.083_max_elevation_{int(elevation)}.nc"
+    )
     min_d_map = generate_shortest_distance_maps(
-        low_res_loaded, save_path=min_d_map_name, elevation=-150
+        low_res_loaded, save_path=min_d_map_name, elevation=elevation
     )
     min_d_map_loaded = xr.open_dataset(min_d_map_name)
     min_d_map_loaded = min_d_map_loaded.sel(lat=slice(15, 40), lon=slice(-160, -105))
