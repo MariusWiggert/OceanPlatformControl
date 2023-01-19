@@ -82,6 +82,7 @@ problem = NavigationProblem(
     target_radius=0.1,
 )
 
+#%% Additional plots for better visualization
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
     x_0=x_0.to_spatio_temporal_point(), x_T=x_T, deg_around_x0_xT_box=1, temp_horizon_in_s=3600
 )
@@ -96,7 +97,7 @@ ax = arena.bathymetry_source.plot_mask_from_xarray(
 )
 problem.plot(ax=ax)
 plt.show()
-
+#%% Prepare controller
 specific_settings_safety = {
     "filepath_distance_map": {
         "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_0.nc",
@@ -104,7 +105,7 @@ specific_settings_safety = {
     }
 }
 planner = NaiveSafetyController(problem, specific_settings_safety)
-# % Run reachability planner
+# % Run controller
 observation = arena.reset(platform_state=x_0)
 action = planner.get_action(observation=observation)
 #%% Let controller run close-loop within the arena
@@ -112,7 +113,7 @@ for i in tqdm(range(int(3600 * 24 * 0.5 / 600))):  # 5 days
     action = planner.get_action(observation=observation, area_type="bathymetry")
     observation = arena.step(action)
 
-# #%% Plot the arena trajectory on the map
+#%% Plot the arena trajectory on the map
 arena.plot_all_on_map(problem=problem, background="bathymetry")
 #%% Animate the trajectory with bathymetry overlay
 arena.animate_trajectory(
