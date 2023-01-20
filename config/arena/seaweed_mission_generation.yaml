@@ -1,0 +1,8 @@
+seed: 123
+x_range: [-120,-70] 
+y_range: [-20,20]
+t_range: [2022-07-01 00:00:00Z, 2022-11-01 00:00:00Z]
+time_horizon: 2592000 # 3600 * 24 * 30 # in seconds
+n_samples: 100
+min_distance_from_land: 0.3 # degree
+scenario_name: "Region_3_HYCOM_FC_daily+monthly_averages_Copernicus_HC_solar_seaweed"

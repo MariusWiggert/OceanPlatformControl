@@ -4,7 +4,7 @@ casadi_cache_dict:
 
 platform_dict:
     battery_cap_in_wh: 400000.0 #400000.0
-    u_max_in_mps: 0.5
+    u_max_in_mps: 0.1
     motor_efficiency: 1.0
     solar_panel_size: 100
     solar_efficiency: 1
@@ -21,8 +21,8 @@ ocean_dict:
         field: 'OceanCurrents'
         source: 'hindcast_files'
         source_settings:
-            folder: '/Users/matthiaskiller/Desktop/data/Copernicus/Hindcast/Region 3/' #'data/hindcast_test/' 
-            source: 'Copernicus'
+            folder: '/Users/matthiaskiller/Desktop/data/HYCOM/Hindcast/Region 3/' #'data/hindcast_test/' 
+            source: 'HYCOM'
             type: "hindcast"
             local: True
         # field: 'OceanCurrents'
@@ -41,6 +41,7 @@ ocean_dict:
         #     source: 'HYCOM'
         #     type: "forecast"
         #     local: True
+        #null
         field: 'OceanCurrents'
         source: 'longterm_average'
         source_settings:
@@ -58,9 +59,6 @@ ocean_dict:
             source_settings:
               folder: '/Users/matthiaskiller/Desktop/data/Copernicus/Averages_monthly/'
               currents: 'normal'
-        
-
-
 
 solar_dict:
     hindcast: 

@@ -3,8 +3,8 @@
 #     time_around_x_t: 1000.0
 
 casadi_cache_dict:
-    deg_around_x_t: 0.2
-    time_around_x_t: 22
+    deg_around_x_t: 3
+    time_around_x_t: 50
 
 platform_dict:
     battery_cap_in_wh: 400.0
@@ -13,7 +13,7 @@ platform_dict:
     solar_panel_size: 0.5
     solar_efficiency: 0.2
     drag_factor: 675.0
-    dt_in_s: 0.2
+    dt_in_s: 1
 
 use_geographic_coordinate_system: False
 
@@ -35,7 +35,7 @@ ocean_dict:
             temporal_domain: [0, 1000]
             spatial_resolution: 0.1
             temporal_resolution: 10
-            y_range_highway: [1.6, 1.8]
+            y_range_highway: [0, 0.5]
             U_cur: 0
     forecast: null
 
