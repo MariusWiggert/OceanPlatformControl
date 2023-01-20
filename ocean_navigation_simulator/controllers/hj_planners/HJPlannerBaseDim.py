@@ -641,7 +641,6 @@ class HJPlannerBaseDim(Controller):
 
     def _log_traj_in_plan_dict(self, times, x_traj, contr_seq):
         """Helper function to log plans throughout the closed-loop control."""
-        self.logger.info("HJPlannerBase: start extract_trajectory")
         # Step 1: concatenate to reduce file size
         times_vec = times.reshape(1, -1)
         trajectory = np.concatenate((x_traj, times_vec), axis=0)
