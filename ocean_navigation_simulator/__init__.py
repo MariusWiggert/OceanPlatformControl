@@ -6,7 +6,6 @@ from ocean_navigation_simulator import (
     problem_factories,
     utils,
 )
-
 # specify version (for pip installation)
 __version__ = "0.1.1"
-#__all__ = ("controllers", "environment", "ocean_observer", "problem_factories", "utils")
+__all__ = ("controllers", "environment", "ocean_observer", "problem_factories", "utils")
