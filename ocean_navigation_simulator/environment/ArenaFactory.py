@@ -155,9 +155,7 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                                "region", "GOM"
-                            ),
+                            region=config["ocean_dict"].get("region", "GOM"),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
@@ -198,7 +196,7 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["forecast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"].get("area", "GOM"),
+                            region=config["ocean_dict"].get("region", "GOM"),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
