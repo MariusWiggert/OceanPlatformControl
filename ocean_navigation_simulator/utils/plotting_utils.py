@@ -164,7 +164,9 @@ def animate_trajectory(
         )
         # if there's a func plot it
         if add_ax_func_ext is not None:
-            add_ax_func_ext(ax, time, x_interval=x_interval, y_interval=y_interval, **kwargs)
+            kwargs["x_interval"] = x_interval
+            kwargs["y_interval"] = y_interval
+            add_ax_func_ext(ax, time, **kwargs)
         ax.legend(loc="lower right")
 
     # Step 3: run the animation with the data_source and the extra function
