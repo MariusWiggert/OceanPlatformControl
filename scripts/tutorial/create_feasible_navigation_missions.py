@@ -14,7 +14,7 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 # Settings for where the problem csv is saved
-results_folder = "generated_data/missions/"  # /tmp/missions/"
+results_folder = "generated_media/missions_region1/"  # /tmp/missions/"
 os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
@@ -32,6 +32,7 @@ arena_config = {
     "use_geographic_coordinate_system": True,
     "spatial_boundary": None,
     "ocean_dict": {
+        "region": "Region 1",
         "hindcast": {
             "field": "OceanCurrents",
             "source": "hindcast_files",
@@ -49,7 +50,7 @@ arena_config = {
             "source_settings": {
                 "folder": "data/miss_gen_forecast/",
                 "local": False,
-                "source": "Copernicus",
+                "source": "HYCOM",
                 "type": "forecast",
                 "currents": "total",
             },
@@ -70,11 +71,11 @@ config = {
     # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
     # Copernicus FC: lon: [-98.0, -76.416664], lat: [18.083334, 30.0]
     # Combined: [-98.0, -76.416664], [18.1200008392334, 30.0]
-    "x_range": [-95.9, -78.52],
-    "y_range": [20.22, 27.9],
+    "x_range": [-158, -150],
+    "y_range": [18, 23],
     "t_range": [  # ['2022-08-01T00:00:00+00:00', '2022-08-30T00:00:00+00:00'],
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
-        datetime.datetime(year=2022, month=8, day=1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(year=2022, month=8, day=16, tzinfo=datetime.timezone.utc),
         datetime.datetime(year=2022, month=8, day=30, tzinfo=datetime.timezone.utc),
     ],
     "problem_timeout_in_h": 140,

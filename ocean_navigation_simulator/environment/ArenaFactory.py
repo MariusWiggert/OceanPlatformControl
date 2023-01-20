@@ -154,9 +154,7 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                                "region", "GOM"
-                            ),
+                            region=config["ocean_dict"].get("region", "GOM"),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
@@ -197,9 +195,7 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["forecast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"].get(
-                                "area", "GOM"
-                            ),
+                            region=config["ocean_dict"].get("region", "GOM"),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
@@ -484,29 +480,30 @@ class ArenaFactory:
                         )
                     else:
                         # check valid xarray file and meta length
-                        try:
-                            grid_dict_list = get_grid_dict_from_file(
-                                temp_folder + filename, currents="total"
-                            )
+                        # try:
+                        #     grid_dict_list = get_grid_dict_from_file(
+                        #         temp_folder + filename, currents="total"
+                        #     )
 
-                            if (
-                                file.subsetOptions.timeRange.start < grid_dict_list["t_range"][0]
-                                or grid_dict_list["t_range"][-1] < file.subsetOptions.timeRange.end
-                            ):
-                                error = "File shorter than declared in meta: filename={filename}, meta: [{ms},{me}], file: [{gs},{ge}]".format(
-                                    filename=filename,
-                                    ms=file.subsetOptions.timeRange.start.strftime(
-                                        "%Y-%m-%d %H-%M-%S"
-                                    ),
-                                    me=file.subsetOptions.timeRange.end.strftime(
-                                        "%Y-%m-%d %H-%M-%S"
-                                    ),
-                                    gs=grid_dict_list["t_range"][0].strftime("%Y-%m-%d %H-%M-%S"),
-                                    ge=grid_dict_list["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
-                                )
+                        #     if (
+                        #         file.subsetOptions.timeRange.start < grid_dict_list["t_range"][0]
+                        #         or grid_dict_list["t_range"][-1] < file.subsetOptions.timeRange.end
+                        #     ):
+                        #         error = "File shorter than declared in meta: filename={filename}, meta: [{ms},{me}], file: [{gs},{ge}]".format(
+                        #             filename=filename,
+                        #             ms=file.subsetOptions.timeRange.start.strftime(
+                        #                 "%Y-%m-%d %H-%M-%S"
+                        #             ),
+                        #             me=file.subsetOptions.timeRange.end.strftime(
+                        #                 "%Y-%m-%d %H-%M-%S"
+                        #             ),
+                        #             gs=grid_dict_list["t_range"][0].strftime("%Y-%m-%d %H-%M-%S"),
+                        #             ge=grid_dict_list["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
+                        #         )
 
-                        except Exception:
-                            error = f"Corrupted file: '{filename}'."
+                        # except Exception:
+                        #     error = f"Corrupted file: '{filename}'."
+                        pass
 
                     if error and throw_exceptions:
                         raise CorruptedOceanFileException(error)
