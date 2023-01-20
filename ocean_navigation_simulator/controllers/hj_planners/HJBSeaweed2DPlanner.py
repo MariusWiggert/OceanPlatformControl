@@ -46,6 +46,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         self.arena = arena
 
         super().__init__(problem, specific_settings)
+        self.specific_settings["platform_dict"]=problem.platform_dict
 
         # set first_plan to True so we plan on the first run over the whole time horizon
         self.first_plan = True
@@ -150,7 +151,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 dir="forward",
                 x_reach_end=None,  # self.get_x_from_full_state(self.problem.end_region)
             )
-            self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
+            #  # log values for closed-loop trajectory extraction
+            # x_start_backtracking = self.get_x_from_full_state(self.problem.end_region)
+            # t_start_backtracking = (
+            #     x_t.date_time.timestamp() + self.specific_settings["T_goal_in_seconds"]
+            # )
 
         elif self.specific_settings["direction"] == "backward":
             # Note: no trajectory is extracted as the value function is used for closed-loop control
@@ -245,10 +250,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                     [self.all_values_subset[:time_idx], self.all_values], axis=0
                 )
 
-            self._extract_trajectory(x_start=self.get_x_from_full_state(x_t))
-
             # arrange to forward times by convention for plotting and open-loop control
-            self._flip_value_func_to_forward_times()
+            self._set_value_func_to_forward_time()
+            # log values for closed-loop trajectory extraction
+            x_start_backtracking = self.get_x_from_full_state(x_t)
+            t_start_backtracking = x_t.date_time.timestamp()
 
         elif self.specific_settings["direction"] == "forward-backward":
             raise NotImplementedError("HJPlanner: Forward-Backward not implemented yet")
@@ -266,6 +272,20 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 "HJ Planner has NaNs in all values. Something went wrong in solving the PDE."
             )
 
+        # extract trajectory for open_loop control or because of plotting/logging
+        if (
+            self.specific_settings["direction"] == "forward"
+            or self.specific_settings.get("calc_opt_traj_after_planning", True)
+            or not self.specific_settings.get("closed_loop", True)
+        ):
+            self.times, self.x_traj, self.contr_seq, self.distr_seq = self._extract_trajectory(
+                x_start=x_start_backtracking,
+                t_start=t_start_backtracking,
+                num_traj_disc=self.specific_settings.get("num_traj_disc", None),
+                dt_in_sec=self.specific_settings.get("traj_dt_in_sec", None),
+            )
+            self._log_traj_in_plan_dict(self.times, self.x_traj, self.contr_seq)
+
         self.last_planning_posix = x_t.date_time.timestamp()
 
     def _update_current_data(self, observation: ArenaObservation):
@@ -275,12 +295,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         """
         start = time.time()
 
-        # Extract FC length in seconds
-        # TODO: check use of self.current_data_t_T
-        self.forecast_length = (
-            observation.forecast_data_source.forecast_data_source.DataArray.time.max()
-            - np.datetime64(observation.platform_state.date_time, "ns")
-        ) / np.timedelta64(1, "s")
+        # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
+        # TODO. change to posix time
+        if (hasattr(observation.forecast_data_source, "forecast_data_source")):
+            self.forecast_length = (
+                observation.forecast_data_source.forecast_data_source.forecast_data_source.DataArray.time.max()
+                - np.datetime64(observation.platform_state.date_time, "ns")
+            ) / np.timedelta64(1, "s")
+        else: self.forecast_length = 3600 * 24 * 10
 
         if self.first_plan and self.forecast_length < self.specific_settings["T_goal_in_seconds"]:
             deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box_global"]
@@ -292,13 +314,15 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
         ):
             # Extract relative FC Horizon from inital time
-            # TODO: check use of self.current_data_t_T & posix time
             self.forecast_from_start = (
                 units.get_posix_time_from_np64(
-                    observation.forecast_data_source.forecast_data_source.DataArray.time.max()
+                    observation.forecast_data_source.forecast_data_source.forecast_data_source.DataArray.time.max()
                 )
                 - units.get_posix_time_from_np64(self.x_0_time)
             ).data
+            # Make sure forecast horizon is not longer as planning period
+            if self.forecast_from_start > self.specific_settings["T_goal_in_seconds"]:
+                self.forecast_from_start = self.specific_settings["T_goal_in_seconds"]
 
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
@@ -353,7 +377,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # import numpy as np
 
         # # Read data from a csv
-        # z = seaweed_xarray["F_NGR_per_second"].data[0]
+        # z = seaweed_xarray["F_NGR_per_second"].data[-1]
         # x = self.grid.states[..., 0]
         # y = self.grid.states[..., 1]
         # fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
@@ -409,10 +433,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         with open(folder + "current_data_t_T.pickle", "wb") as file:
             pickle.dump(self.current_data_t_T, file)
         # Used in Start Sampling
-        with open(folder + "characteristic_vec.pickle", "wb") as file:
-            pickle.dump(self.characteristic_vec, file)
-        with open(folder + "offset_vec.pickle", "wb") as file:
-            pickle.dump(self.characteristic_vec, file)
         with open(folder + "initial_values.pickle", "wb") as file:
             pickle.dump(self.initial_values, file)
 
