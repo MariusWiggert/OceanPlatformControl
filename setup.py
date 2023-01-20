@@ -29,7 +29,7 @@ setuptools.setup(
     description="Codebase to simulate ocean platform navigation",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/MariusWiggert/OceanPlatformControl/",
+    # url="https://github.com/MariusWiggert/OceanPlatformControl/",
     project_urls={},
     license="MIT",
     packages=setuptools.find_packages(where="ocean_navigation_simulator"),
