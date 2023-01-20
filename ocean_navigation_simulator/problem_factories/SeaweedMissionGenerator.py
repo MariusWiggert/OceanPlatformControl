@@ -8,11 +8,16 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.ArenaFactory import (
+    ArenaFactory,
+    CorruptedOceanFileException,
+    MissingOceanFileException,
+)
 from ocean_navigation_simulator.environment.PlatformState import PlatformState, SpatioTemporalPoint
 
 from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
 from ocean_navigation_simulator.utils import cluster_utils, units
+from ocean_navigation_simulator.utils.misc import timing_dict
 
 
 class SeaweedMissionGenerator:
@@ -21,7 +26,7 @@ class SeaweedMissionGenerator:
     """
 
     # TODO: test
-    def __init__(self, config: dict = {}):
+    def __init__(self, config: dict = {}, c3=None):
         """Takes the config file, sets the seed and initializes the arena object.
 
         Args:
@@ -30,44 +35,77 @@ class SeaweedMissionGenerator:
         if type(config["t_range"][0]) == str:
             config["t_range"] = [datetime.datetime.fromisoformat(t) for t in config["t_range"]]
         self.config = config
+        self.c3 = c3
 
         self.random = np.random.default_rng(self.config["seed"])
 
-        self.arena = ArenaFactory.create(
-            scenario_file=self.config.get("scenario_file", None),
-            scenario_config=self.config.get("scenario_config", {}),
-            scenario_name=self.config.get("scenario_name", None),
-        )
-
         self.logger = logging.getLogger("SeaweedMissionGenerator")
+
+        self._initialize_arena_download_data()
+
+    def _initialize_arena_download_data(self):
+        """Initializes the arena and downloads the data. Catches errors if download fails i.e. due to missing or corrupt files."""
+
+        self.performance = {
+            "total_time": 0,
+            "generate_time": 0,
+            "errors": 0,
+        }
+
+        self.errors = []
+        try:
+            self.arena = ArenaFactory.create(
+                scenario_file=self.config.get("scenario_file", None),
+                scenario_config=self.config.get("scenario_config", {}),
+                scenario_name=self.config.get("scenario_name", None),
+                x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
+                y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
+                t_interval=self.config["t_range"],
+                throw_exceptions=True,
+                c3=self.c3,
+            )
+        except (MissingOceanFileException, CorruptedOceanFileException) as e:
+            self.logger.warning(
+                f"Aborted because of missing or corrupted files: [{self.config['t_range'][0]}, {self.config['t_range'][1]}]."
+            )
+            self.logger.warning(e)
+            self.performance["errors"] += 1
+            self.errors.append(str(e))
+            return False
 
     def generate_batch(self) -> List[SeaweedProblem]:
         """Generate a batch of starts according to config"""
         self.problems = []
 
-        # Step 1: Generate starts
-        starts = self._generate_starts()
+        with timing_dict(
+            self.performance,
+            "total_time",
+            "Batch finished ({})",
+            self.logger,
+        ):
+            # Step 1: Generate starts
+            starts = self._generate_starts()
 
-        # Step 2: Create Problems
-        for random, start, distance_to_shore in starts:
-            self.problems.append(
-                SeaweedProblem(
-                    start_state=PlatformState(
-                        lon=start.lon,
-                        lat=start.lat,
-                        date_time=start.date_time,
-                    ),
-                    platform_dict=self.arena.platform.platform_dict,
-                    extra_info={
-                        "time_horizon_in_sec": self.config["time_horizon"],
-                        "random": random,
-                        "distance_to_shore_deg": distance_to_shore.deg,
-                        # Factory
-                        "factory_seed": self.config["seed"],
-                        "factory_index": len(self.problems),
-                    },
+            # Step 2: Create Problems
+            for rand, start, distance_to_shore in starts:
+                self.problems.append(
+                    SeaweedProblem(
+                        start_state=PlatformState(
+                            lon=start.lon,
+                            lat=start.lat,
+                            date_time=start.date_time,
+                        ),
+                        platform_dict=self.arena.platform.platform_dict,
+                        extra_info={
+                            "time_horizon_in_sec": self.config["time_horizon"],
+                            "random": rand,
+                            "distance_to_shore_deg": distance_to_shore.deg,
+                            # Factory
+                            "factory_seed": self.config["seed"],
+                            "factory_index": len(self.problems),
+                        },
+                    )
                 )
-            )
 
         return self.problems
 
@@ -126,7 +164,7 @@ class SeaweedMissionGenerator:
         return random_datetime
 
     @staticmethod
-    def plot_starts_and_targets(
+    def plot_starts(
         config: dict,
         problems: Optional[List] = None,
         results_folder: Optional[str] = None,
