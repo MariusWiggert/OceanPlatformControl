@@ -16,6 +16,7 @@ class SeaweedProblem:
 
     start_state: PlatformState
     platform_dict: dict = None
+    extra_info: dict = dataclasses.field(default_factory=dict)
 
     def plot(
         self,
@@ -33,6 +34,18 @@ class SeaweedProblem:
 
         return ax
 
+    def is_done(self, state: PlatformState) -> bool:
+        """Checks whether the problem is solved or became unsolvable. Needs to get the current
+        platform state.
+        Args:
+            state: PlatformState
+        Returns:
+          1: problem successfully solved
+          0: problem not yet solved
+          #-1: problem cannot be solved anymore (e.g. timeout)
+        """
+        return 0
+
     @staticmethod
     def from_pandas_row(mission):
         return SeaweedProblem(
@@ -41,46 +54,31 @@ class SeaweedProblem:
                 lat=units.Distance(deg=mission["x_0_lat"]),
                 date_time=datetime.datetime.fromisoformat(mission["t_0"]),
             ),
-            x_range=[
-                units.Distance(deg=mission["x_range_l"]),
-                units.Distance(deg=mission["x_range_h"]),
-            ]
-            if "x_range_l" in mission
-            else None,
-            y_range=[
-                units.Distance(deg=mission["y_range_l"]),
-                units.Distance(deg=mission["y_range_h"]),
-            ]
-            if "x_range_h" in mission
-            else None,
             extra_info=mission.to_dict() | {"index": mission.name},
         )
 
     def to_dict(self) -> dict:
-        return (
-            {
-                "t_0": self.start_state.date_time.isoformat(),
-                "x_0_lon": self.start_state.lon.deg,
-                "x_0_lat": self.start_state.lat.deg,
-            }
-            | (
-                {
-                    "x_range_l": self.x_range[0].deg,
-                    "x_range_h": self.x_range[1].deg,
-                }
-                if self.x_range is not None
-                else {}
-            )
-            | (
-                {
-                    "x_range_l": self.y_range[0].deg,
-                    "x_range_h": self.y_range[1].deg,
-                }
-                if self.y_range is not None
-                else {}
-            )
-            | (self.extra_info if self.extra_info is not None else {})
-        )
+        return {
+            "t_0": self.start_state.date_time.isoformat(),
+            "x_0_lon": self.start_state.lon.deg,
+            "x_0_lat": self.start_state.lat.deg,
+        } | (self.extra_info if self.extra_info is not None else {})
+
+    def to_c3_mission_config(self):
+        """To easily populate c3 database with missions."""
+        prob_dict = self.to_dict()
+        x_0 = {
+            "lon": prob_dict["x_0_lon"],
+            "lat": prob_dict["x_0_lat"],
+            "date_time": prob_dict["t_0"],
+        }
+
+        mission_config = {
+            "x_0": [x_0],  # Evaluation runner assumes it is a list (for multi-agent)
+            "seed": prob_dict.get("factory_seed", None),
+        }
+
+        return mission_config
 
     def __repr__(self):
         return "Problem [start: {s}]".format(
