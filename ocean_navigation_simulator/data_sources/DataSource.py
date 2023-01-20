@@ -816,6 +816,7 @@ class AnalyticalSource(abc.ABC):
         t_interval: List[Union[datetime.datetime, float]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
