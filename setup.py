@@ -32,7 +32,7 @@ setuptools.setup(
     url="https://github.com/MariusWiggert/OceanPlatformControl/",
     project_urls={},
     license="MIT",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(include=["ocean_navigation_simulator.*", "scripts.*"]),
     python_requires=">=3.9.7",
     extras_require={
         "dev": style_packages + test_packages,
