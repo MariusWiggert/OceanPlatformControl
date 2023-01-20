@@ -46,7 +46,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         self.arena = arena
 
         super().__init__(problem, specific_settings)
-        self.specific_settings["platform_dict"]=problem.platform_dict
+        self.specific_settings["platform_dict"] = problem.platform_dict
 
         # set first_plan to True so we plan on the first run over the whole time horizon
         self.first_plan = True
@@ -297,12 +297,13 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
         # TODO. change to posix time
-        if (hasattr(observation.forecast_data_source, "forecast_data_source")):
+        if hasattr(observation.forecast_data_source, "forecast_data_source"):
             self.forecast_length = (
                 observation.forecast_data_source.forecast_data_source.forecast_data_source.DataArray.time.max()
                 - np.datetime64(observation.platform_state.date_time, "ns")
             ) / np.timedelta64(1, "s")
-        else: self.forecast_length = 3600 * 24 * 10
+        else:
+            self.forecast_length = 3600 * 24 * 10
 
         if self.first_plan and self.forecast_length < self.specific_settings["T_goal_in_seconds"]:
             deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box_global"]
