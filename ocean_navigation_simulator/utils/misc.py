@@ -123,6 +123,7 @@ def set_arena_loggers(level):
 
     logging.getLogger("OceanEnv").setLevel(level)
     logging.getLogger("MissionGenerator").setLevel(level)
+    logging.getLogger("SeaweedMissionGenerator").setLevel(level)
 
 
 def silence_ray_and_tf():
