@@ -7,9 +7,10 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
+from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
+
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
-    SpatialPoint,
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
@@ -111,7 +112,8 @@ class Constructor:
 
         # TODO: Test!
         # Create SpatialPoint objects from mission config and save it back to mission_conf
-        x_T = SpatialPoint.from_dict(self.mission_conf["x_T"])
+        # x_T = SpatialPoint.from_dict(self.mission_conf["x_T"])
+        x_T = None
 
         if self.objective_conf["type"] == "nav":
             return NavigationProblem(
@@ -120,14 +122,8 @@ class Constructor:
                 target_radius=self.mission_conf["target_radius"],
                 platform_dict=self.platform_dict,
             )
-
-        # TODO: Adapt to new objectives i.e.:
-        #
-        # elif(self.objective=="max_seaweed"):
-        #     # TODO: code SeaweedProblem problem class
-        #     return SeaweedProblem(
-        #             start_state=X_0[0],
-        #             timeout=self.mission_conf["timeout"],)
+        elif self.objective_conf["type"] == "max_seaweed":
+            return SeaweedProblem(start_state=X_0[0], platform_dict=self.platform_dict)
         # elif(self.objective=="safety"):
         #     # TODO: code SafetyProblem class
         #     return SafetyProblem(
@@ -156,7 +152,9 @@ class Constructor:
         ControllerClass = self.__import_class_from_string()
 
         # Return controller object
-        return ControllerClass(problem=self.problem, specific_settings=self.ctrl_conf)
+        return ControllerClass(
+            problem=self.problem, arena=self.arena, specific_settings=self.ctrl_conf
+        )
 
     def __observer_constructor(self) -> Union[Observer, NoObserver]:
         """Constructs a observer object if the observer configuration specifies a observer. If not a empty observer object is created.
