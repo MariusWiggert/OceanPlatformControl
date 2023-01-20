@@ -56,7 +56,7 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 x_0 = PlatformState(
     lon=units.Distance(deg=-80),
     lat=units.Distance(deg=-15),
-    date_time=datetime.datetime(2022, 8, 23, 18, 0, tzinfo=datetime.timezone.utc),
+    date_time=datetime.datetime(2022, 8, 15, 18, 0, tzinfo=datetime.timezone.utc),
 )
 
 
@@ -100,21 +100,18 @@ specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
     "direction": "backward",
-    "n_time_vector": 200,
+    "n_time_vector": 2160,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box_global": 3,  # area over which to run HJ_reachability on the first global run
-    "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 2,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 20,
+    "T_goal_in_seconds": 3600 * 24 * 15,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
-    "platform_dict": arena.platform.platform_dict,
-    "first_plan": True,  # indicates whether we plan the first time over the whole time-horizon or only over days with new forecast and recycle value fct. for the remaining days
-    "forecast_length": 3600 * 24 * 9
-    + 11 * 3600,  # length of forecast horizon -> 3600 * 24 * #days --> curr. 9 days and 11hours
+    "calc_opt_traj_after_planning": False,
 }
 # wandb.config.update({"planner_settings": specific_settings})
 
@@ -144,7 +141,7 @@ planner.save_planner_state("saved_planner/")
 dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
 
-for i in tqdm(range(int(3600 * 24 * 20 / dt_in_s))):
+for i in tqdm(range(int(3600 * 24 * 15 / dt_in_s))):
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
@@ -231,7 +228,7 @@ arena.animate_trajectory(
 
 
 #%%
-wandb.log({"video": wandb.Video("generated_media/trajectory_seaweed.mp4", fps=25, format="mp4")})
+# wandb.log({"video": wandb.Video("generated_media/trajectory_seaweed.mp4", fps=25, format="mp4")})
 
 
 # #%% Animate the trajectory
