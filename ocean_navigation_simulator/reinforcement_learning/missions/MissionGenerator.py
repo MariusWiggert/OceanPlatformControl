@@ -288,8 +288,17 @@ class MissionGenerator:
             if (
                 "max_distance_from_land" in self.config
                 and "max_distance_from_garbage" in self.config
+                and "min_distance_from_garbage" in self.config
             ):
                 distance_to_garbage = self.distance_to_area(fake_target, "garbage")
+
+                if distance_to_garbage < self.config["min_distance_from_garbage"]:
+                    self.performance["target_resampling"] += 1
+                    logger.warning(
+                        f"Target aborted because too close to garbage: {fake_target.to_spatial_point()} = {distance_to_garbage}."
+                    )
+                    return False
+
                 if (distance_to_shore > self.config["max_distance_from_land"]) and (
                     distance_to_garbage > self.config["max_distance_from_land"]
                 ):

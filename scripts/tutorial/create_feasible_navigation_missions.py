@@ -94,13 +94,15 @@ config = {
     "hj_planner_box": 2.0,
     ##### Start Sampling #####
     "feasible_missions_per_target": 8,
+    "feasible_mission_time_in_h": [100, 120],
+    "random_min_distance_from_target": 0.5,
     "random_missions_per_target": 8,
     "min_distance_from_hj_frame": 0.5,
     "min_distance_from_land": 0.2,
-    "max_distance_from_land": 1.5,
-    "max_distance_from_garbage": 0.2,
-    "feasible_mission_time_in_h": [100, 120],
-    "random_min_distance_from_target": 0.5,
+    # Safety specific values
+    "max_distance_from_land": 1,
+    "min_distance_from_garbage": 0.01,
+    "max_distance_from_garbage": 0.5,
     ##### Actions #####
     "plot_batch": False,
     "animate_batch": False,
