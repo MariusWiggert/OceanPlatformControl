@@ -546,7 +546,7 @@ class Arena:
         ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
         index: Optional[int] = 0,
-        show_current_position: Optional[bool] = True,
+        show_current_position: Optional[bool] = False,
         current_position_color: Optional[str] = "black",
         # State
         show_state_trajectory: Optional[bool] = True,
@@ -609,7 +609,7 @@ class Arena:
                 c=current_position_color,
                 marker=".",
                 s=100,
-                label="current position",
+                label="position at time_index {} of background ".format(index),
             )
         if problem is not None:
             problem.plot(ax=ax)

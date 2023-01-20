@@ -28,6 +28,8 @@ class Constructor:
         objective_conf: dict,
         ctrl_conf: dict,
         observer_conf: dict,
+        # Relevant for downloading data
+        throw_exceptions=True,
         c3=None,
         download_files=False,
         timeout_in_sec=0,
@@ -68,7 +70,8 @@ class Constructor:
                 ),
             ]
             self.arena = ArenaFactory.create(
-                scenario_config=arena_conf, t_interval=t_interval if download_files else None, c3=c3
+                scenario_config=arena_conf, t_interval=t_interval if download_files else None, c3=c3,
+                throw_exceptions=throw_exceptions
             )
 
         # Add platform_dict from arena to controll config
