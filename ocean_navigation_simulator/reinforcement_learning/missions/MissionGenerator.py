@@ -168,8 +168,8 @@ class MissionGenerator:
 
         # Step 1: Generate Target & Starts until enough valid target/starts found
         while not (target := self.generate_target()) or not (
-            starts := self.generate_multi_agent_starts()
-        ):  # if self.config["multi_agent"] else starts := self.generate_starts()):
+            starts := self.generate_starts()
+        ):  # if self.config["multi_agent"] else starts := ):
             pass
 
         # Step 2: Create Problems
@@ -246,8 +246,8 @@ class MissionGenerator:
                             target.haversine(start).deg for _, start, _ in missions[k]
                         ],
                         "feasible": feasible,
-                        "ttr_in_h": ttr_k,
-                        "max_ttr_among_platforms": max(ttr_k),
+                        "ttr_in_h": max(ttr_k),
+                        "all_ttr_among_platforms_in_h": ttr_k,
                         "random": missions[k][0][
                             0
                         ],  # Don't need to pass a list here, random same for all multi-agent start points #[random for random,_,_ in missions[k]],
