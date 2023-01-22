@@ -160,6 +160,7 @@ class ArenaFactory:
                             throw_exceptions=throw_exceptions,
                             points=points,
                             c3=c3,
+                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
                         )
 
                     logger.debug(f"Hindcast Files: {files}")
@@ -201,6 +202,7 @@ class ArenaFactory:
                             throw_exceptions=throw_exceptions,
                             points=points,
                             c3=c3,
+                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
                         )
 
                     logger.debug(f"Forecast Files: {files}")
@@ -226,7 +228,9 @@ class ArenaFactory:
 
     @staticmethod
     @contextlib.contextmanager
-    def download_files(config, type, t_interval, points, c3=None, throw_exceptions=True):
+    def download_files(
+        config, type, t_interval, points, c3=None, throw_exceptions=True, keep_newest_days=100
+    ):
         """Helper method to be run in C3 context manager."""
         try:
             if "files" in config["ocean_dict"][type]["source"]:
@@ -239,6 +243,7 @@ class ArenaFactory:
                     throw_exceptions=throw_exceptions,
                     points=points,
                     c3=c3,
+                    keep_newest_days=keep_newest_days,
                 )
             yield True
         finally:
@@ -545,10 +550,9 @@ class ArenaFactory:
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
-        for file in cached_files[keep_newest_days]:
+        for file in cached_files[:keep_newest_days]:
             logger.info(f"Deleting old forecast file: '{file}'")
             os.remove(file)
-
         return downloaded_files
 
     @staticmethod
