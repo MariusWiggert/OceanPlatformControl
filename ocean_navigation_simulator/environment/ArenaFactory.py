@@ -550,7 +550,7 @@ class ArenaFactory:
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
-        for file in cached_files[:keep_newest_days]:
+        for file in cached_files[keep_newest_days:]:
             logger.info(f"Deleting old forecast file: '{file}'")
             os.remove(file)
         return downloaded_files
