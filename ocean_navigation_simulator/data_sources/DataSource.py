@@ -903,6 +903,8 @@ class AnalyticalSource(abc.ABC):
                 min(y_interval[1], self.y_domain[1]),
             ]
 
+        print(t_interval)
+
         return {
             "y_range": y_interval,
             "x_range": x_interval,
