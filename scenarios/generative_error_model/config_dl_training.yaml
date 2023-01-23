@@ -29,18 +29,21 @@ generator:
   # adds dropout to all layers to avoid overfitting
   dropout_all: True
   dropout_val: 0.3
+  # need to set latent_size to zero if using dropout as randomness source
   latent_size: 256
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
   load_from_chkpt: True
-  chkpt: "2022-11-17_17:59:56.pth"
+#  chkpt: "2022-11-17_17:59:56.pth"
+  chkpt: "2023-01-17_12:07:52.pth"
   load_encoder_only: True
   freeze_encoder: True
   init_decoder: False
 
 gen_optimizer:
   name: "Adam"
+  lr: 0.0001
   parameters:
 #    betas: [0.95, 0.9995]
     betas: [0.5, 0.999]
@@ -48,6 +51,7 @@ gen_optimizer:
     weight_decay: 0.0003
 
 discriminator:
+  patch_disc: False
   in_channels: 2
   features: [64, 128, 256, 512]
   init_type: "xavier"
@@ -58,6 +62,7 @@ discriminator:
 
 disc_optimizer:
   name: "Adam"
+  lr: 0.0001
   parameters:
 #    betas: [0.95, 0.9995]
     betas: [0.5, 0.999]
@@ -69,7 +74,7 @@ train:
   test_batch_size: 192
   epochs: 30
   loss:
-    # normal loss
+    # pix2pix loss
     gen: [ "gan_gen", "l1"]
     gen_weighting: [ 1, 100 ]
     disc: [ "gan_disc" ]
@@ -98,7 +103,7 @@ dataset:
   ground_truth: "data/drifter_data/buoy_preprocessed"
   area: ["area1"]
   shuffle: True
-  len: None
+  len: 100
   split: [0.9, 0.1]
   concat_len: 1
 

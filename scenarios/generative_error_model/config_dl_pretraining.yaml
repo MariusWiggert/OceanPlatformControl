@@ -1,9 +1,9 @@
 model: "generator"
-dataset_type: "forecastbuoy"
-wandb_mode: "offline"
+dataset_type: "forecasthindcast"
+wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
-run_train: False
+run_train: True
 
 # for continuing to train
 load_from_chkpt:
@@ -18,12 +18,13 @@ generator:
   in_channels: 2
   out_channels: 2
   features: 64
-  dropout: True
-  dropout_all: False
+  dropout: False
+  dropout_all: True
   dropout_val: 0.3
+  latent_size: 0
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "batch"
+  norm_type: "instance"
 
 train:
   batch_size: 32
@@ -31,8 +32,8 @@ train:
   epochs: 30
   loss:
     # choice: l1, mse, sparse_mse, total_variation, mass_conservation
-    types: [ "l1" ]
-    weighting: [ 1 ]
+    gen: [ "l1" ]
+    gen_weighting: [ 1 ]
   learning_rate: 0.0001
   lr_scheduler_configs:
     value: True
@@ -41,6 +42,11 @@ train:
     factor: 0.2
     threshold: 0.0001
     patience: 3
+
+validation:
+  enable_dropout: False
+  # layers in decoder to use dropout
+  layers: [ 1, 2, 3, 4, 5 ]
 
 optimizer:
   name: "Adam"
@@ -52,7 +58,8 @@ optimizer:
 
 dataset:
   forecasts: "data/drifter_data/forecasts_preprocessed"
-  hindcasts: "data/drifter_data/hindcasts_preprocessed"
+#  hindcasts: "data/drifter_data/hindcasts_preprocessed"
+  hindcasts: "data/drifter_data/forecasts_preprocessed"
   ground_truth: "data/drifter_data/buoy_preprocessed"
   area: ["area1"]
   shuffle: True
