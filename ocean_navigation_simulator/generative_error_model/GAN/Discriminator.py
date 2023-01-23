@@ -78,9 +78,10 @@ class Block(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels=2, features=(64, 128, 256, 512), norm="batch"):
+    def __init__(self, in_channels=2, features=(64, 128, 256, 512), norm="batch", patch_disc=True):
         super().__init__()
         norm_layer = get_norm_layer(norm_type=norm)
+        self.patch_disc = patch_disc
 
         self.initial = nn.Sequential(
             # in_channels*2 needed because the discriminator receives fake and real at the same time.
@@ -99,15 +100,41 @@ class Discriminator(nn.Module):
             in_channels = feature
         layers.append(
             nn.Conv2d(
-                in_channels, 1, kernel_size=4, stride=1, padding=1, padding_mode="reflect"
+                in_channels, 1 if patch_disc else in_channels,
+                kernel_size=4, stride=1 if patch_disc else 2,
+                padding=1 if patch_disc else 2, padding_mode="reflect"
             )
         )
         self.model = nn.Sequential(*layers)
 
+        # add extra layers if not patch disc
+        self.final = nn.Sequential(
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(
+                in_channels, in_channels, kernel_size=3, stride=2, padding=1, padding_mode="reflect"
+            ),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(
+                in_channels, 512, kernel_size=3, stride=2, padding=1, padding_mode="reflect"
+            ),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(
+                in_channels, 1, kernel_size=4, stride=2, padding=0, padding_mode="reflect"
+            ),
+            nn.Sigmoid()
+        )
+
     def forward(self, x, y):
         x = torch.cat([x, y], dim=1)
         x = self.initial(x)
-        return self.model(x)
+        if self.patch_disc:
+            return self.model(x)
+        else:
+            x = self.model(x)
+            return self.final(x)
 
 
 def main():
