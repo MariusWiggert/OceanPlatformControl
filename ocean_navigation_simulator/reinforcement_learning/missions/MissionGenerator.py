@@ -95,7 +95,7 @@ class MissionGenerator:
                         if self.config["multi_agent"]["is_multi_agent"]:
                             problems = self.generate_batch_multi_agent()
                         else:
-                            self.generate_batch()
+                            problems = self.generate_batch()
 
                     # Step 2: Plot or Animate Batch
                     if self.config["animate_batch"]:
