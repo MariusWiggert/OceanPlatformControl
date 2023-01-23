@@ -1,0 +1,1 @@
+include ocean_navigation_simulator/package_data/bathymetry_and_garbage/*.nc
