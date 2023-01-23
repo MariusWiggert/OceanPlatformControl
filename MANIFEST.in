@@ -1,1 +1,3 @@
 include ocean_navigation_simulator/package_data/monthly_averages/*.nc
+include ocean_navigation_simulator/package_data/nutrients/*.nc
+

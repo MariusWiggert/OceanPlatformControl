@@ -762,7 +762,6 @@ class AnalyticalSource(abc.ABC):
             y + self.spatial_boundary_buffers[1] * (-1) ** i
             for y, i in zip(source_config_dict["source_settings"]["y_domain"], [1, 2])
         ]
-        print("before isIstance check", source_config_dict["source_settings"]["temporal_domain"])
         # set the temp_domain_posix
         if isinstance(
             source_config_dict["source_settings"]["temporal_domain"][0], datetime.datetime
@@ -772,11 +771,8 @@ class AnalyticalSource(abc.ABC):
                 t.replace(tzinfo=datetime.timezone.utc).timestamp()
                 for t in source_config_dict["source_settings"]["temporal_domain"]
             ]
-            print("in isIstance check", self.temp_domain_posix)
-
         else:
             self.temp_domain_posix = source_config_dict["source_settings"]["temporal_domain"]
-            print("not isIstance", self.temp_domain_posix)
 
         # Set the default resolutions (used when none is provided in get_data_over_area)
         self.spatial_resolution = source_config_dict["source_settings"]["spatial_resolution"]
@@ -907,8 +903,6 @@ class AnalyticalSource(abc.ABC):
                 max(y_interval[0], self.y_domain[0]),
                 min(y_interval[1], self.y_domain[1]),
             ]
-
-        print("get_ranges", t_interval)
 
         return {
             "y_range": y_interval,
