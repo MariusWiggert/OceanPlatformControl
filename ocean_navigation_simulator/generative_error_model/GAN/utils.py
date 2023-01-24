@@ -9,11 +9,11 @@ import functools
 
 
 def mse(predictions, target, reduction="sum"):
-    return F.mse_loss(predictions, target, reduction="sum")
+    return F.mse_loss(predictions, target, reduction=reduction)
 
 
 def l1(predictions, target, reduction="sum"):
-    return F.l1_loss(predictions, target, reduction="sum")
+    return F.l1_loss(predictions, target, reduction=reduction)
 
 
 def sparse_mse(predictions, target):

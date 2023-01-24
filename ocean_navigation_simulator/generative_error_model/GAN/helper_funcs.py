@@ -73,7 +73,8 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
     elif model_type == "discriminator":
         model = Discriminator(in_channels=model_configs["in_channels"],
                               features=model_configs["features"],
-                              norm=model_configs["norm_type"])
+                              norm=model_configs["norm_type"],
+                              patch_disc=model_configs["patch_disc"])
     return model.to(device)
 
 
@@ -170,6 +171,8 @@ def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
     # print(f"Optimizer params: {args_optimizer}")
     if name.lower() == "adam":
         return optim.Adam(model.parameters(), **args_optimizer)
+    elif name.lower() == "sgd":
+        return optim.SGD(model.parameters(), **args_optimizer)
     raise warn("No optimizer!")
 
 

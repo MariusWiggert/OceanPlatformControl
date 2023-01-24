@@ -110,7 +110,7 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 output = model(data)
 
                 # compute loss
-                train_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
+                train_loss = loss_function(output, target, cfgs_train["loss"]["gen"], cfgs_train["loss"]["gen_weighting"])
                 total_loss += train_loss.item()
 
                 # perform optim step
@@ -141,16 +141,16 @@ def validation(model, dataloader, device: str, all_cfgs: dict, save_data=False):
                 output = model(data)
                 if save_data:
                     save_input_output_pairs(data, output, all_cfgs, idx)
-                val_loss = loss_function(output, target, cfgs_train["loss"]["types"], cfgs_train["loss"]["weighting"])
+                val_loss = loss_function(output, target, cfgs_train["loss"]["gen"], cfgs_train["loss"]["gen_weighting"])
                 total_loss += val_loss.item()
 
                 # get metrics and ratio of metrics for generated outputs
                 metric_values = get_metrics(metrics_names, target, output)
                 metric_values_baseline = get_metrics(metrics_names, target, data)
-                if metric_values_baseline["rmse"] == 0:
-                    print("RMSE of baseline is 0!")
-                if metric_values_baseline["vector_correlation"] == 2:
-                    print("Vector correlation of baseline is 2!")
+                # if metric_values_baseline["rmse"] == 0:
+                #     print("RMSE of baseline is 0!")
+                # if metric_values_baseline["vector_correlation"] == 2:
+                #     print("Vector correlation of baseline is 2!")
                 for metric_name in metrics_names:
                     metrics[metric_name] += metric_values[metric_name]
                     metrics_ratio[metric_name] += metric_values[metric_name] / (metric_values_baseline[metric_name]+1e-8)
@@ -195,7 +195,7 @@ def train_main(sweep: Optional[bool] = False):
 
     # define model and optimizer and load from checkpoint if specified
     print(f"-> Model: {model_type}.")
-    print(f"-> Losses: {cfgs_train['loss']['types']} with weightings {cfgs_train['loss']['weighting']}.")
+    print(f"-> Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}.")
     model = get_model(model_type, cfgs_model, device)
     optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
     if cfgs_lr_scheduler["value"]:
@@ -207,7 +207,7 @@ def train_main(sweep: Optional[bool] = False):
         init_weights(model, init_type=cfgs_model["init_type"], init_gain=cfgs_model["init_gain"])
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
-    train_losses, val_losses, lrs = list(), list(), list
+    train_losses, val_losses, lrs = list(), list(), list()
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
             print()
@@ -265,7 +265,8 @@ def test_main(data: str = "test"):
     model.load_state_dict(checkpoint["state_dict"])
 
     model.eval()
-    enable_dropout(model)
+    if all_cfgs["generator"]["dropout"] is False:
+        enable_dropout(model, all_cfgs["validation"]["layers"])
     save_dirs = []
     repeated_data = None
     # iterate twice: once for all test/val FCs, once for repeated FC

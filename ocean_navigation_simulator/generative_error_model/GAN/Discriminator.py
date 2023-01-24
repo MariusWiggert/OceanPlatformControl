@@ -123,8 +123,7 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Conv2d(
                 in_channels, 1, kernel_size=4, stride=2, padding=0, padding_mode="reflect"
-            ),
-            nn.Sigmoid()
+            )
         )
 
     def forward(self, x, y):

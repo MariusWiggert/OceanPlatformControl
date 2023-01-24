@@ -100,7 +100,7 @@ def loss_function(losses: List[str], loss_weightings: List[float], target: Optio
 
     for loss_type, weight in zip(losses, loss_weightings):
         if loss_type in ["mse", "l1", "sparse_mse"]:
-            loss += weight * loss_map[loss_type](target_fake, target)
+            loss += weight * loss_map[loss_type](target_fake, target, reduction="mean")
         elif loss_type in ["gan_gen", "gan_hinge_gen"]:
             loss += weight * loss_map[loss_type](disc_fake)
         elif loss_type in ["gan_disc", "gan_hinge_disc"]:
@@ -117,12 +117,13 @@ def gan_loss_disc(disc_real, disc_fake):
     """
     Parameters:
         disc_real - output of discriminator for real examples
-        disc_fake - output of discriminaor for fake examples
+        disc_fake - output of discriminator for fake examples
     """
-    bce_loss = nn.BCEWithLogitsLoss()
+    bce_loss = nn.BCEWithLogitsLoss(reduction="mean")
     disc_real_loss = bce_loss(disc_real, torch.ones_like(disc_real))
     disc_fake_loss = bce_loss(disc_fake, torch.zeros_like(disc_fake))
-    disc_loss = (disc_real_loss + disc_fake_loss) / 2  # division to make disc learn more slowly
+    # print(f"real={disc_real_loss}, fake={disc_fake_loss}")
+    disc_loss = (disc_real_loss + disc_fake_loss) / 2
     return disc_loss
 
 
@@ -131,8 +132,8 @@ def gan_hinge_loss_disc(disc_real, disc_fake):
     A slight change from hinge loss in that only update weights once for both losses and not
     individually for each one.
     """
-    disc_real_loss = nn.ReLU()(torch.ones_like(disc_real) - disc_real).sum()
-    disc_fake_loss = nn.ReLU()(torch.ones_like(disc_fake) - disc_fake).sum()
+    disc_real_loss = nn.ReLU()(torch.ones_like(disc_real) - disc_real).mean()
+    disc_fake_loss = nn.ReLU()(torch.ones_like(disc_fake) + disc_fake).mean()
     disc_loss = (disc_real_loss + disc_fake_loss) / 2
     return disc_loss
 
@@ -147,12 +148,13 @@ def gan_loss_gen(disc_fake):
         target_fake - output of generator
         target - ground truth data
     """
-    bce_loss = nn.BCEWithLogitsLoss()
+    bce_loss = nn.BCEWithLogitsLoss(reduction="mean")
     gen_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
     return gen_loss
 
 
 def gan_hinge_loss_gen(disc_fake):
+    """Max log(D(G(x,noise)) instead of min -log(1-D(G(x, noise))."""
     return -disc_fake.mean()
 
 
@@ -176,11 +178,9 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 # mask the generator output to match target (buoy data)
                 mask = torch.where(target != 0, 1, 0).int()
                 target_fake = torch.mul(target_fake, mask).float()
-                # check whether same num of non-zero values in target and target_fake
-                assert mask.sum() == torch.where(target_fake != 0, 1, 0).int().sum()
                 # compute real and fake outputs of discriminator
                 disc_real = models[1](data, target)
-                disc_fake = models[1](data, target_fake)  # need to call detach to remove from comp graph
+                disc_fake = models[1](data, target_fake.detach())  # need to call detach to remove from comp graph
                 disc_loss = loss_function(cfgs_train["loss"]["disc"],
                                           cfgs_train["loss"]["disc_weighting"],
                                           disc_real=disc_real,
@@ -188,7 +188,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 disc_loss_sum += disc_loss.item()
 
                 optimizers[1].zero_grad()
-                disc_loss.backward(retain_graph=True)
+                disc_loss.backward()
                 optimizers[1].step()
 
                 # train generator
@@ -204,10 +204,15 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 gen_loss.backward()
                 optimizers[0].step()
 
-                tepoch.set_postfix(loss_gen=f"{round(gen_loss.item() / data.shape[0], 3)}")
+                # tepoch.set_postfix(loss_gen=f"{round(gen_loss.item() / data.shape[0], 3)}",
+                #                    loss_val=f"{round(disc_loss.item() / data.shape[0], 3)}")
+                tepoch.set_postfix(loss_gen=f"{round(gen_loss.item(), 3)}",
+                                   loss_disc=f"{round(disc_loss.item(), 3)}")
 
-    avg_disc_loss = disc_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
-    avg_gen_loss = gen_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    # avg_disc_loss = disc_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    # avg_gen_loss = gen_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    avg_disc_loss = disc_loss_sum / len(dataloader)
+    avg_gen_loss = gen_loss_sum / len(dataloader)
     # print(f"Training avg loss: {avg_loss:.2f}.")
     return avg_gen_loss, avg_disc_loss
 
@@ -257,11 +262,13 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
                     metrics[metric_name] += metric_values[metric_name]
                     metrics_ratio[metric_name] += metric_values[metric_name] / (metric_values_baseline[metric_name]+1e-8)
 
-                tepoch.set_postfix(loss=str(round(gen_loss.item() / data.shape[0], 3)))
+                # tepoch.set_postfix(loss=str(round(gen_loss.item() / data.shape[0], 3)))
+                tepoch.set_postfix(loss=str(round(gen_loss.item(), 3)))
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
     metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
-    avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    # avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    avg_loss = total_loss / len(dataloader)
     # print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss, metrics, metrics_ratio
 
@@ -309,10 +316,10 @@ def main(sweep: Optional[bool] = False):
     discriminator = get_model(model_types[1], cfgs_disc, device)
     gen_optimizer = get_optimizer(generator, cfgs_gen_optimizer["name"],
                                   cfgs_gen_optimizer["parameters"],
-                                  lr=cfgs_train["learning_rate"])
+                                  lr=cfgs_gen_optimizer["lr"])
     disc_optimizer = get_optimizer(discriminator, cfgs_disc_optimizer["name"],
                                    cfgs_disc_optimizer["parameters"],
-                                   lr=cfgs_train["learning_rate"])
+                                   lr=cfgs_disc_optimizer["lr"])
     if cfgs_lr_scheduler["value"]:
         gen_lr_scheduler = get_scheduler(gen_optimizer, cfgs_lr_scheduler)
         disc_lr_scheduler = get_scheduler(disc_optimizer, cfgs_lr_scheduler)
@@ -322,10 +329,10 @@ def main(sweep: Optional[bool] = False):
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
         if cfgs_gen["load_encoder_only"]:
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
-            load_encoder(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
+            load_encoder(gen_checkpoint_path, generator, gen_optimizer, cfgs_gen_optimizer["lr"], device)
         else:
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
-            load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_train["learning_rate"], device)
+            load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_gen_optimizer["lr"], device)
         if cfgs_gen["init_decoder"]:
             init_decoder_weights(generator)
         if cfgs_gen["freeze_encoder"]:

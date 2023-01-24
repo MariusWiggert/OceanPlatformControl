@@ -87,7 +87,7 @@ class Generator(nn.Module):
             # nn.Tanh(),
         )
 
-    def forward(self, x, latent):
+    def forward(self, x, latent=None):
         d1 = self.initial_down(x)
         d2 = self.down1(d1)
         d3 = self.down2(d2)
@@ -96,7 +96,10 @@ class Generator(nn.Module):
         d6 = self.down5(d5)
         d7 = self.down6(d6)
         bottleneck = self.bottleneck(d7)
-        up1 = self.up1(torch.cat([bottleneck, latent], 1))
+        if latent is not None:
+            up1 = self.up1(torch.cat([bottleneck, latent], 1))
+        else:
+            up1 = self.up1(bottleneck)
         up2 = self.up2(torch.cat([up1, d7], 1))
         up3 = self.up3(torch.cat([up2, d6], 1))
         up4 = self.up4(torch.cat([up3, d5], 1))
