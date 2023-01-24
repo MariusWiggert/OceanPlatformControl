@@ -210,6 +210,57 @@ class ArenaFactory:
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
 
+            elif (
+                t_interval is not None
+                and config["ocean_dict"]["hindcast"] is not None
+                and (
+                    config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
+                    or config["ocean_dict"]["forecast"]["source"] == "longterm_average"
+                )
+            ):
+
+                with timing_logger(
+                    "Download Forecast Files: {start} until {end} ({{}})".format(
+                        start=t_interval[0].strftime("%Y-%m-%d %H-%M-%S"),
+                        end=t_interval[-1].strftime("%Y-%m-%d %H-%M-%S"),
+                    ),
+                    logger,
+                ):
+                    if config["ocean_dict"]["forecast"]["source_settings"]["forecast"][
+                        "source_settings"
+                    ].get("local", False):
+                        files = ArenaFactory.find_copernicus_files(
+                            config["ocean_dict"]["forecast"]["source_settings"]["forecast"][
+                                "source_settings"
+                            ]["folder"],
+                            t_interval,
+                        )
+                    else:
+                        files = ArenaFactory.download_required_files(
+                            archive_source=config["ocean_dict"]["forecast"]["source_settings"][
+                                "forecast"
+                            ]["source_settings"]["source"],
+                            archive_type=config["ocean_dict"]["forecast"]["source_settings"][
+                                "forecast"
+                            ]["source_settings"]["type"],
+                            download_folder=config["ocean_dict"]["forecast"]["source_settings"][
+                                "forecast"
+                            ]["source_settings"]["folder"],
+                            region=config["ocean_dict"].get("region", "GOM"),
+                            t_interval=t_interval,
+                            throw_exceptions=throw_exceptions,
+                            points=points,
+                            c3=c3,
+                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
+                        )
+
+                    logger.debug(f"Forecast Files: {files}")
+
+                    # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
+                    config["ocean_dict"]["forecast"]["source_settings"]["forecast"][
+                        "source_settings"
+                    ]["folder"] = files
+
             # Step 7: Create Arena
             return Arena(
                 casadi_cache_dict=config.get("casadi_cache_dict", {}),
