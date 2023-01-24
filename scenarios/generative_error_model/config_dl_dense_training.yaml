@@ -1,0 +1,124 @@
+model: ["generator", "discriminator"]
+save_model: False
+dataset_type: "forecastbuoy"
+wandb_mode: "online"
+save_base_path: "data/drifter_data/models"
+metrics: ["rmse", "vector_correlation"]
+
+# testing and saving output
+save_samples_path: "data/drifter_data/GAN_samples"
+save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
+#test_load_chkpt: "2022-11-27_22:48:44.pth"
+#test_load_chkpt: "2022-12-10_13:09:12.pth"
+#test_load_chkpt: "2022-12-13_07:10:04.pth"
+#test_load_chkpt: "2022-12-15_07:12:21.pth"  # fixed disc
+#test_load_chkpt: "2022-12-16_10:03:55.pth"  # add spectral norm -> also change in test
+#test_load_chkpt: "2023-01-05_09:17:23.pth"  # 4 dropout layers -> also change for test
+#test_load_chkpt: "2023-01-06_12:06:43.pth"  # 5 dropout layers -> also change for test
+#test_load_chkpt: "2023-01-09_11:55:04.pth"  # explicit latent vec size=128, no pre-training
+#test_load_chkpt: "2023-01-12_09:14:20.pth"  # explicit latent vec size=128, pre-trained
+test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
+
+
+generator:
+  in_channels: 2
+  out_channels: 2
+  features: 64
+  # decides whether using dropout as source of randomness or latent vec
+  dropout: False
+  # adds dropout to all layers to avoid overfitting
+  dropout_all: False
+  dropout_val: 0.3
+  # need to set latent_size to zero if using dropout as randomness source
+  latent_size: 128
+  init_type: "xavier"
+  init_gain: 1.0
+  norm_type: "instance"
+  load_from_chkpt: True
+#  chkpt: "2022-11-17_17:59:56.pth"
+  chkpt: "2023-01-17_12:07:52.pth"
+  load_encoder_only: True
+  freeze_encoder: True
+  init_decoder: False
+
+gen_optimizer:
+  name: "Adam"
+  lr: 0.0002
+  parameters:
+#    betas: [0.95, 0.9995]
+    betas: [0.5, 0.999]
+    eps: 0.00001
+    weight_decay: 0.0003
+
+discriminator:
+  patch_disc: False
+  in_channels: 2
+  features: [64, 128, 256, 512]
+  init_type: "xavier"
+  init_gain: 1.0
+  norm_type: "batch"
+  load_from_chkpt: False
+  chkpt: ""
+
+disc_optimizer:
+  name: "Adam"
+  lr: 0.0002
+  parameters:
+    # Adam
+    betas: [0.5, 0.999]
+    eps: 0.00001
+    weight_decay: 0.0003
+#    # SGD
+#    weight_decay: 0.0003
+
+
+train:
+  batch_size: 32
+  test_batch_size: 192
+  epochs: 300
+  loss:
+    # pix2pix loss
+    gen: [ "gan_gen", "l1"]
+    gen_weighting: [ 1, 100 ]
+    disc: [ "gan_disc" ]
+    # hinge loss
+#    gen: [ "gan_hinge_gen" ]
+#    gen_weighting: [ 1 ]
+#    disc: ["gan_hinge_disc"]
+    disc_weighting: [ 1 ]
+  lr_scheduler_configs:
+    value: False
+    scheduler_type: "plateau"
+    mode: "min"
+    factor: 0.2
+    threshold: 0.0001
+    patience: 3
+
+# this is used to eval/test model after model.eval()
+validation:
+  enable_dropout: False
+  # layers in decoder to use dropout
+  layers: [1, 2, 3, 4, 5]
+
+dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed"
+  ground_truth: "data/drifter_data/synthetic_data/train_val"
+  area: ["area1"]
+  shuffle: True
+  len: 100
+  split: [0.9, 0.1]
+  concat_len: 1
+
+val_dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed_val"
+  ground_truth: "data/drifter_data/buoy_preprocessed_val"
+  area: ["area1"]
+  concat_len: 1
+
+test_dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed_test"
+  ground_truth: "data/drifter_data/buoy_preprocessed_test"
+#  forecasts: "data/drifter_data/thesis_gan_inference/forecast/"
+#  ground_truth: "data/drifter_data/thesis_gan_inference/ground_truth"
+  area: ["area1"]
+  concat_len: 1
