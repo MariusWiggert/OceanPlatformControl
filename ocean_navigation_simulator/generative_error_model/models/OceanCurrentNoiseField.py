@@ -77,6 +77,9 @@ class OceanCurrentNoiseField(GenerativeModel):
                                                     t_res))
         t_locs = np.array([np.timedelta64(timedelta) for timedelta in t_locs])
 
+        # set time_origin in case perform inference for same seed
+        self.time_origin = t_range[0]
+
         return self.get_noise(lon_locs, lat_locs, t_locs, t_range[0])
 
     def get_noise_from_axes(
@@ -89,6 +92,9 @@ class OceanCurrentNoiseField(GenerativeModel):
             t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis])
         else:
             t_locs = np.array([np.timedelta64(time_step - t_axis[0]) for time_step in t_axis - self.time_origin])
+
+        # set time_origin in case perform inference for same seed
+        self.time_origin = t_axis[0]
 
         return self.get_noise(lon_axis, lat_axis, t_locs, t_axis[0])
 

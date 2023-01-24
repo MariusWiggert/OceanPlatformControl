@@ -31,10 +31,6 @@ for dataset, num_files in datasets.items():
         # get the noise
         noise = noise_field.get_noise_from_ranges(lon_range, lat_range, t_range)
 
-        # # save noise as nc file
-        # file_name = f"synth_data_{lon_range}_{lat_range}_{t_range}.nc"
-        # noise.to_netcdf(os.path.join(dir, file_name))
-
         # save as npy file
         file_name = f"synth_data_{lon_range}_{lat_range}_[{t_range[0]}_{t_range[1]}]"
         data_u, data_v = noise["water_u"].values, noise["water_v"].values
@@ -43,4 +39,4 @@ for dataset, num_files in datasets.items():
         np.save(os.path.join(dir, file_name), data)
 
         # advance time window by 9 days
-        t_range = [time + datetime.timedelta(days=9) for time in t_range]
+        t_range = [time + datetime.timedelta(days=1) for time in t_range]
