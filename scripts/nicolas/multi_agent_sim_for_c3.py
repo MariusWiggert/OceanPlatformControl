@@ -57,15 +57,20 @@ reactiveConfig = {
     "k_1": 0.25,
     "k_2": 1,
 }
-
+multiAgentOptimConfig = {
+    "unit": "m",
+    "interaction_range": 9000,  # m
+    "optim_horizon": 5,
+}
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control
+    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
     "flocking_config": flockingConfig,
     "reactive_control_config": reactiveConfig,
+    "multi_ag_optim": multiAgentOptimConfig,
 }
 # Task Configs
 missionConfig = {

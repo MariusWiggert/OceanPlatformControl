@@ -18,6 +18,10 @@ from ocean_navigation_simulator.controllers.Flocking import (  # RelaxedFlocking
     FlockingControl,
     FlockingControlVariant,
 )
+from ocean_navigation_simulator.controllers.MultiAgentOptimizationBased import (
+    MultiAgentOptim,
+)
+
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJPlannerBase,
     HJReach2DPlanner,
@@ -65,6 +69,8 @@ class MultiAgentPlanner(HJReach2DPlanner):
             return self._get_action_hj_decentralized_reactive_control(observation=observation)
         elif self.controller_type == "flocking":
             return self._get_action_hj_with_flocking(observation=observation)
+        elif self.controller_type == "multi_ag_optimizer":
+            return self._get_action_hj_with_multi_ag_optim(observation=observation)
         else:
             raise ValueError(
                 "the controller specified in the config is not implemented or must \
@@ -157,6 +163,15 @@ class MultiAgentPlanner(HJReach2DPlanner):
                 abs(math.remainder(flocking_action.direction - hj_navigation.direction, math.tau))
             )
         return PlatformActionSet(action_list), max(flocking_correction_angle)
+
+    def _get_action_hj_with_multi_ag_optim(self, observation: ArenaObservation) -> PlatformActionSet:
+        action_list = np.zeros((2,0)) #empty
+        ctrl_correction_angle = 0
+        for k in range(len(observation)):
+            hj_optimal_input = super().get_action(observation[k])
+            action_list = np.hstack(action_list, hj_optimal_input.to_xy_propulsion().reshape(2,1))
+        multi_ag_optim = MultiAgentOptim(observation=observation, param_dict = self.multi_agent_settings["multi_ag_optim"],
+                                         platform_dict=self.platform_dict)
 
     def to_platform_action_bounds(self, action: PlatformAction) -> PlatformAction:
         """Bound magnitude to 0-1 of u_max and direction between [0, 2pi[
