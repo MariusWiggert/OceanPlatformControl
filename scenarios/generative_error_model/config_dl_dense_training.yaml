@@ -1,11 +1,11 @@
 model: ["generator", "discriminator"]
-save_model: False
+save_model: True
 dataset_type: "forecastbuoy"
 wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 
-# testing and saving output
+# model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
 save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2022-11-27_22:48:44.pth"
@@ -18,7 +18,7 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2023-01-09_11:55:04.pth"  # explicit latent vec size=128, no pre-training
 #test_load_chkpt: "2023-01-12_09:14:20.pth"  # explicit latent vec size=128, pre-trained
 test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
-
+epoch: ""
 
 generator:
   in_channels: 2
@@ -30,7 +30,7 @@ generator:
   dropout_all: False
   dropout_val: 0.3
   # need to set latent_size to zero if using dropout as randomness source
-  latent_size: 128
+  latent_size: 256
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
@@ -48,7 +48,7 @@ gen_optimizer:
 #    betas: [0.95, 0.9995]
     betas: [0.5, 0.999]
     eps: 0.00001
-    weight_decay: 0.0003
+    weight_decay: 0  # 0.0003
 
 discriminator:
   patch_disc: False
@@ -56,7 +56,7 @@ discriminator:
   features: [64, 128, 256, 512]
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "batch"
+  norm_type: "spectral"
   load_from_chkpt: False
   chkpt: ""
 
@@ -67,10 +67,9 @@ disc_optimizer:
     # Adam
     betas: [0.5, 0.999]
     eps: 0.00001
-    weight_decay: 0.0003
+    weight_decay: 0  # 0.0003
 #    # SGD
 #    weight_decay: 0.0003
-
 
 train:
   batch_size: 32
@@ -105,7 +104,7 @@ dataset:
   ground_truth: "data/drifter_data/synthetic_data/train_val"
   area: ["area1"]
   shuffle: True
-  len: 100
+  len: None
   split: [0.9, 0.1]
   concat_len: 1
 

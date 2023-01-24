@@ -384,9 +384,11 @@ def main(sweep: Optional[bool] = False):
                 disc_lr_scheduler.step(val_loss)
 
             if all_cfgs["save_model"] and epoch % 5 == 0:
-                gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{all_cfgs['model_save_name']}_gen.pth")
+                gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
+                                                   f"{all_cfgs['model_save_name'].split('.')[0]}_gen_{str(epoch).zfill(3)}.pth")
                 save_checkpoint(generator, gen_optimizer, gen_checkpoint_path)
-                disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], f"{all_cfgs['model_save_name']}_disc.pth")
+                disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
+                                                    f"{all_cfgs['model_save_name'].split('.')[0]}_disc_{str(epoch).zfill(3)}.pth")
                 save_checkpoint(discriminator, disc_optimizer, disc_checkpoint_path)
 
             visualisations = predict_fixed_batch(generator, fixed_batch_loader, device, all_cfgs)
@@ -429,7 +431,7 @@ def test(data: str = "test"):
     # load generator
     gen = get_model(all_cfgs["model"][0], cfgs_gen, device)
     checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                   f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen.pth")
+                                   f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen{all_cfgs['epoch']}.pth")
     checkpoint = torch.load(checkpoint_path, map_location=device)
     gen.load_state_dict(checkpoint["state_dict"])
 

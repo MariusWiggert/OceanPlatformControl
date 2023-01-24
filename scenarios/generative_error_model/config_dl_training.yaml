@@ -18,7 +18,7 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2023-01-09_11:55:04.pth"  # explicit latent vec size=128, no pre-training
 #test_load_chkpt: "2023-01-12_09:14:20.pth"  # explicit latent vec size=128, pre-trained
 test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
-
+epoch: ""
 
 generator:
   in_channels: 2
@@ -71,7 +71,6 @@ disc_optimizer:
 #    # SGD
 #    weight_decay: 0.0003
 
-
 train:
   batch_size: 32
   test_batch_size: 192
@@ -102,7 +101,6 @@ validation:
 
 dataset:
   forecasts: "data/drifter_data/forecasts_preprocessed"
-  hindcasts: "data/drifter_data/hindcasts_preprocessed"
   ground_truth: "data/drifter_data/buoy_preprocessed"
   area: ["area1"]
   shuffle: True
