@@ -98,8 +98,8 @@ class PlatformAction:
             np.ndarray:  [x_propulsion: propulsion in x direction in m/s
                           y_propulsion: propulsion in y direction in m/s]
         """
-        x_propulsion = np.cos(self.direction)*self.magnitude
-        y_propulsion = np.sin(self.direction)*self.magnitude
+        x_propulsion = np.cos(self.direction) * self.magnitude
+        y_propulsion = np.sin(self.direction) * self.magnitude
         return np.array([x_propulsion, y_propulsion])
 
     @staticmethod
@@ -116,7 +116,6 @@ class PlatformAction:
         )  # Calculating thrust from distance formula on input u
         heading = np.arctan2(y_propulsion, x_propulsion)  # Finds heading angle from input u
         return PlatformAction(magnitude=thrust, direction=heading)
-
 
 
 @dataclass

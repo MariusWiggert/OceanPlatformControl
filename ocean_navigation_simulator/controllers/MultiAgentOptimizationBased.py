@@ -14,8 +14,9 @@ import scipy.integrate as integrate
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 
+
 class MultiAgentOptim:
-        def __init__(
+    def __init__(
         self,
         observation: ArenaObservation,
         param_dict: dict,
@@ -41,15 +42,15 @@ class MultiAgentOptim:
         self.nb_platforms = len(self.list_all_platforms)
 
     def potential_func(self, norm_qij: float, inside_range: bool) -> float:
-    """Potential function responsible for the attraction repulsion behavior between platforms
+        """Potential function responsible for the attraction repulsion behavior between platforms
 
-    Args:
-        norm_qij (float): the euclidean norm of the distance between platform i and j
-        inside_range (bool): if the distance between i and j is within the interaction/communication range
+        Args:
+            norm_qij (float): the euclidean norm of the distance between platform i and j
+            inside_range (bool): if the distance between i and j is within the interaction/communication range
 
-    Returns:
-        float: value of the potential function
-    """
+        Returns:
+            float: value of the potential function
+        """
         if inside_range:
             return self.r / (norm_qij * (self.r - norm_qij))
         else:
@@ -61,12 +62,13 @@ class MultiAgentOptim:
         self.ocean_source = self.observation.forecast_data_source
         x_t = self.observation.platform_state.to_spatio_temporal_point
 
+
 class Optimizer(MultiAgentOptim):
-     def __init__(self, observation, param_dict, platform_dict):
+    def __init__(self, observation, param_dict, platform_dict):
         # initialize superclass
         super().__init__(self, observation, param_dict, platform_dict)
 
-    def run_optimization(self, x_t, u_hj)
+    def run_optimization(self, x_t, u_hj):
         # receive x_t as a np.array spatioTemporal point, states as columns and platforms as rows
         # create optimization problem
         opti = ca.Opti()
@@ -75,29 +77,30 @@ class Optimizer(MultiAgentOptim):
         dt = self.dt_in_s
         N = self.optim_horizon
         T = dt * N
-        t = ca.MX.sym('t', self.nb_platforms,1)  # time symbolic variable
+        t = ca.MX.sym("t", self.nb_platforms, 1)  # time symbolic variable
         # declare decision variables
         # For now 2 State system (X, Y), not capturing battery or seaweed mass
-        x = opti.variable(2, self.nb_platforms, self.N + 1)  # Decision variables for state trajetcory
+        x = opti.variable(
+            2, self.nb_platforms, self.N + 1
+        )  # Decision variables for state trajetcory
         u = opti.variable(2, self.nb_platforms, self.N)
 
         # Parameters (not optimized over)
         x_start = opti.parameter(2, self.nb_platforms)
 
         # optimizer objective
-        opti.minimize(sum(ca.dot(u[:, :,0]-u_hj, u[:, :,0]-u_hj)))
+        opti.minimize(sum(ca.dot(u[:, :, 0] - u_hj, u[:, :, 0] - u_hj)))
 
         # init the dynamics constraints
         F_dyn = self.dynamics()
-    
 
         # add the dynamics constraints
         dt = T / self.N
         for k in range(self.N):
             # calculate time in POSIX seconds
-            time = x_t[:,2] + k * dt
+            time = x_t[:, 2] + k * dt
             # explicit forward euler version
-            x_next = x[:,:,k]  + dt*np.array(F_dyn(x = x[:,:,k].T, u = u[:,:,k].T, t = time).T)
+            x_next = x[:, :, k] + dt * np.array(F_dyn(x=x[:, :, k].T, u=u[:, :, k].T, t=time).T)
             opti.subject_to(x[:, k + 1] == x_next)
 
         # start state & goal constraint
@@ -105,7 +108,7 @@ class Optimizer(MultiAgentOptim):
 
         # control constraints
         for k in range(self.N):
-            opti.subject_to(u[0, :, k]**2 + u[1, :, k]**2 <= 1)
+            opti.subject_to(u[0, :, k] ** 2 + u[1, :, k] ** 2 <= 1)
 
         # State constraints to the map boundaries
         # opti.subject_to(opti.bounded(self.grids_dict['x_grid'].min(),
@@ -123,7 +126,7 @@ class Optimizer(MultiAgentOptim):
         # opti.set_initial(x, x_init)
         # opti.set_initial(u, u_init)
 
-        opti.solver('ipopt')
+        opti.solver("ipopt")
         sol = opti.solve()
 
         # extract the time vector and control signal
@@ -139,7 +142,7 @@ class Optimizer(MultiAgentOptim):
         sym_lon_degree = ca.MX.sym("lon", self.nb_platforms, 1)  # in deg or m
         sym_lat_degree = ca.MX.sym("lat", self.nb_platforms, 1)  # in deg or m
         sym_time = ca.MX.sym("time", self.nb_platforms, 1)  # in posix
-        sym_u = ca.MX("control", self.nb_platforms,2)
+        sym_u = ca.MX("control", self.nb_platforms, 2)
         # For interpolation: need to pass a matrix (time, lat,lon) x nb_platforms (i.e. platforms as columns and not as rows)
         u_curr = self.ocean_source.u_curr_func(
             ca.horzcat(t, sym_lat_degree, sym_lon_degree).T
@@ -147,32 +150,20 @@ class Optimizer(MultiAgentOptim):
         v_curr = self.ocean_source.v_curr_func(
             ca.horzcat(sym_time, sym_lat_degree, sym_lon_degree).T
         ).T
-        sym_lon_delta_meters_per_s = (
-            sym_u[0] + u_curr
-        )
-        sym_lat_delta_meters_per_s = (
-            sym_u[1] + v_curr
-        )
+        sym_lon_delta_meters_per_s = sym_u[0] + u_curr
+        sym_lat_delta_meters_per_s = sym_u[1] + v_curr
         sym_lon_delta_deg_per_s = (
-                180
-                * sym_lon_delta_meters_per_s
-                / math.pi
-                / 6371000
-                / ca.cos(math.pi * sym_lat_degree / 180)
-            )
+            180
+            * sym_lon_delta_meters_per_s
+            / math.pi
+            / 6371000
+            / ca.cos(math.pi * sym_lat_degree / 180)
+        )
         sym_lat_delta_deg_per_s = 180 * sym_lat_delta_meters_per_s / math.pi / 6371000
         F_next = ca.Function(
             "F_x_next",
-            [
-                ca.horzcat(sym_lon_degree, sym_lat_degree),
-                sym_u,
-                sym_t
-            ],
-            [
-                ca.horzcat(
-                    sym_lon_delta_deg_per_s,
-                    sym_lat_delta_deg_per_s)
-            ],
-            ['x', 'u', 't']
+            [ca.horzcat(sym_lon_degree, sym_lat_degree), sym_u, sym_t],
+            [ca.horzcat(sym_lon_delta_deg_per_s, sym_lat_delta_deg_per_s)],
+            ["x", "u", "t"],
         )
         return F_next

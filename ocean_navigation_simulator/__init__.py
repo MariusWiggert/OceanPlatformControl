@@ -1,4 +1,4 @@
-#Make sub-folders visible to the module
+# Make sub-folders visible to the module
 from ocean_navigation_simulator import (
     controllers,
     environment,
