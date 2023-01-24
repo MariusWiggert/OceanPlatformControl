@@ -65,8 +65,8 @@ class OceanCurrentNoiseField(GenerativeModel):
         t_range[1] = t_range[1].replace(tzinfo=None)
 
         # Create axis locations. Time is taken relative to first timestamp, spatial axis are global.
-        lon_locs = np.arange(lon_range[0], lon_range[1] + lon_res, lon_res)
-        lat_locs = np.arange(lat_range[0], lat_range[1] + lat_res, lat_res)
+        lon_locs = np.arange(lon_range[0], lon_range[1] + lon_res/2, lon_res)
+        lat_locs = np.arange(lat_range[0], lat_range[1] + lat_res/2, lat_res)
         if self.time_origin is None:
             t_locs = np.array(timedelta_range_hours(datetime.timedelta(hours=0),
                                                     t_range[1] - t_range[0] + datetime.timedelta(hours=t_res),
