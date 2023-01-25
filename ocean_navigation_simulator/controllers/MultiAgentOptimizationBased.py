@@ -13,6 +13,7 @@ import scipy.integrate as integrate
 import math
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.utils import units
 
 
 class MultiAgentOptim:
@@ -37,25 +38,10 @@ class MultiAgentOptim:
         self.u_max_mps = platform_dict["u_max_in_mps"]
         self.dt_in_s = platform_dict["dt_in_s"]
         self.r = self.param_dict["interaction_range"]
+        self.r_deg = units.Distance(m=self.r)
         self.optim_horizon = param_dict["optim_horizon"]
         self.list_all_platforms = list(range(self.adjacency_mat.shape[0]))
         self.nb_platforms = len(self.list_all_platforms)
-
-    def potential_func(self, norm_qij: float, inside_range: bool) -> float:
-        """Potential function responsible for the attraction repulsion behavior between platforms
-
-        Args:
-            norm_qij (float): the euclidean norm of the distance between platform i and j
-            inside_range (bool): if the distance between i and j is within the interaction/communication range
-
-        Returns:
-            float: value of the potential function
-        """
-        if inside_range:
-            return self.r / (norm_qij * (self.r - norm_qij))
-        else:
-            # return np.log(norm_qij - self.r + self.epsilon)
-            return np.sqrt(norm_qij - self.r)
 
     def get_next_control_for_all_pltf(self, hj_optimal_ctrl):
         # Step 1: read the relevant subset of data
@@ -65,17 +51,31 @@ class MultiAgentOptim:
             x_t=x_t,
             u_hj=np.array(hj_optimal_ctrl),
         )
+        first_actions = u[0]
+        return [
+            PlatformAction.from_xy_propulsion(first_actions[i, 0], first_actions[i, 1])
+            for i in range(self.nb_platforms)
+        ]
 
     def run_optimization(self, x_t, u_hj):
-        # receive x_t as a np.array spatioTemporal point, states as columns and platforms as rows
+        """Set-up the ipopt problem and solve it.
+            receive x_t as a np.array spatioTemporal point, states as columns and platforms as rows
+        Input:
+            x_t     the starting point of the optimization
+            u_hj    the ideal control input for reachability: [u_x u_y] x #platforms
+        Returns:
+            - T     total time from start to end
+            - u     array of controls over time (u_x, u_y)
+            - x     state vector lat,lon over time
+            - dt    time between to points/control times
+        """
         # create optimization problem
         opti = ca.Opti()
 
         # declare fixed End time and variable t for indexing to variable current
         dt = self.dt_in_s
         N = self.optim_horizon
-        T = dt * N
-        t = ca.MX.sym("t", self.nb_platforms, 1)  # time symbolic variable
+        T = dt * N  # horizon in seconds
         # declare decision variables
         # For now 2 State system (X, Y), not capturing battery or seaweed mass
         x = [opti.variable(self.nb_platforms, 2) for _ in range(N + 1)]
@@ -87,55 +87,29 @@ class MultiAgentOptim:
         # Parameters (not optimized over)
         x_start = opti.parameter(self.nb_platforms, 2)
 
-        # optimizer objective
-        opti.minimize(ca.dot(u[0] - u_hj, u[0] - u_hj))
-
         # init the dynamics constraints
         F_dyn = self.dynamics(opti=opti)
-        # F_dyn = ca.Function(
-        #     "f",
-        #     [x[0], u[0], t],
-        #     [
-        #         ca.horzcat(
-        #             u[0][:, 0]
-        #             + self.ocean_source.u_curr_func(ca.horzcat(t, x[0][:, 0], x[0][:, 1]).T).T,
-        #             u[0][:, 1]
-        #             + self.ocean_source.v_curr_func(ca.horzcat(t, x[0][:, 0], x[0][:, 1]).T).T,
-        #         )
-        #     ],
-        #     ["x", "u", "t"],
-        #     ["x_dot"],
-        # )
-        # x_state = opti.variable(self.nb_platforms, 2)
-        # u_ctrl = opti.variable(self.nb_platforms, 2)
-        # F_dyn = ca.Function(
-        #     "f",
-        #     [x_state, u_ctrl, t],
-        #     [
-        #         ca.horzcat(
-        #             u_ctrl[:, 0],
-        #             # + self.ocean_source.u_curr_func(
-        #             #     ca.horzcat(t, x_state[:, 0], x_state[:, 1]).T
-        #             # ).T,
-        #             u_ctrl[:, 1]
-        #             # + self.ocean_source.v_curr_func(
-        #             #     ca.horzcat(t, x_state[:, 0], x_state[:, 1]).T
-        #             # ).T,
-        #         )
-        #     ],
-        #     ["x", "u", "t"],
-        #     ["x_dot"],
-        # )
 
+        # init the potential function
+        F_pot = self.potential_func()
         # add the dynamics constraints
         dt = T / N
+        objective = []
         for k in range(N):
             # calculate time in POSIX seconds
             time = x_t[:, 2] + k * dt
             # explicit forward euler version
             x_next = x[k] + dt * F_dyn(x=x[k], u=u[k], t=time)["x_dot"]
             opti.subject_to(x[k + 1] == x_next)
-
+            for platform in self.list_all_platforms:
+                neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
+                potentials = [
+                    F_pot(x_i=x[k + 1][platform, :], x_j=x[k + 1][neighbor, :])["potential_force"]
+                    for neighbor in neighbors_idx
+                ]
+                objective.append(sum(potentials))
+        # optimizer objective
+        opti.minimize(ca.dot(u[0] - u_hj, u[0] - u_hj) + sum(objective))
         # start state & goal constraint
         opti.subject_to(x[0] == x_start)
 
@@ -171,11 +145,13 @@ class MultiAgentOptim:
 
     def dynamics(self, opti):
         # create the dynamics function (note here in form of u_x and u_y)
-        x_state = ca.MX.sym("state", self.nb_platforms, 2)  # opti.variable(self.nb_platforms, 2)
+        x_state = opti.variable(self.nb_platforms, 2)
+        # ca.MX.sym("state", self.nb_platforms, 2)
         # sym_lon_degree = opti.variable(self.nb_platforms, 1)  # in deg or m
         # sym_lat_degree = opti.variable(self.nb_platforms, 1)  # in deg or m
         sym_time = ca.MX.sym("time", self.nb_platforms, 1)  # in posix
-        u = ca.MX.sym("ctrl_input", self.nb_platforms, 2)  # opti.variable(self.nb_platforms, 2)
+        u = opti.variable(self.nb_platforms, 2)
+        # ca.MX.sym("ctrl_input", self.nb_platforms, 2)  #
         # For interpolation: need to pass a matrix (time, lat,lon) x nb_platforms (i.e. platforms as columns and not as rows)
         u_curr = self.ocean_source.u_curr_func(
             ca.horzcat(sym_time, x_state[:, 1], x_state[:, 0]).T
@@ -183,8 +159,8 @@ class MultiAgentOptim:
         v_curr = self.ocean_source.v_curr_func(
             ca.horzcat(sym_time, x_state[:, 1], x_state[:, 0]).T
         ).T
-        lon_delta_meters_per_s = u[:, 0] + u_curr
-        lat_delta_meters_per_s = u[:, 1] + v_curr
+        lon_delta_meters_per_s = u[:, 0] * self.u_max_mps + u_curr
+        lat_delta_meters_per_s = u[:, 1] * self.u_max_mps + v_curr
         lon_delta_deg_per_s = (
             180 * lon_delta_meters_per_s / math.pi / 6371000 / ca.cos(math.pi * x_state[:, 1] / 180)
         )
@@ -198,23 +174,20 @@ class MultiAgentOptim:
         )
         return F_next
 
-
-#     def run_optimization(self, x_t, u_hj):
-#         """Set-up the ipopt problem and solve it.
-#         Input:
-#             x_t     the starting point of the optimization
-#             u_hj    the ideal control input for reachability: [u_x u_y] x #platforms
-#         Returns:
-#             - T     total time from start to end
-#             - u     array of controls over time (u_x, u_y)
-#             - x     state vector lat,lon over time
-#             - dt    time between to points/control times
-#         """
-#         # implemented by the child classes
-#         pass
-
-
-# class Optimizer(MultiAgentOptim):
-#     def __init__(self, observation, param_dict, platform_dict):
-#         # initialize superclass
-#         super().__init__(self, observation, param_dict, platform_dict)
+    def potential_func(self):
+        """Potential function responsible for the attraction repulsion behavior between platforms"""
+        sym_x_i = ca.MX.sym("agent_i", 2)
+        sym_x_j = ca.MX.sym("agent_j", 2)
+        r = ca.MX(self.r_deg.deg)
+        norm_xij = ca.norm_2(sym_x_i - sym_x_j)
+        pot_value = ca.if_else(
+            norm_xij <= r, self.r / (norm_xij * (self.r - norm_xij)), np.sqrt(norm_xij - self.r)
+        )
+        F_pot = ca.Function(
+            "Potential_function",
+            [sym_x_i, sym_x_j],
+            [pot_value],
+            ["x_i", "x_j"],
+            ["potential_force"],
+        )
+        return F_pot

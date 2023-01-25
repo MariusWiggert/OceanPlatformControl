@@ -60,7 +60,7 @@ reactiveConfig = {
 multiAgentOptimConfig = {
     "unit": "m",
     "interaction_range": 9000,  # m
-    "optim_horizon": 5,
+    "optim_horizon": 2,
 }
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
@@ -107,7 +107,12 @@ arenaConfig = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 86400.0},
     "ocean_dict": {
         "area": "GOM",
-        "forecast": None,  # {
+        "forecast": {
+            "field": "OceanCurrents",
+            "source": "hindcast_files",
+            "source_settings": {"folder": "tmp/hindcast/", "source": "HYCOM", "type": "hindcast"},
+        },
+        # {
         #     "field": "OceanCurrents",
         #     "source": "forecast_files",
         #     "source_settings": {
@@ -205,8 +210,9 @@ while any(status == 0 for status in problem_status):
     observation = arena.step(action)
 
     # Observer data assimilation
-    observer.observe(observation)
-    observation.forecast_data_source = observer
+    # observer.observe(observation)
+    # observation.forecast_data_source = observer
+    # #this replaces the forecast source by Observer (defined as none for now so not a desired behavior)
 
     # update problem status
     problem_status = arena.problem_status(problem=problem)

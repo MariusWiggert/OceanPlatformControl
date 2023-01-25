@@ -168,7 +168,6 @@ class MultiAgentPlanner(HJReach2DPlanner):
     ) -> PlatformActionSet:
         action_list = np.zeros((0, 2))  # empty
 
-        ctrl_correction_angle = 0
         for k in range(len(observation)):
             hj_optimal_input = super().get_action(observation[k])
             action_list = np.vstack(
@@ -179,7 +178,14 @@ class MultiAgentPlanner(HJReach2DPlanner):
             param_dict=self.multi_agent_settings["multi_ag_optim"],
             platform_dict=self.platform_dict,
         )
-        multi_ag_optim.get_next_control_for_all_pltf(action_list)
+        all_actions = multi_ag_optim.get_next_control_for_all_pltf(action_list)
+        action_list = [self.to_platform_action_bounds(action) for action in all_actions]
+        correction_angles = [
+            abs(math.remainder(action.direction - hj_optimal_input.direction, math.tau))
+            for action in action_list
+        ]
+
+        return PlatformActionSet(action_set=action_list), max(correction_angles)
 
     def to_platform_action_bounds(self, action: PlatformAction) -> PlatformAction:
         """Bound magnitude to 0-1 of u_max and direction between [0, 2pi[
