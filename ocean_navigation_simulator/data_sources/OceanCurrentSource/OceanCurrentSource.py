@@ -648,8 +648,19 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
                 self.DataArray,
                 currents=source_config_dict["source_settings"].get("currents", "total"),
             )
+        elif source_config_dict["source_settings"]["service"] == "california_high_frequency_radar":
+            res = source_config_dict["source_settings"]["resolution_in_km"]
+            opendap_url = 'http://hfrnet-tds.ucsd.edu/thredds/dodsC/HFR/USWC/{}km/hourly/RTV/HFRADAR_US_West_Coast_{}km_Resolution_Hourly_RTV_best.ncd'.format(res, res)
+            ds = xr.open_dataset(opendap_url)
+            # format it
+            all_variables = list(ds.variables)
+            # remove needed ones
+            for var_to_keep in ['lat', 'lon', 'time', 'u', 'v', 'depth']:
+                all_variables.remove(var_to_keep)
+            ds_cleaned = ds.drop(all_variables)
+            self.DataArray = ds_cleaned.rename({'v': 'water_v', 'u': 'water_u'})
         else:
-            raise ValueError("Only opendap Copernicus implemented for now, HYCOM also has opendap.")
+            raise ValueError("Only opendap california_high_frequency_radar and copernicus implemented for now, HYCOM also has opendap.")
 
         # Step 2: derive the grid_dict for the xarray
         self.grid_dict = self.get_grid_dict_from_xr(
