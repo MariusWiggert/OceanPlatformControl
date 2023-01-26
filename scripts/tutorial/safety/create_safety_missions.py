@@ -1,4 +1,4 @@
-# This script will generate a csv of feasible navigation problems for a specific time-frame and FC/HC Setting.
+# This script will generate a csv of safety navigation problems for a specific time-frame and FC/HC Setting.
 import datetime
 import logging
 import os
@@ -14,7 +14,7 @@ from ocean_navigation_simulator.reinforcement_learning.runners.GenerationRunner 
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 # Settings for where the problem csv is saved
-results_folder = "/tmp/missions/"
+results_folder = "generated_media/missions_full_region1/"  # /tmp/missions/"
 os.makedirs(results_folder, exist_ok=True)
 
 # set_arena_loggers(logging.INFO)
@@ -32,6 +32,7 @@ arena_config = {
     "use_geographic_coordinate_system": True,
     "spatial_boundary": None,
     "ocean_dict": {
+        "region": "Region 1",
         "hindcast": {
             "field": "OceanCurrents",
             "source": "hindcast_files",
@@ -49,12 +50,32 @@ arena_config = {
             "source_settings": {
                 "folder": "data/miss_gen_forecast/",
                 "local": False,
-                "source": "Copernicus",
+                "source": "HYCOM",
                 "type": "forecast",
                 "currents": "total",
             },
         },
     },
+    "bathymetry_dict": {
+        "field": "Bathymetry",
+        "source": "gebco",
+        "source_settings": {
+            "filepath": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
+        },
+        "casadi_cache_settings": {"deg_around_x_t": 10},
+        "use_geographic_coordinate_system": True,
+    },
+    "garbage_dict": {
+        "field": "Garbage",
+        "source": "Lebreton",
+        "source_settings": {
+            "filepath": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_global_res_0.083_0.083.nc"
+        },
+        "casadi_cache_settings": {"deg_around_x_t": 10},
+        "use_geographic_coordinate_system": True,
+    },
+    "solar_dict": {"hindcast": None, "forecast": None},
+    "seaweed_dict": {"hindcast": None, "forecast": None},
 }
 
 # change to this if basic setup works
@@ -70,15 +91,14 @@ config = {
     # HYCOM HC: lon [-98.0,-76.4000244140625], lat[18.1200008392334,31.92000007629394]
     # Copernicus FC: lon: [-98.0, -76.416664], lat: [18.083334, 30.0]
     # Combined: [-98.0, -76.416664], [18.1200008392334, 30.0]
-    "x_range": [-95.9, -78.52],
-    "y_range": [20.22, 27.9],
+    "x_range": [-159, -106],
+    "y_range": [16, 39],
     "t_range": [  # ['2022-08-01T00:00:00+00:00', '2022-08-30T00:00:00+00:00'],
         # Copernicus FC: 2022-04 until today, HYCOM Hindcast: 2021-09 until today
-        datetime.datetime(year=2022, month=8, day=1, tzinfo=datetime.timezone.utc),
+        datetime.datetime(year=2022, month=8, day=16, tzinfo=datetime.timezone.utc),
         datetime.datetime(year=2022, month=8, day=30, tzinfo=datetime.timezone.utc),
     ],
     "problem_timeout_in_h": 140,
-    "target_distance_from_land": 0.5,
     "problem_target_radius": 0.1,
     ##### HJ Planner #####
     "hj_specific_settings": {
@@ -95,18 +115,26 @@ config = {
     "hj_planner_box": 2.0,
     ##### Start Sampling #####
     "feasible_missions_per_target": 8,
-    "random_missions_per_target": 8,
-    "min_distance_from_hj_frame": 0.5,
-    "min_distance_from_land": 0.5,
     "feasible_mission_time_in_h": [100, 120],
     "random_min_distance_from_target": 0.5,
+    "random_missions_per_target": 8,
+    "min_distance_from_hj_frame": 0.5,
+    "min_distance_from_land": 0.2,
+    # Safety specific values
+    "max_distance_from_land": 1,
+    "min_distance_from_garbage": 0.01,
+    "max_distance_from_garbage": 1,
     ##### Actions #####
     "plot_batch": False,
     "animate_batch": False,
     "cache_forecast": False,
     "cache_hindcast": False,
+    ##### Distance maps #####
+    "filepath_distance_map": {
+        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
+        "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
+    },
 }
-
 all_problems = []
 for worker in range(1):
     mission_generator = MissionGenerator(
@@ -122,11 +150,13 @@ for worker in range(1):
 df = pd.DataFrame([problem.to_dict() for problem in all_problems])
 df.to_csv(results_folder + "problems.csv")
 
+mission_generator.plot_last_batch_snapshot(filename=results_folder + "problems.png")
+
 #%% To visualize the generated Navigation Problems
 # Note: those are not working right now, probably minor bugs to fix.
 # GenerationRunner.plot_starts_and_targets(
 #     results_folder=results_folder,
 #     scenario_config=arena_config
 # )
-# GenerationRunner.plot_target_dates_histogram(results_folder)
-GenerationRunner.plot_ttr_histogram(results_folder)
+GenerationRunner.plot_target_dates_histogram(results_folder)
+# GenerationRunner.plot_ttr_histogram(results_folder)
