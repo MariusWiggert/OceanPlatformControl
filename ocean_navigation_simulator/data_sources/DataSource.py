@@ -828,7 +828,7 @@ class AnalyticalSource(abc.ABC):
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
         Returns:
-          data_array     in xarray format that contains the grid and the values (land is NaN)
+          data_array     in xarray format that contains the grid and the values (land is NaN). Shape: T,Y,X
         """
 
         # Step 0.0: if t_interval is in datetime convert to POSIX

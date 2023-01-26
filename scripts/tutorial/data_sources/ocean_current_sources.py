@@ -42,19 +42,28 @@ forecast_source_dict = {
     "source_settings": {"folder": "data/forecast_test/"},
 }
 
+#%% Option 3: Opendap specifications for California High Frequency Radar data
+hindcast_source_dict = {
+    "field": "OceanCurrents",
+    "source": "opendap",
+    "source_settings": {
+        "service": "california_high_frequency_radar",
+        "resolution_in_km": 6  # can be 1, 2, or 6.
+        # Important: 6km covers a wide area, the more high resolution are only available for a small area
+    }
+}
+forecast_source_dict = None
 #%% Create the ocean Field object (containing both the hindcast and optionally the forecast source)
 ocean_field = OceanCurrentField(
     hindcast_source_dict=hindcast_source_dict,
     forecast_source_dict=forecast_source_dict,
     casadi_cache_dict=casadi_cache_dict,
 )
-#%%
-t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 #%% Use it by defining a spatial and temporal interval and points
 t_0 = datetime.datetime(2021, 11, 25, 23, 30, tzinfo=datetime.timezone.utc)
 t_interval = [t_0, t_0 + datetime.timedelta(days=2)]
-x_interval = [-82, -80]
-y_interval = [24, 26]
+x_interval = [-125, -120]
+y_interval = [35, 40]
 x_0 = PlatformState(lon=units.Distance(deg=-81.5), lat=units.Distance(deg=23.5), date_time=t_0)
 x_T = SpatialPoint(lon=units.Distance(deg=-80), lat=units.Distance(deg=24.2))
 #%% plot ocean currents at time over an area
@@ -65,7 +74,7 @@ ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     # plot_type='streamline',
     plot_type="quiver",
     return_ax=False,
-    vmax=1.4,
+    vmax=0.7,
     quiver_spatial_res=0.1,
     quiver_scale=15,
 )
@@ -91,6 +100,7 @@ print("forecast_currents_at_point: ", forecast_currents_at_point)
 hindcast_xarray = ocean_field.get_ground_truth_area(
     x_interval=x_interval, y_interval=y_interval, t_interval=t_interval
 )
+#%%
 # Forecast
 forecast_xarray = ocean_field.get_forecast_area(
     x_interval=x_interval,
