@@ -8,6 +8,7 @@ from ocean_navigation_simulator.problem_factories.Constructor import (
     Constructor,
 )
 import yaml
+import numpy as np
 
 ## Only when developing with VSCode in my repo
 os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
@@ -64,7 +65,7 @@ multiAgentOptimConfig = {
 }
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control
+    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -77,7 +78,7 @@ missionConfig = {
     "feasible": True,
     "seed": 571402,
     "target_radius": 0.1,
-    "ttr_in_h": 90.63763978820165,
+    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
     "x_0": [
         {
             "date_time": "2021-11-24T12:00:48+00:00",
@@ -202,7 +203,9 @@ observer = constructor.observer
 # Step 4: Run closed-loop simulation
 ctrl_deviation_from_opt = []
 all_pltf_status = [0] * len(missionConfig["x_0"])
-while any(status == 0 for status in problem_status):
+min_distances_to_target_over_mission = [np.inf] * len(missionConfig["x_0"])
+pb_timeout_flag = -1
+while not any(status == pb_timeout_flag for status in problem_status):
     # Get action
     action, ctrl_correction = controller.get_action(observation=observation)
     ctrl_deviation_from_opt.append(ctrl_correction)
@@ -216,10 +219,15 @@ while any(status == 0 for status in problem_status):
 
     # update problem status
     problem_status = arena.problem_status(problem=problem)
-
+    min_distances_to_target_over_mission = arena.get_min_or_max_of_two_lists(
+        list_a=min_distances_to_target_over_mission,
+        list_b=arena.final_distance_to_target(problem=problem),
+        min_or_max="min",
+    )
     # for the final metric, look if platform was able to reach target within T, so keep only max (=1 if pltf reached target)
-    all_pltf_status = list(map(max, zip(all_pltf_status, problem_status)))
-
+    all_pltf_status = arena.get_min_or_max_of_two_lists(
+        list_a=all_pltf_status, list_b=problem_status, min_or_max="max"
+    )
 print("terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
 
 # %% Plot useful metrics for multi-agent performance evaluation
@@ -231,6 +239,7 @@ with open(f"{results_folder}/missionConfig.yml", "w") as outfile:
 
 metrics_dict = arena.save_metrics_to_log(
     all_pltf_status=all_pltf_status,
+    min_distances_to_target=min_distances_to_target_over_mission,
     max_correction_from_opt_ctrl=ctrl_deviation_from_opt,
     filename=f"{results_folder}/metrics.log",
 )
