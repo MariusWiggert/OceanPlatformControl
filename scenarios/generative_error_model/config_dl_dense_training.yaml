@@ -51,7 +51,7 @@ gen_optimizer:
     weight_decay: 0  # 0.0003
 
 discriminator:
-  patch_disc: False
+  patch_disc: True
   in_channels: 2
   features: [64, 128, 256, 512]
   init_type: "xavier"

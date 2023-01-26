@@ -8,8 +8,8 @@ metrics: ["rmse", "vector_correlation"]
 # testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
 save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
-#test_load_chkpt: "2022-11-27_22:48:44.pth"
-#test_load_chkpt: "2022-12-10_13:09:12.pth"
+#test_load_chkpt: "2022-11-27_22:48:44.pth"  # constrained
+#test_load_chkpt: "2022-12-10_13:09:12.pth"  # unconstrained
 #test_load_chkpt: "2022-12-13_07:10:04.pth"
 #test_load_chkpt: "2022-12-15_07:12:21.pth"  # fixed disc
 #test_load_chkpt: "2022-12-16_10:03:55.pth"  # add spectral norm -> also change in test
