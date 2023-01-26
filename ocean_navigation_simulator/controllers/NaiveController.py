@@ -26,6 +26,8 @@ class NaiveController(Controller):
         dlon = self.problem.end_region.lon.deg - observation.platform_state.lon.deg
         dlat = self.problem.end_region.lat.deg - observation.platform_state.lat.deg
         mag = math.sqrt(dlon * dlon + dlat * dlat)
+        if mag == 0:
+            return PlatformAction.from_xy_propulsion(x_propulsion=0, y_propulsion=0)
 
         # go towards the center of the target with full power
         return PlatformAction.from_xy_propulsion(x_propulsion=dlon / mag, y_propulsion=dlat / mag)
