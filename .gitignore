@@ -4,6 +4,8 @@ __pycache__*
 *.png
 *.gif
 *.log
+*.svg
+*.jpg
 *.egg-info
 optimized_dp/
 viz/
@@ -24,3 +26,5 @@ models/
 results/
 wandb/
 saved_planner/
+
+
