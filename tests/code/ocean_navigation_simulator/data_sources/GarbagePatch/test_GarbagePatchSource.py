@@ -16,14 +16,8 @@ from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource imp
     GarbagePatchSource2d,
 )
 
-############################################################################################################
-## Tests will all fail, as long as we do not have Copernicus HC data to work with.
-## Using forecast does not work to fix it, as fc are overlapping in time, which leads to (next line)
-## ValueError: Resulting object does not have monotonic global indexes along dimension time
-## Need HC data to figure out if these tests actually work with region 1.
-############################################################################################################
 
-
+# Might crash due to wrong meta data, other than that it works
 @pytest.fixture(scope="module")
 def scenario_config():
     scenario_config = {
@@ -48,7 +42,7 @@ def scenario_config():
                 "source_settings": {
                     "local": True,
                     "folder": "data/tests/test_GarbagePatchSource/",
-                    "source": "copernicus",
+                    "source": "HYCOM",
                     "type": "hindcast",
                 },
             },
@@ -67,11 +61,11 @@ def scenario_config():
         "solar_dict": {"hindcast": None, "forecast": None},
         "seaweed_dict": {"hindcast": None, "forecast": None},
     }
-    t_interval = [datetime.datetime(2022, 10, 2, 0, 0, 0), datetime.datetime(2022, 10, 5, 0, 0, 0)]
+    t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 7, 0, 0, 0)]
     # download files if not there yet
     ArenaFactory.download_required_files(
-        archive_source="copernicus",
-        archive_type="hindcast",  # TODO: This is currently breaking everything.
+        archive_source="HYCOM",
+        archive_type="hindcast",
         region="Region 1",
         download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
         t_interval=t_interval,
@@ -91,7 +85,7 @@ def test__is_on_garbage__start_on_garbage_with_garbage_source(
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 4, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 
@@ -126,7 +120,7 @@ def test__is_on_garbage__no_garbage_with_garbage_source(
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 4, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 
@@ -162,7 +156,7 @@ def test__is_on_garbage__go_into_garbage_with_garbage_source(
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 4, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 
@@ -208,7 +202,7 @@ def test__is_on_garbage__start_on_garbage_no_garbage_source(
     x_0 = PlatformState(
         lon=units.Distance(deg=start[0]),
         lat=units.Distance(deg=start[1]),
-        date_time=datetime.datetime(2022, 10, 2, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        date_time=datetime.datetime(2022, 10, 4, 0, 0, 0, tzinfo=datetime.timezone.utc),
     )
     x_T = SpatialPoint(lon=units.Distance(deg=stop[0]), lat=units.Distance(deg=stop[1]))
 

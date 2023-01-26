@@ -154,9 +154,7 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["hindcast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"]["hindcast"]["source_settings"].get(
-                                "region", "GOM"
-                            ),
+                            region=config["ocean_dict"].get("region", "GOM"),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
@@ -197,9 +195,7 @@ class ArenaFactory:
                             download_folder=config["ocean_dict"]["forecast"]["source_settings"][
                                 "folder"
                             ],
-                            region=config["ocean_dict"].get(
-                                "area", "GOM"
-                            ),
+                            region=config["ocean_dict"].get("region", "GOM"),
                             t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
@@ -296,6 +292,7 @@ class ArenaFactory:
         points: Optional[List[SpatialPoint]] = None,
         throw_exceptions: bool = False,
         c3: Optional = None,
+        remove_files_if_corrupted: bool = True,
     ) -> List[str]:
         """
         helper function for thread-safe download of available current files from c3
@@ -364,7 +361,11 @@ class ArenaFactory:
 
         # Step 4: Download files thread-safe
         downloaded_files = ArenaFactory._download_filelist(
-            files=files, download_folder=download_folder, throw_exceptions=throw_exceptions, c3=c3
+            files=files,
+            download_folder=download_folder,
+            throw_exceptions=throw_exceptions,
+            c3=c3,
+            remove_files_if_corrupted=remove_files_if_corrupted,
         )
 
         return downloaded_files
@@ -440,7 +441,9 @@ class ArenaFactory:
         )
 
     @staticmethod
-    def _download_filelist(files, download_folder, throw_exceptions, c3):
+    def _download_filelist(
+        files, download_folder, throw_exceptions, c3, remove_files_if_corrupted=True
+    ):
         """
         thread-safe download with corruption and file size check
         Arguments:
@@ -485,10 +488,11 @@ class ArenaFactory:
                     else:
                         # check valid xarray file and meta length
                         try:
+                            # Check valid xarray
                             grid_dict_list = get_grid_dict_from_file(
                                 temp_folder + filename, currents="total"
                             )
-
+                            # Check valid meta data
                             if (
                                 file.subsetOptions.timeRange.start < grid_dict_list["t_range"][0]
                                 or grid_dict_list["t_range"][-1] < file.subsetOptions.timeRange.end
@@ -510,7 +514,7 @@ class ArenaFactory:
 
                     if error and throw_exceptions:
                         raise CorruptedOceanFileException(error)
-                    elif error:
+                    elif error and remove_files_if_corrupted:
                         os.remove(temp_folder + filename)
                         logger.warning(error)
                         continue

@@ -105,6 +105,10 @@ config = {
     "animate_batch": False,
     "cache_forecast": False,
     "cache_hindcast": False,
+    #### Distance Maps ####
+    "filepath_distance_map": {
+        "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
+    },
 }
 
 all_problems = []

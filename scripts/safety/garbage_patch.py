@@ -8,7 +8,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from bathymetry import bfs_min_distance, convert_np_to_xr
 from scipy.spatial import ConvexHull, Delaunay
+
+
+def generate_shortest_distance_maps(xarray: xr, cutoff: float = 0, save_path=None) -> xr:
+    # Shortest distance to garbage, copied and adapted from bathymetry
+    # Will be converted from dataset to dataarray
+    # 0 land, 1 water
+    xarray_land = xr.where(xarray["garbage"] > cutoff, 0, 10000)
+    # Convert to numpy
+    data = xarray_land.data
+    lat = xarray_land.coords["lat"].values
+    lon = xarray_land.coords["lon"].values
+    lat_rad = np.deg2rad(lat)
+    lon_rad = np.deg2rad(lon)
+
+    min_d_map = bfs_min_distance(data, lat_rad, lon_rad)
+    ds = convert_np_to_xr(min_d_map, lat, lon)
+
+    if save_path is not None:
+        ds = ds.astype("float32")
+        ds.to_netcdf(save_path)
+    return ds
 
 
 def set_up_geographic_ax() -> plt.axes:
@@ -144,7 +166,7 @@ def create_xarray_around_points(
 # TODO: figure out why alpha complex with alpha value zero does not return the complex hull
 # TODO: there will be errors in areas where the convex hull should wrap around, hence at +-180°
 def create_xarray_mask(
-    xarray: xr,
+    ds: xr,
     x_range: List[float],
     y_range: List[float],
     res_lat: float = 1 / 12,
@@ -155,7 +177,7 @@ def create_xarray_mask(
     """Create an xarray mask of garbage patches
 
     Args:
-        xarray (xr): xarray containing lat, lon columns of positions within a garbage patch.
+        ds (xr): xarray dataset containing lat, lon columns of positions within a garbage patch.
         x_range (List[float]): List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
         y_range (List[float]): List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
         res_lat (float, optional): Target resolution lat in degree. Defaults to 1/12.
@@ -247,21 +269,21 @@ if __name__ == "__main__":
     # xarray["garbage"].plot()
     # plt.show()
 
-    # Global with fake garbage in gulf of mexico
-    region_global = [[-180, 180], [-90, 90]]
-    res_lat = 1 / 12
-    res_lon = 1 / 12
-    lat = [26, 26, 26]
-    lon = [-87, -86, -85]
-    ds = create_xarray_around_points(lat, lon)
-    xarray = create_xarray_mask(ds, *region_global, res_lat=res_lat, res_lon=res_lon)
-    save_xarray(
-        xarray,
-        f"data/garbage_patch/garbage_patch_fake_gulf_of_mexico_global_res_{res_lat:.3f}_{res_lon:.3f}.nc",
-    )
+    # # Global with fake garbage in gulf of mexico
+    # region_global = [[-180, 180], [-90, 90]]
+    # res_lat = 1 / 12
+    # res_lon = 1 / 12
+    # lat = [26, 26, 26]
+    # lon = [-87, -86, -85]
+    # ds = create_xarray_around_points(lat, lon)
+    # xarray = create_xarray_mask(ds, *region_global, res_lat=res_lat, res_lon=res_lon)
+    # save_xarray(
+    #     xarray,
+    #     f"data/garbage_patch/garbage_patch_fake_gulf_of_mexico_global_res_{res_lat:.3f}_{res_lon:.3f}.nc",
+    # )
 
-    xarray["garbage"].plot()
-    plt.show()
+    # xarray["garbage"].plot()
+    # plt.show()
 
     # # # Plot a convex hull around garbage patch
     # ax = set_up_geographic_ax()
@@ -269,3 +291,13 @@ if __name__ == "__main__":
     # plot_convex_hull(points, ax)
     # ax = set_up_geographic_ax()
     # plot_alpha_complex(points, ax, alpha=2)
+
+    # Create min_distance to land map and test loading it
+    low_res_loaded = xr.open_dataset("data/garbage_patch/garbage_patch_global_res_0.083_0.083.nc")
+    min_d_map_name = "data/garbage_patch/garbage_patch_distance_res_0.083_0.083_max.nc"
+    # min_d_map = generate_shortest_distance_maps(low_res_loaded, save_path=min_d_map_name)
+    # Test loading
+    min_d_map_loaded = xr.open_dataset(min_d_map_name)
+    # min_d_map_loaded = min_d_map_loaded.sel(lat=slice(15, 40), lon=slice(-160, -105))
+    min_d_map_loaded["distance"].plot(cmap="jet_r")
+    plt.show()

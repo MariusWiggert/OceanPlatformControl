@@ -539,18 +539,22 @@ class DataSource(abc.ABC):
         xarray = self.get_data_over_area(**get_data_dict)
 
         # Calculate min and max over the full tempo-spatial array
-        if self.source_config_dict["field"] == "OceanCurrents":
-            # get rounded up vmax across the whole dataset (with ` decimals)
-            xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
-            vmax = round(xarray["magnitude"].max().item() + 0.049, 1)
-            vmin = 0
+        if "vmax" not in kwargs and "vmin" not in kwargs:
+            if self.source_config_dict["field"] == "OceanCurrents":
+                # get rounded up vmax across the whole dataset (with ` decimals)
+                xarray = xarray.assign(magnitude=lambda x: (x.water_u**2 + x.water_v**2) ** 0.5)
+                vmax = round(xarray["magnitude"].max().item() + 0.049, 1)
+                vmin = 0
+            else:
+                vmax = units.round_to_sig_digits(
+                    xarray[list(xarray.keys())[0]].max().item(), sig_digit=2
+                )
+                vmin = units.round_to_sig_digits(
+                    xarray[list(xarray.keys())[0]].min().item(), sig_digit=2
+                )
         else:
-            vmax = units.round_to_sig_digits(
-                xarray[list(xarray.keys())[0]].max().item(), sig_digit=2
-            )
-            vmin = units.round_to_sig_digits(
-                xarray[list(xarray.keys())[0]].min().item(), sig_digit=2
-            )
+            vmax = kwargs.pop("vmax")
+            vmin = kwargs.pop("vmin")
 
         # add vmin and vmax to kwargs if not already in it
         if "vmax" not in kwargs:

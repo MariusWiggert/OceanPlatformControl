@@ -195,7 +195,6 @@ class Arena:
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
         # Step 1.4 Bathymetry Field
-        # TODO: figure out if API of BathymetrySource2d should be like of the other sources
         if bathymetry_dict is not None:
             self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
         if garbage_dict is not None:
@@ -392,6 +391,7 @@ class Arena:
             'Timeout'       if problem timed out
             'Stranded'      if platform stranded
             'Outside Arena' if platform left specified araena region (spatial boundaries)
+            'In garbage patch' if platform in garbage patch
             'Invalid'       otherwise
         """
         if problem_status == 1:
@@ -593,9 +593,21 @@ class Arena:
                 y_interval=y_interval,
                 return_ax=True,
             )
+        elif "bathymetry" in background:
+            ax = self.bathymetry_source.plot_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
+        elif "garbage" in background:
+            ax = self.garbage_source.plot_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                return_ax=True,
+            )
         else:
             raise Exception(
-                f"Arena: Background '{background}' is not available only 'current', 'solar' or 'seaweed."
+                f"Arena: Background '{background}' is not available only 'current', 'solar', 'seaweed', 'bathymetry', or 'garbage'."
             )
 
         if show_state_trajectory:
@@ -722,4 +734,67 @@ class Arena:
         plt.title("Simulator Control Trajectory")
         plt.xlabel("time")
 
+        return ax
+
+    def plot_garbage_trajectory_on_timeaxis(
+        self,
+        ax: Optional[matplotlib.axes.Axes] = None,
+        stride: Optional[int] = 1,
+        # TODO: expand to safety to include bathymetry violations (then bathymetry state needs to be added to trajectory)
+        # to_plot: Optional[Literal["both", "garbage", "bathymetry"]] = "both",
+    ) -> matplotlib.axes.Axes:
+        """
+        Plots the garbgae trajectory on a time axis. Passing in an axis is optional.
+         Otherwise a new figure is created.
+        Args:
+            ax: Optional[matplotlib.axes.Axes]
+            stride: Optional[int] = 1
+
+        Returns:
+            ax:  matplotlib.axes.Axes
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        format_datetime_x_axis(ax)
+
+        # plot
+        dates = [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
+            for posix in self.state_trajectory[::stride, 2]
+        ]
+        ax.plot(dates, self.state_trajectory[::stride, 5])
+
+        plt.ylabel("is_in_garbage")
+        plt.title("Inside Garbage Patch Trajectory")
+        plt.xlabel("time")
+
+        return ax
+
+    # TODO: Cache the added stuff? All images in animation will have the same overlay.
+    def add_ax_func_ext_overlay(
+        self,
+        ax: matplotlib.axes.Axes,
+        posix_time: datetime.datetime,
+        **kwargs,
+    ) -> matplotlib.axes.Axes:
+        x_interval = kwargs.get("x_interval", [-180, 180])
+        y_interval = kwargs.get("y_interval", [-90, 90])
+        masking_val_bathymetry = kwargs.get("masking_val_bathymetry", -150)
+
+        if self.bathymetry_source:
+            ax = self.bathymetry_source.plot_mask_from_xarray(
+                self.bathymetry_source.get_data_over_area(
+                    x_interval=x_interval, y_interval=y_interval
+                ),
+                ax=ax,
+                masking_val=masking_val_bathymetry,
+            )
+        if self.garbage_source:
+            ax = self.garbage_source.plot_mask_from_xarray(
+                self.garbage_source.get_data_over_area(
+                    x_interval=x_interval, y_interval=y_interval
+                ),
+                ax=ax,
+            )
         return ax

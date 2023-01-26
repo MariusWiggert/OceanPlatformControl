@@ -1,4 +1,5 @@
 from collections import deque
+from typing import List
 
 import cartopy.crs as ccrs
 import cmocean
@@ -62,6 +63,7 @@ def generate_global_bathymetry_maps(
         op (str, optional): Operation of coarsening. . Defaults to "max".
     """
     low_res = coarsen(filename, res_lat, res_lon, op)
+    low_res = low_res.astype("float32")
     low_res.to_netcdf(f"data/bathymetry/bathymetry_global_res_{res_lat:.3f}_{res_lon:.3f}_{op}.nc")
     print("Saved global bathymetry map with lower resolution")
 
@@ -82,6 +84,7 @@ def generate_shortest_distance_maps(xarray: xr, elevation: float = 0, save_path=
     ds = convert_np_to_xr(min_d_map, lat, lon)
 
     if save_path is not None:
+        ds = ds.astype("float32")
         ds.to_netcdf(save_path)
     return ds
 
@@ -177,7 +180,6 @@ def bfs_min_distance(
     Returns:
         np.ndarray: Distance in km to closest land.
     """
-
     if connectivity == 4:
         dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     elif connectivity == 8:
@@ -204,6 +206,12 @@ def bfs_min_distance(
             distances = []
             for dir in dirs:
                 i_neighbor, j_neighbor = i + dir[0], j + dir[1]
+
+                # Wraparound from -180 to 180 degrees
+                if j_neighbor == data.shape[1]:
+                    j_neighbor = 0
+                if j_neighbor == -1:
+                    j_neighbor = data.shape[1] - 1
 
                 # Add not visited neighboring sea cells to deque
                 # Add distance to nearest land
@@ -262,6 +270,31 @@ def format_spatial_resolution(xarray: xr.Dataset(), res_lat=1 / 12, res_lon=1 / 
         },
     )
     return xarray_new
+
+
+def plot_rectangles_from_interval(
+    x_interval: List, y_interval: List, ax: plt.axes, color: str = "k"
+) -> plt.axes:
+    """Plot bounding box rectangles on ax from interval
+
+    Args:
+        x_interval (List): Lon interval of rectanlge.
+        y_interval (List): Lat interval of rectanlge.
+        ax (plt.axes): Axes
+        color (str, optional): Color of rectangle border. Defaults to "k".
+
+    Returns:
+        plt.axes: Axes with added rectangle.
+    """
+    if not len(x_interval) == len(y_interval) and len(x_interval) == 2:
+        return ax
+
+    # Plot bounding box
+    ax.plot(x_interval, [y_interval[0], y_interval[0]], color=color)
+    ax.plot(x_interval, [y_interval[1], y_interval[1]], color=color)
+    ax.plot([x_interval[0], x_interval[0]], y_interval, color=color)
+    ax.plot([x_interval[1], x_interval[1]], y_interval, color=color)
+    return ax
 
 
 def plot_bathymetry_2d(xarray: xr.Dataset()) -> None:
@@ -393,8 +426,14 @@ if __name__ == "__main__":
 
     # Create min_distance to land map and test loading it
     low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    min_d_map_name = "data/bathymetry/bathymetry_distance_res_0.083_0.083_max.nc"
-    min_d_map = generate_shortest_distance_maps(low_res_loaded, save_path=min_d_map_name)
+    elevation = 0
+    min_d_map_name = (
+        f"data/bathymetry/bathymetry_distance_res_0.083_0.083_max_elevation_{int(elevation)}.nc"
+    )
+    min_d_map = generate_shortest_distance_maps(
+        low_res_loaded, save_path=min_d_map_name, elevation=elevation
+    )
     min_d_map_loaded = xr.open_dataset(min_d_map_name)
-    min_d_map_loaded["distance"].plot()
+    min_d_map_loaded = min_d_map_loaded.sel(lat=slice(15, 40), lon=slice(-160, -105))
+    min_d_map_loaded["distance"].plot(cmap="jet_r")
     plt.show()

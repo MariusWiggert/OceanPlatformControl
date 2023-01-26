@@ -41,7 +41,7 @@ bathymetry_dict:
     field: "Bathymetry"
     source: "gebco"
     source_settings:
-        filepath: "data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc"
+        filepath: "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
     casadi_cache_settings:
         deg_around_x_t: 20
     use_geographic_coordinate_system: True
@@ -49,7 +49,7 @@ bathymetry_dict:
 garbage_dict:
     source: "Lebreton"
     source_settings:
-        filepath: "data/garbage_patch/garbage_patch_fake_gulf_of_mexico_global_res_0.083_0.083.nc"
+        filepath: "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_global_res_0.083_0.083.nc"
     casadi_cache_settings:
         deg_around_x_t: 10
     use_geographic_coordinate_system: True

@@ -5,6 +5,7 @@ from typing import AnyStr, Dict, List, Optional
 
 import casadi as ca
 import cmocean
+import numpy as np
 import matplotlib.pyplot
 import matplotlib.pyplot as plt
 import xarray as xr
@@ -129,3 +130,80 @@ class BathymetrySource2d(DataSource2d):
         """Helper function to delete the existing casadi functions."""
         del self.elevation_func
         pass
+
+    @staticmethod
+    def plot_mask_from_xarray(
+        xarray: xr,
+        var_to_plot: AnyStr = "elevation",
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        alpha: Optional[float] = 1.0,
+        ax: Optional[plt.axes] = None,
+        fill_nan: Optional[bool] = True,
+        masking_val: Optional[float] = 0.0,
+        hatches: Optional[str] = "///",
+        overlay: Optional[bool] = False,
+        contour: Optional[bool] = True,
+    ) -> matplotlib.pyplot.axes:
+        """Base function to plot a specific var_to_plot mask of the x_array.
+
+        Args:
+            xarray (xr):                            xarray object containing the grids and data
+            var_to_plot (AnyStr, optional):         A string of the variable to plot. Defaults to None.
+            ax (Optional[plt.axes], optional):      Feeding in an axis object to plot the figure on.. Defaults to None.
+            fill_nan (Optional[bool], optional):    If True we fill nan values with 0 otherwise leave them as nans.. Defaults to True.
+            masking_val (Optional[float], optional):Value to use as binary border of mask, e.g. -150 for elevation. Defaults to 0.
+            hatches (Optional[str], optional):     hatches pattern to plot, if None or False will not plot. Defaults to "// //".
+            overlay (Optional[bool], optional):     Overlay the mask on the plot. Defaults to False.
+            contour (Optional[bool], optional):     Plot contour on ax. Defaults to True.
+
+        Returns:
+            matplotlib.pyplot.axes: Ax object with mask.
+        """
+        if fill_nan:
+            xarray = xarray.fillna(0)
+        # Get data variable if not provided
+        if var_to_plot is None:
+            var_to_plot = list(xarray.keys())[0]
+        if ax is None:
+            ax = plt.axes()
+        mask = xarray[var_to_plot].where(xarray[var_to_plot] > masking_val)
+        X, Y = np.meshgrid(xarray.lon, xarray.lat)
+        # Works!
+        plt.rcParams["hatch.linewidth"] = 2
+        plt.rcParams["hatch.color"] = "red"
+        if hatches or overlay:
+            # If hatches is not None or False, we do hatches on the area
+            # If overlay is false, then alpha is set to 0.0, which means that we do not plot the mask
+            if overlay:
+                alpha = 0.5
+            else:
+                alpha = 0.0
+            ax.contourf(
+                X,
+                Y,
+                mask,
+                corner_mask=True,
+                colors="red",
+                alpha=alpha,
+                hatches=hatches,
+                zorder=2,
+            )
+        if contour:
+            ax.contour(
+                X,
+                Y,
+                xarray[var_to_plot],
+                levels=[masking_val],
+                colors="red",
+                alpha=1,
+                linewidths=2,
+                zorder=1,
+            )
+        # Label the plot
+        ax.set_title(
+            "Variable: {var} \n at Time: {t}".format(
+                var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+            )
+        )
+        return ax
