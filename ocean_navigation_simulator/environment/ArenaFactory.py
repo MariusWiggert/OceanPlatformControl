@@ -210,6 +210,7 @@ class ArenaFactory:
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
 
+            # Download forecast for long term forecast source
             elif (
                 t_interval is not None
                 and config["ocean_dict"]["hindcast"] is not None

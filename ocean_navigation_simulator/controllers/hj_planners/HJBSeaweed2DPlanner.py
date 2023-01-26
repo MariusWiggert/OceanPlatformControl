@@ -47,7 +47,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         super().__init__(problem, specific_settings)
         self.specific_settings["platform_dict"] = problem.platform_dict
-
         # set first_plan to True so we plan on the first run over the whole time horizon
         self.first_plan = True
         (
@@ -307,8 +306,10 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         if self.first_plan and self.forecast_length < self.specific_settings["T_goal_in_seconds"]:
             deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box_global"]
+            grid_res = self.specific_settings["grid_res_global"]
         else:
             deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box"]
+            grid_res = self.specific_settings["grid_res"]
 
         if (
             not self.first_plan
@@ -343,14 +344,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             x_interval=x_interval,
             y_interval=y_interval,
             t_interval=t_interval,
-            spatial_resolution=self.specific_settings["grid_res"],
+            spatial_resolution=grid_res,
         )
 
         seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.get_data_over_area(
             x_interval=x_interval,
             y_interval=y_interval,
             t_interval=t_interval,
-            spatial_resolution=self.specific_settings["grid_res"],
+            spatial_resolution=grid_res,
         )
 
         # calculate relative posix_time (we use it in interpolation because jax uses float32 and otherwise cuts off)
