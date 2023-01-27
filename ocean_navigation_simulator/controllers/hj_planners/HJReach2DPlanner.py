@@ -14,6 +14,9 @@ from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
     Platform2dForSim,
 )
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dObsForSim import (
+    Platform2dObsForSim,
+)
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -34,15 +37,18 @@ class HJReach2DPlanner(HJPlannerBase):
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        return Platform2dForSim(
-            u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
-            d_max=self.specific_settings["d_max"],
-            use_geographic_coordinate_system=self.specific_settings[
-                "use_geographic_coordinate_system"
-            ],
-            control_mode="min",
-            disturbance_mode="max",
-        )
+        if self.specific_settings['obstacle_dict']['obstacle']:
+            return Platform2dObsForSim()
+        else:
+            return Platform2dForSim(
+                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+                d_max=self.specific_settings["d_max"],
+                use_geographic_coordinate_system=self.specific_settings[
+                    "use_geographic_coordinate_system"
+                ],
+                control_mode="min",
+                disturbance_mode="max",
+            )
 
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
@@ -85,6 +91,14 @@ class HJReach2DPlanner(HJPlannerBase):
             raise ValueError(
                 "Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back."
             )
+        # add obstacle values
+        if self.specific_settings['obstacle_dict']['obstacle']:
+            # Step 1: load specific area of the obstacle array (take lat lon bounds from self.grid)
+            obstacle_array = np.zeros(self.grid.shape)
+            # Step 2: interpolate to grid resolution...
+            # Step 3: Masking of value function so that at obstacle value is Obstcl_value (10)
+
+
 
     @staticmethod
     def from_saved_planner_state(

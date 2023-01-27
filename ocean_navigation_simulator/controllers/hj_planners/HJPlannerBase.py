@@ -81,6 +81,11 @@ class HJPlannerBase(Controller):
             "n_time_vector": 199,
             "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
             "accuracy": "high",
+            "obstacle_dict": { # besser nicht hier drinnen
+                "is_obstalce": True,
+                "path_to_file": "data///",
+                "obstacle_value": 10,
+            }
             "artificial_dissipation_scheme": "local_local",
             "use_geographic_coordinate_system": True,
             "progress_bar": False,
