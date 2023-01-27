@@ -341,6 +341,7 @@ class MultiAgent:
         dates: List[dt.datetime],
         success_rate_reach_target: float,
         energy_efficiency_proxy: float,
+        mean_min_dist_to_target: float,
         logfile: str = "logmetrics.log",
         formatLog: Optional[logging.Formatter] = None,
     ) -> dict:
@@ -385,6 +386,7 @@ class MultiAgent:
             f"\nIntegral metric of isolated platforms = {integrated_communication}\
             \nNumber of collisions = {collision_metric}\
             \nFraction of platforms reaching target = {success_rate_reach_target}\
+            \nMean minimum distance to target among all platforms in deg = {mean_min_dist_to_target}\
             \nAverage Beta Index = {sum(beta_connectivity_list)/len(beta_connectivity_list)}\
             \nInitial maximum degree of the graph = {initial_max_graph_degree}\
             \nFinal maximum degree of the graph = {final_max_graph_degree}\
@@ -402,6 +404,7 @@ class MultiAgent:
             "Isolated_platform_metric": integrated_communication,
             "Number_of_collision": collision_metric,
             "Reaching_target": success_rate_reach_target,
+            "Mean minimum distance to target among all platforms in deg": mean_min_dist_to_target,
             "Mean maximum correction from optimal control degrees": energy_efficiency_proxy
             * 180
             / np.pi,
@@ -770,6 +773,7 @@ class MultiAgent:
             list_of_graph=list_of_graph, stride_temporal_res=stride_temporal_res
         )
         ax.step(dates[::stride_temporal_res], collision_nb_list, "--x")
+
         ax = self.set_ax_description(
             ax=ax,
             xticks=dates[::stride_xticks],

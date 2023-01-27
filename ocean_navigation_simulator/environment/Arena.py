@@ -19,6 +19,7 @@ from typing import (
 
 import matplotlib
 import networkx as nx
+import pandas as pd
 import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -384,16 +385,18 @@ class Arena:
             return False
 
     def final_distance_to_target(self, problem: NavigationProblem) -> float:
-        # TODO: adapt for multi-agent
-        # Step 1: calculate min distance
-        total_distance = problem.distance(
-            PlatformState.from_numpy(self.state_trajectory[-1, :])
-        ).deg
-        min_distance_to_target = total_distance - problem.target_radius
-        # Step 2: Set 0 when inside and the distance when outside
-        if min_distance_to_target <= 0:
-            min_distance_to_target = 0.0
-        return min_distance_to_target
+        distance_to_target_list = []
+        for platform_id in range(problem.nb_platforms):
+            # Step 1: calculate min distance
+            total_distance = problem.distance(
+                PlatformState.from_numpy(self.state_trajectory[platform_id, :, -1])
+            ).deg  # take last point from the trajectory
+            min_distance_to_target = total_distance - problem.target_radius
+            # Step 2: Set 0 when inside and the distance when outside
+            if min_distance_to_target <= 0:
+                min_distance_to_target = 0.0
+            distance_to_target_list.append(min_distance_to_target)
+        return distance_to_target_list
 
     @staticmethod
     def format_timeout(timeout) -> Union[datetime.timedelta, None]:
@@ -404,6 +407,15 @@ class Arena:
             return datetime.timedelta(seconds=timeout)
         else:
             return None
+
+    @staticmethod
+    def get_min_or_max_of_two_lists(list_a: list, list_b: list, min_or_max: str) -> list:
+        if min_or_max == "min":
+            return list(map(min, zip(list_a, list_b)))
+        elif min_or_max == "max":
+            return list(map(max, zip(list_a, list_b)))
+        else:
+            return ValueError("Not implemented: specify min or max")
 
     def problem_status(
         self,
@@ -1029,19 +1041,24 @@ class Arena:
         return fig
 
     def save_metrics_to_log(
-        self, all_pltf_status: list, max_correction_from_opt_ctrl: list, filename: str
+        self,
+        all_pltf_status: list,
+        min_distances_to_target: list,
+        max_correction_from_opt_ctrl: list,
+        filename: str,
     ) -> dict:
         """Compute and save metrics for the given multi-agent instance
         For now implemented are:
         1) Time-integral metric of # isolated platforms
         2) Number of collisions during simulation
         3) The fraction of total platforms reaching the target (1 = all platforms reached the target within simulation time)
-        4) Beta Index: Measures the level of connectivity in a graph
-        5) The average of the maximum deviation from the optimal control angle for all the platforms
+        4) The mean value of the minimum distance of all platforms to the target collected during the mission length
+        5) Beta Index: Measures the level of connectivity in a graph
+        6) The average of the maximum deviation from the optimal control angle for all the platforms
                                             at each simulation step as a proxy for energy efficiency
-        6) The initial maximum degree of the graph
-        7) The final maximum degree of the graph
-        8) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
+        7) The initial maximum degree of the graph
+        8) The final maximum degree of the graph
+        9) Mission success defined as if 3)= 1, 2) = 0 and 1) =0
 
         Args:
             all_pltf_status (list): list of platform status, obtained by calling problem_status through the simulation
@@ -1058,11 +1075,28 @@ class Arena:
             all_pltf_status
         )
         energy_efficiency_proxy = np.mean(max_correction_from_opt_ctrl)
+        mean_min_dist_to_target = np.mean(min_distances_to_target)
         metrics_dict = self.multi_agent_net.log_metrics(
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],
             success_rate_reach_target=success_rate_reach_target,
             energy_efficiency_proxy=energy_efficiency_proxy,
+            mean_min_dist_to_target=mean_min_dist_to_target,
             logfile=filename,
         )
         return metrics_dict
+
+    def get_plot_data_for_wandb(self):
+        dict_for_plot = {
+            "timesteps": np.arange(len(self.multi_agent_G_list)),
+            "dates": self.get_datetime_from_state_trajectory(self.state_trajectory),
+            "isolated_vertices": self.multi_agent_net.get_isolate_nodes(
+                list_of_graph=[G.G_communication for G in self.multi_agent_G_list]
+            ),
+            "collisions": self.multi_agent_net.get_collisions(
+                list_of_graph=[G.G_communication for G in self.multi_agent_G_list]
+            ),
+        }
+        return pd.DataFrame.from_dict(
+            dict_for_plot, orient="columns"
+        )  # pd.DataFrame(data=dict_for_plot)
