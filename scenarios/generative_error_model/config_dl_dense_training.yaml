@@ -17,8 +17,10 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2023-01-06_12:06:43.pth"  # 5 dropout layers -> also change for test
 #test_load_chkpt: "2023-01-09_11:55:04.pth"  # explicit latent vec size=128, no pre-training
 #test_load_chkpt: "2023-01-12_09:14:20.pth"  # explicit latent vec size=128, pre-trained
-test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
-epoch: ""
+#test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
+#test_load_chkpt: "2023-01-24_15:52:37.pth"   # dense real data scalar disc
+test_load_chkpt: "2023-01-25_16:38:07.pth"   # dense real data patch disc
+epoch: "5"
 
 generator:
   in_channels: 2
@@ -27,7 +29,7 @@ generator:
   # decides whether using dropout as source of randomness or latent vec
   dropout: False
   # adds dropout to all layers to avoid overfitting
-  dropout_all: False
+  dropout_all: True
   dropout_val: 0.3
   # need to set latent_size to zero if using dropout as randomness source
   latent_size: 256
