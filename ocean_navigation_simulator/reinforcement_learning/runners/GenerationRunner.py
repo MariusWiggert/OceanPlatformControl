@@ -296,6 +296,7 @@ class GenerationRunner:
     @staticmethod
     def plot_starts_and_targets(
         results_folder: str,
+        pb_filename: str = "problems.csv",
         scenario_file: str = None,
         scenario_config: dir = None,
         c3=None,
@@ -304,7 +305,7 @@ class GenerationRunner:
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
-        problems_df = pd.read_csv(f"{results_folder}problems.csv")
+        problems_df = pd.read_csv(f"{results_folder}{pb_filename}")
         target_df = problems_df[problems_df["factory_index"] == 0]
         analysis_folder = f"{results_folder}analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
@@ -463,11 +464,11 @@ class GenerationRunner:
         fig.show()
 
     @staticmethod
-    def plot_ttr_histogram(results_folder):
+    def plot_ttr_histogram(results_folder, pb_filename: str = "problems.csv"):
         # Step 1: Load Data
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
-        df = pd.read_csv(f"{results_folder}problems.csv")
+        df = pd.read_csv(f"{results_folder}{pb_filename}")
         analysis_folder = results_folder + "analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
         plot_title = "Mission Time-To-Reach Histogram"
