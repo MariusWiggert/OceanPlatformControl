@@ -97,8 +97,9 @@ arena = ArenaFactory.create(scenario_config=scenario_config)
 specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
-    "direction": "multi-time-reach-back",
+    "direction": "multi-time-reach-back",  # "multi-time-reach-back",
     "n_time_vector": 200,
+    "closed_loop": True,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
@@ -107,11 +108,11 @@ specific_settings = {
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
-        0.1,
-        0.1,
+        0.01,  # 0.1
+        0.01,
     ],  # this is in deg lat, lon. Note: for Backwards-Reachability this should be bigger.
     # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-    "grid_res": 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    "grid_res": 0.02,  # 0.02  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
@@ -119,7 +120,7 @@ specific_settings = {
     "platform_dict": arena.platform.platform_dict,
     "obstacle_dict": {
         "path_to_obstacle_file": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
-        "obstacle_value": 10,
+        "obstacle_value": -10,
     },
 }
 
@@ -129,7 +130,7 @@ x_0 = PlatformState(
     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 )
 
-x_T = SpatialPoint(lon=units.Distance(deg=-156.461), lat=units.Distance(deg=20.22))
+x_T = SpatialPoint(lon=units.Distance(deg=-156.1), lat=units.Distance(deg=20.22))
 
 problem = NavigationProblem(
     start_state=x_0,
@@ -165,13 +166,11 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
 planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 observation = arena.reset(platform_state=x_0)
 # TODO: this needs to be done to calculate the HJ dynamics at least once
-# In case that the safety is on
-plaction = planner.get_action(observation=observation)
 # Calculate reachability
 action = planner.get_action(observation=observation)
 
 ax = planner.plot_reachability_snapshot(
-    rel_time_in_seconds=3600 * 24 * 2,
+    rel_time_in_seconds=0,
     granularity_in_h=5,
     alpha_color=1,
     time_to_reach=True,
@@ -179,7 +178,6 @@ ax = planner.plot_reachability_snapshot(
     plot_in_h=True,
     return_ax=True,
 )  # ttr True if multitime
-planner.plot_reachability_animation()
 # Many more options to customize the visualization
 ax = arena.bathymetry_source.plot_mask_from_xarray(
     xarray=arena.bathymetry_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
@@ -187,20 +185,24 @@ ax = arena.bathymetry_source.plot_mask_from_xarray(
     **{"masking_val": -150}
 )
 plt.show()
-#%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 1 day
-    action = planner.get_action(observation=observation)
-    observation = arena.step(action)
+# planner.plot_reachability_animation()
 
-#%%
-# garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
-# plt.show()
-# #%% Plot the arena trajectory on the map
-# arena.plot_all_on_map(problem=problem, background="garbage")
-#%% Animate the trajectory
-arena.animate_trajectory(
-    add_ax_func_ext=arena.add_ax_func_ext_overlay,
-    problem=problem,
-    temporal_resolution=7200,
-    **{"masking_val_bathymetry": -150}
-)
+planner.animate_value_func_3D()
+
+# #%% Let controller run close-loop within the arena
+# for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 1 day
+#     action = planner.get_action(observation=observation)
+#     observation = arena.step(action)
+
+# #%%
+# # garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
+# # plt.show()
+# # #%% Plot the arena trajectory on the map
+# # arena.plot_all_on_map(problem=problem, background="garbage")
+# #%% Animate the trajectory
+# arena.animate_trajectory(
+#     add_ax_func_ext=arena.add_ax_func_ext_overlay,
+#     problem=problem,
+#     temporal_resolution=7200,
+#     **{"masking_val_bathymetry": -150}
+# )
