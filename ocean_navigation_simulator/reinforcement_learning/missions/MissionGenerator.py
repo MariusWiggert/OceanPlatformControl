@@ -520,13 +520,20 @@ class MissionGenerator:
                         tz=datetime.timezone.utc,
                     ),
                 )
-
+                point_ttr_h = float(
+                    self.hindcast_planner.interpolate_value_function_in_hours(point=point)
+                )
                 # Add if far enough from shore
                 distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
                     point.to_spatial_point()
                 )
 
-                if distance_to_shore.deg > self.config["min_distance_from_land"]:
+                if (
+                    (distance_to_shore.deg > self.config["min_distance_from_land"])
+                    & (self.config["multi_agent"]["sample_range_ttr_h"][0] < point_ttr_h)
+                    & (point_ttr_h < (self.config["multi_agent"]["sample_range_ttr_h"][1]))
+                ):
+
                     if len(mission_connected_points) == 0:
                         mission_connected_points.append((False, point, distance_to_shore))
                         sampled_spatial_points = np.array(point.to_spatial_point()).reshape(2, -1)
@@ -555,7 +562,9 @@ class MissionGenerator:
                             )
                 else:
                     self.performance["start_resampling"] += 1
-                    if self.performance["start_resampling"] > 10:
+                    if (
+                        self.performance["start_resampling"] > 20
+                    ):  # if actual point not a good one, change
                         break
             if (
                 len(mission_connected_points) == self.config["multi_agent"]["nb_platforms"]
@@ -577,6 +586,7 @@ class MissionGenerator:
                 nb_mission_found += 1
             else:
                 continue
+        print("feasible missions found")
         return feasible_missions, list_spatio_temp_points
 
     def sample_feasible_points(
