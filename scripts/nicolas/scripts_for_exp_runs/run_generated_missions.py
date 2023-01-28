@@ -119,7 +119,7 @@ def get_config_dict(controller_name, user_param: dict):
 
     MultiAgentCtrlConfig = {
         "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-        "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control
+        "high_level_ctrl": user_param["controller"],  # choose from hj_naive, flocking, reactive_control
         "unit": "km",
         "communication_thrsld": 9,
         "hj_specific_settings": HJMultiTimeConfig,
@@ -230,7 +230,7 @@ def run_mission(problem: CachedNavigationProblem, args, user_param: dict):
             "mission_config": mission_config,
             "arena_config": arena_config,
             "ctrl_config": MultiAgentCtrlConfig,
-            "path_to_local_data": f"{os.getcwd()}" + f"/{args.path_to_results}/{args.controller}",
+            "path_to_local_data": user_param["metrics_dir"],
         },
         entity="nhoischen",
     )
@@ -258,10 +258,10 @@ if __name__ == "__main__":
         default="hj_naive",
     )
     parser.add_argument(
-        "-problem_path",
-        "--path_to_problems",
+        "-filename_problems",
+        "--filename_problems",
         help="path from ocean platform directory to where the problem is stored (provide as .csv file)",
-        default=os.path.join(project_root_path, "tmp/missions/problems.csv"),
+        default="problems.csv",
     )
     parser.add_argument(
         "-timeout_h",
@@ -271,26 +271,28 @@ if __name__ == "__main__":
         default=3 * 24,
     )
     parser.add_argument(
-        "-results_path",
-        "--path_to_results",
+        "-results_filename",
+        "--results_filename",
         help="path from ocean platform directory to where the results will be saved",
-        default=os.path.join(project_root_path, "tmp/missions/results"),
+        default="results",
     )
     args = parser.parse_args()
     # print(args.path_to_problems)
     # print(args.timeout_h)
-    problems_df = pd.read_csv(args.path_to_problems)
-    os.makedirs(f"{args.path_to_results}/{args.controller}/reachability_snapshots", exist_ok=True)
-    os.makedirs(f"{args.path_to_results}/{args.controller}/metric_logs", exist_ok=True)
-    os.makedirs(f"{args.path_to_results}/{args.controller}/animations", exist_ok=True)
-    os.makedirs(f"{args.path_to_results}/{args.controller}/graph_analysis", exist_ok=True)
+    path_to_problems = os.path.join(project_root_path, "tmp/missions/" + args.filename_problems)
+    path_to_results = os.path.join(project_root_path, "tmp/missions/" + args.results_filename)
+    problems_df = pd.read_csv(path_to_problems)
+    os.makedirs(f"{path_to_results}/{args.controller}/reachability_snapshots", exist_ok=True)
+    os.makedirs(f"{path_to_results}/{args.controller}/metric_logs", exist_ok=True)
+    os.makedirs(f"{path_to_results}/{args.controller}/animations", exist_ok=True)
+    os.makedirs(f"{path_to_results}/{args.controller}/graph_analysis", exist_ok=True)
     for idx_mission in range(len(problems_df)):
         try:
             user_param_dict = {
-                "reachability_dir": f"{args.path_to_results}/{args.controller}/reachability_snapshots",
-                "metrics_dir": f"{args.path_to_results}/{args.controller}/metric_logs",
-                "animation_dir": f"{args.path_to_results}/{args.controller}/animations",
-                "graph_dir": f"{args.path_to_results}/{args.controller}/graph_analysis",
+                "reachability_dir": f"{path_to_results}/{args.controller}/reachability_snapshots",
+                "metrics_dir": f"{path_to_results}/{args.controller}/metric_logs",
+                "animation_dir": f"{path_to_results}/{args.controller}/animations",
+                "graph_dir": f"{path_to_results}/{args.controller}/graph_analysis",
                 "controller": args.controller,
                 "timeout_h": args.timeout_h,
             }
@@ -300,7 +302,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             print("an exception has occured for mission: ", idx_mission)
-            log_directory = f"{args.path_to_results}/{args.controller}"
+            log_directory = f"{path_to_results}/{args.controller}"
             if not os.path.exists(log_directory):
                 os.makedirs(log_directory)
             log_file = os.path.join(log_directory, "logfile.log")
