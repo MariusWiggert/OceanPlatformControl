@@ -4,7 +4,7 @@ dataset_type: "forecastbuoy"
 wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
-custom_masking_keep: 1.0
+custom_masking_keep: 0.01
 
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
@@ -77,7 +77,7 @@ disc_optimizer:
 train:
   batch_size: 32
   test_batch_size: 192
-  epochs: 300
+  epochs: 200
   loss:
     # pix2pix loss
     gen: [ "gan_gen", "l1"]

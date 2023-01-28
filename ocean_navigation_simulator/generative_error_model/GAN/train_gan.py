@@ -163,10 +163,14 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
     gen_loss_sum, disc_loss_sum = 0, 0
     real_acc, fake_acc = [], []
     [model.train() for model in models]
+    # if custom masking of data use same masks for each epoch
+    if all_cfgs["custom_masking_keep"] != "None":
+        rand_gen = torch.Generator(device="cpu")
+        rand_gen = rand_gen.manual_seed(2147483647)
     with torch.enable_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Training epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
-            for data, target in tepoch:
+            for idx, (data, target) in enumerate(tepoch):
                 data, target = data.to(device).float(), target.to(device).float()
 
                 # train discriminator
@@ -189,7 +193,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                     # set desired percentage equal to 1
                     keep_fraction = all_cfgs["custom_masking_keep"]
                     mask[:int(keep_fraction * mask.shape[0])] = 1
-                    rand_idx = torch.randperm(mask.shape[0])
+                    rand_idx = torch.randperm(mask.shape[0], generator=rand_gen)
                     mask = torch.reshape(mask[rand_idx], target.shape)
                     # mask the data
                     target = torch.mul(target, mask).float()
@@ -250,6 +254,10 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
         enable_dropout(models[0], all_cfgs["validation"]["layers"])
     cfgs_train = all_cfgs["train"]
     metrics_names = all_cfgs["metrics"]
+    # if custom masking of data use same masks for each epoch
+    if all_cfgs["custom_masking_keep"] != "None":
+        rand_gen = torch.Generator(device="cpu")
+        rand_gen = rand_gen.manual_seed(2147483647)
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
@@ -279,7 +287,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
                     # set desired percentage equal to 1
                     keep_fraction = all_cfgs["custom_masking_keep"]
                     mask[:int(keep_fraction * mask.shape[0])] = 1
-                    rand_idx = torch.randperm(mask.shape[0])
+                    rand_idx = torch.randperm(mask.shape[0], generator=rand_gen)
                     mask = torch.reshape(mask[rand_idx], target.shape)
                     # mask the data
                     target = torch.mul(target, mask).float()
