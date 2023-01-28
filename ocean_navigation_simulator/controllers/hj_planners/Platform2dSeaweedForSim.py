@@ -31,6 +31,8 @@ class Platform2dSeaweedForSim(dynamics.Dynamics):
         disturbance_mode: If the disturbance is trying to minimize or maximize the value function.
     """
 
+    # TODO: inherent from Platform2dsim class
+
     def __init__(
         self,
         u_max: float,
@@ -61,7 +63,7 @@ class Platform2dSeaweedForSim(dynamics.Dynamics):
         Args:
             data_xarray: xarray containing variables water_u and water_v as matrices (T, Y, X)
         """
-
+        # TODO: inherent from parent class
         # create 1D interpolation functions for running in the loop of the dynamics
         self.x_current = lambda state, time: interpolation.lin_interpo_1D(
             state,
