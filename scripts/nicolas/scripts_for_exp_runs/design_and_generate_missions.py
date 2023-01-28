@@ -167,6 +167,7 @@ for worker in range(nb_workers):
     )
     problems, _, _ = mission_generator.cache_batch()
     all_problems.extend(problems)
+    print(f"worker {worker} finished generation of missions")
 df = pd.DataFrame([problem.to_dict() for problem in all_problems])
 df.to_csv(results_folder + filename)
 

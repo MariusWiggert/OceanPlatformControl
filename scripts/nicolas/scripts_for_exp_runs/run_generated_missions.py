@@ -23,11 +23,19 @@ import yaml
 import numpy as np
 import argparse
 import wandb
+from pathlib import Path
 
 
-def get_config_dict(controller_name):
+def get_project_root() -> Path:
+    # gets to OceanPlatformControl directory
+    # to change if this file is another directory !!
+    return Path(__file__).parent.parent.parent.parent
+
+
+def get_config_dict(controller_name, user_param: dict):
     arena_config = {
         "casadi_cache_dict": {"deg_around_x_t": 2.0, "time_around_x_t": 432000},
+        "timeout": user_param_dict["timeout_h"] * 3600,
         "platform_dict": {
             "battery_cap_in_wh": 400.0,
             "u_max_in_mps": 0.1,
@@ -124,7 +132,8 @@ def get_config_dict(controller_name):
 
 def run_mission(problem: CachedNavigationProblem, args, user_param: dict):
     arena_config, MultiAgentCtrlConfig, objective_conf, NoObserver = get_config_dict(
-        controller_name=user_param["controller"]
+        controller_name=user_param["controller"],
+        user_param=user_param,
     )
     mission_config = problem.to_c3_mission_config()
     # Step 0: Create Constructor object which contains arena, problem, controller and observer
@@ -135,8 +144,6 @@ def run_mission(problem: CachedNavigationProblem, args, user_param: dict):
         ctrl_conf=MultiAgentCtrlConfig,  # here different controller configs can be put in
         observer_conf=NoObserver,  # here the other observers can also be put int
         download_files=True,
-        timeout_in_sec=user_param_dict["timeout_h"]
-        * 3600,  # useful to know how much data to download
     )
     # Step 1.1 Retrieve problem
     problem = constructor.problem
@@ -240,53 +247,71 @@ def run_mission(problem: CachedNavigationProblem, args, user_param: dict):
 
 
 if __name__ == "__main__":
+    project_root_path = get_project_root()
+    os.chdir(project_root_path)
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-ctrl",
         "--controller",
         help="controller name to run simulation",
-        action="store_true",
+        type=str,
         default="hj_naive",
     )
     parser.add_argument(
         "-problem_path",
         "--path_to_problems",
         help="path from ocean platform directory to where the problem is stored (provide as .csv file)",
-        default="tmp/missions/problems.csv",
+        default=os.path.join(project_root_path, "tmp/missions/problems.csv"),
     )
     parser.add_argument(
         "-timeout_h",
-        "--timeout",
+        "--timeout_h",
         help="timeout in [h]",
-        action="store_true",
+        type=int,
         default=3 * 24,
     )
     parser.add_argument(
         "-results_path",
         "--path_to_results",
         help="path from ocean platform directory to where the results will be saved",
-        default=os.path.join(os.getcwd(), "tmp/missions/results"),
+        default=os.path.join(project_root_path, "tmp/missions/results"),
     )
     args = parser.parse_args()
-    print(args.path_to_problems)
-    problems_df = pd.read_csv(os.path.join(os.getcwd(), args.path_to_problems))
+    # print(args.path_to_problems)
+    # print(args.timeout_h)
+    problems_df = pd.read_csv(args.path_to_problems)
     os.makedirs(f"{args.path_to_results}/{args.controller}/reachability_snapshots", exist_ok=True)
     os.makedirs(f"{args.path_to_results}/{args.controller}/metric_logs", exist_ok=True)
     os.makedirs(f"{args.path_to_results}/{args.controller}/animations", exist_ok=True)
     os.makedirs(f"{args.path_to_results}/{args.controller}/graph_analysis", exist_ok=True)
     for idx_mission in range(len(problems_df)):
-        # try:
-        user_param_dict = {
-            "reachability_dir": f"{args.path_to_results}/{args.controller}/reachability_snapshots",
-            "metrics_dir": f"{args.path_to_results}/{args.controller}/metric_logs",
-            "animation_dir": f"{args.path_to_results}/{args.controller}/animations",
-            "graph_dir": f"{args.path_to_results}/{args.controller}/graph_analysis",
-            "controller": args.controller,
-            "timeout_h": args.timeout,
-        }
-        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[idx_mission])
-        run_mission(problem=problem, args=args, user_param=user_param_dict)
+        try:
+            user_param_dict = {
+                "reachability_dir": f"{args.path_to_results}/{args.controller}/reachability_snapshots",
+                "metrics_dir": f"{args.path_to_results}/{args.controller}/metric_logs",
+                "animation_dir": f"{args.path_to_results}/{args.controller}/animations",
+                "graph_dir": f"{args.path_to_results}/{args.controller}/graph_analysis",
+                "controller": args.controller,
+                "timeout_h": args.timeout_h,
+            }
+            problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[idx_mission])
+            print(f"---- RUN MISSION {idx_mission} ----")
+            run_mission(problem=problem, args=args, user_param=user_param_dict)
 
-        # except BaseException:
-        #     print("an exception has occured for mission: ", idx_mission)
-        #     continue
+        except Exception as e:
+            print("an exception has occured for mission: ", idx_mission)
+            log_directory = f"{args.path_to_results}/{args.controller}"
+            if not os.path.exists(log_directory):
+                os.makedirs(log_directory)
+            log_file = os.path.join(log_directory, "logfile.log")
+            logging.basicConfig(
+                format="%(asctime)s %(levelname)s %(message)s",
+                filename=log_file,
+                level=logging.ERROR,
+                force=True,
+            )
+            logging.error(
+                f"Error for mission index {idx_mission}: \n \
+                            {e}"
+            )
+            continue

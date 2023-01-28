@@ -66,7 +66,9 @@ class Constructor:
             dt,
             dt
             + datetime.timedelta(
-                seconds=timeout_in_sec + arena_conf["casadi_cache_dict"]["time_around_x_t"] + 7200
+                seconds=arena_conf["timeout"]
+                + arena_conf["casadi_cache_dict"]["time_around_x_t"]
+                + 7200
             ),
         ]
 
