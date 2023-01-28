@@ -43,6 +43,9 @@ class SeaweedMissionGenerator:
 
         self._initialize_arena_download_data()
 
+        if not hasattr(self, "arena"):
+            raise AttributeError("Arena is not implemented")
+
     def _initialize_arena_download_data(self):
         """Initializes the arena and downloads the data. Catches errors if download fails i.e. due to missing or corrupt files."""
 
