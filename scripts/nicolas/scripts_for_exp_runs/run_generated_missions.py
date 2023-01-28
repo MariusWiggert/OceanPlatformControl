@@ -119,7 +119,9 @@ def get_config_dict(controller_name, user_param: dict):
 
     MultiAgentCtrlConfig = {
         "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-        "high_level_ctrl": user_param["controller"],  # choose from hj_naive, flocking, reactive_control
+        "high_level_ctrl": user_param[
+            "controller"
+        ],  # choose from hj_naive, flocking, reactive_control
         "unit": "km",
         "communication_thrsld": 9,
         "hj_specific_settings": HJMultiTimeConfig,
@@ -261,14 +263,14 @@ if __name__ == "__main__":
         "-filename_problems",
         "--filename_problems",
         help="path from ocean platform directory to where the problem is stored (provide as .csv file)",
-        default="problems.csv",
+        default="problemsGOM.csv",
     )
     parser.add_argument(
-        "-timeout_h",
-        "--timeout_h",
-        help="timeout in [h]",
+        "-timeout_h_buffer",
+        "--timeout_h_buffer",
+        help="timeout buffer in [h]",
         type=int,
-        default=3 * 24,
+        default=5,
     )
     parser.add_argument(
         "-results_filename",
@@ -294,7 +296,7 @@ if __name__ == "__main__":
                 "animation_dir": f"{path_to_results}/{args.controller}/animations",
                 "graph_dir": f"{path_to_results}/{args.controller}/graph_analysis",
                 "controller": args.controller,
-                "timeout_h": args.timeout_h,
+                "timeout_h": problems_df.iloc[idx_mission]["ttr_in_h"] + args.timeout_h_buffer,
             }
             problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[idx_mission])
             print(f"---- RUN MISSION {idx_mission} ----")
