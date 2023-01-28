@@ -884,7 +884,21 @@ class AnalyticalSource(abc.ABC):
         # Step 1: Check default interval or bounded by the respective domain of the Data Source
         if t_interval is None:
             t_interval = self.temp_domain_posix
+            if type(t_interval[0]) is str:
+                t_interval = [
+                    datetime.datetime.fromisoformat(t)
+                    .replace(tzinfo=datetime.timezone.utc)
+                    .timestamp()
+                    for t in t_interval
+                ]
         else:
+            if type(t_interval[0]) is str:
+                t_interval = [
+                    datetime.datetime.fromisoformat(t)
+                    .replace(tzinfo=datetime.timezone.utc)
+                    .timestamp()
+                    for t in t_interval
+                ]
             t_interval = [
                 max(t_interval[0], self.temp_domain_posix[0]),
                 min(t_interval[1], self.temp_domain_posix[1]),
