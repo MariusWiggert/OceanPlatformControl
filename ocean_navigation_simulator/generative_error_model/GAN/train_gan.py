@@ -158,8 +158,10 @@ def gan_hinge_loss_gen(disc_fake):
     return -disc_fake.mean()
 
 
-def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, cfgs_train, cfgs_gen):
+def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, all_cfgs):
+    cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs["generator"]
     gen_loss_sum, disc_loss_sum = 0, 0
+    real_acc, fake_acc = [], []
     [model.train() for model in models]
     with torch.enable_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
@@ -175,12 +177,37 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                     target_fake = models[0](data, latent)
                 else:
                     target_fake = models[0](data)
-                # mask the generator output to match target (buoy data)
-                mask = torch.where(target != 0, 1, 0).int()
-                target_fake = torch.mul(target_fake, mask).float()
+
+                if all_cfgs["custom_masking_keep"] == "None":
+                    # mask the generator output to match target (buoy data)
+                    mask = torch.where(target != 0, 1, 0).int()
+                    # mask the fake data
+                    target_fake = torch.mul(target_fake, mask).float()
+                else:
+                    # create mask with specific percentage of 1s
+                    mask = torch.zeros_like(target).flatten()
+                    # set desired percentage equal to 1
+                    keep_fraction = all_cfgs["custom_masking_keep"]
+                    mask[:int(keep_fraction * mask.shape[0])] = 1
+                    rand_idx = torch.randperm(mask.shape[0])
+                    mask = torch.reshape(mask[rand_idx], target.shape)
+                    # mask the data
+                    target = torch.mul(target, mask).float()
+                    target_fake = torch.mul(target_fake, mask).float()
+                    # print(torch.round(mask.sum()/torch.prod(torch.Tensor(list(mask.shape))), decimals=2))
+                    # print(torch.round(torch.where(target == 0, 1, 0).sum()/mask.sum(), decimals=2))
+
                 # compute real and fake outputs of discriminator
                 disc_real = models[1](data, target)
                 disc_fake = models[1](data, target_fake.detach())  # need to call detach to remove from comp graph
+
+                # calculate accuracy
+                sigmoid = nn.Sigmoid()
+                real_acc.append((torch.where(sigmoid(disc_real) > 0.5, 1, 0).sum() /
+                                torch.prod(torch.Tensor(list(disc_real.shape)))).cpu().numpy())
+                fake_acc.append((torch.where(sigmoid(disc_fake) < 0.5, 1, 0).sum() /
+                                torch.prod(torch.Tensor(list(disc_real.shape)))).cpu().numpy())
+
                 disc_loss = loss_function(cfgs_train["loss"]["disc"],
                                           cfgs_train["loss"]["disc_weighting"],
                                           disc_real=disc_real,
@@ -204,17 +231,16 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, c
                 gen_loss.backward()
                 optimizers[0].step()
 
-                # tepoch.set_postfix(loss_gen=f"{round(gen_loss.item() / data.shape[0], 3)}",
-                #                    loss_val=f"{round(disc_loss.item() / data.shape[0], 3)}")
                 tepoch.set_postfix(loss_gen=f"{round(gen_loss.item(), 3)}",
-                                   loss_disc=f"{round(disc_loss.item(), 3)}")
+                                   loss_disc=f"{round(disc_loss.item(), 3)}",
+                                   real_acc=f"{round(float(real_acc[-1]), 3)}",
+                                   fake_acc=f"{round(float(fake_acc[-1]), 3)}")
 
-    # avg_disc_loss = disc_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
-    # avg_gen_loss = gen_loss_sum / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
     avg_disc_loss = disc_loss_sum / len(dataloader)
     avg_gen_loss = gen_loss_sum / len(dataloader)
-    # print(f"Training avg loss: {avg_loss:.2f}.")
-    return avg_gen_loss, avg_disc_loss
+    avg_real_acc = sum(real_acc) / len(real_acc)
+    avg_fake_acc = sum(fake_acc) / len(fake_acc)
+    return avg_gen_loss, avg_disc_loss, avg_real_acc, avg_fake_acc
 
 
 def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False):
@@ -241,8 +267,26 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
                     target_fake = models[0](data)
                 if save_data:
                     save_dir = save_input_output_pairs(data, target_fake, all_cfgs, idx)
-                mask = torch.where(target != 0, 1, 0)
-                target_fake = torch.mul(target_fake.detach(), mask).float()
+
+                if all_cfgs["custom_masking_keep"] == "None":
+                    # mask the generator output to match target (buoy data)
+                    mask = torch.where(target != 0, 1, 0).int()
+                    # mask the fake data
+                    target_fake = torch.mul(target_fake, mask).float()
+                else:
+                    # create mask with specific percentage of 1s
+                    mask = torch.zeros_like(target).flatten()
+                    # set desired percentage equal to 1
+                    keep_fraction = all_cfgs["custom_masking_keep"]
+                    mask[:int(keep_fraction * mask.shape[0])] = 1
+                    rand_idx = torch.randperm(mask.shape[0])
+                    mask = torch.reshape(mask[rand_idx], target.shape)
+                    # mask the data
+                    target = torch.mul(target, mask).float()
+                    target_fake = torch.mul(target_fake, mask).float()
+                    # print(torch.round(mask.sum()/torch.prod(torch.Tensor(list(mask.shape))), decimals=2))
+                    # print(torch.round(torch.where(target == 0, 1, 0).sum()/mask.sum(), decimals=2))
+
                 disc_fake = models[1](data, target_fake)
                 gen_loss = loss_function(cfgs_train["loss"]["gen"],
                                          cfgs_train["loss"]["gen_weighting"],
@@ -266,10 +310,8 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
                 tepoch.set_postfix(loss=str(round(gen_loss.item(), 3)))
 
     metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
-    metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
-    # avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    metrics_ratio = {}
     avg_loss = total_loss / len(dataloader)
-    # print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss, metrics, metrics_ratio
 
 
@@ -360,15 +402,15 @@ def main(sweep: Optional[bool] = False):
                        "disc_lr": disc_optimizer.param_groups[0]["lr"]}
             cfgs_train["epoch"] = epoch
 
-            train_loss_gen, train_loss_disc = train((generator, discriminator),
-                                                    (gen_optimizer, disc_optimizer),
-                                                    train_loader,
-                                                    device,
-                                                    cfgs_train,
-                                                    cfgs_gen)
+            train_loss_gen, train_loss_disc, real_acc, fake_acc = train((generator, discriminator),
+                                                                        (gen_optimizer, disc_optimizer),
+                                                                        train_loader,
+                                                                        device,
+                                                                        all_cfgs)
             train_losses_gen.append(train_loss_gen)
             train_losses_disc.append(train_loss_disc)
-            to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc}
+            to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc,
+                       "real_acc": real_acc, "fake_acc": fake_acc}
 
             if len(val_loader) != 0:
                 val_loss, metrics, metrics_ratio = validation((generator, discriminator),
@@ -430,8 +472,11 @@ def test(data: str = "test"):
 
     # load generator
     gen = get_model(all_cfgs["model"][0], cfgs_gen, device)
-    checkpoint_path = os.path.join(all_cfgs["save_base_path"],
-                                   f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen{all_cfgs['epoch']}.pth")
+    if all_cfgs['epoch'] == "":
+        model_name = f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen.pth"
+    else:
+        model_name = f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen_{all_cfgs['epoch'].zfill(3)}.pth"
+    checkpoint_path = os.path.join(all_cfgs["save_base_path"], model_name)
     checkpoint = torch.load(checkpoint_path, map_location=device)
     gen.load_state_dict(checkpoint["state_dict"])
 
@@ -475,5 +520,5 @@ def test(data: str = "test"):
 
 
 if __name__ == "__main__":
-    # main()
-    print(test(data="test"))
+    main()
+    # print(test(data="test"))

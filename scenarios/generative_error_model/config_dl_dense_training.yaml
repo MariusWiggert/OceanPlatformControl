@@ -1,9 +1,10 @@
 model: ["generator", "discriminator"]
-save_model: True
+save_model: False
 dataset_type: "forecastbuoy"
 wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
+custom_masking_keep: 1.0
 
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
@@ -29,16 +30,16 @@ generator:
   # decides whether using dropout as source of randomness or latent vec
   dropout: False
   # adds dropout to all layers to avoid overfitting
-  dropout_all: True
+  dropout_all: False
   dropout_val: 0.3
   # need to set latent_size to zero if using dropout as randomness source
   latent_size: 256
   init_type: "xavier"
   init_gain: 1.0
   norm_type: "instance"
-  load_from_chkpt: True
-#  chkpt: "2022-11-17_17:59:56.pth"
-  chkpt: "2023-01-17_12:07:52.pth"
+  load_from_chkpt: False
+#  chkpt: "2022-11-17_17:59:56.pth"  # FC-HC
+  chkpt: "2023-01-17_12:07:52.pth"  # FC-FC
   load_encoder_only: True
   freeze_encoder: True
   init_decoder: False
@@ -106,7 +107,7 @@ dataset:
   ground_truth: "data/drifter_data/synthetic_data/train_val"
   area: ["area1"]
   shuffle: True
-  len: None
+  len: 100
   split: [0.9, 0.1]
   concat_len: 1
 
