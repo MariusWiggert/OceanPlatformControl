@@ -270,7 +270,7 @@ if __name__ == "__main__":
         "--timeout_h_buffer",
         help="timeout buffer in [h]",
         type=int,
-        default=5,
+        default=2,
     )
     parser.add_argument(
         "-results_filename",
