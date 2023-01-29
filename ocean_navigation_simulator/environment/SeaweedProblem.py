@@ -80,6 +80,16 @@ class SeaweedProblem:
 
         return mission_config
 
+    @staticmethod
+    def from_c3_mission_config(missionConfig):
+        return SeaweedProblem(
+            start_state=PlatformState(
+                lon=units.Distance(deg=missionConfig["x_0"][0]["lon"]),
+                lat=units.Distance(deg=missionConfig["x_0"][0]["lat"]),
+                date_time=datetime.datetime.fromisoformat(missionConfig["x_0"][0]["date_time"]),
+            ),
+        )
+
     def __repr__(self):
         return "Problem [start: {s}]".format(
             s=self.start_state.to_spatio_temporal_point(),
