@@ -44,9 +44,15 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         # get arena object for accessing seaweed growth model
         self.arena = arena
-
         super().__init__(problem, specific_settings)
-        self.specific_settings["platform_dict"] = problem.platform_dict
+        self.specific_settings = {
+            "platform_dict": problem.platform_dict if problem is not None else None,
+            "grid_res": 0.083,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+            "grid_res_global": 0.166,  # for first global planning Note: this is in deg lat, lon
+            "deg_around_xt_xT_box_global": 4,  # area over which to run HJ_reachability on the first global run
+            "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
+        } | self.specific_settings
+
         # set first_plan to True so we plan on the first run over the whole time horizon
         self.first_plan = True
         (
