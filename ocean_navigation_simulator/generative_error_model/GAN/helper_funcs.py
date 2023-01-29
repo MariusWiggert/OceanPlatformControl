@@ -260,6 +260,8 @@ class SeededMasking:
         self.seed = seed
         self.gen = torch.Generator(device="cpu")
         self.rand_gen = self.gen.manual_seed(seed)
+        self.prev_mask = None
+        self._perturb_iter = 0
 
     def reset(self, seed: Optional[int] = None):
         if seed is not None:
@@ -267,6 +269,8 @@ class SeededMasking:
             self.seed = seed
         else:
             self.rand_gen = self.gen.manual_seed(self.seed)
+        # need to reset size otherwise throws error if last batch_size was not full batch
+        self.prev_mask = None
 
     def get_mask(self, mask_shape: tuple, keep_fraction: float):
         if keep_fraction > 1.0:
@@ -277,5 +281,40 @@ class SeededMasking:
         mask = torch.reshape(mask[rand_idx], mask_shape)
         return mask
 
-    def perturb_mask(self):
+    def get_perturbed_mask(self, perturb_prob: float, mask_shape: Optional[tuple] = None,
+                           keep_fraction: Optional[float] = None):
+        if self.prev_mask is None:
+            if mask_shape is None or keep_fraction is None:
+                assert ValueError("Need to provide mask_shape and keep_fraction if SeededMasking.prev_mask = None.")
+            mask = self.get_mask(mask_shape, keep_fraction)
+            self.prev_mask = mask
+            return mask
+        else:
+            return self._perturb_mask(perturb_prob, mask_shape, keep_fraction)
+
+    def _perturb_mask(self, perturb_prob: float, mask_shape: tuple, keep_fraction: float):
+        if keep_fraction > 1.0:
+            raise ValueError("Please specify fraction in interval [0, 1].")
+        # decide whether to perturb or not
+        if np.random.rand(1) > perturb_prob:
+            # get indices of 1s of prev mask
+            idx = (self.prev_mask == 1).nonzero()
+            # perturb indices randomly
+            idx_perturb = np.zeros(idx.shape)
+            idx_perturb[:, 2:] = np.random.randint(-1, 2, size=(idx.shape[2:]))  # note high is exclusive
+            idx_perturb %= 255
+            # assign value at new indices a 1
+            mask = torch.zeros(mask_shape)
+            # convert indices into 1D tensor
+            b, c, h, w = idx_perturb[:, 0], idx_perturb[:, 1], idx_perturb[:, 2], idx_perturb[:, 3]
+            helper = b*np.prod(mask.shape[1:]) + c*np.prod(mask.shape[2:]) + h*np.prod(mask.shape[-1]) + w
+            # assign 1 to indices
+            mask.flatten().scatter_(dim=0, index=torch.tensor(helper, dtype=torch.int64), value=1).reshape_as(mask)
+        else:
+            mask = self.prev_mask
+        self.prev_mask = mask
+        return mask
+
+    @staticmethod
+    def _set_outer_vals_zero(tensor):
         pass
