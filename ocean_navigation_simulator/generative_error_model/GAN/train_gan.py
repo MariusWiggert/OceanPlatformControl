@@ -4,7 +4,7 @@ from ocean_navigation_simulator.generative_error_model.generative_model_metrics 
 from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
 from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
     get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, init_decoder_weights,\
-    freeze_encoder_weights
+    freeze_encoder_weights, SeededMasking
 
 import wandb
 import os
@@ -158,15 +158,12 @@ def gan_hinge_loss_gen(disc_fake):
     return -disc_fake.mean()
 
 
-def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, all_cfgs):
+def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, all_cfgs, rand_gen):
     cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs["generator"]
     gen_loss_sum, disc_loss_sum = 0, 0
     real_acc, fake_acc = [], []
     [model.train() for model in models]
-    # if custom masking of data use same masks for each epoch
-    if all_cfgs["custom_masking_keep"] != "None":
-        rand_gen = torch.Generator(device="cpu")
-        rand_gen = rand_gen.manual_seed(2147483647)
+    rand_gen.reset()
     with torch.enable_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Training epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
@@ -188,13 +185,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                     # mask the fake data
                     target_fake = torch.mul(target_fake, mask).float()
                 else:
-                    # create mask with specific percentage of 1s
-                    mask = torch.zeros_like(target).flatten()
-                    # set desired percentage equal to 1
-                    keep_fraction = all_cfgs["custom_masking_keep"]
-                    mask[:int(keep_fraction * mask.shape[0])] = 1
-                    rand_idx = torch.randperm(mask.shape[0], generator=rand_gen)
-                    mask = torch.reshape(mask[rand_idx], target.shape)
+                    # get mask from masking class
+                    mask = rand_gen.get_mask(target.shape, all_cfgs["custom_masking_keep"]).to(device)
                     # mask the data
                     target = torch.mul(target, mask).float()
                     target_fake = torch.mul(target_fake, mask).float()
@@ -251,7 +243,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
     return avg_gen_loss, avg_disc_loss, avg_real_acc, avg_fake_acc
 
 
-def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False):
+def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_data=False):
     total_loss = 0
     [model.eval() for model in models]
     if all_cfgs["generator"]["dropout"] == False:
@@ -259,9 +251,7 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
     cfgs_train = all_cfgs["train"]
     metrics_names = all_cfgs["metrics"]
     # if custom masking of data use same masks for each epoch
-    if all_cfgs["custom_masking_keep"] != "None":
-        rand_gen = torch.Generator(device="cpu")
-        rand_gen = rand_gen.manual_seed(2147483647)
+    rand_gen.reset()
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
@@ -286,18 +276,11 @@ def validation(models, dataloader, device: str, all_cfgs: dict, save_data=False)
                     # mask the fake data
                     target_fake = torch.mul(target_fake, mask).float()
                 else:
-                    # create mask with specific percentage of 1s
-                    mask = torch.zeros_like(target).flatten()
-                    # set desired percentage equal to 1
-                    keep_fraction = all_cfgs["custom_masking_keep"]
-                    mask[:int(keep_fraction * mask.shape[0])] = 1
-                    rand_idx = torch.randperm(mask.shape[0], generator=rand_gen)
-                    mask = torch.reshape(mask[rand_idx], target.shape)
+                    # get mask from masking class
+                    mask = rand_gen.get_mask(target.shape, all_cfgs["custom_masking_keep"]).to(device)
                     # mask the data
                     target = torch.mul(target, mask).float()
                     target_fake = torch.mul(target_fake, mask).float()
-                    # print(torch.round(mask.sum()/torch.prod(torch.Tensor(list(mask.shape))), decimals=2))
-                    # print(torch.round(torch.where(target == 0, 1, 0).sum()/mask.sum(), decimals=2))
 
                 disc_fake = models[1](data, target_fake)
                 gen_loss = loss_function(cfgs_train["loss"]["gen"],
@@ -347,6 +330,7 @@ def main(sweep: Optional[bool] = False):
 
     # seed for reproducibility
     torch.manual_seed(0)
+    rand_gen = SeededMasking(seed=2147483647)
 
     # simplify config access
     model_types = all_cfgs["model"]
@@ -419,7 +403,8 @@ def main(sweep: Optional[bool] = False):
                                                                         (gen_optimizer, disc_optimizer),
                                                                         train_loader,
                                                                         device,
-                                                                        all_cfgs)
+                                                                        all_cfgs,
+                                                                        rand_gen)
             train_losses_gen.append(train_loss_gen)
             train_losses_disc.append(train_loss_disc)
             to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc,
@@ -429,7 +414,8 @@ def main(sweep: Optional[bool] = False):
                 val_loss, metrics, metrics_ratio = validation((generator, discriminator),
                                                               val_loader,
                                                               device,
-                                                              all_cfgs)
+                                                              all_cfgs,
+                                                              rand_gen)
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
