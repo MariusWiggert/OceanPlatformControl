@@ -92,6 +92,16 @@ class MultiAgentPlanner(HJReach2DPlanner):
         return PlatformActionSet(action_list), ctrl_correction_angle
 
     def get_hj_ttr_values(self, observation: ArenaObservation) -> np.ndarray:
+        """Get ttr values: Important thing to watch out:
+          time of observation point should be within reach time otherwsie
+          throws an error !!
+
+        Args:
+            observation (ArenaObservation): _description_
+
+        Returns:
+            np.ndarray: _description_
+        """
         ttr_values_list = []
         for pltf_id in range(len(observation)):
             point = observation.platform_state[pltf_id].to_spatio_temporal_point()
@@ -114,14 +124,18 @@ class MultiAgentPlanner(HJReach2DPlanner):
         """
         action_list = []
         reactive_control_correction_angle = []
-        super().get_action(
-            observation[0]
-        )  # intialize the planner, needed first time before getting the ttr values
+        if self.multi_agent_settings["reactive_control_config"]["mix_ttr_and_euclidean"]:
+            super().get_action(
+                observation[0]
+            )  # intialize the planner, needed first time before getting the ttr values
+            ttr_values = self.get_hj_ttr_values(observation=observation)
+        else:
+            ttr_values = None
         reactive_control = DecentralizedReactiveControl(
             observation=observation,
             param_dict=self.multi_agent_settings["reactive_control_config"],
             platform_dict=self.platform_dict,
-            ttr_values_arr=self.get_hj_ttr_values(observation=observation),
+            ttr_values_arr=ttr_values,
             nb_max_neighbors=2,
         )
         for k in range(len(observation)):

@@ -34,7 +34,7 @@ class DecentralizedReactiveControl:
         observation: ArenaObservation,
         param_dict: dict,
         platform_dict: dict,
-        ttr_values_arr: np.ndarray,
+        ttr_values_arr: Optional[np.ndarray] = None,
         nb_max_neighbors: int = 2,
     ):
         self.nb_max_neighbors = nb_max_neighbors

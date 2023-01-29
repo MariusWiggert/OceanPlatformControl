@@ -108,7 +108,7 @@ def get_config_dict(controller_name, user_param: dict):
     }
     reactiveConfig = {
         "unit": "m",
-        "mix_ttr_and_euclidean": True,
+        "mix_ttr_and_euclidean": False,
         "delta_3": 8800,  # collision threshold (communication - delta_3)
         "delta_2": 2000,  # safe zone threshold  ]communication - delta_2, communication - delta_3[
         "delta_1": 500,  # small threshold so that if distance > communication_thrsld- delta_1 we try to achieve connectivity
@@ -270,7 +270,7 @@ if __name__ == "__main__":
         "--timeout_h_buffer",
         help="timeout buffer in [h]",
         type=int,
-        default=2,
+        default=1,
     )
     parser.add_argument(
         "-results_filename",
