@@ -40,6 +40,13 @@ def initialize(sweep: bool, test: bool = False):
                          f"_{all_cfgs['dataset']['len']}" + \
                          f"_{all_cfgs['dataset']['concat_len']}"
     wandb.config.update(all_cfgs)
+
+    # define metrics for different charts
+    metrics = {"real_acc": "epoch", "fake_acc": "epoch", "train_loss_gen": "epoch", "train_loss_disc": "epoch",
+               "gen_lr": "epoch", "disc_lr": "epoch", "vector_correlation": "epoch", "rmse": "epoch",
+               "val_loss": "epoch", "real_acc_batch": "train_steps", "fake_acc_batch": "train_steps"}
+    for metric, x_axis in metrics.items():
+        wandb.run.define_metric(metric, step_metric=x_axis)
     return all_cfgs
 
 
