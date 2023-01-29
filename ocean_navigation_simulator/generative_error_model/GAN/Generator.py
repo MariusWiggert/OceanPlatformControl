@@ -109,42 +109,42 @@ class Generator(nn.Module):
         return self.final_up(torch.cat([up7, d1], 1))
 
 
-# class Generator(nn.Module):
-#     """Keeping all the arguments the same to be compatible with existing train code."""
-#     def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
-#                  dropout_val=0.5, latent_size=0):
-#
-#         super().__init__()
-#         norm_layer = get_norm_layer(norm_type=norm)
-#
-#         self.up1 = Block(latent_size, features * 8, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.up2 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.up3 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.up4 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.up5 = Block(features * 8, features * 4, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.up6 = Block(features * 4, features * 2, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.up7 = Block(features * 2, features, down=False, act="relu", norm_layer=norm_layer,
-#                          use_dropout=dropout_all, dropout_val=dropout_val)
-#         self.final_up = nn.Sequential(
-#             nn.ConvTranspose2d(features, out_channels, kernel_size=4, stride=2, padding=1),
-#             # nn.Tanh(),
-#         )
-#
-#     def forward(self, x, latent=None):
-#         up1 = self.up1(latent)
-#         up2 = self.up2(up1)
-#         up3 = self.up3(up2)
-#         up4 = self.up4(up3)
-#         up5 = self.up5(up4)
-#         up6 = self.up6(up5)
-#         up7 = self.up7(up6)
-#         return self.final_up(up7)
+class GeneratorSimplified(nn.Module):
+    """Keeping all the arguments the same to be compatible with existing train code."""
+    def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
+                 dropout_val=0.5, latent_size=0):
+
+        super().__init__()
+        norm_layer = get_norm_layer(norm_type=norm)
+
+        self.up1 = Block(latent_size, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up2 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up3 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up4 = Block(features * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up5 = Block(features * 8, features * 4, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up6 = Block(features * 4, features * 2, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up7 = Block(features * 2, features, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.final_up = nn.Sequential(
+            nn.ConvTranspose2d(features, out_channels, kernel_size=4, stride=2, padding=1),
+            # nn.Tanh(),
+        )
+
+    def forward(self, x, latent=None):
+        up1 = self.up1(latent)
+        up2 = self.up2(up1)
+        up3 = self.up3(up2)
+        up4 = self.up4(up3)
+        up5 = self.up5(up4)
+        up6 = self.up6(up5)
+        up7 = self.up7(up6)
+        return self.final_up(up7)
 
 
 def test():

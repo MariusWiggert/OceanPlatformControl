@@ -1,4 +1,4 @@
-from ocean_navigation_simulator.generative_error_model.GAN.Generator import Generator
+from ocean_navigation_simulator.generative_error_model.GAN.Generator import Generator, GeneratorSimplified
 from ocean_navigation_simulator.generative_error_model.GAN.Discriminator import Discriminator
 from ocean_navigation_simulator.generative_error_model.GAN.BuoyForecastDataset import BuoyForecastErrorNpy
 from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import ForecastHindcastDatasetNpy
@@ -82,6 +82,17 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
                               features=model_configs["features"],
                               norm=model_configs["norm_type"],
                               patch_disc=model_configs["patch_disc"])
+    elif model_type == "generator_simplified":
+        model = GeneratorSimplified(in_channels=model_configs["in_channels"],
+                                    out_channels=model_configs["out_channels"],
+                                    features=model_configs["features"],
+                                    norm=model_configs["norm_type"],
+                                    dropout_all=model_configs["dropout_all"],
+                                    dropout=model_configs["dropout"],
+                                    dropout_val=model_configs["dropout_val"],
+                                    latent_size=model_configs["latent_size"])
+    else:
+        raise ValueError("Specified model type not available!")
     return model.to(device)
 
 
