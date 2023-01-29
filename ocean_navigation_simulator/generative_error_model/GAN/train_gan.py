@@ -212,6 +212,10 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                 fake_acc.append((torch.where(sigmoid(disc_fake) < 0.5, 1, 0).sum() /
                                 torch.prod(torch.Tensor(list(disc_real.shape)))).cpu().numpy())
 
+                wandb.log({"real_acc_batch": float(real_acc[-1]),
+                          "fake_acc_batch": float(fake_acc[-1]),
+                           "train_steps": (all_cfgs["train"]["epoch"]-1) * len(dataloader) + idx+1})
+
                 disc_loss = loss_function(cfgs_train["loss"]["disc"],
                                           cfgs_train["loss"]["disc_weighting"],
                                           disc_real=disc_real,
@@ -407,7 +411,8 @@ def main(sweep: Optional[bool] = False):
             print()
             to_log = dict()
             to_log |= {"gen_lr": gen_optimizer.param_groups[0]["lr"],
-                       "disc_lr": disc_optimizer.param_groups[0]["lr"]}
+                       "disc_lr": disc_optimizer.param_groups[0]["lr"],
+                       "epoch": epoch}
             cfgs_train["epoch"] = epoch
 
             train_loss_gen, train_loss_disc, real_acc, fake_acc = train((generator, discriminator),
