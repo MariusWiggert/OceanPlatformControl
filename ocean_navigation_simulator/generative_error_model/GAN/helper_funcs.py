@@ -254,3 +254,28 @@ def freeze_encoder_weights(generator):
                 param.requires_grad = True
         print("=> Frozen generator encoder")
 
+
+class SeededMasking:
+    def __init__(self, seed: int):
+        self.seed = seed
+        self.gen = torch.Generator(device="cpu")
+        self.rand_gen = self.gen.manual_seed(seed)
+
+    def reset(self, seed: Optional[int] = None):
+        if seed is not None:
+            self.rand_gen = self.gen.manual_seed(seed)
+            self.seed = seed
+        else:
+            self.rand_gen = self.gen.manual_seed(self.seed)
+
+    def get_mask(self, mask_shape: tuple, keep_fraction: float):
+        if keep_fraction > 1.0:
+            raise ValueError("Please specify fraction in interval [0, 1].")
+        mask = torch.zeros(mask_shape).flatten()
+        mask[:int(keep_fraction * mask.shape[0])] = 1
+        rand_idx = torch.randperm(mask.shape[0], generator=self.rand_gen)
+        mask = torch.reshape(mask[rand_idx], mask_shape)
+        return mask
+
+    def perturb_mask(self):
+        pass
