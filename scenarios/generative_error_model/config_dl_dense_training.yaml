@@ -1,10 +1,10 @@
-model: ["generator", "discriminator"]
+model: ["generator_simplified", "discriminator"]
 save_model: False
 dataset_type: "forecastbuoy"
 wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
-custom_masking_keep: 0.01
+custom_masking_keep: 1.0
 
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
@@ -23,7 +23,7 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 test_load_chkpt: "2023-01-25_16:38:07.pth"   # dense real data patch disc
 epoch: "5"
 
-generator:
+generator_simplified:
   in_channels: 2
   out_channels: 2
   features: 64
@@ -96,7 +96,7 @@ train:
     threshold: 0.0001
     patience: 3
 
-# this is used to eval/test model after model.eval()
+# this is used to eval/test model in the dropout generator case
 validation:
   enable_dropout: False
   # layers in decoder to use dropout
@@ -119,7 +119,7 @@ val_dataset:
 
 test_dataset:
   forecasts: "data/drifter_data/forecasts_preprocessed_test"
-  ground_truth: "data/drifter_data/buoy_preprocessed_test"
+  ground_truth: "data/drifter_data/synthetic_data/test"
 #  forecasts: "data/drifter_data/thesis_gan_inference/forecast/"
 #  ground_truth: "data/drifter_data/thesis_gan_inference/ground_truth"
   area: ["area1"]
