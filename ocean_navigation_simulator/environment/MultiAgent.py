@@ -411,7 +411,7 @@ class MultiAgent:
             "Average Beta Index": sum(beta_connectivity_list) / len(beta_connectivity_list),
             "Initial maximum degree of the graph": initial_max_graph_degree,
             "Final maximum degree of the graph": final_max_graph_degree,
-            "Mission_sucess": mission_success,
+            "Mission_success": mission_success,
         }
 
     # ---- Plot functions ----#
