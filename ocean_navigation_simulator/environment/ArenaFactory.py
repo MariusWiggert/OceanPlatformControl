@@ -213,6 +213,7 @@ class ArenaFactory:
             # Download forecast for long term forecast source
             elif (
                 t_interval is not None
+                and config["ocean_dict"]["forecast"] is not None
                 and config["ocean_dict"]["hindcast"] is not None
                 and (
                     config["ocean_dict"]["hindcast"]["source"] == "hindcast_files"
