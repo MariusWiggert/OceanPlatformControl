@@ -104,7 +104,7 @@ specific_settings = {
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 3,
+    "T_goal_in_seconds": 3600 * 24 * 1,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
@@ -126,11 +126,11 @@ specific_settings = {
 
 # Hawaii, random regions at edge of obstacles have lower values than target
 x_0 = PlatformState(
-    lon=units.Distance(deg=-155.65),
-    lat=units.Distance(deg=20.56),
+    lon=units.Distance(deg=-119.7),
+    lat=units.Distance(deg=33),
     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 )
-x_T = SpatialPoint(lon=units.Distance(deg=-156.1), lat=units.Distance(deg=20.22))
+x_T = SpatialPoint(lon=units.Distance(deg=-119.15), lat=units.Distance(deg=33))  # 32.5, 18.7
 
 
 # # Island, reachable in 3 days
@@ -152,7 +152,7 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
     x_0=x_0.to_spatio_temporal_point(),
     x_T=x_T,
     deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600 * 24 * 3,
+    temp_horizon_in_s=specific_settings["T_goal_in_seconds"],
 )
 
 # ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -179,13 +179,13 @@ observation = arena.reset(platform_state=x_0)
 # Calculate reachability
 action = planner.get_action(observation=observation)
 
-ax = planner.plot_reachability_snapshot(
+ax = planner.plot_reachability_snapshot_over_currents(
     rel_time_in_seconds=0,
     granularity_in_h=5,
     alpha_color=1,
     time_to_reach=True,
     fig_size_inches=(12, 12),
-    plot_in_h=True,
+    # plot_in_h=True,
     return_ax=True,
 )  # ttr True if multitime
 # Many more options to customize the visualization
@@ -200,7 +200,9 @@ planner.plot_reachability_animation()
 planner.animate_value_func_3D()
 
 #%% Let controller run close-loop within the arena
-for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 1 day
+for i in tqdm(
+    range(int(specific_settings["T_goal_in_seconds"] / scenario_config["platform_dict"]["dt_in_s"]))
+):
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
