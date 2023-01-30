@@ -841,9 +841,6 @@ class HJPlannerBase(Controller):
                 }
             )
 
-        # TODO: add obstacles
-        # use to debug the value function
-        # plot the set on top of ax
         ax = hj.viz._visSet2D(
             self.grid,
             val_at_t,
