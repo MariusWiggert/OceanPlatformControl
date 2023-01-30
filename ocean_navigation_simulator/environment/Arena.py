@@ -12,6 +12,7 @@ import matplotlib
 import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
+import pandas as pd
 
 from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
     BathymetrySource2d,
@@ -736,3 +737,36 @@ class Arena:
         plt.xlabel("time")
 
         return ax
+
+    def get_datetime_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory.
+        """
+        return [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
+            for posix in state_trajectory[:, 2]
+        ]
+
+    def get_date_string_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory as strings.
+        """
+        return [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc).strftime(
+                "%y-%m-%d %H:%M"
+            )
+            for posix in state_trajectory[:, 2]
+        ]
+
+    def get_plot_data_for_wandb(self):
+        dict_for_plot = {
+            "timesteps": np.arange(self.state_trajectory.shape[0]),
+            "dates_timestamp": self.get_datetime_from_state_trajectory(self.state_trajectory),
+            "dates_string": self.get_date_string_from_state_trajectory(self.state_trajectory),
+            "lon": self.state_trajectory[:, 0],
+            "lat": self.state_trajectory[:, 1],
+            "battery_charge": self.state_trajectory[:, 3],
+            "seaweed_mass": self.state_trajectory[:, 4],
+            "inside_garbage": self.state_trajectory[:, 5],
+        }
+        return pd.DataFrame.from_dict(dict_for_plot, orient="columns")
