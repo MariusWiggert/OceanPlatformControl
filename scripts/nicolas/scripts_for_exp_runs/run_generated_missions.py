@@ -210,7 +210,7 @@ def run_mission(problem: CachedNavigationProblem, args, user_param: dict):
         margin=0.25,
         problem=problem,
         temporal_resolution=7200,
-        output=f"{user_param['animation_dir']}/trajectory_anim.gif",
+        output=f"{user_param['animation_dir']}/trajectory_anim_{idx_mission}.gif",
         fps=10,
     )
     arena.animate_graph_net_trajectory(
