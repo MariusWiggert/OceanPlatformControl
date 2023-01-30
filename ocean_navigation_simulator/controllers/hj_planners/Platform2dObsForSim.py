@@ -49,7 +49,9 @@ class Platform2dObsForSim(Platform2dForSim):
         """Implements the continuous-time dynamics ODE with obstacles."""
         dx_out = super().__call__(state, control, disturbance, time)
         # Check if state is in obstacle then mask dx_out,
-        # this means that the "state moves with obstacle" and can not leave it
+        # this means that the "state moves with obstacle" and can not leave it.
+        # Additionally, we mask the obstacles in the hamiltonian_postprocessor in "HJPLannerBase"
+        # to counter the dissipation value of the artificial_dissipation_scheme
         # TODO: Would actually need to change the 0 to velocity of obstacle if obstacle were dynamic
         return jnp.where(self.is_in_obstacle(state, time), 0, dx_out)
 

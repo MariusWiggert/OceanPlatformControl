@@ -506,14 +506,14 @@ class HJPlannerBase(Controller):
         if dir == "multi-time-reach-back":
             # write multi_reach hamiltonian postprocessor
             def multi_reach_step(mask, val):
-                # TODO: what does this line do? We can never get negative values in the mask due to np.maxium operation
-                # could this be relevant to the valueerror in line 428? "self.all_values.min() < -2:"
                 val = jnp.where(mask <= 0, -1, val)
-                # Added to keep the value of the obstacles fixed
+                # Keep the value of the obstacles fixed, otherwise value of obstacles is reduced by
+                # dissipation value, of the artificial_dissipation_scheme, e.g. the lax_friedrichs_numerical_hamiltonian
+                # does return hamiltonian_value - dissipation_value.
                 if self.specific_settings["obstacle_dict"] is not None:
                     val = jnp.where(
                         mask == self.specific_settings["obstacle_dict"]["obstacle_value"],
-                        self.specific_settings["obstacle_dict"]["obstacle_value"],
+                        0,
                         val,
                     )
                 return val
