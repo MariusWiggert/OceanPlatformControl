@@ -424,11 +424,11 @@ class HJPlannerBase(Controller):
             # log values for closed-loop trajectory extraction
             x_start_backtracking = self.get_x_from_full_state(x_t)
             t_start_backtracking = x_t.date_time.timestamp()
-            # TODO: recactivate later
-            # if self.all_values.min() < -2:
-            #     raise ValueError(
-            #         "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
-            #     )
+
+            if self.all_values.min() < -2:
+                raise ValueError(
+                    "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
+                )
         else:
             raise ValueError(
                 "Direction in controller YAML needs to be one of {backward, forward, forward-backward, "
@@ -506,7 +506,16 @@ class HJPlannerBase(Controller):
         if dir == "multi-time-reach-back":
             # write multi_reach hamiltonian postprocessor
             def multi_reach_step(mask, val):
+                # TODO: what does this line do? We can never get negative values in the mask due to np.maxium operation
+                # could this be relevant to the valueerror in line 428? "self.all_values.min() < -2:"
                 val = jnp.where(mask <= 0, -1, val)
+                # Added to keep the value of the obstacles fixed
+                if self.specific_settings["obstacle_dict"] is not None:
+                    val = jnp.where(
+                        mask == self.specific_settings["obstacle_dict"]["obstacle_value"],
+                        self.specific_settings["obstacle_dict"]["obstacle_value"],
+                        val,
+                    )
                 return val
 
             # combine it with partial sp the mask input gets fixed and only val is open

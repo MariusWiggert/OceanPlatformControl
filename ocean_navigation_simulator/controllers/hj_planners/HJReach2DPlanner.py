@@ -106,8 +106,7 @@ class HJReach2DPlanner(HJPlannerBase):
         if self.specific_settings["obstacle_dict"] is not None:
             # Step 1: load specific area of the obstacle array (take lat lon bounds from self.grid)
             obstacle_array = self.nondim_dynamics.dimensional_dynamics.obstacle_array
-            # Step 3: Masking of value function so that at obstacle value is obstcl_value, the rest is value function
-            # TODO: check value
+            # Step 2: Masking of value function so that at obstacle value is obstcl_value, the rest is value function
             value_function = (
                 value_function * (1 - obstacle_array.T)
                 + self.specific_settings["obstacle_dict"]["obstacle_value"] * obstacle_array.T
