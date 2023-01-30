@@ -26,8 +26,9 @@ def predict_fixed_batch(model, dataloader, device, all_cfgs) -> dict:
         samples = data[0]
         ground_truth = data[1]
         samples = samples.to(device)
-        if all_cfgs["generator"]["dropout"] == False:
-            shape = (samples.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)
+        # if not using dropout as randomness source -> use explicit latent vec
+        if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
+            shape = (samples.shape[0], all_cfgs[all_cfgs["model"][0]]["latent_size"], 1, 1)
             mean, std = torch.zeros(shape), torch.ones(shape)
             latent = torch.normal(mean, std).to(device)
             target_fake = model(samples, latent)
@@ -159,7 +160,7 @@ def gan_hinge_loss_gen(disc_fake):
 
 
 def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, all_cfgs, rand_gen):
-    cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs["generator"]
+    cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs[all_cfgs["model"][0]]
     gen_loss_sum, disc_loss_sum = 0, 0
     real_acc, fake_acc = [], []
     [model.train() for model in models]
@@ -171,7 +172,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                 data, target = data.to(device).float(), target.to(device).float()
 
                 # train discriminator
-                if cfgs_gen["dropout"] == False:
+                if cfgs_gen["dropout"] is False:
                     shape = (data.shape[0], cfgs_gen["latent_size"], 1, 1)
                     mean, std = torch.zeros(shape), torch.ones(shape)
                     latent = torch.normal(mean, std).to(device)
@@ -186,7 +187,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                     target_fake = torch.mul(target_fake, mask).float()
                 else:
                     # get mask from masking class
-                    mask = rand_gen.get_mask(target.shape, all_cfgs["custom_masking_keep"]).to(device)
+                    # mask = rand_gen.get_mask(target.shape, all_cfgs["custom_masking_keep"]).to(device)
+                    mask = rand_gen.get_perturbed_mask(0.3, target.shape, all_cfgs["custom_masking_keep"]).to(device)
                     # mask the data
                     target = torch.mul(target, mask).float()
                     target_fake = torch.mul(target_fake, mask).float()
@@ -194,8 +196,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                     # print(torch.round(torch.where(target == 0, 1, 0).sum()/mask.sum(), decimals=2))
 
                 # compute real and fake outputs of discriminator
-                disc_real = models[1](data, target)
-                disc_fake = models[1](data, target_fake.detach())  # need to call detach to remove from comp graph
+                disc_real = models[1](target, data)
+                disc_fake = models[1](target_fake.detach(), data)  # need to call detach to remove from comp graph
 
                 # calculate accuracy
                 sigmoid = nn.Sigmoid()
@@ -204,9 +206,10 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                 fake_acc.append((torch.where(sigmoid(disc_fake) < 0.5, 1, 0).sum() /
                                 torch.prod(torch.Tensor(list(disc_real.shape)))).cpu().numpy())
 
-                wandb.log({"real_acc_batch": float(real_acc[-1]),
-                          "fake_acc_batch": float(fake_acc[-1]),
-                           "train_steps": (all_cfgs["train"]["epoch"]-1) * len(dataloader) + idx+1})
+                # log accuracy per batch -> messed up vis for images as only step is supported as of now!
+                # wandb.log({"real_acc_batch": float(real_acc[-1]),
+                #           "fake_acc_batch": float(fake_acc[-1]),
+                #            "train_steps": (all_cfgs["train"]["epoch"]-1) * len(dataloader) + idx+1})
 
                 disc_loss = loss_function(cfgs_train["loss"]["disc"],
                                           cfgs_train["loss"]["disc_weighting"],
@@ -219,7 +222,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
                 optimizers[1].step()
 
                 # train generator
-                disc_fake = models[1](data, target_fake)
+                disc_fake = models[1](target_fake, data)
                 gen_loss = loss_function(cfgs_train["loss"]["gen"],
                                          cfgs_train["loss"]["gen_weighting"],
                                          disc_fake=disc_fake,
@@ -246,7 +249,7 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
 def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_data=False):
     total_loss = 0
     [model.eval() for model in models]
-    if all_cfgs["generator"]["dropout"] == False:
+    if all_cfgs[all_cfgs["model"][0]]["dropout"] is True:
         enable_dropout(models[0], all_cfgs["validation"]["layers"])
     cfgs_train = all_cfgs["train"]
     metrics_names = all_cfgs["metrics"]
@@ -260,8 +263,8 @@ def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_d
             for idx, (data, target) in enumerate(tepoch):
                 data, target = data.to(device).float(), target.to(device).float()
 
-                if all_cfgs["generator"]["dropout"] == False:
-                    shape = (data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)
+                if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
+                    shape = (data.shape[0], all_cfgs[all_cfgs["model"][0]]["latent_size"], 1, 1)
                     mean, std = torch.zeros(shape), torch.ones(shape)
                     latent = torch.normal(mean, std).to(device)
                     target_fake = models[0](data, latent)
@@ -277,12 +280,12 @@ def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_d
                     target_fake = torch.mul(target_fake, mask).float()
                 else:
                     # get mask from masking class
-                    mask = rand_gen.get_mask(target.shape, all_cfgs["custom_masking_keep"]).to(device)
+                    mask = rand_gen.get_perturbed_mask(0.3, target.shape, all_cfgs["custom_masking_keep"]).to(device)
                     # mask the data
                     target = torch.mul(target, mask).float()
                     target_fake = torch.mul(target_fake, mask).float()
 
-                disc_fake = models[1](data, target_fake)
+                disc_fake = models[1](target_fake, data)
                 gen_loss = loss_function(cfgs_train["loss"]["gen"],
                                          cfgs_train["loss"]["gen_weighting"],
                                          disc_fake=disc_fake,
@@ -480,7 +483,7 @@ def test(data: str = "test"):
     gen.load_state_dict(checkpoint["state_dict"])
 
     gen.eval()
-    if all_cfgs["generator"]["dropout"] == False:
+    if all_cfgs[all_cfgs["model"][0]]["dropout"] is True:
         enable_dropout(gen, all_cfgs["validation"]["layers"])
     save_dirs = []
     repeated_data = None
@@ -496,7 +499,7 @@ def test(data: str = "test"):
                         repeated_data = data
                     if idx == 10:
                         break
-                    if all_cfgs["generator"]["dropout"] is False:
+                    if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
                         shape = (data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)
                         mean, std = torch.zeros(shape), torch.ones(shape)
                         latent = torch.normal(mean, std).to(device)
@@ -506,7 +509,7 @@ def test(data: str = "test"):
                     save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
                 # normal samples
                 else:
-                    if all_cfgs["generator"]["dropout"] is False:
+                    if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
                         shape = (data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)
                         mean, std = torch.zeros(shape), torch.ones(shape)
                         latent = torch.normal(mean, std).to(device)

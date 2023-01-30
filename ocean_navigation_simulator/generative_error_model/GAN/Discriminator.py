@@ -78,14 +78,17 @@ class Block(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels=2, features=(64, 128, 256, 512), norm="batch", patch_disc=True):
+    def __init__(self, in_channels=2, features=(64, 128, 256, 512), norm="batch", patch_disc=True, conditional=True):
         super().__init__()
         norm_layer = get_norm_layer(norm_type=norm)
         self.patch_disc = patch_disc
+        self.conditional = conditional
 
         self.initial = nn.Sequential(
             # in_channels*2 needed because the discriminator receives fake and real at the same time.
-            nn.Conv2d(in_channels*2, features[0], kernel_size=4, stride=2, padding=1, padding_mode="reflect"),
+            nn.Conv2d(in_channels*2, features[0], kernel_size=4, stride=2, padding=1, padding_mode="reflect")
+            if conditional else
+            nn.Conv2d(in_channels, features[0], kernel_size=4, stride=2, padding=1, padding_mode="reflect"),
             nn.LeakyReLU(0.2)
         )
         layers = []
@@ -102,7 +105,8 @@ class Discriminator(nn.Module):
             nn.Conv2d(
                 in_channels, 1 if patch_disc else in_channels,
                 kernel_size=4, stride=1 if patch_disc else 2,
-                padding=1 if patch_disc else 2, padding_mode="reflect"
+                padding=1 if patch_disc else 2,
+                padding_mode="reflect"
             )
         )
         self.model = nn.Sequential(*layers)
@@ -126,8 +130,17 @@ class Discriminator(nn.Module):
             )
         )
 
-    def forward(self, x, y):
-        x = torch.cat([x, y], dim=1)
+    def forward(self, y, x=None):
+        """
+        Arguments:
+            y - real/fake data
+            x - FC (data that conditioned on)
+        """
+
+        if self.conditional:
+            x = torch.cat([x, y], dim=1)
+        else:
+            x = y
         x = self.initial(x)
         if self.patch_disc:
             return self.model(x)
@@ -139,8 +152,8 @@ class Discriminator(nn.Module):
 def main():
     x = torch.randn((1, 2, 256, 256))
     y = torch.randn_like(x)
-    model = Discriminator()
-    preds = model(x, y)
+    model = Discriminator(conditional=False)
+    preds = model(y, x)
     print(preds.shape)
 
 

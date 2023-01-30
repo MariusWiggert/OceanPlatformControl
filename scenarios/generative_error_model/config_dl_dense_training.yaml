@@ -55,6 +55,7 @@ gen_optimizer:
 
 discriminator:
   patch_disc: True
+  conditional: False
   in_channels: 2
   features: [64, 128, 256, 512]
   init_type: "xavier"
