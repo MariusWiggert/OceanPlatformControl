@@ -56,6 +56,7 @@ class Platform2dObsForSim(Platform2dForSim):
         """Implements the continuous-time dynamics ODE."""
         dx_out = super().__call__(state, control, disturbance, time)
         # check if state is in obstacle then mask dx_out
+        # TODO: Would actually need to change the 0 to velocity of obstacle if obstacle were dynamic
         return jnp.where(self.is_in_obstacle(state, time), 0, dx_out)
 
     def create_obstacle_array(self, data_xarray):
@@ -63,13 +64,12 @@ class Platform2dObsForSim(Platform2dForSim):
         obstacle_ds = xr.open_dataset(self.path_to_obstacle_file)["distance"]
         # Make grid fit to data_xarray (x, y),         # interp like
         obstacle_array = obstacle_ds.interp_like(data_xarray)
-        # Everywhere where distance == 0, set to 1 (for obstacle) and 0 for "no obstacle"
-        obstacle_array = xr.where(obstacle_array == 0, 1, 0)
+        # Everywhere where distance > 0, set to 1 (for obstacle) and 0 for "no obstacle"
+        obstacle_array = xr.where(obstacle_array > 0, 0, 1)
         return jnp.array(obstacle_array.data)
 
     def is_in_obstacle(self, state, time):
-        """Return if the state is in the obstacle region, by checking if distance to obstacle is 0"""
-        # TODO: change to access the obstacle_array, docstrings everywhere
+        """Return if the state is in the obstacle region"""
         x_idx = jnp.argmin(jnp.abs(self.obstacle_array - state[0]))
         y_idx = jnp.argmin(jnp.abs(self.obstacle_array - state[1]))
-        return self.obstacle_array[y_idx, x_idx]
+        return self.obstacle_array[y_idx, x_idx] > 0

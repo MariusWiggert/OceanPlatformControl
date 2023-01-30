@@ -104,7 +104,7 @@ specific_settings = {
     "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 2,
+    "T_goal_in_seconds": 3600 * 24 * 3,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
@@ -120,17 +120,27 @@ specific_settings = {
     "platform_dict": arena.platform.platform_dict,
     "obstacle_dict": {
         "path_to_obstacle_file": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
-        "obstacle_value": -10,
+        "obstacle_value": 1,
     },
 }
 
+# Hawaii, random regions at edge of obstacles have lower values than target
 x_0 = PlatformState(
     lon=units.Distance(deg=-155.65),
     lat=units.Distance(deg=20.56),
     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 )
-
 x_T = SpatialPoint(lon=units.Distance(deg=-156.1), lat=units.Distance(deg=20.22))
+
+
+# # Island, reachable in 3 days
+# x_0 = PlatformState(
+#     lon=units.Distance(deg=-118.5),
+#     lat=units.Distance(deg=29.1),
+#     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
+# )
+# x_T = SpatialPoint(lon=units.Distance(deg=-118.1), lat=units.Distance(deg=29.2))
+
 
 problem = NavigationProblem(
     start_state=x_0,
@@ -142,7 +152,7 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
     x_0=x_0.to_spatio_temporal_point(),
     x_T=x_T,
     deg_around_x0_xT_box=1,
-    temp_horizon_in_s=3600 * 24 * 1,
+    temp_horizon_in_s=3600 * 24 * 3,
 )
 
 # ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -185,24 +195,24 @@ ax = arena.bathymetry_source.plot_mask_from_xarray(
     **{"masking_val": -150}
 )
 plt.show()
-# planner.plot_reachability_animation()
+planner.plot_reachability_animation()
 
 planner.animate_value_func_3D()
 
-# #%% Let controller run close-loop within the arena
-# for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 1 day
-#     action = planner.get_action(observation=observation)
-#     observation = arena.step(action)
+#%% Let controller run close-loop within the arena
+for i in tqdm(range(int(3600 * 24 * 3 / 600))):  # 1 day
+    action = planner.get_action(observation=observation)
+    observation = arena.step(action)
 
-# #%%
-# # garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
-# # plt.show()
-# # #%% Plot the arena trajectory on the map
-# # arena.plot_all_on_map(problem=problem, background="garbage")
-# #%% Animate the trajectory
-# arena.animate_trajectory(
-#     add_ax_func_ext=arena.add_ax_func_ext_overlay,
-#     problem=problem,
-#     temporal_resolution=7200,
-#     **{"masking_val_bathymetry": -150}
-# )
+#%%
+# garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
+# plt.show()
+# #%% Plot the arena trajectory on the map
+# arena.plot_all_on_map(problem=problem, background="garbage")
+#%% Animate the trajectory
+arena.animate_trajectory(
+    add_ax_func_ext=arena.add_ax_func_ext_overlay,
+    problem=problem,
+    temporal_resolution=7200,
+    **{"masking_val_bathymetry": -150}
+)
