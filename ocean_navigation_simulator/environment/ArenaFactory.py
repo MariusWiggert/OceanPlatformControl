@@ -297,6 +297,24 @@ class ArenaFactory:
                     c3=c3,
                     keep_newest_days=keep_newest_days,
                 )
+            elif "files" in config["ocean_dict"][type]["source_settings"][type]["source"]:
+                ArenaFactory.download_required_files(
+                    archive_source=config["ocean_dict"][type]["source_settings"][type][
+                        "source_settings"
+                    ]["source"],
+                    archive_type=config["ocean_dict"][type]["source_settings"][type][
+                        "source_settings"
+                    ]["type"],
+                    download_folder=config["ocean_dict"][type]["source_settings"][type][
+                        "source_settings"
+                    ]["folder"],
+                    t_interval=t_interval,
+                    region=config["ocean_dict"]["region"],
+                    throw_exceptions=throw_exceptions,
+                    points=points,
+                    c3=c3,
+                    keep_newest_days=keep_newest_days,
+                )
             yield True
         finally:
             if "files" in config["ocean_dict"][type]["source"]:
