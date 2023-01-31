@@ -264,6 +264,11 @@ arena.animate_graph_net_trajectory(
 plt.clf()
 fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks
 plt.savefig(f"{results_folder}/graph_properties.png")
+
+plt.clf()
+arena.plot_all_on_map(problem=problem, show_control_trajectory=False)
+plt.savefig(f"{results_folder}/state_trajectory.png")
+
 plt.clf()
 arena.plot_distance_evolution_between_platforms()
 plt.savefig(f"{results_folder}/distanceEvolution.png")
