@@ -48,7 +48,7 @@ class Platform2dForSim(dynamics.Dynamics):
         self.x_current, self.y_current = None, None
 
         # # obstacle operator (is overwritten if analytical_current with boundary obstacles)
-        # self.obstacle_operator = lambda state, time, dx_out: dx_out
+        self.obstacle_operator = lambda state, time, dx_out: dx_out
 
         control_space = sets.Box(lo=jnp.array([0, 0]), hi=jnp.array([1.0, 2 * jnp.pi]))
 
@@ -80,7 +80,13 @@ class Platform2dForSim(dynamics.Dynamics):
         )
 
     def __call__(self, state, control, disturbance, time):
-        """Implements the continuous-time dynamics ODE."""
+        """Implements the continuous-time dynamics ODE.
+        Args:
+            state: the current state [x, y]
+            control: the control [u, alpha]
+            disturbance: the disturbance [dx, dy]
+            time: the relative_time
+        """
         # dx is in m/s
         dx1 = (
             self.u_max * control[0] * jnp.cos(control[1])
@@ -98,8 +104,7 @@ class Platform2dForSim(dynamics.Dynamics):
             transform_to_geographic_velocity(state, dx1, dx2),
             jnp.array([dx1, dx2]).reshape(-1),
         )
-        return dx_out
-        # return self.obstacle_operator(state, time, dx_out)
+        return self.obstacle_operator(state, time, dx_out)
 
     @staticmethod
     def disturbance_jacobian(state, time):

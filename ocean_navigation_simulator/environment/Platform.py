@@ -67,6 +67,17 @@ class PlatformAction:
         heading = np.arctan2(y_propulsion, x_propulsion)  # Finds heading angle from input u
         return PlatformAction(magnitude=thrust, direction=heading)
 
+    @staticmethod
+    def from_discrete_action(action_idx):
+        """Helper function get a PlatformAction based on 8 discrete action {0, .., 7}
+        Args:
+            action_idx: index of the action
+        Returns:
+            PlatformAction object
+        """
+        direction = action_idx * math.pi / 4
+        return PlatformAction(magnitude=1.0, direction=direction[0])
+
 
 class Platform:
     """A simulation of a seaweed platform.
