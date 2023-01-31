@@ -4,6 +4,7 @@ from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
+import jax.numpy as jnp
 
 from ocean_navigation_simulator.data_sources.DataSource import AnalyticalSource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
@@ -62,6 +63,38 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
             posix_time: POSIX time
         Returns:
             v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+        """
+        raise NotImplementedError
+
+    # @abc.abstractmethod
+    def u_current_jnp(
+            self,
+            state: jnp.array,
+            time: float,
+    ) -> jnp.array:
+        """Calculating the currents using jax.numpy.
+        Note: this is used inside the HJ planner loop
+        Args:
+            state: jnp.array([x, y])
+            time: float
+        Returns:
+            u_currents     data as numpy array
+        """
+        raise NotImplementedError
+
+    # @abc.abstractmethod
+    def v_current_jnp(
+            self,
+            state: jnp.array,
+            time: float,
+    ) -> jnp.array:
+        """Calculating the currents using jax.numpy.
+        Note: this is used inside the HJ planner loop
+        Args:
+            state: jnp.array([x, y])
+            time: float
+        Returns:
+            v_currents     data as numpy array
         """
         raise NotImplementedError
 

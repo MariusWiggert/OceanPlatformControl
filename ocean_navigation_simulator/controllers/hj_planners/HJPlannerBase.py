@@ -78,6 +78,7 @@ class HJPlannerBase(Controller):
         self.specific_settings = {
             "replan_on_new_fmrc": True,
             "replan_every_X_seconds": None,
+            "calc_opt_traj_after_planning": False,
             "n_time_vector": 199,
             "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
             "accuracy": "high",
@@ -713,20 +714,20 @@ class HJPlannerBase(Controller):
         # xla._xla_callable.cache_clear()
 
         # For now only using interpolation in jnp (no analytical function)
-
         # Option 1: Data Source is an analytical field
-        # if self.forecast_data_source['data_source_type'] == 'analytical_function':
+        if self.last_data_source.source_config_dict["source"] =='analytical':
+            self.nondim_dynamics.dimensional_dynamics.obstacle_operator = self.last_data_source.obstacle_operator
+        #     x_domain = self.last_data_source.source_config_dict["source_settings"]["x_domain"]
+        #     y_domain = self.last_data_source.source_config_dict["source_settings"]["y_domain"]
         #     # calculate target shape of the grid
-        #     x_n_res = int((lon_bnds[-1] - lon_bnds[0]) / self.specific_settings['grid_res'][0])
-        #     y_n_res = int((lat_bnds[-1] - lat_bnds[0]) / self.specific_settings['grid_res'][1])
+        #     x_n_res = int((x_domain[-1] - x_domain[0]) / self.specific_settings['grid_res'][0])
+        #     y_n_res = int((y_domain[-1] - y_domain[0]) / self.specific_settings['grid_res'][1])
         #
         #     # get the grid dict
-        #     grids_dict, _ = self.forecast_data_source['content'].get_grid_dict(
-        #         t_interval, lat_interval=lat_bnds, lon_interval=lon_bnds, spatial_shape=(x_n_res, y_n_res))
-        #     grids_dict['not_plot_land'] = True
+        #     self.grids_dict = self.last_data_source.get_grid_dict(
+        #         t_interval, lat_interval=y_domain, lon_interval=x_domain, spatial_shape=(x_n_res, y_n_res))
         #
         #     self.nondim_dynamics.dimensional_dynamics.set_currents_from_analytical(self.forecast_data_source)
-        #     self.forecast_data_source['content'].current_run_t_0 = grids_dict['t_grid'][0]
 
         self.logger.info(f"HJPlannerBase: Loading new Current Data ({time.time() - start:.1f}s)")
 

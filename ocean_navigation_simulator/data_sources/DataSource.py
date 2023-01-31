@@ -3,6 +3,7 @@ import abc
 import datetime
 import logging
 import os
+import jax.numpy as jnp
 from functools import partial
 from typing import Any, AnyStr, Callable, List, Optional, Tuple, Union
 
@@ -819,6 +820,7 @@ class AnalyticalSource(abc.ABC):
         t_interval: List[Union[datetime.datetime, float]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: bool = False,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -827,6 +829,7 @@ class AnalyticalSource(abc.ABC):
           t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix.
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
+          throw_exceptions: if True exceptions are thrown otherwise not
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN). Shape: T,Y,X
         """
@@ -965,3 +968,21 @@ class AnalyticalSource(abc.ABC):
         )
 
         return np.logical_or(x_boundary, y_boundary)
+
+    def obstacle_operator(
+        self,
+        state: List[float],
+        time: float,
+        dx_out: float
+    ) -> jnp.array:
+        """Helper function to check if a state is in the boundary specified in hj as obstacle."""
+        x_boundary = jnp.logical_or(
+            state[0] < self.x_domain[0] + self.spatial_boundary_buffers[0],
+            state[0] > self.x_domain[1] - self.spatial_boundary_buffers[0],
+        )
+        y_boundary = jnp.logical_or(
+            state[1] < self.y_domain[0] + self.spatial_boundary_buffers[1],
+            state[1] > self.y_domain[1] - self.spatial_boundary_buffers[1],
+        )
+
+        return jnp.where(jnp.logical_or(x_boundary, y_boundary), 0, dx_out)

@@ -300,3 +300,49 @@ arena.plot_all_on_map(problem=problem)
 #%% render animation of the closed-loop trajectory
 arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", # this is saved under the "generated_media" folder
                          temporal_resolution=0.1)
+
+#%% The true time-optimal controller using reachability value function closed loop
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
+specific_settings = {
+    "replan_on_new_fmrc": False,
+    "direction": "multi-time-reach-back",
+    "n_time_vector": 200,
+    "closed_loop": True,  # to run closed-loop or open-loop
+    "T_goal_in_seconds": 30,
+    "use_geographic_coordinate_system": False,
+    "progress_bar": True,
+    "grid_res": 0.05,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+}
+hj_controller = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
+#%% run hj to compute the value function on the true currents
+_ = hj_controller.get_action(observation=observation)
+#%%
+hj_controller.plot_reachability_snapshot(
+    rel_time_in_seconds=29,
+    granularity_in_h=1/3600,
+    alpha_color=1,
+    time_to_reach=True,
+    fig_size_inches=(12, 12),
+    plot_in_h=True,
+)
+#%%
+hj_controller.plot_reachability_animation(time_to_reach=True, granularity_in_h=1/3600, filename="test_reach_animation.mp4")
+#%% run closed-loop simulation
+total_reward = 0
+while problem_status == 0:
+    # extract action and current measurement from observation
+    x_t = np.array(observation.platform_state)[:3].reshape(1,-1) # as x, y, t numpy array
+    total_reward += reward_class.get_reward(x_t)[0]
+
+    # Get action from the policy
+    action = hj_controller.get_action(observation=observation)
+
+    # execute action
+    observation = arena.step(action)
+    # update problem status
+    problem_status = arena.problem_status(problem=problem)
+
+print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
+print("Final reward:", total_reward)
+#%%
+arena.plot_all_on_map(problem=problem)
