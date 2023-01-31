@@ -1,7 +1,7 @@
 model: ["generator", "discriminator"]
 save_model: True
 dataset_type: "forecastbuoy"
-wandb_mode: "online"
+wandb_mode: "offline"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
 custom_masking_keep: None
@@ -18,8 +18,9 @@ save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
 #test_load_chkpt: "2023-01-06_12:06:43.pth"  # 5 dropout layers -> also change for test
 #test_load_chkpt: "2023-01-09_11:55:04.pth"  # explicit latent vec size=128, no pre-training
 #test_load_chkpt: "2023-01-12_09:14:20.pth"  # explicit latent vec size=128, pre-trained
-test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
-epoch: ""
+#test_load_chkpt: "2023-01-13_21:28:09.pth"  # explicit latent vec size=256, pre-trained
+test_load_chkpt: "2023-01-29_22:36:15.pth"
+epoch: "5"
 
 generator:
   in_channels: 2

@@ -483,7 +483,7 @@ def test(data: str = "test"):
     gen.load_state_dict(checkpoint["state_dict"])
 
     gen.eval()
-    if all_cfgs[all_cfgs["model"][0]]["dropout"] is True:
+    if cfgs_gen["dropout"] is True:
         enable_dropout(gen, all_cfgs["validation"]["layers"])
     save_dirs = []
     repeated_data = None
@@ -499,8 +499,8 @@ def test(data: str = "test"):
                         repeated_data = data
                     if idx == 10:
                         break
-                    if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
-                        shape = (data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)
+                    if cfgs_gen["dropout"] is False:
+                        shape = (data.shape[0], cfgs_gen["latent_size"], 1, 1)
                         mean, std = torch.zeros(shape), torch.ones(shape)
                         latent = torch.normal(mean, std).to(device)
                         target_fake = gen(repeated_data, latent)
@@ -509,8 +509,8 @@ def test(data: str = "test"):
                     save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
                 # normal samples
                 else:
-                    if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
-                        shape = (data.shape[0], all_cfgs["generator"]["latent_size"], 1, 1)
+                    if cfgs_gen["dropout"] is False:
+                        shape = (data.shape[0], cfgs_gen["latent_size"], 1, 1)
                         mean, std = torch.zeros(shape), torch.ones(shape)
                         latent = torch.normal(mean, std).to(device)
                         target_fake = gen(data, latent)
