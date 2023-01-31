@@ -89,6 +89,63 @@ class BuoyForecastError(Dataset):
         return fc, sparse_data
 
 
+class DatasetNpy(Dataset):
+    def __init__(self, data_dir, areas=("area1"), concat_len=1, dataset_name=None, transform=None):
+        """Note: use 24*8 for length because not all files have full 9 days."""
+        self.data_dir = data_dir
+        self.dataset_name = dataset_name
+        self.transform = transform
+        self.hours_in_file = 24 * 8
+        self.concat_len = concat_len
+
+        self.area_lens = {}
+        self.data_file_paths = []
+        for area in list(areas):
+            try:
+                data_file_paths = sorted(glob.glob(f"{data_dir}/{area}/*.npy"))
+            except:
+                raise ValueError("Specified area does not exist!")
+
+            self.area_lens[area] = len(data_file_paths) * (self.hours_in_file//self.concat_len)
+            self.data_file_paths.extend(data_file_paths)
+
+        self.data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
+                        for file_path in self.data_file_paths]
+
+        if transform:
+            if dataset_name is None:
+                raise ValueError("Need to specify dataset names to match to mean and std")
+            # self.fc_data_mean, self.fc_data_std = compute_mean_std(self.fc_data)
+            # self.buoy_data_mean, self.buoy_data_std = compute_mean_std(self.buoy_data)
+
+    def __len__(self):
+        return len(self.data_file_paths) * (self.hours_in_file//self.concat_len)
+
+    def __getitem__(self, idx):
+        if self.concat_len == 1:
+            file_idx = idx // self.hours_in_file
+            time_step_idx = idx % self.hours_in_file
+            data = self.data[file_idx][time_step_idx].squeeze()
+        else:
+            file_idx = (idx * self.concat_len + self.concat_len - 1) // self.hours_in_file
+            time_step_idx = (idx * self.concat_len) % self.hours_in_file
+            data = self.data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
+            data = data.reshape(-1, data.shape[-2], data.shape[-1])
+
+        assert data.shape[0] == 2 * self.concat_len, "Error with concatting time steps!"
+
+        if self.transform:
+            # move channels to last dim
+            data = np.moveaxis(data, 0, -1)
+            mean, std = get_dataset_mean_std(self.dataset_name)
+            data_transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std)
+            ])
+            return data_transforms(data)
+        return data
+
+
 class BuoyForecastErrorNpy(Dataset):
     def __init__(self, fc_dir, buoy_dir, areas=("area1"), concat_len=1, dataset_names=None, transform=None):
         """Note: use 24*8 for length because not all files have full 9 days."""
