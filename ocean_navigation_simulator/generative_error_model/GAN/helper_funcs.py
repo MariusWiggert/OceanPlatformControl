@@ -34,11 +34,11 @@ def initialize(sweep: bool, test: bool = False):
     if sweep:
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
-    if all_cfgs["wandb_mode"] == "online":
-        wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
-                         f"_{all_cfgs['dataset']['area']}" + \
-                         f"_{all_cfgs['dataset']['len']}" + \
-                         f"_{all_cfgs['dataset']['concat_len']}"
+    # if all_cfgs["wandb_mode"] == "online":
+        # wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
+        #                  f"_{all_cfgs['dataset']['area']}" + \
+        #                  f"_{all_cfgs['dataset']['len']}" + \
+        #                  f"_{all_cfgs['dataset']['concat_len']}"
     wandb.config.update(all_cfgs)
 
     # # define metrics for different charts
@@ -70,28 +70,11 @@ def get_model(model_type: str, model_configs: Dict, device: str) -> nn.Module:
     """Handles which model to use which is specified in config file."""
 
     if model_type == "generator":
-        model = Generator(in_channels=model_configs["in_channels"],
-                          out_channels=model_configs["out_channels"],
-                          features=model_configs["features"],
-                          norm=model_configs["norm_type"],
-                          dropout_all=model_configs["dropout_all"],
-                          dropout=model_configs["dropout"],
-                          dropout_val=model_configs["dropout_val"],
-                          latent_size=model_configs["latent_size"])
+        model = Generator(**model_configs["model_settings"])
     elif model_type == "discriminator":
-        model = Discriminator(in_channels=model_configs["in_channels"],
-                              features=model_configs["features"],
-                              norm=model_configs["norm_type"],
-                              patch_disc=model_configs["patch_disc"])
+        model = Discriminator(**model_configs["model_settings"])
     elif model_type == "generator_simplified":
-        model = GeneratorSimplified(in_channels=model_configs["in_channels"],
-                                    out_channels=model_configs["out_channels"],
-                                    features=model_configs["features"],
-                                    norm=model_configs["norm_type"],
-                                    dropout_all=model_configs["dropout_all"],
-                                    dropout=model_configs["dropout"],
-                                    dropout_val=model_configs["dropout_val"],
-                                    latent_size=model_configs["latent_size"])
+        model = GeneratorSimplified(**model_configs["model_settings"])
     else:
         raise ValueError("Specified model type not available!")
     return model.to(device)
@@ -169,9 +152,9 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     val_set = torch.utils.data.Subset(dataset, val_idx)
     fixed_batch_set = torch.utils.data.Subset(dataset, fixed_batch_idx)
 
-    print(f"-> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set)} " +
+    print(f"=> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set)} " +
           f"of {len(dataset)} available samples.")
-    print(f"-> Data from {dataset_configs['area']}.")
+    print(f"=> Data from {dataset_configs['area']}.")
 
     train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
@@ -186,14 +169,19 @@ def get_test_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict)
     return test_loader
 
 
-def get_optimizer(model, name: str, args_optimizer: dict[str, Any], lr: float):
+def get_optimizer(model, name: str, lr: float, kwargs_optimizer: Optional[dict[str, Any]] = None):
     """Does what it says on the tin."""
-    args_optimizer['lr'] = float(lr)
+
+    if kwargs_optimizer is None:
+        kwargs_optimizer = dict()
+    kwargs_optimizer['lr'] = float(lr)
     # print(f"Optimizer params: {args_optimizer}")
     if name.lower() == "adam":
-        return optim.Adam(model.parameters(), **args_optimizer)
+        return optim.Adam(model.parameters(), **kwargs_optimizer)
     elif name.lower() == "sgd":
-        return optim.SGD(model.parameters(), **args_optimizer)
+        return optim.SGD(model.parameters(), **kwargs_optimizer)
+    elif name.lower() == "rmsprop":
+        return optim.RMSprop(model.parameters(), **kwargs_optimizer)
     raise warn("No optimizer!")
 
 
@@ -267,6 +255,32 @@ def freeze_encoder_weights(generator):
             else:
                 param.requires_grad = True
         print("=> Frozen generator encoder")
+
+
+def gradient_penalty(critic, real, fake, device="cpu"):
+    BATCH_SIZE, C, H, W = real.shape
+    alpha = torch.rand((BATCH_SIZE, 1, 1, 1)).repeat(1, C, H, W).to(device)
+    interpolated_images = real * alpha + fake * (1 - alpha)
+
+    # Calculate critic scores
+    mixed_scores = critic(interpolated_images)
+
+    # Take the gradient of the scores with respect to the images
+    gradient = torch.autograd.grad(
+        inputs=interpolated_images,
+        outputs=mixed_scores,
+        grad_outputs=torch.ones_like(mixed_scores),
+        create_graph=True,
+        retain_graph=True,
+    )[0]
+    gradient = gradient.view(gradient.shape[0], -1)
+    gradient_norm = gradient.norm(2, dim=1)
+    gradient_penalty = torch.mean((gradient_norm - 1) ** 2)
+    return gradient_penalty
+
+
+def get_latent_vec(shape):
+    return torch.randn(shape)
 
 
 class SeededMasking:

@@ -23,19 +23,19 @@ test_load_chkpt: "2023-01-29_22:36:15.pth"
 epoch: "5"
 
 generator:
-  in_channels: 2
-  out_channels: 2
-  features: 64
-  # decides whether using dropout as source of randomness or latent vec
-  dropout: False
-  # adds dropout to all layers to avoid overfitting
-  dropout_all: False
-  dropout_val: 0.3
-  # need to set latent_size to zero if using dropout as randomness source
-  latent_size: 256
+  model_settings:
+    in_channels: 2
+    out_channels: 2
+    features: 64
+    norm: "instance"
+    # decides whether using dropout as source of randomness or latent vec
+    dropout: False
+    latent_size: 256
+    # adds dropout to all layers to avoid overfitting
+    dropout_all: False
+    dropout_val: 0.3
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "instance"
   load_from_chkpt: True
 #  chkpt: "2022-11-17_17:59:56.pth"   # FC-HC
   chkpt: "2023-01-17_12:07:52.pth"   # FC-FC
@@ -53,13 +53,14 @@ gen_optimizer:
     weight_decay: 0  #0.0003
 
 discriminator:
-  patch_disc: True
-  conditional: True
-  in_channels: 2
-  features: [64, 128, 256, 512]
+  model_settings:
+    in_channels: 2
+    features: [64, 128, 256, 512]
+    norm_type: "batch"
+    patch_disc: True
+    conditional: True
   init_type: "xavier"
   init_gain: 1.0
-  norm_type: "batch"
   load_from_chkpt: False
   chkpt: ""
 

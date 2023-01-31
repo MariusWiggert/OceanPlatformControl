@@ -111,7 +111,7 @@ class Generator(nn.Module):
 
 class GeneratorSimplified(nn.Module):
     """Keeping all the arguments the same to be compatible with existing train code."""
-    def __init__(self, in_channels=3, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
+    def __init__(self, out_channels=3, features=64, norm="batch", dropout_all=False, dropout=True,
                  dropout_val=0.5, latent_size=0):
 
         super().__init__()

@@ -4,7 +4,7 @@ from ocean_navigation_simulator.generative_error_model.generative_model_metrics 
 from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
 from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
     get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, init_decoder_weights,\
-    freeze_encoder_weights, SeededMasking
+    freeze_encoder_weights, SeededMasking, gradient_penalty
 
 import wandb
 import os
@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 from torchvision.utils import make_grid
 from typing import Dict, Tuple, List, Optional
-from warnings import warn
 from tqdm import tqdm
 
 
@@ -27,8 +26,9 @@ def predict_fixed_batch(model, dataloader, device, all_cfgs) -> dict:
         ground_truth = data[1]
         samples = samples.to(device)
         # if not using dropout as randomness source -> use explicit latent vec
-        if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
-            shape = (samples.shape[0], all_cfgs[all_cfgs["model"][0]]["latent_size"], 1, 1)
+        cfgs_gen = all_cfgs[all_cfgs["model"][0]]["model_settings"]
+        if cfgs_gen["dropout"] is False:
+            shape = (samples.shape[0], cfgs_gen["latent_size"], 1, 1)
             mean, std = torch.zeros(shape), torch.ones(shape)
             latent = torch.normal(mean, std).to(device)
             target_fake = model(samples, latent)
@@ -160,7 +160,7 @@ def gan_hinge_loss_gen(disc_fake):
 
 
 def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, all_cfgs, rand_gen):
-    cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs[all_cfgs["model"][0]]
+    cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs[all_cfgs["model"][0]]["model_settings"]
     gen_loss_sum, disc_loss_sum = 0, 0
     real_acc, fake_acc = [], []
     [model.train() for model in models]
@@ -249,7 +249,8 @@ def train(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, a
 def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_data=False):
     total_loss = 0
     [model.eval() for model in models]
-    if all_cfgs[all_cfgs["model"][0]]["dropout"] is True:
+    cfgs_gen = all_cfgs[all_cfgs["model"][0]]["model_settings"]
+    if cfgs_gen["dropout"] is True:
         enable_dropout(models[0], all_cfgs["validation"]["layers"])
     cfgs_train = all_cfgs["train"]
     metrics_names = all_cfgs["metrics"]
@@ -263,8 +264,8 @@ def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_d
             for idx, (data, target) in enumerate(tepoch):
                 data, target = data.to(device).float(), target.to(device).float()
 
-                if all_cfgs[all_cfgs["model"][0]]["dropout"] is False:
-                    shape = (data.shape[0], all_cfgs[all_cfgs["model"][0]]["latent_size"], 1, 1)
+                if cfgs_gen["dropout"] is False:
+                    shape = (data.shape[0], cfgs_gen["latent_size"], 1, 1)
                     mean, std = torch.zeros(shape), torch.ones(shape)
                     latent = torch.normal(mean, std).to(device)
                     target_fake = models[0](data, latent)
@@ -313,6 +314,68 @@ def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_d
     return avg_loss, metrics, metrics_ratio
 
 
+def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, device, all_cfgs, rand_gen):
+    cfgs_train, cfgs_gen = all_cfgs["train"], all_cfgs[all_cfgs["model"][0]]["model_settings"]
+    gen, critic = models
+    opt_gen, opt_critic = optimizers
+    gen_loss_sum, critic_loss_sum = 0, 0
+    [model.train() for model in models]
+    rand_gen.reset()
+    with torch.enable_grad():
+        with tqdm(dataloader, unit="batch") as tepoch:
+            tepoch.set_description(f"Training epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
+            for idx, (_, real) in enumerate(tepoch):
+                real = real.to(device).float()
+
+                # train critic
+                for _ in range(cfgs_train["critic_iterations"]):
+                    latent = torch.randn(real.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
+                    fake = gen(None, latent=latent)  # passing in None to be compatible with other models
+
+                    if all_cfgs["custom_masking_keep"] != "None":
+                        # get mask from masking class
+                        mask = rand_gen.get_perturbed_mask(0.3, real.shape, all_cfgs["custom_masking_keep"]).to(device)
+                        # mask the data
+                        real = torch.mul(real, mask).float()
+                        fake = torch.mul(fake, mask).float()
+
+                    # compute real and fake outputs of discriminator
+                    critic_real = critic(real)
+                    critic_fake = critic(fake)
+
+                    if cfgs_train["loss"]["gen"] == "wgan_gp":
+                        gp = gradient_penalty(critic, real, fake, device=device)
+                        loss_critic = -(torch.mean(critic_real) - torch.mean(critic_fake)) + cfgs_train["lambda_gp"]*gp
+                    else:
+                        # to max the loss we need to negate it
+                        loss_critic = -(torch.mean(critic_real) - torch.mean(critic_fake))
+                    critic.zero_grad()
+                    loss_critic.backward(retain_graph=True)
+                    opt_critic.step()
+                    critic_loss_sum += loss_critic.item()
+
+                    if cfgs_train["loss"]["gen"] == "wgan":
+                        # clip weights
+                        for p in critic.parameters():
+                            clip_threshold = cfgs_train["weight_clip"]
+                            p.data.clamp_(-clip_threshold, clip_threshold)
+
+                # train generator
+                gen_fake = critic(fake)
+                loss_gen = -torch.mean(gen_fake)
+                gen.zero_grad()
+                loss_gen.backward()
+                opt_gen.step()
+                gen_loss_sum += loss_gen.item()
+
+                tepoch.set_postfix(loss_gen=f"{round(loss_gen.item(), 3)}",
+                                   loss_disc=f"{round(loss_critic.item(), 3)}")
+
+    avg_critic_loss = critic_loss_sum / (len(dataloader)*cfgs_train["critic_iterations"])
+    avg_gen_loss = gen_loss_sum / len(dataloader)
+    return avg_gen_loss, avg_critic_loss
+
+
 def clean_up_training(models, optimizers, name_extensions, dataloader, all_cfgs: dict, device: str):
     """Saves final model. Saves plot for fixed batch."""
 
@@ -328,7 +391,7 @@ def main(sweep: Optional[bool] = False):
     all_cfgs = initialize(sweep=sweep)
     print("####### Start Training #######")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"-> Running on: {device}.")
+    print(f"=> Running on: {device}.")
     all_cfgs["device"] = device
 
     # seed for reproducibility
@@ -349,40 +412,42 @@ def main(sweep: Optional[bool] = False):
     train_loader, val_loader, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
 
     # define model and optimizer and load from checkpoint if specified
-    print(f"-> Model: {model_types}.")
-    print(f"-> Gen Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}.")
-    print(f"-> Disc Losses: {cfgs_train['loss']['disc']} with weightings {cfgs_train['loss']['disc_weighting']}.")
+    print(f"=> Model: {model_types}.")
+    print(f"=> Gen Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}.")
+    print(f"=> Disc Losses: {cfgs_train['loss']['disc']} with weightings {cfgs_train['loss']['disc_weighting']}.")
+    print(f"=> Gen Optimizer: {cfgs_gen_optimizer['name']}")
+    print(f"=> Disc Optimizer: {cfgs_disc_optimizer['name']}")
 
     generator = get_model(model_types[0], cfgs_gen, device)
     discriminator = get_model(model_types[1], cfgs_disc, device)
     gen_optimizer = get_optimizer(generator, cfgs_gen_optimizer["name"],
-                                  cfgs_gen_optimizer["parameters"],
-                                  lr=cfgs_gen_optimizer["lr"])
+                                  cfgs_gen_optimizer["lr"],
+                                  cfgs_gen_optimizer.get("parameters", {}))
     disc_optimizer = get_optimizer(discriminator, cfgs_disc_optimizer["name"],
-                                   cfgs_disc_optimizer["parameters"],
-                                   lr=cfgs_disc_optimizer["lr"])
+                                   cfgs_disc_optimizer["lr"],
+                                   cfgs_disc_optimizer.get("parameters", {}))
     if cfgs_lr_scheduler["value"]:
         gen_lr_scheduler = get_scheduler(gen_optimizer, cfgs_lr_scheduler)
         disc_lr_scheduler = get_scheduler(disc_optimizer, cfgs_lr_scheduler)
 
     # load model weights for generator
-    if cfgs_gen["load_from_chkpt"]:
+    if cfgs_gen.get("load_from_chkpt", False):
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
-        if cfgs_gen["load_encoder_only"]:
+        if cfgs_gen.get("load_encoder_only", False):
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
             load_encoder(gen_checkpoint_path, generator, gen_optimizer, cfgs_gen_optimizer["lr"], device)
         else:
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
             load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_gen_optimizer["lr"], device)
-        if cfgs_gen["init_decoder"]:
+        if cfgs_gen.get("init_decoder", False):
             init_decoder_weights(generator)
-        if cfgs_gen["freeze_encoder"]:
+        if cfgs_gen("freeze_encoder", False):
             freeze_encoder_weights(generator)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
 
     # load model weights for discriminator
-    if cfgs_disc["load_from_chkpt"]:
+    if cfgs_disc.get("load_from_chkpt", False):
         disc_checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["chkpt"])
         load_checkpoint(disc_checkpoint_path, discriminator, disc_optimizer, cfgs_train["learning_rate"], device)
     else:
@@ -402,30 +467,42 @@ def main(sweep: Optional[bool] = False):
                        "epoch": epoch}
             cfgs_train["epoch"] = epoch
 
-            train_loss_gen, train_loss_disc, real_acc, fake_acc = train((generator, discriminator),
-                                                                        (gen_optimizer, disc_optimizer),
-                                                                        train_loader,
-                                                                        device,
-                                                                        all_cfgs,
-                                                                        rand_gen)
-            train_losses_gen.append(train_loss_gen)
-            train_losses_disc.append(train_loss_disc)
-            to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc,
-                       "real_acc": real_acc, "fake_acc": fake_acc}
+            if cfgs_train["loss"]["gen"][0].lower() in ["wgan", "wgan-gp"]:
+                train_loss_gen, train_loss_disc = train_wgan((generator, discriminator),
+                                                             (gen_optimizer, disc_optimizer),
+                                                             train_loader,
+                                                             device,
+                                                             all_cfgs,
+                                                             rand_gen)
+                train_losses_gen.append(train_loss_gen)
+                train_losses_disc.append(train_loss_disc)
+                to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc}
 
-            if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio = validation((generator, discriminator),
-                                                              val_loader,
-                                                              device,
-                                                              all_cfgs,
-                                                              rand_gen)
-                val_losses.append(val_loss)
-                to_log |= {"val_loss": val_loss}
-                to_log |= metrics
-                to_log |= metrics_ratio
-            if cfgs_lr_scheduler["value"]:
-                gen_lr_scheduler.step(val_loss)
-                disc_lr_scheduler.step(val_loss)
+            else:
+                train_loss_gen, train_loss_disc, real_acc, fake_acc = train((generator, discriminator),
+                                                                            (gen_optimizer, disc_optimizer),
+                                                                            train_loader,
+                                                                            device,
+                                                                            all_cfgs,
+                                                                            rand_gen)
+                train_losses_gen.append(train_loss_gen)
+                train_losses_disc.append(train_loss_disc)
+                to_log |= {"train_loss_gen": train_loss_gen, "train_loss_disc": train_loss_disc,
+                           "real_acc": real_acc, "fake_acc": fake_acc}
+
+                if len(val_loader) != 0:
+                    val_loss, metrics, metrics_ratio = validation((generator, discriminator),
+                                                                  val_loader,
+                                                                  device,
+                                                                  all_cfgs,
+                                                                  rand_gen)
+                    val_losses.append(val_loss)
+                    to_log |= {"val_loss": val_loss}
+                    to_log |= metrics
+                    to_log |= metrics_ratio
+                if cfgs_lr_scheduler["value"]:
+                    gen_lr_scheduler.step(val_loss)
+                    disc_lr_scheduler.step(val_loss)
 
             if all_cfgs["save_model"] and epoch % 5 == 0:
                 gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
@@ -483,6 +560,7 @@ def test(data: str = "test"):
     gen.load_state_dict(checkpoint["state_dict"])
 
     gen.eval()
+    cfgs_gen = cfgs_gen["model_settings"]
     if cfgs_gen["dropout"] is True:
         enable_dropout(gen, all_cfgs["validation"]["layers"])
     save_dirs = []
