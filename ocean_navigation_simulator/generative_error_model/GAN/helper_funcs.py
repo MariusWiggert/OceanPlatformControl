@@ -112,7 +112,9 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
         dataset = BuoyForecastErrorNpy(dataset_configs["forecasts"],
                                        dataset_configs["ground_truth"],
                                        dataset_configs["area"],
-                                       dataset_configs["concat_len"])
+                                       concat_len=dataset_configs["concat_len"],
+                                       dataset_names=dataset_configs["dataset_names"],
+                                       transform=dataset_configs["transform"])
     elif dataset_type == "forecasthindcast":
         dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
                                              dataset_configs["hindcasts"],

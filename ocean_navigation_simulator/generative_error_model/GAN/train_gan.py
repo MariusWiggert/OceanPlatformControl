@@ -128,17 +128,6 @@ def gan_loss_disc(disc_real, disc_fake):
     return disc_loss
 
 
-def gan_hinge_loss_disc(disc_real, disc_fake):
-    """
-    A slight change from hinge loss in that only update weights once for both losses and not
-    individually for each one.
-    """
-    disc_real_loss = nn.ReLU()(torch.ones_like(disc_real) - disc_real).mean()
-    disc_fake_loss = nn.ReLU()(torch.ones_like(disc_fake) + disc_fake).mean()
-    disc_loss = (disc_real_loss + disc_fake_loss) / 2
-    return disc_loss
-
-
 def gan_loss_gen(disc_fake):
     """
     Uses the heuristically motivated trick to maximise the log probability of the discriminator
@@ -152,6 +141,17 @@ def gan_loss_gen(disc_fake):
     bce_loss = nn.BCEWithLogitsLoss(reduction="mean")
     gen_loss = bce_loss(disc_fake, torch.ones_like(disc_fake))
     return gen_loss
+
+
+def gan_hinge_loss_disc(disc_real, disc_fake):
+    """
+    A slight change from hinge loss in that only update weights once for both losses and not
+    individually for each one.
+    """
+    disc_real_loss = nn.ReLU()(torch.ones_like(disc_real) - disc_real).mean()
+    disc_fake_loss = nn.ReLU()(torch.ones_like(disc_fake) + disc_fake).mean()
+    disc_loss = (disc_real_loss + disc_fake_loss) / 2
+    return disc_loss
 
 
 def gan_hinge_loss_gen(disc_fake):
