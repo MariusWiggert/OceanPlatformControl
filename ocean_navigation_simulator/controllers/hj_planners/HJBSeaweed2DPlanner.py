@@ -10,6 +10,8 @@ import scipy
 import xarray as xr
 from scipy.interpolate import interp1d
 
+
+import ocean_navigation_simulator
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import (
     HJPlannerBaseDim,
 )
@@ -302,7 +304,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
         # TODO. change to posix time
-        if hasattr(observation.forecast_data_source, "forecast_data_source"):
+        if (
+            hasattr(observation.forecast_data_source, "forecast_data_source")
+            and type(observation.forecast_data_source.forecast_data_source)
+            != ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource
+        ):
             self.forecast_length = (
                 observation.forecast_data_source.forecast_data_source.forecast_data_source.DataArray.time.max()
                 - np.datetime64(observation.platform_state.date_time, "ns")
