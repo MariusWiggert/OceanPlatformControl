@@ -599,5 +599,5 @@ def test(data: str = "test"):
 
 
 if __name__ == "__main__":
-    main()
-    # print(test(data="test"))
+    # main()
+    print(test(data="test"))
