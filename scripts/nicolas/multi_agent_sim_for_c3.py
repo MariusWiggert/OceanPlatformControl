@@ -186,16 +186,6 @@ problem_status = arena.problem_status(problem=problem)
 controller = constructor.controller
 # Reachability snapshot plot
 action = controller.get_action(observation=observation)
-controller.plot_reachability_snapshot(
-    rel_time_in_seconds=0,
-    granularity_in_h=5,
-    alpha_color=1,
-    time_to_reach=True,
-    fig_size_inches=(12, 12),
-    plot_in_h=True,
-    return_ax=True,
-)
-plt.show()
 
 # %%
 # Step 3: Retrieve observer
@@ -229,6 +219,16 @@ while not any(status == pb_timeout_flag for status in problem_status):
         list_a=all_pltf_status, list_b=problem_status, min_or_max="max"
     )
 print("terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
+controller.plot_reachability_snapshot(
+    rel_time_in_seconds=0,
+    granularity_in_h=5,
+    alpha_color=1,
+    time_to_reach=True,
+    fig_size_inches=(12, 12),
+    plot_in_h=True,
+    return_ax=True,
+)
+plt.show()
 
 # %% Plot useful metrics for multi-agent performance evaluation
 results_folder = os.path.join(save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"])

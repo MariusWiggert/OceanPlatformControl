@@ -1096,6 +1096,7 @@ class Arena:
             "collisions": self.multi_agent_net.get_collisions(
                 list_of_graph=[G.G_communication for G in self.multi_agent_G_list]
             ),
+            "beta_connectivity ": [len(G.edges) / len(G.nodes) for G in self.multi_agent_G_list],
         }
         return pd.DataFrame.from_dict(
             dict_for_plot, orient="columns"
