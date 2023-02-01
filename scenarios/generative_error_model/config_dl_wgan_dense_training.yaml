@@ -1,10 +1,10 @@
 model: ["generator_simplified", "discriminator"]
 save_model: False
 dataset_type: "forecastbuoy"
-wandb_mode: "online"
+wandb_mode: "offline"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
-custom_masking_keep: None
+custom_masking_keep: 0.5
 
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"

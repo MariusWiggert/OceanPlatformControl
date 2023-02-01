@@ -9,7 +9,7 @@ custom_masking_keep: None
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
 save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
-test_load_chkpt: "2023-02-01_09:01:24.pth"   # dense real data patch disc
+test_load_chkpt: "2023-02-01_15:31:02.pth"   # dense real data patch disc
 epoch: ""
 
 generator:

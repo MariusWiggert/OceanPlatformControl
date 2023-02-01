@@ -3,8 +3,8 @@ from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse,
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
 from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
 from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import get_model, get_data, get_test_data,\
-    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, init_decoder_weights,\
-    freeze_encoder_weights, SeededMasking, gradient_penalty
+    get_optimizer, get_scheduler, initialize, save_input_output_pairs, enable_dropout, freeze_encoder_weights,\
+    SeededMasking, gradient_penalty
 
 import wandb
 import os
@@ -333,7 +333,12 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
                     latent = torch.randn(real.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
                     fake = gen(data, latent=latent)  # passing in None to be compatible with other models
 
-                    if all_cfgs["custom_masking_keep"] != "None":
+                    if all_cfgs["custom_masking_keep"] == "None":
+                        # mask the generator output (fake) to match real
+                        mask = torch.where(real != 0, 1, 0).int()
+                        # mask the fake data
+                        fake = torch.mul(fake, mask).float()
+                    else:
                         # get mask from masking class
                         mask = rand_gen.get_perturbed_mask(0.3, real.shape, all_cfgs["custom_masking_keep"]).to(device)
                         # mask the data
