@@ -64,7 +64,6 @@ train:
   critic_iterations: 5
   weight_clip: 0.01
   lambda_gp: 10
-
   lr_scheduler_configs:
     value: False
     scheduler_type: "plateau"

@@ -325,13 +325,13 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
     with torch.enable_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
             tepoch.set_description(f"Training epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
-            for idx, (_, real) in enumerate(tepoch):
-                real = real.to(device).float()
+            for idx, (data, real) in enumerate(tepoch):
+                data, real = data.to(device).float(), real.to(device).float()
 
                 # train critic
                 for _ in range(cfgs_train["critic_iterations"]):
                     latent = torch.randn(real.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
-                    fake = gen(None, latent=latent)  # passing in None to be compatible with other models
+                    fake = gen(data, latent=latent)  # passing in None to be compatible with other models
 
                     if all_cfgs["custom_masking_keep"] != "None":
                         # get mask from masking class
@@ -341,11 +341,14 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
                         fake = torch.mul(fake, mask).float()
 
                     # compute real and fake outputs of discriminator
-                    critic_real = critic(real)
-                    critic_fake = critic(fake)
+                    critic_real = critic(real, data)
+                    critic_fake = critic(fake, data)
 
                     if cfgs_train["loss"]["gen"][0] in ["wgan-gp", "wgan_gp"]:
-                        gp = gradient_penalty(critic, real, fake, device=device)
+                        if all_cfgs["discriminator"]["model_settings"]["conditional"]:
+                            gp = gradient_penalty(critic, real, fake, data=data, device=device)
+                        else:
+                            gp = gradient_penalty(critic, real, fake, data=None, device=device)
                         critic_loss = -(torch.mean(critic_real) - torch.mean(critic_fake)) + cfgs_train["lambda_gp"]*gp
                     else:
                         # to max the loss we need to negate it
@@ -363,7 +366,7 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
                             p.data.clamp_(-clip_threshold, clip_threshold)
 
                 # train generator
-                gen_fake = critic(fake)
+                gen_fake = critic(fake, data)
                 gen_loss = -torch.mean(gen_fake)
                 opt_gen.zero_grad()
                 gen_loss.backward()
@@ -437,14 +440,14 @@ def main(sweep: Optional[bool] = False):
     if cfgs_gen.get("load_from_chkpt", False):
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
         if cfgs_gen.get("load_encoder_only", False):
+            # UC-GAN
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
             load_encoder(gen_checkpoint_path, generator, gen_optimizer, cfgs_gen_optimizer["lr"], device)
         else:
+            # load both encoder and decoder for BC-GAN
             gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"], cfgs_gen["chkpt"])
             load_checkpoint(gen_checkpoint_path, generator, gen_optimizer, cfgs_gen_optimizer["lr"], device)
-        if cfgs_gen.get("init_decoder", False):
-            init_decoder_weights(generator)
-        if cfgs_gen("freeze_encoder", False):
+        if cfgs_gen.get("freeze_encoder", False):
             freeze_encoder_weights(generator)
     else:
         init_weights(generator, init_type=cfgs_gen["init_type"], init_gain=cfgs_gen["init_gain"])
@@ -599,5 +602,5 @@ def test(data: str = "test"):
 
 
 if __name__ == "__main__":
-    # main()
-    print(test(data="test"))
+    main()
+    # print(test(data="test"))
