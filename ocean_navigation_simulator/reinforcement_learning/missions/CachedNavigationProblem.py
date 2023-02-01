@@ -123,6 +123,7 @@ class CachedNavigationProblem(NavigationProblem):
             "seed": prob_dict.get("factory_seed", None),
             "feasible": prob_dict.get("feasible", None),
             "ttr_in_h": prob_dict.get("ttr_in_h", None),
+            "multi_agent": prob_dict.get("multi_agent", False),
         }
 
         return mission_config
@@ -134,6 +135,19 @@ class CachedNavigationProblem(NavigationProblem):
                 lon=units.Distance(deg=missionConfig["x_0"][0]["lon"]),
                 lat=units.Distance(deg=missionConfig["x_0"][0]["lat"]),
                 date_time=datetime.datetime.fromisoformat(missionConfig["x_0"][0]["date_time"]),
+            )
+            if len(missionConfig["x_0"]) == 1
+            else PlatformStateSet(
+                platform_list=[
+                    PlatformState(
+                        lon=units.Distance(deg=missionConfig["x_0"][k]["lon"]),
+                        lat=units.Distance(deg=missionConfig["x_0"][k]["lat"]),
+                        date_time=datetime.datetime.fromisoformat(
+                            missionConfig["x_0"][k]["date_time"]
+                        ),
+                    )
+                    for k in range(len(missionConfig["x_0"]))
+                ]
             ),
             end_region=SpatialPoint(
                 lon=units.Distance(deg=missionConfig["x_T"]["lon"]),
