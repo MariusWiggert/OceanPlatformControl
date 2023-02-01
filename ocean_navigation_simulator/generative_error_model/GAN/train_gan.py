@@ -319,6 +319,7 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
     gen, critic = models
     opt_gen, opt_critic = optimizers
     gen_loss_sum, critic_loss_sum = 0, 0
+    loss_report_tqdm = {}
     [model.train() for model in models]
     rand_gen.reset()
     with torch.enable_grad():
@@ -343,18 +344,19 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
                     critic_real = critic(real)
                     critic_fake = critic(fake)
 
-                    if cfgs_train["loss"]["gen"] == "wgan_gp":
+                    if cfgs_train["loss"]["gen"][0] in ["wgan-gp", "wgan_gp"]:
                         gp = gradient_penalty(critic, real, fake, device=device)
-                        loss_critic = -(torch.mean(critic_real) - torch.mean(critic_fake)) + cfgs_train["lambda_gp"]*gp
+                        critic_loss = -(torch.mean(critic_real) - torch.mean(critic_fake)) + cfgs_train["lambda_gp"]*gp
                     else:
                         # to max the loss we need to negate it
-                        loss_critic = -(torch.mean(critic_real) - torch.mean(critic_fake))
-                    critic.zero_grad()
-                    loss_critic.backward(retain_graph=True)
+                        critic_loss = -(torch.mean(critic_real) - torch.mean(critic_fake))
+                    opt_critic.zero_grad()
+                    critic_loss.backward(retain_graph=True)
                     opt_critic.step()
-                    critic_loss_sum += loss_critic.item()
+                    critic_loss_sum += critic_loss.item()
+                    loss_report_tqdm |= {"loss_critic": f"{round(critic_loss.item(), 3)}"}
 
-                    if cfgs_train["loss"]["gen"] == "wgan":
+                    if cfgs_train["loss"]["gen"][0] == "wgan":
                         # clip weights
                         for p in critic.parameters():
                             clip_threshold = cfgs_train["weight_clip"]
@@ -362,17 +364,18 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
 
                 # train generator
                 gen_fake = critic(fake)
-                loss_gen = -torch.mean(gen_fake)
-                gen.zero_grad()
-                loss_gen.backward()
+                gen_loss = -torch.mean(gen_fake)
+                opt_gen.zero_grad()
+                gen_loss.backward()
                 opt_gen.step()
-                gen_loss_sum += loss_gen.item()
+                gen_loss_sum += gen_loss.item()
+                loss_report_tqdm |= {"loss_gen": f"{round(gen_loss.item(), 3)}"}
 
-                tepoch.set_postfix(loss_gen=f"{round(loss_gen.item(), 3)}",
-                                   loss_disc=f"{round(loss_critic.item(), 3)}")
+                # update tqdm postfix
+                tepoch.set_postfix(**loss_report_tqdm)
 
-    avg_critic_loss = critic_loss_sum / (len(dataloader)*cfgs_train["critic_iterations"])
-    avg_gen_loss = gen_loss_sum / len(dataloader)
+    avg_critic_loss = critic_loss_sum / len(dataloader)
+    avg_gen_loss = gen_loss_sum / (len(dataloader)/cfgs_train["critic_iterations"])
     return avg_gen_loss, avg_critic_loss
 
 
@@ -467,7 +470,7 @@ def main(sweep: Optional[bool] = False):
                        "epoch": epoch}
             cfgs_train["epoch"] = epoch
 
-            if cfgs_train["loss"]["gen"][0].lower() in ["wgan", "wgan-gp"]:
+            if cfgs_train["loss"]["gen"][0].lower() in ["wgan", "wgan-gp", "wgan_gp"]:
                 train_loss_gen, train_loss_disc = train_wgan((generator, discriminator),
                                                              (gen_optimizer, disc_optimizer),
                                                              train_loader,
@@ -578,9 +581,7 @@ def test(data: str = "test"):
                     if idx == 10:
                         break
                     if cfgs_gen["dropout"] is False:
-                        shape = (data.shape[0], cfgs_gen["latent_size"], 1, 1)
-                        mean, std = torch.zeros(shape), torch.ones(shape)
-                        latent = torch.normal(mean, std).to(device)
+                        latent = torch.randn(data.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
                         target_fake = gen(repeated_data, latent)
                     else:
                         target_fake = gen(repeated_data)
@@ -588,9 +589,7 @@ def test(data: str = "test"):
                 # normal samples
                 else:
                     if cfgs_gen["dropout"] is False:
-                        shape = (data.shape[0], cfgs_gen["latent_size"], 1, 1)
-                        mean, std = torch.zeros(shape), torch.ones(shape)
-                        latent = torch.normal(mean, std).to(device)
+                        latent = torch.randn(data.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
                         target_fake = gen(data, latent)
                     else:
                         target_fake = gen(data)

@@ -9,8 +9,8 @@ custom_masking_keep: None
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
 save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
-test_load_chkpt: "2023-01-30_20:03:01"   # dense real data patch disc
-epoch: "10"
+test_load_chkpt: "2023-02-01_09:01:24.pth"   # dense real data patch disc
+epoch: ""
 
 generator_simplified:
   model_settings:
@@ -27,8 +27,12 @@ generator_simplified:
   init_gain: 0.02
 
 gen_optimizer:
-  name: "RMSprop"
-  lr: 5e-5
+#  name: "RMSprop"
+#  lr: 5e-5
+  name: "adam"
+  lr: 1e-4
+  parameters:
+    betas: [ 0.0, 0.9 ]
 
 discriminator:
   model_settings:
@@ -41,17 +45,21 @@ discriminator:
   init_gain: 0.02
 
 disc_optimizer:
-  name: "RMSprop"
-  lr: 5e-5
+#  name: "RMSprop"
+#  lr: 5e-5
+  name: "adam"
+  lr: 1e-4
+  parameters:
+    betas: [ 0.0, 0.9 ]
 
 train:
-  batch_size: 64
+  batch_size: 32
   test_batch_size: 192
   epochs: 100
   loss:
-    gen: ["wgan"]
+    gen: ["wgan-gp"]
     gen_weighting: [1]
-    disc: ["wgan"]
+    disc: ["wgan-gp"]
     disc_weighting: [1]
   critic_iterations: 5
   weight_clip: 0.01
@@ -79,7 +87,7 @@ dataset:
   dataset_names: ["fc", "synthetic_data"]
   transform: False
   shuffle: True
-  len: None
+  len: 500
   split: [0.9, 0.1]
   concat_len: 1
 
@@ -96,3 +104,5 @@ test_dataset:
 #  ground_truth: "data/drifter_data/thesis_gan_inference/ground_truth"
   area: ["area1"]
   concat_len: 1
+  dataset_names: [ "fc", "synthetic_data" ]
+  transform: False
