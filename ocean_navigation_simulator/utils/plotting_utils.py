@@ -103,7 +103,7 @@ def animate_trajectory(
         # if there's a func plot it
         if add_ax_func_ext is not None:
             add_ax_func_ext(ax, time)
-        markers = get_markers()
+        # markers = get_markers() if different markers wished for each platform
         # plot start position
         for k in range(state_trajectory.shape[0]):
             idx = min(
@@ -111,14 +111,14 @@ def animate_trajectory(
             )
             if full_traj:
                 traj_to_plot = state_trajectory[k, :, :]
-                marker = next(markers)
+                # marker = next(markers)
                 ax.scatter(
                     state_trajectory[k, 0, -1],
                     state_trajectory[k, 1, -1],
                     c="orange",
-                    marker=marker,
+                    marker="*",  # marker,if different markers wished for each platform
                     s=150,
-                    label="Trajectory end" if k == 0 else "",
+                    label="Trajectories end" if k == 0 else None,
                 )
             else:
                 idx = np.searchsorted(a=state_trajectory[k, 2, :], v=time)
@@ -136,9 +136,9 @@ def animate_trajectory(
                 traj_to_plot[0, 0],
                 traj_to_plot[1, 0],
                 c="r",
-                marker=marker,
+                marker="o",  # marker,if different markers wished for each platform
                 s=150,
-                label=f"Start for platform {k}",
+                label="Start for platforms" if k == 0 else None,
             )
             # plot the control arrow for the specific time
             ax.scatter(

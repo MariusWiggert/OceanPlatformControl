@@ -157,6 +157,7 @@ class CachedNavigationProblem(NavigationProblem):
             extra_info={
                 "feasible": missionConfig.get("feasible", None),
                 "ttr_in_h": missionConfig.get("ttr_in_h", None),
+                "multi_agent": missionConfig.get("multi_agent", False),
             },
         )
 

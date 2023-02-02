@@ -458,15 +458,15 @@ class Arena:
             'Invalid'       otherwise
         """
         if all(status == 1 for status in problem_status):
-            return "Success: all the platforms reached the target within time"
+            return "Success"
         elif any(status == 0 for status in problem_status):
-            return "Problem still running for at least one of the platforms"
+            return "Running"
         elif any(status == -1 for status in problem_status):
-            return "Timeout for at least one of the platforms"
+            return "Timeout"
         elif any(status == 2 for status in problem_status):
-            return "Stranded for at least one of the platforms"
+            return "Stranded"
         elif any(status == -3 for status in problem_status):
-            return "Outside Arena for at least one of the platforms"
+            return "Outside Arena"
         else:
             return "Invalid"
 
@@ -607,7 +607,7 @@ class Arena:
                 self.state_trajectory[k, 1, ::stride],
                 "-",
                 marker=".",
-                markersize=1,
+                markersize=0.5,
                 color=color,
                 linewidth=1,
                 label="State Trajectory" if k == 0 else "",
@@ -695,22 +695,21 @@ class Arena:
         if show_control_trajectory:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
         if show_current_position:
-            markers = get_markers()
-            for k in range(self.state_trajectory.shape[0]):
-                ax.scatter(
-                    self.state_trajectory[k, 0, index],
-                    self.state_trajectory[k, 1, index],
-                    c=current_position_color,
-                    marker=next(markers),
-                    s=100,
-                    label=f"current position platform {k}",
-                )
+            ax.scatter(
+                self.state_trajectory[:, 0, index],
+                self.state_trajectory[:, 1, index],
+                c=current_position_color,
+                marker="*",
+                s=50,
+                label="Current positions",
+            )
+
         if problem is not None:
             problem.plot(ax=ax)
 
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend(loc=4, prop={"size": 4}, numpoints=1)
+        ax.legend(loc="lower right")
 
         if return_ax:
             return ax
@@ -1096,7 +1095,10 @@ class Arena:
             "collisions": self.multi_agent_net.get_collisions(
                 list_of_graph=[G.G_communication for G in self.multi_agent_G_list]
             ),
-            "beta_connectivity ": [len(G.edges) / len(G.nodes) for G in self.multi_agent_G_list],
+            "beta_connectivity ": [
+                len(G.G_communication.edges) / len(G.G_communication.nodes)
+                for G in self.multi_agent_G_list
+            ],
         }
         return pd.DataFrame.from_dict(
             dict_for_plot, orient="columns"

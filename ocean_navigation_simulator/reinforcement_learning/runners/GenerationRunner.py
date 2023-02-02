@@ -310,7 +310,6 @@ class GenerationRunner:
         analysis_folder = f"{results_folder}analysis/"
         os.makedirs(analysis_folder, exist_ok=True)
 
-        # For now all problems have the same target
         # So it is enough to extract only one to get the data range
         problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0])
 

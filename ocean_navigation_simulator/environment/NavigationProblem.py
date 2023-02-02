@@ -68,28 +68,28 @@ class NavigationProblem(Problem):
     ) -> matplotlib.axes.Axes:
         markers = get_markers()
 
-        if self.nb_platforms > 1:
-            for lon, lat, id in zip(
-                self.start_state.lon.deg, self.start_state.lat.deg, range(self.nb_platforms)
-            ):
-                ax.scatter(
-                    lon,
-                    lat,
-                    c=problem_start_color,
-                    marker=next(markers),
-                    label=f"start platform {id}",
-                    s=150,
-                )
-        else:
-            ax.scatter(
-                self.start_state.lon.deg,
-                self.start_state.lat.deg,
-                c=problem_start_color,
-                marker="o",
-                label="start platform",
-                s=150,
-                zorder=6,
-            )
+        # if self.nb_platforms > 1:
+        #     for lon, lat, id in zip(
+        #         self.start_state.lon.deg, self.start_state.lat.deg, range(self.nb_platforms)
+        #     ):
+        #         ax.scatter(
+        #             lon,
+        #             lat,
+        #             c=problem_start_color,
+        #             marker=next(markers),
+        #             label=f"start platform {id}",
+        #             s=150,
+        #         )
+        # else:
+        ax.scatter(
+            self.start_state.lon.deg,
+            self.start_state.lat.deg,
+            c=problem_start_color,
+            marker="o",
+            label="start platforms",
+            s=start_size if self.nb_platforms == 1 else 25,
+            zorder=6,
+        )
 
         ax.add_patch(
             plt.Circle(
