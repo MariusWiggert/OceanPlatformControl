@@ -41,16 +41,17 @@ scenario_config = {
                 "type": "hindcast",
             },
         },
-        "forecast": {
-            "field": "OceanCurrents",
-            "source": "forecast_files",
-            "source_settings": {
-                "local": True,
-                "folder": "data/tests/test_GarbagePatchSource/forecast/",
-                "source": "copernicus",
-                "type": "forecast",
-            },
-        },
+        "forecast": None,
+        # "forecast": {
+        #     "field": "OceanCurrents",
+        #     "source": "forecast_files",
+        #     "source_settings": {
+        #         "local": True,
+        #         "folder": "data/tests/test_GarbagePatchSource/forecast/",
+        #         "source": "copernicus",
+        #         "type": "forecast",
+        #     },
+        # },
     },
     "bathymetry_dict": {
         "field": "Bathymetry",
@@ -74,7 +75,7 @@ scenario_config = {
     "solar_dict": {"hindcast": None, "forecast": None},
     "seaweed_dict": {"hindcast": None, "forecast": None},
 }
-t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 7, 0, 0, 0)]
+t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 10, 0, 0, 0)]
 # Download files if not there yet
 # ArenaFactory.download_required_files(
 #     archive_source="HYCOM",
@@ -82,6 +83,7 @@ t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 1
 #     region="Region 1",
 #     download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
 #     t_interval=t_interval,
+#     remove_files_if_corrupted=False
 # )
 # ArenaFactory.download_required_files(
 #     archive_source="copernicus",
@@ -89,6 +91,7 @@ t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 1
 #     region="Region 1",
 #     download_folder=scenario_config["ocean_dict"]["forecast"]["source_settings"]["folder"],
 #     t_interval=t_interval,
+#     remove_files_if_corrupted=False
 # )
 
 arena = ArenaFactory.create(scenario_config=scenario_config)
@@ -101,10 +104,10 @@ specific_settings = {
     "n_time_vector": 200,
     "closed_loop": True,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 1.5,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 1,
+    "T_goal_in_seconds": 3600 * 24 * 5,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "initial_set_radii": [
@@ -121,12 +124,13 @@ specific_settings = {
     "obstacle_dict": {
         "path_to_obstacle_file": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
         "obstacle_value": 1,
+        "safe_distance_to_obstacle": 0,
     },
 }
 
 # Hawaii, random regions at edge of obstacles have lower values than target
 x_0 = PlatformState(
-    lon=units.Distance(deg=-119.7),
+    lon=units.Distance(deg=-119.6),#-119.7
     lat=units.Distance(deg=33),
     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 )
@@ -188,14 +192,13 @@ ax = planner.plot_reachability_snapshot_over_currents(
     # plot_in_h=True,
     return_ax=True,
 )  # ttr True if multitime
-# Many more options to customize the visualization
-ax = arena.bathymetry_source.plot_mask_from_xarray(
-    xarray=arena.bathymetry_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
-    ax=ax,
-    **{"masking_val": -150}
-)
+# # Many more options to customize the visualization
+# ax = arena.bathymetry_source.plot_mask_from_xarray(
+#     xarray=arena.bathymetry_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
+#     ax=ax,
+#     **{"masking_val": -150}
+# )
 plt.show()
-planner.plot_reachability_animation()
 
 planner.animate_value_func_3D()
 
@@ -211,6 +214,9 @@ for i in tqdm(
 # plt.show()
 # #%% Plot the arena trajectory on the map
 # arena.plot_all_on_map(problem=problem, background="garbage")
+planner.animate_value_func_3D()
+planner.plot_reachability_animation()
+
 #%% Animate the trajectory
 arena.animate_trajectory(
     add_ax_func_ext=arena.add_ax_func_ext_overlay,

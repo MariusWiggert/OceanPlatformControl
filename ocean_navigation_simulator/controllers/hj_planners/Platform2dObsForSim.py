@@ -21,6 +21,7 @@ class Platform2dObsForSim(Platform2dForSim):
         control_mode: If the control is trying to minimize or maximize the value function.
         disturbance_mode: If the disturbance is trying to minimize or maximize the value function.
         path_to_obstacle_file: Path to the xarray file containing the distance to the obstacle.
+        safe_distance_to_obstacle: Use to overapproximate obstacles by value to ensure whole obstacle is masked.
     """
 
     def __init__(
@@ -31,11 +32,13 @@ class Platform2dObsForSim(Platform2dForSim):
         control_mode: Union["min", "max"] = "min",
         disturbance_mode: Union["min", "max"] = "max",
         path_to_obstacle_file: str = None,
+        safe_distance_to_obstacle: float = 0,
     ):
         super().__init__(
             u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
         )
         self.path_to_obstacle_file = path_to_obstacle_file
+        self.safe_distance_to_obstacle = safe_distance_to_obstacle
 
     def update_jax_interpolant(self, data_xarray: xr):
         """Creating an interpolant function from x,y,t grid and data
@@ -60,8 +63,8 @@ class Platform2dObsForSim(Platform2dForSim):
         obstacle_ds = xr.open_dataset(self.path_to_obstacle_file)["distance"]
         # Fit to grid
         obstacle_array = obstacle_ds.interp_like(data_xarray)
-        # Everywhere where distance to obstacle is > 0, set to 0 for "no obstacle" and 1 for "obstacle"
-        obstacle_array = xr.where(obstacle_array > 0, 0, 1)
+        # Convert to binary mask, set to 0 for "no obstacle" and 1 for "obstacle"
+        obstacle_array = xr.where(obstacle_array > self.safe_distance_to_obstacle, 0, 1)
         return jnp.array(obstacle_array.data)
 
     def is_in_obstacle(self, state, time):
