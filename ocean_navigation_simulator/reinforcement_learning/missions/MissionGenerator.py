@@ -299,15 +299,11 @@ class MissionGenerator:
                 tz=datetime.timezone.utc,
             ),
         )
-        fake_start = PlatformStateSet(
-            platform_list=[
-                PlatformState(
-                    lon=fake_target.lon,
-                    lat=fake_target.lat,
-                    date_time=fake_target.date_time
-                    - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
-                )
-            ]
+        fake_start = PlatformState(
+            lon=fake_target.lon,
+            lat=fake_target.lat,
+            date_time=fake_target.date_time
+            - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
         )
 
         ##### Step 2: Reject if files are missing or corrupted #####
@@ -318,13 +314,13 @@ class MissionGenerator:
                 x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
                 y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
                 t_interval=[
-                    fake_start.get_date_time() - datetime.timedelta(hours=1),
+                    fake_start.date_time - datetime.timedelta(hours=1),
                     fake_target.date_time + datetime.timedelta(days=1, hours=1),
                 ],
                 throw_exceptions=True,
                 c3=self.c3,
             )
-            self.arena.reset(fake_start)
+            self.arena.reset(platform_set=PlatformStateSet(platform_list=[fake_start]))
         except (MissingOceanFileException, CorruptedOceanFileException) as e:
             logger.warning(
                 f"Target aborted because of missing or corrupted files: [{fake_start.date_time}, {fake_target.date_time}]."
@@ -375,9 +371,7 @@ class MissionGenerator:
                 )
                 self.hindcast_planner.replan_if_necessary(
                     ArenaObservation(
-                        platform_state=fake_start.platform_list[
-                            0
-                        ],  # only 1 platform in the set and want a PlatformState object
+                        platform_state=fake_start,
                         true_current_at_state=self.arena.ocean_field.get_ground_truth(
                             fake_start.to_spatio_temporal_point()
                         ),
@@ -395,10 +389,8 @@ class MissionGenerator:
 
         ##### Overwrite with biggest available time in hj planner #####
         real_target = SpatioTemporalPoint(
-            lon=fake_start.lon[
-                0
-            ],  # avoid unnecessary array representation, as just 1 point in array
-            lat=fake_start.lat[0],
+            lon=fake_start.lon,
+            lat=fake_start.lat,
             # Largest available time in hj planner
             date_time=datetime.datetime.fromtimestamp(
                 math.floor(
@@ -407,7 +399,6 @@ class MissionGenerator:
                 tz=datetime.timezone.utc,
             ),
         )
-
         logger.info(f"Target created: {real_target} ({time.time()-start_time:.1f}s).")
 
         return real_target
@@ -470,8 +461,8 @@ class MissionGenerator:
     def sample_connected_feasible_points(
         self, sampling_frame, mission_time
     ) -> List[Tuple[bool, SpatioTemporalPoint, Distance]]:
-        planner = self.hindcast_planner
 
+        planner = self.hindcast_planner
         feasible_missions = []
         list_spatio_temp_points = []
         # Step 1: Find reachable points with minimum distance from frame
@@ -779,94 +770,3 @@ class MissionGenerator:
             observation = arena.step(forecast_planner.get_action(observation))
             arena.platform.state.lon = problem.start_state.lon
             arena.platform.state.lat = problem.start_state.lat
-
-    #
-    # def plot_batch_animation(self, filename: str, random_sample_points: Optional[int] = 10):
-    #     plot_start_time = time.time()
-    #
-    #     last_target = self.problems[-1].end_region
-    #
-    #     def add_drawing():
-    #         # Arena Frame
-    #         self.arena.plot_arena_frame_on_map(ax)
-    #         # Target Frame
-    #         # ax.add_patch(
-    #         #     patches.Rectangle(
-    #         #         (self.target_x_start, self.target_y_start),
-    #         #         (self.target_x_end - self.target_x_start),
-    #         #         (self.target_y_end - self.target_y_start),
-    #         #         linewidth=4,
-    #         #         edgecolor="g",
-    #         #         facecolor="none",
-    #         #         label="target sampling frame",
-    #         #     )
-    #         # )
-    #         # Starts Frame
-    #         # ax.add_patch(
-    #         #     patches.Rectangle(
-    #         #         (self.starts_x_start, self.starts_y_start),
-    #         #         (self.starts_x_end - self.starts_x_start),
-    #         #         (self.starts_y_end - self.starts_y_start),
-    #         #         linewidth=4,
-    #         #         edgecolor="g",
-    #         #         facecolor="none",
-    #         #         label="start sampling frame",
-    #         #     )
-    #         # )
-    #         # Planner Frame
-    #         ax.add_patch(
-    #             patches.Rectangle(
-    #                 (
-    #                     self.hindcast_planner.grid.domain.lo[0],
-    #                     self.hindcast_planner.grid.domain.lo[1],
-    #                 ),
-    #                 (
-    #                     self.hindcast_planner.grid.domain.hi[0]
-    #                     - self.hindcast_planner.grid.domain.lo[0]
-    #                 ),
-    #                 (
-    #                     self.hindcast_planner.grid.domain.hi[1]
-    #                     - self.hindcast_planner.grid.domain.lo[1]
-    #                 ),
-    #                 linewidth=4,
-    #                 edgecolor="b",
-    #                 facecolor="none",
-    #                 label="hj solver frame",
-    #             )
-    #         )
-    #
-    #         # Minimal Distance to Target
-    #         ax.add_patch(
-    #             plt.Circle(
-    #                 (last_target.lon.deg, last_target.lat.deg),
-    #                 self.config["target_min_distance"],
-    #                 color="r",
-    #                 linewidth=2,
-    #                 facecolor="none",
-    #             )
-    #         )
-    #
-    #         # Add Starts to Plot
-    #         for problem in self.problems:
-    #             ax.scatter(
-    #                 problem.start_state.lon.deg,
-    #                 problem.start_state.lat.deg,
-    #                 facecolors="none",
-    #                 edgecolors="r",
-    #                 marker="o",
-    #                 label="starts",
-    #             )
-    #
-    #         # Plot more possible Starts
-    #         # if random_sample_points:
-    #         #     for point in self.generate_starts(amount=random_sample_points, silent=True):
-    #         #         ax.scatter(
-    #         #             point.lon.deg,
-    #         #             point.lat.deg,
-    #         #             facecolors="none",
-    #         #             edgecolors="black",
-    #         #             marker="o",
-    #         #             label="possible sample points",
-    #         #         )
-    #
-    #         ax.set_title(f"Multi-Reach at time ({rel_time_in_seconds/3600:.1f}h)")
