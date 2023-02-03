@@ -941,7 +941,7 @@ class HJPlannerBase(Controller):
         spatial_resolution: Optional[float] = None,
         with_opt_ctrl: Optional[bool] = False,
         forward_time: Optional[bool] = False,
-        data_source_for_plt: Optional = None,
+        data_source_for_plt: Optional[DataSource] = None,
         t_end: Optional[datetime] = None,
         fps: Optional[int] = 10,
         with_background: Optional[bool] = True,

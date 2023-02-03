@@ -77,22 +77,22 @@ scenario_config = {
 }
 t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 10, 0, 0, 0)]
 # Download files if not there yet
-# ArenaFactory.download_required_files(
-#     archive_source="HYCOM",
-#     archive_type="hindcast",
-#     region="Region 1",
-#     download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
-#     t_interval=t_interval,
-#     remove_files_if_corrupted=False
-# )
-# ArenaFactory.download_required_files(
-#     archive_source="copernicus",
-#     archive_type="forecast",
-#     region="Region 1",
-#     download_folder=scenario_config["ocean_dict"]["forecast"]["source_settings"]["folder"],
-#     t_interval=t_interval,
-#     remove_files_if_corrupted=False
-# )
+ArenaFactory.download_required_files(
+    archive_source="HYCOM",
+    archive_type="hindcast",
+    region="Region 1",
+    download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
+    t_interval=t_interval,
+    remove_files_if_corrupted=False,
+)
+ArenaFactory.download_required_files(
+    archive_source="copernicus",
+    archive_type="forecast",
+    region="Region 1",
+    download_folder=scenario_config["ocean_dict"]["forecast"]["source_settings"]["folder"],
+    t_interval=t_interval,
+    remove_files_if_corrupted=False,
+)
 
 arena = ArenaFactory.create(scenario_config=scenario_config)
 
@@ -119,7 +119,6 @@ specific_settings = {
     "d_max": 0.0,
     # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
-    # TODO: add this to config somewhere, change path, add type (dynamic, static, ...)
     "platform_dict": arena.platform.platform_dict,
     "obstacle_dict": {
         "path_to_obstacle_file": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
@@ -130,15 +129,14 @@ specific_settings = {
 
 # LA, random regions at edge of obstacles have lower values than target
 x_0 = PlatformState(
-    lon=units.Distance(deg=-119.6),#-119.7
+    lon=units.Distance(deg=-119.6),  # -119.7
     lat=units.Distance(deg=33),
     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 )
 x_T = SpatialPoint(lon=units.Distance(deg=-119.15), lat=units.Distance(deg=33))  # 32.5, 18.7
 
 
-
-# # Island, reachable in 3 days
+# # Island
 # x_0 = PlatformState(
 #     lon=units.Distance(deg=-118.5),
 #     lat=units.Distance(deg=29.1),
@@ -147,8 +145,7 @@ x_T = SpatialPoint(lon=units.Distance(deg=-119.15), lat=units.Distance(deg=33)) 
 # x_T = SpatialPoint(lon=units.Distance(deg=-118.1), lat=units.Distance(deg=29.2))
 
 
-
-# Hawaii
+# Hawaii, reachable, very nice plot
 x_0 = PlatformState(
     lon=units.Distance(deg=-155.7),
     lat=units.Distance(deg=20.5),
@@ -190,8 +187,6 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
 #%% Prepare ontroller and run reachability
 planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 observation = arena.reset(platform_state=x_0)
-# TODO: this needs to be done to calculate the HJ dynamics at least once
-# Calculate reachability
 action = planner.get_action(observation=observation)
 
 ax = planner.plot_reachability_snapshot_over_currents(
@@ -202,7 +197,7 @@ ax = planner.plot_reachability_snapshot_over_currents(
     fig_size_inches=(12, 12),
     # plot_in_h=True,
     return_ax=True,
-)  # ttr True if multitime
+)
 # # Many more options to customize the visualization
 # ax = arena.bathymetry_source.plot_mask_from_xarray(
 #     xarray=arena.bathymetry_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
@@ -212,8 +207,6 @@ ax = planner.plot_reachability_snapshot_over_currents(
 plt.show()
 
 planner.animate_value_func_3D()
-planner.plot_reachability_animation()
-
 #%% Let controller run close-loop within the arena
 for i in tqdm(
     range(int(specific_settings["T_goal_in_seconds"] / scenario_config["platform_dict"]["dt_in_s"]))
@@ -221,11 +214,8 @@ for i in tqdm(
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
 
-#%%
-# garbage_traj = arena.plot_garbage_trajectory_on_timeaxis()
-# plt.show()
+
 # #%% Plot the arena trajectory on the map
-# arena.plot_all_on_map(problem=problem, background="garbage")
 planner.animate_value_func_3D()
 planner.plot_reachability_animation()
 
