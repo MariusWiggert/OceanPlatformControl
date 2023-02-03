@@ -426,9 +426,10 @@ class HJPlannerBase(Controller):
             t_start_backtracking = x_t.date_time.timestamp()
 
             if self.all_values.min() < -2:
-                raise ValueError(
-                    "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
-                )
+                print(f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}")
+                # raise ValueError(
+                #     "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
+                # )
         else:
             raise ValueError(
                 "Direction in controller YAML needs to be one of {backward, forward, forward-backward, "

@@ -124,17 +124,18 @@ specific_settings = {
     "obstacle_dict": {
         "path_to_obstacle_file": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
         "obstacle_value": 1,
-        "safe_distance_to_obstacle": 0,
+        "safe_distance_to_obstacle": 10,
     },
 }
 
-# Hawaii, random regions at edge of obstacles have lower values than target
+# LA, random regions at edge of obstacles have lower values than target
 x_0 = PlatformState(
     lon=units.Distance(deg=-119.6),#-119.7
     lat=units.Distance(deg=33),
     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 )
 x_T = SpatialPoint(lon=units.Distance(deg=-119.15), lat=units.Distance(deg=33))  # 32.5, 18.7
+
 
 
 # # Island, reachable in 3 days
@@ -144,6 +145,16 @@ x_T = SpatialPoint(lon=units.Distance(deg=-119.15), lat=units.Distance(deg=33)) 
 #     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-118.1), lat=units.Distance(deg=29.2))
+
+
+
+# Hawaii
+x_0 = PlatformState(
+    lon=units.Distance(deg=-155.7),
+    lat=units.Distance(deg=20.5),
+    date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
+)
+x_T = SpatialPoint(lon=units.Distance(deg=-157), lat=units.Distance(deg=20.3))
 
 
 problem = NavigationProblem(
@@ -201,6 +212,7 @@ ax = planner.plot_reachability_snapshot_over_currents(
 plt.show()
 
 planner.animate_value_func_3D()
+planner.plot_reachability_animation()
 
 #%% Let controller run close-loop within the arena
 for i in tqdm(
