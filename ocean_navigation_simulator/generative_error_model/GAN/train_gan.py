@@ -271,8 +271,6 @@ def validation(models, dataloader, device: str, all_cfgs: dict, rand_gen, save_d
                     target_fake = models[0](data, latent)
                 else:
                     target_fake = models[0](data)
-                if save_data:
-                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, idx)
 
                 if all_cfgs["custom_masking_keep"] == "None":
                     # mask the generator output to match target (buoy data)
@@ -382,8 +380,8 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
                 # update tqdm postfix
                 tepoch.set_postfix(**loss_report_tqdm)
 
-    avg_critic_loss = critic_loss_sum / len(dataloader)
-    avg_gen_loss = gen_loss_sum / (len(dataloader)/cfgs_train["critic_iterations"])
+    avg_critic_loss = critic_loss_sum / (len(dataloader) * cfgs_train["critic_iterations"])
+    avg_gen_loss = gen_loss_sum / len(dataloader)
     return avg_gen_loss, avg_critic_loss
 
 
@@ -515,7 +513,7 @@ def main(sweep: Optional[bool] = False):
                     gen_lr_scheduler.step(val_loss)
                     disc_lr_scheduler.step(val_loss)
 
-            if all_cfgs["save_model"] and epoch % 5 == 0:
+            if all_cfgs["save_model"] and epoch % 2 == 0:
                 gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
                                                    f"{all_cfgs['model_save_name'].split('.')[0]}_gen_{str(epoch).zfill(3)}.pth")
                 save_checkpoint(generator, gen_optimizer, gen_checkpoint_path)
@@ -593,7 +591,9 @@ def test(data: str = "test"):
                         target_fake = gen(repeated_data, latent)
                     else:
                         target_fake = gen(repeated_data)
-                    save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                    save_dir = save_input_output_pairs(repeated_data, target_fake,
+                                                       all_cfgs["save_repeated_samples_path"],
+                                                       all_cfgs["test_load_chkpt"], idx)
                 # normal samples
                 else:
                     if cfgs_gen["dropout"] is False:
@@ -601,7 +601,9 @@ def test(data: str = "test"):
                         target_fake = gen(data, latent)
                     else:
                         target_fake = gen(data)
-                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
+                    save_dir = save_input_output_pairs(data, target_fake,
+                                                       all_cfgs["save_samples_path"],
+                                                       all_cfgs["test_load_chkpt"], idx)
         save_dirs.append(save_dir)
     return save_dirs
 

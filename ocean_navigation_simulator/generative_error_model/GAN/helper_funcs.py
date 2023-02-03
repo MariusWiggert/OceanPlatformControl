@@ -24,6 +24,8 @@ def initialize(sweep: bool, test: bool = False):
     config_file = parser.parse_args().config_file
     all_cfgs = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
     wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
+    if test:
+        wandb_cfgs = {"mode": "offline"}
     # add model saving name to cfgs
     all_cfgs["model_save_name"] = f"{get_now_string()}.pth"
     wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
@@ -198,10 +200,11 @@ def get_scheduler(optimizer, scheduler_configs: Dict):
     return scheduler
 
 
-def save_input_output_pairs(data: torch.tensor, output: torch.tensor, all_cfgs: dict, save_dir: str, idx: int) -> str:
+def save_input_output_pairs(data: torch.tensor, output: torch.tensor, save_root: str, save_dir: str, idx: int) -> str:
     """Saves input-output pairs for testing."""
 
-    save_dir = os.path.join(save_dir, all_cfgs["model_save_name"].split(".")[0])
+    save_dir = save_dir.split(".")[0]
+    save_dir = os.path.join(save_root, save_dir)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
