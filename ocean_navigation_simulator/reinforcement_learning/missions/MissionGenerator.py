@@ -56,7 +56,6 @@ class MissionGenerator:
             config["t_range"] = [datetime.datetime.fromisoformat(t) for t in config["t_range"]]
         self.config = config
         self.c3 = c3
-
         self.random = np.random.default_rng(self.config["seed"])
 
     def cache_batch(self) -> Tuple[List[CachedNavigationProblem], dict, List]:
@@ -378,6 +377,7 @@ class MissionGenerator:
                         forecast_data_source=self.arena.ocean_field.hindcast_data_source,
                     )
                 )
+
         except SubsettingDataSourceException as e:
             logger.warning(
                 "Target aborted because of subsetting exception: [{fake_start.date_time}, {fake_target.date_time}]."
