@@ -328,8 +328,11 @@ def train_wgan(models: Tuple[nn.Module, nn.Module], optimizers, dataloader, devi
 
                 # train critic
                 for _ in range(cfgs_train["critic_iterations"]):
-                    latent = torch.randn(real.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
-                    fake = gen(data, latent=latent)  # passing in None to be compatible with other models
+                    if cfgs_gen["dropout"] is False:
+                        latent = torch.randn(real.shape[0], cfgs_gen["latent_size"], 1, 1).to(device)
+                        fake = gen(data, latent=latent)  # passing in None to be compatible with other models
+                    else:
+                        fake = gen(data)
 
                     if all_cfgs["custom_masking_keep"] == "None":
                         # mask the generator output (fake) to match real
