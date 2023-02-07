@@ -300,7 +300,7 @@ class MissionGenerator:
                     return False
 
                 if (distance_to_shore > self.config["max_distance_from_land"]) and (
-                    distance_to_garbage > self.config["max_distance_from_land"]
+                    distance_to_garbage > self.config["max_distance_from_garbage"]
                 ):
                     self.performance["target_resampling"] += 1
                     logger.warning(
