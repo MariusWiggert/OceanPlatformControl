@@ -78,6 +78,6 @@ seaweed_dict:
         field: 'SeaweedGrowth'
         source: 'GEOMAR'
         source_settings:
-            filepath: './data/nutrients/2022_monthly_nutrients_and_temp_faked_from_2021.nc' #'./data/nutrients/2022_monthly_nutrients_and_temp.nc' 
+            filepath: './ocean_navigation_simulator/package_data/nutrients/' #'./data/nutrients/2022_monthly_nutrients_and_temp.nc' 
     forecast: null
     
