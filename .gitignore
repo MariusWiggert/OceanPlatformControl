@@ -4,6 +4,7 @@ __pycache__*
 *.png
 *.gif
 *.log
+*.csv
 *.egg-info
 optimized_dp/
 viz/
@@ -22,3 +23,6 @@ tmp/
 data/
 models/
 results/
+artifacts/
+wandb/
+temp/
