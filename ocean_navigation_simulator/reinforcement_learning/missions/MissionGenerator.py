@@ -41,11 +41,6 @@ from ocean_navigation_simulator.utils.units import Distance
 logger = logging.getLogger("MissionGenerator")
 
 
-class Dummy:
-    def __init__(self):
-        print("inited")
-
-
 class MissionGenerator:
     """
     A flexible class to generate missions.
