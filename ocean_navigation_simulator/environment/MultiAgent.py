@@ -338,7 +338,7 @@ class MultiAgent:
     def log_metrics(
         self,
         list_of_graph: List[nx.Graph],
-        dates: List[dt.datetime],
+        dates: List[np.float64],
         success_rate_reach_target: float,
         energy_efficiency_proxy: float,
         mean_min_dist_to_target: float,
@@ -366,8 +366,10 @@ class MultiAgent:
 
         isolated_nodes = self.get_isolate_nodes(list_of_graph=list_of_graph, stride_temporal_res=1)
         collisions = self.get_collisions(list_of_graph=list_of_graph, stride_temporal_res=1)
-        dates_for_integr_s = [(t - dates[0]).total_seconds() for t in dates]
-        integrated_communication = simpson(isolated_nodes, dates_for_integr_s)/(dates[-1] - dates[0]).total_seconds()
+        dates_for_integr_s = [(t - dates[0]) for t in dates]
+        integrated_communication = simpson(isolated_nodes, dates_for_integr_s) / (
+            dates[-1] - dates[0]
+        )
         collision_metric = sum(collisions)
         beta_connectivity_list = [len(G.edges) / len(G.nodes) for G in list_of_graph]
         initial_max_graph_degree = max([deg for _, deg in list_of_graph[0].degree])

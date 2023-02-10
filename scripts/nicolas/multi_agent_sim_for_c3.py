@@ -11,8 +11,8 @@ import yaml
 import numpy as np
 
 ## Only when developing with VSCode in my repo
-os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
-print(os.getcwd())
+# os.chdir("/home/nicolas/documents/Master_Thesis_repo/OceanPlatformControl")
+# print(os.getcwd())
 ##
 
 logging.basicConfig(level=logging.INFO)
@@ -81,22 +81,22 @@ missionConfig = {
     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
     "x_0": [
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
+            "date_time": "2022-11-24T12:00:48+00:00",
             "lat": 23.2,
             "lon": -83.2,
         },
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
+            "date_time": "2022-11-24T12:00:48+00:00",
             "lat": 23.25,
             "lon": -83.25,
         },
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
+            "date_time": "2022-11-24T12:00:48+00:00",
             "lat": 23.3,
             "lon": -83.3,
         },
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
+            "date_time": "2022-11-24T12:00:48+00:00",
             "lat": 23.35,
             "lon": -83.35,
         },
@@ -107,26 +107,31 @@ objective_conf = {"type": "nav"}
 arenaConfig = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 86400.0},
     "ocean_dict": {
-        "area": "GOM",
-        "forecast": {
-            "field": "OceanCurrents",
-            "source": "hindcast_files",
-            "source_settings": {"folder": "tmp/hindcast/", "source": "HYCOM", "type": "hindcast"},
-        },
-        # {
-        #     "field": "OceanCurrents",
-        #     "source": "forecast_files",
-        #     "source_settings": {
-        #         "folder": "tmp/forecast/",
-        #         "source": "Copernicus",
-        #         "type": "forecast",
-        #     },
-        # },
         "hindcast": {
             "field": "OceanCurrents",
             "source": "hindcast_files",
-            "source_settings": {"folder": "tmp/hindcast/", "source": "HYCOM", "type": "hindcast"},
+            "source_settings": {
+                "folder": "data/miss_gen_hindcast/",
+                "local": False,
+                "source": "HYCOM",
+                "type": "hindcast",
+                "currents": "total",
+                "region": "GOM",
+                # "region": "Region 1",
+            },
         },
+        "forecast": None,  # {
+        #     "field": "OceanCurrents",
+        #     "source": "forecast_files",
+        #     "source_settings": {
+        #         "folder": "data/miss_gen_forecast/",
+        #         "local": False,
+        #         "source": "Copernicus",
+        #         "type": "forecast",
+        #         "currents": "total",
+        #         # "region": "Region 1",
+        #     },
+        # },
     },
     "platform_dict": {
         "battery_cap_in_wh": 400.0,
@@ -157,8 +162,7 @@ constructor = Constructor(
     objective_conf=objective_conf,
     ctrl_conf=MultiAgentCtrlConfig,  # here different controller configs can be put in
     observer_conf=NoObserver,  # here the other observers can also be put int
-    download_files=False,  # True,
-    timeout_in_sec=arenaConfig["timeout"],
+    download_files=True,  # True,,
 )
 # Step 1.1 Retrieve problem
 problem = constructor.problem
