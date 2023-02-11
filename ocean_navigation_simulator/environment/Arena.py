@@ -463,7 +463,7 @@ class Arena:
             return "Running"
         elif any(status == -1 for status in problem_status):
             return "Timeout"
-        elif any(status == 2 for status in problem_status):
+        elif any(status == -2 for status in problem_status):
             return "Stranded"
         elif any(status == -3 for status in problem_status):
             return "Outside Arena"

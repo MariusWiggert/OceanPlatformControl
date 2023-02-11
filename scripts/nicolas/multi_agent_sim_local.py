@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media")
+save_in_folder = os.path.join(my_path, "generated_media/HC_FC")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -120,18 +120,18 @@ arenaConfig = {
                 # "region": "Region 1",
             },
         },
-        "forecast": None,  # {
-        #     "field": "OceanCurrents",
-        #     "source": "forecast_files",
-        #     "source_settings": {
-        #         "folder": "data/miss_gen_forecast/",
-        #         "local": False,
-        #         "source": "Copernicus",
-        #         "type": "forecast",
-        #         "currents": "total",
-        #         # "region": "Region 1",
-        #     },
-        # },
+        "forecast": {
+            "field": "OceanCurrents",
+            "source": "forecast_files",
+            "source_settings": {
+                "folder": "data/miss_gen_forecast/",
+                "local": False,
+                "source": "Copernicus",
+                "type": "forecast",
+                "currents": "total",
+                "region": "GOM",
+            },
+        },
     },
     "platform_dict": {
         "battery_cap_in_wh": 400.0,
@@ -198,8 +198,9 @@ observer = constructor.observer
 ctrl_deviation_from_opt = []
 all_pltf_status = [0] * len(missionConfig["x_0"])
 min_distances_to_target_over_mission = [np.inf] * len(missionConfig["x_0"])
-pb_timeout_flag = -1
-while not any(status == pb_timeout_flag for status in problem_status):
+pb_running_thrsld = 0
+# Run until tiemout of until one of the platform has stranded/left arena region (failed)
+while not any(status < pb_running_thrsld for status in problem_status):
     # Get action
     action, ctrl_correction = controller.get_action(observation=observation)
     ctrl_deviation_from_opt.append(ctrl_correction)
