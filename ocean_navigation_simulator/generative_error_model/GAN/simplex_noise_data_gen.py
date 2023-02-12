@@ -7,7 +7,7 @@ import os
 
 
 # TSN parameters
-params_path = "../../../data/drifter_data/variogram_params/tuned_2d_forecast_variogram_area1_edited2.npy"
+params_path = "data/drifter_data/variogram_params/tuned_2d_forecast_variogram_area1_edited2.npy"
 # print(np.load(params_path, allow_pickle=True))
 
 noise_field = OceanCurrentNoiseField.load_config_from_file(params_path)
@@ -21,12 +21,12 @@ t_range = [datetime.datetime(2022, 5, 2, 12, 30, 0),
 
 # output
 datasets = {"train_val": 139, "test": 16}
-root = "../../../data/drifter_data/synthetic_data"
+root = "data/drifter_data/synthetic_data"
 for dataset, num_files in datasets.items():
     dir = os.path.join(root, dataset)
     if not os.path.exists(dir):
         os.makedirs(dir)
-    for file in range(num_files):
+    for idx, file in enumerate(range(num_files)):
 
         # get the noise
         noise = noise_field.get_noise_from_ranges(lon_range, lat_range, t_range)
@@ -40,3 +40,11 @@ for dataset, num_files in datasets.items():
 
         # advance time window by 9 days
         t_range = [time + datetime.timedelta(days=1) for time in t_range]
+
+        new_seed = rng.choice(1234567)
+        rng = np.random.default_rng(new_seed)
+        noise_field.reset(rng)
+
+    #     if idx == 1:
+    #         break
+    # break

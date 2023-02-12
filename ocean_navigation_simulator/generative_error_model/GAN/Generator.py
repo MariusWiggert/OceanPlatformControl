@@ -62,10 +62,6 @@ class Generator(nn.Module):
                              use_dropout=dropout, dropout_val=dropout_val)
             self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
                              use_dropout=dropout, dropout_val=dropout_val)
-            self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout, dropout_val=dropout_val)
-            self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout, dropout_val=dropout_val)
         else:
             self.up1 = Block(features_new * 8, features * 8, down=False, act="relu", norm_layer=norm_layer,
                              use_dropout=dropout_all, dropout_val=dropout_val)
@@ -73,11 +69,11 @@ class Generator(nn.Module):
                              use_dropout=dropout_all, dropout_val=dropout_val)
             self.up3 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
                              use_dropout=dropout_all, dropout_val=dropout_val)
-            self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout_all, dropout_val=dropout_val)
-            self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
-                             use_dropout=dropout_all, dropout_val=dropout_val)
 
+        self.up4 = Block(features * 8 * 2, features * 8, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
+        self.up5 = Block(features * 8 * 2, features * 4, down=False, act="relu", norm_layer=norm_layer,
+                         use_dropout=dropout_all, dropout_val=dropout_val)
         self.up6 = Block(features * 4 * 2, features * 2, down=False, act="relu", norm_layer=norm_layer,
                          use_dropout=dropout_all, dropout_val=dropout_val)
         self.up7 = Block(features * 2 * 2, features, down=False, act="relu", norm_layer=norm_layer,

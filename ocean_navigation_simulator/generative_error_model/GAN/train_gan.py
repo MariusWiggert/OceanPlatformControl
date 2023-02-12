@@ -516,7 +516,7 @@ def main(sweep: Optional[bool] = False):
                     gen_lr_scheduler.step(val_loss)
                     disc_lr_scheduler.step(val_loss)
 
-            if all_cfgs["save_model"] and epoch % 2 == 0:
+            if all_cfgs["save_model"] and epoch % 5 == 0:
                 gen_checkpoint_path = os.path.join(all_cfgs["save_base_path"],
                                                    f"{all_cfgs['model_save_name'].split('.')[0]}_gen_{str(epoch).zfill(3)}.pth")
                 save_checkpoint(generator, gen_optimizer, gen_checkpoint_path)

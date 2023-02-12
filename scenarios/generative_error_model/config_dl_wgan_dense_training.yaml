@@ -1,15 +1,15 @@
 model: ["generator_simplified", "discriminator"]
 save_model: False
 dataset_type: "forecastbuoy"
-wandb_mode: "offline"
+wandb_mode: "online"
 save_base_path: "data/drifter_data/models"
 metrics: ["rmse", "vector_correlation"]
-custom_masking_keep: 0.5
+custom_masking_keep: 1.0
 
 # model testing and saving output
 save_samples_path: "data/drifter_data/GAN_samples"
 save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
-test_load_chkpt: "2023-02-01_09:01:24.pth"   # dense real data patch disc
+test_load_chkpt: "2023-02-11_18:41:00.pth"
 epoch: ""
 
 generator_simplified:
@@ -30,7 +30,7 @@ gen_optimizer:
 #  name: "RMSprop"
 #  lr: 5e-5
   name: "adam"
-  lr: 1e-4
+  lr: 2e-4
   parameters:
     betas: [ 0.0, 0.9 ]
 
@@ -40,7 +40,7 @@ discriminator:
     features: [64, 128, 256, 512]
     norm: "instance"
     patch_disc: False
-    conditional: False
+    conditional: True
   init_type: "normal"
   init_gain: 0.02
 
@@ -48,14 +48,14 @@ disc_optimizer:
 #  name: "RMSprop"
 #  lr: 5e-5
   name: "adam"
-  lr: 1e-4
+  lr: 2e-4
   parameters:
     betas: [ 0.0, 0.9 ]
 
 train:
   batch_size: 32
   test_batch_size: 192
-  epochs: 100
+  epochs: 50
   loss:
     gen: ["wgan-gp"]
     gen_weighting: [1]
