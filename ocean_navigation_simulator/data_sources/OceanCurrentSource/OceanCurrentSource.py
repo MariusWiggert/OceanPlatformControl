@@ -139,6 +139,7 @@ class OceanCurrentSource(DataSource):
             cbar.set_ticklabels(
                 ["{:.{prec}f}".format(t, prec=precision) for t in cbar.get_ticks().tolist()]
             )
+            plt.tight_layout()  # ensures ylabel is not cut off plot
         # Plot on ax object
         if plot_type == "streamline":
             # Needed because the data needs to be perfectly equally spaced
