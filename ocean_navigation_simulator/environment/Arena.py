@@ -578,6 +578,7 @@ class Arena:
         margin: Optional[int] = 1,
         # plot directly or return ax
         return_ax: Optional[bool] = False,
+        **kwargs,
     ) -> matplotlib.axes.Axes:
         """Helper Function to plot everything together on a map."""
         if x_interval is None or y_interval is None:
@@ -592,6 +593,7 @@ class Arena:
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
+                **kwargs,
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
