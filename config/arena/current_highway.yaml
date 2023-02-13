@@ -8,7 +8,7 @@ casadi_cache_dict:
 
 platform_dict:
     battery_cap_in_wh: 400.0
-    u_max_in_mps: 0.1
+    u_max_in_mps: 0.2
     motor_efficiency: 1.0
     solar_panel_size: 0.5
     solar_efficiency: 0.2
@@ -36,7 +36,7 @@ ocean_dict:
             spatial_resolution: 0.1
             temporal_resolution: 10
             y_range_highway: [0, 0.5]
-            U_cur: 0
+            U_cur: 0.1
     forecast: null
 
 solar_dict:
@@ -57,7 +57,7 @@ seaweed_dict:
         field: 'SeaweedGrowth'
         source: 'GEOMAR'
         source_settings:
-            filepath: './data/nutrients/2022_monthly_nutrients_and_temp_faked_from_2021.nc'
+            filepath: 'ocean_navigation_simulator/package_data/nutrients/'
     forecast: null
     
 

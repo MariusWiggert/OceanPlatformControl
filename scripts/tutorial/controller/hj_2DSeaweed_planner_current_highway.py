@@ -21,6 +21,9 @@ from ocean_navigation_simulator.environment.SeaweedProblem import (
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
+%load_ext autoreload
+%autoreload 2
+
 # %% Initialize
 os.chdir(
     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
@@ -54,8 +57,8 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-83.1), lat=units.Distance(deg=23.2))
 x_0 = PlatformState(
-    lon=units.Distance(deg=0.5),
-    lat=units.Distance(deg=0.5),
+    lon=units.Distance(deg=-2),
+    lat=units.Distance(deg=-1),
     date_time=datetime.datetime(2022, 8, 23, 18, 0, tzinfo=datetime.timezone.utc),
     seaweed_mass=units.Mass(kg=100),
 )
@@ -73,15 +76,20 @@ problem = SeaweedProblem(
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
     x_0=x_0.to_spatio_temporal_point(),
     x_T=x_0.to_spatio_temporal_point(),
-    deg_around_x0_xT_box=1,
+    deg_around_x0_xT_box=3,
     temp_horizon_in_s=3600,
 )
+lon_bnds = [-2,1]
+lat_bnds = [-1.5,1.5]
+
 
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True, quiver_spatial_res=0.17, quiver_scale=6)
 problem.plot(ax=ax)
-plt.show()
+#plt.show()
+#plt.tight_layout()
+plt.savefig("/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Orga/Midterm Presentation/trajectory_currents_toy_u_max_0.1_currents_0.1.png", dpi=600)
+
 
 # ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
 #     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
@@ -93,7 +101,9 @@ ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 )
 problem.plot(ax=ax)
-plt.show()
+#plt.show()
+plt.savefig("/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Orga/Midterm Presentation/trajectory_seaweed_toy_u_max_0.1_currents_0.1.png", dpi=600)
+
 
 
 # %% Instantiate the HJ Planner
@@ -103,13 +113,14 @@ specific_settings = {
     "direction": "backward",
     "n_time_vector": 100,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box_global": 3,  # area over which to run HJ_reachability on the first global run
-    "deg_around_xt_xT_box": 3,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box_global": 3.5,  # area over which to run HJ_reachability on the first global run
+    "deg_around_xt_xT_box": 3.5,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
     "T_goal_in_seconds": 100,  # * 24 * 12,
     "use_geographic_coordinate_system": False,
     "progress_bar": True,
+    "grid_res_global": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     "platform_dict": arena.platform.platform_dict,
@@ -208,7 +219,7 @@ ax.draw(fig.canvas.renderer)
 
 #%% Plot the arena trajectory on the map
 arena.plot_all_on_map(problem=problem, background="seaweed")
-arena.plot_all_on_map(problem=problem, background="current")
+arena.plot_all_on_map(problem=problem, background="current", quiver_spatial_res=0.165, quiver_scale=7)
 
 
 # %%
@@ -217,6 +228,8 @@ arena.animate_trajectory(
     temporal_resolution=1,  # 7200,
     background="current",
     output="trajectory_currents.mp4",
+    quiver_spatial_res=0.165, 
+    quiver_scale=7,
 )
 # wandb.log(
 #   {"video": wandb.Video("generated_media/trajectory_currents.mp4", fps=25, format="mp4")})
@@ -229,7 +242,7 @@ arena.animate_trajectory(
 )
 
 
-#%%
+ #%%
 # wandb.log({"video": wandb.Video("generated_media/trajectory_seaweed.mp4", fps=25, format="mp4")})
 
 
