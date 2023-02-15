@@ -4,6 +4,7 @@ import logging
 import os
 
 import matplotlib.pyplot as plt
+
 import numpy as np
 import yaml
 from tqdm import tqdm
@@ -18,13 +19,17 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.SeaweedProblem import (
     SeaweedProblem,
 )
+from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
+%load_ext autoreload
+%autoreload 2
+
 # %% Initialize
-os.chdir(
-    "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
-)
+# os.chdir(
+#     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
+# )
 set_arena_loggers(logging.INFO)
 
 scenario_name = "Region_3_HYCOM_FC_daily+monthly_averages_Copernicus_HC_solar_seaweed"  # "Region_3_Copernicus_HC_solar_seaweed"
@@ -54,8 +59,8 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-83.1), lat=units.Distance(deg=23.2))
 x_0 = PlatformState(
-    lon=units.Distance(deg=-80),
-    lat=units.Distance(deg=-15),
+    lon=units.Distance(deg=-90),
+    lat=units.Distance(deg=-9),
     date_time=datetime.datetime(2022, 8, 15, 18, 0, tzinfo=datetime.timezone.utc),
 )
 
@@ -69,30 +74,30 @@ problem = SeaweedProblem(
 # %% Plot the problem on the map
 
 
-# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-#     x_0=x_0.to_spatio_temporal_point(),
-#     x_T=x_0.to_spatio_temporal_point(),
-#     deg_around_x0_xT_box=1,
-#     temp_horizon_in_s=3600,
-# )
+t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+    x_0=x_0.to_spatio_temporal_point(),
+    x_T=x_0.to_spatio_temporal_point(),
+    deg_around_x0_xT_box=3,
+    temp_horizon_in_s=3600,
+)
 
-# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
+problem.plot(ax=ax)
+plt.show()
 
-# ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
+problem.plot(ax=ax)
+plt.show()
 
-# ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
+problem.plot(ax=ax)
+plt.show()
 
 
 # %% Instantiate the HJ Planner
@@ -100,26 +105,29 @@ specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
     "direction": "backward",
-    "n_time_vector": 2160,
+    "n_time_vector": 24 * 2 * 12,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box_global": 3,  # area over which to run HJ_reachability on the first global run
-    "deg_around_xt_xT_box": 2,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 3,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 15,
+    "T_goal_in_seconds": 3600 * 24 * 12,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
-    "grid_res": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    "grid_res_global": 0.166,
+    "grid_res": 0.166,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
-    "calc_opt_traj_after_planning": False,
+    "calc_opt_traj_after_planning": True,
 }
 # wandb.config.update({"planner_settings": specific_settings})
 
 #%%
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
-
+observer = NoObserver()
 # %% Run reachability planner
 observation = arena.reset(platform_state=x_0)
+observer.observe(observation)
+observation.forecast_data_source = observer
 action = planner.get_action(observation=observation)
 
 #%% get value function #
@@ -127,7 +135,7 @@ planner.animate_value_func_3D()
 
 #%% save planner state and reload it
 # Save it to a folder
-planner.save_planner_state("saved_planner/")
+# planner.save_planner_state("saved_planner/")
 # Load it from the folder
 # loaded_planner = HJBSeaweed2DPlanner.from_saved_planner_state(folder="saved_planner/", problem=problem, arena=arena)
 # loaded_planner.last_data_source = arena.ocean_field.hindcast_data_source
@@ -135,15 +143,38 @@ planner.save_planner_state("saved_planner/")
 # # loaded_planner._update_current_data(observation=observation)
 # # planner = loaded_planner
 
+planner.plot_value_fct_snapshot(
+    alpha_color=1,
+    fig_size_inches=(12, 12),
+    number_of_levels=35,
+    colorbar=False,
+)
 
+planner.plot_value_fct_snapshot_over_currents(
+    alpha_color=1,
+    fig_size_inches=(12, 12),
+    number_of_levels=35,
+    colorbar=False,
+
+)
+
+# %% animate value_fct over currents
+planner.plot_value_fct_animation(
+    filename="test_v_fct_animation_2.mp4",
+    with_opt_ctrl=True,
+    forward_time=True,
+)
 # %% Let the controller run closed-loop within the arena (the simulation loop)
 # observation = arena.reset(platform_state=x_0)
 dt_in_s = arena.platform.platform_dict["dt_in_s"]
 print(arena.platform.state.seaweed_mass.kg)
 
-for i in tqdm(range(int(3600 * 24 * 15 / dt_in_s))):
+for i in tqdm(range(int(3600 * 24 * 12 / dt_in_s))):
     action = planner.get_action(observation=observation)
     observation = arena.step(action)
+    observer.observe(observation)
+    observation.forecast_data_source = observer
+
 
 #%%
 ## Seaweed growth curve
@@ -214,15 +245,21 @@ arena.animate_trajectory(
     problem=problem,
     temporal_resolution=14400,  # 7200,
     background="current",
+    margin=8,
+    # x_interval=[-98,-72],
+    # y_interval=[0,-9],
     output="trajectory_currents.mp4",
 )
 # wandb.log(
 #   {"video": wandb.Video("generated_media/trajectory_currents.mp4", fps=25, format="mp4")})
-
+# %%
 arena.animate_trajectory(
     problem=problem,
     temporal_resolution=14400,  # 7200,
     background="seaweed",
+    margin=8,
+    # x_interval=[-98,-72],
+    # y_interval=[0,-9],
     output="trajectory_seaweed.mp4",
 )
 
