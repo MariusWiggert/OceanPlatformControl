@@ -924,6 +924,7 @@ class HJPlannerBase(Controller):
         time_to_reach: bool = False,
         plot_in_h: bool = True,
         granularity_in_h: int = 1,
+        filefolder: AnyStr = "generated",
         filename: AnyStr = "reachability_animation.mp4",
         temporal_resolution: Optional[int] = None,
         spatial_resolution: Optional[float] = None,
@@ -941,6 +942,7 @@ class HJPlannerBase(Controller):
            time_to_reach:      if True we plot the value function otherwise just the zero level set
            plot_in_h:          if the value function units should be converted to hours
            granularity_in_h:   with which granularity to plot the value function
+           filefolder:         specify to which folder aninamtions should be saved to - will be created if not existing
            filename:           filename under which to save the animation
            temporal_resolution: the temporal resolution in seconds, per default same as data_source
            with_opt_ctrl:      if True the optimal trajectory and control is added as overlay.
@@ -949,7 +951,7 @@ class HJPlannerBase(Controller):
            kwargs:             See plot_reachability_snapshot for further arguments (can also add drawings)
 
         """
-        os.makedirs("generated_media", exist_ok=True)
+        os.makedirs(filefolder, exist_ok=True)
         if "multi-time-reach-back" == self.specific_settings["direction"] and not time_to_reach:
             abs_time_vec = (
                 (self.reach_times - self.reach_times[0]) / 3600
