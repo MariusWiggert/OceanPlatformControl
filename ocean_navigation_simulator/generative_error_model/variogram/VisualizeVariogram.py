@@ -276,12 +276,13 @@ class VisualizeVariogram:
         units = self.units
         if var == "t_lag":
             units = "hrs"
-        ax.set_xlabel(f"{var} [{units}]")
-        ax.set_ylabel("Semivariance")
+        ax.set_xlabel(f"{var} [{units}]", fontdict={"size": 15})
+        ax.set_ylabel("Semivariance", fontdict={"size": 15})
+        ax.tick_params(axis='both', which='major', labelsize=15)
         ax.set_xlim(left=0)
         ax.set_ylim([0, 1.5])
         if label != "":
-            ax.legend()
+            ax.legend(prop={'size': 13})
 
     def _plot_input_checker(self, idx: int, tol: Tuple[int] = None, view_range: Tuple[int] = None):
         if self.variogram.bins is None:
