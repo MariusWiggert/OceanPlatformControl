@@ -1,10 +1,13 @@
+from datetime import datetime, timezone
 import os
 import pickle
 import time
-from typing import Dict, Optional, Union
+from typing import AnyStr, Callable, Dict, Optional, Tuple, Union
 
 import hj_reachability as hj
 import jax.numpy as jnp
+from matplotlib import pyplot as plt
+from matplotlib.animation import Animation
 import numpy as np
 import scipy
 import xarray as xr
@@ -486,3 +489,283 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         planner.set_interpolator()
 
         return planner
+
+    def plot_value_fct_snapshot(
+        self,
+        rel_time_in_seconds: float = 0,
+        ax: plt.Axes = None,
+        return_ax: bool = False,
+        fig_size_inches: Tuple[int, int] = (12, 12),
+        alpha_color: float = 1.0,
+        add_drawing: Callable[[plt.axis, float], None] = None,
+        number_of_levels: int = 20,
+        colorbar: bool = False,
+        **kwargs,
+    ):
+        """Plot the value fct. the planner was computing last at a specific rel_time_in_seconds.
+        Args:
+            rel_time_in_seconds:    the relative time for which to plot the snapshot since last replan
+            ax:                     Optional: axis object to plot on top of
+            return_ax:              if true, function returns ax object for more plotting
+            fig_size_inches:        Figure size
+            alpha_color:            the alpha level of the color
+            number_of_levels:       the number of levels/contours to plot
+            ### Other optional arguments
+            add_drawing:            A callable to add a drawing to the snapshot, taking in (ax, rel_time_in_seconds)
+        """
+        if self.grid.ndim != 2:
+            raise ValueError("plot_value_fct is currently only implemented for 2D sets")
+
+        # create the axis object if not fed in
+        if ax is None:
+            if self.specific_settings["use_geographic_coordinate_system"]:
+                ax = self.last_data_source.forecast_data_source.set_up_geographic_ax()
+            else:
+                ax = plt.axes()
+
+        # interpolate the value function to the specific time
+        val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind="linear")(
+            max(
+                self.reach_times[0],
+                min(self.reach_times[-1], rel_time_in_seconds + self.reach_times[0]),
+            )
+        ).squeeze()
+
+        vmin, vmax = val_at_t.min(), val_at_t.max()
+        val_func_levels = np.linspace(vmin, vmax, number_of_levels)
+
+        # package them in kwargs
+        kwargs.update(
+            {
+                "val_func_levels": val_func_levels,
+                "y_label": "HJ Value Function",
+                # "yticklabels": abs_time_y_ticks,
+            }
+        )
+
+        plot_level = val_func_levels if not colorbar else 0
+
+        # plot the set on top of ax
+        ax = hj.viz._visSet2D(
+            grid=self.grid,
+            data=val_at_t,
+            plot_level=plot_level,
+            color_level="black",
+            colorbar=colorbar,
+            obstacles=None,
+            return_ax=True,
+            input_ax=ax,
+            alpha_colorbar=alpha_color,
+            **kwargs,
+        )
+
+        ax.scatter(
+            self.problem.start_state.lon.deg,
+            self.problem.start_state.lat.deg,
+            color="r",
+            marker="o",
+            zorder=6,
+        )
+
+        if self.specific_settings["use_geographic_coordinate_system"]:
+            ax.set_title(
+                "Value Function at time {}".format(
+                    datetime.fromtimestamp(
+                        self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0,
+                        tz=timezone.utc,
+                    ).strftime("%Y-%m-%d %H:%M UTC")
+                ),
+                fontsize=20,
+            )
+        else:
+            ax.set_title(
+                "Value Function at time {} hours".format(
+                    self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0
+                )
+            )
+
+        if add_drawing is not None:
+            add_drawing(ax, rel_time_in_seconds)
+        ax.set_facecolor("white")
+
+        # adjust the fig_size
+        fig = plt.gcf()
+        fig.set_size_inches(fig_size_inches[0], fig_size_inches[1])
+        if return_ax:
+            return ax
+        else:
+            plt.show()
+
+    def plot_value_fct_snapshot_over_currents(
+        self, rel_time_in_seconds: float = 0, ax: plt.Axes = None, **kwargs
+    ):
+        """Plot the value fct. the planner was computing last at  a specific rel_time_in_seconds over the currents.
+        Args:
+            rel_time_in_seconds:    the relative time for which to plot the snapshot since last replan
+            ax:                     Optional: axis object to plot on top of
+            kwargs:                 See plot_value_fct_snapshot for further arguments
+        """
+        os.makedirs("generated_media", exist_ok=True)
+        # plot currents on ax
+        ax = self.last_data_source.forecast_data_source.plot_data_at_time_over_area(
+            time=self.current_data_t_0 + rel_time_in_seconds,
+            x_interval=[self.grid.domain.lo[0], self.grid.domain.hi[0]],
+            y_interval=[self.grid.domain.lo[1], self.grid.domain.hi[1]],
+            return_ax=True,
+            colorbar=False,
+            ax=ax,
+        )
+        # add reachability snapshot on top
+        return self.plot_value_fct_snapshot(
+            rel_time_in_seconds=rel_time_in_seconds,
+            ax=ax,
+            display_colorbar=True,
+            **kwargs,
+        )
+
+    def plot_value_fct_animation(
+        self,
+        filefolder: AnyStr = "generated",
+        filename: AnyStr = "reachability_animation.mp4",
+        temporal_resolution: Optional[int] = None,
+        spatial_resolution: Optional[float] = None,
+        with_opt_ctrl: Optional[bool] = False,
+        forward_time: Optional[bool] = False,
+        data_source_for_plt: Optional = None,
+        t_end: Optional[datetime] = None,
+        fps: Optional[int] = 10,
+        with_background: Optional[bool] = True,
+        background_animation_args: Optional[dict] = {},
+        number_of_levels: int = 20,
+        **kwargs,
+    ):
+        """Create an animation of the value_fct computation.
+        Args:
+           filefolder:         specify to which folder aninamtions should be saved to - will be created if not existing
+           filename:           filename under which to save the animation
+           temporal_resolution: the temporal resolution in seconds, per default same as data_source
+           with_opt_ctrl:      if True the optimal trajectory and control is added as overlay.
+           forward_time:       forward_time manually force forward time (otherwise in direction of calculation)
+           data_source_for_plt:the data source to plot as background with data_source.animate_data()
+           kwargs:             See plot_value_fct_snapshot for further arguments (can also add drawings)
+        """
+        os.makedirs(filefolder, exist_ok=True)
+
+        # interpolate the value function to the specific time
+        vmin, vmax = self.all_values.min(), self.all_values.max()
+        val_func_levels = np.linspace(vmin, vmax, number_of_levels)
+
+        # package them in kwargs
+        kwargs.update(
+            {
+                "val_func_levels": val_func_levels,
+                "y_label": "HJ Value Function",
+                # "yticklabels": abs_time_y_ticks,
+            }
+        )
+
+        def add_value_fct_snapshot(ax, time):
+            ax = self.plot_value_fct_snapshot(
+                rel_time_in_seconds=time - self.current_data_t_0,
+                alpha_color=1,
+                return_ax=True,
+                fig_size_inches=(12, 12),
+                ax=ax,
+                display_colorbar=True,
+                number_of_levels=number_of_levels,
+                **kwargs,
+            )
+            if with_opt_ctrl:
+                # add the trajectory to it
+                ax.plot(
+                    self.x_traj[0, :],
+                    self.x_traj[1, :],
+                    color="black",
+                    linewidth=2,
+                    linestyle="--",
+                    label="State Trajectory",
+                )
+                # get the planned idx of current time
+                idx = np.searchsorted(a=self.times, v=time)
+                # make sure it does not go over the array length
+                idx = min(idx, len(self.times) - 2)
+                # plot the control arrow for the specific time
+                ax.scatter(
+                    self.x_traj[0, idx], self.x_traj[1, idx], c="m", marker="o", s=20, zorder=9
+                )
+                ax.quiver(
+                    self.x_traj[0, idx],
+                    self.x_traj[1, idx],
+                    self.contr_seq[0, idx] * np.cos(self.contr_seq[1, idx]),  # u_vector
+                    self.contr_seq[0, idx] * np.sin(self.contr_seq[1, idx]),  # v_vector
+                    color="magenta",
+                    scale=10,
+                    label="Control",
+                    zorder=10,
+                )
+                ax.legend(loc="lower right")
+
+        # Plot with the Data Source in the background
+        if data_source_for_plt is None:
+            data_source_for_plt = self.last_data_source.forecast_data_source
+
+        if t_end is not None:
+            t_interval_to_animate = [self.current_data_t_0 + self.reach_times[0], t_end.timestamp()]
+        else:
+            t_interval_to_animate = [
+                self.current_data_t_0 + rel_time
+                for rel_time in [self.reach_times[0], self.reach_times[-1]]
+            ]
+
+        if with_background:
+            data_source_for_plt.animate_data(
+                x_interval=[self.grid.domain.lo[0], self.grid.domain.hi[0]],
+                y_interval=[self.grid.domain.lo[1], self.grid.domain.hi[1]],
+                t_interval=t_interval_to_animate,
+                temporal_resolution=temporal_resolution,
+                spatial_resolution=spatial_resolution,
+                forward_time=forward_time | (self.specific_settings["direction"] == "forward"),
+                add_ax_func=add_value_fct_snapshot,
+                colorbar=False,
+                output=filename,
+                fps=fps,
+                **background_animation_args,
+            )
+
+        else:
+            # create global figure object where the animation happens
+            if "figsize" in kwargs:
+                fig = plt.figure(figsize=kwargs["figsize"])
+            else:
+                fig = plt.figure(figsize=(12, 12))
+
+            temporal_vector = np.arange(len(self.reach_times))
+            if temporal_resolution is not None:
+                temporal_vector = np.arange(
+                    start=t_interval_to_animate[0],
+                    stop=t_interval_to_animate[1],
+                    step=temporal_resolution,
+                )
+
+            def render_func(time_idx, temporal_vector=temporal_vector):
+                # reset plot this is needed for matplotlib.animation
+                plt.clf()
+                # Step 2: Create ax object
+                if data_source_for_plt.source_config_dict["use_geographic_coordinate_system"]:
+                    ax = DataSource.set_up_geographic_ax()
+                else:
+                    ax = plt.axes()
+                # get from time_idx to posix_time
+                add_value_fct_snapshot(ax, temporal_vector[time_idx])
+
+            # set time direction of the animation
+            frames_vector = np.where(
+                forward_time,
+                np.arange(len(temporal_vector)),
+                np.flip(np.arange(len(temporal_vector))),
+            )
+            # create animation function object (it's not yet executed)
+            ani = Animation.FuncAnimation(fig, func=render_func, frames=frames_vector, repeat=False)
+
+            # render the animation with the keyword arguments
+            DataSource.render_animation(animation_object=ani, output=filename, fps=fps)
