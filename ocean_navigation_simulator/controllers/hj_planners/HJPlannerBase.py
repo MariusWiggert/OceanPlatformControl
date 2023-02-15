@@ -611,11 +611,12 @@ class HJPlannerBase(Controller):
         def termination_condn(x_target, r, x, t):
             return np.linalg.norm(x_target - x) <= r
 
-        termination_condn = partial(
-            termination_condn,
-            jnp.array(self.problem.end_region.__array__()),
-            self.problem.target_radius,
-        )
+        if self.specific_settings["direction"] == "multi-time-reach-back":
+            termination_condn = partial(
+                termination_condn,
+                jnp.array(self.problem.end_region.__array__()),
+                self.problem.target_radius,
+            )
 
         # Step 2: backtrack to get the trajectory
         (
