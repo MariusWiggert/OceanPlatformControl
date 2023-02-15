@@ -204,8 +204,8 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
         # LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
 
-        # LON, LAT = np.where((LON >= 0.01) & (LON <= 0.49), 1, 0), np.where(
-        #     (LAT >= 0.01) & (LAT <= 0.49), 1, 0
+        # LON, LAT = np.where((LON >= -79.9) & (LON <= -79.5), 1, 0), np.where(
+        #     (LAT >= -14.9) & (LAT <= -14.5), 1, 0
         # )
         # data = np.multiply(LON.T, LAT.T)
 
