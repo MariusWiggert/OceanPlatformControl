@@ -510,6 +510,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             fig_size_inches:        Figure size
             alpha_color:            the alpha level of the color
             number_of_levels:       the number of levels/contours to plot
+            colorbar:               defines if contour should be plotted as black lines (False) or colorized contor surfaces/areas (True)
             ### Other optional arguments
             add_drawing:            A callable to add a drawing to the snapshot, taking in (ax, rel_time_in_seconds)
         """
