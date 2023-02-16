@@ -91,14 +91,19 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             disturbance_mode="max",
         )
 
+    def _dirichlet(self, x, pad_width: int):
+        """Dirichlet boundry conditions for PDE solve"""
+        return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=3.0)
+
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
-        # initialize grid using the grids_dict x-y shape as shape
+        # initialize grid using the grids_dict x-y shape as shape with dirichlet boundry conditions
         self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
                 lo=np.array([xarray["lon"][0].item(), xarray["lat"][0].item()]),
                 hi=np.array([xarray["lon"][-1].item(), xarray["lat"][-1].item()]),
             ),
+            boundary_conditions=(self._dirichlet, self._dirichlet),
             shape=(xarray["lon"].size, xarray["lat"].size),
         )
 
