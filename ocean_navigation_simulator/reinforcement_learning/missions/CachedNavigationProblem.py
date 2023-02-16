@@ -63,8 +63,8 @@ class CachedNavigationProblem(NavigationProblem):
         """To easily populate c3 database with missions."""
         prob_dict = self.to_dict()
         x_0 = {
-            "lon": prob_dict["x_0_lon"].tolist(),
-            "lat": prob_dict["x_0_lat"].tolist(),
+            "lon": prob_dict["x_0_lon"],
+            "lat": prob_dict["x_0_lat"],
             "date_time": prob_dict["t_0"],
         }
 
