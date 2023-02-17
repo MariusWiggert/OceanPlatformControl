@@ -569,7 +569,9 @@ def test(data: str = "test"):
         model_name = f"{all_cfgs['test_load_chkpt'].split('.')[0]}_gen_{all_cfgs['epoch'].zfill(3)}.pth"
     checkpoint_path = os.path.join(all_cfgs["save_base_path"], model_name)
     checkpoint = torch.load(checkpoint_path, map_location=device)
-    gen.load_state_dict(checkpoint["state_dict"])
+    # for k, v in checkpoint["state_dict"].items():
+    #     print(str(k).replace("conv.0", "conv.1"), v.shape)
+    gen.load_state_dict(checkpoint["state_dict"], strict=False)
 
     gen.eval()
     cfgs_gen = cfgs_gen["model_settings"]
@@ -612,5 +614,5 @@ def test(data: str = "test"):
 
 
 if __name__ == "__main__":
-    main()
-    # print(test(data="test"))
+    # main()
+    print(test(data="test"))
