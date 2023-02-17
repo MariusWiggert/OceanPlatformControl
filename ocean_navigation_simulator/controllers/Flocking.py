@@ -170,7 +170,7 @@ class FlockingControl:
 
     def plot_psi_and_phi_alpha(
         self,
-        max_plot_factor: Optional[int] = 1.5,
+        max_plot_factor: Optional[float] = 1.5,
         step: Optional[int] = 0.05,
         savefig: Optional[bool] = False,
     ):
