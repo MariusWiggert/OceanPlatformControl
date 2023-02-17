@@ -234,7 +234,7 @@ class ArenaFactory:
                     archive_type=config["ocean_dict"][type]["source_settings"]["type"],
                     download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
                     t_interval=t_interval,
-                    region=config["ocean_dict"]["area"],
+                    region=config["ocean_dict"]["region"],
                     throw_exceptions=throw_exceptions,
                     points=points,
                     c3=c3,
