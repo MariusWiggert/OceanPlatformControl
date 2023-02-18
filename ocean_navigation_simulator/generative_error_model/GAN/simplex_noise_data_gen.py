@@ -21,9 +21,9 @@ t_range = [datetime.datetime(2022, 5, 2, 12, 30, 0),
 
 # output
 datasets = {"train_val": 139, "test": 16}
-root = "data/drifter_data/synthetic_data"
+root = "data/drifter_data/synthetic_data/"
 for dataset, num_files in datasets.items():
-    dir = os.path.join(root, dataset)
+    dir = os.path.join(root, dataset, "area1")
     if not os.path.exists(dir):
         os.makedirs(dir)
     for idx, file in enumerate(range(num_files)):
