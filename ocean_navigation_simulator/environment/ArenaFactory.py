@@ -529,7 +529,7 @@ class ArenaFactory:
         """
         thread-safe download with corruption and file size check
         Arguments:
-            files: c3.FecthResult object
+            files: c3.FetchResult object
             download_folder: folder to download files to
             throw_exceptions: if True throws exceptions for missing/corrupted files
             keep_newest_days = 100 ->  ~ 100 * 100MB = 10GB
