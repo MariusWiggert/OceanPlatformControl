@@ -82,6 +82,7 @@ class OceanCurrentSource(DataSource):
         set_title: Optional[bool] = True,
         quiver_spatial_res: Optional[float] = None,
         quiver_scale: Optional[int] = None,
+        colorized_background: bool = True,
         **kwargs,
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
@@ -95,6 +96,7 @@ class OceanCurrentSource(DataSource):
             vmax:              maximum current magnitude used for colorbar (float)
             alpha:             alpha of the current magnitude color visualization
             colorbar:          if to plot the colorbar or not
+            colorized_background: defines if vector should have a background color - works in combination with colorbar
             ax:                Optional for feeding in an axis object to plot the figure on.
             fill_nan:          If True NaN will be filled with 0, otherwise left as NaN
             return_cbar:       if True the colorbar object is returned
@@ -121,11 +123,13 @@ class OceanCurrentSource(DataSource):
         vmin = kwargs.get("vmin", vmin)
         if vmax is None:
             vmax = np.max(xarray["magnitude"].max()).item()
-        im = xarray["magnitude"].plot(
-            cmap="jet", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
-        )
+        if colorized_background:
+            im = xarray["magnitude"].plot(
+                cmap="jet", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+            )
+
         # set and format colorbar
-        if colorbar:
+        if colorbar and colorized_background:
             divider = make_axes_locatable(ax)
             cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
