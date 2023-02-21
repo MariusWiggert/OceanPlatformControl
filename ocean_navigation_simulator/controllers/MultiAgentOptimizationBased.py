@@ -74,14 +74,14 @@ class MultiAgentOptim:
 
         # declare fixed End time and variable t for indexing to variable current
         dt = self.dt_in_s
-        N = self.optim_horizon
-        T = dt * N  # horizon in seconds
+        H = self.optim_horizon
+        T = dt * H  # horizon in seconds
         # declare decision variables
         # For now 2 State system (X, Y), not capturing battery or seaweed mass
-        x = [opti.variable(self.nb_platforms, 2) for _ in range(N + 1)]
+        x = [opti.variable(self.nb_platforms, 2) for _ in range(H + 1)]
         # Decision variables for state trajetcory
         u = [
-            opti.variable(self.nb_platforms, 2) for _ in range(N)
+            opti.variable(self.nb_platforms, 2) for _ in range(H)
         ]  # Decision variables for input trajectory
 
         # Parameters (not optimized over)
@@ -93,35 +93,69 @@ class MultiAgentOptim:
         # init the potential function
         F_pot = self.potential_func()
         # add the dynamics constraints
-        dt = T / N
         objective = []
-        for k in range(N):
+        for k in range(H):
+            # State constraints to the map boundaries
+            opti.subject_to(
+                opti.bounded(
+                    min(self.ocean_source.grid_dict["x_range"]),
+                    x[k][:, 0],
+                    max(self.ocean_source.grid_dict["x_range"]),
+                )
+            )
+            opti.subject_to(
+                opti.bounded(
+                    min(self.ocean_source.grid_dict["y_range"]),
+                    x[k][:, 1],
+                    max(self.ocean_source.grid_dict["y_range"]),
+                )
+            )
             # calculate time in POSIX seconds
             time = x_t[:, 2] + k * dt
             # explicit forward euler version
             x_next = x[k] + dt * F_dyn(x=x[k], u=u[k], t=time)["x_dot"]
             opti.subject_to(x[k + 1] == x_next)
-            for platform in self.list_all_platforms:
-                neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
-                potentials = [
-                    F_pot(x_i=x[k + 1][platform, :], x_j=x[k + 1][neighbor, :])["potential_force"]
-                    for neighbor in neighbors_idx
-                ]
-                objective.append(sum(potentials))
+            # for platform in self.list_all_platforms:
+            #     neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
+            # potentials = [
+            #     F_pot(x_i=x[k][platform, :], x_j=x[k][neighbor, :])["potential_force"]
+            #     for neighbor in neighbors_idx
+            # ]
+            # objective.append(sum(potentials))
+            objective.append(ca.dot(u[k] - u_hj, u[k] - u_hj))
+
+        # Terminal state constraint
+        opti.subject_to(
+            opti.bounded(
+                min(self.ocean_source.grid_dict["x_range"]),
+                x[H][:, 0],
+                max(self.ocean_source.grid_dict["x_range"]),
+            )
+        )
+        opti.subject_to(
+            opti.bounded(
+                min(self.ocean_source.grid_dict["y_range"]),
+                x[H][:, 1],
+                max(self.ocean_source.grid_dict["y_range"]),
+            )
+        )
+
+        # Terminal cost
+
+        # objective.append(sum([
+        #             F_pot(x_i=x[H][platform, :], x_j=x[H][neighbor, :])["potential_force"]
+        #             for neighbor in neighbors_idx
+        #         ]))
+
         # optimizer objective
-        opti.minimize(ca.dot(u[0] - u_hj, u[0] - u_hj) + sum(objective))
+        opti.minimize(sum(objective))
+        # opti.minimize(ca.dot(u[0] - u_hj, u[0] - u_hj) + sum(objective))
         # start state & goal constraint
         opti.subject_to(x[0] == x_start)
 
         # control constraints
-        for k in range(N):
+        for k in range(H):
             opti.subject_to(u[k][:, 0] ** 2 + u[k][:, 1] ** 2 <= 1)
-
-        # State constraints to the map boundaries
-        # opti.subject_to(opti.bounded(self.grids_dict['x_grid'].min(),
-        #                              x[0, :], self.grids_dict['x_grid'].max()))
-        # opti.subject_to(opti.bounded(self.grids_dict['y_grid'].min(),
-        #                              x[1, :], self.grids_dict['y_grid'].max()))
 
         # battery constraint
         # opti.subject_to(opti.bounded(0.1, x[2, :], 1.))
@@ -145,13 +179,13 @@ class MultiAgentOptim:
 
     def dynamics(self, opti):
         # create the dynamics function (note here in form of u_x and u_y)
-        x_state = opti.variable(self.nb_platforms, 2)
-        # ca.MX.sym("state", self.nb_platforms, 2)
+        # x_state = opti.variable(self.nb_platforms, 2)
+        x_state = ca.MX.sym("state", self.nb_platforms, 2)
         # sym_lon_degree = opti.variable(self.nb_platforms, 1)  # in deg or m
         # sym_lat_degree = opti.variable(self.nb_platforms, 1)  # in deg or m
         sym_time = ca.MX.sym("time", self.nb_platforms, 1)  # in posix
-        u = opti.variable(self.nb_platforms, 2)
-        # ca.MX.sym("ctrl_input", self.nb_platforms, 2)  #
+        # u = opti.variable(self.nb_platforms, 2)
+        u = ca.MX.sym("ctrl_input", self.nb_platforms, 2)  #
         # For interpolation: need to pass a matrix (time, lat,lon) x nb_platforms (i.e. platforms as columns and not as rows)
         u_curr = self.ocean_source.u_curr_func(
             ca.horzcat(sym_time, x_state[:, 1], x_state[:, 0]).T

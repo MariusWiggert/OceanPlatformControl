@@ -344,7 +344,7 @@ class PlatformStateSet:
         lon_from, lat_from = self.lon[from_nodes], self.lat[from_nodes]
         lon_to, lat_to = self.lon[to_nodes], self.lat[to_nodes]
         from_spatial_point = SpatialPoint(lon=lon_from, lat=lat_from)
-        return from_spatial_point.distance(SpatialPoint(lon=lon_to, lat=lat_to))
+        return from_spatial_point.haversine(SpatialPoint(lon=lon_to, lat=lat_to))
 
     @staticmethod
     def from_numpy(np_array):

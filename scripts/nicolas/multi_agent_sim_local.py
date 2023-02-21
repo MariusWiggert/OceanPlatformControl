@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/presentation_plots")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -61,11 +61,11 @@ reactiveConfig = {
 multiAgentOptimConfig = {
     "unit": "m",
     "interaction_range": 9000,  # m
-    "optim_horizon": 2,
+    "optim_horizon": 6,  # 1h
 }
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
+    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -74,35 +74,6 @@ MultiAgentCtrlConfig = {
     "multi_ag_optim": multiAgentOptimConfig,
 }
 # Task Configs
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2022-11-24T12:00:48+00:00",
-#             "lat": 23.2,
-#             "lon": -83.2,
-#         },
-#         {
-#             "date_time": "2022-11-24T12:00:48+00:00",
-#             "lat": 23.25,
-#             "lon": -83.25,
-#         },
-#         {
-#             "date_time": "2022-11-24T12:00:48+00:00",
-#             "lat": 23.3,
-#             "lon": -83.3,
-#         },
-#         {
-#             "date_time": "2022-11-24T12:00:48+00:00",
-#             "lat": 23.35,
-#             "lon": -83.35,
-#         },
-#     ],
-#     "x_T": {"lat": 24.35, "lon": -82.3},
-# }
 missionConfig = {
     "feasible": True,
     "seed": 571402,
@@ -110,58 +81,87 @@ missionConfig = {
     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
     "x_0": [
         {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.12441062927246,
-            "lon": -88.06990814208984,
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.2,
+            "lon": -83.2,
         },
         {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.154739379882812,
-            "lon": -88.0869369506836,
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.25,
+            "lon": -83.25,
         },
         {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.101789474487305,
-            "lon": -88.0881118774414,
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.3,
+            "lon": -83.3,
         },
         {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.100204467773438,
-            "lon": -88.09916687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.180204467773438,
-            "lon": -88.1016687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.160204467773438,
-            "lon": -88.0616687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.190204467773438,
-            "lon": -88.0916687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.220204467773438,
-            "lon": -88.0816687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.220204467773438,
-            "lon": -88.0516687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.200204467773438,
-            "lon": -88.0316687011719,
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.35,
+            "lon": -83.35,
         },
     ],
-    "x_T": {"lat": 22.31922451, "lon": -88.90433564},
+    "x_T": {"lat": 24.35, "lon": -82.3},
 }
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.12441062927246,
+#             "lon": -88.06990814208984,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.154739379882812,
+#             "lon": -88.0869369506836,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.101789474487305,
+#             "lon": -88.0881118774414,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.100204467773438,
+#             "lon": -88.09916687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.180204467773438,
+#             "lon": -88.1016687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.160204467773438,
+#             "lon": -88.0616687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.190204467773438,
+#             "lon": -88.0916687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.220204467773438,
+#             "lon": -88.0816687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.220204467773438,
+#             "lon": -88.0516687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.200204467773438,
+#             "lon": -88.0316687011719,
+#         },
+#     ],
+#     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
+# }
 
 
 objective_conf = {"type": "nav"}
@@ -207,7 +207,7 @@ arenaConfig = {
     "solar_dict": {"forecast": None, "hindcast": None},
     "spatial_boundary": None,
     "use_geographic_coordinate_system": True,
-    "timeout": 3600 * 96,
+    "timeout": 3600 * 24 * 3,
     "multi_agent_constraints": {
         "unit": "km",
         "communication_thrsld": 9,
@@ -233,24 +233,24 @@ arena = constructor.arena
 observation = arena.reset(platform_set=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=problem.start_state.to_spatio_temporal_point(),
-    x_T=problem.end_region,
-    deg_around_x0_xT_box=0.24,
-    temp_horizon_in_s=3600,
-)
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=problem.start_state.to_spatio_temporal_point(),
+#     x_T=problem.end_region,
+#     deg_around_x0_xT_box=0.24,
+#     temp_horizon_in_s=3600,
+# )
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=problem.start_state.date_time[0],
-    x_interval=lon_bnds,
-    y_interval=lat_bnds,
-    return_ax=True,
-    vmax=0.45,
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=problem.start_state.date_time[0],
+#     x_interval=lon_bnds,
+#     y_interval=lat_bnds,
+#     return_ax=True,
+#     vmax=0.45,
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
 #%%
 # Step 2: Retrieve Controller
@@ -270,7 +270,9 @@ pb_running_thrsld = 0
 # Run until tiemout of until one of the platform has stranded/left arena region (failed)
 while not any(status < pb_running_thrsld for status in problem_status):
     # Get action
-    action, ctrl_correction = controller.get_action(observation=observation)
+    action, ctrl_correction = controller.get_action(
+        observation=observation
+    )  # correction angle in rad
     ctrl_deviation_from_opt.append(ctrl_correction)
     # execute action
     observation = arena.step(action)

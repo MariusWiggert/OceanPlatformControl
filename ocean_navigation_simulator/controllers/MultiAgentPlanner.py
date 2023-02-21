@@ -60,6 +60,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         self.multi_agent_settings = specific_settings
         self.platform_dict = problem.platform_dict
         self.controller_type = specific_settings["high_level_ctrl"]
+        self.hj = super()
 
     def get_action(self, observation: ArenaObservation) -> PlatformActionSet:
         if self.controller_type == "hj_naive":
@@ -88,7 +89,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         action_list = []
         ctrl_correction_angle = 0
         for k in range(len(observation)):
-            action_list.append(super().get_action(observation[k]))
+            action_list.append(self.hj.get_action(observation[k]))
         return PlatformActionSet(action_list), ctrl_correction_angle
 
     def get_hj_ttr_values(self, observation: ArenaObservation) -> np.ndarray:
@@ -106,7 +107,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         for pltf_id in range(len(observation)):
             point = observation.platform_state[pltf_id].to_spatio_temporal_point()
             ttr_values_list.append(
-                super().interpolate_value_function_in_hours(point=point)
+                self.hj.interpolate_value_function_in_hours(point=point)
             )  # interpolate TTR map value
         return np.array(ttr_values_list)
 
@@ -125,7 +126,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
         action_list = []
         reactive_control_correction_angle = []
         if self.multi_agent_settings["reactive_control_config"]["mix_ttr_and_euclidean"]:
-            super().get_action(
+            self.hj.get_action(
                 observation[0]
             )  # intialize the planner, needed first time before getting the ttr values
             ttr_values = self.get_hj_ttr_values(observation=observation)
@@ -139,7 +140,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
             nb_max_neighbors=2,
         )
         for k in range(len(observation)):
-            hj_navigation = super().get_action(observation[k])
+            hj_navigation = self.hj.get_action(observation[k])
             reactive_action = reactive_control.get_reactive_control(k, hj_navigation)
             action_list.append(self.to_platform_action_bounds(reactive_action))
             # compute the reactive correction angle to optimal input as proxy for energy consumption
@@ -167,7 +168,7 @@ class MultiAgentPlanner(HJReach2DPlanner):
             platform_dict=self.platform_dict,
         )
         for k in range(len(observation)):
-            hj_navigation = super().get_action(observation[k])
+            hj_navigation = self.hj.get_action(observation[k])
             flocking_action = flocking_control.get_u_i(node_i=k, hj_action=hj_navigation)
             action_list.append(self.to_platform_action_bounds(flocking_action))
             # compute the flocking correction angle to optimal input as proxy for energy consumption
@@ -180,26 +181,22 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def _get_action_hj_with_multi_ag_optim(
         self, observation: ArenaObservation
     ) -> PlatformActionSet:
-        action_list = np.zeros((0, 2))  # empty
 
-        for k in range(len(observation)):
-            hj_optimal_input = super().get_action(observation[k])
-            action_list = np.vstack(
-                (action_list, hj_optimal_input.to_xy_propulsion().reshape(1, 2))
-            )
+        hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
+        hj_xy_propulsion_arr = np.array([hj_input.to_xy_propulsion() for hj_input in hj_actions])
         multi_ag_optim = MultiAgentOptim(
             observation=observation,
             param_dict=self.multi_agent_settings["multi_ag_optim"],
             platform_dict=self.platform_dict,
         )
-        all_actions = multi_ag_optim.get_next_control_for_all_pltf(action_list)
-        action_list = [self.to_platform_action_bounds(action) for action in all_actions]
+        opt_actions = multi_ag_optim.get_next_control_for_all_pltf(hj_xy_propulsion_arr)
+        opt_actions = [self.to_platform_action_bounds(action) for action in opt_actions]
         correction_angles = [
-            abs(math.remainder(action.direction - hj_optimal_input.direction, math.tau))
-            for action in action_list
+            abs(math.remainder(optimized_input.direction - hj_input.direction, math.tau))
+            for optimized_input, hj_input in zip(opt_actions, hj_actions)
         ]
 
-        return PlatformActionSet(action_set=action_list), max(correction_angles)
+        return PlatformActionSet(action_set=opt_actions), max(correction_angles)
 
     def to_platform_action_bounds(self, action: PlatformAction) -> PlatformAction:
         """Bound magnitude to 0-1 of u_max and direction between [0, 2pi[
