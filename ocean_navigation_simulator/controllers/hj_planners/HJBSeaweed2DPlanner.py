@@ -1,18 +1,20 @@
-from datetime import datetime, timezone
 import os
 import pickle
+import shutil
 import time
-from typing import AnyStr, Callable, Dict, Optional, Tuple, Union
+from datetime import datetime, timedelta, timezone
+from typing import AnyStr, Callable, Dict, List, Optional, Tuple, Union
 
 import hj_reachability as hj
 import jax.numpy as jnp
-from matplotlib import pyplot as plt
-from matplotlib.animation import Animation
 import numpy as np
 import scipy
 import xarray as xr
+from c3python import C3Python
+from matplotlib import pyplot as plt
+from matplotlib.animation import Animation
 from scipy.interpolate import interp1d
-
+from tqdm import tqdm
 
 import ocean_navigation_simulator
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import (
@@ -33,6 +35,12 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.utils import units
+from ocean_navigation_simulator.utils.misc import get_c3, timing_logger
+
+
+class CorruptedPreComputedValueFcts(Exception):
+    def __repr__(self):
+        return str(self)
 
 
 class HJBSeaweed2DPlanner(HJPlannerBaseDim):
@@ -53,31 +61,31 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         self.specific_settings = {
             "platform_dict": problem.platform_dict if problem is not None else None,
             "grid_res": 0.083,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-            "grid_res_global": 0.166,  # for first global planning Note: this is in deg lat, lon
-            "deg_around_xt_xT_box_global": 4,  # area over which to run HJ_reachability on the first global run
-            "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
+            "deg_around_xt_xT_box": 1,  # Area over which to run HJ_reachability
+            "precomputation": False,  # Defines whether value fct. should be precomputed or normal planning is requested
+            "value_fct_folder": "temp/precomputed_value_fcts/",  # Where to save and load precomputed value fcts
+            "precomputed_local": False,  # Specify whether value fct are already downloaded or not
         } | self.specific_settings
 
-        # set first_plan to True so we plan on the first run over the whole time horizon
-        self.first_plan = True
         (
-            self.reach_times_global,
-            self.all_values_global,
             self.all_values_subset,
-            self.grid_global,
-        ) = [None] * 4
+            self.all_values_global_flipped,
+            self.reach_times_global_flipped_posix,
+            self.x_grid_global,
+            self.y_grid_global,
+        ) = [None] * 5
 
     def get_x_from_full_state(
         self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]
     ) -> jnp.ndarray:
         return jnp.array(x.__array__())[:2]
 
-    def get_time_vector(self, T_max_in_seconds: int) -> int:
-        """Return n_time_vector for a given T_max_in_seconds. If we plan over the full horizon we take complete n_time_vector. If we only replan the forecast horizon and take the previous value fct. as initial values we shorten the n_time_vector accordingly"""
-        return np.rint(
-            (T_max_in_seconds * self.specific_settings["n_time_vector"])
-            / self.specific_settings["T_goal_in_seconds"]
-        ).astype(int)
+    # def get_time_vector(self, T_max_in_seconds: int) -> int:
+    #     """Return n_time_vector for a given T_max_in_seconds. If we plan over the full horizon we take complete n_time_vector. If we only replan the forecast horizon and take the previous value fct. as initial values we shorten the n_time_vector accordingly"""
+    #     return np.rint(
+    #         (T_max_in_seconds * self.specific_settings["n_time_vector"])
+    #         / self.specific_settings["T_goal_in_seconds"]
+    #     ).astype(int)
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
@@ -93,7 +101,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def _dirichlet(self, x, pad_width: int):
         """Dirichlet boundry conditions for PDE solve"""
-        return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=3.0)
+        return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=0.5)
 
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
@@ -130,24 +138,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         """
         return np.argmin(abs(array - value))
 
-    def set_subset_interpolator(self):
-        """Helper Function to create an interpolator for the value function for retrieving interpolated subsets and fast computation"""
-
-        self.reach_times_global_flipped, self.all_values_global_flipped = [
-            np.flip(seq, axis=0) for seq in [self.reach_times_global, self.all_values_global]
-        ]
-        self.subset_interpolator = scipy.interpolate.RegularGridInterpolator(
-            points=(
-                self.reach_times_global_flipped,
-                self.grid_global.coordinate_vectors[0],
-                self.grid_global.coordinate_vectors[1],
-            ),
-            values=self.all_values_global_flipped,
-            method="linear",
-            bounds_error=False,
-            fill_value=None,
-        )
-
     def _plan(self, x_t: PlatformState):
         """Main function where the reachable front is computed.
         Args:
@@ -174,24 +164,52 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         elif self.specific_settings["direction"] == "backward":
             # Note: no trajectory is extracted as the value function is used for closed-loop control
-
-            # Check whether we plan the first time over the whole time-horizon or only over days with new forecast and recycle value fct. for the remaining days
-            if self.first_plan:
-                initial_values = self.get_initial_values(direction="backward")
-                T_max_in_seconds = self.specific_settings["T_goal_in_seconds"]
-            elif (
-                not self.first_plan
+            # Check whether we plan the first time in order to retrieve the gloabl value fct for the time period after the interval we have FC data available.
+            # Only in case FC horizon is shorter than acutal planning horizon --> otherwise we wouldn't need the averages
+            if (
+                not self.specific_settings["precomputation"]
+                and self.all_values_global_flipped is None
                 and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
             ):
-                # Get index of closest global reach time for the end of the forecast horizon
-                time_idx = self._get_idx_closest_value_in_array(
-                    self.reach_times_global, self.forecast_from_start
+                # initial_values = self.get_initial_values(direction="backward")
+                start_time = x_t.date_time + timedelta(seconds=self.forecast_length)
+                end_time = x_t.date_time + timedelta(
+                    seconds=self.specific_settings["T_goal_in_seconds"]
+                )
+                # TODO: implement function and figure out way to get dataSource from config
+                (
+                    self.all_values_global_flipped,
+                    self.reach_times_global_flipped_posix,
+                    self.x_grid_global,
+                    self.y_grid_global,
+                ) = self._get_value_fct_reach_times(
+                    t_interval=[start_time, end_time],
+                    u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+                    dataSource=self.specific_settings["dataSource"],
                 )
 
-                # Interpolation:
+            if (
+                not self.specific_settings["precomputation"]
+                and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
+            ):
+                # Plan over days with new forecast and recycle gloabl value fct. for the remaining days
+                # Interpolate subset from global value fct.
+
+                # Create an interpolator for the value function for retrieving interpolated subsets and for fast computation
+                self.subset_interpolator = scipy.interpolate.RegularGridInterpolator(
+                    points=(
+                        self.reach_times_global_flipped_posix,
+                        self.x_grid_global,
+                        self.y_grid_global,
+                    ),
+                    values=self.all_values_global_flipped,
+                    method="linear",
+                    bounds_error=False,
+                    fill_value=None,
+                )
                 # Create 3D arrays for the coordinates
                 T, LON, LAT = np.meshgrid(
-                    self.reach_times_global_flipped,
+                    self.reach_times_global_flipped_posix,
                     self.grid.states[:, 0, 0],
                     self.grid.states[0, :, 1],
                     indexing="ij",
@@ -205,7 +223,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 # Reshape the result into a 3D array
                 self.all_values_subset_flipped = interpolated.reshape(
                     (
-                        len(self.reach_times_global_flipped),
+                        len(self.reach_times_global_flipped_posix),
                         len(self.grid.states[:, 0, 0]),
                         len(self.grid.states[0, :, 1]),
                     )
@@ -213,15 +231,31 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
                 # Flip from forward time to backward time
                 self.all_values_subset = np.flip(self.all_values_subset_flipped, axis=0)
+                self.reach_times_global_posix = np.flip(
+                    self.reach_times_global_flipped_posix, axis=0
+                )
+                # Extract forecast end time in posix
+                self.forecast_end_time_posix = x_t.date_time.timestamp() + self.forecast_length
 
-                # Get value function at end of FC Horizon
-                # initial_values = self.all_values_subset[-time_idx]
+                # Get index of closest global reach time for the end of the forecast horizon
+                time_idx = self._get_idx_closest_value_in_array(
+                    self.reach_times_global_posix, self.forecast_end_time_posix
+                )
+
+                # Get value function at end of FC Horizon to initialize backward HJ comp. within FC horizon
+                # initial_values = self.all_values_subset[time_idx]
                 initial_values = interp1d(
-                    self.reach_times_global, self.all_values_subset, axis=0, kind="linear"
-                )(self.forecast_from_start).squeeze()
+                    self.reach_times_global_posix, self.all_values_subset, axis=0, kind="linear"
+                )(self.forecast_end_time_posix).squeeze()
 
-                # Get T_max only for FC - so replanning only runs over this timeframe
+                # Get T_max only for FC - so planning only runs over this time interval
                 T_max_in_seconds = int(self.forecast_length)
+
+            else:
+                # In case FC horizon is longer than actual planning horizon --> we don't need the averages then
+                # Or if we want to precompute a value fct.
+                initial_values = self.get_initial_values(direction="backward")
+                T_max_in_seconds = self.specific_settings["T_goal_in_seconds"]
 
             self._run_hj_reachability(
                 initial_values=initial_values,
@@ -231,35 +265,26 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
 
             if (
-                self.first_plan
-                and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
-            ):
-                # Set first_plan to False after first planning is finished
-                self.first_plan = False
-
-                # Save global value fct., reach times & grid for later re-use
-                self.all_values_global = self.all_values
-                self.reach_times_global = self.reach_times
-                self.grid_global = self.grid
-
-                # Save initial start time
-                self.x_0_time = np.datetime64(x_t.date_time, "ns")
-
-                # Set value fct. subset interpolator
-                self.set_subset_interpolator()
-
-            elif (
-                not self.first_plan
+                not self.specific_settings["precomputation"]
                 and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
             ):
                 self.logger.info("HJBSeaweed2DPlanner: concatenate pre-computed and new value fct.")
                 # Concatenate the the static part and the new part of the value fct. based on new FC data
                 # Shift global reach times to account for temporal progress
-                time_progress = self.current_data_t_0 - units.get_posix_time_from_np64(
-                    self.x_0_time
+                # TODO: add temporal step in between reach times, right now the will be two same values on the alignment of both arrays
+                reach_times_global_subset = (
+                    self.reach_times_global_posix[
+                        :time_idx
+                    ]  # Get until end of FC horizon without last element which is already contained in self.reach_times
+                    - self.reach_times_global_posix[time_idx]  # Shift to get relative POSIX time
+                    + self.reach_times[0]  # Shift s.t. arrays will be continuous when concatenated
                 )
                 self.reach_times = jnp.concatenate(
-                    [self.reach_times_global[:time_idx] - time_progress, self.reach_times], axis=0
+                    [
+                        reach_times_global_subset,
+                        self.reach_times,
+                    ],
+                    axis=0,
                 )
                 self.all_values = jnp.concatenate(
                     [self.all_values_subset[:time_idx], self.all_values], axis=0
@@ -309,49 +334,32 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             observation: observation returned by the simulator (containing the forecast_data_source)
         """
         start = time.time()
-
+        # TODO: check if forecast_data_source.forecast_data_source still necessary - probably not!
         # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
-        # TODO. change to posix time
-        if (
-            hasattr(observation.forecast_data_source, "forecast_data_source")
-            and type(observation.forecast_data_source.forecast_data_source)
-            != ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource
+        # TODO: change to posix time
+        if hasattr(observation.forecast_data_source, "forecast_data_source") and not isinstance(
+            observation.forecast_data_source.forecast_data_source,
+            ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource,
         ):
-            self.forecast_length = (
-                observation.forecast_data_source.forecast_data_source.forecast_data_source.DataArray.time.max()
-                - np.datetime64(observation.platform_state.date_time, "ns")
-            ) / np.timedelta64(1, "s")
+            self.forecast_length = int(
+                (
+                    observation.forecast_data_source.forecast_data_source.DataArray.time.max()
+                    - np.datetime64(observation.platform_state.date_time, "ns")
+                )
+                / np.timedelta64(1, "s")
+            )
         else:
             self.forecast_length = 3600 * 24 * 10
 
-        if self.first_plan and self.forecast_length < self.specific_settings["T_goal_in_seconds"]:
-            deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box_global"]
-            grid_res = self.specific_settings["grid_res_global"]
-        else:
-            deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box"]
-            grid_res = self.specific_settings["grid_res"]
-
-        if (
-            not self.first_plan
-            and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
-        ):
-            # Extract relative FC Horizon from inital time
-            self.forecast_from_start = (
-                units.get_posix_time_from_np64(
-                    observation.forecast_data_source.forecast_data_source.forecast_data_source.DataArray.time.max()
-                )
-                - units.get_posix_time_from_np64(self.x_0_time)
-            ).data
-            # Make sure forecast horizon is not longer as planning period
-            if self.forecast_from_start > self.specific_settings["T_goal_in_seconds"]:
-                self.forecast_from_start = self.specific_settings["T_goal_in_seconds"]
+        deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box"]
+        grid_res = self.specific_settings["grid_res"]
 
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
             x_0=observation.platform_state.to_spatio_temporal_point(),
             x_T=observation.platform_state.to_spatio_temporal_point(),
             deg_around_x0_xT_box=deg_around_x0_xT_box,
-            temp_horizon_in_s=self.specific_settings["T_goal_in_seconds"],
+            temp_horizon_in_s=self.forecast_length,
         )
         # adjust if specified explicitly in settings
         if "x_interval" in self.specific_settings:
@@ -360,12 +368,46 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             y_interval = self.specific_settings["y_interval"]
 
         # get the data subset from the file
-        data_xarray = observation.forecast_data_source.get_data_over_area(
-            x_interval=x_interval,
-            y_interval=y_interval,
-            t_interval=t_interval,
-            spatial_resolution=grid_res,
-        )
+        if not self.specific_settings["precomputation"]:
+            # Take forecast data if we do not precompute the value function
+            data_xarray = observation.forecast_data_source.get_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                t_interval=t_interval,
+                spatial_resolution=grid_res,
+            )
+        elif (
+            self.specific_settings["precomputation"]
+            and self.specific_settings["dataSource"] == "HC_HYCOM"
+            or self.specific_settings["dataSource"] == "HC_Copernicus"
+        ):
+            # Take also forecast data if we need to precompute the value function on HC data. We take the forecast data since if there is no forecast config provided in the arena config the hindcast is taken as forecast.
+            data_xarray = observation.forecast_data_source.get_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                t_interval=t_interval,
+                spatial_resolution=grid_res,
+            )
+        elif (
+            self.specific_settings["precomputation"]
+            and self.specific_settings["dataSource"] == "average"
+        ):
+            # Take the average data if we need to precompute the value function on average data.
+            data_xarray = observation.average_data_source.get_data_over_area(
+                x_interval=x_interval,
+                y_interval=y_interval,
+                t_interval=t_interval,
+                temporal_resolution=7200,  # TODO: add configurable temporal_resolution
+                spatial_resolution=grid_res,
+            )
+
+            # remove temporal margins since the averages will be returned with large temporal margins (+- 1 month)
+            data_xarray = data_xarray.sel(
+                time=slice(
+                    np.datetime64(t_interval[0].replace(tzinfo=None)),
+                    np.datetime64(t_interval[1].replace(tzinfo=None)),
+                )
+            )
 
         seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.get_data_over_area(
             x_interval=x_interval,
@@ -395,21 +437,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # initialize the grids and dynamics to solve the PDE with
         self.initialize_hj_grid(data_xarray)
 
-        # import plotly.graph_objects as go
-        # import numpy as np
-
-        # # Read data from a csv
-        # z = seaweed_xarray["F_NGR_per_second"].data[-1]
-        # x = self.grid.states[..., 0]
-        # y = self.grid.states[..., 1]
-        # fig = go.Figure(data=[go.Surface(z=z, x=x, y=y)])
-        # # fig.update_layout(title='Mt Bruno Elevation', autosize=False,
-        # #                   width=500, height=500,
-        # #                   margin=dict(l=65, r=50, b=65, t=90))
-        # fig.show()
-
-        # update non_dimensional_dynamics with the new non_dim scaling and offset
-
         # Delete the old caches (might not be necessary for analytical fields -> investigate)
         self.logger.debug("HJBSeaweed2DPlanner: Cache Size " + str(hj.solver._solve._cache_size()))
         hj.solver._solve._clear_cache()
@@ -434,6 +461,357 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         self.logger.info(
             f"HJBSeaweed2DPlanner: Loading new Current Data ({time.time() - start:.1f}s)"
         )
+
+    def _get_value_fct_reach_times(
+        self, t_interval: List[datetime], u_max: float, dataSource: str
+    ):  # -> (np.array, np.array, np.array, np.array):
+        # TODO: add proper doc string
+        """Returns value fct. and reach times for a given time interval"""
+
+        hj_val_func_list = self._fetch_hj_val_func_list_list_from_c3_db(
+            t_interval=t_interval, u_max=u_max, dataSource=dataSource
+        )
+        reach_times_list = [hj_val_func["time"].data for hj_val_func in hj_val_func_list]
+        value_fct_list = [hj_val_func["HJValueFunc"].data for hj_val_func in hj_val_func_list]
+
+        # Concatenate the different value functions and reach times in one array
+        value_fct_array = self._concatenate_value_fcts(value_fct_list=value_fct_list)
+        reach_times_array = np.concatenate(reach_times_list)
+        # Get the indices for the start and end times since value_fct_array and reach_times_array will have a larger interval than needed
+        idx_t_interval = self._get_idx_time_interval_in_reach_times(
+            reach_times_array=reach_times_array, t_interval=t_interval
+        )
+
+        # Get correct subset of value fct. over the exact requested time interval. Substract last value to imitate initializiation with zero as last value.
+        value_fct_array = (
+            value_fct_array[idx_t_interval[0] : idx_t_interval[1]]
+            - value_fct_array[idx_t_interval[1]]
+        )
+        reach_times_array = reach_times_array[idx_t_interval[0] : idx_t_interval[1]]
+
+        # if(config["forecast"] is not None):
+        #     #TBDONE only return earliest value and at which time
+
+        return (
+            value_fct_array,
+            reach_times_array,
+            hj_val_func_list[0]["x"].data,
+            hj_val_func_list[0]["y"].data,
+        )
+
+    def _concatenate_value_fcts(self, value_fct_list: List) -> np.array:
+        # TODO: add proper doc string
+        """Concatenate the value_fcts in the list by stacking and adding them up"""
+        # Get first value of last pre-computed v. fct. in list and take it as init value
+        init_value = value_fct_list[-1][0]  # TODO: check direction
+
+        # Reverse the value fct. list in place
+        value_fct_list.reverse()
+
+        # Loop over reverse v. fct. list excl. latest entry of the v. fct. list
+        for value_fct in value_fct_list[1:]:
+            # Add the first value of the next v. fct. to the value fct.
+            value_fct += init_value
+            # Get first value as inital value for next iteration
+            init_value = value_fct[0]
+
+        # Reverse the value fct. list again to restore its original order
+        value_fct_list.reverse()
+
+        return np.concatenate(value_fct_list)
+
+    def _fetch_hj_val_func_list_list_from_c3_db(
+        self, t_interval: List[datetime], u_max: float, dataSource: str
+    ) -> List:
+        # TODO: add proper doc string
+        """Should get a list of xarrays (with value_fcts and corresponding reach_times (in sec) and x_grid, y_grid)"""
+        # return [
+        #     xr.open_dataset(
+        #         "/Users/matthiaskiller/Desktop/data/Value Fct/avg/0.3/HJ_func_07_31_2022_17_00.nc"
+        #     )
+        # ]
+
+        with timing_logger(
+            "Download pre-computed value functions: {start} until {end} ({{}})".format(
+                start=t_interval[0].strftime("%Y-%m-%d %H-%M-%S"),
+                end=t_interval[-1].strftime("%Y-%m-%d %H-%M-%S"),
+            ),
+            self.logger,
+        ):
+            # if self.specific_settings.get("precomputed_local", False):
+            #     files = ArenaFactory.find_copernicus_files(
+            #         self.specific_settings["value_fct_folder"],
+            #         t_interval,
+            #     )
+            # else:
+            files = self._download_required_files(
+                dataSource=dataSource,
+                u_max=u_max,
+                download_folder=self.specific_settings["value_fct_folder"],
+                t_interval=t_interval,
+            )
+
+            self.logger.debug(f"Value Fct Files: {files}")
+
+            hj_val_func_list = []
+            for file in files:
+                hj_val_func_list.append(xr.open_dataset(file))
+
+            return hj_val_func_list
+
+    def _get_idx_time_interval_in_reach_times(
+        self, reach_times_array: np.array, t_interval: List[datetime]
+    ) -> List:
+        # TODO: add proper doc string
+        # Get closest idx for start & end time
+        start_idx = np.argmin(abs(reach_times_array - t_interval[0].timestamp()))
+        end_idx = np.argmin(abs(reach_times_array - t_interval[1].timestamp()))
+        return [start_idx, end_idx]
+
+    def find_value_fct_files(path, t_interval):
+        # TODO: add proper doc string
+        files = []
+
+        start_min = t_interval[0]
+        start_max = t_interval[1]
+
+        for f in os.listdir(path):
+
+            # Get date string from file name
+            f_date_string = f[8:28]
+
+            # Create time-aware datetime object from string
+            start = datetime.strptime(f_date_string, "%Y-%m-%dT%H-%M-%SZ").replace(
+                tzinfo=timezone.utc
+            )
+
+            if start_min <= start <= start_max:
+                files.append(path + f)
+
+        return files
+
+    def _get_filelist(
+        self,
+        dataSource: str,
+        u_max: float,
+        t_interval: List[datetime] = None,
+        c3: Optional[C3Python] = None,
+    ):
+        """
+        helper function to get a list of available files from c3
+        Args:
+            dataSource: one of [HC_HYCOM, HC_Copernicus, average]
+            u_max: float which defines the u_max used to precompute the value fcts.
+            t_interval: List of datetime with length 2. None allows to search in all available times.
+        Return:
+            c3.FetchResult where objs contains the actual files
+        """
+        # Step 1: Sanitize Inputs
+        if dataSource.lower() not in ["hc_hycom", "hc_copernicus", "average"]:
+            raise ValueError(
+                f"dataSource {dataSource} invalid choose from: HC_HYCOM, HC_Copernicus and average."
+            )
+        # Step 2: Find c3 type
+        if c3 is None:
+            c3 = get_c3()
+        c3_file_type = getattr(c3, "PreComputedValueFct")
+
+        # Step 3: Execute Query
+        # Create strings for filters
+        umax_filter = f"umax == {u_max}"
+        source_filter = f' && dataSource == "{dataSource}"'
+        if t_interval is not None:
+            start_min = f"{t_interval[0]}"
+            start_max = f"{t_interval[1]}"
+            time_filter = f' && ( (timeCoverage.start <= "{start_min}" && "{start_min}" <= timeCoverage.end) || (timeCoverage.start <= "{start_max}" &&  "{start_max}" <= timeCoverage.end) || (timeCoverage.start >= "{start_min}" && timeCoverage.end <= "{start_max}"))'
+        else:
+            # accepting t_interval = None allows to download the whole file list for analysis
+            time_filter = ""
+
+        return c3_file_type.fetch(
+            spec={
+                "include": "[this]",  # TODO: check if it works like this
+                "filter": umax_filter + source_filter + time_filter,
+                "order": "ascending(timeCoverage.start)",
+            }
+        )
+
+    def _download_filelist(
+        self,
+        files,
+        download_folder,
+        throw_exceptions,
+        c3: Optional[C3Python] = None,
+    ):
+        """
+        thread-safe download with corruption and file size check
+        Arguments:
+            files: c3.FetchResult object
+            download_folder: folder to download files to
+            throw_exceptions: if True throws exceptions for missing/corrupted files
+            c3: c3 object
+        Returns:
+            list of downloaded files
+        """
+        if c3 is None:
+            c3 = get_c3()
+
+        self.logger.info(
+            f"HJBSeaweed2DPlanner: Downloading {files.count} files to '{download_folder}'."
+        )
+
+        # Step 1: Sanitize Inputs
+        if not download_folder.endswith("/"):
+            download_folder += "/"
+        os.makedirs(download_folder, exist_ok=True)
+
+        # Step 2: Download Files thread-safe with atomic os.replace
+        downloaded_files = []
+        temp_folder = f"{download_folder}{os.getpid()}/"
+        try:
+            for file in tqdm(files.objs):
+                filename = os.path.basename(file.valueFunction.contentLocation)
+                url = file.valueFunction.url
+                filesize = file.valueFunction.contentLength
+                if (
+                    not os.path.exists(download_folder + filename)
+                    or os.path.getsize(download_folder + filename) != filesize
+                ):
+                    c3.Client.copyFilesToLocalClient(url, temp_folder)
+
+                    error = False
+                    # check file size match
+                    if os.path.getsize(temp_folder + filename) != filesize:
+                        error = "Incorrect file size ({filename}). Should be {filesize}B but is {actual_filesize}B.".format(
+                            filename=filename,
+                            filesize=filesize,
+                            actual_filesize=os.path.getsize(download_folder + filename),
+                        )
+                    else:
+                        # check valid xarray file and meta length
+                        try:
+                            f = xr.open_dataset(temp_folder + filename)
+                            # TODO: check if really posix here
+                            t_grid = f.variables["time"].data  # units.get_posix_time_from_np64()
+                            # close netCDF file
+                            f.close()
+                            # create dict
+                            grid_dict_list = {
+                                "t_range": [
+                                    datetime.fromtimestamp(t_grid[0], timezone.utc),
+                                    datetime.fromtimestamp(t_grid[-1], timezone.utc),
+                                ],
+                            }
+
+                            if (
+                                file.timeCoverage.start < grid_dict_list["t_range"][0]
+                                or grid_dict_list["t_range"][-1] < file.timeCoverage.end
+                            ):
+                                error = "File shorter than declared in meta: filename={filename}, meta: [{ms},{me}], file: [{gs},{ge}]".format(
+                                    filename=filename,
+                                    ms=file.timeCoverage.start.strftime("%Y-%m-%d %H-%M-%S"),
+                                    me=file.timeCoverage.end.strftime("%Y-%m-%d %H-%M-%S"),
+                                    gs=grid_dict_list["t_range"][0].strftime("%Y-%m-%d %H-%M-%S"),
+                                    ge=grid_dict_list["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
+                                )
+
+                        except Exception:
+                            error = f"HJBSeaweed2DPlanner: Corrupted file: '{filename}'."
+
+                    if error and throw_exceptions:
+                        raise CorruptedPreComputedValueFcts(error)
+                    elif error:
+                        os.remove(temp_folder + filename)
+                        self.logger.warning(error)
+                        continue
+
+                    # Move thread-safe
+                    os.replace(temp_folder + filename, download_folder + filename)
+                    self.logger.info(
+                        f"HJBSeaweed2DPlanner:  File downloaded: '{filename}', {filesize/10e6:.1f}MB."
+                    )
+                else:
+                    # Path().touch()
+                    os.system(f"touch {download_folder + filename}")
+                    self.logger.info(
+                        f"HJBSeaweed2DPlanner:  File already downloaded: '{filename}', {filesize/10e6:.1f}MB."
+                    )
+
+                downloaded_files.append(download_folder + filename)
+
+        except BaseException:
+            shutil.rmtree(temp_folder, ignore_errors=True)
+            raise
+        else:
+            shutil.rmtree(temp_folder, ignore_errors=True)
+
+        return downloaded_files
+
+    def _download_required_files(
+        self,
+        dataSource: str,
+        u_max: float,
+        download_folder: str,
+        t_interval: List[datetime],
+        throw_exceptions: bool = False,
+        c3: Optional[C3Python] = None,
+    ) -> List[str]:
+        """
+        helper function for thread-safe download of available current files from c3
+        Args:
+            dataSource: one of [HC_HYCOM, HC_Copernicus, average]
+            u_max: float which defines the u_max used to precompute the value fcts.
+            download_folder: path on disk to download the files e.g. /tmp/value_fcts/
+            t_interval: List of datetime with length 2.
+            throw_exceptions: throw exceptions for missing or corrupted files
+            c3: c3 object can be passed in directly, if not a c3 object is created
+        Returns:
+            list of downloaded files
+        """
+        # Step 1: Find relevant files
+        files = self._get_filelist(dataSource=dataSource, u_max=u_max, t_interval=t_interval, c3=c3)
+
+        # Step 2: Check File Count
+        if files.count == 0:
+            message = "No files in the database for {dataSource}, {u_max} and t_0={t_0} and t_T={t_T} ".format(
+                dataSource=dataSource,
+                u_max=u_max,
+                t_0=t_interval[0],
+                t_T=t_interval[1],
+            )
+            if throw_exceptions:
+                raise CorruptedPreComputedValueFcts(message)
+            else:
+                self.logger.error(message)
+                return 0
+
+        # elif files.count < (t_interval[1] - t_interval[0]).days:
+        #     message = "Only {count}/{expected} files in the database for {archive_source}, {archive_type}, {region} and t_0={t_0} and t_T={t_T}: {filenames}".format(
+        #         count=files.count,
+        #         expected=(t_interval[1] - t_interval[0]).days + 1,
+        #         archive_source=archive_source,
+        #         archive_type=archive_type,
+        #         region=region,
+        #         t_0=t_interval[0],
+        #         t_T=t_interval[1],
+        #         filenames="".join(
+        #             [f"\n- {os.path.basename(f.file.contentLocation)}" for f in files.objs]
+        #         ),
+        #     )
+        #     if throw_exceptions:
+        #         raise MissingOceanFileException(message)
+        #     else:
+        #         logger.error(message)
+
+        # Step 4: Download files thread-safe
+        downloaded_files = self._download_filelist(
+            files=files,
+            download_folder=download_folder,
+            throw_exceptions=throw_exceptions,
+            c3=c3,
+        )
+
+        return downloaded_files
 
     def save_planner_state(self, folder):
         os.makedirs(folder, exist_ok=True)

@@ -321,9 +321,9 @@ class HJPlannerBaseDim(Controller):
         """Return the x state appropriate for the specific reachability planner."""
         pass
 
-    def get_time_vector(self, T_max_in_seconds: int) -> int:
-        """Return n_time_vector"""
-        return self.specific_settings["n_time_vector"]
+    # def get_time_vector(self, T_max_in_seconds: int) -> int:
+    #     """Return n_time_vector"""
+    #     return self.specific_settings["n_time_vector"]
 
     def _check_data_settings_compatibility(self, x_t: PlatformState):
         """Helper function to check data availability before running HJ Reachability to prevent errors later."""
@@ -483,7 +483,7 @@ class HJPlannerBaseDim(Controller):
         # save initial_values for later access
         self.initial_values = initial_values
 
-        n_time_vector = self.get_time_vector(T_max_in_seconds)
+        n_time_vector = self.specific_settings["n_time_vector"]
 
         # set up the dimensional time-vector for which to save the value function
         solve_times = np.linspace(0, T_max_in_seconds, n_time_vector + 1)

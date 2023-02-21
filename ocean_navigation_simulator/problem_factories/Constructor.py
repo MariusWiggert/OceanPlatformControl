@@ -7,13 +7,14 @@ from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
-from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
-
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.SeaweedProblem import (
+    SeaweedProblem,
+)
 from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 

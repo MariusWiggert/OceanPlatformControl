@@ -18,12 +18,14 @@ class OceanCurrentField(DataField):
 
     hindcast_data_source: OceanCurrentSource = None
     forecast_data_source: OceanCurrentSource = None
+    average_data_source: OceanCurrentSource = None
 
     def __init__(
         self,
         casadi_cache_dict: Dict,
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
+        average_source_dict: Optional[Dict] = None,
         use_geographic_coordinate_system: Optional[bool] = True,
     ):
         """Initialize the source objects from the respective settings dicts.
@@ -31,7 +33,7 @@ class OceanCurrentField(DataField):
           casadi_cache_dict: containing the cache settings to use in the sources for caching of 3D data
                           e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*12}
 
-          forecast_source_dict and hindcast_source_dict
+          forecast_source_dict and hindcast_source_dict and optionally average_source_dict
            Both are dicts with four keys:
              'field' the kind of field the should be created e.g. OceanCurrent or SolarIrradiance
              'source' in {opendap, hindcast_files, forecast_files}
@@ -44,6 +46,7 @@ class OceanCurrentField(DataField):
             casadi_cache_dict,
             hindcast_source_dict,
             forecast_source_dict,
+            average_source_dict,
             use_geographic_coordinate_system,
         )
 
@@ -56,6 +59,8 @@ class OceanCurrentField(DataField):
             return HindcastFileSource(source_dict)
         elif source_dict["source"] == "forecast_files":
             return ForecastFileSource(source_dict)
+        elif source_dict["source"] == "average":
+            return HindcastFileSource(source_dict)
         elif source_dict["source"] == "longterm_average":
             return LongTermAverageSource(source_dict)
         elif source_dict["source"] == "analytical":

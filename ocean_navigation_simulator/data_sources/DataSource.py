@@ -87,11 +87,12 @@ class DataSource(abc.ABC):
             return True
         return False
 
-    def update_casadi_dynamics(self, state: PlatformState) -> None:
+    def update_casadi_dynamics(self, state: PlatformState, **kwargs) -> None:
         """Function to update casadi_dynamics which means we fit an interpolant to grid data.
         Note: this can be overwritten in child-classes e.g. when an analytical function is available.
         Args:
           state: Platform State object containing [x, y, battery, mass, time] to update around
+          **kwargs: i.e. for spatial or temporary resulotion i.e. used by average source
         """
 
         # Step 1: Create the intervals to query data for
@@ -107,7 +108,9 @@ class DataSource(abc.ABC):
         )
 
         # Step 2: Get the data from itself and update casadi_grid_dict
-        xarray = self.get_data_over_area(x_interval, y_interval, t_interval, throw_exceptions=False)
+        xarray = self.get_data_over_area(
+            x_interval, y_interval, t_interval, throw_exceptions=False, **kwargs
+        )
         self.casadi_grid_dict = self.get_grid_dict_from_xr(xarray)
 
         # Step 3: Set up the grid

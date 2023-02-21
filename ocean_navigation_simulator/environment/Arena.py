@@ -10,9 +10,9 @@ from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
 import matplotlib
 import numpy as np
+import pandas as pd
 from matplotlib import patches
 from matplotlib import pyplot as plt
-import pandas as pd
 
 from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
     BathymetrySource2d,
@@ -72,6 +72,9 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
+    average_data_source: Union[
+        OceanCurrentSource, OceanCurrentSourceXarray
+    ]  # Data Source of the averages
 
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
         """
@@ -88,6 +91,7 @@ class ArenaObservation:
             ),
             true_current_at_state=self.true_current_at_state,
             forecast_data_source=self.forecast_data_source,
+            average_data_source=self.average_data_source,
         )
 
     def replace_datasource(
@@ -104,6 +108,7 @@ class ArenaObservation:
             platform_state=self.platform_state,
             true_current_at_state=self.true_current_at_state,
             forecast_data_source=datasource,
+            average_data_source=self.average_data_source,
         )
 
 
@@ -142,7 +147,7 @@ class Arena:
                                              - u_max_in_mps (maximum propulsion)
                                              - drag_factor, motor_efficiency (to model Energy consumption)
                                              - solar_panel_size, solar_efficiency, battery_cap_in_wh (charging via solar)
-            ocean_dict:                      Dictionary containing dicts for "hindcast" and optinally "forecast" which
+            ocean_dict:                      Dictionary containing dicts for "hindcast" and optinally "forecast" & "average" which
                                              specify the ocean current data source. Details see OceanCurrentField.
             use_geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree,
                                               if false the spatial system is in meters in x, y.
@@ -168,6 +173,10 @@ class Arena:
             casadi_cache_dict=casadi_cache_dict,
             hindcast_source_dict=ocean_dict["hindcast"],
             forecast_source_dict=ocean_dict["forecast"],
+            average_source_dict=ocean_dict.get(
+                "average", "not_defined"
+            ),  # "not_defined" if no "average" key in ocean_dict otherwise we would always load averages for all scenarios without averages needed.
+            # TODO: find more elegant solution to ensure compatibility with short term planning
             use_geographic_coordinate_system=use_geographic_coordinate_system,
         )
         # Step 1.2 Solar Irradiance Field
@@ -238,6 +247,11 @@ class Arena:
         self.platform.set_state(self.initial_state)
         self.platform.initialize_dynamics(self.initial_state)
         self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_state)
+        if self.ocean_field.average_data_source is not None:
+            self.ocean_field.average_data_source.update_casadi_dynamics(
+                self.initial_state,
+                temporal_resolution=7200,  # TODO: add configurable temporal_resolution
+            )
 
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
@@ -248,6 +262,7 @@ class Arena:
                 self.platform.state.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
+            average_data_source=self.ocean_field.average_data_source,
         )
 
     def step(self, action: PlatformAction) -> ArenaObservation:
@@ -276,6 +291,7 @@ class Arena:
                     state.to_spatio_temporal_point()
                 ),
                 forecast_data_source=self.ocean_field.forecast_data_source,
+                average_data_source=self.ocean_field.average_data_source,
             )
         return obs
 

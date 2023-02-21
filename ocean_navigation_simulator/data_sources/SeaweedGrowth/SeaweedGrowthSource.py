@@ -1,4 +1,5 @@
 import datetime
+import glob
 import logging
 from typing import Dict, List
 
@@ -6,7 +7,6 @@ import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-import glob
 
 from ocean_navigation_simulator.data_sources.DataSource import (
     AnalyticalSource,

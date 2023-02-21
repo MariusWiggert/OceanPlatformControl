@@ -1,11 +1,12 @@
 from typing import Union
 
-import jax.lax
 import jax.numpy as jnp
 import xarray as xr
-from hj_reachability import dynamics, interpolation, sets
+from hj_reachability import interpolation, sets
 
-from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
+    Platform2dForSim,
+)
 
 
 def transform_to_geographic_velocity(state, dx1, dx2):
