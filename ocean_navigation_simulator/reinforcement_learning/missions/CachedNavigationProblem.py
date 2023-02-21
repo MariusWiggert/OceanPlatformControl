@@ -62,9 +62,11 @@ class CachedNavigationProblem(NavigationProblem):
     def to_c3_mission_config(self):
         """To easily populate c3 database with missions."""
         prob_dict = self.to_dict()
+        # This seems to breaks if we only have one problem as it will call .tolist on a float
+        # Yet if we remove the tolist, we will pass a devicearray that is not jsonable in c3
         x_0 = {
-            "lon": prob_dict["x_0_lon"],
-            "lat": prob_dict["x_0_lat"],
+            "lon": prob_dict["x_0_lon"].tolist(),
+            "lat": prob_dict["x_0_lat"].tolist(),
             "date_time": prob_dict["t_0"],
         }
 
