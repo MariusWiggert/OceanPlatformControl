@@ -532,6 +532,10 @@ class HJPlannerBaseDim(Controller):
             initial_values=initial_values,
             progress_bar=self.specific_settings["progress_bar"],
         )
+
+        # Shift reach times since first temporal value on grid is aligned with t_0 of current data and not with t_start
+        self.reach_times = self.reach_times + t_start.timestamp() - self.current_data_t_0
+
         self.logger.info(f"HJPlannerBase: hj.solve finished ({time.time() - start:.1f}s)")
 
     def _get_t_earliest_for_target_region(self) -> Tuple:
