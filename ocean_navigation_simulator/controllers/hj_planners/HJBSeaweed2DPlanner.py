@@ -46,6 +46,8 @@ class CorruptedPreComputedValueFcts(Exception):
 class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     """Reachability planner for 2D (lat, lon) reachability computation."""
 
+    # TODO: describe five cases which can be handeled (combination of : if Precomput. and which datasources used and horizon)
+
     gpus: float = 1.0
 
     def __init__(
@@ -74,6 +76,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             self.x_grid_global,
             self.y_grid_global,
         ) = [None] * 5
+        self.hindcast_as_forecast = False
 
     def get_x_from_full_state(
         self, x: Union[PlatformState, SpatioTemporalPoint, SpatialPoint]
@@ -171,12 +174,13 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 and self.all_values_global_flipped is None
                 and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
             ):
+                self.logger.info("HJBSeaweed2DPlanner: get pre-computed value fct.")
                 # initial_values = self.get_initial_values(direction="backward")
                 start_time = x_t.date_time + timedelta(seconds=self.forecast_length)
                 end_time = x_t.date_time + timedelta(
                     seconds=self.specific_settings["T_goal_in_seconds"]
                 )
-                # TODO: implement function and figure out way to get dataSource from config
+                # TODO: Figure out way to get dataSource from arenaConfig instead of defining it manually in specific settings
                 (
                     self.all_values_global_flipped,
                     self.reach_times_global_flipped_posix,
@@ -194,6 +198,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             ):
                 # Plan over days with new forecast and recycle gloabl value fct. for the remaining days
                 # Interpolate subset from global value fct.
+                self.logger.info(
+                    "HJBSeaweed2DPlanner: get interpolate subset from pre-computed value fct."
+                )
 
                 # Create an interpolator for the value function for retrieving interpolated subsets and for fast computation
                 self.subset_interpolator = scipy.interpolate.RegularGridInterpolator(
@@ -257,19 +264,22 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 initial_values = self.get_initial_values(direction="backward")
                 T_max_in_seconds = self.specific_settings["T_goal_in_seconds"]
 
-            self._run_hj_reachability(
-                initial_values=initial_values,
-                t_start=x_t.date_time,
-                T_max_in_seconds=T_max_in_seconds,
-                dir="backward",
-            )
+            # Only run HJ if we do NOT compute on pure HC data or we precomputate the value fct.
+            if not self.hindcast_as_forecast or self.specific_settings["precomputation"]:
+                self._run_hj_reachability(
+                    initial_values=initial_values,
+                    t_start=x_t.date_time,
+                    T_max_in_seconds=T_max_in_seconds,
+                    dir="backward",
+                )
 
+            # Concatenate the the static part and the new part of the value fct. based on new FC data
             if (
                 not self.specific_settings["precomputation"]
                 and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
+                and not self.hindcast_as_forecast
             ):
                 self.logger.info("HJBSeaweed2DPlanner: concatenate pre-computed and new value fct.")
-                # Concatenate the the static part and the new part of the value fct. based on new FC data
                 # Shift global reach times to account for temporal progress
                 # TODO: add temporal step in between reach times, right now the will be two same values on the alignment of both arrays
                 reach_times_global_subset = (
@@ -289,6 +299,12 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 self.all_values = jnp.concatenate(
                     [self.all_values_subset[:time_idx], self.all_values], axis=0
                 )
+
+            # Assign the values and reach times over the complete planning horizon if we only compute on pure HC data if we use precomputed values
+            if self.hindcast_as_forecast and not self.specific_settings["precomputation"]:
+                self.all_values = self.all_values_subset
+                # Shift to get relative POSIX time
+                self.reach_times = self.reach_times_global_posix - self.reach_times_global_posix[-1]
 
             # arrange to forward times by convention for plotting and open-loop control
             self._set_value_func_to_forward_time()
@@ -349,23 +365,36 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 / np.timedelta64(1, "s")
             )
         else:
-            self.forecast_length = 3600 * 24 * 10
 
-        deg_around_x0_xT_box = self.specific_settings["deg_around_xt_xT_box"]
-        grid_res = self.specific_settings["grid_res"]
+            self.forecast_length = 0
+
+            # If FC soruce is HC Hycom or Copernicus and not averages
+            if not self.specific_settings["dataSource"] == "average":
+                self.hindcast_as_forecast = True
+
+        # Decide how much temporal data we want to load to our data arrays
+        if self.specific_settings["precomputation"]:
+            # If we precompute the value fct. we need data over our complete horizon
+            temp_horizon_in_s = self.specific_settings["T_goal_in_seconds"]
+        else:
+            # If we do not precompute we only need the data for the the forecast horizon since everything else is already covered in our precomputed values
+            # Note: If our T_goal_in_seconds is smaller than our forecast horizon we actually load more data than needed - but shouldn't be too much overload and keeps the code cleaner
+            temp_horizon_in_s = self.forecast_length
 
         # Step 1: get the x,y,t bounds for current position, goal position and settings.
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
             x_0=observation.platform_state.to_spatio_temporal_point(),
             x_T=observation.platform_state.to_spatio_temporal_point(),
-            deg_around_x0_xT_box=deg_around_x0_xT_box,
-            temp_horizon_in_s=self.forecast_length,
+            deg_around_x0_xT_box=self.specific_settings["deg_around_xt_xT_box"],
+            temp_horizon_in_s=temp_horizon_in_s,
         )
         # adjust if specified explicitly in settings
         if "x_interval" in self.specific_settings:
             x_interval = self.specific_settings["x_interval"]
         if "y_interval" in self.specific_settings:
             y_interval = self.specific_settings["y_interval"]
+
+        grid_res = self.specific_settings["grid_res"]
 
         # get the data subset from the file
         if not self.specific_settings["precomputation"]:
@@ -401,11 +430,12 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 spatial_resolution=grid_res,
             )
 
-            # remove temporal margins since the averages will be returned with large temporal margins (+- 1 month)
+            # reduce temporal margins since the averages will be returned with large temporal margins (+- 1 month)
+            dt = data_xarray["time"][1] - data_xarray["time"][0]
             data_xarray = data_xarray.sel(
                 time=slice(
-                    np.datetime64(t_interval[0].replace(tzinfo=None)),
-                    np.datetime64(t_interval[1].replace(tzinfo=None)),
+                    np.datetime64(t_interval[0].replace(tzinfo=None)) - dt,
+                    np.datetime64(t_interval[1].replace(tzinfo=None)) + dt,
                 )
             )
 
@@ -466,6 +496,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         self, t_interval: List[datetime], u_max: float, dataSource: str
     ):  # -> (np.array, np.array, np.array, np.array):
         # TODO: add proper doc string
+        # TODO: extend to get different Regions. right now only Region 3
         """Returns value fct. and reach times for a given time interval"""
 
         hj_val_func_list = self._fetch_hj_val_func_list_list_from_c3_db(
