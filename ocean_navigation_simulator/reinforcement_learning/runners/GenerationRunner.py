@@ -293,6 +293,7 @@ class GenerationRunner:
     def plot_starts_and_targets(
         results_folder: str, scenario_file: str = None, scenario_config: dir = None, c3=None
     ):
+        # TODO: this is hardcoded, very, very slow, and crashes the jupyter kernel. Do not use if you can avoid it.
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
