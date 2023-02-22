@@ -104,7 +104,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def _dirichlet(self, x, pad_width: int):
         """Dirichlet boundry conditions for PDE solve"""
-        return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=0.5)
+        return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=1)
 
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
