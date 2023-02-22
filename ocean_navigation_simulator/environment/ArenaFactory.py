@@ -461,7 +461,7 @@ class ArenaFactory:
         Args:
             archive_source: one of [HYCOM, Copernicus]
             archive_type: one of [forecast, hindcast]
-            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
+            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM, Region Matthias]. Exception: Region 1 is not unique for HYCOM
             t_interval: List of datetime with length 2. None allows to search in all available times.
         Return:
             c3.FetchResult where objs contains the actual files
@@ -490,6 +490,7 @@ class ArenaFactory:
             "Region 5",
             "Region 6",
             "Region 7",
+            "Region Matthias",
         ]:
             raise ValueError(f"Region {region} invalid.")
 
@@ -665,7 +666,7 @@ class ArenaFactory:
         Arguments:
             archive_source: one of [HYCOM, Copernicus]
             archive_type: one of [forecast, hindcast]
-            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
+            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM, Region Matthias]. Exception: Region 1 is not unique for HYCOM
             true_length: if yes *download all files* and check actual length of files using xarray
         """
         title = f"{archive_source.capitalize()} {archive_type.capitalize()} {region}"
