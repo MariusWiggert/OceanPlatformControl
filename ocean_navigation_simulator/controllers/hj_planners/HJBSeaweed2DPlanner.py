@@ -350,6 +350,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             observation: observation returned by the simulator (containing the forecast_data_source)
         """
         start = time.time()
+
         # TODO: check if forecast_data_source.forecast_data_source still necessary - probably not!
         # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
         # TODO: change to posix time
@@ -395,6 +396,19 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             y_interval = self.specific_settings["y_interval"]
 
         grid_res = self.specific_settings["grid_res"]
+        dataSource = self.specific_settings.get("dataSource")
+
+        # Step 1: Sanitize Inputs
+        if self.specific_settings.get("precomputation") and dataSource is None:
+            raise KeyError("A dataSource must be provided in specific_settings for precomputation.")
+        if dataSource is not None and dataSource.lower() not in [
+            "hc_hycom",
+            "hc_copernicus",
+            "average",
+        ]:
+            raise ValueError(
+                f"dataSource {dataSource} invalid choose from: HC_HYCOM, HC_Copernicus and average."
+            )
 
         # get the data subset from the file
         if not self.specific_settings["precomputation"]:
@@ -650,7 +664,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # Step 3: Execute Query
         # Create strings for filters
         umax_filter = f"umax == {u_max}"
-        source_filter = f' && dataSource == "{dataSource}"'
+        source_filter = f' && dataSource == "{dataSource.lower()}"'
         if t_interval is not None:
             start_min = f"{t_interval[0]}"
             start_max = f"{t_interval[1]}"
