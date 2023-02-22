@@ -117,13 +117,13 @@ class MultiAgentOptim:
             opti.subject_to(x[k + 1] == x_next)
             # for platform in self.list_all_platforms:
             #     neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
-            # potentials = [
-            #     F_pot(x_i=x[k][platform, :], x_j=x[k][neighbor, :])["potential_force"]
-            #     for neighbor in neighbors_idx
-            # ]
+            #     potentials = [
+            #         F_pot(x_i=x[k][platform, :], x_j=x[k][neighbor, :])["potential_force"]
+            #         for neighbor in neighbors_idx
+            #     ]
             # objective.append(sum(potentials))
-            objective.append(ca.dot(u[k] - u_hj, u[k] - u_hj))
-
+            # objective.append(ca.dot(u[k] - u_hj, u[k] - u_hj))
+        objective.append(ca.dot(u[0] - u_hj, u[0] - u_hj))
         # Terminal state constraint
         opti.subject_to(
             opti.bounded(
@@ -164,9 +164,10 @@ class MultiAgentOptim:
         opti.set_value(x_start, x_t[:, :2])
 
         # Optional: initialize variables for the optimizer
-        # opti.set_initial(x, x_init)
-        # opti.set_initial(u, u_init)
+        opti.set_initial(x[0], x_t[:, :2])
+        opti.set_initial(u[0], u_hj)
 
+        # opts = "halt_on_ampl_error yes"
         opti.solver("ipopt")
         sol = opti.solve()
 
@@ -212,11 +213,27 @@ class MultiAgentOptim:
         """Potential function responsible for the attraction repulsion behavior between platforms"""
         sym_x_i = ca.MX.sym("agent_i", 2)
         sym_x_j = ca.MX.sym("agent_j", 2)
-        r = ca.MX(self.r_deg.deg)
-        norm_xij = ca.norm_2(sym_x_i - sym_x_j)
+        r = ca.MX(self.r_deg.km)
+        norm_xij = units.Distance(
+            deg=(ca.sqrt((sym_x_i[0] - sym_x_j[0]) ** 2 + (sym_x_i[1] - sym_x_j[1])) ** 2)
+        ).km  # ca.norm_2(sym_x_i - sym_x_j)
+        # pot_value = ca.if_else(
+        #     norm_xij <= r, self.pot_func_in_range(r=r, norm_xij=norm_xij), np.sqrt(norm_xij - r)
+        # )
         pot_value = ca.if_else(
-            norm_xij <= r, self.r / (norm_xij * (self.r - norm_xij)), np.sqrt(norm_xij - self.r)
+            norm_xij < r, (norm_xij - r / 2) ** 8, ca.log((norm_xij - r + 1) ** 2)
         )
+        # # ca.if_else(norm_xij <= r, np.sqrt(r - norm_xij), np.sqrt(norm_xij - r))
+        # pot_value = ca.log((norm_xij - r + 1) ** 2)  # (norm_xij - r / 2) ** 8
+        # pot_value = ca.if_else(
+        #     norm_xij <= r,
+        #     (r / (r - norm_xij)) ** 2,
+        #     ca.sqrt(norm_xij - r) ** 2,
+        # )
+        # pot_value = norm_xij**2  # (norm_xij - r / 2) ** 2
+        # pot_value = 2
+        # pot_value = ca.if_else(norm_xij <= r, 5, 20)
+        # pot_value = ca.if_else(pot_value > 5, 5, pot_value)  # grad clipping
         F_pot = ca.Function(
             "Potential_function",
             [sym_x_i, sym_x_j],
@@ -225,3 +242,9 @@ class MultiAgentOptim:
             ["potential_force"],
         )
         return F_pot
+
+    def pot_func_in_range(self, r, norm_xij):
+        try:
+            return r / (norm_xij * (r - norm_xij))
+        except ZeroDivisionError:
+            return 1e6
