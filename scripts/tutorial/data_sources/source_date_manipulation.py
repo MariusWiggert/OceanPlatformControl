@@ -7,7 +7,7 @@ import xarray as xr
 filepath = "../../../data/nutrients/2021_monthly_nutrients_and_temp.nc"
 data_array = xr.open_dataset(filepath)
 
-# %% change year from 2021 to 2022
+# %% change year i.e from 2021 to 2022
 data_array_ = data_array.assign_coords(time=(data_array.time + np.timedelta64(365, "D")))
 
 # %% save data_array to new .nc file
