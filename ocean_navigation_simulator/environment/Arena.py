@@ -306,7 +306,14 @@ class Arena:
 
     def is_on_land(self, point: SpatialPoint = None, elevation: float = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        if self.bathymetry_source:
+        if hasattr(self.bathymetry_source, "DistanceArray"):
+            point = self.platform.state
+            distance = self.bathymetry_source.DistanceArray.interp(
+                lat=point.lat.deg, lon=point.lon.deg
+            ).data
+            print(distance, point.lat, point.lon)
+            return distance < self.bathymetry_source.source_dict["distance"]["safe_distance"]
+        elif self.bathymetry_source:
             if point is None:
                 point = self.platform.state.to_spatial_point()
             return self.bathymetry_source.is_higher_than(point, elevation)

@@ -25,6 +25,10 @@ class BathymetrySource2d(DataSource2d):
         if self.source_dict["source"] == "gebco":
             self.DataArray = self.get_DataArray_from_file()
             self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+            if "distance" in self.source_dict and self.source_dict["distance"] is not None:
+                self.DistanceArray = xr.open_dataset(self.source_dict["distance"]["filepath"])[
+                    "distance"
+                ]
         else:
             raise NotImplementedError(
                 f"Selected source {self.source_dict['source']} in the BathymetrySource dict is not implemented."
