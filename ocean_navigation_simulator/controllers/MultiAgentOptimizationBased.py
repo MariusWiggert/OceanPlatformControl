@@ -115,12 +115,41 @@ class MultiAgentOptim:
             # explicit forward euler version
             x_next = x[k] + dt * F_dyn(x=x[k], u=u[k], t=time)["x_dot"]
             opti.subject_to(x[k + 1] == x_next)
-            # for platform in self.list_all_platforms:
-            #     neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
+
+            for platform in self.list_all_platforms:
+                # neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
+                neighbors_idx = np.argwhere(
+                    self.binary_adjacency[platform, :] > 0
+                ).flatten()  # np.argwhere((self.adjacency_mat[platform, :] < self.r_deg.m*1.4) & (self.adjacency_mat[platform,:]>0)).flatten()
+                potential = self.pot_func_pltf_i(
+                    x_k=x[k], platform_id=platform, platform_neighbors_id=neighbors_idx
+                )
+                objective.append(potential)
+                # potentials = [
+                #     (
+                #         units.Distance(
+                #             deg=ca.sqrt(
+                #                 (x[k][platform, 0] - x[k][neighbor, 0]) ** 2
+                #                 + (x[k][platform, 1] - x[k][neighbor, 1]) ** 2
+                #             )
+                #         ).km
+                #         - self.r_deg.km / 2
+                #     )
+                #     ** 2
+                #     for neighbor in neighbors_idx
+                # ]
             #     potentials = [
-            #         F_pot(x_i=x[k][platform, :], x_j=x[k][neighbor, :])["potential_force"]
+            #         (
+            #             units.Distance(deg=ca.norm_2(x[k][platform, :] - x[k][neighbor, :])).km
+            #             - self.r_deg.km / 2
+            #         )
+            #         ** 2
             #         for neighbor in neighbors_idx
             #     ]
+            #     # potentials = [
+            #     #     F_pot(x_i=x[k][platform, :], x_j=x[k][neighbor, :])["potential_force"]
+            #     #     for neighbor in neighbors_idx
+            #     # ]
             # objective.append(sum(potentials))
             # objective.append(ca.dot(u[k] - u_hj, u[k] - u_hj))
         objective.append(ca.dot(u[0] - u_hj, u[0] - u_hj))
@@ -141,11 +170,16 @@ class MultiAgentOptim:
         )
 
         # Terminal cost
-
-        # objective.append(sum([
-        #             F_pot(x_i=x[H][platform, :], x_j=x[H][neighbor, :])["potential_force"]
-        #             for neighbor in neighbors_idx
-        #         ]))
+        # for platform in self.list_all_platforms:
+        #     neighbors_idx = np.argwhere(self.binary_adjacency[platform, :] > 0).flatten()
+        #     objective.append(
+        #         sum(
+        #             [
+        #                 F_pot(x_i=x[H][platform, :], x_j=x[H][neighbor, :])["potential_force"]
+        #                 for neighbor in neighbors_idx
+        #             ]
+        #         )
+        #     )
 
         # optimizer objective
         opti.minimize(sum(objective))
@@ -164,7 +198,8 @@ class MultiAgentOptim:
         opti.set_value(x_start, x_t[:, :2])
 
         # Optional: initialize variables for the optimizer
-        opti.set_initial(x[0], x_t[:, :2])
+        for k in range(H):
+            opti.set_initial(x[k], x_t[:, :2])
         opti.set_initial(u[0], u_hj)
 
         # opts = "halt_on_ampl_error yes"
@@ -209,20 +244,39 @@ class MultiAgentOptim:
         )
         return F_next
 
+    def pot_func_pltf_i(self, x_k, platform_id, platform_neighbors_id):
+        potentials = [
+            (
+                units.Distance(deg=ca.norm_2(x_k[platform_id, :] - x_k[neighbor_id, :])).km
+                - self.r_deg.km / 2
+            )
+            ** 2
+            for neighbor_id in platform_neighbors_id
+        ]
+        return sum(potentials)
+
     def potential_func(self):
         """Potential function responsible for the attraction repulsion behavior between platforms"""
         sym_x_i = ca.MX.sym("agent_i", 2)
         sym_x_j = ca.MX.sym("agent_j", 2)
-        r = ca.MX(self.r_deg.km)
-        norm_xij = units.Distance(
-            deg=(ca.sqrt((sym_x_i[0] - sym_x_j[0]) ** 2 + (sym_x_i[1] - sym_x_j[1])) ** 2)
-        ).km  # ca.norm_2(sym_x_i - sym_x_j)
+
+        pot_value = (units.Distance(deg=ca.norm_2(sym_x_i - sym_x_j)).km - self.r_deg.km / 2) ** 2
+
+        # r = ca.MX(self.r_deg.km)
+        # norm_xij = units.Distance(deg=ca.norm_2(sym_x_i - sym_x_j)).km
+        # norm_xij = units.Distance(
+        #     deg=(ca.sqrt((sym_x_i[0] - sym_x_j[0]) ** 2 + (sym_x_i[1] - sym_x_j[1])) ** 2)
+        # ).km  # ca.norm_2(sym_x_i - sym_x_j)
         # pot_value = ca.if_else(
         #     norm_xij <= r, self.pot_func_in_range(r=r, norm_xij=norm_xij), np.sqrt(norm_xij - r)
         # )
-        pot_value = ca.if_else(
-            norm_xij < r, (norm_xij - r / 2) ** 8, ca.log((norm_xij - r + 1) ** 2)
-        )
+        # d = r / 2
+        # pot_value = (norm_xij / d - 1) **2
+        # pot_value = (norm_xij - d) ** 2
+        # pot_value = ca.if_else(norm_xij < r, (norm_xij - r / 2) ** 8, 0)
+        # pot_value = ca.if_else(
+        #     norm_xij < r, (norm_xij - r / 2) ** 8, ca.log((norm_xij - r + 1) ** 2)
+        # )
         # # ca.if_else(norm_xij <= r, np.sqrt(r - norm_xij), np.sqrt(norm_xij - r))
         # pot_value = ca.log((norm_xij - r + 1) ** 2)  # (norm_xij - r / 2) ** 8
         # pot_value = ca.if_else(
@@ -248,3 +302,14 @@ class MultiAgentOptim:
             return r / (norm_xij * (r - norm_xij))
         except ZeroDivisionError:
             return 1e6
+
+    @staticmethod
+    def r(d):
+        return d * np.pi / 180
+
+    def dist_hav(self, x, y, x0, y0):
+        dlat = self.r(y - y0)
+        dlon = self.r(x - x0)
+        a = np.sin(dlat / 2) ** 2 + np.cos(self.r(y0)) * np.cos(self.r(y)) * np.sin(dlon / 2) ** 2
+        c = 2 * np.arcsin(np.sqrt(a))
+        return units.Distance(rad=c).km  # 6371 * c
