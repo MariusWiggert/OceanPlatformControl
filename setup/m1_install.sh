@@ -1,16 +1,15 @@
 #!/usr/bin/env zsh
 #conda init zsh
 
-
+# Create conda environment outside
 # conda create -y -n ocean_minimal python=3.9
 # conda activate ocean_minimal
 
-
+# Setup ready
 conda install -y -c jupyter cartopy ffmpeg
 pip install --upgrade pip
 pip install git+https://github.com/c3aidti/c3python
 pip install -r setup/requirements_minimal_m1.txt
-
 pip install -U numpy  
 
 # build casadi from source
@@ -25,19 +24,24 @@ sudo make install
 cd ../..
 sudo rm -r ./casadi/
 
+# Scipy installation
 conda install scipy 
 
-conda install -c -y apple tensorflow-deps
-pip install -y tensorflow-macos
-pip install -y tensorflow-metal
-
-
+# Tensorflow and JAX installation/upgrade
+conda install -c apple tensorflow-deps
+python -m pip install tensorflow-macos
+python -m pip install tensorflow-metal
 pip install --upgrade "jax[cpu]" 
 
-# hj_reachability needs to be installed after jax
-pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
+# Resolving matplotlib vs. numpy issue
+pip uninstall matplotlib
+pip install --no-cache-dir "matplotlib==3.4.3"
 
+# hj_reachability needs to be installed after jax (old link in comments for authentification error)
+# pip install --upgrade git+https://dti-devops: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@github.com/MariusWiggert/hj_reachability_c3.git
+pip install git+https://github.com//MariusWiggert/hj_reachability_c3.git
 
+# Install the ocean navigation package
 pip install -e .
 
 echo 'Environment installed'
