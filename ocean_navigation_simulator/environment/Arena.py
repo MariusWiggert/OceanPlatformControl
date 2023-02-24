@@ -311,7 +311,6 @@ class Arena:
             distance = self.bathymetry_source.DistanceArray.interp(
                 lat=point.lat.deg, lon=point.lon.deg
             ).data
-            print(distance, point.lat, point.lon)
             return distance < self.bathymetry_source.source_dict["distance"]["safe_distance"]
         elif self.bathymetry_source:
             if point is None:
