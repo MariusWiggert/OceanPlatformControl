@@ -644,7 +644,7 @@ class XarraySource(abc.ABC):
             ]
         # Step 1: Subset the xarray accordingly
         # Step 1.1 include buffers around of the grid granularity (assuming regular grid axis)
-        dt = self.DataArray["time"][1] - self.DataArray["time"][0]
+        dt = self.DataArray["time"][2] - self.DataArray["time"][0]
 
         # Ensure that dt is at least one day since some HYCOM files are missing some timesteps and we have to interpolate on the boundries (does not apply on average data)
         dt = max(dt, np.timedelta64(24, "h"))
