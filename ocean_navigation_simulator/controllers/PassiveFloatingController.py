@@ -3,7 +3,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 
 
-class PassiveFloatController(Controller):
+class PassiveFloatingController(Controller):
     """
     Passively floating controller, always puts out a no propulsion action
     """
