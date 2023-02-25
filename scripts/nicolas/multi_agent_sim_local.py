@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/test")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -28,7 +28,7 @@ NoObserver = {"observer": None}
 HJMultiTimeConfig = {
     "replan_every_X_seconds": None,
     "replan_on_new_fmrc": True,
-    "T_goal_in_seconds": 3600 * 24 * 4,  # 3d, 43200,     # 12h
+    "T_goal_in_seconds": 3600 * 24 * 5,  # 3d, 43200,     # 12h
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
     "ctrl_name": "ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner",
@@ -65,7 +65,7 @@ multiAgentOptimConfig = {
 }
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
+    "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -103,6 +103,67 @@ missionConfig = {
     ],
     "x_T": {"lat": 24.35, "lon": -82.3},
 }
+
+# mission failing for flocking nr 285
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.69220733642578,
+#             "lon": -87.30220794677734,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.64868927001953,
+#             "lon": -87.34028625488281,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.60809898376465,
+#             "lon": -87.39879608154297,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.57320785522461,
+#             "lon": -87.39673614501953,
+#         },
+#     ],
+#     "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+# }
+
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.12441062927246,
+#             "lon": -88.06990814208984,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.154739379882812,
+#             "lon": -88.0869369506836,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.101789474487305,
+#             "lon": -88.0881118774414,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.100204467773438,
+#             "lon": -88.09916687011719,
+#         },
+#     ],
+#     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
+# }
 # missionConfig = {
 #     "feasible": True,
 #     "seed": 571402,
@@ -341,7 +402,7 @@ fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours i
 plt.savefig(f"{results_folder}/graph_properties.png")
 
 plt.clf()
-arena.plot_all_on_map(problem=problem, show_control_trajectory=False)
+arena.plot_all_on_map(problem=problem, show_control_trajectory=False, margin=0.25, return_ax=True)
 plt.savefig(f"{results_folder}/state_trajectory.png")
 
 plt.clf()

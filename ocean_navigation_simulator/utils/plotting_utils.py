@@ -119,6 +119,7 @@ def animate_trajectory(
                     marker="*",  # marker,if different markers wished for each platform
                     s=150,
                     label="Trajectories end" if k == 0 else None,
+                    zorder=5,
                 )
             else:
                 idx = np.searchsorted(a=state_trajectory[k, 2, :], v=time)
@@ -131,6 +132,7 @@ def animate_trajectory(
                 linewidth=kwargs.get("traj_linewidth", 3),
                 linestyle=kwargs.get("traj_linestyle", "--"),
                 label="State Trajectory" if k == 0 else "",
+                zorder=5,
             )
             ax.scatter(
                 traj_to_plot[0, 0],
@@ -139,6 +141,7 @@ def animate_trajectory(
                 marker="o",  # marker,if different markers wished for each platform
                 s=150,
                 label="Start for platforms" if k == 0 else None,
+                zorder=6,
             )
             # plot the control arrow for the specific time
             ax.scatter(
@@ -147,6 +150,7 @@ def animate_trajectory(
                 c=kwargs.get("x_t_marker_color", "m"),
                 marker="o",
                 s=kwargs.get("x_t_marker_size", 20),
+                zorder=7,
             )
             ax.quiver(
                 state_trajectory[k, 0, idx],
@@ -156,6 +160,7 @@ def animate_trajectory(
                 color=kwargs.get("ctrl_color", "magenta"),
                 scale=kwargs.get("ctrl_scale", 5),
                 label="Control" if k == 0 else "",
+                zorder=8,
             )
         # plot the goal
         if problem is not None:

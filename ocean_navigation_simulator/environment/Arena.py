@@ -533,6 +533,7 @@ class Arena:
                 scale=control_vec_scale,
                 angles="xy",
                 label="Control Input of platform" if k == 0 else "",
+                zorder=8,
             )
 
         return ax
@@ -611,6 +612,7 @@ class Arena:
                 color=color,
                 linewidth=1,
                 label="State Trajectory" if k == 0 else "",
+                zorder=7,
             )
 
         return ax
@@ -634,7 +636,7 @@ class Arena:
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
         background: Optional[str] = "current",
-        index: Optional[int] = 0,
+        index: Optional[int] = -1,
         show_current_position: Optional[bool] = True,
         current_position_color: Optional[str] = "black",
         # State
@@ -700,8 +702,9 @@ class Arena:
                 self.state_trajectory[:, 1, index],
                 c=current_position_color,
                 marker="*",
-                s=50,
+                s=30,
                 label="Current positions",
+                zorder=6,
             )
 
         if problem is not None:

@@ -87,7 +87,7 @@ class NavigationProblem(Problem):
             c=problem_start_color,
             marker="o",
             label="start platforms",
-            s=start_size if self.nb_platforms == 1 else 25,
+            s=start_size if self.nb_platforms == 1 else 30,
             zorder=6,
         )
 

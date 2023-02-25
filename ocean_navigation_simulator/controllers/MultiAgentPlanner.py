@@ -181,7 +181,11 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def _get_action_hj_with_multi_ag_optim(
         self, observation: ArenaObservation
     ) -> PlatformActionSet:
-
+        # action_list.append(
+        #         self.hj.get_action_over_horizon(
+        #             observation=observation[k], horizon=3, dt_in_sec=600
+        #         )[0]
+        #     )
         hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
         hj_xy_propulsion_arr = np.array([hj_input.to_xy_propulsion() for hj_input in hj_actions])
         multi_ag_optim = MultiAgentOptim(

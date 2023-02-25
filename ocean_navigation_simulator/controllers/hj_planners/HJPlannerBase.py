@@ -162,6 +162,53 @@ class HJPlannerBase(Controller):
         self.logger.debug(f"HJPlannerBase: Get Action from Plan ({time.time() - start:.1f}s)")
         return action
 
+    def get_action_over_horizon(
+        self, observation: ArenaObservation, horizon: int, dt_in_sec: int
+    ) -> List[PlatformAction]:
+
+        # Step 1: Check if we should re-plan based on specified criteria
+        self.replan_if_necessary(observation)
+        t_start = observation.platform_state.date_time.timestamp()
+        x_start = self.get_x_from_full_state(observation.platform_state)
+        dt_in_sec = self.specific_settings["platform_dict"]["dt_in_s"]
+        # Step 2: return the action from the plan
+        backtracking_reach_times, backtracking_all_values = [
+            np.flip(seq, axis=0) for seq in [self.reach_times, self.all_values]
+        ]
+        t_rel_stop = t_start - self.current_data_t_0 + self.reach_times[0]
+        t_rel_start = self.reach_times[-1]
+        if t_rel_start <= t_rel_stop:
+            raise ValueError("t_start is after the last time a value function is available.")
+
+        traj_rel_times_vector = np.arange(
+            start=t_rel_start,
+            stop=t_rel_stop,
+            step=dt_in_sec if self.specific_settings["direction"] == "forward" else -dt_in_sec,
+        )
+
+        shortend = traj_rel_times_vector[-horizon:]
+        start = time.time()
+        (
+            times,
+            x_traj,
+            contr_seq,
+            distr_seq,
+        ) = self.nondim_dynamics.dimensional_dynamics.backtrack_trajectory(
+            grid=self.grid,
+            x_init=x_start,
+            times=backtracking_reach_times,
+            all_values=backtracking_all_values,
+            traj_times=shortend,
+        )
+        self.logger.debug(f"HJPlannerBase: Get Action from Plan ({time.time() - start:.1f}s)")
+        x_traj, contr_seq, distr_seq = [
+            np.flip(seq, axis=1) for seq in [x_traj, contr_seq, distr_seq]
+        ]
+        return [
+            PlatformAction(magnitude=contr_seq[0, idx], direction=contr_seq[1, idx])
+            for idx in range(horizon - 1)
+        ]
+
     def replan_if_necessary(self, observation: ArenaObservation) -> bool:
         if self._check_for_replanning(observation):
             if "load_plan" in self.specific_settings and self.specific_settings["load_plan"]:

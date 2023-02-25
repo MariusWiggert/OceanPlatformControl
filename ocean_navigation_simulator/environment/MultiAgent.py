@@ -129,7 +129,7 @@ class MultiAgent:
             weight="weight",
         )
 
-        # Build a communication threshoded graph (edges for which distance exceed communication threshold are discarded)
+        # Build a communication thresholded graph (edges for which distance exceed communication threshold are discarded)
         self.G_communication = nx.Graph()
         self.G_communication.add_nodes_from(nodes)
         edges_remaining = [

@@ -76,6 +76,10 @@ class MultiAgentOptim:
         dt = self.dt_in_s
         H = self.optim_horizon
         T = dt * H  # horizon in seconds
+        max_mag_to_u_hj = (
+            np.linalg.norm(2 * u_hj, "fro") ** 2 / self.nb_platforms
+        )  # np.dot(2 * u_hj, 2 * u_hj)
+        scaling_pot_func = max_mag_to_u_hj * 5
         # declare decision variables
         # For now 2 State system (X, Y), not capturing battery or seaweed mass
         x = [opti.variable(self.nb_platforms, 2) for _ in range(H + 1)]
@@ -118,10 +122,12 @@ class MultiAgentOptim:
 
             for platform in self.list_all_platforms:
                 # neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
+                # neighbors_idx = np.argwhere(self.binary_adjacency[platform, :] > 0).flatten()  #
                 neighbors_idx = np.argwhere(
-                    self.binary_adjacency[platform, :] > 0
-                ).flatten()  # np.argwhere((self.adjacency_mat[platform, :] < self.r_deg.m*1.4) & (self.adjacency_mat[platform,:]>0)).flatten()
-                potential = self.pot_func_pltf_i(
+                    (self.adjacency_mat[platform, :] < self.r_deg.m * 1.2)
+                    & (self.adjacency_mat[platform, :] > 0)
+                ).flatten()
+                potential = scaling_pot_func * self.pot_func_pltf_i(
                     x_k=x[k], platform_id=platform, platform_neighbors_id=neighbors_idx
                 )
                 objective.append(potential)
@@ -170,6 +176,16 @@ class MultiAgentOptim:
         )
 
         # Terminal cost
+        # for platform in self.list_all_platforms:
+        #     # neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
+        #     neighbors_idx = np.argwhere(
+        #         self.binary_adjacency[platform, :] > 0
+        #     ).flatten()  # np.argwhere((self.adjacency_mat[platform, :] < self.r_deg.m*1.4) & (self.adjacency_mat[platform,:]>0)).flatten()
+        #     potential = scaling_pot_func * self.pot_func_pltf_i(
+        #         x_k=x[H], platform_id=platform, platform_neighbors_id=neighbors_idx
+        #     )
+        #     objective.append(potential)
+
         # for platform in self.list_all_platforms:
         #     neighbors_idx = np.argwhere(self.binary_adjacency[platform, :] > 0).flatten()
         #     objective.append(
@@ -245,12 +261,15 @@ class MultiAgentOptim:
         return F_next
 
     def pot_func_pltf_i(self, x_k, platform_id, platform_neighbors_id):
+        ideal_dist = self.r_deg.km / 2
         potentials = [
             (
-                units.Distance(deg=ca.norm_2(x_k[platform_id, :] - x_k[neighbor_id, :])).km
-                - self.r_deg.km / 2
+                1
+                / ideal_dist
+                * units.Distance(deg=ca.norm_2(x_k[platform_id, :] - x_k[neighbor_id, :])).km
+                - 1
             )
-            ** 2
+            ** 6
             for neighbor_id in platform_neighbors_id
         ]
         return sum(potentials)
