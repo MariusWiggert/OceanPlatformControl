@@ -478,7 +478,7 @@ class HJPlannerBase(Controller):
 
         # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
         self.nondim_dynamics.tau_c = min(
-            T_max_in_seconds, int(self.current_data_t_T - self.current_data_t_0)
+            T_max_in_seconds, int(self.current_data_t_T - t_start.timestamp())
         )
         # This is in relative seconds since current data t_0
         self.nondim_dynamics.t_0 = t_start.timestamp() - self.current_data_t_0
