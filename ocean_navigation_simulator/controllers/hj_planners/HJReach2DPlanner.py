@@ -47,11 +47,17 @@ class HJReach2DPlanner(HJPlannerBase):
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
         # initialize grid using the grids_dict x-y shape as shape
+        # Boundary
+        def dirichlet(x, pad_width: int):
+            return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=3.0)
+        from hj_reachability.boundary_conditions import constant_at_edges
+
         self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
                 lo=np.array([xarray["lon"][0].item(), xarray["lat"][0].item()]),
                 hi=np.array([xarray["lon"][-1].item(), xarray["lat"][-1].item()]),
             ),
+            boundary_conditions=(dirichlet, dirichlet),
             shape=(xarray["lon"].size, xarray["lat"].size),
         )
 

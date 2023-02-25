@@ -98,7 +98,7 @@ class DynamicsAndObservationModel(abc.ABC):
         )
 
         return np.logical_or(x_boundary, y_boundary)
-#%% Using it:
+#% Using it:
 # initialize the model
 model = DynamicsAndObservationModel(cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
 # get the currents at two states (one state is: [x, y, t, period_time, v_amplitude]) states are in rows
@@ -115,7 +115,7 @@ print(observations) # those are currents in u and v direction at that state (noi
 print("Evaluate Observation likelihoods:")
 print(model.evaluate_observations(states=states, observations=observations))
 
-#%% Getting an initial state distribution
+#% Getting an initial state distribution
 platform_position = [0.1, 0.5, 0]
 
 period_time_range = [50, 100]
@@ -129,7 +129,7 @@ v_amplitude_samples = np.random.uniform(low=v_amplitude_range[0], high=v_amplitu
 # all equally weighted initial particles then are
 initial_particles = [platform_position + [period_time, v_amplitude] for period_time, v_amplitude in zip(period_time_samples, v_amplitude_samples)]
 
-#%% heuristic action policy ('naive to target')
+#% heuristic action policy ('naive to target')
 class HeuristicPolicy:
     """Heuristic policy to go to a target."""
     def __init__(self, target: np.array):
@@ -146,12 +146,12 @@ class HeuristicPolicy:
         # discretize the angle
         actions = np.round(angle_to_target / (np.pi / 4)).astype(int)
         return actions
-#%% Get the action for a state
+#% Get the action for a state
 print("Heuristic policy:")
 print(HeuristicPolicy(target=np.array([0, 0.5])).get_action(states=np.array(initial_particles)))
 print("Same actions are expected because the platform position for all of them is the same, currents are ignored.")
 
-#%% define a navigation problem to be solved
+#% define a navigation problem to be solved
 # reward function: Option 1: just negative distance to target at each point in time
 class RewardFunction:
     def __init__(self, target: np.array, target_radius: float = 0.05):
@@ -180,26 +180,26 @@ class TimeRewardFunction(RewardFunction):
         # return the negative distance
         return -1 + np.where(np.linalg.norm(states[:, :2] - self.target, axis=1) < self.target_radius, 100, 0)
 
-#%% Run a simulation with the heuristic policy (Your planner only needs to implement the get_action function)
+#% Run a simulation with the heuristic policy (Your planner only needs to implement the get_action function)
 # Initialize the simulator of reality (this takes a bit, it performs caching of currents under the hood)
 u_max = 0.1
-dt_sim = 0.1
+dt_sim = 0.03
 timeout_of_simulation = 100 # in seconds
 
 arenaConfig = {
-    "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 1000.0},
+    "casadi_cache_dict": {"deg_around_x_t": 2., "time_around_x_t": 50.0},
     "ocean_dict": {
         "hindcast": {
             "field": "OceanCurrents",
             "source": "analytical",
             "source_settings": {
                 "name": "PeriodicDoubleGyre",
-                "boundary_buffers": [0.2, 0.2],
-                "x_domain": [-0, 2],
-                "y_domain": [-0, 1],
-                "temporal_domain": [-10, 1000],  # will be interpreted as POSIX timestamps
-                "spatial_resolution": 0.05,
-                "temporal_resolution": 10,
+                "boundary_buffers": [0.0, 0.0],
+                "x_domain": [0, 2],
+                "y_domain": [0, 1.],
+                "temporal_domain": [0, 100],  # will be interpreted as POSIX timestamps
+                "spatial_resolution": 0.02,
+                "temporal_resolution": 0.05,
                 "v_amplitude": 0.5,
                 "epsilon_sep": 0.2,
                 "period_time": 50}
@@ -224,22 +224,22 @@ arenaConfig = {
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 arena = ArenaFactory.create(scenario_config=arenaConfig)
-#%% Working with the arena object
+#% Working with the arena object
 # visualize the true currents at a specific time
-posix_time = 0
-arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=datetime.datetime.fromtimestamp(posix_time, tz=datetime.timezone.utc),
-    x_interval=[0, 2],
-    y_interval=[0, 1],
-)
+# posix_time = 0
+# arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=datetime.datetime.fromtimestamp(posix_time, tz=datetime.timezone.utc),
+#     x_interval=[-0.4, 2.4],
+#     y_interval=[-0.2, 1.2],
+# )
 # render an animation of the true currents
-arena.ocean_field.hindcast_data_source.animate_data(
-    x_interval=[0, 2],
-    y_interval=[0, 1],
-    t_interval=[0, 500],
-    output="test_analytical_current_animation.mp4", # this is saved under the "generated_media" folder
-)
-#%% This is how to run closed-loop simulations
+# arena.ocean_field.hindcast_data_source.animate_data(
+#     x_interval=[0, 2],
+#     y_interval=[0, 1],
+#     t_interval=[0, 500],
+#     output="test_analytical_current_animation.mp4", # this is saved under the "generated_media" folder
+# )
+#% This is how to run closed-loop simulations
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.Arena import PlatformAction
@@ -273,7 +273,7 @@ observation = arena.reset(platform_state=problem.start_state)
 # use the heuristic policy
 controller = HeuristicPolicy(target=target_position)
 # set initial problem status
-problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
+problem_status = 0  # 0: running, 1: success, -1: timeout, -3: out of bounds
 #%% The main simulation loop
 total_reward = 0
 # can also run it for a fixed amount of steps
@@ -295,6 +295,8 @@ while problem_status == 0:
 
 print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
 print("Final reward:", total_reward)
+# With Heuristic Policy: -839 (a lot of detours) after 40.6 seconds
+# with best in hindsight for the Heuristic Controller
 #%% visualize the trajectory as 2D plot
 arena.plot_all_on_map(problem=problem)
 #%% render animation of the closed-loop trajectory
@@ -302,34 +304,50 @@ arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", #
                          temporal_resolution=0.1)
 
 #%% The true time-optimal controller using reachability value function closed loop
+observation = arena.reset(platform_state=problem.start_state)
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import HJReach2DPlanner
 specific_settings = {
     "replan_on_new_fmrc": False,
     "direction": "multi-time-reach-back",
     "n_time_vector": 200,
     "closed_loop": True,  # to run closed-loop or open-loop
-    "T_goal_in_seconds": 30,
+    "T_goal_in_seconds": 10, # this led to issues because the temporal resolution of the source was 1!
     "use_geographic_coordinate_system": False,
     "progress_bar": True,
-    "grid_res": 0.05,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    "deg_around_xt_xT_box": 2.0,
+    "grid_res": 0.02,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
 }
 hj_controller = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
-#%% run hj to compute the value function on the true currents
+#% run hj to compute the value function on the true currents
 _ = hj_controller.get_action(observation=observation)
+#%% vizualize the value function
+import hj_reachability as hj
+hj.viz.visFunc(hj_controller.grid, hj_controller.all_values[0,...])
 #%%
 hj_controller.plot_reachability_snapshot(
-    rel_time_in_seconds=29,
-    granularity_in_h=1/3600,
+    rel_time_in_seconds=0,
+    granularity_in_h=1,
     alpha_color=1,
-    time_to_reach=True,
+    time_to_reach=False,
     fig_size_inches=(12, 12),
-    plot_in_h=True,
+    plot_in_h=False,
 )
 #%%
-hj_controller.plot_reachability_animation(time_to_reach=True, granularity_in_h=1/3600, filename="test_reach_animation.mp4")
+hj_controller.grid.boundary_conditions
+#%%
+hj_controller.plot_reachability_animation(time_to_reach=False,
+                                          plot_in_h=False,
+                                          temporal_resolution=0.1,
+                                          with_background=True,
+                                          filename="test_reach_animation.mp4")
 #%% run closed-loop simulation
+problem_status = 0
 total_reward = 0
-while problem_status == 0:
+from tqdm import tqdm
+for i in tqdm(range(300)):
+    if problem_status != 0:
+        break
+# while problem_status == 0:
     # extract action and current measurement from observation
     x_t = np.array(observation.platform_state)[:3].reshape(1,-1) # as x, y, t numpy array
     total_reward += reward_class.get_reward(x_t)[0]
@@ -344,5 +362,9 @@ while problem_status == 0:
 
 print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
 print("Final reward:", total_reward)
+# final reward is: -330... but not compareable to above yet.
 #%%
 arena.plot_all_on_map(problem=problem)
+#%%
+arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", # this is saved under the "generated_media" folder
+                         temporal_resolution=0.1)

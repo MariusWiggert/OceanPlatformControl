@@ -943,8 +943,9 @@ class AnalyticalSource(abc.ABC):
         )
 
         # Step 2.2 Temporal grid in POSIX TIME. We want a regular grid hence the floor to two decimals.
+        lower_with_t_res_grid = np.floor((t_interval[0] - temporal_resolution) * 100) / 100
         t_grid = np.arange(
-            start=np.floor((t_interval[0] - temporal_resolution) * 100) / 100,
+            start=max(ranges_dict["t_range"][0].timestamp(), lower_with_t_res_grid),
             stop=t_interval[1] + 1.1 * temporal_resolution,
             step=temporal_resolution,
         )
@@ -971,18 +972,18 @@ class AnalyticalSource(abc.ABC):
 
     def obstacle_operator(
         self,
-        state: List[float],
+        state: jnp.array,
         time: float,
         dx_out: float
     ) -> jnp.array:
         """Helper function to check if a state is in the boundary specified in hj as obstacle."""
-        x_boundary = jnp.logical_or(
-            state[0] < self.x_domain[0] + self.spatial_boundary_buffers[0],
-            state[0] > self.x_domain[1] - self.spatial_boundary_buffers[0],
+        in_x_boundary = jnp.logical_or(
+            state[...,0] < self.x_domain[0] + self.spatial_boundary_buffers[0],
+            state[...,0] > self.x_domain[1] - self.spatial_boundary_buffers[0],
         )
-        y_boundary = jnp.logical_or(
-            state[1] < self.y_domain[0] + self.spatial_boundary_buffers[1],
-            state[1] > self.y_domain[1] - self.spatial_boundary_buffers[1],
+        in_y_boundary = jnp.logical_or(
+            state[...,1] < self.y_domain[0] + self.spatial_boundary_buffers[1],
+            state[...,1] > self.y_domain[1] - self.spatial_boundary_buffers[1],
         )
 
-        return jnp.where(jnp.logical_or(x_boundary, y_boundary), 0, dx_out)
+        return jnp.where(jnp.logical_or(in_x_boundary, in_y_boundary), 0, dx_out)

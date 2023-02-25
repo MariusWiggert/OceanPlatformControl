@@ -479,7 +479,7 @@ class HJPlannerBase(Controller):
 
         # set the time_scales and offset in the non_dim_dynamics in which the PDE is solved
         self.nondim_dynamics.tau_c = min(
-            T_max_in_seconds, int(self.current_data_t_T - self.current_data_t_0)
+            T_max_in_seconds, int(self.current_data_t_T - self.current_data_t_0) # THIS might be an issue! the 2nd part!
         )
         # This is in relative seconds since current data t_0
         self.nondim_dynamics.t_0 = t_start.timestamp() - self.current_data_t_0
@@ -488,7 +488,7 @@ class HJPlannerBase(Controller):
         self.initial_values = initial_values
 
         # set up the non_dimensional time-vector for which to save the value function
-        solve_times = np.linspace(0, 1, self.specific_settings["n_time_vector"] + 1)
+        solve_times = np.linspace(0, 1, self.specific_settings["n_time_vector"] + 1)*self.specific_settings['T_goal_in_seconds']
 
         self.logger.info(f"HJPlannerBase: Running {dir}")
 
@@ -505,6 +505,13 @@ class HJPlannerBase(Controller):
             # write multi_reach hamiltonian postprocessor
             def multi_reach_step(mask, val):
                 val = jnp.where(mask <= 0, -1, val)
+                # obstacle hack
+                # if self.last_data_source.source_config_dict["source"] == 'analytical':
+                #     val = jnp.where(
+                #         self.last_data_source.obstacle_operator(self.grid.states, time=0, dx_out=-1)+1,
+                #         0,
+                #         val,
+                #     )
                 return val
 
             # combine it with partial sp the mask input gets fixed and only val is open
@@ -528,8 +535,8 @@ class HJPlannerBase(Controller):
         start = time.time()
         non_dim_reach_times, self.all_values = hj.solve(
             solver_settings=solver_settings,
-            dynamics=self.nondim_dynamics,
-            grid=self.nonDimGrid,
+            dynamics=self.nondim_dynamics.dimensional_dynamics,
+            grid=self.grid,
             times=solve_times,
             initial_values=initial_values,
             progress_bar=self.specific_settings["progress_bar"],
@@ -537,9 +544,9 @@ class HJPlannerBase(Controller):
         self.logger.info(f"HJPlannerBase: hj.solve finished ({time.time() - start:.1f}s)")
 
         # scale up the reach_times to be dimensional_times in seconds again
-        self.reach_times = (
-            non_dim_reach_times * self.nondim_dynamics.tau_c + self.nondim_dynamics.t_0
-        )
+        self.reach_times = non_dim_reach_times
+        #     non_dim_reach_times * self.nondim_dynamics.tau_c + self.nondim_dynamics.t_0
+        # )
 
     def _get_t_earliest_for_target_region(self) -> Tuple:
         """Helper Function to get the earliest time the forward reachable set overlaps with the target region."""
@@ -924,7 +931,7 @@ class HJPlannerBase(Controller):
         plot_in_h: bool = True,
         granularity_in_h: int = 1,
         filename: AnyStr = "reachability_animation.mp4",
-        temporal_resolution: Optional[int] = None,
+        temporal_resolution: Optional[float] = None,
         spatial_resolution: Optional[float] = None,
         with_opt_ctrl: Optional[bool] = False,
         forward_time: Optional[bool] = False,

@@ -47,7 +47,7 @@ class Platform2dForSim(dynamics.Dynamics):
         # initialize the current interpolants with None, they are set in the planner method
         self.x_current, self.y_current = None, None
 
-        # # obstacle operator (is overwritten if analytical_current with boundary obstacles)
+        # obstacle operator (is overwritten if analytical_current with boundary obstacles)
         self.obstacle_operator = lambda state, time, dx_out: dx_out
 
         control_space = sets.Box(lo=jnp.array([0, 0]), hi=jnp.array([1.0, 2 * jnp.pi]))
