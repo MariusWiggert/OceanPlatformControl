@@ -21,9 +21,9 @@ model:
 
 dataset_writer:
   source: "copernicus"
-  dataset_type: "hindcast"
+  dataset_type: "forecast"
   input: "area1"
-  output: "area1"
+  output: "area1_presentation_sim"
 
 buoy_config:
   copernicus:
@@ -31,15 +31,11 @@ buoy_config:
       # drifter
       download_index_files: False
       host: "nrt.cmems-du.eu"
-      product: "INSITU_GLO_UV_NRT_OBSERVATIONS_013_048"
-      name: "drifter"
+      # https://data.marine.copernicus.eu/product/INSITU_GLO_PHY_UV_DISCRETE_NRT_013_048/services
+      product: "INSITU_GLO_PHY_UV_DISCRETE_NRT_013_048"
+      name: "cmems_obs-ins_glo_phy-cur_nrt_drifter_irr"
       index_files: ["index_latest.txt", "index_monthly.txt", "index_history.txt"]
       index_platform: "index_platform.txt"
-      # # argo
-      # host: "nrt.cmems-du.eu"
-      # product: "INSITU_GLO_UV_NRT_OBSERVATIONS_013_048"
-      # name: "argo"
-      # index_files: ["index_latest.txt"]
     area_overlap_type: "intersects"
     lon_range: [ -146.25, -125 ]
     lat_range: [ 15, 36.25 ]
