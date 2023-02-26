@@ -522,7 +522,7 @@ class ArenaFactory:
                             filesize=filesize,
                             actual_filesize=os.path.getsize(download_folder + filename),
                         )
-                    else:
+                    elif file.subsetOptions:
                         # check valid xarray file and meta length
                         try:
                             # Check valid xarray
@@ -546,6 +546,15 @@ class ArenaFactory:
                                     ge=grid_dict_list["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
                                 )
 
+                        except Exception:
+                            error = f"Corrupted file: '{filename}'."
+                    else:
+                        # check valid xarray file
+                        try:
+                            # Check valid xarray
+                            grid_dict_list = get_grid_dict_from_file(
+                                temp_folder + filename, currents="total"
+                            )
                         except Exception:
                             error = f"Corrupted file: '{filename}'."
 
