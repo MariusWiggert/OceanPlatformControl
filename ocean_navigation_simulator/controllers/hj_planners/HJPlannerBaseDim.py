@@ -485,8 +485,10 @@ class HJPlannerBaseDim(Controller):
 
         n_time_vector = self.specific_settings["n_time_vector"]
 
+        t_0 = t_start.timestamp() - self.current_data_t_0
+
         # set up the dimensional time-vector for which to save the value function
-        solve_times = np.linspace(0, T_max_in_seconds, n_time_vector + 1)
+        solve_times = np.linspace(t_0, T_max_in_seconds, n_time_vector + 1)
 
         self.logger.info(f"HJPlannerBase: Running {dir}")
 
@@ -532,9 +534,6 @@ class HJPlannerBaseDim(Controller):
             initial_values=initial_values,
             progress_bar=self.specific_settings["progress_bar"],
         )
-
-        # Shift reach times since first temporal value on grid is aligned with t_0 of current data and not with t_start
-        self.reach_times = self.reach_times + t_start.timestamp() - self.current_data_t_0
 
         self.logger.info(f"HJPlannerBase: hj.solve finished ({time.time() - start:.1f}s)")
 
