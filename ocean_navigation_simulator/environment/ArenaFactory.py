@@ -435,7 +435,7 @@ class ArenaFactory:
             # substracting 1 day is more safe in case the file doesn't start at midnight (e.g. Copernicus)
             start_min = f"{t_interval[0] - datetime.timedelta(days=1)}"
             start_max = f"{t_interval[1]}"
-            _check_spacial_coverage"'
+            time_filter = f' && forecastDate >= "{start_min}" && forecastDate <= "{start_max}"'
         else:
             # accepting t_interval = None allows to download the whole file list for analysis
             time_filter = ""
