@@ -276,13 +276,16 @@ class MissionGenerator:
 
         # Step 3: Reject if to close to land
         distance_to_shore = self.distance_to_area(fake_target, "bathymetry")
-        if "min_distance_from_land" in self.config:
-            if distance_to_shore < self.config["min_distance_from_land"]:
-                self.performance["target_resampling"] += 1
-                logger.warning(
-                    f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
-                )
-                return False
+
+        if (
+            "min_distance_from_land" in self.config
+            and distance_to_shore < self.config["min_distance_from_land"]
+        ):
+            self.performance["target_resampling"] += 1
+            logger.warning(
+                f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
+            )
+            return False
 
         # Reject if too safe because too far to land and garbage
         if (
@@ -307,6 +310,16 @@ class MissionGenerator:
                     f"Target aborted because too far to land and garbage (too safe): {fake_target.to_spatial_point()} = {distance_to_shore}, {distance_to_garbage}."
                 )
                 return False
+        # If we do not check for garbage but want to reject too safe missions
+        elif (
+            "max_distance_from_land" in self.config
+            and distance_to_shore > self.config["max_distance_from_land"]
+        ):
+            self.performance["target_resampling"] += 1
+            logger.warning(
+                f"Target aborted because too far from land: {fake_target.to_spatial_point()} = {distance_to_shore}."
+            )
+            return False
 
         ##### Step 3: Run multi-time-back HJ Planner #####
         try:
