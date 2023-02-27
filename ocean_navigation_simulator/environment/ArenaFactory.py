@@ -419,63 +419,36 @@ class ArenaFactory:
         if c3 is None:
             c3 = get_c3()
 
-        # for NOAA it's a bit different for fetching them
-        if archive_source.lower() == "noaa":
-            fetch_results = ArenaFactory._get_noaa_filelist(archive_type, t_interval, c3)
-            return fetch_results
-
-        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
-
-        c3_file_type = getattr(
-            c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
-        )
+        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast", "nowcast": "Nowcast"}
 
         # Step 3: Execute Query
         if t_interval is not None:
             # substracting 1 day is more safe in case the file doesn't start at midnight (e.g. Copernicus)
             start_min = f"{t_interval[0] - datetime.timedelta(days=1)}"
             start_max = f"{t_interval[1]}"
-            time_filter = f' && forecastDate >= "{start_min}" && forecastDate <= "{start_max}"'
+            time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
         else:
             # accepting t_interval = None allows to download the whole file list for analysis
             time_filter = ""
 
+        # for NOAA it's a bit different for fetching them
+        if archive_source.lower() == "noaa":
+            c3_file_type = getattr(
+                c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
+            )
+            region_filter_str = f'contains(archive.{"description" if region=="GOM" else "name"}, "{region}") && '
+        else:
+            c3_file_type = getattr(
+                c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
+            )
+            region_filter_str = ""
+
         return c3_file_type.fetch(
             spec={
-                "filter": f'contains(archive.{"description" if region=="GOM" else "name"}, "{region}") && status == "downloaded"{time_filter}',
+                "filter": f'{region_filter_str}status == "downloaded"{time_filter}',
                 "order": "ascending(subsetOptions.timeRange.start)",
             }
         )
-
-    @staticmethod
-    def _get_noaa_filelist(
-        archive_type: str,
-        t_interval: List[datetime.datetime] = None,
-        c3: Optional = None,):
-
-        # Step 1: get c3 filetype
-        archive_types = {"forecast": "Forecast", "nowcast": "Nowcast"}
-        c3_file_type = getattr(
-            c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
-        )
-
-        # Step 3: Execute Query
-        if t_interval is not None:
-            # substracting 1 day is more safe in case a file does not exist for the given date
-            start_min = f"{t_interval[0] - datetime.timedelta(days=1)}"
-            start_max = f"{t_interval[1]}"
-            time_filter = f' && forecastDate >= "{start_min}" && forecastDate <= "{start_max}"'
-        else:
-            # accepting t_interval = None allows to download the whole file list for analysis
-            time_filter = ""
-
-        return c3_file_type.fetch(
-            spec={
-                "filter": f'status == "downloaded"{time_filter}',
-                "order": "ascending(forecastDate)",
-            }
-        )
-
 
     @staticmethod
     def _download_filelist(
