@@ -433,15 +433,16 @@ class ArenaFactory:
 
         # for NOAA it's a bit different for fetching them
         if archive_source.lower() == "noaa":
+            archive_types["forecast"] = "Forecast"
             c3_file_type = getattr(
                 c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
             )
-            region_filter_str = f'contains(archive.{"description" if region=="GOM" else "name"}, "{region}") && '
+            region_filter_str = ""
         else:
             c3_file_type = getattr(
                 c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
             )
-            region_filter_str = ""
+            region_filter_str = f'contains(archive.{"description" if region == "GOM" else "name"}, "{region}") && '
 
         return c3_file_type.fetch(
             spec={
