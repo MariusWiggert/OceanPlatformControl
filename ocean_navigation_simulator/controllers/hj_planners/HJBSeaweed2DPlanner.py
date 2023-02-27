@@ -34,6 +34,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
     SpatioTemporalPoint,
 )
+from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import get_c3, timing_logger
 
@@ -53,7 +54,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     def __init__(
         self,
         arena: ArenaFactory,
-        problem: NavigationProblem,
+        problem: SeaweedProblem,
         specific_settings: Optional[Dict] = ...,
     ):
 
@@ -421,8 +422,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
         elif (
             self.specific_settings["precomputation"]
-            and self.specific_settings["dataSource"] == "HC_HYCOM"
-            or self.specific_settings["dataSource"] == "HC_Copernicus"
+            and self.specific_settings["dataSource"].lower() == "hc_hycom"
+            or self.specific_settings["dataSource"].lower() == "hc_copernicus"
         ):
             # Take also forecast data if we need to precompute the value function on HC data. We take the forecast data since if there is no forecast config provided in the arena config the hindcast is taken as forecast.
             data_xarray = observation.forecast_data_source.get_data_over_area(
@@ -433,7 +434,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
         elif (
             self.specific_settings["precomputation"]
-            and self.specific_settings["dataSource"] == "average"
+            and self.specific_settings["dataSource"].lower() == "average"
         ):
             # Take the average data if we need to precompute the value function on average data.
             data_xarray = observation.average_data_source.get_data_over_area(
@@ -883,7 +884,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     @staticmethod
     def from_saved_planner_state(
-        folder, problem: NavigationProblem, arena: ArenaFactory, verbose: Optional[int] = 0
+        folder, problem: SeaweedProblem, arena: ArenaFactory, verbose: Optional[int] = 0
     ):
         # Settings
         with open(folder + "specific_settings.pickle", "rb") as file:
