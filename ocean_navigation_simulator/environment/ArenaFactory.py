@@ -435,7 +435,7 @@ class ArenaFactory:
             # substracting 1 day is more safe in case the file doesn't start at midnight (e.g. Copernicus)
             start_min = f"{t_interval[0] - datetime.timedelta(days=1)}"
             start_max = f"{t_interval[1]}"
-            time_filter = f' && subsetOptions.timeRange.start >= "{start_min}" && subsetOptions.timeRange.start <= "{start_max}"'
+            _check_spacial_coverage"'
         else:
             # accepting t_interval = None allows to download the whole file list for analysis
             time_filter = ""
@@ -522,7 +522,8 @@ class ArenaFactory:
                             filesize=filesize,
                             actual_filesize=os.path.getsize(download_folder + filename),
                         )
-                    elif file.subsetOptions:
+                    # check if file has attribute "subsetOptions" in a robust way
+                    elif hasattr(file, "subsetOptions"):
                         # check valid xarray file and meta length
                         try:
                             # Check valid xarray
@@ -599,29 +600,33 @@ class ArenaFactory:
         """
         if points is not None:
             for file in files.objs:
-                spacial_coverage = file.subsetOptions.geospatialCoverage
-                for point in points:
-                    lon_covered = (
-                        spacial_coverage.start.longitude
-                        <= point.lon.deg
-                        <= spacial_coverage.end.longitude
-                    )
-                    lat_covered = (
-                        spacial_coverage.start.latitude
-                        <= point.lat.deg
-                        <= spacial_coverage.end.latitude
-                    )
-
-                    if not lon_covered or not lat_covered:
-                        logger.error(
-                            "The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
-                                point,
-                                spacial_coverage.start.longitude,
-                                spacial_coverage.end.longitude,
-                                spacial_coverage.start.latitude,
-                                spacial_coverage.end.latitude,
-                            )
+                # check if file has attribute "subsetOptions" in a robust way (Noaa files do not)
+                if hasattr(file, "subsetOptions"):
+                    spacial_coverage = file.subsetOptions.geospatialCoverage
+                    for point in points:
+                        lon_covered = (
+                            spacial_coverage.start.longitude
+                            <= point.lon.deg
+                            <= spacial_coverage.end.longitude
                         )
+                        lat_covered = (
+                            spacial_coverage.start.latitude
+                            <= point.lat.deg
+                            <= spacial_coverage.end.latitude
+                        )
+
+                        if not lon_covered or not lat_covered:
+                            logger.error(
+                                "The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
+                                    point,
+                                    spacial_coverage.start.longitude,
+                                    spacial_coverage.end.longitude,
+                                    spacial_coverage.start.latitude,
+                                    spacial_coverage.end.latitude,
+                                )
+                            )
+                else:
+                    break
 
     @staticmethod
     def analyze_files(archive_source, archive_type, region, true_length=False):
