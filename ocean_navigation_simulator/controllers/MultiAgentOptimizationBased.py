@@ -76,16 +76,23 @@ class MultiAgentOptim:
         dt = self.dt_in_s
         H = self.optim_horizon
         T = dt * H  # horizon in seconds
-        max_mag_to_u_hj = (
-            np.linalg.norm(2 * u_hj, "fro") ** 2 / self.nb_platforms
-        )  # np.dot(2 * u_hj, 2 * u_hj)
+        max_mag_to_u_hj = sum(
+            [
+                np.linalg.norm(2 * u_hj_pred_k, "fro") ** 2 / self.nb_platforms
+                for u_hj_pred_k in u_hj
+            ]
+        )
+
+        # (
+        #     np.linalg.norm(2 * u_hj[0], "fro") ** 2 / self.nb_platforms
+        # )  # np.dot(2 * u_hj, 2 * u_hj)
         scaling_pot_func = max_mag_to_u_hj * 5
         # declare decision variables
         # For now 2 State system (X, Y), not capturing battery or seaweed mass
-        x = [opti.variable(self.nb_platforms, 2) for _ in range(H + 1)]
+        x = [opti.variable(self.nb_platforms, 2) for _ in range(H)]
         # Decision variables for state trajetcory
         u = [
-            opti.variable(self.nb_platforms, 2) for _ in range(H)
+            opti.variable(self.nb_platforms, 2) for _ in range(H - 1)
         ]  # Decision variables for input trajectory
 
         # Parameters (not optimized over)
@@ -98,7 +105,7 @@ class MultiAgentOptim:
         F_pot = self.potential_func()
         # add the dynamics constraints
         objective = []
-        for k in range(H):
+        for k in range(H - 1):
             # State constraints to the map boundaries
             opti.subject_to(
                 opti.bounded(
@@ -157,20 +164,20 @@ class MultiAgentOptim:
             #     #     for neighbor in neighbors_idx
             #     # ]
             # objective.append(sum(potentials))
-            # objective.append(ca.dot(u[k] - u_hj, u[k] - u_hj))
-        objective.append(ca.dot(u[0] - u_hj, u[0] - u_hj))
+            objective.append(ca.dot(u[k] - u_hj[k], u[k] - u_hj[k]))
+        # objective.append(ca.dot(u[0] - u_hj[0], u[0] - u_hj[0]))
         # Terminal state constraint
         opti.subject_to(
             opti.bounded(
                 min(self.ocean_source.grid_dict["x_range"]),
-                x[H][:, 0],
+                x[H - 1][:, 0],
                 max(self.ocean_source.grid_dict["x_range"]),
             )
         )
         opti.subject_to(
             opti.bounded(
                 min(self.ocean_source.grid_dict["y_range"]),
-                x[H][:, 1],
+                x[H - 1][:, 1],
                 max(self.ocean_source.grid_dict["y_range"]),
             )
         )
@@ -204,7 +211,7 @@ class MultiAgentOptim:
         opti.subject_to(x[0] == x_start)
 
         # control constraints
-        for k in range(H):
+        for k in range(H - 1):
             opti.subject_to(u[k][:, 0] ** 2 + u[k][:, 1] ** 2 <= 1)
 
         # battery constraint
@@ -216,7 +223,8 @@ class MultiAgentOptim:
         # Optional: initialize variables for the optimizer
         for k in range(H):
             opti.set_initial(x[k], x_t[:, :2])
-        opti.set_initial(u[0], u_hj)
+        for k in range(H - 1):
+            opti.set_initial(u[k], u_hj[k])
 
         # opts = "halt_on_ampl_error yes"
         opti.solver("ipopt")

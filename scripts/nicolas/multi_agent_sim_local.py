@@ -65,7 +65,7 @@ multiAgentOptimConfig = {
 }
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
+    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -366,7 +366,9 @@ controller.plot_reachability_snapshot_over_currents(
 plt.show()
 
 # %% Plot useful metrics for multi-agent performance evaluation
-results_folder = os.path.join(save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"])
+results_folder = os.path.join(
+    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"] + "full_horiz"
+)
 os.makedirs(results_folder, exist_ok=True)
 
 with open(f"{results_folder}/missionConfig.yml", "w") as outfile:

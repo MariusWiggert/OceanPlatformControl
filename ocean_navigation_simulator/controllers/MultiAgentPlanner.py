@@ -186,18 +186,35 @@ class MultiAgentPlanner(HJReach2DPlanner):
         #             observation=observation[k], horizon=3, dt_in_sec=600
         #         )[0]
         #     )
-        hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
-        hj_xy_propulsion_arr = np.array([hj_input.to_xy_propulsion() for hj_input in hj_actions])
+        # hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
+        horizon = self.multi_agent_settings["multi_ag_optim"]["optim_horizon"]
+        hj_actions = [
+            self.hj.get_action_over_horizon(
+                observation=observation[k], horizon=horizon, dt_in_sec=600
+            )
+            for k in range(len(observation))
+        ]
+        # Obtain a list of length corresponding to the horizon
+        # Each element in the list is an action array with first dim: #platforms
+        # and second dim the [x y] propulsions
+        hj_in_xy_propulsion = [
+            np.array(
+                [hj_actions_of_pltf[step].to_xy_propulsion() for hj_actions_of_pltf in hj_actions]
+            )
+            for step in range(horizon - 1)
+        ]
         multi_ag_optim = MultiAgentOptim(
             observation=observation,
             param_dict=self.multi_agent_settings["multi_ag_optim"],
             platform_dict=self.platform_dict,
         )
-        opt_actions = multi_ag_optim.get_next_control_for_all_pltf(hj_xy_propulsion_arr)
+        opt_actions = multi_ag_optim.get_next_control_for_all_pltf(hj_in_xy_propulsion)
         opt_actions = [self.to_platform_action_bounds(action) for action in opt_actions]
         correction_angles = [
             abs(math.remainder(optimized_input.direction - hj_input.direction, math.tau))
-            for optimized_input, hj_input in zip(opt_actions, hj_actions)
+            for optimized_input, hj_input in zip(
+                opt_actions, [hj_action[0] for hj_action in hj_actions]
+            )
         ]
 
         return PlatformActionSet(action_set=opt_actions), max(correction_angles)
