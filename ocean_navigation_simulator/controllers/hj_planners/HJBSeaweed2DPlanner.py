@@ -522,7 +522,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         # Concatenate the different value functions and reach times in one array
         value_fct_array = self._concatenate_value_fcts(value_fct_list=value_fct_list)
-        reach_times_array = np.concatenate(reach_times_list)
+        reach_times_array = self._concatenate_reach_times(reach_times_list=reach_times_list)
         # Get the indices for the start and end times since value_fct_array and reach_times_array will have a larger interval than needed
         idx_t_interval = self._get_idx_time_interval_in_reach_times(
             reach_times_array=reach_times_array, t_interval=t_interval
@@ -565,6 +565,34 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         value_fct_list.reverse()
 
         return np.concatenate(value_fct_list)
+
+    def _concatenate_reach_times(self, reach_times_list: List) -> np.array:
+        """Concatenate the reach time in the list s.t. the times are strictly ascending.
+        As the first reach time of one array can have the same value as the last time of the previous array.
+        Args:
+            reach_times_list: List of all reach times corresponding to the requested time interval. Ordered in forward time.
+        Returns:
+            reach_times_array: Concatenated reach times array.
+        """
+
+        for i, reach_times in enumerate(reach_times_list[:-1]):
+            # Check if concatenation would preserve strict ascending of time
+            # When shifting the relative reach times with self.current_data_t_0 in order to retrieve POSIX time we sometimes get issues if values are too close together or the same value.
+            # This is due to rounding when later on the arrays are transformed to JAX float32 arrays.
+            # Step 1: check if last value of curr. array and first of next one are at least 100 seconds apart.
+            if reach_times_list[i + 1][0] - reach_times[-1] < 100:
+                # Substract 100 seconds from last time to enforce strict ascending even after rounding. Should not change the overall behaviour since dt is usually 600 seconds.
+                reach_times[-1] -= 100
+                self.logger.debug(
+                    "HJBSeaweed2DPlanner: Adjusted reach times while concatenating in order to make times strictly ascending."
+                )
+            # Step 2: check if last value of curr. array is larger than first of next one
+            elif reach_times[-1] > reach_times_list[i + 1][0]:
+                raise ValueError(
+                    f"HJBSeaweed2DPlanner: Failed to concatenate reach times since they are not ascending. {reach_times[-1]} is larger than next value: {reach_times_list[i + 1][0]}"
+                )
+
+        return np.concatenate(reach_times_list)
 
     def _fetch_hj_val_func_list_list_from_c3_db(
         self, t_interval: List[datetime], u_max: float, dataSource: str
