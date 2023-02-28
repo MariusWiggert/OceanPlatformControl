@@ -509,10 +509,16 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def _get_value_fct_reach_times(
         self, t_interval: List[datetime], u_max: float, dataSource: str
-    ):  # -> (np.array, np.array, np.array, np.array):
-        # TODO: add proper doc string
-        # TODO: extend to get different Regions. right now only Region 3
-        """Returns value fct. and reach times for a given time interval"""
+    ) -> Tuple[np.array, np.array, np.array, np.array]:
+        # TODO: extend to get different Regions. right now only Region Matthias
+        """Returns value fct. and reach times for a given time interval
+        Args:
+            t_interval: List of start and end time as datetime objects.
+            u_max:      Maximum control in m/s
+            dataSource: Defines on which source the value fct was computed on
+        Returns:
+            value_fct_array: Concatenated value fct. array where values get adjusted accordingly.
+        """
 
         hj_val_func_list = self._fetch_hj_val_func_list_list_from_c3_db(
             t_interval=t_interval, u_max=u_max, dataSource=dataSource
@@ -546,10 +552,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         )
 
     def _concatenate_value_fcts(self, value_fct_list: List) -> np.array:
-        # TODO: add proper doc string
-        """Concatenate the value_fcts in the list by stacking and adding them up"""
+        """Concatenate the value_fcts in the list by stacking and adding them up
+        Args:
+            value_fct_list: List of all value functions corresponding to the requested time interval. Ordered in forward time.
+        Returns:
+            value_fct_array: Concatenated value fct. array where values get adjusted accordingly.
+        """
         # Get first value of last pre-computed v. fct. in list and take it as init value
-        init_value = value_fct_list[-1][0]  # TODO: check direction
+        init_value = value_fct_list[-1][0]
 
         # Reverse the value fct. list in place
         value_fct_list.reverse()
@@ -597,13 +607,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     def _fetch_hj_val_func_list_list_from_c3_db(
         self, t_interval: List[datetime], u_max: float, dataSource: str
     ) -> List:
-        # TODO: add proper doc string
-        """Should get a list of xarrays (with value_fcts and corresponding reach_times (in sec) and x_grid, y_grid)"""
-        # return [
-        #     xr.open_dataset(
-        #         "/Users/matthiaskiller/Desktop/data/Value Fct/avg/0.3/HJ_func_07_31_2022_17_00.nc"
-        #     )
-        # ]
+        """Should get a list of xarrays (with value_fcts and corresponding reach_times (in sec) and x_grid, y_grid)
+        Args:
+            t_interval: List of start and end time as datetime objects.
+            u_max:      Maximum control in m/s
+            dataSource: Defines on which source the value fct was computed on
+        Returns:
+            hj_val_func_list: List of value_fcts and corresponding reach_times (in sec) and x_grid, y_grid
+        """
 
         with timing_logger(
             "Download pre-computed value functions: {start} until {end} ({{}})".format(
@@ -612,12 +623,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             ),
             self.logger,
         ):
-            # if self.specific_settings.get("precomputed_local", False):
-            #     files = ArenaFactory.find_copernicus_files(
-            #         self.specific_settings["value_fct_folder"],
-            #         t_interval,
-            #     )
-            # else:
+
             files = self._download_required_files(
                 dataSource=dataSource,
                 u_max=u_max,
@@ -625,7 +631,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 t_interval=t_interval,
             )
 
-            self.logger.debug(f"Value Fct Files: {files}")
+            self.logger.debug(f"HJBSeaweed2DPlanner: Value Fct Files: {files}")
 
             hj_val_func_list = []
             for file in files:
@@ -636,14 +642,27 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     def _get_idx_time_interval_in_reach_times(
         self, reach_times_array: np.array, t_interval: List[datetime]
     ) -> List:
-        # TODO: add proper doc string
+        """Takes reach times and a time interval and returns the index for starta and end of the closest values in the reach times array.
+        Args:
+            reach_times_array: reach times array in seconds
+            t_interval: List of start and end time as datetime objects for which to find closest array entry / index
+        Returns:
+            idxs: List of start and end index of closest value in array
+        """
         # Get closest idx for start & end time
         start_idx = np.argmin(abs(reach_times_array - t_interval[0].timestamp()))
         end_idx = np.argmin(abs(reach_times_array - t_interval[1].timestamp()))
         return [start_idx, end_idx]
 
     def find_value_fct_files(path, t_interval):
-        # TODO: add proper doc string
+        """Takes path to value fcts. and time interval and returns the corresponding file names.
+        Args:
+            path: path to folder with all value fcts.
+            t_interval: List of start and end time as datetime objects.
+        Returns:
+            files: List of file names of relevant value fcts.
+        """
+
         files = []
 
         start_min = t_interval[0]
@@ -859,25 +878,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 self.logger.error(message)
                 return 0
 
-        # elif files.count < (t_interval[1] - t_interval[0]).days:
-        #     message = "Only {count}/{expected} files in the database for {archive_source}, {archive_type}, {region} and t_0={t_0} and t_T={t_T}: {filenames}".format(
-        #         count=files.count,
-        #         expected=(t_interval[1] - t_interval[0]).days + 1,
-        #         archive_source=archive_source,
-        #         archive_type=archive_type,
-        #         region=region,
-        #         t_0=t_interval[0],
-        #         t_T=t_interval[1],
-        #         filenames="".join(
-        #             [f"\n- {os.path.basename(f.file.contentLocation)}" for f in files.objs]
-        #         ),
-        #     )
-        #     if throw_exceptions:
-        #         raise MissingOceanFileException(message)
-        #     else:
-        #         logger.error(message)
-
-        # Step 4: Download files thread-safe
+        # Step 3: Download files thread-safe
         downloaded_files = self._download_filelist(
             files=files,
             download_folder=download_folder,
