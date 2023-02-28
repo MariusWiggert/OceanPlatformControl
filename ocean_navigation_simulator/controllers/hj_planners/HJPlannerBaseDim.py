@@ -488,7 +488,7 @@ class HJPlannerBaseDim(Controller):
         t_0 = t_start.timestamp() - self.current_data_t_0
 
         # set up the dimensional time-vector for which to save the value function
-        solve_times = np.linspace(t_0, T_max_in_seconds, n_time_vector + 1)
+        solve_times = np.linspace(t_0, t_0 + T_max_in_seconds, n_time_vector + 1)
 
         self.logger.info(f"HJPlannerBase: Running {dir}")
 
