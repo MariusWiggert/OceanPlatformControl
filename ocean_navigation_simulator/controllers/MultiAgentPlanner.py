@@ -209,7 +209,9 @@ class MultiAgentPlanner(HJReach2DPlanner):
             platform_dict=self.platform_dict,
         )
         opt_actions = multi_ag_optim.get_next_control_for_all_pltf(hj_in_xy_propulsion)
-        opt_actions = [self.to_platform_action_bounds(action) for action in opt_actions]
+        opt_actions = [
+            self.to_platform_action_bounds(action, scale_magnitude=False) for action in opt_actions
+        ]
         correction_angles = [
             abs(math.remainder(optimized_input.direction - hj_input.direction, math.tau))
             for optimized_input, hj_input in zip(
@@ -219,7 +221,9 @@ class MultiAgentPlanner(HJReach2DPlanner):
 
         return PlatformActionSet(action_set=opt_actions), max(correction_angles)
 
-    def to_platform_action_bounds(self, action: PlatformAction) -> PlatformAction:
+    def to_platform_action_bounds(
+        self, action: PlatformAction, scale_magnitude: Optional[bool] = True
+    ) -> PlatformAction:
         """Bound magnitude to 0-1 of u_max and direction between [0, 2pi[
 
         Args:
@@ -229,5 +233,8 @@ class MultiAgentPlanner(HJReach2DPlanner):
             PlatformAction: scaled w.r.t u_max
         """
         action.direction = action.direction % (2 * np.pi)
-        action.magnitude = max(min(action.magnitude, 1), 1)
+        if scale_magnitude:
+            action.magnitude = max(min(action.magnitude, 1), 1)
+        else:
+            action.magnitude = min(action.magnitude, 1)
         return action

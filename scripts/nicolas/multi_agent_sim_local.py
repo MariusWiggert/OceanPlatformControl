@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/test")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_285")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -62,6 +62,7 @@ multiAgentOptimConfig = {
     "unit": "m",
     "interaction_range": 9000,  # m
     "optim_horizon": 6,  # 1h
+    "scaling_pot_function": 5,
 }
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
@@ -74,37 +75,6 @@ MultiAgentCtrlConfig = {
     "multi_ag_optim": multiAgentOptimConfig,
 }
 # Task Configs
-missionConfig = {
-    "feasible": True,
-    "seed": 571402,
-    "target_radius": 0.1,
-    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-    "x_0": [
-        {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.2,
-            "lon": -83.2,
-        },
-        {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.25,
-            "lon": -83.25,
-        },
-        {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.3,
-            "lon": -83.3,
-        },
-        {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.35,
-            "lon": -83.35,
-        },
-    ],
-    "x_T": {"lat": 24.35, "lon": -82.3},
-}
-
-# mission failing for flocking nr 285
 # missionConfig = {
 #     "feasible": True,
 #     "seed": 571402,
@@ -112,28 +82,59 @@ missionConfig = {
 #     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
 #     "x_0": [
 #         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.69220733642578,
-#             "lon": -87.30220794677734,
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.2,
+#             "lon": -83.2,
 #         },
 #         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.64868927001953,
-#             "lon": -87.34028625488281,
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.25,
+#             "lon": -83.25,
 #         },
 #         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.60809898376465,
-#             "lon": -87.39879608154297,
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.3,
+#             "lon": -83.3,
 #         },
 #         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.57320785522461,
-#             "lon": -87.39673614501953,
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.35,
+#             "lon": -83.35,
 #         },
 #     ],
-#     "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+#     "x_T": {"lat": 24.35, "lon": -82.3},
 # }
+
+# mission failing for flocking nr 285
+missionConfig = {
+    "feasible": True,
+    "seed": 571402,
+    "target_radius": 0.1,
+    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+    "x_0": [
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.69220733642578,
+            "lon": -87.30220794677734,
+        },
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.64868927001953,
+            "lon": -87.34028625488281,
+        },
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.60809898376465,
+            "lon": -87.39879608154297,
+        },
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.57320785522461,
+            "lon": -87.39673614501953,
+        },
+    ],
+    "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+}
 
 # missionConfig = {
 #     "feasible": True,
@@ -268,7 +269,7 @@ arenaConfig = {
     "solar_dict": {"forecast": None, "hindcast": None},
     "spatial_boundary": None,
     "use_geographic_coordinate_system": True,
-    "timeout": 3600 * 24 * 3,
+    "timeout": 3600 * 24 * 4,
     "multi_agent_constraints": {
         "unit": "km",
         "communication_thrsld": 9,
@@ -367,7 +368,7 @@ plt.show()
 
 # %% Plot useful metrics for multi-agent performance evaluation
 results_folder = os.path.join(
-    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"] + "full_horiz"
+    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"] + "_full_horiz"
 )
 os.makedirs(results_folder, exist_ok=True)
 

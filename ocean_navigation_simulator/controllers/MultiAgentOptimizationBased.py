@@ -76,19 +76,17 @@ class MultiAgentOptim:
         dt = self.dt_in_s
         H = self.optim_horizon
         T = dt * H  # horizon in seconds
+
+        # Objective scaling: prioritise collision avoidance and keeping communication
         max_mag_to_u_hj = sum(
             [
                 np.linalg.norm(2 * u_hj_pred_k, "fro") ** 2 / self.nb_platforms
                 for u_hj_pred_k in u_hj
             ]
         )
+        scaling_pot_func = max_mag_to_u_hj * self.param_dict["scaling_pot_function"]
 
-        # (
-        #     np.linalg.norm(2 * u_hj[0], "fro") ** 2 / self.nb_platforms
-        # )  # np.dot(2 * u_hj, 2 * u_hj)
-        scaling_pot_func = max_mag_to_u_hj * 5
-        # declare decision variables
-        # For now 2 State system (X, Y), not capturing battery or seaweed mass
+        # Declare decision variables
         x = [opti.variable(self.nb_platforms, 2) for _ in range(H)]
         # Decision variables for state trajetcory
         u = [
@@ -100,13 +98,16 @@ class MultiAgentOptim:
 
         # init the dynamics constraints
         F_dyn = self.dynamics(opti=opti)
-
-        # init the potential function
-        F_pot = self.potential_func()
-        # add the dynamics constraints
         objective = []
         for k in range(H - 1):
-            # State constraints to the map boundaries
+            # ----- Add the dynamics equality constraints ----- #
+            # Calculate time in POSIX seconds
+            time = x_t[:, 2] + k * dt
+            # Explicit forward euler version
+            x_next = x[k] + dt * F_dyn(x=x[k], u=u[k], t=time)["x_dot"]
+            opti.subject_to(x[k + 1] == x_next)
+
+            # ----- Add state constraints to the map boundaries ----- #
             opti.subject_to(
                 opti.bounded(
                     min(self.ocean_source.grid_dict["x_range"]),
@@ -121,52 +122,28 @@ class MultiAgentOptim:
                     max(self.ocean_source.grid_dict["y_range"]),
                 )
             )
-            # calculate time in POSIX seconds
-            time = x_t[:, 2] + k * dt
-            # explicit forward euler version
-            x_next = x[k] + dt * F_dyn(x=x[k], u=u[k], t=time)["x_dot"]
-            opti.subject_to(x[k + 1] == x_next)
+            # ----- Input constraints ----- #
+            opti.subject_to(u[k][:, 0] ** 2 + u[k][:, 1] ** 2 <= 1)
 
+            # ----- Objective Function ----- #
+            # Add potential function terms over neighbors
             for platform in self.list_all_platforms:
                 # neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
-                # neighbors_idx = np.argwhere(self.binary_adjacency[platform, :] > 0).flatten()  #
-                neighbors_idx = np.argwhere(
-                    (self.adjacency_mat[platform, :] < self.r_deg.m * 1.2)
-                    & (self.adjacency_mat[platform, :] > 0)
-                ).flatten()
+                # get neighbor set of current platform
+                neighbors_idx = np.argwhere(self.binary_adjacency[platform, :] > 0).flatten()
+                # neighbors_idx = np.argwhere(
+                #     (self.adjacency_mat[platform, :] < self.r_deg.m * 1.2)
+                #     & (self.adjacency_mat[platform, :] > 0)
+                # ).flatten()
                 potential = scaling_pot_func * self.pot_func_pltf_i(
                     x_k=x[k], platform_id=platform, platform_neighbors_id=neighbors_idx
                 )
                 objective.append(potential)
-                # potentials = [
-                #     (
-                #         units.Distance(
-                #             deg=ca.sqrt(
-                #                 (x[k][platform, 0] - x[k][neighbor, 0]) ** 2
-                #                 + (x[k][platform, 1] - x[k][neighbor, 1]) ** 2
-                #             )
-                #         ).km
-                #         - self.r_deg.km / 2
-                #     )
-                #     ** 2
-                #     for neighbor in neighbors_idx
-                # ]
-            #     potentials = [
-            #         (
-            #             units.Distance(deg=ca.norm_2(x[k][platform, :] - x[k][neighbor, :])).km
-            #             - self.r_deg.km / 2
-            #         )
-            #         ** 2
-            #         for neighbor in neighbors_idx
-            #     ]
-            #     # potentials = [
-            #     #     F_pot(x_i=x[k][platform, :], x_j=x[k][neighbor, :])["potential_force"]
-            #     #     for neighbor in neighbors_idx
-            #     # ]
-            # objective.append(sum(potentials))
+
+            # Term to penalize deviation from optimal HJ_reachability control
             objective.append(ca.dot(u[k] - u_hj[k], u[k] - u_hj[k]))
-        # objective.append(ca.dot(u[0] - u_hj[0], u[0] - u_hj[0]))
-        # Terminal state constraint
+
+        # ----- Terminal state constraint (at Horizon H) ----- #
         opti.subject_to(
             opti.bounded(
                 min(self.ocean_source.grid_dict["x_range"]),
@@ -182,60 +159,48 @@ class MultiAgentOptim:
             )
         )
 
-        # Terminal cost
-        # for platform in self.list_all_platforms:
-        #     # neighbors_idx = [idx for idx in self.list_all_platforms if idx != platform]
-        #     neighbors_idx = np.argwhere(
-        #         self.binary_adjacency[platform, :] > 0
-        #     ).flatten()  # np.argwhere((self.adjacency_mat[platform, :] < self.r_deg.m*1.4) & (self.adjacency_mat[platform,:]>0)).flatten()
-        #     potential = scaling_pot_func * self.pot_func_pltf_i(
-        #         x_k=x[H], platform_id=platform, platform_neighbors_id=neighbors_idx
-        #     )
-        #     objective.append(potential)
-
-        # for platform in self.list_all_platforms:
-        #     neighbors_idx = np.argwhere(self.binary_adjacency[platform, :] > 0).flatten()
-        #     objective.append(
-        #         sum(
-        #             [
-        #                 F_pot(x_i=x[H][platform, :], x_j=x[H][neighbor, :])["potential_force"]
-        #                 for neighbor in neighbors_idx
-        #             ]
-        #         )
-        #     )
-
         # optimizer objective
         opti.minimize(sum(objective))
-        # opti.minimize(ca.dot(u[0] - u_hj, u[0] - u_hj) + sum(objective))
+
         # start state & goal constraint
         opti.subject_to(x[0] == x_start)
-
-        # control constraints
-        for k in range(H - 1):
-            opti.subject_to(u[k][:, 0] ** 2 + u[k][:, 1] ** 2 <= 1)
-
-        # battery constraint
-        # opti.subject_to(opti.bounded(0.1, x[2, :], 1.))
 
         # Set the values for the optimization problem
         opti.set_value(x_start, x_t[:, :2])
 
-        # Optional: initialize variables for the optimizer
+        # Initialize variables for the optimizer: avoids unfeasibility issues
         for k in range(H):
             opti.set_initial(x[k], x_t[:, :2])
-        for k in range(H - 1):
-            opti.set_initial(u[k], u_hj[k])
+            if k < H - 1:  # control input seq length of length H-1
+                opti.set_initial(u[k], u_hj[k])
 
-        # opts = "halt_on_ampl_error yes"
-        opti.solver("ipopt")
-        sol = opti.solve()
+        opti.solver("ipopt", {"print_time": True})
+        try:
+            sol = opti.solve()
+            T = sol.value(T)
+            u = [sol.value(_) for _ in u]
+            x = [sol.value(_) for _ in x]
+            stats = opti.stats()
+        except BaseException:
+            stats = opti.stats()
+            if stats["return_status"] == "Maximum_Iterations_Exceeded":
+                T = opti.debug.value(T)
+                u = [opti.debug.value(_) for _ in u]
+                x = [opti.debug.value(_) for _ in x]
+            else:
+                raise Exception("problem infeasible")
 
-        # extract the time vector and control signal
-        T = sol.value(T)
-        u = [sol.value(_) for _ in u]
-        x = [sol.value(_) for _ in x]
+        time_total = opti.stats()["t_proc_total"]
 
         return T, u, x
+
+        # # extract the time vector and control signal
+        # T = sol.value(T)
+        # u = [sol.value(_) for _ in u]
+        # x = [sol.value(_) for _ in x]
+        # time_total = opti.stats()['t_proc_total']
+
+        # return T, u, x
 
     def dynamics(self, opti):
         # create the dynamics function (note here in form of u_x and u_y)
