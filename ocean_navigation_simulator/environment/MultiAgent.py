@@ -342,6 +342,8 @@ class MultiAgent:
         success_rate_reach_target: float,
         energy_efficiency_proxy: float,
         mean_min_dist_to_target: float,
+        solver_times_mean_in_s: float,
+        solver_times_std_in_s: float,
         logfile: str = "logmetrics.log",
         formatLog: Optional[logging.Formatter] = None,
     ) -> dict:
@@ -393,7 +395,9 @@ class MultiAgent:
             \nAverage Beta Index = {sum(beta_connectivity_list)/len(beta_connectivity_list)}\
             \nInitial maximum degree of the graph = {initial_max_graph_degree}\
             \nFinal maximum degree of the graph = {final_max_graph_degree}\
-            \nMean maximum correction from optimal control, in degrees = {energy_efficiency_proxy*180/np.pi}",
+            \nMean maximum correction from optimal control, in degrees = {energy_efficiency_proxy*180/np.pi}\
+            \nMean solver time in seconds = {solver_times_mean_in_s}\
+            \nStd solver time in seconds = {solver_times_std_in_s}",
             logging.INFO,
         )
         self.LOG_insert(
@@ -415,6 +419,8 @@ class MultiAgent:
             "Initial maximum degree of the graph": initial_max_graph_degree,
             "Final maximum degree of the graph": final_max_graph_degree,
             "Mission_success": mission_success,
+            "mean solver time in seconds": solver_times_mean_in_s,
+            "std solver time in seconds": solver_times_std_in_s,
         }
 
     # ---- Plot functions ----#

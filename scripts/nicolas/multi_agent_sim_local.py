@@ -64,9 +64,16 @@ multiAgentOptimConfig = {
     "optim_horizon": 6,  # 1h
     "scaling_pot_function": 5,
 }
+multiAgentSafetyPredFilter = {
+    "unit": "m",
+    "interaction_range": 9000,  # m
+    "optim_horizon": 6,  # 1h
+    "scaling_pot_function": 5,
+}
+
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer
+    "high_level_ctrl": "reactive_control",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -326,16 +333,20 @@ action = controller.get_action(observation=observation)
 observer = constructor.observer
 # Step 4: Run closed-loop simulation
 ctrl_deviation_from_opt = []
+solver_times = []
 all_pltf_status = [0] * len(missionConfig["x_0"])
 min_distances_to_target_over_mission = [np.inf] * len(missionConfig["x_0"])
 pb_running_thrsld = 0
 # Run until tiemout of until one of the platform has stranded/left arena region (failed)
 while not any(status < pb_running_thrsld for status in problem_status):
     # Get action
-    action, ctrl_correction = controller.get_action(
+    action, ctrl_correction, solver_time_step_s = controller.get_action(
         observation=observation
     )  # correction angle in rad
     ctrl_deviation_from_opt.append(ctrl_correction)
+
+    # append solver time
+    solver_times.append(solver_time_step_s)
     # execute action
     observation = arena.step(action)
 
@@ -368,7 +379,7 @@ plt.show()
 
 # %% Plot useful metrics for multi-agent performance evaluation
 results_folder = os.path.join(
-    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"] + "_full_horiz"
+    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"]  # + "_full_horiz"
 )
 os.makedirs(results_folder, exist_ok=True)
 
@@ -379,6 +390,7 @@ metrics_dict = arena.save_metrics_to_log(
     all_pltf_status=all_pltf_status,
     min_distances_to_target=min_distances_to_target_over_mission,
     max_correction_from_opt_ctrl=ctrl_deviation_from_opt,
+    solver_times=solver_times,
     filename=f"{results_folder}/metrics.log",
 )
 metrics_df = pd.DataFrame(data=metrics_dict, index=[0])
@@ -401,7 +413,7 @@ arena.animate_graph_net_trajectory(
 )
 
 plt.clf()
-fig = arena.plot_all_network_analysis(xticks_temporal_res=8 * 3600)  # 8 hours interval for xticks
+fig = arena.plot_all_network_analysis(xticks_temporal_res=12 * 3600)  # 8 hours interval for xticks
 plt.savefig(f"{results_folder}/graph_properties.png")
 
 plt.clf()

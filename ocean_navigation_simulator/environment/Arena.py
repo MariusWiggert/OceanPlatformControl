@@ -1047,6 +1047,7 @@ class Arena:
         all_pltf_status: list,
         min_distances_to_target: list,
         max_correction_from_opt_ctrl: list,
+        solver_times: list,
         filename: str,
     ) -> dict:
         """Compute and save metrics for the given multi-agent instance
@@ -1078,12 +1079,16 @@ class Arena:
         )
         energy_efficiency_proxy = np.mean(max_correction_from_opt_ctrl)
         mean_min_dist_to_target = np.mean(min_distances_to_target)
+        solver_times_mean_in_s = np.mean(solver_times)
+        solver_times_std_in_s = np.std(solver_times)
         metrics_dict = self.multi_agent_net.log_metrics(
             list_of_graph=[G.G_communication for G in self.multi_agent_G_list],
             dates=self.state_trajectory[0, 2, ::1],
             success_rate_reach_target=success_rate_reach_target,
             energy_efficiency_proxy=energy_efficiency_proxy,
             mean_min_dist_to_target=mean_min_dist_to_target,
+            solver_times_mean_in_s = solver_times_mean_in_s,
+            solver_times_std_in_s = solver_times_std_in_s,
             logfile=filename,
         )
         return metrics_dict

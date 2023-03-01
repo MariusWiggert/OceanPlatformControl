@@ -102,7 +102,7 @@ class FlockingControl:
             # return np.log(norm_qij - self.r + self.epsilon)
             return np.sqrt(norm_qij - self.r)
 
-    def get_n_ij(self, i_node: int, j_neighbor: int) -> np.ndarray:
+    def get_n_ij(self, i_node: int, j_neighbor: int, norm_q_ij: float) -> np.ndarray:
         """Vector along the line connecting platform i to neighboring platform j
 
         Args:
@@ -112,15 +112,15 @@ class FlockingControl:
             np.ndarray: connecting vector, with dimensions corresponding to lon,lat
         """
         q_ij_lon = (
-            self.observation.platform_state.lon.m[j_neighbor]
-            - self.observation.platform_state.lon.m[i_node]
+            self.observation.platform_state.lon.km[j_neighbor]
+            - self.observation.platform_state.lon.km[i_node]
         )
         q_ij_lat = (
-            self.observation.platform_state.lat.m[j_neighbor]
-            - self.observation.platform_state.lat.m[i_node]
+            self.observation.platform_state.lat.km[j_neighbor]
+            - self.observation.platform_state.lat.km[i_node]
         )
         q_ij = np.vstack((q_ij_lon, q_ij_lat))
-        return q_ij / np.linalg.norm(q_ij)
+        return q_ij / norm_q_ij # normalized vector
 
     @staticmethod
     def softmax(array: np.ndarray) -> np.ndarray:
@@ -154,6 +154,7 @@ class FlockingControl:
             n_ij = self.get_n_ij(
                 i_node=node_i,
                 j_neighbor=neighbor,
+                norm_q_ij=self.adjacency_mat[node_i, neighbor],
             )  # obtain direction vector pointing from i to j
             grad += (
                 self.gradient(
