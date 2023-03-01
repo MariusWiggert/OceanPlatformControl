@@ -26,9 +26,7 @@ from ocean_navigation_simulator.controllers.hj_planners.Platform2dSeaweedForSim 
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
-)
+
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
@@ -306,6 +304,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 self.all_values = self.all_values_subset
                 # Shift to get relative POSIX time
                 self.reach_times = self.reach_times_global_posix - self.reach_times_global_posix[-1]
+                # Set current_data_t_0 to first forward reach time value since it will be used later on to convert back to POSIX and our data_array is not used.
+                self.current_data_t_0 = self.reach_times_global_posix[-1]
 
             # arrange to forward times by convention for plotting and open-loop control
             self._set_value_func_to_forward_time()
@@ -534,12 +534,12 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             reach_times_array=reach_times_array, t_interval=t_interval
         )
 
-        # Get correct subset of value fct. over the exact requested time interval. Substract last value to imitate initializiation with zero as last value.
+        # Get correct subset of value fct. over the requested time interval. Substract last value to imitate initializiation with zero as last value.
         value_fct_array = (
-            value_fct_array[idx_t_interval[0] : idx_t_interval[1]]
+            value_fct_array[idx_t_interval[0] : idx_t_interval[1] + 1]
             - value_fct_array[idx_t_interval[1]]
         )
-        reach_times_array = reach_times_array[idx_t_interval[0] : idx_t_interval[1]]
+        reach_times_array = reach_times_array[idx_t_interval[0] : idx_t_interval[1] + 1]
 
         # if(config["forecast"] is not None):
         #     #TBDONE only return earliest value and at which time
