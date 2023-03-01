@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_285")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_107")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -61,13 +61,13 @@ reactiveConfig = {
 multiAgentOptimConfig = {
     "unit": "m",
     "interaction_range": 9000,  # m
-    "optim_horizon": 6,  # 1h
+    "optim_horizon": 12,  # 1h
     "scaling_pot_function": 5,
 }
 multiAgentSafetyPredFilter = {
     "unit": "m",
     "interaction_range": 9000,  # m
-    "optim_horizon": 6,  # 1h
+    "optim_horizon": 12,  # 1h
     "scaling_pot_function": 5,
 }
 
@@ -113,6 +113,38 @@ MultiAgentCtrlConfig = {
 # }
 
 # mission failing for flocking nr 285
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.69220733642578,
+#             "lon": -87.30220794677734,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.64868927001953,
+#             "lon": -87.34028625488281,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.60809898376465,
+#             "lon": -87.39879608154297,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.57320785522461,
+#             "lon": -87.39673614501953,
+#         },
+#     ],
+#     "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+# }
+
+
+# mission 107 infeasible on C3:
 missionConfig = {
     "feasible": True,
     "seed": 571402,
@@ -120,28 +152,29 @@ missionConfig = {
     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
     "x_0": [
         {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.69220733642578,
-            "lon": -87.30220794677734,
+            "date_time": "2022-10-04T10:59:36+00:00",
+            "lat": 19.66683578491211,
+            "lon": -85.3988265991211,
         },
         {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.64868927001953,
-            "lon": -87.34028625488281,
+            "date_time": "2022-10-04T10:59:36+00:00",
+            "lat": 19.689558029174805,
+            "lon": -85.41865539550781,
         },
         {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.60809898376465,
-            "lon": -87.39879608154297,
+            "date_time": "2022-10-04T10:59:36+00:00",
+            "lat": 19.65205192565918,
+            "lon": -85.39376831054688,
         },
         {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.57320785522461,
-            "lon": -87.39673614501953,
+            "date_time": "2022-10-04T10:59:36+00:00",
+            "lat": 19.62247085571289,
+            "lon": -85.34988403320312,
         },
     ],
-    "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+    "x_T": {"lat": 20.01063798, "lon": -85.91191056},
 }
+
 
 # missionConfig = {
 #     "feasible": True,

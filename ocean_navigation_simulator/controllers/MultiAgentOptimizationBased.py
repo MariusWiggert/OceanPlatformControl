@@ -194,7 +194,9 @@ class MultiAgentOptim:
                 u = [opti.debug.value(_) for _ in u]
                 x = [opti.debug.value(_) for _ in x]
             else:
-                raise Exception("problem infeasible")
+                raise Exception(
+                    f"Error during optimization: solver status = {stats['return_status']}"
+                )
 
         time_total = opti.stats()["t_proc_total"]
 
