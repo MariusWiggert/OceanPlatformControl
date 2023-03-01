@@ -73,7 +73,7 @@ multiAgentSafetyPredFilter = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "reactive_control",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
+    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -325,12 +325,16 @@ problem_status = arena.problem_status(problem=problem)
 # Step 2: Retrieve Controller
 # problem.platform_dict = arena.platform.platform_dict
 controller = constructor.controller
-# Reachability snapshot plot
+# Step 3: Retrieve observer
+observer = constructor.observer
+observer.observe(observation)
+observation.forecast_data_source = observer
+
+
+# Reachability snapshot plot and to initiate planning (so that we dont take it account later in the solver time)
 action = controller.get_action(observation=observation)
 
 # %%
-# Step 3: Retrieve observer
-observer = constructor.observer
 # Step 4: Run closed-loop simulation
 ctrl_deviation_from_opt = []
 solver_times = []
@@ -351,8 +355,8 @@ while not any(status < pb_running_thrsld for status in problem_status):
     observation = arena.step(action)
 
     # Observer data assimilation
-    # observer.observe(observation)
-    # observation.forecast_data_source = observer
+    observer.observe(observation)
+    observation.forecast_data_source = observer
     # #this replaces the forecast source by Observer (defined as none for now so not a desired behavior)
 
     # update problem status

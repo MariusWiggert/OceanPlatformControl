@@ -219,7 +219,7 @@ class HJPlannerBase(Controller):
 
                 # log x_t and data_source for plotting and easier access later
                 self.x_t = observation.platform_state
-                self.last_data_source = observation.forecast_data_source
+                self.last_data_source = observation.forecast_data_source.forecast_data_source
                 # Update the data used in the HJ Reachability Planning
                 self._update_current_data(observation=observation)
                 self._plan(observation.platform_state)

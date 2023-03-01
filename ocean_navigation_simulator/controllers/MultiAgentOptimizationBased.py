@@ -45,7 +45,7 @@ class MultiAgentOptim:
 
     def get_next_control_for_all_pltf(self, hj_optimal_ctrl, hj_horizon_full: bool):
         # Step 1: read the relevant subset of data
-        self.ocean_source = self.observation.forecast_data_source
+        self.ocean_source = self.observation.forecast_data_source.forecast_data_source
         x_t = np.array(self.observation.platform_state.to_spatio_temporal_point())
         if hj_horizon_full:
             T, u, x, time_solver = self.run_optimization_over_full_hj(
