@@ -1,8 +1,26 @@
 seed: 123
-x_range: [-120,-70] 
-y_range: [-20,20]
-t_range: [2022-07-01 00:00:00Z, 2022-11-01 00:00:00Z]
-time_horizon: 2592000 # 3600 * 24 * 30 # in seconds
+x_range: [-130,-70] 
+y_range: [-40,0]
+t_range: [2022-01-03 00:00:00Z, 2022-01-20 00:00:00Z]
+time_horizon: 604799 # 3600 * 24 * 7 # in seconds
 n_samples: 100
 min_distance_from_land: 0.3 # degree
 scenario_name: "Region_3_HYCOM_FC_daily+monthly_averages_Copernicus_HC_solar_seaweed"
+hj_specific_settings: 
+  ctrl_name: "ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner.HJBSeaweed2DPlanner"
+  replan_on_new_fmrc: True
+  replan_every_X_seconds: False
+  direction: "backward"
+  n_time_vector: 168
+  # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+  deg_around_xt_xT_box: 30  # area over which to run HJ_reachability
+  accuracy: "high"
+  artificial_dissipation_scheme: "local_local"
+  T_goal_in_seconds: 604799
+  use_geographic_coordinate_system: True
+  progress_bar: True
+  grid_res: 0.166 # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+  d_max: 0.0
+  calc_opt_traj_after_planning: False
+  precomputation: False
+  dataSource: "hc_copernicus"
