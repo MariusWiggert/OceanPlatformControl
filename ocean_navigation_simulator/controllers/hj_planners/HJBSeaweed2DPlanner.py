@@ -589,10 +589,10 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # Check if concatenation would preserve strict ascending of time
             # When shifting the relative reach times with self.current_data_t_0 in order to retrieve POSIX time we sometimes get issues if values are too close together or the same value.
             # This is due to rounding when later on the arrays are transformed to JAX float32 arrays.
-            # Step 1: check if last value of curr. array and first of next one are at least 100 seconds apart.
-            if reach_times_list[i + 1][0] - reach_times[-1] < 100:
-                # Substract 100 seconds from last time to enforce strict ascending even after rounding. Should not change the overall behaviour since dt is usually 600 seconds.
-                reach_times[-1] -= 100
+            # Step 1: check if last value of curr. array and first of next one are at least 200 seconds apart.
+            if reach_times_list[i + 1][0] - reach_times[-1] < 200:
+                # Substract 200 seconds from last time to enforce strict ascending even after rounding. Should not change the overall behaviour since dt is usually 600 seconds.
+                reach_times[-1] -= 200
                 self.logger.debug(
                     "HJBSeaweed2DPlanner: Adjusted reach times while concatenating in order to make times strictly ascending."
                 )
