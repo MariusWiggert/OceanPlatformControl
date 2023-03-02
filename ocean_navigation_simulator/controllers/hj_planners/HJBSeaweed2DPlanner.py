@@ -355,7 +355,17 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # TODO: check if forecast_data_source.forecast_data_source still necessary - probably not!
         # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
         # TODO: change to posix time
-        if hasattr(observation.forecast_data_source, "forecast_data_source") and not isinstance(
+        if isinstance(
+            observation.forecast_data_source.forecast_data_source,
+            ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.ForecastFromHindcastSource,
+        ):
+            self.forecast_length = (
+                observation.forecast_data_source.forecast_data_source.forecast_length_in_days
+                * 3600
+                * 24
+            )
+
+        elif hasattr(observation.forecast_data_source, "forecast_data_source") and not isinstance(
             observation.forecast_data_source.forecast_data_source,
             ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource,
         ):

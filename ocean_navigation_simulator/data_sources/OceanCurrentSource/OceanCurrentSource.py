@@ -384,7 +384,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         # re_load grid dict
         self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
 
-    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> datetime.datetime:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
         the specified input time.
         Args:
@@ -500,6 +500,23 @@ class ForecastFromHindcastSource(HindcastFileSource):
             temporal_resolution=temporal_resolution,
             throw_exceptions=throw_exceptions,
         )
+
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> datetime.datetime:
+        """Helper function to check update the self.OceanCurrent if a new forecast is available at
+        the specified input time. Just returns the UTC noon time of the current hindcast file to simulate forecast data.
+        Args:
+          time: datetime object
+        Returns:
+          most_recent_fmrc_time: datetime object
+
+        """
+        # Check if current time before noon (UTC) or afterwards. Based on this take either the noon time of previous day or of current day.
+        if time < time.replace(hour=12, minute=0, second=0, microsecond=0):
+            return time.replace(hour=12, minute=0, second=0, microsecond=0) - datetime.timedelta(
+                days=1
+            )
+        else:
+            return time.replace(hour=12, minute=0, second=0, microsecond=0)
 
 
 class GroundTruthFromNoise(OceanCurrentSource):
