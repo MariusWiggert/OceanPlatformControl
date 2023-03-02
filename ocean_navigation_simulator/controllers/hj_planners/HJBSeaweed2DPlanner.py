@@ -54,10 +54,13 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         arena: ArenaFactory,
         problem: SeaweedProblem,
         specific_settings: Optional[Dict] = ...,
+        c3: Optional[C3Python] = None,
     ):
 
         # get arena object for accessing seaweed growth model
         self.arena = arena
+        self.c3 = c3
+
         super().__init__(problem, specific_settings)
         self.specific_settings = {
             "platform_dict": problem.platform_dict if problem is not None else None,
@@ -67,7 +70,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             "value_fct_folder": "temp/precomputed_value_fcts/",  # Where to save and load precomputed value fcts
             "precomputed_local": False,  # Specify whether value fct are already downloaded or not
         } | self.specific_settings
-
         (
             self.all_values_subset,
             self.all_values_global_flipped,
@@ -518,7 +520,10 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         )
 
     def _get_value_fct_reach_times(
-        self, t_interval: List[datetime], u_max: float, dataSource: str
+        self,
+        t_interval: List[datetime],
+        u_max: float,
+        dataSource: str,
     ) -> Tuple[np.array, np.array, np.array, np.array]:
         # TODO: extend to get different Regions. right now only Region Matthias
         """Returns value fct. and reach times for a given time interval
@@ -531,7 +536,10 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         """
 
         hj_val_func_list = self._fetch_hj_val_func_list_list_from_c3_db(
-            t_interval=t_interval, u_max=u_max, dataSource=dataSource
+            t_interval=t_interval,
+            u_max=u_max,
+            dataSource=dataSource,
+            c3=self.c3,
         )
         reach_times_list = [hj_val_func["time"].data for hj_val_func in hj_val_func_list]
         value_fct_list = [hj_val_func["HJValueFunc"].data for hj_val_func in hj_val_func_list]
@@ -615,7 +623,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         return np.concatenate(reach_times_list)
 
     def _fetch_hj_val_func_list_list_from_c3_db(
-        self, t_interval: List[datetime], u_max: float, dataSource: str
+        self,
+        t_interval: List[datetime],
+        u_max: float,
+        dataSource: str,
+        c3: Optional[C3Python] = None,
     ) -> List:
         """Should get a list of xarrays (with value_fcts and corresponding reach_times (in sec) and x_grid, y_grid)
         Args:
@@ -639,6 +651,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 u_max=u_max,
                 download_folder=self.specific_settings["value_fct_folder"],
                 t_interval=t_interval,
+                c3=c3,
             )
 
             self.logger.debug(f"HJBSeaweed2DPlanner: Value Fct Files: {files}")
