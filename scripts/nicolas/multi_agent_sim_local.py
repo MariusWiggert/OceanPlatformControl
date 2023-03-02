@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_107")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_25_ag")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -73,7 +73,7 @@ multiAgentSafetyPredFilter = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "multi_ag_optimizer",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
+    "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -208,7 +208,7 @@ missionConfig = {
 # missionConfig = {
 #     "feasible": True,
 #     "seed": 571402,
-#     "target_radius": 0.1,
+#     "target_radius": 0.25,
 #     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
 #     "x_0": [
 #         {
@@ -265,6 +265,142 @@ missionConfig = {
 #     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
 # }
 
+
+missionConfig = {
+    "x_0": [
+        {
+            "lon": -93.98033142089844,
+            "lat": 25.489831924438477,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.04782104492188,
+            "lat": 25.437238693237305,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.07459259033203,
+            "lat": 25.489341735839844,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.13976287841797,
+            "lat": 25.45183753967285,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.1502914428711,
+            "lat": 25.473691940307617,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.19445037841797,
+            "lat": 25.491865158081055,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.16021728515625,
+            "lat": 25.439876556396484,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.18370056152344,
+            "lat": 25.522260665893555,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.18953704833984,
+            "lat": 25.403087615966797,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.17920684814453,
+            "lat": 25.44659996032715,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.19735717773438,
+            "lat": 25.4438419342041,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.2311782836914,
+            "lat": 25.46254539489746,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.0275650024414,
+            "lat": 25.443296432495117,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.1762466430664,
+            "lat": 25.439624786376953,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.11891174316406,
+            "lat": 25.409780502319336,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.13469696044922,
+            "lat": 25.398847579956055,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.06713104248047,
+            "lat": 25.377748489379883,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.17378997802734,
+            "lat": 25.42070198059082,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.12676239013672,
+            "lat": 25.45528221130371,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.08853149414062,
+            "lat": 25.502830505371094,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.04061889648438,
+            "lat": 25.498910903930664,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -93.99463653564453,
+            "lat": 25.533050537109375,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.02984619140625,
+            "lat": 25.370283126831055,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.21762084960938,
+            "lat": 25.384912490844727,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+        {
+            "lon": -94.21146392822266,
+            "lat": 25.562837600708008,
+            "date_time": "2022-09-04T22:28:42+00:00",
+        },
+    ],
+    "x_T": {"lon": -94.90808267638634, "lat": 25.949300852508383},
+    "target_radius": 0.25,
+    "seed": 2022,
+    "feasible": True,
+    "ttr_in_h": 130.20377371456533,
+    "multi_agent": True,
+}
 
 objective_conf = {"type": "nav"}
 arenaConfig = {
@@ -335,24 +471,24 @@ arena = constructor.arena
 observation = arena.reset(platform_set=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-#     x_0=problem.start_state.to_spatio_temporal_point(),
-#     x_T=problem.end_region,
-#     deg_around_x0_xT_box=0.24,
-#     temp_horizon_in_s=3600,
-# )
+t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+    x_0=problem.start_state.to_spatio_temporal_point(),
+    x_T=problem.end_region,
+    deg_around_x0_xT_box=0.5,
+    temp_horizon_in_s=3600,
+)
 
-# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=problem.start_state.date_time[0],
-#     x_interval=lon_bnds,
-#     y_interval=lat_bnds,
-#     return_ax=True,
-#     vmax=0.45,
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=problem.start_state.date_time[0],
+    x_interval=lon_bnds,
+    y_interval=lat_bnds,
+    return_ax=True,
+    vmax=0.45,
+)
+problem.plot(ax=ax)
+plt.show()
 
 #%%
 # Step 2: Retrieve Controller

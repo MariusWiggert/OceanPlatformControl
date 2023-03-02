@@ -426,7 +426,7 @@ class MissionGenerator:
         feasible_missions, feasible_points = self.sample_connected_feasible_points(
             sampling_frame=sampling_frame, mission_time=mission_time
         )
-        if len(feasible_points) < self.config["feasible_missions_per_target"]:
+        if len(feasible_missions) < self.config["feasible_missions_per_target"]:
             logger.warning(
                 f"Only {len(feasible_points)}/{self.config['feasible_missions_per_target']} feasible missions available."
             )
@@ -536,9 +536,7 @@ class MissionGenerator:
                             )
                         )
                         if any(  # connected to at least one of the other members
-                            self.config["scenario_config"]["multi_agent_constraints"][
-                                "collision_thrsld"
-                            ]
+                            self.config["multi_agent"]["minimum_dist_km"]
                             < dist.km
                             < self.config["scenario_config"]["multi_agent_constraints"][
                                 "communication_thrsld"
@@ -554,7 +552,9 @@ class MissionGenerator:
                 else:
                     self.performance["start_resampling"] += 1
                     if (
-                        self.performance["start_resampling"] > 20
+                        self.performance["start_resampling"]
+                        > self.config["multi_agent"]["nb_platforms"]
+                        * 3  # heuristic that the actual point might not be good to sample from
                     ):  # if actual point not a good one, change
                         break
             if (
@@ -575,9 +575,13 @@ class MissionGenerator:
                     )
                 )
                 nb_mission_found += 1
+                logger.info("feasible missions found for the sampled circle center point")
             else:
+                logger.info(
+                    f"Not enough feasible missions found after{self.performance['start_resampling']} unsuccessful tries: Changing center point and retrying"
+                )
                 continue
-        print("feasible missions found")
+
         return feasible_missions, list_spatio_temp_points
 
     def sample_feasible_points(

@@ -32,6 +32,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
+from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.utils import units
 
 
@@ -219,7 +220,12 @@ class HJPlannerBase(Controller):
 
                 # log x_t and data_source for plotting and easier access later
                 self.x_t = observation.platform_state
-                self.last_data_source = observation.forecast_data_source.forecast_data_source
+                if isinstance(observation.forecast_data_source, NoObserver) or isinstance(
+                    observation.forecast_data_source, Observer
+                ):
+                    self.last_data_source = observation.forecast_data_source.forecast_data_source
+                else:
+                    self.last_data_source = observation.forecast_data_source
                 # Update the data used in the HJ Reachability Planning
                 self._update_current_data(observation=observation)
                 self._plan(observation.platform_state)
