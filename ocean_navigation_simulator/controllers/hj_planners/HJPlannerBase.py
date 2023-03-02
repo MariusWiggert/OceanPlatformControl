@@ -238,7 +238,7 @@ class HJPlannerBase(Controller):
         )
         # Check if this is after our last planned one
         if most_current_fmrc_time != self.last_fmrc_time_planned_with:
-            # update the current data in the jax interpolatn
+            # update the current data in the jax interpolation
             self.last_fmrc_time_planned_with = most_current_fmrc_time
             return True
         else:
