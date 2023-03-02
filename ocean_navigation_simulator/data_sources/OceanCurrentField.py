@@ -5,6 +5,7 @@ import ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOcea
 from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
     ForecastFileSource,
+    ForecastFromHindcastSource,
     GroundTruthFromNoise,
     HindcastFileSource,
     HindcastOpendapSource,
@@ -55,6 +56,8 @@ class OceanCurrentField(DataField):
             return HindcastFileSource(source_dict)
         elif source_dict["source"] == "forecast_files":
             return ForecastFileSource(source_dict)
+        elif source_dict["source"] == "hindcast_as_forecast_files":
+            return ForecastFromHindcastSource(source_dict)
         elif source_dict["source"] == "analytical":
             specific_analytical_current = getattr(
                 AnalyticalSources, source_dict["source_settings"]["name"]
