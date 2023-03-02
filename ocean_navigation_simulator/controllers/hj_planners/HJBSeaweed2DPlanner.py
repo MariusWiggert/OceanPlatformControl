@@ -370,7 +370,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
             self.forecast_length = 0
 
-            # If FC soruce is HC Hycom or Copernicus and not averages
+            # If FC source is HC Hycom or Copernicus and not averages
             if not self.specific_settings["dataSource"] == "average":
                 self.hindcast_as_forecast = True
 
