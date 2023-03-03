@@ -634,6 +634,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             t_interval: List of start and end time as datetime objects.
             u_max:      Maximum control in m/s
             dataSource: Defines on which source the value fct was computed on
+            c3: c3 object
         Returns:
             hj_val_func_list: List of value_fcts and corresponding reach_times (in sec) and x_grid, y_grid
         """
@@ -719,6 +720,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             dataSource: one of [HC_HYCOM, HC_Copernicus, average]
             u_max: float which defines the u_max used to precompute the value fcts.
             t_interval: List of datetime with length 2. None allows to search in all available times.
+            c3: c3 object
         Return:
             c3.FetchResult where objs contains the actual files
         """
