@@ -297,7 +297,7 @@ class ArenaFactory:
         """
         helper function for thread-safe download of available current files from c3
         Args:
-            archive_source: one of [HYCOM, Copernicus]
+            archive_source: one of [HYCOM, Copernicus, NOAA_FC, NOAA_NC]
             archive_type: one of [forecast, hindcast]
             download_folder: path on disk to download the files e.g. /tmp/hycom_hindcast/
             t_interval: List of datetime with length 2.
@@ -381,7 +381,7 @@ class ArenaFactory:
         """
         helper function to get a list of available files from c3
         Args:
-            archive_source: one of [HYCOM, Copernicus]
+            archive_source: one of [HYCOM, Copernicus, Noaa_FC, Noaa_NC]
             archive_type: one of [forecast, hindcast]
             region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
             t_interval: List of datetime with length 2. None allows to search in all available times.
@@ -395,13 +395,13 @@ class ArenaFactory:
             files = ArenaFactory.get_filelist('hycom', 'hindcast', 'Region 3')
         """
         # Step 1: Sanitize Inputs
-        if archive_source.lower() not in ["hycom", "copernicus"]:
+        if archive_source.lower() not in ["hycom", "copernicus", "noaa"]:
             raise ValueError(
-                f"archive_source {archive_source} invalid choose from: hycom, copernicus."
+                f"archive_source {archive_source} invalid choose from: hycom, copernicus, noaa."
             )
-        if archive_type.lower() not in ["forecast", "hindcast"]:
+        if archive_type.lower() not in ["forecast", "hindcast", "nowcast"]:
             raise ValueError(
-                f"archive_type {archive_type} invalid choose from: forecast, hindcast."
+                f"archive_type {archive_type} invalid choose from: forecast, hindcast, nowcast."
             )
         if region not in [
             "GOM",
@@ -419,10 +419,8 @@ class ArenaFactory:
         # Step 2: Find c3 type
         if c3 is None:
             c3 = get_c3()
-        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
-        c3_file_type = getattr(
-            c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
-        )
+
+        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast", "nowcast": "Nowcast"}
 
         # Step 3: Execute Query
         if t_interval is not None:
@@ -434,9 +432,22 @@ class ArenaFactory:
             # accepting t_interval = None allows to download the whole file list for analysis
             time_filter = ""
 
+        # for NOAA it's a bit different for fetching them
+        if archive_source.lower() == "noaa":
+            archive_types["forecast"] = "Forecast"
+            c3_file_type = getattr(
+                c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
+            )
+            region_filter_str = ""
+        else:
+            c3_file_type = getattr(
+                c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
+            )
+            region_filter_str = f'contains(archive.{"description" if region == "GOM" else "name"}, "{region}") && '
+
         return c3_file_type.fetch(
             spec={
-                "filter": f'contains(archive.{"description" if region=="GOM" else "name"}, "{region}") && status == "downloaded"{time_filter}',
+                "filter": f'{region_filter_str}status == "downloaded"{time_filter}',
                 "order": "ascending(subsetOptions.timeRange.start)",
             }
         )
@@ -486,7 +497,8 @@ class ArenaFactory:
                             filesize=filesize,
                             actual_filesize=os.path.getsize(download_folder + filename),
                         )
-                    else:
+                    # check if file has attribute "subsetOptions" in a robust way
+                    elif hasattr(file, "subsetOptions"):
                         # check valid xarray file and meta length
                         try:
                             # Check valid xarray
@@ -510,6 +522,15 @@ class ArenaFactory:
                                     ge=grid_dict_list["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
                                 )
 
+                        except Exception:
+                            error = f"Corrupted file: '{filename}'."
+                    else:
+                        # check valid xarray file
+                        try:
+                            # Check valid xarray
+                            grid_dict_list = get_grid_dict_from_file(
+                                temp_folder + filename, currents="total"
+                            )
                         except Exception:
                             error = f"Corrupted file: '{filename}'."
 
@@ -554,29 +575,33 @@ class ArenaFactory:
         """
         if points is not None:
             for file in files.objs:
-                spacial_coverage = file.subsetOptions.geospatialCoverage
-                for point in points:
-                    lon_covered = (
-                        spacial_coverage.start.longitude
-                        <= point.lon.deg
-                        <= spacial_coverage.end.longitude
-                    )
-                    lat_covered = (
-                        spacial_coverage.start.latitude
-                        <= point.lat.deg
-                        <= spacial_coverage.end.latitude
-                    )
-
-                    if not lon_covered or not lat_covered:
-                        logger.error(
-                            "The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
-                                point,
-                                spacial_coverage.start.longitude,
-                                spacial_coverage.end.longitude,
-                                spacial_coverage.start.latitude,
-                                spacial_coverage.end.latitude,
-                            )
+                # check if file has attribute "subsetOptions" in a robust way (Noaa files do not)
+                if hasattr(file, "subsetOptions"):
+                    spacial_coverage = file.subsetOptions.geospatialCoverage
+                    for point in points:
+                        lon_covered = (
+                            spacial_coverage.start.longitude
+                            <= point.lon.deg
+                            <= spacial_coverage.end.longitude
                         )
+                        lat_covered = (
+                            spacial_coverage.start.latitude
+                            <= point.lat.deg
+                            <= spacial_coverage.end.latitude
+                        )
+
+                        if not lon_covered or not lat_covered:
+                            logger.error(
+                                "The point {} is not covered by the longitude of the downloaded files. Available: lon [{},{}], lat[{},{}].".format(
+                                    point,
+                                    spacial_coverage.start.longitude,
+                                    spacial_coverage.end.longitude,
+                                    spacial_coverage.start.latitude,
+                                    spacial_coverage.end.latitude,
+                                )
+                            )
+                else:
+                    break
 
     @staticmethod
     def analyze_files(
