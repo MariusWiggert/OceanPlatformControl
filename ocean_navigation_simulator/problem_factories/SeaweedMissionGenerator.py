@@ -262,7 +262,10 @@ class SeaweedMissionGeneratorFeasibility:
         self.config["hj_specific_settings"].update({"platform_dict": self.config["platform_dict"]})
 
         self.planner = HJBSeaweed2DPlanner(
-            arena=self.arena, problem=None, specific_settings=self.config["hj_specific_settings"]
+            arena=self.arena,
+            problem=None,
+            specific_settings=self.config["hj_specific_settings"],
+            c3=self.c3,
         )
 
         if not hasattr(self, "arena"):
