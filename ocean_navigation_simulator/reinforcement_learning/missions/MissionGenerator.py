@@ -57,8 +57,8 @@ class MissionGenerator:
         self.c3 = c3
         # Load distance maps
         self.distance_map = dict()
-        if self.config.get("filepath_distance_map",False):
-            for area_type in self.config.get("filepath_distance_map",False):
+        if self.config.get("filepath_distance_map", False):
+            for area_type in self.config.get("filepath_distance_map", False):
                 self.distance_map[area_type] = xr.open_dataset(
                     self.config["filepath_distance_map"][area_type]
                 )
@@ -438,7 +438,7 @@ class MissionGenerator:
             )
             return distance_to_garbage.deg
         # Use bathymetry map to determine distance from a certain depth
-        elif area_type == "bathymetry" and self.distance_map.get('area_type', False):
+        elif area_type == "bathymetry" and self.distance_map.get("area_type", False):
             distance_to_shore = units.Distance(
                 km=(
                     self.distance_map[area_type]
@@ -448,6 +448,7 @@ class MissionGenerator:
             )
             return distance_to_shore.deg
         else:
+            # TODO: fix marius hacky way to enable c3 usage and to ensure we sample/reject correctly.
             return 1
             # raise NotImplementedError(
             #     f"Only garbage and bathymetry are supported as area_type, passed: {area_type}."
