@@ -48,6 +48,10 @@ scenario_config = {
         "source_settings": {
             "filepath": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
         },
+        "distance": {
+            "safe_distance": 10,
+            "filepath": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_-150.nc",
+        },
         "casadi_cache_settings": {"deg_around_x_t": 20},
         "use_geographic_coordinate_system": True,
     },
@@ -112,6 +116,9 @@ action = planner.get_action(observation=observation)
 for i in tqdm(range(int(3600 * 24 * 0.5 / 600))):  # 5 days
     action = planner.get_action(observation=observation, area_type="bathymetry")
     observation = arena.step(action)
+    problem_status = arena.problem_status(problem=problem)
+    print(problem_status)
+
 
 #%% Plot the arena trajectory on the map
 arena.plot_all_on_map(problem=problem, background="bathymetry")
