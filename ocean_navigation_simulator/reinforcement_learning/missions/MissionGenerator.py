@@ -425,7 +425,7 @@ class MissionGenerator:
             )
             return distance_to_garbage.deg
         # Use bathymetry map to determine distance from a certain depth
-        elif area_type == "bathymetry" and self.distance_map.get('area_type', False):
+        elif area_type == "bathymetry" and self.distance_map.get(area_type, False):
             distance_to_shore = units.Distance(
                 km=(
                     self.distance_map[area_type]
