@@ -1,4 +1,5 @@
-#%% Dynamics and Observation Model for Double Gyre Flow Planning
+#%% 
+# Dynamics and Observation Model for Double Gyre Flow Planning
 # Note: it is vectorized to work with as many particle in parallel as needed.
 import abc
 import datetime
@@ -17,6 +18,19 @@ class DynamicsAndObservationModel(abc.ABC):
         self.dt = dt
         self.u_max = u_max
         self.var = multivariate_normal(mean=[0, 0], cov=cov_matrix)
+
+    def sample_new_action(self, action_set: set) -> int:
+        """Sample a new action non-existent in the set
+        Args:
+            action_set: Set of actions already sampled
+        Returns:
+            action: Action as int
+        """
+        # Get the set of actions not sampled before
+        missing_actions = set(np.arange(8)) - action_set
+
+        # Sample random action from missing_actions
+        return np.random.choice(tuple(missing_actions))
 
     # Note: if needed we can vectorize this function easily
     def sample_observation(self, states: np.array) -> np.array:
@@ -98,7 +112,10 @@ class DynamicsAndObservationModel(abc.ABC):
         )
 
         return np.logical_or(x_boundary, y_boundary)
-#%% Using it:
+    
+
+#%% 
+# Using it:
 # initialize the model
 model = DynamicsAndObservationModel(cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
 # get the currents at two states (one state is: [x, y, t, period_time, v_amplitude]) states are in rows
@@ -115,7 +132,9 @@ print(observations) # those are currents in u and v direction at that state (noi
 print("Evaluate Observation likelihoods:")
 print(model.evaluate_observations(states=states, observations=observations))
 
-#%% Getting an initial state distribution
+
+#%% 
+# Getting an initial state distribution
 platform_position = [0.1, 0.5, 0]
 
 period_time_range = [50, 100]
@@ -129,7 +148,9 @@ v_amplitude_samples = np.random.uniform(low=v_amplitude_range[0], high=v_amplitu
 # all equally weighted initial particles then are
 initial_particles = [platform_position + [period_time, v_amplitude] for period_time, v_amplitude in zip(period_time_samples, v_amplitude_samples)]
 
-#%% heuristic action policy ('naive to target')
+
+#%% 
+# Heuristic action policy ('naive to target')
 class HeuristicPolicy:
     """Heuristic policy to go to a target."""
     def __init__(self, target: np.array):
@@ -146,12 +167,17 @@ class HeuristicPolicy:
         # discretize the angle
         actions = np.round(angle_to_target / (np.pi / 4)).astype(int)
         return actions
-#%% Get the action for a state
+    
+
+#%% 
+# Get the action for a state
 print("Heuristic policy:")
 print(HeuristicPolicy(target=np.array([0, 0.5])).get_action(states=np.array(initial_particles)))
 print("Same actions are expected because the platform position for all of them is the same, currents are ignored.")
 
-#%% define a navigation problem to be solved
+
+#%% 
+# Define a navigation problem to be solved
 # reward function: Option 1: just negative distance to target at each point in time
 class RewardFunction:
     def __init__(self, target: np.array, target_radius: float = 0.05):
@@ -180,7 +206,9 @@ class TimeRewardFunction(RewardFunction):
         # return the negative distance
         return -1 + np.where(np.linalg.norm(states[:, :2] - self.target, axis=1) < self.target_radius, 100, 0)
 
-#%% Run a simulation with the heuristic policy (Your planner only needs to implement the get_action function)
+
+#%% 
+# Run a simulation with the heuristic policy (Your planner only needs to implement the get_action function)
 # Initialize the simulator of reality (this takes a bit, it performs caching of currents under the hood)
 u_max = 0.1
 dt_sim = 0.1
@@ -224,7 +252,10 @@ arenaConfig = {
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 arena = ArenaFactory.create(scenario_config=arenaConfig)
-#%% Working with the arena object
+
+
+#%% 
+# Working with the arena object
 # visualize the true currents at a specific time
 posix_time = 0
 arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -239,7 +270,10 @@ arena.ocean_field.hindcast_data_source.animate_data(
     t_interval=[0, 500],
     output="test_analytical_current_animation.mp4", # this is saved under the "generated_media" folder
 )
-#%% This is how to run closed-loop simulations
+
+
+#%% 
+# This is how to run closed-loop simulations
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.Arena import PlatformAction
@@ -274,7 +308,10 @@ observation = arena.reset(platform_state=problem.start_state)
 controller = HeuristicPolicy(target=target_position)
 # set initial problem status
 problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
-#%% The main simulation loop
+
+
+#%% 
+# The main simulation loop
 total_reward = 0
 # can also run it for a fixed amount of steps
 # for i in tqdm(range(100)):
@@ -295,8 +332,14 @@ while problem_status == 0:
 
 print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
 print("Final reward:", total_reward)
-#%% visualize the trajectory as 2D plot
+
+
+#%% 
+# Visualize the trajectory as 2D plot
 arena.plot_all_on_map(problem=problem)
-#%% render animation of the closed-loop trajectory
+
+
+#%% 
+# Render animation of the closed-loop trajectory
 arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", # this is saved under the "generated_media" folder
                          temporal_resolution=0.1)
