@@ -119,27 +119,26 @@ specific_settings_navigation = {
     "d_max": 0.0,
     # 'EVM_threshold': 0.3 # in m/s error when floating in forecasted vs sensed currents
     # 'fwd_back_buffer_in_seconds': 0.5,  # this is the time added to the earliest_to_reach as buffer for forward-backward
-    # TODO: This is from the config. So we can perhaps pass the whole config and then pick what we need
     "platform_dict": arena.platform.platform_dict,
 }
 specific_settings_safety = {
     "filepath_distance_map": {
         "bathymetry": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.083_0.083_max_elevation_0.nc",
-        "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
+        # "garbage": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_distance_res_0.083_0.083_max.nc",
     }
 }
 specific_settings_switching = {
     "safety_condition": {"base_setting": "on", "area_type": ["bathymetry"]},
-    "safe_distance": {
-        "bathymetry": 20
-    },  # TODO: change to units, currently km. Missiongenerator uses mostly degrees
+    "safe_distance": {"bathymetry": 20},
     "safety_controller": "ocean_navigation_simulator.controllers.NaiveSafetyController.NaiveSafetyController",
     "navigation_controller": "ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner",
 }
-
-planner = SwitchingController(
-    problem, specific_settings_switching, specific_settings_navigation, specific_settings_safety
-)
+specific_settings = {
+    "specific_settings_switching": specific_settings_switching,
+    "specific_settings_safety": specific_settings_safety,
+    "specific_settings_navigation": specific_settings_navigation,
+}
+planner = SwitchingController(problem, specific_settings)
 
 #%% Run reachability planner
 observation = arena.reset(platform_state=x_0)
