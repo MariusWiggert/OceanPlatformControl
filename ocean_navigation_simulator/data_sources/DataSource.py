@@ -819,6 +819,7 @@ class AnalyticalSource(abc.ABC):
         t_interval: List[Union[datetime.datetime, float]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -827,6 +828,7 @@ class AnalyticalSource(abc.ABC):
           t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix.
           spatial_resolution: spatial resolution in the same units as x and y interval
           temporal_resolution: temporal resolution in seconds
+          throw_exceptions:    if True an exception is thrown when requesting data not available otherwise warning
         Returns:
           data_array     in xarray format that contains the grid and the values (land is NaN). Shape: T,Y,X
         """
