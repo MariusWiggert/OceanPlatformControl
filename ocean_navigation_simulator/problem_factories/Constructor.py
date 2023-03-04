@@ -1,6 +1,8 @@
 import datetime
 from importlib import import_module
-from typing import Type, Union
+from typing import Optional, Type, Union
+from c3python import C3Python
+
 
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
@@ -30,7 +32,7 @@ class Constructor:
         objective_conf: dict,
         ctrl_conf: dict,
         observer_conf: dict,
-        c3=None,
+        c3: Optional[C3Python] = None,
         download_files=False,
         timeout_in_sec=0,
         create_arena=True,
@@ -53,6 +55,7 @@ class Constructor:
         self.objective_conf = objective_conf
         self.ctrl_conf = ctrl_conf
         self.observer_conf = observer_conf
+        self.c3 = c3
 
         # Create arena from config
         if create_arena:
@@ -154,7 +157,7 @@ class Constructor:
 
         # Return controller object
         return ControllerClass(
-            problem=self.problem, arena=self.arena, specific_settings=self.ctrl_conf
+            problem=self.problem, arena=self.arena, specific_settings=self.ctrl_conf, c3=self.c3
         )
 
     def __observer_constructor(self) -> Union[Observer, NoObserver]:
