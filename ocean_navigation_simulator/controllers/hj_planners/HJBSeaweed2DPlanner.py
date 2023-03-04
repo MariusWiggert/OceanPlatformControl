@@ -301,6 +301,20 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                     [self.all_values_subset[:time_idx], self.all_values], axis=0
                 )
 
+                # Get indices of x_t to access mask on relevant position
+                lon_idx = self._get_idx_closest_value_in_array(
+                    self.grid.states[:, 0, 0], x_t.lon.deg
+                )
+                lat_idx = self._get_idx_closest_value_in_array(
+                    self.grid.states[0, :, 1], x_t.lon.deg
+                )
+
+                # Check whether the value of the first timestep on position x_t is higher than 0.8 which we estimate to be from propagated boundry conditions
+                if self.all_values[-1][lon_idx][lat_idx] > 0.8:
+                    raise ValueError(
+                        f"Value function has invalid value {self.all_values[-1][lon_idx][lat_idx]} at x_t, due to propagating boundry conditions"
+                    )
+
             # Assign the values and reach times over the complete planning horizon if we only compute on pure HC data if we use precomputed values
             if self.hindcast_as_forecast and not self.specific_settings["precomputation"]:
                 self.all_values = self.all_values_subset
