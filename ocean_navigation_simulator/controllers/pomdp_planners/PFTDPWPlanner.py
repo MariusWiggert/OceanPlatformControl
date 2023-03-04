@@ -332,7 +332,9 @@ class PFTDPWPlanner:
 		self._initialize_tree()
 		initial_belief_id = self._insert_belief_node(belief)
 		if self._is_terminal(belief):
-			raise Exception("PFT-DPW Planner: Was provided a terminal state for initial belief")
+			Warning("PFT-DPW Planner: Was provided a terminal state for initial belief, returning rollout action")
+			return self._rollout_action(belief)
+
 
 		# Plan with the tree by querying the tree for num_mcts_simulate number of times
 		for _ in range(self.specific_settings["num_mcts_simulate"]):

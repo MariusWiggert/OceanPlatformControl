@@ -441,7 +441,7 @@ num_planner_particles = 100
 mcts_settings = {
     "num_mcts_simulate": 100,
     "max_depth": 10,
-    "max_rollout_depth": 20,
+    "max_rollout_depth": 100,
 	"rollout_subsample": 10,
     "rollout_style": "FO",
     "ucb_factor": 10.0,
@@ -513,6 +513,9 @@ while problem_status == 0 and step < max_step:
     step += 1
 
 print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
+
+
+#%% 
 # Visualize the trajectory as 2D plot
 arena.plot_all_on_map(problem=problem)
 
