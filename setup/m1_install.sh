@@ -9,8 +9,7 @@
 conda install -y -c jupyter cartopy ffmpeg
 pip install --upgrade pip
 pip install git+https://github.com/c3aidti/c3python
-pip install -r setup/requirements_minimal_m1.txt
-pip install -U numpy  
+pip install -r setup/requirements_minimal_m1.txt 
 
 # build casadi from source
 git clone https://github.com/casadi/casadi.git casadi                                                                                

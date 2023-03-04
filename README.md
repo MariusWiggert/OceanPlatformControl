@@ -41,7 +41,7 @@ Then run the installation script (you might have to run `chmod 700 setup/install
 First create a conda environment
 
 ```sh
-conda create -y -n ocean_minimal python=3.9
+conda create -y -n ocean_minimal python=3.9.11
 conda activate ocean_minimal
 ```
 
