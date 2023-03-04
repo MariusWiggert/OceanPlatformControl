@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,7 +25,7 @@ class PFTTree:
 	action_id_to_belief_id_reward: dict # action_id -> [(belief_id, reward)] (action_id determines the (b, a) pair)
 
 
-class PFTDPWPlanner():
+class PFTDPWPlanner:
 	def __init__(
 		self, 
 		generative_particle_filter: GenerativeParticleFilter, 
@@ -45,7 +46,6 @@ class PFTDPWPlanner():
 		# Set up parameters
 		self.specific_settings = {
             "num_mcts_simulate": 100,
-			"num_particles": 100,
 			"max_depth": 100,
 			"ucb_factor": 10.0,
 			"dpw_k_observations": 4.0,
@@ -111,7 +111,7 @@ class PFTDPWPlanner():
 		)
 
 	def _is_terminal(self, belief: ParticleBelief) -> np.array:
-		_, terminal_checks = self.reward_function(belief)
+		terminal_checks = self.reward_function.check_terminal(belief.states)
 		return all(terminal_checks)
 	
 	def _generate_transition(
@@ -121,8 +121,8 @@ class PFTDPWPlanner():
 	) -> tuple[ParticleBelief, np.array]:
 		# Generate b', r from T(b, a)
 		next_belief = self.generative_particle_filter.generate_next_belief(belief, action)
-		rewards, _ = self.reward_function(next_belief)
-		reward = rewards * next_belief.weights / np.sum(next_belief.weights)
+		rewards = self.reward_function.get_reward(next_belief.states)
+		reward = np.sum(rewards * next_belief.weights / np.sum(next_belief.weights))
 
 		return next_belief, reward
 
@@ -133,7 +133,7 @@ class PFTDPWPlanner():
 	
 	def _rollout_simulation(self, belief_id: int) -> float:
 		# Initialize rollout simulation
-		current_belief = self.tree.belief_id_to_belief[belief_id].copy()
+		current_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
 		steps = 0
 		is_terminal = False
 		cumulative_reward = 0.0
@@ -287,9 +287,9 @@ class PFTDPWPlanner():
 
 		# Simulate recursively
 		if new_node:
-			q_value = reward + self.discount * self._estimate_rollout_value(next_belief_id)
+			q_value = reward + self.specific_settings["discount"] * self._estimate_rollout_value(next_belief_id)
 		else:
-			q_value = reward + self.discount * self.mcts_simulate(next_belief_id, current_depth - 1)
+			q_value = reward + self.specific_settings["discount"] * self.mcts_simulate(next_belief_id, current_depth - 1)
 
 		# Update the counters & quantities
 		self.tree.belief_id_num_visits[belief_id] += 1

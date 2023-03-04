@@ -111,7 +111,7 @@ class DynamicsAndObservationModel(abc.ABC):
             lat > self.y_domain[1],
         )
 
-        return np.logical_or(x_boundary, y_boundary)
+        return np.logical_or(x_boundary, y_boundary).reshape([-1, 1])
     
 
 #%% 
@@ -120,9 +120,10 @@ class DynamicsAndObservationModel(abc.ABC):
 model = DynamicsAndObservationModel(cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
 # get the currents at two states (one state is: [x, y, t, period_time, v_amplitude]) states are in rows
 states = np.array([[1.25, 0.5, 0, 100, 1],
-                   [1.8, 0.1, 0, 100, 1]])
+                   [1.8, 0.1, 0, 75, 0.75],
+                   [1.2, 0.4, 0, 50, 0.5]])
 # get next states for them p(s'|s,a)
-actions = np.array([0, 3]) # discretized 0 - 7. 0 is 0*pi and every int after +pi/4
+actions = np.array([0, 3, 2]) # discretized 0 - 7. 0 is 0*pi and every int after +pi/4
 print("Next states:")
 print(model.get_next_states(states=states, actions=actions))
 # get observations z for them p(z|s)
@@ -166,6 +167,9 @@ class HeuristicPolicy:
         angle_to_target = np.arctan2(self.target[1] - states[:,1], self.target[0] - states[:,0])
         # discretize the angle
         actions = np.round(angle_to_target / (np.pi / 4)).astype(int)
+        if actions.shape[0] == 1:
+            return actions[0]
+        
         return actions
     
 
@@ -183,6 +187,7 @@ class RewardFunction:
     def __init__(self, target: np.array, target_radius: float = 0.05):
         self.target = target
         self.target_radius = target_radius
+
     def get_reward(self, states: np.array) -> np.array:
         """Reward function for the navigation problem.
         Args:
@@ -194,6 +199,17 @@ class RewardFunction:
         distance_to_target = np.linalg.norm(states[:, :2] - self.target, axis=1) - self.target_radius
         # return the negative distance
         return -distance_to_target
+    
+    def check_terminal(self, states: np.array) -> np.array:
+        """Check terminal conditions for the navigation problem.
+        Args:
+            states: state vector (n, 5) with columns (x, y, t, period_time, v_amplitude)
+        Returns:
+            is_terminal: vector of boolean as np.array (n,)
+        """
+        return np.array([False] * len(states))
+    
+
 # Option 2: -1 when outside target and +100 when inside
 class TimeRewardFunction(RewardFunction):
     def get_reward(self, states: np.array) -> np.array:
@@ -311,6 +327,7 @@ problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
 
 
 #%% 
+# Naive Policy
 # The main simulation loop
 total_reward = 0
 # can also run it for a fixed amount of steps
@@ -326,7 +343,7 @@ while problem_status == 0:
     discrete_action = controller.get_action(states=x_t)
 
     # execute action
-    observation = arena.step(PlatformAction.from_discrete_action(discrete_action))
+    observation = arena.step(PlatformAction.from_discrete_action(np.array([discrete_action])))
     # update problem status
     problem_status = arena.problem_status(problem=problem)
 
@@ -343,3 +360,110 @@ arena.plot_all_on_map(problem=problem)
 # Render animation of the closed-loop trajectory
 arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", # this is saved under the "generated_media" folder
                          temporal_resolution=0.1)
+
+
+#%% 
+# MCTS Policy
+from ocean_navigation_simulator.controllers.pomdp_planners.ParticleBelief import ParticleBelief
+from ocean_navigation_simulator.controllers.pomdp_planners.ParticleFilterObserver import ParticleFilterObserver
+from ocean_navigation_simulator.controllers.pomdp_planners.GenerativeParticleFilter import GenerativeParticleFilter
+from ocean_navigation_simulator.controllers.pomdp_planners.PFTDPWPlanner import PFTDPWPlanner
+
+# Getting an initial state distribution
+platform_position = [0.1, 0.5, 0]
+
+period_time_range = [50, 100]
+v_amplitude_range = [0.5, 1.0]
+
+# sample from this 2D space of hypothesis uniformly
+n_samples = 10_000
+period_time_samples = np.random.uniform(low=period_time_range[0], high=period_time_range[1], size=n_samples)
+v_amplitude_samples = np.random.uniform(low=v_amplitude_range[0], high=v_amplitude_range[1], size=n_samples)
+
+# all equally weighted initial particles then are
+initial_particles = [platform_position + [period_time, v_amplitude] for period_time, v_amplitude in zip(period_time_samples, v_amplitude_samples)]
+initial_particles = np.array(initial_particles)
+
+#%% 
+# Setting up necessary subvariables and routines
+initial_particle_belief = ParticleBelief(initial_particles)
+dynamics_and_observation_model = DynamicsAndObservationModel(
+    cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
+# reward_function = TimeRewardFunction(target_position, target_radius)
+reward_function = RewardFunction(target_position, target_radius)
+rollout_policy = HeuristicPolicy(target_position)
+num_planner_particles = 20
+mcts_settings = {
+            "num_mcts_simulate": 1,
+			"max_depth": 100,
+			"ucb_factor": 10.0,
+			"dpw_k_observations": 4.0,
+			"dpw_alpha_observations": 0.25,
+			"dpw_k_actions": 3.0,
+			"dpw_alpha_actions": 0.25,
+			"discount": 0.99,
+			"action_space_cardinality": 8,
+        }
+
+# Setting up particle belief and observer
+generative_particle_filter = GenerativeParticleFilter(dynamics_and_observation_model, False)
+mcts_observer = ParticleFilterObserver(initial_particle_belief, dynamics_and_observation_model, True)
+mcts_planner = PFTDPWPlanner(generative_particle_filter, reward_function, rollout_policy, None, mcts_settings)
+
+#%% 
+# The main simulation loop
+total_reward = 0
+observation = arena.reset(platform_state=problem.start_state)
+problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
+
+printing_problem_status = 20
+step = 0
+max_step = 500
+
+# can also run it for a fixed amount of steps
+while problem_status == 0 and step < max_step:
+    # Get MCTS action
+    current_belief = mcts_observer.get_planner_particle_belief(num_planner_particles)
+    next_action = mcts_planner.get_best_action(current_belief)
+
+    # Execute action
+    observation = arena.step(PlatformAction.from_discrete_action(np.array([next_action])))
+    problem_status = arena.problem_status(problem=problem)
+
+    # Update observer
+    mcts_observer.full_bayesian_update(next_action, np.array(observation.true_current_at_state))
+
+    # Statistics if curious
+    if step % printing_problem_status == 0:
+        print("==============")
+        print("Iteration: ", i)
+        print("Parameter estimates")
+        print(
+            " - Period Time: ", 
+            np.round(np.mean(mcts_observer.particle_belief_state.states[:,3]), 2), 
+            " +- ", 
+            np.round(np.std(mcts_observer.particle_belief_state.states[:,3]), 2),
+        )
+        print(
+            " - V Amplitude: ", 
+            np.round(np.mean(mcts_observer.particle_belief_state.states[:,4]), 2), 
+            " +- ", 
+            np.round(np.std(mcts_observer.particle_belief_state.states[:,4]), 2),
+        )
+    
+    step += 1
+
+print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
+print("Final reward:", total_reward)
+
+
+#%% 
+# Visualize the trajectory as 2D plot
+arena.plot_all_on_map(problem=problem)
+
+
+#%% 
+# Render animation of the closed-loop trajectory
+arena.animate_trajectory(problem=problem, output="pomdp_planner_trajectory.mp4", # this is saved under the "generated_media" folder
+                         temporal_resolution=0.1)
+# %%

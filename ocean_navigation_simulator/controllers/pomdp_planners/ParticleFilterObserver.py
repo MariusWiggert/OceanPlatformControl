@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 
 from ocean_navigation_simulator.controllers.pomdp_planners.ParticleBelief import (
     ParticleBelief,
@@ -55,9 +56,9 @@ class ParticleFilterObserver(ParticleFilterBase):
         observation: np.array
     ) -> None:
         # Tile action and observation for vectorization
-        actions = np.tile(action, [self.particle_belief_state.num_particles, 1])
+        actions = np.tile(action, self.particle_belief_state.num_particles)
         observation_flattened = observation.flatten()
-        observations = np.tile(observation_flattened, [self.particle_belief_state.num_particles, len(observation_flattened)])
+        observations = np.tile(observation_flattened, [self.particle_belief_state.num_particles, 1])
 
         # Run dynamics and observation updates
         self.dynamics_update(actions)
@@ -86,8 +87,8 @@ class ParticleFilterObserver(ParticleFilterBase):
         num_particles_planning: int
     ) -> ParticleBelief:
         # Return a simple copy if number of particles for planning is same
-        if num_particles_planning == len(self.particle_belief_state):        
-            return self.particle_belief_state.copy()
+        if num_particles_planning == self.particle_belief_state.num_particles:        
+            return deepcopy(self.particle_belief_state)
         
         # Return a down sampled copy for planning
         self.particle_belief_state.normalize_weights()

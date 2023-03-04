@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 
 from ocean_navigation_simulator.controllers.pomdp_planners.ParticleBelief import (
     ParticleBelief,
@@ -94,9 +95,9 @@ class GenerativeParticleFilter(ParticleFilterBase):
         # Sample a single state from particle belief according to the likelihood weights
         sampled_state_index = np.random.choice(
             particle_belief_state.num_particles, 
-            p = particle_belief_state.weights
+            p = particle_belief_state.weights / np.sum(particle_belief_state.weights)
         )
-        return particle_belief_state[sampled_state_index].reshape([1, -1])
+        return particle_belief_state.states[sampled_state_index].reshape([1, -1])
 
     def generate_next_belief(
         self,
@@ -104,7 +105,7 @@ class GenerativeParticleFilter(ParticleFilterBase):
         action: int
     ) -> ParticleBelief:
         # Get a copy of the input
-        next_particle_belief_state = particle_belief_state.copy()
+        next_particle_belief_state = deepcopy(particle_belief_state)
 
         # Sample an observation by first picking a state
         sampled_state = self.sample_random_state(next_particle_belief_state)
@@ -113,11 +114,11 @@ class GenerativeParticleFilter(ParticleFilterBase):
         sampled_observation = self.dynamics_and_observation.sample_observation(sampled_state).flatten()
         sampled_observation_tiled = np.tile(
             sampled_observation, 
-            [next_particle_belief_state.num_particles, len(sampled_observation)]
+            [next_particle_belief_state.num_particles, 1]
         )
         actions = np.tile(
             action, 
-            [next_particle_belief_state.num_particles, 1]
+            next_particle_belief_state.num_particles
         )
         
         # Run full bayesian next step with the sampled observation

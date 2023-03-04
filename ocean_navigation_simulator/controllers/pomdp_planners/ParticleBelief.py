@@ -1,12 +1,17 @@
 import numpy as np
+from typing import Optional
 
 class ParticleBelief:
-    def __init__(self, states: np.array, weights: np.array) -> None:
+    def __init__(
+        self, 
+        states: np.array, 
+        weights: Optional[np.array] = None
+    ) -> None:
         self.states = states
         self.num_particles = len(self.states)
         self.is_normalized = False
         
-        if len(weights) == 0:
+        if weights is None or len(weights) == 0:
             self.weights = [1.0] * self.num_particles
         elif len(weights) != self.num_particles:
             raise Exception("Particle Belief Initialization: Numbers of states particles and weights do not match")
@@ -14,7 +19,7 @@ class ParticleBelief:
             self.weights = weights
     
     def update_states(self, states: np.array) -> None:
-        if not states:
+        if states is None:
             raise Exception("Particle Belief State Update: New states is empty")
         if self.num_particles != len(states):
             raise Exception("Particle Belief State Update: New states is not the same length as old states")
