@@ -36,8 +36,11 @@ class ParticleBelief:
         self.update_weights(weights)
 
     def normalize_weights(self) -> None:
-        self.weights /= np.sum(self.weights)
-        self.is_normalized = True
+        if np.all(self.weights != 0.0):
+            self.weights /= np.sum(self.weights)
+            self.is_normalized = True
+        else:
+            Warning("Particle Belief: All weights are zero")
     
     def reinitialize_weights(self) -> None:
         self.weights = [1.0] * self.num_particles

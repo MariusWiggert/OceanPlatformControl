@@ -47,6 +47,7 @@ class PFTDPWPlanner:
 		self.specific_settings = {
             "num_mcts_simulate": 100,
 			"max_depth": 100,
+            "max_rollout_depth": 10,
 			"ucb_factor": 10.0,
 			"dpw_k_observations": 4.0,
 			"dpw_alpha_observations": 0.25,
@@ -112,7 +113,7 @@ class PFTDPWPlanner:
 
 	def _is_terminal(self, belief: ParticleBelief) -> np.array:
 		terminal_checks = self.reward_function.check_terminal(belief.states)
-		return all(terminal_checks)
+		return np.logical_or(np.all(terminal_checks), np.all(belief.weights == 0.0))
 	
 	def _generate_transition(
 		self, 
@@ -124,23 +125,32 @@ class PFTDPWPlanner:
 		rewards = self.reward_function.get_reward(next_belief.states)
 		reward = np.sum(rewards * next_belief.weights / np.sum(next_belief.weights))
 
+		# Remove any terminal particles
+		terminal_checks = self.reward_function.check_terminal(next_belief.states)
+		filtered_weights = np.where(
+			terminal_checks, 
+			np.zeros(next_belief.num_particles), 
+			next_belief.weights
+		)
+		next_belief.update_weights(filtered_weights)
+
 		return next_belief, reward
 
 	def _rollout_action(self, belief: ParticleBelief) -> Any:
 		# Sample a random state and get a heuristic action from that
 		sampled_state = self.generative_particle_filter.sample_random_state(belief)
-		return self.rollout_policy.get_action(sampled_state)
+		return self.rollout_policy.get_action(sampled_state)[0]
 	
-	def _rollout_simulation(self, belief_id: int) -> float:
-		# Initialize rollout simulation
+	def _rollout_belief_simulation(self, belief_id: int) -> float:
+		# Initialize rollout simulation with full belief dynamics (SLOW)
 		current_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
 		steps = 0
-		is_terminal = False
+		is_terminal = self._is_terminal(current_belief)
 		cumulative_reward = 0.0
 		discount = 1.0
 
 		# Run rollout simulation until either terminal state or max steps reached
-		while steps < self.specific_settings["max_depth"] and not is_terminal:
+		while steps < self.specific_settings["max_rollout_depth"] and not is_terminal:
 			# Dynamics forward with rollout action
 			action = self._rollout_action(current_belief)
 			current_belief, reward = self._generate_transition(current_belief, action)
@@ -152,17 +162,55 @@ class PFTDPWPlanner:
 			is_terminal = self._is_terminal(current_belief)
 
 		return cumulative_reward
+	
+	def _rollout_mdp_simulation(self, belief_id: int) -> float:
+		# Initialize rollout simulation with QMDP style (each trajectory separate)
+		current_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
+		is_terminal = self._is_terminal(current_belief)
+		current_belief.normalize_weights()
+		current_states = current_belief.states
+		current_weights = current_belief.weights
+		steps = 0
+		cumulative_reward = 0.0
+		discount = 1.0
+
+		# Run rollout simulation until either terminal state or max steps reached
+		while steps < self.specific_settings["max_rollout_depth"] and not is_terminal:
+			# Dynamics forward with rollout action
+			actions = self.rollout_policy.get_action(current_states)
+			current_states = self.generative_particle_filter.dynamics_and_observation.get_next_states(
+                current_states,
+                actions
+            )
+			rewards = self.reward_function.get_reward(current_states)
+			reward = np.sum(rewards * current_weights)
+			cumulative_reward += discount * reward
+			
+			# Increment quantities
+			discount *= self.specific_settings["discount"]
+			steps += 1
+			is_terminal = self._is_terminal(current_belief)
+
+		if cumulative_reward > 0.0:
+			print(cumulative_reward)
+		return cumulative_reward
 
 	def _estimate_rollout_value(self, belief_id: int) -> float:
+		# No policy nor value given
+		if self.rollout_value is None and self.rollout_policy is None:
+			raise Exception("DPW Planner: No Rollout policy nor value given")
+		
 		# Return rollout value from function call
 		if self.rollout_value is not None:
 			raise Exception("DPW Planner: Rollout value not implemented yet")
-
+		
 		# Run rollout simulation starting from belief b
-		if self.rollout_policy is not None:
-			return self._rollout_simulation(belief_id)
-
-		raise Exception("DPW Planner: No Rollout policy nor value given")
+		if self.specific_settings["rollout_style"] == "PO":
+			return self._rollout_belief_simulation(belief_id)
+		elif self.specific_settings["rollout_style"] == "FO":
+			return self._rollout_mdp_simulation(belief_id)
+		
+		return 0.0
 	
 	def _get_default_action(self, belief_id: int) -> float:
 		# Run rollout policy to get default action
@@ -257,6 +305,8 @@ class PFTDPWPlanner:
 		# Construct the DPW tree
 		self._initialize_tree()
 		initial_belief_id = self._insert_belief_node(belief)
+		if self._is_terminal(belief):
+			raise Exception("PFT-DPW Planner: Was provided a terminal state for initial belief")
 
 		# Plan with the tree by querying the tree for num_mcts_simulate number of times
 		for _ in range(self.specific_settings["num_mcts_simulate"]):
@@ -269,7 +319,7 @@ class PFTDPWPlanner:
 			if self.tree.action_id_to_q_values[action_id] > best_q_value:
 				best_q_value = self.tree.action_id_to_q_values[action_id]
 				best_action_id = action_id
-		
+
 		assert best_action_id is not None
 		return self.tree.action_id_to_action[best_action_id]
 

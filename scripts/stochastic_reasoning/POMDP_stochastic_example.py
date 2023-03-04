@@ -156,6 +156,7 @@ class HeuristicPolicy:
     """Heuristic policy to go to a target."""
     def __init__(self, target: np.array):
         self.target = target
+
     def get_action(self, states: np.array) -> np.array:
         """Heuristic policy to go to a target.
         Args:
@@ -167,9 +168,6 @@ class HeuristicPolicy:
         angle_to_target = np.arctan2(self.target[1] - states[:,1], self.target[0] - states[:,0])
         # discretize the angle
         actions = np.round(angle_to_target / (np.pi / 4)).astype(int)
-        if actions.shape[0] == 1:
-            return actions[0]
-        
         return actions
     
 
@@ -184,6 +182,9 @@ print("Same actions are expected because the platform position for all of them i
 # Define a navigation problem to be solved
 # reward function: Option 1: just negative distance to target at each point in time
 class RewardFunction:
+    x_domain = [-0, 2]
+    y_domain = [0, 1]
+    
     def __init__(self, target: np.array, target_radius: float = 0.05):
         self.target = target
         self.target_radius = target_radius
@@ -195,10 +196,33 @@ class RewardFunction:
         Returns:
             rewards: vector of rewards as np.array (n,)
         """
-        # get the distance to the target
-        distance_to_target = np.linalg.norm(states[:, :2] - self.target, axis=1) - self.target_radius
         # return the negative distance
-        return -distance_to_target
+        rewards = -1.0 * self.get_distance_to_target(states)
+        rewards -= np.where(self.is_boundary(states), 100000.0, 0.0)
+        return rewards
+    
+    def is_boundary(self, states: np.array) -> Union[float, np.array]:
+        """Helper function to check if a state is in the boundary."""
+        lon = states[:, 0]
+        lat = states[:, 1]
+        x_boundary = np.logical_or(
+            lon < self.x_domain[0],
+            lon > self.x_domain[1],
+        )
+        y_boundary = np.logical_or(
+            lat < self.y_domain[0],
+            lat > self.y_domain[1],
+        )
+
+        return np.logical_or(x_boundary, y_boundary)
+    
+    def reached_goal(self, states: np.array) -> Union[float, np.array]:
+        """Helper function to check if a state reached the goal."""
+        return self.get_distance_to_target(states) < 0.0
+    
+    def get_distance_to_target(self, states: np.array) -> Union[float, np.array]:
+        """Helper function to get distance to target."""
+        return np.linalg.norm(states[:, :2] - self.target, axis=1) - self.target_radius
     
     def check_terminal(self, states: np.array) -> np.array:
         """Check terminal conditions for the navigation problem.
@@ -207,7 +231,7 @@ class RewardFunction:
         Returns:
             is_terminal: vector of boolean as np.array (n,)
         """
-        return np.array([False] * len(states))
+        return np.logical_or(self.is_boundary(states), self.reached_goal(states))
     
 
 # Option 2: -1 when outside target and +100 when inside
@@ -219,8 +243,11 @@ class TimeRewardFunction(RewardFunction):
         Returns:
             rewards: vector of rewards as np.array (n,)
         """
-        # return the negative distance
-        return -1 + np.where(np.linalg.norm(states[:, :2] - self.target, axis=1) < self.target_radius, 100, 0)
+        # return reaching goal or terminal
+        rewards = np.where(self.reached_goal(states), 100.0, 0.0)
+        rewards -= np.where(self.is_boundary(states), 100000.0, 0.0)
+        rewards -= 1.0
+        return rewards
 
 
 #%% 
@@ -299,10 +326,28 @@ import logging
 # if you want to debug something with the closed-loop simulator (but shouldn't be necessary)
 # set_arena_loggers(logging.DEBUG)
 
+def is_inside(state: np.array) -> Union[float, np.array]:
+    """Helper function to check if a state is in the boundary."""
+    lon = state[0]
+    lat = state[1]
+    x_interval=[0, 2]
+    y_interval=[0, 1]
+
+    x_boundary = np.logical_or(
+        lon < x_interval[0],
+        lon > x_interval[1],
+    )
+    y_boundary = np.logical_or(
+        lat < y_interval[0],
+        lat > y_interval[1],
+    )
+
+    return np.logical_not(np.logical_or(x_boundary, y_boundary))
+
 # set the start and target positions
 platform_position = [0.1, 0.5, 0]
 target_position = [1.5, 0.5]
-target_radius = 0.05
+target_radius = 0.10
 reward_class = RewardFunction(target=target_position, target_radius=target_radius)
 
 # % Specify Navigation Problem
@@ -326,40 +371,40 @@ controller = HeuristicPolicy(target=target_position)
 problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
 
 
-#%% 
-# Naive Policy
-# The main simulation loop
-total_reward = 0
-# can also run it for a fixed amount of steps
-# for i in tqdm(range(100)):
-while problem_status == 0:
-    # extract action and current measurement from observation
-    x_t = np.array(observation.platform_state)[:3].reshape(1,-1) # as x, y, t numpy array
-    current_measurement = np.array(observation.true_current_at_state) # as u, v in m/s or length units per time units
-    total_reward += reward_class.get_reward(x_t)[0]
-    print(total_reward)
+# #%% 
+# # Naive Policy
+# # The main simulation loop
+# total_reward = 0
+# # can also run it for a fixed amount of steps
+# # for i in tqdm(range(100)):
+# while problem_status == 0:
+#     # extract action and current measurement from observation
+#     x_t = np.array(observation.platform_state)[:3].reshape(1,-1) # as x, y, t numpy array
+#     current_measurement = np.array(observation.true_current_at_state) # as u, v in m/s or length units per time units
+#     total_reward += reward_class.get_reward(x_t)[0]
+#     print(total_reward)
 
-    # Get action from the policy
-    discrete_action = controller.get_action(states=x_t)
+#     # Get action from the policy
+#     discrete_action = controller.get_action(states=x_t)
 
-    # execute action
-    observation = arena.step(PlatformAction.from_discrete_action(np.array([discrete_action])))
-    # update problem status
-    problem_status = arena.problem_status(problem=problem)
+#     # execute action
+#     observation = arena.step(PlatformAction.from_discrete_action(discrete_action))
+#     # update problem status
+#     problem_status = arena.problem_status(problem=problem)
 
-print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
-print("Final reward:", total_reward)
-
-
-#%% 
-# Visualize the trajectory as 2D plot
-arena.plot_all_on_map(problem=problem)
+# print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
+# print("Final reward:", total_reward)
 
 
-#%% 
-# Render animation of the closed-loop trajectory
-arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", # this is saved under the "generated_media" folder
-                         temporal_resolution=0.1)
+# #%% 
+# # Visualize the trajectory as 2D plot
+# arena.plot_all_on_map(problem=problem)
+
+
+# #%% 
+# # Render animation of the closed-loop trajectory
+# arena.animate_trajectory(problem=problem, output="closed_loop_trajectory.mp4", # this is saved under the "generated_media" folder
+#                          temporal_resolution=0.1)
 
 
 #%% 
@@ -368,6 +413,7 @@ from ocean_navigation_simulator.controllers.pomdp_planners.ParticleBelief import
 from ocean_navigation_simulator.controllers.pomdp_planners.ParticleFilterObserver import ParticleFilterObserver
 from ocean_navigation_simulator.controllers.pomdp_planners.GenerativeParticleFilter import GenerativeParticleFilter
 from ocean_navigation_simulator.controllers.pomdp_planners.PFTDPWPlanner import PFTDPWPlanner
+import time
 
 # Getting an initial state distribution
 platform_position = [0.1, 0.5, 0]
@@ -389,21 +435,22 @@ initial_particles = np.array(initial_particles)
 initial_particle_belief = ParticleBelief(initial_particles)
 dynamics_and_observation_model = DynamicsAndObservationModel(
     cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
-# reward_function = TimeRewardFunction(target_position, target_radius)
-reward_function = RewardFunction(target_position, target_radius)
+reward_function = TimeRewardFunction(target_position, target_radius)
 rollout_policy = HeuristicPolicy(target_position)
 num_planner_particles = 20
 mcts_settings = {
-            "num_mcts_simulate": 1,
-			"max_depth": 100,
-			"ucb_factor": 10.0,
-			"dpw_k_observations": 4.0,
-			"dpw_alpha_observations": 0.25,
-			"dpw_k_actions": 3.0,
-			"dpw_alpha_actions": 0.25,
-			"discount": 0.99,
-			"action_space_cardinality": 8,
-        }
+    "num_mcts_simulate": 1000,
+    "max_depth": 10,
+    "max_rollout_depth": 10,
+    "rollout_style": "FO",
+    "ucb_factor": 10.0,
+    "dpw_k_observations": 4.0,
+    "dpw_alpha_observations": 0.25,
+    "dpw_k_actions": 3.0,
+    "dpw_alpha_actions": 0.25,
+    "discount": 0.99,
+    "action_space_cardinality": 8,
+}
 
 # Setting up particle belief and observer
 generative_particle_filter = GenerativeParticleFilter(dynamics_and_observation_model, False)
@@ -416,19 +463,29 @@ total_reward = 0
 observation = arena.reset(platform_state=problem.start_state)
 problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
 
-printing_problem_status = 20
+printing_problem_status = 10
 step = 0
-max_step = 500
+max_step = 100
+
 
 # can also run it for a fixed amount of steps
 while problem_status == 0 and step < max_step:
     # Get MCTS action
     current_belief = mcts_observer.get_planner_particle_belief(num_planner_particles)
+    planning_start = time.time()
     next_action = mcts_planner.get_best_action(current_belief)
+    planning_end = time.time()
+    planning_time = planning_end - planning_start
 
     # Execute action
     observation = arena.step(PlatformAction.from_discrete_action(np.array([next_action])))
     problem_status = arena.problem_status(problem=problem)
+
+    # Manual fix for going out of bounds:
+    x_t = np.array(observation.platform_state)
+    if not is_inside(x_t):
+        print("Early terminated because state is not inside anymore:", x_t)
+        break
 
     # Update observer
     mcts_observer.full_bayesian_update(next_action, np.array(observation.true_current_at_state))
@@ -436,8 +493,9 @@ while problem_status == 0 and step < max_step:
     # Statistics if curious
     if step % printing_problem_status == 0:
         print("==============")
-        print("Iteration: ", i)
-        print("Parameter estimates")
+        print("Iteration: ", step)
+        print("Planning Time: ", planning_time)
+        print("Parameter estimates:")
         print(
             " - Period Time: ", 
             np.round(np.mean(mcts_observer.particle_belief_state.states[:,3]), 2), 
@@ -454,10 +512,6 @@ while problem_status == 0 and step < max_step:
     step += 1
 
 print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
-print("Final reward:", total_reward)
-
-
-#%% 
 # Visualize the trajectory as 2D plot
 arena.plot_all_on_map(problem=problem)
 
@@ -466,4 +520,5 @@ arena.plot_all_on_map(problem=problem)
 # Render animation of the closed-loop trajectory
 arena.animate_trajectory(problem=problem, output="pomdp_planner_trajectory.mp4", # this is saved under the "generated_media" folder
                          temporal_resolution=0.1)
+
 # %%
