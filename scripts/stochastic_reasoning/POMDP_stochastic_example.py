@@ -437,11 +437,12 @@ dynamics_and_observation_model = DynamicsAndObservationModel(
     cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
 reward_function = TimeRewardFunction(target_position, target_radius)
 rollout_policy = HeuristicPolicy(target_position)
-num_planner_particles = 20
+num_planner_particles = 100
 mcts_settings = {
-    "num_mcts_simulate": 1000,
+    "num_mcts_simulate": 100,
     "max_depth": 10,
-    "max_rollout_depth": 10,
+    "max_rollout_depth": 20,
+	"rollout_subsample": 10,
     "rollout_style": "FO",
     "ucb_factor": 10.0,
     "dpw_k_observations": 4.0,
@@ -465,7 +466,7 @@ problem_status = 0 # 0: running, 1: success, -1: timeout, -3: out of bounds
 
 printing_problem_status = 10
 step = 0
-max_step = 100
+max_step = 200
 
 
 # can also run it for a fixed amount of steps

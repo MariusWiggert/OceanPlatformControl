@@ -46,8 +46,9 @@ class PFTDPWPlanner:
 		# Set up parameters
 		self.specific_settings = {
             "num_mcts_simulate": 100,
-			"max_depth": 100,
+			"max_depth": 10,
             "max_rollout_depth": 10,
+	    	"rollout_subsample": 5,
 			"ucb_factor": 10.0,
 			"dpw_k_observations": 4.0,
 			"dpw_alpha_observations": 0.25,
@@ -143,33 +144,49 @@ class PFTDPWPlanner:
 	
 	def _rollout_belief_simulation(self, belief_id: int) -> float:
 		# Initialize rollout simulation with full belief dynamics (SLOW)
-		current_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
+		rollout_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
 		steps = 0
-		is_terminal = self._is_terminal(current_belief)
+		is_terminal = self._is_terminal(rollout_belief)
+		if is_terminal:
+			return 0.0
+		
 		cumulative_reward = 0.0
 		discount = 1.0
 
 		# Run rollout simulation until either terminal state or max steps reached
 		while steps < self.specific_settings["max_rollout_depth"] and not is_terminal:
 			# Dynamics forward with rollout action
-			action = self._rollout_action(current_belief)
-			current_belief, reward = self._generate_transition(current_belief, action)
+			action = self._rollout_action(rollout_belief)
+			rollout_belief, reward = self._generate_transition(rollout_belief, action)
 			cumulative_reward += discount * reward
 			
 			# Increment quantities
 			discount *= self.specific_settings["discount"]
 			steps += 1
-			is_terminal = self._is_terminal(current_belief)
+			is_terminal = self._is_terminal(rollout_belief)
 
 		return cumulative_reward
 	
 	def _rollout_mdp_simulation(self, belief_id: int) -> float:
 		# Initialize rollout simulation with QMDP style (each trajectory separate)
-		current_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
-		is_terminal = self._is_terminal(current_belief)
-		current_belief.normalize_weights()
-		current_states = current_belief.states
-		current_weights = current_belief.weights
+		rollout_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
+		rollout_belief.normalize_weights()
+		is_terminal = self._is_terminal(rollout_belief)
+		if is_terminal:
+			return 0.0
+
+		# Subsampling rollout compute
+		if self.specific_settings["rollout_subsample"] < rollout_belief.num_particles:
+			sampled_indices = np.random.choice(
+				rollout_belief.num_particles, 
+				self.specific_settings["rollout_subsample"], 
+				p = rollout_belief.weights
+			)
+			rollout_belief = ParticleBelief(
+				rollout_belief.states[sampled_indices], 
+				rollout_belief.weights[sampled_indices]
+			)
+
 		steps = 0
 		cumulative_reward = 0.0
 		discount = 1.0
@@ -177,22 +194,31 @@ class PFTDPWPlanner:
 		# Run rollout simulation until either terminal state or max steps reached
 		while steps < self.specific_settings["max_rollout_depth"] and not is_terminal:
 			# Dynamics forward with rollout action
-			actions = self.rollout_policy.get_action(current_states)
-			current_states = self.generative_particle_filter.dynamics_and_observation.get_next_states(
-                current_states,
-                actions
-            )
-			rewards = self.reward_function.get_reward(current_states)
-			reward = np.sum(rewards * current_weights)
+			actions = self.rollout_policy.get_action(rollout_belief.states)
+			rollout_belief.update_states(
+				self.generative_particle_filter.dynamics_and_observation.get_next_states(
+					rollout_belief.states,
+					actions
+				)
+			)
+			rewards = self.reward_function.get_reward(rollout_belief.states)
+			reward = np.sum(rewards * rollout_belief.weights)
 			cumulative_reward += discount * reward
+
+			# Drop particles if terminal
+			terminal_checks = self.reward_function.check_terminal(rollout_belief.states)
+			filtered_weights = np.where(
+				terminal_checks, 
+				np.zeros(rollout_belief.num_particles), 
+				rollout_belief.weights
+			)
+			rollout_belief.update_weights(filtered_weights)
 			
 			# Increment quantities
 			discount *= self.specific_settings["discount"]
 			steps += 1
-			is_terminal = self._is_terminal(current_belief)
-
-		if cumulative_reward > 0.0:
-			print(cumulative_reward)
+			is_terminal = self._is_terminal(rollout_belief)
+			
 		return cumulative_reward
 
 	def _estimate_rollout_value(self, belief_id: int) -> float:
