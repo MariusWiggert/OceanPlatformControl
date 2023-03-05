@@ -19,7 +19,10 @@ from ocean_navigation_simulator.controllers.Flocking import (  # RelaxedFlocking
     FlockingControlVariant,
 )
 
-from ocean_navigation_simulator.controllers.MultiAgentOptimizationBased import MultiAgentOptim
+from ocean_navigation_simulator.controllers.MultiAgentOptimizationBased import (
+    MultiAgentOptim,
+    CentralizedMultiAgentMPC,
+)
 
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
     HJPlannerBase,
@@ -73,6 +76,8 @@ class MultiAgentPlanner(HJReach2DPlanner):
             return self._get_action_hj_with_multi_ag_optim(observation=observation)
         elif self.controller_type == "pred_safety_filter":
             return self._get_action_hj_with_pred_safety_filter(observation=observation)
+        elif self.controller_type == "centralized_mpc":
+            return self._get_action_hj_with_centralized_mpc(observation=observation)
         else:
             raise ValueError(
                 "the controller specified in the config is not implemented or must \
@@ -268,6 +273,23 @@ class MultiAgentPlanner(HJReach2DPlanner):
             PlatformActionSet(action_set=opt_actions),
             max(correction_angles),
             time_solver + hj_solve_time,
+        )
+
+    def _get_action_hj_with_centralized_mpc(
+        self, observation: ArenaObservation
+    ) -> Tuple[PlatformActionSet, float, float]:
+        start = time.time()
+        start = time.time()
+        hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
+        hj_solve_time = time.time() - start
+        hj_xy_propulsion_arr = np.array([hj_input.to_xy_propulsion() for hj_input in hj_actions])
+        multi_ag_mpc = CentralizedMultiAgentMPC(
+            observation=observation,
+            param_dict=self.multi_agent_settings["multi_ag_mpc"],
+            platform_dict=self.platform_dict,
+        )
+        opt_actions, time_solver = multi_ag_mpc.get_next_control_for_all_pltf(
+            hj_xy_propulsion_arr,
         )
 
     def to_platform_action_bounds(
