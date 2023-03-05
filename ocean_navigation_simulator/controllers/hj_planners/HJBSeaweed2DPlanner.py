@@ -253,7 +253,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 # Get value function at end of FC Horizon to initialize backward HJ comp. within FC horizon
                 # initial_values = self.all_values_subset[time_idx]
                 initial_values = interp1d(
-                    self.reach_times_global_posix, self.all_values_subset, axis=0, kind="linear"
+                    self.reach_times_global_posix,
+                    self.all_values_subset,
+                    axis=0,
+                    kind="linear",
+                    fill_value="extrapolate",
                 )(self.forecast_end_time_posix).squeeze()
 
                 # Get T_max only for FC - so planning only runs over this time interval
@@ -561,20 +565,51 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # Concatenate the different value functions and reach times in one array
         value_fct_array = self._concatenate_value_fcts(value_fct_list=value_fct_list)
         reach_times_array = self._concatenate_reach_times(reach_times_list=reach_times_list)
-        # Get the indices for the start and end times since value_fct_array and reach_times_array will have a larger interval than needed
-        idx_t_interval = self._get_idx_time_interval_in_reach_times(
-            reach_times_array=reach_times_array, t_interval=t_interval
+
+        # Retrieve requested interpolated temporal domain from value_fct_array and reach_times_array
+        # Create an interpolator for the value function for retrieving interpolated subsets and for fast computation
+        self.reach_times_interpolator = scipy.interpolate.RegularGridInterpolator(
+            points=(
+                reach_times_array,
+                hj_val_func_list[0]["x"].data,
+                hj_val_func_list[0]["y"].data,
+            ),
+            values=value_fct_array,
+            method="linear",
+            bounds_error=False,
+            fill_value=None,
+        )
+
+        # Get n_times for interpolation in hourly resolution
+        n_times = int((t_interval[1].timestamp() - t_interval[0].timestamp()) / 3600)
+        reach_times_array = np.linspace(
+            t_interval[0].timestamp(), t_interval[1].timestamp(), n_times
+        )
+
+        # Create 3D arrays for the coordinates
+        T, LON, LAT = np.meshgrid(
+            reach_times_array,
+            hj_val_func_list[0]["x"].data,
+            hj_val_func_list[0]["y"].data,
+            indexing="ij",
+        )
+        # Flatten the arrays into lists
+        coords = np.stack((T.flatten(), LON.flatten(), LAT.flatten()), axis=1)
+
+        # Call the interpolation function
+        interpolated = self.reach_times_interpolator(coords)
+
+        # Reshape the result into a 3D array
+        value_fct_array = interpolated.reshape(
+            (
+                len(reach_times_array),
+                len(hj_val_func_list[0]["x"].data),
+                len(hj_val_func_list[0]["y"].data),
+            )
         )
 
         # Get correct subset of value fct. over the requested time interval. Substract last value to imitate initializiation with zero as last value.
-        value_fct_array = (
-            value_fct_array[idx_t_interval[0] : idx_t_interval[1] + 1]
-            - value_fct_array[idx_t_interval[1]]
-        )
-        reach_times_array = reach_times_array[idx_t_interval[0] : idx_t_interval[1] + 1]
-
-        # if(config["forecast"] is not None):
-        #     #TBDONE only return earliest value and at which time
+        value_fct_array = value_fct_array - value_fct_array[-1]
 
         return (
             value_fct_array,
@@ -676,21 +711,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 hj_val_func_list.append(xr.open_dataset(file))
 
             return hj_val_func_list
-
-    def _get_idx_time_interval_in_reach_times(
-        self, reach_times_array: np.array, t_interval: List[datetime]
-    ) -> List:
-        """Takes reach times and a time interval and returns the index for starta and end of the closest values in the reach times array.
-        Args:
-            reach_times_array: reach times array in seconds
-            t_interval: List of start and end time as datetime objects for which to find closest array entry / index
-        Returns:
-            idxs: List of start and end index of closest value in array
-        """
-        # Get closest idx for start & end time
-        start_idx = np.argmin(abs(reach_times_array - t_interval[0].timestamp()))
-        end_idx = np.argmin(abs(reach_times_array - t_interval[1].timestamp()))
-        return [start_idx, end_idx]
 
     def find_value_fct_files(path, t_interval):
         """Takes path to value fcts. and time interval and returns the corresponding file names.
