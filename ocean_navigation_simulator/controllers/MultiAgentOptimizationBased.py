@@ -15,6 +15,7 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.utils import units
 from scipy.sparse import csgraph
+import sympy as sy
 
 
 class MultiAgentOptim:
@@ -442,16 +443,20 @@ class CentralizedMultiAgentMPC:
             opti.variable(self.nb_platforms, 2) for _ in range(H - 1)
         ]  # Decision variables for input trajectory
         # laplacian_opti = [opti.variable(self.nb_platforms, self.nb_platforms) for _ in range(H)]
-        laplacian_second_eig = opti.variable(H, 1)
-        # gamma = opti.variable(H, 1)
+        # laplacian_second_eig = opti.variable(H, 1)
+        gamma = opti.variable(H, 1)
+        slack = opti.variable(self.nb_platforms, self.nb_platforms)
         # Parameters (not optimized over)
         x_start = opti.parameter(self.nb_platforms, 2)
 
         # init the dynamics constraints
         F_dyn = self.dynamics(opti=opti)
-        F_compute_laplacian_eig = self.compute_graph_laplacian_eig()
+        F_compute_laplacian = self.compute_graph_laplacian()
+        L = ca.SX.sym("L", self.nb_platforms, self.nb_platforms)
+        F_compute_second_eig = ca.Function("F_compute_second_eig", [L], [ca.eig_symbolic(L)[1]])
         objective = []
         laplacian_eval_at_t_k = []
+        second_eig_at_t_k = []
         for k in range(H - 1):
             # ----- Add the dynamics equality constraints ----- #
             # Calculate time in POSIX seconds
@@ -479,9 +484,16 @@ class CentralizedMultiAgentMPC:
             opti.subject_to(u[k][:, 0] ** 2 + u[k][:, 1] ** 2 <= 1)
 
             # Add Laplacian constraints
-            laplacian_eval_at_t_k.append(F_compute_laplacian_eig(x_k=x[k])["laplacian"])
-            opti.subject_to(laplacian_second_eig[k] == laplacian_eval_at_t_k[k])
-            opti.subject_to(laplacian_second_eig[k] >= 0.1)
+            laplacian_eval_at_t_k.append(F_compute_laplacian(x_k=x[k])["laplacian"])
+            second_eig_at_t_k.append(F_compute_second_eig(laplacian_eval_at_t_k[k]))
+            opti.subject_to(
+                laplacian_eval_at_t_k[k] + ca.DM(np.ones((self.nb_platforms, self.nb_platforms)))
+                == slack + gamma[k] * ca.DM(np.ones((self.nb_platforms, self.nb_platforms)))
+            )
+            opti.subject_to(slack >= 0)
+            # opti.subject_to(laplacian_second_eig[k] == laplacian_eval_at_t_k[k])
+            # opti.subject_to(second_eig_at_t_k[k] >= 0.01)
+            # opti.subject_to(laplacian_second_eig[k] >= 0.1)
             # opti.subject_to(
             #     laplacian_opti[k] + np.ones((self.nb_platforms, self.nb_platforms))
             #     >= gamma[k] * np.ones((self.nb_platforms, self.nb_platforms))
@@ -534,6 +546,7 @@ class CentralizedMultiAgentMPC:
         opti.set_initial(u[0], u_hj)
 
         opti.solver("ipopt", {"print_time": True})
+        # opti.solver("sqpmethod", {"print_time": True}) for QP
         try:
             sol = opti.solve()
             T = sol.value(T)
@@ -584,7 +597,7 @@ class CentralizedMultiAgentMPC:
         )
         return F_next
 
-    def compute_graph_laplacian_eig(self):
+    def compute_graph_laplacian(self):
         # Compute the graph laplacian given the input x_k that is 2-dimensional (lon, lat) in casadi, the pair x_k[i,:], x[j,:] is a pair of platforms and there is an edge if the distance between them is less than the communication range self.r_deg.km
         # The graph laplacian is defined as L = D - A where D is the degree matrix and A is the adjacency matrix
 
@@ -607,15 +620,13 @@ class CentralizedMultiAgentMPC:
                     adjacency_mat[i, j] = 0
             degree_mat[i, i] = ca.sum2(adjacency_mat)[i]
         laplacian = degree_mat - adjacency_mat
-        eigen_laplacian = ca.eig_symbolic(laplacian)
+        # igen_laplacian = ca.eig_symbolic(laplacian)
         # idx = eigen_laplacian.argsort()[::-1]
         # eigen_laplacian = eigen_laplacian[idx]
         # Laplacian_fun = ca.Function(
         #     "Laplacian_fun", [x_k], [eigen_laplacian[1]], ["x_k"], ["laplacian"]
         # )
-        Laplacian_fun = ca.Function(
-            "Laplacian_fun", [x_k], [eigen_laplacian[1]], ["x_k"], ["laplacian"]
-        )
+        Laplacian_fun = ca.Function("Laplacian_fun", [x_k], [laplacian], ["x_k"], ["laplacian"])
         return Laplacian_fun
 
     def norm_2(self, x_i, x_j):
