@@ -47,12 +47,16 @@ class FlockingControl:
         """Low and High gradient clipping values are equal, so it does not matter whether the gradient clipping
         value is computed with norm_qij = "grad_clip_range" or r-"grad_clip_range"
         """
-        self.grad_clip_abs_val = np.absolute(
-            -self.r
-            * (self.r - 2 * self.param_dict["grad_clip_range"])
-            / (
-                self.param_dict["grad_clip_range"] ** 2
-                * (self.r - self.param_dict["grad_clip_range"]) ** 2
+        self.grad_clip_abs_val = (
+            1
+            / self.param_dict["epsilon"]
+            * np.absolute(
+                -self.r
+                * (self.r - 2 * self.param_dict["grad_clip_range"])
+                / (
+                    self.param_dict["grad_clip_range"] ** 2
+                    * (self.r - self.param_dict["grad_clip_range"]) ** 2
+                )
             )
         )
 
@@ -76,7 +80,13 @@ class FlockingControl:
                 grad = np.sign(-self.r * (self.r - 2 * norm_qij)) * self.grad_clip_abs_val
             else:
                 grad = (
-                    -self.r * (self.r - 2 * norm_qij) / (norm_qij**2 * (self.r - norm_qij) ** 2)
+                    1
+                    / self.param_dict["epsilon"]
+                    * (
+                        -self.r
+                        * (self.r - 2 * norm_qij)
+                        / (norm_qij**2 * (self.r - norm_qij) ** 2)
+                    )
                 )
         else:
             if grad_clip and (norm_qij - self.r < self.param_dict["grad_clip_range"]):
@@ -97,7 +107,7 @@ class FlockingControl:
             float: value of the potential function
         """
         if inside_range:
-            return self.r / (norm_qij * (self.r - norm_qij))
+            return self.r / (self.param_dict["epsilon"] * norm_qij * (self.r - norm_qij))
         else:
             # return np.log(norm_qij - self.r + self.epsilon)
             return np.sqrt(norm_qij - self.r)
@@ -120,7 +130,7 @@ class FlockingControl:
             - self.observation.platform_state.lat.km[i_node]
         )
         q_ij = np.vstack((q_ij_lon, q_ij_lat))
-        return q_ij / norm_q_ij # normalized vector
+        return q_ij / norm_q_ij  # normalized vector
 
     @staticmethod
     def softmax(array: np.ndarray) -> np.ndarray:

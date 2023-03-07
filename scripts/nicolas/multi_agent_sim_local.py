@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_64")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_basic")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -47,6 +47,7 @@ flockingConfig = {
     "unit": "km",
     "interaction_range": 9,  # km
     "grad_clip_range": 0.1,  # km
+    "epsilon": 0.25,
 }
 reactiveConfig = {
     "unit": "m",
@@ -80,7 +81,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "centralized_mpc",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
+    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -90,35 +91,35 @@ MultiAgentCtrlConfig = {
     "multi_ag_mpc": multiAgentMPC,
 }
 # Task Configs
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.2,
-#             "lon": -83.2,
-#         },
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.25,
-#             "lon": -83.25,
-#         },
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.3,
-#             "lon": -83.3,
-#         },
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.35,
-#             "lon": -83.35,
-#         },
-#     ],
-#     "x_T": {"lat": 24.35, "lon": -82.3},
-# }
+missionConfig = {
+    "feasible": True,
+    "seed": 571402,
+    "target_radius": 0.1,
+    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+    "x_0": [
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.2,
+            "lon": -83.2,
+        },
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.25,
+            "lon": -83.25,
+        },
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.3,
+            "lon": -83.3,
+        },
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.35,
+            "lon": -83.35,
+        },
+    ],
+    "x_T": {"lat": 24.35, "lon": -82.3},
+}
 
 # mission failing for flocking nr 285
 # missionConfig = {
@@ -152,35 +153,35 @@ MultiAgentCtrlConfig = {
 # }
 
 # mission 64 failed for multi ag optim
-missionConfig = {
-    "feasible": True,
-    "seed": 571402,
-    "target_radius": 0.1,
-    "ttr_in_h": 90,  # here does not really make sense as it is normally computed by the missionGenerator
-    "x_0": [
-        {
-            "lat": 20.87764358520508,
-            "lon": -80.83842468261719,
-            "date_time": "2022-10-08T11:23:24+00:00",
-        },
-        {
-            "lat": 20.828874588012695,
-            "lon": -80.88917541503906,
-            "date_time": "2022-10-08T11:23:24+00:00",
-        },
-        {
-            "lat": 20.804201126098633,
-            "lon": -80.89605712890625,
-            "date_time": "2022-10-08T11:23:24+00:00",
-        },
-        {
-            "lat": 20.883544921875,
-            "lon": -80.94055938720703,
-            "date_time": "2022-10-08T11:23:24+00:00",
-        },
-    ],
-    "x_T": {"lat": 20.16233662, "lon": -80.70645386},
-}
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 90,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "lat": 20.87764358520508,
+#             "lon": -80.83842468261719,
+#             "date_time": "2022-10-08T11:23:24+00:00",
+#         },
+#         {
+#             "lat": 20.828874588012695,
+#             "lon": -80.88917541503906,
+#             "date_time": "2022-10-08T11:23:24+00:00",
+#         },
+#         {
+#             "lat": 20.804201126098633,
+#             "lon": -80.89605712890625,
+#             "date_time": "2022-10-08T11:23:24+00:00",
+#         },
+#         {
+#             "lat": 20.883544921875,
+#             "lon": -80.94055938720703,
+#             "date_time": "2022-10-08T11:23:24+00:00",
+#         },
+#     ],
+#     "x_T": {"lat": 20.16233662, "lon": -80.70645386},
+# }
 
 
 # mission 107 infeasible on C3:
@@ -509,7 +510,7 @@ arenaConfig = {
     "solar_dict": {"forecast": None, "hindcast": None},
     "spatial_boundary": None,
     "use_geographic_coordinate_system": True,
-    "timeout": 3600 * 24 * 4,
+    "timeout": 3600 * 24 * 3,  # CHANGE TIMOUT HERE
     "multi_agent_constraints": {
         "unit": "km",
         "communication_thrsld": 9,
@@ -537,22 +538,22 @@ problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
 import matplotlib.pyplot as plt
 
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=problem.start_state.to_spatio_temporal_point(),
-    x_T=problem.end_region,
-    deg_around_x0_xT_box=0.5,
-    temp_horizon_in_s=3600,
-)
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=problem.start_state.to_spatio_temporal_point(),
+#     x_T=problem.end_region,
+#     deg_around_x0_xT_box=0.5,
+#     temp_horizon_in_s=3600,
+# )
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=problem.start_state.date_time[0],
-    x_interval=lon_bnds,
-    y_interval=lat_bnds,
-    return_ax=True,
-    vmax=0.45,
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=problem.start_state.date_time[0],
+#     x_interval=lon_bnds,
+#     y_interval=lat_bnds,
+#     return_ax=True,
+#     vmax=0.45,
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
 #%%
 # Step 2: Retrieve Controller
@@ -616,7 +617,7 @@ plt.show()
 
 # %% Plot useful metrics for multi-agent performance evaluation
 results_folder = os.path.join(
-    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"]  # + "_full_horiz"
+    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"] + "epsilon_0.25"
 )
 os.makedirs(results_folder, exist_ok=True)
 
