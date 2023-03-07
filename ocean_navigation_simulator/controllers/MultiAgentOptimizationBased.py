@@ -15,7 +15,6 @@ from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.Platform import PlatformAction
 from ocean_navigation_simulator.utils import units
 from scipy.sparse import csgraph
-import sympy as sy
 
 
 class MultiAgentOptim:
