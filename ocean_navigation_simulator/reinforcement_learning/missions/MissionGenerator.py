@@ -536,11 +536,13 @@ class MissionGenerator:
                             )
                         )
                         if any(  # connected to at least one of the other members
-                            self.config["multi_agent"]["minimum_dist_km"]
-                            < dist.km
+                            dist.km
                             < self.config["scenario_config"]["multi_agent_constraints"][
                                 "communication_thrsld"
                             ]
+                            for dist in dist_to_platf
+                        ) & all(
+                            self.config["multi_agent"]["minimum_dist_km"] < dist.km
                             for dist in dist_to_platf
                         ):
                             mission_connected_points.append((False, point, distance_to_shore))
@@ -554,7 +556,7 @@ class MissionGenerator:
                     if (
                         self.performance["start_resampling"]
                         > self.config["multi_agent"]["nb_platforms"]
-                        * 3  # heuristic that the actual point might not be good to sample from
+                        * 5  # heuristic that the actual point might not be good to sample from
                     ):  # if actual point not a good one, change
                         break
             if (
