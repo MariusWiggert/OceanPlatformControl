@@ -249,32 +249,7 @@ class MissionGenerator:
             - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
         )
 
-        ##### Step 2: Reject if files are missing or corrupted #####
-        # TODO: fix since c3 is broken
-        try:
-            self.arena = ArenaFactory.create(
-                scenario_file=self.config.get("scenario_file", None),
-                scenario_config=self.config.get("scenario_config", None),
-                x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
-                y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
-                t_interval=[
-                    fake_start.date_time - datetime.timedelta(hours=1),
-                    fake_target.date_time + datetime.timedelta(days=1, hours=1),
-                ],
-                throw_exceptions=True,
-                c3=self.c3,
-            )
-            self.arena.reset(fake_start)
-        except (MissingOceanFileException, CorruptedOceanFileException) as e:
-            logger.warning(
-                f"Target aborted because of missing or corrupted files: [{fake_start.date_time}, {fake_target.date_time}]."
-            )
-            logger.warning(e)
-            self.performance["errors"] += 1
-            self.errors.append(str(e))
-            return False
-
-        # Step 3: Reject if to close to land
+        # Step 2: Reject if to close to land
         distance_to_shore = self.distance_to_area(fake_target, "bathymetry")
 
         if (
@@ -319,6 +294,30 @@ class MissionGenerator:
             logger.warning(
                 f"Target aborted because too far from land: {fake_target.to_spatial_point()} = {distance_to_shore}."
             )
+            return False
+
+        ##### Step 3: Reject if files are missing or corrupted #####
+        try:
+            self.arena = ArenaFactory.create(
+                scenario_file=self.config.get("scenario_file", None),
+                scenario_config=self.config.get("scenario_config", None),
+                x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
+                y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
+                t_interval=[
+                    fake_start.date_time - datetime.timedelta(hours=1),
+                    fake_target.date_time + datetime.timedelta(days=1, hours=1),
+                ],
+                throw_exceptions=True,
+                c3=self.c3,
+            )
+            self.arena.reset(fake_start)
+        except (MissingOceanFileException, CorruptedOceanFileException) as e:
+            logger.warning(
+                f"Target aborted because of missing or corrupted files: [{fake_start.date_time}, {fake_target.date_time}]."
+            )
+            logger.warning(e)
+            self.performance["errors"] += 1
+            self.errors.append(str(e))
             return False
 
         ##### Step 3: Run multi-time-back HJ Planner #####
