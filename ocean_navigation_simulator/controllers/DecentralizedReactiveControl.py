@@ -71,7 +71,7 @@ class DecentralizedReactiveControl:
             u_i = hj_optimal_action
         elif (
             self.g_a > -self.param_dict["delta_1"] ** 2
-            and self.g_b > -self.param_dict["delta_1"] ** 2
+            or self.g_b > -self.param_dict["delta_1"] ** 2
         ):  # achieve connectivity
             u_i = self._compute_potential_force(pltf_id=pltf_id, a=a, b=b)
         else:  # maintain connectivity

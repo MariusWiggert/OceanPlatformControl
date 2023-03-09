@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/HC_HC/4_platforms/mission_basic")
+save_in_folder = os.path.join(my_path, "generated_media/FC_HC/4_platforms/mission_285")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -81,7 +81,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
+    "high_level_ctrl": "reactive_control",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -122,35 +122,35 @@ missionConfig = {
 }
 
 # mission failing for flocking nr 285
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.69220733642578,
-#             "lon": -87.30220794677734,
-#         },
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.64868927001953,
-#             "lon": -87.34028625488281,
-#         },
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.60809898376465,
-#             "lon": -87.39879608154297,
-#         },
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.57320785522461,
-#             "lon": -87.39673614501953,
-#         },
-#     ],
-#     "x_T": {"lat": 27.03541637, "lon": -86.93996833},
-# }
+missionConfig = {
+    "feasible": True,
+    "seed": 571402,
+    "target_radius": 0.1,
+    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+    "x_0": [
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.69220733642578,
+            "lon": -87.30220794677734,
+        },
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.64868927001953,
+            "lon": -87.34028625488281,
+        },
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.60809898376465,
+            "lon": -87.39879608154297,
+        },
+        {
+            "date_time": "2022-05-16T12:49:54+00:00",
+            "lat": 25.57320785522461,
+            "lon": -87.39673614501953,
+        },
+    ],
+    "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+}
 
 # mission 64 failed for multi ag optim
 # missionConfig = {
@@ -306,162 +306,162 @@ missionConfig = {
 # }
 
 
-missionConfig = {
-    "x_0": [
-        {
-            "lon": -88.70954895019531,
-            "lat": 28.04345703125,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.67587280273438,
-            "lat": 28.109148025512695,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.75358581542969,
-            "lat": 28.059810638427734,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.62866973876953,
-            "lat": 28.016788482666016,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.59729766845703,
-            "lat": 27.95857810974121,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.63533782958984,
-            "lat": 27.885149002075195,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.5652084350586,
-            "lat": 28.00957489013672,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.7304916381836,
-            "lat": 28.087934494018555,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.53610229492188,
-            "lat": 27.944581985473633,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.70176696777344,
-            "lat": 27.906539916992188,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.6789321899414,
-            "lat": 27.97728157043457,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.69570922851562,
-            "lat": 28.01767349243164,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.58629608154297,
-            "lat": 27.91853904724121,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.63671112060547,
-            "lat": 27.980422973632812,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.74323272705078,
-            "lat": 27.84589385986328,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.60491943359375,
-            "lat": 27.87093734741211,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.75013732910156,
-            "lat": 28.136606216430664,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.61799621582031,
-            "lat": 27.91475486755371,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {"lon": -88.4921875, "lat": 28.02726936340332, "date_time": "2022-09-15T05:52:42+00:00"},
-        {
-            "lon": -88.65884399414062,
-            "lat": 27.929059982299805,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.47642517089844,
-            "lat": 27.979188919067383,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.42233276367188,
-            "lat": 27.982341766357422,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.52852630615234,
-            "lat": 28.009103775024414,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.7159652709961,
-            "lat": 27.955224990844727,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.81342315673828,
-            "lat": 28.088788986206055,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.45980834960938,
-            "lat": 28.02210807800293,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.60250091552734,
-            "lat": 28.085857391357422,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.68519592285156,
-            "lat": 27.8427677154541,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.82747650146484,
-            "lat": 28.130475997924805,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-        {
-            "lon": -88.40547180175781,
-            "lat": 28.084611892700195,
-            "date_time": "2022-09-15T05:52:42+00:00",
-        },
-    ],
-    "x_T": {"lon": -87.6714370531038, "lat": 26.76331240545744},
-    "target_radius": 0.25,
-    "seed": 6435,
-    "feasible": True,
-    "ttr_in_h": 130.79189966604875,
-    "multi_agent": True,
-}
+# missionConfig = {
+#     "x_0": [
+#         {
+#             "lon": -88.70954895019531,
+#             "lat": 28.04345703125,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.67587280273438,
+#             "lat": 28.109148025512695,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.75358581542969,
+#             "lat": 28.059810638427734,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.62866973876953,
+#             "lat": 28.016788482666016,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.59729766845703,
+#             "lat": 27.95857810974121,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.63533782958984,
+#             "lat": 27.885149002075195,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.5652084350586,
+#             "lat": 28.00957489013672,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.7304916381836,
+#             "lat": 28.087934494018555,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.53610229492188,
+#             "lat": 27.944581985473633,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.70176696777344,
+#             "lat": 27.906539916992188,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.6789321899414,
+#             "lat": 27.97728157043457,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.69570922851562,
+#             "lat": 28.01767349243164,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.58629608154297,
+#             "lat": 27.91853904724121,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.63671112060547,
+#             "lat": 27.980422973632812,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.74323272705078,
+#             "lat": 27.84589385986328,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.60491943359375,
+#             "lat": 27.87093734741211,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.75013732910156,
+#             "lat": 28.136606216430664,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.61799621582031,
+#             "lat": 27.91475486755371,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {"lon": -88.4921875, "lat": 28.02726936340332, "date_time": "2022-09-15T05:52:42+00:00"},
+#         {
+#             "lon": -88.65884399414062,
+#             "lat": 27.929059982299805,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.47642517089844,
+#             "lat": 27.979188919067383,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.42233276367188,
+#             "lat": 27.982341766357422,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.52852630615234,
+#             "lat": 28.009103775024414,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.7159652709961,
+#             "lat": 27.955224990844727,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.81342315673828,
+#             "lat": 28.088788986206055,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.45980834960938,
+#             "lat": 28.02210807800293,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.60250091552734,
+#             "lat": 28.085857391357422,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.68519592285156,
+#             "lat": 27.8427677154541,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.82747650146484,
+#             "lat": 28.130475997924805,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#         {
+#             "lon": -88.40547180175781,
+#             "lat": 28.084611892700195,
+#             "date_time": "2022-09-15T05:52:42+00:00",
+#         },
+#     ],
+#     "x_T": {"lon": -87.6714370531038, "lat": 26.76331240545744},
+#     "target_radius": 0.25,
+#     "seed": 6435,
+#     "feasible": True,
+#     "ttr_in_h": 130.79189966604875,
+#     "multi_agent": True,
+# }
 
 objective_conf = {"type": "nav"}
 arenaConfig = {
@@ -480,7 +480,7 @@ arenaConfig = {
                 # "region": "Region 1",
             },
         },
-        "forecast": None,  # {
+        # "forecast": None,  # {
         #     "field": "OceanCurrents",
         #     "source": "forecast_files",
         #     "source_settings": {
@@ -492,6 +492,19 @@ arenaConfig = {
         #         "region": "GOM",
         #     },
         # },
+        "forecast": {
+            "field": "OceanCurrents",
+            "source": "hindcast_as_forecast_files",
+            "source_settings": {
+                "folder": "data/miss_gen_forecast/",
+                "local": False,
+                "source": "Copernicus",
+                "type": "hindcast",
+                "currents": "total",
+                "region": "GOM",
+            },
+            "forecast_length_in_days": 5,
+        },
     },
     "platform_dict": {
         "battery_cap_in_wh": 400.0,
@@ -532,24 +545,24 @@ arena = constructor.arena
 observation = arena.reset(platform_set=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-#     x_0=problem.start_state.to_spatio_temporal_point(),
-#     x_T=problem.end_region,
-#     deg_around_x0_xT_box=0.5,
-#     temp_horizon_in_s=3600,
-# )
+t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+    x_0=problem.start_state.to_spatio_temporal_point(),
+    x_T=problem.end_region,
+    deg_around_x0_xT_box=0.5,
+    temp_horizon_in_s=3600,
+)
 
-# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=problem.start_state.date_time[0],
-#     x_interval=lon_bnds,
-#     y_interval=lat_bnds,
-#     return_ax=True,
-#     vmax=0.45,
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=problem.start_state.date_time[0],
+    x_interval=lon_bnds,
+    y_interval=lat_bnds,
+    return_ax=True,
+    vmax=0.45,
+)
+problem.plot(ax=ax)
+plt.show()
 
 #%%
 # Step 2: Retrieve Controller

@@ -221,6 +221,57 @@ class ArenaFactory:
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
 
+            # Download hindcast_as_forecast_files source
+            elif (
+                t_interval is not None
+                and config["ocean_dict"]["forecast"] is not None
+                and config["ocean_dict"]["forecast"]["source"] == "hindcast_as_forecast_files"
+            ):
+                # Adjust t_interval to make sure we have downloaded enough time. Default forecast length is 5 days
+                t_interval_adapted = [
+                    t_interval[0] - datetime.timedelta(days=2),
+                    t_interval[1]
+                    + datetime.timedelta(
+                        days=config["ocean_dict"]["forecast"].get("forecast_length_in_days", 5)
+                    ),
+                ]
+                print(t_interval)
+                print(t_interval_adapted)
+                with timing_logger(
+                    "Download Forecast Files: {start} until {end} ({{}})".format(
+                        start=t_interval_adapted[0].strftime("%Y-%m-%d %H-%M-%S"),
+                        end=t_interval_adapted[-1].strftime("%Y-%m-%d %H-%M-%S"),
+                    ),
+                    logger,
+                ):
+                    if config["ocean_dict"]["forecast"]["source_settings"].get("local", False):
+                        files = ArenaFactory.find_copernicus_files(
+                            config["ocean_dict"]["forecast"]["source_settings"]["folder"],
+                            t_interval_adapted,
+                        )
+                    else:
+                        files = ArenaFactory.download_required_files(
+                            archive_source=config["ocean_dict"]["forecast"]["source_settings"][
+                                "source"
+                            ],
+                            archive_type=config["ocean_dict"]["forecast"]["source_settings"][
+                                "type"
+                            ],
+                            download_folder=config["ocean_dict"]["forecast"]["source_settings"][
+                                "folder"
+                            ],
+                            region=config["ocean_dict"].get("region", "GOM"),
+                            t_interval=t_interval_adapted,
+                            throw_exceptions=throw_exceptions,
+                            points=points,
+                            c3=c3,
+                        )
+
+                    logger.debug(f"Forecast Files: {files}")
+
+                    # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
+                    config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
+
             # Step 7: Create Arena
             return Arena(
                 casadi_cache_dict=config.get("casadi_cache_dict", {}),
@@ -409,7 +460,7 @@ class ArenaFactory:
             )
         if archive_type.lower() not in ["forecast", "hindcast"]:
             raise ValueError(
-                f"archive_type {archive_type} invalid choose from: forecast, hindcast."
+                f"archive_type {archive_type} invalid choose from: forecast, hindcast, hindcast_as_forecast_files."
             )
         if region not in [
             "GOM",

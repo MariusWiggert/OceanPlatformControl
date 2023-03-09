@@ -1087,8 +1087,8 @@ class Arena:
             success_rate_reach_target=success_rate_reach_target,
             energy_efficiency_proxy=energy_efficiency_proxy,
             mean_min_dist_to_target=mean_min_dist_to_target,
-            solver_times_mean_in_s = solver_times_mean_in_s,
-            solver_times_std_in_s = solver_times_std_in_s,
+            solver_times_mean_in_s=solver_times_mean_in_s,
+            solver_times_std_in_s=solver_times_std_in_s,
             logfile=filename,
         )
         return metrics_dict
@@ -1108,6 +1108,7 @@ class Arena:
                 for G in self.multi_agent_G_list
             ],
         }
-        return pd.DataFrame.from_dict(
-            dict_for_plot, orient="columns"
-        )  # pd.DataFrame(data=dict_for_plot)
+        return dict_for_plot
+        # return pd.DataFrame.from_dict(
+        #     dict_for_plot, orient="columns"
+        # )  # pd.DataFrame(data=dict_for_plot)
