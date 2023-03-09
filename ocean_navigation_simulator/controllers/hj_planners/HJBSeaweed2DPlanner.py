@@ -198,7 +198,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
                 self.first_plan = False
 
-                # Load forecast data for running consecutive HJ
+                # Load forecast data for running consecutive HJ run
                 self._update_forecast_data()
 
                 # Run data checks if the right current data is loaded in the interpolation function -> With current implementation of _check_data_settings_compatibility() will always raise warning
@@ -382,6 +382,12 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 relative_time=lambda x: units.get_posix_time_from_np64(x.time)
                 - units.get_posix_time_from_np64(seaweed_xarray["time"][0])
             )
+
+            # self.seaweed_xarray.to_netcdf(
+            #     f'/Users/matthiaskiller/Desktop/data/seaweed_growth_maps/growth_map_{t_interval[0].strftime("%Y-%m-%dT%H-%M-%SZ")}_{t_interval[1].strftime("%Y-%m-%dT%H-%M-%SZ")}'
+            # )
+
+            # raise ValueError("seaweed growth map precomp. done")
 
         self.logger.info(f"HJBSeaweed2DPlanner: Loading Seaweed Data ({time.time() - start:.1f}s)")
 
