@@ -40,7 +40,6 @@ class FlockingControl:
         self.dt_in_s = platform_dict["dt_in_s"]
         self.r = self.param_dict["interaction_range"]
         self.list_all_platforms = list(range(self.adjacency_mat.shape[0]))
-        self.epsilon = 1e-3  # small value for the
         self._set_grad_clipping_value()
 
     def _set_grad_clipping_value(self):
@@ -93,7 +92,7 @@ class FlockingControl:
                 grad = self.grad_clip_abs_val
             else:
                 # grad = 1 / (norm_qij - self.r + self.epsilon)
-                grad = 1 / (2 * np.sqrt(norm_qij - self.r))
+                grad = 1 / (2 * np.sqrt(norm_qij - self.r + self.param_dict["hysteresis"]))
         return grad
 
     def potential_func(self, norm_qij: float, inside_range: bool) -> float:
@@ -110,7 +109,7 @@ class FlockingControl:
             return self.r / (self.param_dict["epsilon"] * norm_qij * (self.r - norm_qij))
         else:
             # return np.log(norm_qij - self.r + self.epsilon)
-            return np.sqrt(norm_qij - self.r)
+            return np.sqrt(norm_qij - self.r + self.param_dict["hysteresis"])
 
     def get_n_ij(self, i_node: int, j_neighbor: int, norm_q_ij: float) -> np.ndarray:
         """Vector along the line connecting platform i to neighboring platform j

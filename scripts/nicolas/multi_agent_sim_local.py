@@ -47,6 +47,7 @@ flockingConfig = {
     "unit": "km",
     "interaction_range": 9,  # km
     "grad_clip_range": 0.1,  # km
+    "hysteresis": 0.2,
     "epsilon": 0.25,
 }
 reactiveConfig = {
@@ -81,7 +82,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "reactive_control",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
+    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -523,7 +524,7 @@ arenaConfig = {
     "multi_agent_constraints": {
         "unit": "km",
         "communication_thrsld": 9,
-        "epsilon_margin": 1,  # when add edges based on hysteresis
+        "epsilon_margin": 0.2,  # when add edges based on hysteresis
         "collision_thrsld": 0.2,
     },
 }
