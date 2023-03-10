@@ -78,9 +78,7 @@ class GraphObservation:
         G.add_weighted_edges_from(e)
         return nx.to_numpy_array(G)
 
-
-
-    def graph_laplacian_matrix_in_unit(self, unit:str) -> np.ndarray:
+    def graph_laplacian_matrix_in_unit(self, unit: str) -> np.ndarray:
         e = [
             (n1, n2, w.m) if unit == "m" else (n1, n2, w.km)
             for n1, n2, w in list(self.G_complete.edges.data("weight"))
@@ -91,6 +89,7 @@ class GraphObservation:
         )  # always add all nodes so that the adjacency matrix has the right amount of rows and cols
         G.add_weighted_edges_from(e)
         return nx.laplacian_matrix(G).toarray()
+
 
 class MultiAgent:
     """
@@ -483,7 +482,9 @@ class MultiAgent:
         if collision_communication_thrslds is None:
             collision_thrsld, communication_thrsld = (
                 self.network_prop["collision_thrsld"],
-                self.network_prop["communication_thrsld"] - self.network_prop["epsilon_margin"],
+                self.network_prop["communication_thrsld"]
+                - self.network_prop["epsilon_margin"]
+                * 2,  # just to visualize make the communication threshold a bit smaller
             )
         else:
             collision_thrsld, communication_thrsld = collision_communication_thrslds
