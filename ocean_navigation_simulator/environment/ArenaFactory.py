@@ -552,6 +552,10 @@ class ArenaFactory:
                 ):
                     c3.Client.copyFilesToLocalClient(url, temp_folder)
 
+                    # Sometimes the download doesn't work on the first try - so we try a second time
+                    if not os.path.exists(download_folder + filename):
+                        c3.Client.copyFilesToLocalClient(url, temp_folder)
+
                     error = False
                     # check file size match
                     if os.path.getsize(temp_folder + filename) != filesize:
