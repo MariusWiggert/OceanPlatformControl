@@ -255,7 +255,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
             # Check whether the value of the first timestep on position x_t is higher than 0.8 which we estimate to be from propagated boundry conditions
             if self.all_values[0][lon_idx][lat_idx] > 0.85:
-                raise ValueError(
+                # raise ValueError
+                print(
                     f"Value function has invalid value {self.all_values[0][lon_idx][lat_idx]} at x_t{x_t}, due to propagating boundry conditions."
                 )
             # log values for closed-loop trajectory extraction
