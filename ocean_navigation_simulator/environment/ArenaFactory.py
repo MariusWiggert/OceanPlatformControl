@@ -207,7 +207,6 @@ class ArenaFactory:
                     # Modify source_settings to only consider selected files (prevent loading hundreds of files!)
                     config["ocean_dict"]["forecast"]["source_settings"]["folder"] = files
 
-
             # Download hindcast_as_forecast_files source
             elif (
                 t_interval is not None
@@ -278,7 +277,7 @@ class ArenaFactory:
                     archive_type=config["ocean_dict"][type]["source_settings"]["type"],
                     download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
                     t_interval=t_interval,
-                    region=config["ocean_dict"]["area"],
+                    region=config["ocean_dict"]["region"],
                     throw_exceptions=throw_exceptions,
                     points=points,
                     c3=c3,
@@ -478,15 +477,15 @@ class ArenaFactory:
         # for NOAA it's a bit different for fetching them
         if archive_source.lower() == "noaa":
             archive_types["forecast"] = "Forecast"
-            c3_file_type = getattr(
-                c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
-            )
+            c3_file_type = getattr(c3, f"NoaaCombined{archive_types[archive_type.lower()]}File")
             region_filter_str = ""
         else:
             c3_file_type = getattr(
                 c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
             )
-            region_filter_str = f'contains(archive.{"description" if region == "GOM" else "name"}, "{region}") && '
+            region_filter_str = (
+                f'contains(archive.{"description" if region == "GOM" else "name"}, "{region}") && '
+            )
 
         return c3_file_type.fetch(
             spec={
