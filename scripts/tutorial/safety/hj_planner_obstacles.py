@@ -35,23 +35,24 @@ scenario_config = {
             "field": "OceanCurrents",
             "source": "hindcast_files",
             "source_settings": {
-                "local": True,
-                "folder": "data/tests/test_GarbagePatchSource/",
-                "source": "HYCOM",
+                "local": False,
+                "folder": "data/tests/miss_gen_fake_hindcast_3/",
+                "source": "Copernicus",
                 "type": "hindcast",
             },
         },
-        "forecast": None,
-        # "forecast": {
-        #     "field": "OceanCurrents",
-        #     "source": "forecast_files",
-        #     "source_settings": {
-        #         "local": True,
-        #         "folder": "data/tests/test_GarbagePatchSource/forecast/",
-        #         "source": "copernicus",
-        #         "type": "forecast",
-        #     },
-        # },
+        "forecast": {
+            "field": "OceanCurrents",
+            "source": "hindcast_as_forecast_files",
+            "source_settings": {
+                "folder": "data/miss_gen_fake_forecast_3/",
+                "local": False,
+                "source": "HYCOM",
+                "type": "hindcast",
+                "currents": "total",
+            },
+            "forecast_length_in_days": 6,
+        },
     },
     "bathymetry_dict": {
         "field": "Bathymetry",
@@ -75,7 +76,7 @@ scenario_config = {
     "solar_dict": {"hindcast": None, "forecast": None},
     "seaweed_dict": {"hindcast": None, "forecast": None},
 }
-t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 10, 0, 0, 0)]
+t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 11, 0, 0, 0)]
 # Download files if not there yet
 ArenaFactory.download_required_files(
     archive_source="HYCOM",
@@ -86,15 +87,15 @@ ArenaFactory.download_required_files(
     remove_files_if_corrupted=False,
 )
 ArenaFactory.download_required_files(
-    archive_source="copernicus",
-    archive_type="forecast",
+    archive_source=scenario_config["ocean_dict"]["forecast"]["source_settings"]["source"],
+    archive_type=scenario_config["ocean_dict"]["forecast"]["source_settings"]["type"],
     region="Region 1",
     download_folder=scenario_config["ocean_dict"]["forecast"]["source_settings"]["folder"],
     t_interval=t_interval,
-    remove_files_if_corrupted=False,
+    remove_files_if_corrupted=True,
 )
 
-arena = ArenaFactory.create(scenario_config=scenario_config)
+arena = ArenaFactory.create(scenario_config=scenario_config, t_interval=t_interval)
 
 
 specific_settings = {
@@ -167,22 +168,24 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
     temp_horizon_in_s=specific_settings["T_goal_in_seconds"],
 )
 
-# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# )
-# ax = arena.bathymetry_source.plot_mask_from_xarray(
-#     xarray=arena.bathymetry_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
-#     ax=ax,
-#     **{"masking_val": -150}
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
+ax = arena.bathymetry_source.plot_mask_from_xarray(
+    xarray=arena.bathymetry_source.get_data_over_area(x_interval=lon_bnds, y_interval=lat_bnds),
+    ax=ax,
+    **{"masking_val": -150}
+)
+problem.plot(ax=ax)
+plt.show()
 
-# ax = arena.bathymetry_source.plot_data_over_area(
-#     x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True,
-# )
-# problem.plot(ax=ax)
-# plt.show()
+ax = arena.bathymetry_source.plot_data_over_area(
+    x_interval=lon_bnds,
+    y_interval=lat_bnds,
+    return_ax=True,
+)
+problem.plot(ax=ax)
+plt.show()
 
 #%% Prepare ontroller and run reachability
 planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
