@@ -211,20 +211,27 @@ class ArenaFactory:
             elif (
                 t_interval is not None
                 and config["ocean_dict"]["forecast"] is not None
-                and config["ocean_dict"]["hindcast"] is not None
                 and config["ocean_dict"]["forecast"]["source"] == "hindcast_as_forecast_files"
             ):
+                # Adjust t_interval to make sure we have downloaded enough time. Default forecast length is 5 days
+                t_interval_adapted = [
+                    t_interval[0] - datetime.timedelta(days=2),
+                    t_interval[1]
+                    + datetime.timedelta(
+                        days=config["ocean_dict"]["forecast"].get("forecast_length_in_days", 5)
+                    ),
+                ]
                 with timing_logger(
                     "Download Forecast Files: {start} until {end} ({{}})".format(
-                        start=t_interval[0].strftime("%Y-%m-%d %H-%M-%S"),
-                        end=t_interval[-1].strftime("%Y-%m-%d %H-%M-%S"),
+                        start=t_interval_adapted[0].strftime("%Y-%m-%d %H-%M-%S"),
+                        end=t_interval_adapted[-1].strftime("%Y-%m-%d %H-%M-%S"),
                     ),
                     logger,
                 ):
                     if config["ocean_dict"]["forecast"]["source_settings"].get("local", False):
                         files = ArenaFactory.find_copernicus_files(
                             config["ocean_dict"]["forecast"]["source_settings"]["folder"],
-                            t_interval,
+                            t_interval_adapted,
                         )
                     else:
                         files = ArenaFactory.download_required_files(
@@ -238,11 +245,10 @@ class ArenaFactory:
                                 "folder"
                             ],
                             region=config["ocean_dict"].get("region", "GOM"),
-                            t_interval=t_interval,
+                            t_interval=t_interval_adapted,
                             throw_exceptions=throw_exceptions,
                             points=points,
                             c3=c3,
-                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
                         )
 
                     logger.debug(f"Forecast Files: {files}")
