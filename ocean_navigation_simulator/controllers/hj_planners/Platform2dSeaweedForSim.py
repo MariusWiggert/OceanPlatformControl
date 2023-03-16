@@ -77,6 +77,6 @@ class Platform2dSeaweedForSim(Platform2dForSim):
         """Evaluates the HJ PDE Hamiltonian and adds running cost term (negative seaweed growth rate)"""
         del value  # unused
         control, disturbance = self.optimal_control_and_disturbance(state, time, grad_value)
-        return grad_value @ self(state, control, disturbance, time) - jnp.log(
-            1 + self._get_seaweed_growth_rate(state, time)
+        return grad_value @ self(state, control, disturbance, time) - self._get_seaweed_growth_rate(
+            state, time
         )
