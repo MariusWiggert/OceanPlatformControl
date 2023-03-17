@@ -23,8 +23,8 @@ from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import get_c3, set_arena_loggers
 
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 # %% Initialize
 # os.chdir(
 #     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
@@ -59,7 +59,7 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 x_0 = PlatformState(
     lon=units.Distance(deg=-100),
     lat=units.Distance(deg=-20),
-    date_time=datetime.datetime(2022, 1,1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+    date_time=datetime.datetime(2022, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
 )
 arena = ArenaFactory.create(
     scenario_name=scenario_name,
@@ -130,10 +130,10 @@ specific_settings = {
     "grid_res_seaweed": 0.332,  # Grid res for seaweed data
     "d_max": 0.0,
     "calc_opt_traj_after_planning": False,
-    "x_interval_seaweed": [-130,-70],
-    "y_interval_seaweed": [-40,0],
+    "x_interval_seaweed": [-130, -70],
+    "y_interval_seaweed": [-40, 0],
     "seaweed_precomputation_folder": "ocean_navigation_simulator/package_data/seaweed_growth_maps/",
-    "take_precomp_seaweed_maps" : True,
+    "take_precomp_seaweed_maps": False,
 }
 # wandb.config.update({"planner_settings": specific_settings})
 #%%
@@ -193,4 +193,3 @@ arena.animate_trajectory(
     # y_interval=[0,-9],
     output="trajectory_seaweed.mp4",
 )
-

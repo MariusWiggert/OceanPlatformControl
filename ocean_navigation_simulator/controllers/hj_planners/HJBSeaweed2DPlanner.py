@@ -373,13 +373,79 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # TODO: enforce timezone awareness to mitigate warning: Indexing a timezone-naive DatetimeIndex with a timezone-aware datetime is deprecated and will raise KeyError in a future version.  Use a timezone-naive object instead.
             self.seaweed_xarray = seaweed_xarray.sel(time=slice(t_interval[0], t_interval[1]))
         else:
-            seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.get_data_over_area(
+            # seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.get_data_over_area(
+            #     x_interval=x_interval,
+            #     y_interval=y_interval,
+            #     t_interval=t_interval,
+            #     # spatial_resolution=self.specific_settings["grid_res_seaweed"],
+            # )
+
+            # Get growth data without solar irradiance from data source
+            growth_xarray = self.arena.seaweed_field.hindcast_data_source.DataArray.sel(
+                time=slice(t_interval[0], t_interval[1]),
+                lon=slice(x_interval[0], x_interval[1]),
+                lat=slice(y_interval[0], y_interval[1]),
+            )
+
+            # x_interval = [
+            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lon"][0]),
+            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lon"][-1]),
+            # ]
+            # y_interval = [
+            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lat"][0]),
+            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lat"][-1]),
+            # ]
+            # t_interval = [
+            #     self.arena.seaweed_field.hindcast_data_source.DataArray["time"][0].values.item()
+            #     / 1e9,
+            #     self.arena.seaweed_field.hindcast_data_source.DataArray["time"][-1].values.item()
+            #     / 1e9,
+            # ]
+
+            # Compute solar data over given domain
+            solar_xarray = self.arena.solar_field.hindcast_data_source.get_data_over_area(
                 x_interval=x_interval,
                 y_interval=y_interval,
                 t_interval=t_interval,
-                spatial_resolution=self.specific_settings["grid_res_seaweed"],
+                # spatial_resolution=self.specific_settings["grid_res_seaweed"],
             )
 
+            # Ensure solar data has no extra data
+            solar_xarray = solar_xarray.sel(
+                time=slice(t_interval[0], t_interval[1]),
+                lon=slice(x_interval[0], x_interval[1]),
+                lat=slice(y_interval[0], y_interval[1]),
+            )
+
+            # Get same temporal resolution for growth array as for solar array i.e. hourly
+            temporal_resolution_solar = int(solar_xarray["time"][1] - solar_xarray["time"][0])
+
+            time_grid = np.arange(
+                start=t_interval[0],
+                stop=t_interval[1],
+                step=np.timedelta64(temporal_resolution_solar, "ns"),
+            )
+            growth_xarray = growth_xarray.interp(time=time_grid, method="linear")
+
+            # TODO: Check if the two DataArrays have the same shape and coordinates
+            # if (
+            #     growth_xarray.dims
+            #     != solar_xarray.dims
+            #     # or growth_xarray.coords != solar_xarray.coords
+            # ):
+            #     raise ValueError(
+            #         "Shapes of solar_xarray and growth_array don't match for following multiplication."
+            #     )
+
+            # Compute F_NGR_per_second
+            seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
+                "solar_irradiance"
+            ] - growth_xarray["R_resp"] / (24 * 3600)
+
+            # Convert back to xarray dataset
+            seaweed_xarray = seaweed_xarray.to_dataset(name="F_NGR_per_second")
+
+            # Add relative time
             self.seaweed_xarray = seaweed_xarray.assign(
                 relative_time=lambda x: units.get_posix_time_from_np64(x.time)
                 - units.get_posix_time_from_np64(seaweed_xarray["time"][0])
