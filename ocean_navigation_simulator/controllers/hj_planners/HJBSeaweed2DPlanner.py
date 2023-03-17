@@ -171,17 +171,25 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 # Load average data for running HJ
                 self._update_average_data()
 
-                # Run data checks if the right current data is loaded in the interpolation function -> With current implementation of _check_data_settings_compatibility() will always raise warning
-                # x_t_for_test = x_t
-                # x_t_for_test.date_time += timedelta(seconds=self.forecast_length)
-                # self._check_data_settings_compatibility(x_t=x_t_for_test)
-
                 # Get inital values and start and T_max for running HJ
                 initial_values = self.get_initial_values(direction="backward")
                 t_0 = x_t.date_time + timedelta(seconds=self.forecast_length)
                 T_max_in_seconds = (
                     self.specific_settings["T_goal_in_seconds"] - self.forecast_length
                 )
+
+                # Load subset of global seaweed data to platform for interpolation
+                self._update_seaweed_subset(
+                    t_interval=[
+                        t_0 - timedelta(days=1),
+                        t_0 + timedelta(seconds=self.specific_settings["T_goal_in_seconds"]),
+                    ]
+                )  # Slice time with some buffers (1 day prior) and forecast length as buffer afterwards
+
+                # Run data checks if the right current data is loaded in the interpolation function -> With current implementation of _check_data_settings_compatibility() will always raise warning
+                # x_t_for_test = x_t
+                # x_t_for_test.date_time += timedelta(seconds=self.forecast_length)
+                # self._check_data_settings_compatibility(x_t=x_t_for_test)
 
                 self.logger.info("HJBSeaweed2DPlanner: Planning over average data")
 
@@ -209,6 +217,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 initial_values = self._get_ininital_values_from_global_values()
                 T_max_in_seconds = self.forecast_length
 
+                # Load subset of global seaweed data to platform for interpolation
+                self._update_seaweed_subset(
+                    t_interval=[
+                        x_t.date_time - timedelta(days=1),
+                        x_t.date_time + timedelta(seconds=T_max_in_seconds) + timedelta(days=1),
+                    ]
+                )  # Slice time with some buffers (1 day prior & afterwards)
+
             # If we have already computed our average value fct.
             elif (
                 not self.first_plan
@@ -224,6 +240,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 initial_values = self._get_ininital_values_from_global_values()
                 T_max_in_seconds = self.forecast_length
 
+                # Load subset of global seaweed data to platform for interpolation
+                self._update_seaweed_subset(
+                    t_interval=[
+                        x_t.date_time - timedelta(days=1),
+                        x_t.date_time + timedelta(seconds=T_max_in_seconds) + timedelta(days=1),
+                    ]
+                )  # Slice time with some buffers (1 day prior & afterwards)
+
             # Check if planning horizon is actual shorter than FC horizon - no need for averages
             elif self.forecast_length >= self.specific_settings["T_goal_in_seconds"]:
                 # Load forecast data for running consecutive HJ
@@ -235,6 +259,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 # Get inital values and T_max for running HJ
                 initial_values = self.get_initial_values(direction="backward")
                 T_max_in_seconds = self.specific_settings["T_goal_in_seconds"]
+
+                # Load subset of global seaweed data to platform for interpolation
+                self._update_seaweed_subset(
+                    t_interval=[
+                        x_t.date_time - timedelta(days=1),
+                        x_t.date_time + timedelta(seconds=T_max_in_seconds) + timedelta(days=1),
+                    ]
+                )  # Slice time with some buffers (1 day prior & afterwards)
 
             self.logger.info("HJBSeaweed2DPlanner: Planning over forecast data")
             # Run HJ with previously set configuration
@@ -373,44 +405,24 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # TODO: enforce timezone awareness to mitigate warning: Indexing a timezone-naive DatetimeIndex with a timezone-aware datetime is deprecated and will raise KeyError in a future version.  Use a timezone-naive object instead.
             self.seaweed_xarray = seaweed_xarray.sel(time=slice(t_interval[0], t_interval[1]))
         else:
-            # seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.get_data_over_area(
-            #     x_interval=x_interval,
-            #     y_interval=y_interval,
-            #     t_interval=t_interval,
-            #     # spatial_resolution=self.specific_settings["grid_res_seaweed"],
-            # )
 
             # Get growth data without solar irradiance from data source
             growth_xarray = self.arena.seaweed_field.hindcast_data_source.DataArray.sel(
-                time=slice(t_interval[0], t_interval[1]),
+                time=slice(
+                    t_interval[0] - timedelta(days=32), t_interval[1] + timedelta(days=32)
+                ),  # use buffer of 32 days since frowth data is only available once per month
                 lon=slice(x_interval[0], x_interval[1]),
                 lat=slice(y_interval[0], y_interval[1]),
             )
-
-            # x_interval = [
-            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lon"][0]),
-            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lon"][-1]),
-            # ]
-            # y_interval = [
-            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lat"][0]),
-            #     float(self.arena.seaweed_field.hindcast_data_source.DataArray["lat"][-1]),
-            # ]
-            # t_interval = [
-            #     self.arena.seaweed_field.hindcast_data_source.DataArray["time"][0].values.item()
-            #     / 1e9,
-            #     self.arena.seaweed_field.hindcast_data_source.DataArray["time"][-1].values.item()
-            #     / 1e9,
-            # ]
 
             # Compute solar data over given domain
             solar_xarray = self.arena.solar_field.hindcast_data_source.get_data_over_area(
                 x_interval=x_interval,
                 y_interval=y_interval,
                 t_interval=t_interval,
-                # spatial_resolution=self.specific_settings["grid_res_seaweed"],
             )
 
-            # Ensure solar data has no extra data
+            # Ensure solar data has no extra data i.e. buffers added
             solar_xarray = solar_xarray.sel(
                 time=slice(t_interval[0], t_interval[1]),
                 lon=slice(x_interval[0], x_interval[1]),
@@ -427,7 +439,14 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
             growth_xarray = growth_xarray.interp(time=time_grid, method="linear")
 
-            # TODO: Check if the two DataArrays have the same shape and coordinates
+            # Remove unnecessary monthly buffers of growth data
+            growth_xarray = growth_xarray.sel(
+                time=slice(t_interval[0], t_interval[1]),
+                lon=slice(x_interval[0], x_interval[1]),
+                lat=slice(y_interval[0], y_interval[1]),
+            )
+
+            # TODO: Add Check if the two DataArrays have the same shape and coordinates
             # if (
             #     growth_xarray.dims
             #     != solar_xarray.dims
@@ -446,11 +465,12 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             seaweed_xarray = seaweed_xarray.to_dataset(name="F_NGR_per_second")
 
             # Add relative time
-            self.seaweed_xarray = seaweed_xarray.assign(
+            self.seaweed_xarray_global = seaweed_xarray.assign(
                 relative_time=lambda x: units.get_posix_time_from_np64(x.time)
                 - units.get_posix_time_from_np64(seaweed_xarray["time"][0])
             )
-
+            # self.x_grid_seaweed = self.seaweed_xarray["lon"].data
+            # self.y_grid_seaweed = self.seaweed_xarray["lat"].data
             # self.seaweed_xarray.to_netcdf(
             #     f'/Users/matthiaskiller/Desktop/data/seaweed_growth_maps/growth_map_{t_interval[0].strftime("%Y-%m-%dT%H-%M-%SZ")}_{t_interval[1].strftime("%Y-%m-%dT%H-%M-%SZ")}'
             # )
@@ -458,6 +478,40 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # raise ValueError("seaweed growth map precomp. done")
 
         self.logger.info(f"HJBSeaweed2DPlanner: Loading Seaweed Data ({time.time() - start:.1f}s)")
+
+    def _update_seaweed_subset(self, t_interval: List[Union[datetime, float]]):
+        """Subsets the global seaweed data and updates the jax seaweed interpolant of the dynamics.
+        Args:
+            t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime.
+        """
+        start = time.time()
+
+        # Subset the global seaweed data to the desired lon, lat range
+        seaweed_subset = self.seaweed_xarray_global.sel(
+            lon=slice(
+                float(self.grid.coordinate_vectors[0][0]),
+                float(self.grid.coordinate_vectors[0][-1]),
+            ),
+            lat=slice(
+                float(self.grid.coordinate_vectors[1][0]),
+                float(self.grid.coordinate_vectors[1][-1]),
+            ),
+            time=slice(t_interval[0], t_interval[1]),
+        )
+
+        # Interpolate the subset onto the desired longitude and latitude grid
+        seaweed_xarray = seaweed_subset.interp(
+            lon=self.grid.coordinate_vectors[0],
+            lat=self.grid.coordinate_vectors[1],
+            method="linear",
+        )
+
+        # Feed in the seaweed subset data to the Platform classes
+        self.dim_dynamics.update_jax_interpolant_seaweed(seaweed_xarray)
+
+        self.logger.info(
+            f"HJBSeaweed2DPlanner: Subsetting Seaweed Data ({time.time() - start:.1f}s)"
+        )
 
     def _update_average_data(self):
         """Helper function to load the average current data into the interpolation."""
@@ -506,7 +560,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         )
 
         # Feed in the current data to the Platform classes
-        self.dim_dynamics.update_jax_interpolant(data_xarray, self.seaweed_xarray)
+        self.dim_dynamics.update_jax_interpolant(data_xarray)
 
         # Set absolute time in UTC Posix time
         self.current_data_t_0 = units.get_posix_time_from_np64(data_xarray["time"][0]).data
@@ -561,7 +615,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         )
 
         # feed in the current data to the Platform classes
-        self.dim_dynamics.update_jax_interpolant(data_xarray, self.seaweed_xarray)
+        self.dim_dynamics.update_jax_interpolant(data_xarray)
 
         # set absolute time in UTC Posix time
         self.current_data_t_0 = units.get_posix_time_from_np64(data_xarray["time"][0]).data
