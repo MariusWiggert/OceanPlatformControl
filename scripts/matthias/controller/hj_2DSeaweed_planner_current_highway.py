@@ -14,6 +14,7 @@ from ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner impo
 )
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.Platform import PlatformState
+from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.SeaweedProblem import (
     SeaweedProblem,
@@ -21,8 +22,10 @@ from ocean_navigation_simulator.environment.SeaweedProblem import (
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
+#%% TODO
+# - Add analytical seaweed function...
 
 # %% Initialize
 set_arena_loggers(logging.INFO)
@@ -71,27 +74,32 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
 lon_bnds = [-2,1]
 lat_bnds = [-1.5,1.5]
 
-
+#%%
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True, quiver_spatial_res=0.17, quiver_scale=6)
 problem.plot(ax=ax)
-#plt.show()
-#plt.tight_layout()
+plt.show()
+plt.tight_layout()
 
-
+#%%
 # ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
 #     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 # )
 # problem.plot(ax=ax)
 # plt.show()
-
+#%%
 ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 )
 problem.plot(ax=ax)
-#plt.show()
-
-
+plt.show()
+#%%
+xr = arena.seaweed_field.hindcast_data_source.get_data_over_area(
+    t_interval=[x_0.date_time, x_0.date_time + datetime.timedelta(hours=24)],
+    x_interval=lon_bnds, y_interval=lat_bnds,
+)
+#%%
+xr
 
 # %% Instantiate the HJ Planner
 specific_settings = {
@@ -114,17 +122,17 @@ specific_settings = {
     "calc_opt_traj_after_planning": False,
 }
 
-#%%
+#%
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
-
-# %% Run reachability planner
+observer = NoObserver()
+# %Run reachability planner
 observation = arena.reset(platform_state=x_0)
+observer.observe(arena_observation=observation)
+observation.forecast_data_source = observer
 action = planner.get_action(observation=observation)
 
 #%% get value function #
 planner.animate_value_func_3D()
-
-
 # %% Let the controller run closed-loop within the arena (the simulation loop)
 # observation = arena.reset(platform_state=x_0)
 dt_in_s = arena.platform.platform_dict["dt_in_s"]

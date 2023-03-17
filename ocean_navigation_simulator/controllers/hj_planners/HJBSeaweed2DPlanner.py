@@ -325,7 +325,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         elif hasattr(observation.forecast_data_source, "forecast_data_source") and not isinstance(
             observation.forecast_data_source.forecast_data_source,
             ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource,
-        ):
+        ) and not isinstance(observation.forecast_data_source.forecast_data_source,
+                             ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents.OceanCurrentSourceAnalytical):
             self.forecast_length = int(
                 (
                     observation.forecast_data_source.forecast_data_source.DataArray.time.max()
