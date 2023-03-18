@@ -437,7 +437,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
             growth_xarray = growth_xarray.interp(time=time_grid, method="linear").isel(depth=0)
 
-
             # TODO: Add Check if the two DataArrays have the same shape and coordinates
             # if (
             #     growth_xarray.dims
@@ -449,13 +448,15 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             #     )
 
             # Compute F_NGR_per_second
-            seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
-                "solar_irradiance"
-            ] - growth_xarray["R_resp"] / (24 * 3600)
+            seaweed_xarray = (
+                growth_xarray["R_growth_wo_Irradiance"] * solar_xarray["solar_irradiance"]
+                - growth_xarray["R_resp"]
+            ) / (24 * 3600)
 
             # Convert back to xarray dataset
-            self.seaweed_xarray_global = seaweed_xarray.to_dataset(name="F_NGR_per_second").compute()
-            # DROP the depth dimension...
+            self.seaweed_xarray_global = seaweed_xarray.to_dataset(
+                name="F_NGR_per_second"
+            ).compute()
 
             # self.x_grid_seaweed = self.seaweed_xarray["lon"].data
             # self.y_grid_seaweed = self.seaweed_xarray["lat"].data
@@ -488,7 +489,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
         # Add relative time
         seaweed_xarray = seaweed_xarray.assign(
-            relative_time=lambda x: units.get_posix_time_from_np64(x.time) - self.current_data_t_0)
+            relative_time=lambda x: units.get_posix_time_from_np64(x.time) - self.current_data_t_0
+        )
 
         # Feed in the seaweed subset data to the Platform classes
         self.dim_dynamics.update_jax_interpolant_seaweed(seaweed_xarray)
