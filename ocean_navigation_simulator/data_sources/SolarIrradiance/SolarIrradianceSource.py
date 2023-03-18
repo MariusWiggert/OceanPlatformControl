@@ -1,5 +1,7 @@
+import datetime
 import logging
-from typing import List, Union
+import time
+from typing import List, Optional, Union
 
 import casadi as ca
 import numpy as np
@@ -121,6 +123,60 @@ class AnalyticalSolarIrradiance_w_caching(AnalyticalSource, SolarIrradianceSourc
             lat=spatio_temporal_point.lat.deg,
             posix_time=spatio_temporal_point.date_time.timestamp(),
         )
+
+    def get_data_over_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, float]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
+    ) -> xr:
+        """Function to get the the solar data over an x, y, and t interval.
+        Args:
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime or posix.
+          spatial_resolution: spatial resolution in the same units as x and y interval
+          temporal_resolution: temporal resolution in seconds
+        Returns:
+          data_array     in xarray format that contains the grid and the values (land is NaN)
+        """
+
+        start = time.time()
+        # Step 0.0: if t_interval is in datetime convert to POSIX
+        if isinstance(t_interval[0], datetime.datetime):
+            t_interval_posix = [time.timestamp() for time in t_interval]
+        else:
+            t_interval_posix = t_interval
+            t_interval = [
+                datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
+                for posix in t_interval_posix
+            ]
+
+        # Get the coordinate vectors to calculate the analytical function over
+        grids_dict = self.get_grid_dict(
+            x_interval,
+            y_interval,
+            t_interval_posix,
+            spatial_resolution=spatial_resolution,
+            temporal_resolution=temporal_resolution,
+        )
+
+        data_tuple = self.map_analytical_function_over_area(grids_dict)
+
+        # make an xarray object out of it
+        subset = self.create_xarray(grids_dict, data_tuple)
+
+        # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
+        self.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
+
+        self.logger.info(
+            f"SolarIrradianceSource: get Data over Area finished ({time.time() - start:.1f}s)"
+        )
+
+        return subset
 
 
 class AnalyticalSolarIrradiance(AnalyticalSolarIrradiance_w_caching):

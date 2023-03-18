@@ -48,15 +48,12 @@ class Platform2dSeaweedForSim(Platform2dForSim):
             u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
         )
 
-    def update_jax_interpolant(self, data_xarray: xr, seaweed_xarray: xr):
+    def update_jax_interpolant_seaweed(self, seaweed_xarray: xr):
         """Creating an interpolant function from x,y,t grid and data
         Args:
-            data_xarray: xarray containing variables water_u and water_v as matrices (T, Y, X)
             seaweed_xarray: xarray containing variables F_NGR_per_second as matrices (T, Y, X)
         """
         # create 1D interpolation functions for running in the loop of the dynamics
-        super().update_jax_interpolant(data_xarray)
-
         self.seaweed_rate = lambda state, time: interpolation.lin_interpo_1D(
             state,
             time,

@@ -163,6 +163,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
     def get_growth_and_resp_data_array_from_file(self) -> xr:
         """Helper function to open the dataset and calculate the metrics derived from nutrients and temp."""
+        # TODO: this can be precomputed and saved as a .nc file to speed up the initialization
         nc_files = glob.glob(self.source_config_dict["source_settings"]["filepath"] + "*.nc")
         nc_files = sorted(nc_files, key=lambda x: xr.open_dataset(x).time[0].values)
 

@@ -69,7 +69,7 @@ solar_dict:
             x_domain: [-180, 180]
             y_domain: [-90, 90]
             temporal_domain: [2020-01-01 00:00:00Z, 2023-01-10 00:00:00Z]
-            spatial_resolution: 0.1
+            spatial_resolution: 0.25
             temporal_resolution: 3600 
     forecast: null
 

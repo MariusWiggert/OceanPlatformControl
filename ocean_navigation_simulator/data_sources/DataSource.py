@@ -747,6 +747,11 @@ class AnalyticalSource(abc.ABC):
             for y, i in zip(source_config_dict["source_settings"]["y_domain"], [1, 2])
         ]
         # set the temp_domain_posix
+        if type(source_config_dict["source_settings"]["temporal_domain"][0]) == str:
+            source_config_dict["source_settings"]["temporal_domain"] = [
+                datetime.datetime.fromisoformat(t)
+                for t in source_config_dict["source_settings"]["temporal_domain"]
+            ]
         if isinstance(
             source_config_dict["source_settings"]["temporal_domain"][0], datetime.datetime
         ):
