@@ -159,7 +159,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # Note: no trajectory is extracted as the value function is used for closed-loop control
 
             # Load seaweed data if it doesn't exist yet
-            if self.seaweed_xarray is None:
+            if self.seaweed_xarray_global is None:
                 self._update_seaweed_data()
 
             # Check whether we plan the first time in order to retrieve the gloabl value fct for the time period after the interval we have FC data available.
@@ -429,7 +429,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
             # calculate irradiance factor
             solar_xarray = solar_xarray.assign(
-                irradianceFactor=lambda x: irradianceFactor(x.solar_irradiance))
+                irradianceFactor=lambda x: irradianceFactor(x.solar_irradiance)
+            )
 
             # Get same temporal resolution for growth array as for solar array i.e. hourly
             temporal_resolution_solar = int(solar_xarray["time"][1] - solar_xarray["time"][0])
