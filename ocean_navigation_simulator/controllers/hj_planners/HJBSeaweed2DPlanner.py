@@ -21,6 +21,7 @@ import ocean_navigation_simulator
 from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import (
     HJPlannerBaseDim,
 )
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import irradianceFactor
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dSeaweedForSim import (
     Platform2dSeaweedForSim,
 )
@@ -426,6 +427,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 lon=slice(x_interval[0], x_interval[1]),
                 lat=slice(y_interval[0], y_interval[1]),
             )
+            # calculate irradiance factor
+            solar_xarray = solar_xarray.assign(
+                irradianceFactor=lambda x: irradianceFactor(x.solar_irradiance))
 
             # Get same temporal resolution for growth array as for solar array i.e. hourly
             temporal_resolution_solar = int(solar_xarray["time"][1] - solar_xarray["time"][0])
@@ -448,10 +452,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             #     )
 
             # Compute F_NGR_per_second
-            seaweed_xarray = (
-                growth_xarray["R_growth_wo_Irradiance"] * solar_xarray["solar_irradiance"]
-                - growth_xarray["R_resp"]
-            ) / (24 * 3600)
+            seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
+                "irradianceFactor"
+            ] - growth_xarray["R_resp"] / (24 * 3600)
 
             # Convert back to xarray dataset
             self.seaweed_xarray_global = seaweed_xarray.to_dataset(
