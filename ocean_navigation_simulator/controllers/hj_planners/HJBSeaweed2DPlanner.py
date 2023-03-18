@@ -407,10 +407,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         else:
 
             # Get growth data without solar irradiance from data source
+            # do NOT slice in time otherwise we need to extrapolate, the interpolation can take care of that.
             growth_xarray = self.arena.seaweed_field.hindcast_data_source.DataArray.sel(
-                time=slice(
-                    t_interval[0] - timedelta(days=32), t_interval[1] + timedelta(days=32)
-                ),  # use buffer of 32 days since frowth data is only available once per month
                 lon=slice(x_interval[0], x_interval[1]),
                 lat=slice(y_interval[0], y_interval[1]),
             )
@@ -437,14 +435,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 stop=t_interval[1],
                 step=np.timedelta64(temporal_resolution_solar, "ns"),
             )
-            growth_xarray = growth_xarray.interp(time=time_grid, method="linear")
+            growth_xarray = growth_xarray.interp(time=time_grid, method="linear").isel(depth=0)
 
-            # Remove unnecessary monthly buffers of growth data
-            growth_xarray = growth_xarray.sel(
-                time=slice(t_interval[0], t_interval[1]),
-                lon=slice(x_interval[0], x_interval[1]),
-                lat=slice(y_interval[0], y_interval[1]),
-            )
 
             # TODO: Add Check if the two DataArrays have the same shape and coordinates
             # if (
@@ -462,13 +454,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             ] - growth_xarray["R_resp"] / (24 * 3600)
 
             # Convert back to xarray dataset
-            seaweed_xarray = seaweed_xarray.to_dataset(name="F_NGR_per_second")
+            self.seaweed_xarray_global = seaweed_xarray.to_dataset(name="F_NGR_per_second").compute()
+            # DROP the depth dimension...
 
-            # Add relative time
-            self.seaweed_xarray_global = seaweed_xarray.assign(
-                relative_time=lambda x: units.get_posix_time_from_np64(x.time)
-                - units.get_posix_time_from_np64(seaweed_xarray["time"][0])
-            )
             # self.x_grid_seaweed = self.seaweed_xarray["lon"].data
             # self.y_grid_seaweed = self.seaweed_xarray["lat"].data
             # self.seaweed_xarray.to_netcdf(
@@ -486,16 +474,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         """
         start = time.time()
 
-        # Subset the global seaweed data to the desired lon, lat range
+        # Subset the global seaweed data to the desired time interval
         seaweed_subset = self.seaweed_xarray_global.sel(
-            lon=slice(
-                float(self.grid.coordinate_vectors[0][0]),
-                float(self.grid.coordinate_vectors[0][-1]),
-            ),
-            lat=slice(
-                float(self.grid.coordinate_vectors[1][0]),
-                float(self.grid.coordinate_vectors[1][-1]),
-            ),
             time=slice(t_interval[0], t_interval[1]),
         )
 
@@ -504,7 +484,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             lon=self.grid.coordinate_vectors[0],
             lat=self.grid.coordinate_vectors[1],
             method="linear",
-        )
+        ).compute()
+
+        # Add relative time
+        seaweed_xarray = seaweed_xarray.assign(
+            relative_time=lambda x: units.get_posix_time_from_np64(x.time) - self.current_data_t_0)
 
         # Feed in the seaweed subset data to the Platform classes
         self.dim_dynamics.update_jax_interpolant_seaweed(seaweed_xarray)
