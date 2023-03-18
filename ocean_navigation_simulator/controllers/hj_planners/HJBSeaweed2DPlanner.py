@@ -82,7 +82,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             self.reach_times_global_flipped_posix,
             self.x_grid_global,
             self.y_grid_global,
-            self.seaweed_xarray,
+            self.seaweed_xarray_global,
             self.last_observation,
         ) = [None] * 7
 
