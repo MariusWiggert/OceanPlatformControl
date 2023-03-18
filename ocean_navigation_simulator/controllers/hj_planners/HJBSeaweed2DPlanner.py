@@ -423,7 +423,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
             # Ensure solar data has no extra data i.e. buffers added
             solar_xarray = solar_xarray.sel(
-                time=slice(t_interval[0], t_interval[1]),
                 lon=slice(x_interval[0], x_interval[1]),
                 lat=slice(y_interval[0], y_interval[1]),
             )
@@ -441,6 +440,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 step=np.timedelta64(temporal_resolution_solar, "ns"),
             )
             growth_xarray = growth_xarray.interp(time=time_grid, method="linear").isel(depth=0)
+
+            # Ensure same temporal grid for solar as for growth array
+            solar_xarray = solar_xarray.interp(time=time_grid, method="linear")
 
             # TODO: Add Check if the two DataArrays have the same shape and coordinates
             # if (
