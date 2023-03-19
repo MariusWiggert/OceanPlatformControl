@@ -68,13 +68,13 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             "platform_dict": problem.platform_dict if problem is not None else None,
             "grid_res": 0.083,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             "grid_res_average": 0.166,  # Grid res for average data
-            "grid_res_seaweed": 0.166,  # Grid res for seaweed data
             "deg_around_xt_xT_box": 1,  # Area over which to run HJ_reachability
             "deg_around_xt_xT_box_average": 10,  # area over which to run HJ_reachability for average data
             "precomputation": False,  # Defines whether value fct. should be precomputed or normal planning is requested
             "value_fct_folder": "temp/precomputed_value_fcts/",  # Where to save and load precomputed value fcts
             "seaweed_precomputation_folder": "ocean_navigation_simulator/package_data/seaweed_growth_maps",
             "take_precomp_seaweed_maps": False,
+            "dirichlet_boundry_constant": 0,
         } | self.specific_settings
         (
             self.all_values_subset,
@@ -108,7 +108,12 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def _dirichlet(self, x, pad_width: int):
         """Dirichlet boundry conditions for PDE solve"""
-        return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=1)
+        return jnp.pad(
+            x,
+            ((pad_width, pad_width)),
+            "constant",
+            constant_values=self.specific_settings["dirichlet_boundry_constant"],
+        )
 
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
@@ -395,82 +400,60 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         if "y_interval_seaweed" in self.specific_settings:
             y_interval = self.specific_settings["y_interval_seaweed"]
 
-        if self.specific_settings["take_precomp_seaweed_maps"]:
-            files_dicts = self._get_file_dicts(
-                folder=self.specific_settings["seaweed_precomputation_folder"]
-            )
+        # Get growth data without solar irradiance from data source
+        # do NOT slice in time otherwise we need to extrapolate, the interpolation can take care of that.
+        growth_xarray = self.arena.seaweed_field.hindcast_data_source.DataArray.sel(
+            lon=slice(x_interval[0], x_interval[1]),
+            lat=slice(y_interval[0], y_interval[1]),
+        )
 
-            seaweed_xarray = xr.concat(
-                [xr.open_dataset(h_dict["file"]) for h_dict in files_dicts], dim="time"
-            )
-            # TODO: enforce timezone awareness to mitigate warning: Indexing a timezone-naive DatetimeIndex with a timezone-aware datetime is deprecated and will raise KeyError in a future version.  Use a timezone-naive object instead.
-            self.seaweed_xarray = seaweed_xarray.sel(time=slice(t_interval[0], t_interval[1]))
-        else:
+        # Compute solar data over given domain
+        solar_xarray = self.arena.solar_field.hindcast_data_source.get_data_over_area(
+            x_interval=x_interval,
+            y_interval=y_interval,
+            t_interval=t_interval,
+        )
 
-            # Get growth data without solar irradiance from data source
-            # do NOT slice in time otherwise we need to extrapolate, the interpolation can take care of that.
-            growth_xarray = self.arena.seaweed_field.hindcast_data_source.DataArray.sel(
-                lon=slice(x_interval[0], x_interval[1]),
-                lat=slice(y_interval[0], y_interval[1]),
-            )
+        # Ensure solar data has no extra data i.e. buffers added
+        solar_xarray = solar_xarray.sel(
+            lon=slice(x_interval[0], x_interval[1]),
+            lat=slice(y_interval[0], y_interval[1]),
+        )
+        # calculate irradiance factor
+        solar_xarray = solar_xarray.assign(
+            irradianceFactor=lambda x: irradianceFactor(x.solar_irradiance)
+        )
 
-            # Compute solar data over given domain
-            solar_xarray = self.arena.solar_field.hindcast_data_source.get_data_over_area(
-                x_interval=x_interval,
-                y_interval=y_interval,
-                t_interval=t_interval,
-            )
+        # Get same temporal resolution for growth array as for solar array i.e. hourly
+        temporal_resolution_solar = int(solar_xarray["time"][1] - solar_xarray["time"][0])
 
-            # Ensure solar data has no extra data i.e. buffers added
-            solar_xarray = solar_xarray.sel(
-                lon=slice(x_interval[0], x_interval[1]),
-                lat=slice(y_interval[0], y_interval[1]),
-            )
-            # calculate irradiance factor
-            solar_xarray = solar_xarray.assign(
-                irradianceFactor=lambda x: irradianceFactor(x.solar_irradiance)
-            )
+        time_grid = np.arange(
+            start=t_interval[0],
+            stop=t_interval[1],
+            step=np.timedelta64(temporal_resolution_solar, "ns"),
+        )
+        growth_xarray = growth_xarray.interp(time=time_grid, method="linear").isel(depth=0)
 
-            # Get same temporal resolution for growth array as for solar array i.e. hourly
-            temporal_resolution_solar = int(solar_xarray["time"][1] - solar_xarray["time"][0])
+        # Ensure same temporal grid for solar as for growth array
+        solar_xarray = solar_xarray.interp(time=time_grid, method="linear")
 
-            time_grid = np.arange(
-                start=t_interval[0],
-                stop=t_interval[1],
-                step=np.timedelta64(temporal_resolution_solar, "ns"),
-            )
-            growth_xarray = growth_xarray.interp(time=time_grid, method="linear").isel(depth=0)
+        # TODO: Add Check if the two DataArrays have the same shape and coordinates
+        # if (
+        #     growth_xarray.dims
+        #     != solar_xarray.dims
+        #     # or growth_xarray.coords != solar_xarray.coords
+        # ):
+        #     raise ValueError(
+        #         "Shapes of solar_xarray and growth_array don't match for following multiplication."
+        #     )
 
-            # Ensure same temporal grid for solar as for growth array
-            solar_xarray = solar_xarray.interp(time=time_grid, method="linear")
+        # Compute F_NGR_per_second
+        seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
+            "irradianceFactor"
+        ] - growth_xarray["R_resp"] / (24 * 3600)
 
-            # TODO: Add Check if the two DataArrays have the same shape and coordinates
-            # if (
-            #     growth_xarray.dims
-            #     != solar_xarray.dims
-            #     # or growth_xarray.coords != solar_xarray.coords
-            # ):
-            #     raise ValueError(
-            #         "Shapes of solar_xarray and growth_array don't match for following multiplication."
-            #     )
-
-            # Compute F_NGR_per_second
-            seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
-                "irradianceFactor"
-            ] - growth_xarray["R_resp"] / (24 * 3600)
-
-            # Convert back to xarray dataset
-            self.seaweed_xarray_global = seaweed_xarray.to_dataset(
-                name="F_NGR_per_second"
-            ).compute()
-
-            # self.x_grid_seaweed = self.seaweed_xarray["lon"].data
-            # self.y_grid_seaweed = self.seaweed_xarray["lat"].data
-            # self.seaweed_xarray.to_netcdf(
-            #     f'/Users/matthiaskiller/Desktop/data/seaweed_growth_maps/growth_map_{t_interval[0].strftime("%Y-%m-%dT%H-%M-%SZ")}_{t_interval[1].strftime("%Y-%m-%dT%H-%M-%SZ")}'
-            # )
-
-            # raise ValueError("seaweed growth map precomp. done")
+        # Convert back to xarray dataset
+        self.seaweed_xarray_global = seaweed_xarray.to_dataset(name="F_NGR_per_second").compute()
 
         self.logger.info(f"HJBSeaweed2DPlanner: Loading Seaweed Data ({time.time() - start:.1f}s)")
 
@@ -625,64 +608,6 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         self.logger.info(
             f"HJBSeaweed2DPlanner: Loading new Forecast Current Data ({time.time() - start:.1f}s)"
         )
-
-    def _get_file_dicts(self, folder: AnyStr) -> List[dict]:
-        """
-        Creates an list of dicts ordered according to time available, one for each nc file available in folder.
-        The dicts for each file contains:
-        {'t_range': [<datetime object>, T], 'file': <filepath> ,'y_range': [min_lat, max_lat], 'x_range': [min_lon, max_lon]}
-        """
-        # Step 1: get a list of files from the folder
-        files_list = []
-
-        # Allow for list of files/folders or mixture as input
-        # This is useful to prevent loading hundreds of files!
-        # Fully backwards compatible
-        if type(folder) is not list:
-            folder = [folder]
-
-        for place in folder:
-            if os.path.isdir(place):
-                new_files = [
-                    place + f
-                    for f in os.listdir(place)
-                    if (os.path.isfile(os.path.join(place, f)) and f != ".DS_Store")
-                ]
-                files_list += new_files
-            elif os.path.isfile(place):
-                files_list.append(place)
-
-        # Step 2: iterate over all files to extract the grids and put them in an ordered list of dicts
-        list_of_dicts = []
-        for file in files_list:
-            grid_dict = self._get_grid_dict_from_file(file)
-            # append the file to it:
-            grid_dict["file"] = file
-            list_of_dicts.append(grid_dict)
-
-        # Step 3: sort the list
-        list_of_dicts.sort(key=lambda dict: dict["t_range"][0])
-
-        return list_of_dicts
-
-    def _get_grid_dict_from_file(self, file: AnyStr) -> dict:
-        """Helper function to create a grid dict from a local nc3 file."""
-        f = xr.open_dataset(file)
-        # get the time coverage in POSIX
-        t_grid = units.get_posix_time_from_np64(f.variables["time"].data)
-        y_range = [f.variables["lat"].data[0], f.variables["lat"].data[-1]]
-        x_range = [f.variables["lon"].data[0], f.variables["lon"].data[-1]]
-        # close netCDF file
-        f.close()
-        # create dict
-        return {
-            "t_range": [
-                datetime.fromtimestamp(t_grid[0], timezone.utc),
-                datetime.fromtimestamp(t_grid[-1], timezone.utc),
-            ],
-            "y_range": y_range,
-            "x_range": x_range,
-        }
 
     def _get_ininital_values_from_global_values(self):
         """Helper function to retrieve the initial values for backward computation over FC horizon for a given forecast end time (temporal) and on self.grid (spatial).
