@@ -68,12 +68,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             "platform_dict": problem.platform_dict if problem is not None else None,
             "grid_res": 0.083,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             "grid_res_average": 0.166,  # Grid res for average data
-            "deg_around_xt_xT_box": 1,  # Area over which to run HJ_reachability
-            "deg_around_xt_xT_box_average": 10,  # area over which to run HJ_reachability for average data
-            "precomputation": False,  # Defines whether value fct. should be precomputed or normal planning is requested
-            "value_fct_folder": "temp/precomputed_value_fcts/",  # Where to save and load precomputed value fcts
-            "seaweed_precomputation_folder": "ocean_navigation_simulator/package_data/seaweed_growth_maps",
-            "take_precomp_seaweed_maps": False,
+            "deg_around_xt_xT_box": 8.2,  # Area over which to run HJ_reachability
+            "deg_around_xt_xT_box_average": 50,  # area over which to run HJ_reachability for average data
             "dirichlet_boundry_constant": 0,
         } | self.specific_settings
         (
