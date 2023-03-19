@@ -109,7 +109,7 @@ class Platform:
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
         self.model_battery = self.solar_source is not None
-        self.model_seaweed = self.solar_source is not None and self.seaweed_source is not None
+        self.model_seaweed = self.seaweed_source is not None
 
         # Set parameters for the Platform dynamics
         self.u_max = units.Velocity(mps=platform_dict["u_max_in_mps"])

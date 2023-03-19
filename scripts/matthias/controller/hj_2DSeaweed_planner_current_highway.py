@@ -21,39 +21,23 @@ from ocean_navigation_simulator.environment.SeaweedProblem import (
 )
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthCircles
 
 # %load_ext autoreload
 # %autoreload 2
-#%% TODO
-# - Add analytical seaweed function...
 
-# %% Initialize
+# % Initialize
 set_arena_loggers(logging.INFO)
 
-scenario_name = "current_highway"  # "Region_3_Copernicus_HC_solar_seaweed"
+scenario_name = "current_highway_toy_seaweed"  # "Region_3_Copernicus_HC_solar_seaweed"
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(scenario_name=scenario_name)
-# we can also download the respective files directly to a temp folder, then t_interval needs to be set
-# % Specify Navigation Problem
-# x_0 = PlatformState(
-#     lon=units.Distance(deg=-150),
-#     lat=units.Distance(deg=30),
-#     date_time=datetime.datetime(2022, 7, 24, 12, 0, tzinfo=datetime.timezone.utc),
-# )
-# x_T = SpatialPoint(lon=units.Distance(deg=-120), lat=units.Distance(deg=70))
-
-#%%
-# x_0 = PlatformState(
-#     lon=units.Distance(deg=-83.1),
-#     lat=units.Distance(deg=23.2),
-#     date_time=datetime.datetime(2021, 11, 23, 12, 0, tzinfo=datetime.timezone.utc),
-# )
-# x_T = SpatialPoint(lon=units.Distance(deg=-83.1), lat=units.Distance(deg=23.2))
+#%
 x_0 = PlatformState(
-    lon=units.Distance(deg=-2),
-    lat=units.Distance(deg=-1),
-    date_time=datetime.datetime(2022, 8, 23, 18, 0, tzinfo=datetime.timezone.utc),
+    lon=units.Distance(deg=5),
+    lat=units.Distance(deg=0.1),
+    date_time=datetime.datetime.utcfromtimestamp(0).astimezone(tz=datetime.timezone.utc),
     seaweed_mass=units.Mass(kg=100),
 )
 
@@ -71,8 +55,6 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
     deg_around_x0_xT_box=3,
     temp_horizon_in_s=3600,
 )
-lon_bnds = [-2,1]
-lat_bnds = [-1.5,1.5]
 
 #%%
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -82,24 +64,11 @@ plt.show()
 plt.tight_layout()
 
 #%%
-# ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# )
-# problem.plot(ax=ax)
-# plt.show()
-#%%
 ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
 )
 problem.plot(ax=ax)
 plt.show()
-#%%
-xr = arena.seaweed_field.hindcast_data_source.get_data_over_area(
-    t_interval=[x_0.date_time, x_0.date_time + datetime.timedelta(hours=24)],
-    x_interval=lon_bnds, y_interval=lat_bnds,
-)
-#%%
-xr
 
 # %% Instantiate the HJ Planner
 specific_settings = {
@@ -109,10 +78,10 @@ specific_settings = {
     "n_time_vector": 100,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box_global": 3.5,  # area over which to run HJ_reachability on the first global run
-    "deg_around_xt_xT_box": 3.5,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 10,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 100,  # * 24 * 12,
+    "T_goal_in_seconds": 100,
     "use_geographic_coordinate_system": False,
     "progress_bar": True,
     "grid_res_global": 0.1,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
@@ -120,9 +89,13 @@ specific_settings = {
     "d_max": 0.0,
     "platform_dict": arena.platform.platform_dict,
     "calc_opt_traj_after_planning": False,
+    ## discount Factor stuff
+    # The higher the discount factor, the MORE the planner cares about the future.
+    # This is the opposite of the usual RL discount factor!
+    # E.g. if we set it to 100, that means at each time-step the value function is reduced by 1/100th*dt of it's value.
+    'discount_factor_tau': 50 #False, #10,
 }
 
-#%
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
 observer = NoObserver()
 # %Run reachability planner
@@ -130,7 +103,10 @@ observation = arena.reset(platform_state=x_0)
 observer.observe(arena_observation=observation)
 observation.forecast_data_source = observer
 action = planner.get_action(observation=observation)
-
+#%%
+planner.plot_value_fct_snapshot(
+    rel_time_in_seconds=0,
+)
 #%% get value function #
 planner.animate_value_func_3D()
 # %% Let the controller run closed-loop within the arena (the simulation loop)
@@ -149,8 +125,7 @@ fig, ax = plt.subplots()
 ax = arena.plot_seaweed_trajectory_on_timeaxis(ax=ax)
 fig.canvas.draw()
 ax.draw(fig.canvas.renderer)
-
-
+plt.show()
 
 #%% Plot the arena trajectory on the map
 arena.plot_all_on_map(problem=problem, background="seaweed")

@@ -24,10 +24,11 @@ from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import 
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import irradianceFactor
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dSeaweedForSim import (
     Platform2dSeaweedForSim,
+    Platform2dSeaweedForSimDiscount
 )
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
-from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthAnalytical
+from ocean_navigation_simulator.environment.Arena import ArenaObservation, Arena
 
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
@@ -53,7 +54,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def __init__(
         self,
-        arena: ArenaFactory,
+        arena: Arena,
         problem: SeaweedProblem,
         specific_settings: Optional[Dict] = ...,
         c3: Optional[C3Python] = None,
@@ -96,15 +97,27 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        return Platform2dSeaweedForSim(
-            u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
-            d_max=self.specific_settings["d_max"],
-            use_geographic_coordinate_system=self.specific_settings[
-                "use_geographic_coordinate_system"
-            ],
-            control_mode="min",
-            disturbance_mode="max",
-        )
+        if self.specific_settings.get("discount_factor_tau", False):
+            return Platform2dSeaweedForSimDiscount(
+                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+                d_max=self.specific_settings["d_max"],
+                use_geographic_coordinate_system=self.specific_settings[
+                    "use_geographic_coordinate_system"
+                ],
+                control_mode="min",
+                disturbance_mode="max",
+                discount_factor_tau=self.specific_settings["discount_factor_tau"],
+            )
+        else:
+            return Platform2dSeaweedForSim(
+                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+                d_max=self.specific_settings["d_max"],
+                use_geographic_coordinate_system=self.specific_settings[
+                    "use_geographic_coordinate_system"
+                ],
+                control_mode="min",
+                disturbance_mode="max",
+            )
 
     def _dirichlet(self, x, pad_width: int):
         """Dirichlet boundry conditions for PDE solve"""
@@ -406,7 +419,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
             # TODO: enforce timezone awareness to mitigate warning: Indexing a timezone-naive DatetimeIndex with a timezone-aware datetime is deprecated and will raise KeyError in a future version.  Use a timezone-naive object instead.
             self.seaweed_xarray = seaweed_xarray.sel(time=slice(t_interval[0], t_interval[1]))
-        else:
+        elif self.arena.seaweed_field.hindcast_data_source.source_config_dict['source'] == 'GEOMAR':
 
             # Get growth data without solar irradiance from data source
             # do NOT slice in time otherwise we need to extrapolate, the interpolation can take care of that.
@@ -472,6 +485,10 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # )
 
             # raise ValueError("seaweed growth map precomp. done")
+        # setting self.seaweed_xarray_global to the source type to load the data from analytical sources
+        else:
+            self.seaweed_xarray_global = self.arena.seaweed_field.hindcast_data_source.source_config_dict['source']
+
 
         self.logger.info(f"HJBSeaweed2DPlanner: Loading Seaweed Data ({time.time() - start:.1f}s)")
 
@@ -482,17 +499,28 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         """
         start = time.time()
 
-        # Subset the global seaweed data to the desired time interval
-        seaweed_subset = self.seaweed_xarray_global.sel(
-            time=slice(t_interval[0], t_interval[1]),
-        )
+        # if it's an analytical source, get the data directly in self.grid dimensions
+        if issubclass(type(self.arena.seaweed_field.hindcast_data_source), SeaweedGrowthAnalytical):
+            # get grid_dict from the self.grid source
+            grids_dict = self.arena.seaweed_field.hindcast_data_source.get_grid_dict(t_interval=[0, 100])
+            grids_dict['x_grid'] = self.grid.coordinate_vectors[0].to_py()
+            grids_dict['y_grid'] = self.grid.coordinate_vectors[1].to_py()
+            # create the xarray for exactly that grids_dict
+            F_NGR_per_second_data = self.arena.seaweed_field.hindcast_data_source.map_analytical_function_over_area(
+                grids_dict=grids_dict)
+            seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.create_xarray(
+                data_tuple=F_NGR_per_second_data, grids_dict=grids_dict)
+        else: # Subset the global seaweed data and interpolate to the desired grid
+            seaweed_subset = self.seaweed_xarray_global.sel(
+                time=slice(t_interval[0], t_interval[1]),
+            )
 
-        # Interpolate the subset onto the desired longitude and latitude grid
-        seaweed_xarray = seaweed_subset.interp(
-            lon=self.grid.coordinate_vectors[0],
-            lat=self.grid.coordinate_vectors[1],
-            method="linear",
-        ).compute()
+            # Interpolate the subset onto the desired longitude and latitude grid
+            seaweed_xarray = seaweed_subset.interp(
+                lon=self.grid.coordinate_vectors[0],
+                lat=self.grid.coordinate_vectors[1],
+                method="linear",
+            ).compute()
 
         # Add relative time
         seaweed_xarray = seaweed_xarray.assign(
@@ -733,8 +761,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     @staticmethod
     def from_saved_planner_state(
-        folder, problem: SeaweedProblem, arena: ArenaFactory, verbose: Optional[int] = 0
-    ):
+        folder, problem: SeaweedProblem, arena: Arena):
         # Settings
         with open(folder + "specific_settings.pickle", "rb") as file:
             specific_settings = pickle.load(file)

@@ -77,3 +77,39 @@ class Platform2dSeaweedForSim(Platform2dForSim):
         return grad_value @ self(state, control, disturbance, time) - self._get_seaweed_growth_rate(
             state, time
         )
+
+
+class Platform2dSeaweedForSimDiscount(Platform2dSeaweedForSim):
+    """Only difference to above is that we use a discount factor tau in the hamiltonian.
+    The new hamiltonian is: -dV/dt = max_u [l + dV/dx*f] - V/tau
+
+        Args:
+            u_max: the maximum propulsion in m/s
+            d_max: the maximum disturbance in m/s (default is 0)
+            use_geographic_coordinate_system: if we operate in the geographic coordinate system or not
+            control_mode: If the control is trying to minimize or maximize the value function.
+            disturbance_mode: If the disturbance is trying to minimize or maximize the value function.
+        """
+
+    def __init__(
+            self,
+            u_max: float,
+            d_max: float = 0,
+            use_geographic_coordinate_system: bool = True,
+            control_mode: Union["min", "max"] = "min",
+            disturbance_mode: Union["min", "max"] = "max",
+            discount_factor_tau: float = 1.0,
+    ):
+        super().__init__(
+            u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
+        )
+        self.discount_factor_tau = discount_factor_tau
+
+    def hamiltonian(self, state, time, value, grad_value):
+        """Evaluates the HJ PDE Hamiltonian and adds running cost term (negative seaweed growth rate)"""
+        control, disturbance = self.optimal_control_and_disturbance(state, time, grad_value)
+
+        grad_term = grad_value @ self(state, control, disturbance, time)
+        running_cost_term = -self._get_seaweed_growth_rate(state, time)
+
+        return grad_term + running_cost_term - value / self.discount_factor_tau
