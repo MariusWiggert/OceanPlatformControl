@@ -23,8 +23,8 @@ from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import get_c3, set_arena_loggers
 
-# %load_ext autoreload
-# %autoreload 2
+%load_ext autoreload
+%autoreload 2
 # %% Initialize
 # os.chdir(
 #     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
@@ -57,9 +57,9 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-83.1), lat=units.Distance(deg=23.2))
 x_0 = PlatformState(
-    lon=units.Distance(deg=-100),
-    lat=units.Distance(deg=-20),
-    date_time=datetime.datetime(2022, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+    lon=units.Distance(deg=-89.37091244779876),
+    lat=units.Distance(deg=-15.327018321735004),
+    date_time=datetime.datetime(2022, 1, 2, 4, 0, 57, tzinfo=datetime.timezone.utc),
 )
 arena = ArenaFactory.create(
     scenario_name=scenario_name,
@@ -105,7 +105,7 @@ problem = SeaweedProblem(
 # plt.show()
 
 # ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+#     time=x_0.date_time, x_interval=[-130,-70], y_interval=[-40,0], return_ax=True
 # )
 # problem.plot(ax=ax)
 # plt.show()
@@ -127,13 +127,11 @@ specific_settings = {
     "progress_bar": True,
     "grid_res": 0.0833,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "grid_res_average": 0.166,  # Grid res for average data  Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-    "grid_res_seaweed": 0.332,  # Grid res for seaweed data
     "d_max": 0.0,
     "calc_opt_traj_after_planning": False,
     "x_interval_seaweed": [-130, -70],
     "y_interval_seaweed": [-40, 0],
-    "seaweed_precomputation_folder": "ocean_navigation_simulator/package_data/seaweed_growth_maps/",
-    "take_precomp_seaweed_maps": False,
+    "dirichlet_boundry_constant": 0
 }
 # wandb.config.update({"planner_settings": specific_settings})
 #%%
