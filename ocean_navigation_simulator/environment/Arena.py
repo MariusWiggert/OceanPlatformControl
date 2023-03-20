@@ -190,13 +190,15 @@ class Arena:
         # Step 1.3 Seaweed Growth Field
         if seaweed_dict is not None and seaweed_dict["hindcast"] is not None:
             # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
-            seaweed_dict["hindcast"]["source_settings"][
-                "solar_source"
-            ] = self.solar_field.hindcast_data_source
-            if seaweed_dict["forecast"] is not None:
-                seaweed_dict["forecast"]["source_settings"][
+            if self.solar_field is not None:
+                seaweed_dict["hindcast"]["source_settings"][
                     "solar_source"
                 ] = self.solar_field.hindcast_data_source
+                # check if self.solar_field.hindcast_data_source exists
+                if seaweed_dict["forecast"] is not None:
+                    seaweed_dict["forecast"]["source_settings"][
+                        "solar_source"
+                    ] = self.solar_field.hindcast_data_source
             self.seaweed_field = SeaweedGrowthField(
                 casadi_cache_dict=casadi_cache_dict,
                 hindcast_source_dict=seaweed_dict["hindcast"],

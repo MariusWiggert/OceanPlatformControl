@@ -5,6 +5,7 @@ from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthGEOMAR,
     SeaweedGrowthSource,
+    SeaweedGrowthCircles
 )
 
 
@@ -47,6 +48,8 @@ class SeaweedGrowthField(DataField):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
         if source_dict["source"] == "GEOMAR":
             return SeaweedGrowthGEOMAR(source_dict)
+        if source_dict["source"] == "SeaweedGrowthCircles":
+            return SeaweedGrowthCircles(source_dict)
         else:
             raise NotImplementedError(
                 "Selected source {} in the SeaweedGrowthSource dict is not implemented.".format(
