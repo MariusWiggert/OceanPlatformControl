@@ -4,7 +4,7 @@ casadi_cache_dict:
 
 platform_dict:
     battery_cap_in_wh: 400000.0 #400000.0
-    u_max_in_mps: 0.1
+    u_max_in_mps: 0.5
     motor_efficiency: 1.0
     solar_panel_size: 100
     solar_efficiency: 1
@@ -35,7 +35,7 @@ ocean_dict:
         #     PASSWORD: "tamku3-qetroR-guwneq"
         #     DATASET_ID: "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
     forecast:
-        #null
+        null
         # field: 'OceanCurrents'
         # source: 'forecast_files'
         # source_settings:
@@ -43,22 +43,22 @@ ocean_dict:
         #     source: 'HYCOM'
         #     type: "forecast"
         #     local: True
-        field: 'OceanCurrents'
-        source: 'hindcast_as_forecast_files'
-        source_settings:
-            folder: '/Users/matthiaskiller/Desktop/data/HYCOM/Hindcast/RegionMatthias/' #'data/hindcast_test/' 
-            source: 'HYCOM'
-            type: "hindcast"
-            local: False
-        forecast_length_in_days: 5
+        # field: 'OceanCurrents'
+        # source: 'hindcast_as_forecast_files'
+        # source_settings:
+        #     folder: '/Users/matthiaskiller/Desktop/data/HYCOM/Hindcast/RegionMatthias/' #'data/hindcast_test/' 
+        #     source: 'HYCOM'
+        #     type: "hindcast"
+        #     local: False
+        # forecast_length_in_days: 5
         
     average:
-        #null
-        field: 'OceanCurrents'
-        source: 'hindcast_files'
-        source_settings:
-            folder: 'ocean_navigation_simulator/package_data/monthly_averages/'
-            currents: 'normal'
+        null
+        # field: 'OceanCurrents'
+        # source: 'hindcast_files'
+        # source_settings:
+        #     folder: 'ocean_navigation_simulator/package_data/monthly_averages/'
+        #     currents: 'normal'
 
 solar_dict:
     hindcast: 
