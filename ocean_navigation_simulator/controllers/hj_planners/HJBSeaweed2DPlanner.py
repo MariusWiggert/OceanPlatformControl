@@ -91,7 +91,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     ) -> jnp.ndarray:
         return jnp.array(x.__array__())[:2]
 
-    def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
+    def get_dim_dynamical_system(self):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
         if self.specific_settings.get("discount_factor_tau", False):
             return Platform2dSeaweedForSimDiscount(
@@ -103,6 +103,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 control_mode="min",
                 disturbance_mode="max",
                 discount_factor_tau=self.specific_settings["discount_factor_tau"],
+                affine_dynamics=self.specific_settings.get("affine_dynamics", False),
             )
         else:
             return Platform2dSeaweedForSim(
@@ -113,6 +114,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 ],
                 control_mode="min",
                 disturbance_mode="max",
+                affine_dynamics=self.specific_settings.get("affine_dynamics", False),
             )
 
     def _dirichlet(self, x, pad_width: int):
@@ -410,7 +412,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         if "y_interval_seaweed" in self.specific_settings:
             y_interval = self.specific_settings["y_interval_seaweed"]
 
-        if self.specific_settings["take_precomp_seaweed_maps"]:
+        if self.specific_settings.get("take_precomp_seaweed_maps", False):
             files_dicts = self._get_file_dicts(
                 folder=self.specific_settings["seaweed_precomputation_folder"]
             )

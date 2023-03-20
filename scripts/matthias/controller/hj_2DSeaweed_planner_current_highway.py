@@ -12,8 +12,9 @@ import wandb
 from ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner import (
     HJBSeaweed2DPlanner,
 )
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSimAffine
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
-from ocean_navigation_simulator.environment.Platform import PlatformState
+from ocean_navigation_simulator.environment.Platform import PlatformState, PlatformAction
 from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.environment.SeaweedProblem import (
@@ -52,7 +53,7 @@ problem = SeaweedProblem(
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
     x_0=x_0.to_spatio_temporal_point(),
     x_T=x_0.to_spatio_temporal_point(),
-    deg_around_x0_xT_box=3,
+    deg_around_x0_xT_box=10,
     temp_horizon_in_s=3600,
 )
 
@@ -93,7 +94,8 @@ specific_settings = {
     # The higher the discount factor, the MORE the planner cares about the future.
     # This is the opposite of the usual RL discount factor!
     # E.g. if we set it to 100, that means at each time-step the value function is reduced by 1/100th*dt of it's value.
-    'discount_factor_tau': 50 #False, #10,
+    'discount_factor_tau': False, #50 #False, #10,
+    'affine_dynamics': True,
 }
 
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
@@ -130,8 +132,9 @@ plt.show()
 #%% Plot the arena trajectory on the map
 arena.plot_all_on_map(problem=problem, background="seaweed")
 arena.plot_all_on_map(problem=problem, background="current", quiver_spatial_res=0.165, quiver_scale=7)
-
-
+#%%
+arena.plot_control_trajectory_on_timeaxis()
+plt.show()
 # %%
 arena.animate_trajectory(
     problem=problem,

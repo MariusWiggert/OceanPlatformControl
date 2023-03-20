@@ -37,10 +37,10 @@ class SeaweedGrowthField(DataField):
         # initialize logger
         self.logger = logging.getLogger("arena.seaweed_growth_field")
         super().__init__(
-            casadi_cache_dict,
-            hindcast_source_dict,
-            forecast_source_dict,
-            use_geographic_coordinate_system,
+            casadi_cache_dict=casadi_cache_dict,
+            hindcast_source_dict=hindcast_source_dict,
+            forecast_source_dict=forecast_source_dict,
+            use_geographic_coordinate_system=use_geographic_coordinate_system,
         )
 
     @staticmethod

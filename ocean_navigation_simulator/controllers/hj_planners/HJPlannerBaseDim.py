@@ -21,6 +21,7 @@ import xarray as xr
 from scipy.interpolate import interp1d
 
 from ocean_navigation_simulator.controllers.Controller import Controller
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSimAffine
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -281,7 +282,13 @@ class HJPlannerBaseDim(Controller):
                 print(f"self.reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]")
                 raise
 
-        return PlatformAction(magnitude=u_out[0], direction=u_out[1])
+        # if affine dynamics we need to transform the u_x and u_y to u_propulsion and direction theta
+        if isinstance(self.dim_dynamics.base_sim_class, Platform2dForSimAffine):
+            return PlatformAction.from_xy_propulsion(
+                x_propulsion=u_out[0]/self.dim_dynamics.u_max,
+                y_propulsion=u_out[1]/self.dim_dynamics.u_max)
+        else:
+            return PlatformAction(magnitude=u_out[0], direction=u_out[1])
 
     def get_waypoints(self) -> List[SpatioTemporalPoint]:
         """Returns: a list of waypoints each containing [lon, lat, time]"""

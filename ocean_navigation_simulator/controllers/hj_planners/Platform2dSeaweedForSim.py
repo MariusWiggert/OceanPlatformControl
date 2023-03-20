@@ -6,17 +6,11 @@ from hj_reachability import interpolation, sets
 
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
     Platform2dForSim,
+    Platform2dForSimAffine
 )
 
 
-def transform_to_geographic_velocity(state, dx1, dx2):
-    """Helper Function to transform dx1 and dx2 from m/s to the geographic_coordinate_system."""
-    lon_delta_deg_per_s = 180 * dx1 / jnp.pi / 6371000 / jnp.cos(jnp.pi * state[1] / 180)
-    lat_delta_deg_per_s = 180 * dx2 / jnp.pi / 6371000
-    return jnp.array([lon_delta_deg_per_s, lat_delta_deg_per_s]).reshape(-1)
-
-
-class Platform2dSeaweedForSim(Platform2dForSim):
+class Platform2dSeaweedForSim:
     """The 2D Ocean going Platform class on a dynamic current field considering seaweed growth.
     This class is for use with the ocean_platform simulator
 
@@ -42,11 +36,17 @@ class Platform2dSeaweedForSim(Platform2dForSim):
         use_geographic_coordinate_system: bool = True,
         control_mode: Union["min", "max"] = "min",
         disturbance_mode: Union["min", "max"] = "max",
+        affine_dynamics: bool = False,
     ):
-
-        super().__init__(
+        self.base_sim_class = Platform2dForSimAffine(
+            u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
+        ) if affine_dynamics else Platform2dForSim(
             u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
         )
+
+    # called when an attribute is not found (for flexible inheritance)
+    def __getattr__(self, name):
+        return self.base_sim_class.__getattribute__(name)
 
     def update_jax_interpolant_seaweed(self, seaweed_xarray: xr):
         """Creating an interpolant function from x,y,t grid and data
@@ -74,7 +74,7 @@ class Platform2dSeaweedForSim(Platform2dForSim):
         """Evaluates the HJ PDE Hamiltonian and adds running cost term (negative seaweed growth rate)"""
         del value  # unused
         control, disturbance = self.optimal_control_and_disturbance(state, time, grad_value)
-        return grad_value @ self(state, control, disturbance, time) - self._get_seaweed_growth_rate(
+        return grad_value @ self.base_sim_class(state, control, disturbance, time) - self._get_seaweed_growth_rate(
             state, time
         )
 
@@ -99,9 +99,11 @@ class Platform2dSeaweedForSimDiscount(Platform2dSeaweedForSim):
             control_mode: Union["min", "max"] = "min",
             disturbance_mode: Union["min", "max"] = "max",
             discount_factor_tau: float = 1.0,
+            affine_dynamics: bool = False,
     ):
         super().__init__(
-            u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
+            u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode,
+            affine_dynamics=affine_dynamics
         )
         self.discount_factor_tau = discount_factor_tau
 
@@ -109,7 +111,7 @@ class Platform2dSeaweedForSimDiscount(Platform2dSeaweedForSim):
         """Evaluates the HJ PDE Hamiltonian and adds running cost term (negative seaweed growth rate)"""
         control, disturbance = self.optimal_control_and_disturbance(state, time, grad_value)
 
-        grad_term = grad_value @ self(state, control, disturbance, time)
+        grad_term = grad_value @ self.base_sim_class(state, control, disturbance, time)
         running_cost_term = -self._get_seaweed_growth_rate(state, time)
 
         return grad_term + running_cost_term - value / self.discount_factor_tau

@@ -13,6 +13,20 @@ def transform_to_geographic_velocity(state, dx1, dx2):
     return jnp.array([lon_delta_deg_per_s, lat_delta_deg_per_s]).reshape(-1)
 
 
+def geographic_transformation_matrix(state):
+    """Helper Function to transform dx1 and dx2 from m/s to the geographic_coordinate_system.
+    Output can be used as matrix multiplication d_x_geographic = M @ d_x_cartesian
+    """
+    x_transform = 180 / jnp.pi / 6371000 / jnp.cos(jnp.pi * state[1] / 180)
+    y_transform = 180 / jnp.pi / 6371000
+
+    return jnp.array([
+        [x_transform, 0.],
+        [0., y_transform],
+    ])
+
+
+
 class Platform2dForSim(dynamics.Dynamics):
     """The 2D Ocean going Platform class on a dynamic current field.
     This class is for use with the ocean_platform simulator
@@ -128,3 +142,99 @@ class Platform2dForSim(dynamics.Dynamics):
             self.optimal_control(state, time, grad_value),
             self.optimal_disturbance(state, time, grad_value),
         )
+
+
+
+class Platform2dForSimAffine(dynamics.ControlAndDisturbanceAffineDynamics):
+    """The 2D Ocean going Platform class on a dynamic current field.
+    This class is for use with the ocean_platform simulator
+
+    Dynamics:
+    dot{x}_1 = u_x + x_currents(x,y,t)
+    dot{x}_2 = u_y + y_currents(x,y,t)
+    such that ||(u_x, u_y)|| < u_max
+    The controls are u_x and u_y.
+
+    Args:
+        u_max: the maximum propulsion in m/s
+        d_max: the maximum disturbance in m/s (default is 0)
+        use_geographic_coordinate_system: if we operate in the geographic coordinate system or not
+        control_mode: If the control is trying to minimize or maximize the value function.
+        disturbance_mode: If the disturbance is trying to minimize or maximize the value function.
+    """
+
+    def __init__(
+        self,
+        u_max: float,
+        d_max: float = 0,
+        use_geographic_coordinate_system: bool = True,
+        control_mode: Union["min", "max"] = "min",
+        disturbance_mode: Union["min", "max"] = "max",
+    ):
+
+        # set variables
+        self.use_geographic_coordinate_system = use_geographic_coordinate_system
+
+        # initialize the current interpolants with None, they are set in the planner method
+        self.x_current, self.y_current = None, None
+
+        # # obstacle operator (is overwritten if analytical_current with boundary obstacles)
+        # self.obstacle_operator = lambda state, time, dx_out: dx_out
+        self.u_max = u_max
+        control_space = sets.Ball(center=jnp.zeros(2), radius=u_max)
+
+        disturbance_space = sets.Ball(center=jnp.zeros(2), radius=d_max)
+        super().__init__(control_mode, disturbance_mode, control_space, disturbance_space)
+
+    def __call__(self, state, control, disturbance, time):
+        """Implements the affine dynamics `dx_dt = f(x, t) + G_u(x, t) @ u + G_d(x, t) @ d`.
+        This just adds the transformation to the geographical coordinate system.
+        """
+        cartesian_dynamics = (self.open_loop_dynamics(state, time) + self.control_jacobian(state, time) @ control +
+                self.disturbance_jacobian(state, time) @ disturbance)
+
+        return jnp.where(
+            self.use_geographic_coordinate_system,
+            geographic_transformation_matrix(state) @ cartesian_dynamics,
+            cartesian_dynamics,
+        )
+
+    def update_jax_interpolant(self, data_xarray: xr):
+        """Creating an interpolant function from x,y,t grid and data
+        Args:
+            data_xarray: xarray containing variables water_u and water_v as matrices (T, Y, X)
+        """
+
+        # create 1D interpolation functions for running in the loop of the dynamics
+        self.x_current = lambda state, time: interpolation.lin_interpo_1D(
+            state,
+            time,
+            data_xarray["water_u"].fillna(0).data,
+            data_xarray["lon"].data,
+            data_xarray["lat"].data,
+            data_xarray["relative_time"].data,
+        )
+        self.y_current = lambda state, time: interpolation.lin_interpo_1D(
+            state,
+            time,
+            data_xarray["water_v"].fillna(0).data,
+            data_xarray["lon"].data,
+            data_xarray["lat"].data,
+            data_xarray["relative_time"].data,
+        )
+
+    def open_loop_dynamics(self, state, time):
+        """Implements the open-loop dynamics (without controls)."""
+        dx1 = self.x_current(state, time)
+        dx2 = self.y_current(state, time)
+
+        return jnp.array([dx1, dx2])
+
+    def disturbance_jacobian(self, state, time):
+        return jnp.array([[1.0, 0.0], [0.0, 1.0]])
+
+    def control_jacobian(self, state, time):
+        return jnp.array([
+            [1., 0.],
+            [0., 1.],
+        ])
