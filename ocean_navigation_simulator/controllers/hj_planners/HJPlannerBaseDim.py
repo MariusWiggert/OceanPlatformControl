@@ -35,6 +35,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
 )
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 from ocean_navigation_simulator.utils import units
+from hj_reachability.finite_differences import upwind_first
 
 
 class HJPlannerBaseDim(Controller):
@@ -275,6 +276,7 @@ class HJPlannerBaseDim(Controller):
                     time=rel_time,
                     times=self.reach_times,
                     all_values=self.all_values,
+                    # upwind_scheme=upwind_first.WENO1
                 )
             except BaseException:
                 print(f"self.last_fmrc_time_planned_with: {self.last_fmrc_time_planned_with}")

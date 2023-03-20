@@ -191,13 +191,12 @@ class Platform2dForSimAffine(dynamics.ControlAndDisturbanceAffineDynamics):
         This just adds the transformation to the geographical coordinate system.
         """
         cartesian_dynamics = (self.open_loop_dynamics(state, time) + self.control_jacobian(state, time) @ control +
-                self.disturbance_jacobian(state, time) @ disturbance)
+                              self.disturbance_jacobian(state, time) @ disturbance)
 
         return jnp.where(
             self.use_geographic_coordinate_system,
             geographic_transformation_matrix(state) @ cartesian_dynamics,
-            cartesian_dynamics,
-        )
+            cartesian_dynamics)
 
     def update_jax_interpolant(self, data_xarray: xr):
         """Creating an interpolant function from x,y,t grid and data
@@ -227,14 +226,23 @@ class Platform2dForSimAffine(dynamics.ControlAndDisturbanceAffineDynamics):
         """Implements the open-loop dynamics (without controls)."""
         dx1 = self.x_current(state, time)
         dx2 = self.y_current(state, time)
-
         return jnp.array([dx1, dx2])
 
     def disturbance_jacobian(self, state, time):
-        return jnp.array([[1.0, 0.0], [0.0, 1.0]])
+        return jnp.array([[1.0, 0.0],
+                          [0.0, 1.0]])
 
     def control_jacobian(self, state, time):
         return jnp.array([
             [1., 0.],
             [0., 1.],
         ])
+
+    def partial_max_magnitudes(self, state, time, value, grad_value_box):
+        """Computes the max magnitudes of the Hamiltonian partials over the `grad_value_box` in each dimension."""
+        # Note: might be wrong and we have to do it on individual elements, trying as this would be cleaner.
+        cartesian_partial_max_magnitudes = super().partial_max_magnitudes(state, time, value, grad_value_box)
+        return jnp.where(
+            self.use_geographic_coordinate_system,
+            jnp.abs(geographic_transformation_matrix(state) @ cartesian_partial_max_magnitudes),
+            cartesian_partial_max_magnitudes)
