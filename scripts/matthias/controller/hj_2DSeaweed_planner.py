@@ -59,8 +59,9 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 x_0 = PlatformState(
     lon=units.Distance(deg=-89.37091244779876),
     lat=units.Distance(deg=-15.327018321735004),
-    date_time=datetime.datetime(2022, 1, 2, 4, 0, 57, tzinfo=datetime.timezone.utc),
+    date_time=datetime.datetime(2022, 1, 2, 16, 0, 57, tzinfo=datetime.timezone.utc),
 )
+# %%
 arena = ArenaFactory.create(
     scenario_name=scenario_name,
     t_interval=[
@@ -80,35 +81,42 @@ problem = SeaweedProblem(
 # %% Plot the problem on the map
 
 
-# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-#     x_0=x_0.to_spatio_temporal_point(),
-#     x_T=x_0.to_spatio_temporal_point(),
-#     deg_around_x0_xT_box=12,
-#     temp_horizon_in_s=3600,
-# )
+t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+    x_0=x_0.to_spatio_temporal_point(),
+    x_T=x_0.to_spatio_temporal_point(),
+    deg_around_x0_xT_box=12,
+    temp_horizon_in_s=3600,
+)
+lat_bnds = [-40,0]
+lon_bnds = [-130,-70]
+# %%
+ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time,
+    x_interval=lon_bnds,
+    y_interval=lat_bnds,
+    return_ax=True,
+    quiver_spatial_res=0.6,
+    quiver_scale=20,
+)
+problem.plot(ax=ax)
+plt.show()
+# %%
+ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+)
+problem.plot(ax=ax)
+plt.show()
+# %%
+ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
+    time=x_0.date_time, x_interval=[-130,-70], y_interval=[-40,0], return_ax=True
+)
+#%%
+fig = ax.get_figure()
+fig = plt.figure(fig)
 
-# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time,
-#     x_interval=lon_bnds,
-#     y_interval=lat_bnds,
-#     return_ax=True,
-#     quiver_spatial_res=0.6,
-#     quiver_scale=12,
-# )
-# problem.plot(ax=ax)
-# plt.show()
-
-# ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-# )
-# problem.plot(ax=ax)
-# plt.show()
-
-# ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-#     time=x_0.date_time, x_interval=[-130,-70], y_interval=[-40,0], return_ax=True
-# )
-# problem.plot(ax=ax)
-# plt.show()
+plt.savefig("seaweed_trajectory_on_map.svg")
+problem.plot(ax=ax)
+plt.show()
 
 
 # %% Instantiate the HJ Planner
@@ -118,7 +126,7 @@ specific_settings = {
     "direction": "backward",
     "n_time_vector": 24 * 30,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 8.2,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box": 10,  # area over which to run HJ_reachability
     "deg_around_xt_xT_box_average": 50,  # area over which to run HJ_reachability for average data
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
@@ -131,7 +139,9 @@ specific_settings = {
     "calc_opt_traj_after_planning": False,
     "x_interval_seaweed": [-130, -70],
     "y_interval_seaweed": [-40, 0],
-    "dirichlet_boundry_constant": 0
+    "dirichlet_boundry_constant": 1,
+    "discount_factor_tau": False, #50 #False, #10,
+    "affine_dynamics": True,
 }
 # wandb.config.update({"planner_settings": specific_settings})
 #%%
