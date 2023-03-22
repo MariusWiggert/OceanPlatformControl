@@ -24,10 +24,12 @@ from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import 
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import irradianceFactor
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dSeaweedForSim import (
     Platform2dSeaweedForSim,
-    Platform2dSeaweedForSimDiscount
+    Platform2dSeaweedForSimDiscount,
 )
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
-from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthAnalytical
+from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
+    SeaweedGrowthAnalytical,
+)
 from ocean_navigation_simulator.environment.Arena import ArenaObservation, Arena
 
 from ocean_navigation_simulator.environment.PlatformState import (
@@ -371,11 +373,17 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 * 24
             )
         # Check if FC source is real FC source and not from type HindcastFileSource and take maximum available data as forecast_length
-        elif hasattr(observation.forecast_data_source, "forecast_data_source") and not isinstance(
-            observation.forecast_data_source.forecast_data_source,
-            ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource,
-        ) and not isinstance(observation.forecast_data_source.forecast_data_source,
-                             ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents.OceanCurrentSourceAnalytical):
+        elif (
+            hasattr(observation.forecast_data_source, "forecast_data_source")
+            and not isinstance(
+                observation.forecast_data_source.forecast_data_source,
+                ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource,
+            )
+            and not isinstance(
+                observation.forecast_data_source.forecast_data_source,
+                ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents.OceanCurrentSourceAnalytical,
+            )
+        ):
             self.forecast_length = int(
                 (
                     observation.forecast_data_source.forecast_data_source.DataArray.time.max()
@@ -422,7 +430,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
             # TODO: enforce timezone awareness to mitigate warning: Indexing a timezone-naive DatetimeIndex with a timezone-aware datetime is deprecated and will raise KeyError in a future version.  Use a timezone-naive object instead.
             self.seaweed_xarray = seaweed_xarray.sel(time=slice(t_interval[0], t_interval[1]))
-        elif self.arena.seaweed_field.hindcast_data_source.source_config_dict['source'] == 'GEOMAR':
+        elif self.arena.seaweed_field.hindcast_data_source.source_config_dict["source"] == "GEOMAR":
 
             # Get growth data without solar irradiance from data source
             # do NOT slice in time otherwise we need to extrapolate, the interpolation can take care of that.
@@ -477,10 +485,13 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             ] - growth_xarray["R_resp"] / (24 * 3600)
 
             # Convert back to xarray dataset
-            self.seaweed_xarray_global = seaweed_xarray.to_dataset(name="F_NGR_per_second").compute()
+            self.seaweed_xarray_global = seaweed_xarray.to_dataset(
+                name="F_NGR_per_second"
+            ).compute()
         else:
-            self.seaweed_xarray_global = self.arena.seaweed_field.hindcast_data_source.source_config_dict['source']
-
+            self.seaweed_xarray_global = (
+                self.arena.seaweed_field.hindcast_data_source.source_config_dict["source"]
+            )
 
         self.logger.info(f"HJBSeaweed2DPlanner: Loading Seaweed Data ({time.time() - start:.1f}s)")
 
@@ -494,15 +505,21 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # if it's an analytical source, get the data directly in self.grid dimensions
         if issubclass(type(self.arena.seaweed_field.hindcast_data_source), SeaweedGrowthAnalytical):
             # get grid_dict from the self.grid source
-            grids_dict = self.arena.seaweed_field.hindcast_data_source.get_grid_dict(t_interval=[0, 100])
-            grids_dict['x_grid'] = self.grid.coordinate_vectors[0].to_py()
-            grids_dict['y_grid'] = self.grid.coordinate_vectors[1].to_py()
+            grids_dict = self.arena.seaweed_field.hindcast_data_source.get_grid_dict(
+                t_interval=[0, 100]
+            )
+            grids_dict["x_grid"] = self.grid.coordinate_vectors[0].to_py()
+            grids_dict["y_grid"] = self.grid.coordinate_vectors[1].to_py()
             # create the xarray for exactly that grids_dict
-            F_NGR_per_second_data = self.arena.seaweed_field.hindcast_data_source.map_analytical_function_over_area(
-                grids_dict=grids_dict)
+            F_NGR_per_second_data = (
+                self.arena.seaweed_field.hindcast_data_source.map_analytical_function_over_area(
+                    grids_dict=grids_dict
+                )
+            )
             seaweed_xarray = self.arena.seaweed_field.hindcast_data_source.create_xarray(
-                data_tuple=F_NGR_per_second_data, grids_dict=grids_dict)
-        else: # Subset the global seaweed data and interpolate to the desired grid
+                data_tuple=F_NGR_per_second_data, grids_dict=grids_dict
+            )
+        else:  # Subset the global seaweed data and interpolate to the desired grid
             seaweed_subset = self.seaweed_xarray_global.sel(
                 time=slice(t_interval[0], t_interval[1]),
             )
@@ -583,7 +600,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # Initialize the grids and dynamics to solve the PDE with
         self.initialize_hj_grid(data_xarray)
 
-        # Save global grid for late use
+        # Save global grid for later use
         self.x_grid_global = self.grid.states[:, 0, 0]
         self.y_grid_global = self.grid.states[0, :, 1]
 
@@ -654,20 +671,25 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             values: interpolated value subset corresponding to the given posix time and self.grid
         """
         # Step 1: Get temporally interpolated slice of global value fct. at forecast_end_time_posix
-        initial_values = interp1d(
-            self.reach_times_global_posix,
-            self.all_values_global,
-            axis=0,
-            kind="linear",
-            fill_value="extrapolate",
-        )(self.forecast_end_time_posix).squeeze()
+        # Check whether we exceed our averaged planning horizon, if not interpolate.
+        if self.forecast_end_time_posix < self.reach_times_global_posix[0]:
+            initial_values = interp1d(
+                self.reach_times_global_posix,
+                self.all_values_global,
+                axis=0,
+                kind="linear",
+                fill_value="extrapolate",
+            )(self.forecast_end_time_posix).squeeze()
+
+        # If we exceed averaged planning horizon we take global inital value (zeros)
+        else:
+            initial_values = self.all_values_global[0]
 
         # Step 2: Get spatially interpolated subset of slice
         interpolator = RectBivariateSpline(self.x_grid_global, self.y_grid_global, initial_values)
         initial_values = interpolator(
             self.grid.coordinate_vectors[0], self.grid.coordinate_vectors[1]
         )
-
         return initial_values
 
     def save_planner_state(self, folder):
@@ -694,8 +716,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             pickle.dump(self.initial_values, file)
 
     @staticmethod
-    def from_saved_planner_state(
-        folder, problem: SeaweedProblem, arena: Arena):
+    def from_saved_planner_state(folder, problem: SeaweedProblem, arena: Arena):
         # Settings
         with open(folder + "specific_settings.pickle", "rb") as file:
             specific_settings = pickle.load(file)
