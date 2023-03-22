@@ -670,9 +670,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         Returns:
             values: interpolated value subset corresponding to the given posix time and self.grid
         """
-        # Step 1: Get temporally interpolated slice of global value fct. at forecast_end_time_posix
         # Check whether we exceed our averaged planning horizon, if not interpolate.
         if self.forecast_end_time_posix < self.reach_times_global_posix[0]:
+            # Step 1: Get temporally interpolated slice of global value fct. at forecast_end_time_posix
             initial_values = interp1d(
                 self.reach_times_global_posix,
                 self.all_values_global,
@@ -680,16 +680,18 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 kind="linear",
                 fill_value="extrapolate",
             )(self.forecast_end_time_posix).squeeze()
+            # Step 2: Get spatially interpolated subset of slice
+            interpolator = RectBivariateSpline(
+                self.x_grid_global, self.y_grid_global, initial_values
+            )
+            initial_values = interpolator(
+                self.grid.coordinate_vectors[0], self.grid.coordinate_vectors[1]
+            )
 
         # If we exceed averaged planning horizon we take global inital value (zeros)
         else:
-            initial_values = self.all_values_global[0]
+            initial_values = self.get_initial_values(direction="backward")
 
-        # Step 2: Get spatially interpolated subset of slice
-        interpolator = RectBivariateSpline(self.x_grid_global, self.y_grid_global, initial_values)
-        initial_values = interpolator(
-            self.grid.coordinate_vectors[0], self.grid.coordinate_vectors[1]
-        )
         return initial_values
 
     def save_planner_state(self, folder):
