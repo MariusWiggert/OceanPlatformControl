@@ -25,7 +25,7 @@ from ocean_navigation_simulator.utils.misc import get_c3, set_arena_loggers
 
 %load_ext autoreload
 %autoreload 2
-# %% Initialize
+# % Initialize
 # os.chdir(
 #     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
 # )
@@ -43,13 +43,13 @@ scenario_name = "Region_M_HC_as_forecast_daily+monthly_averages_Copernicus_HC_so
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-120), lat=units.Distance(deg=70))
 
-#%% init weights & biases
+#% init weights & biases
 with open(f"config/arena/{scenario_name}.yaml") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 # wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-control", config=config)
 
 
-#%%
+#%
 # x_0 = PlatformState(
 #     lon=units.Distance(deg=-83.1),
 #     lat=units.Distance(deg=23.2),
@@ -57,18 +57,18 @@ with open(f"config/arena/{scenario_name}.yaml") as f:
 # )
 # x_T = SpatialPoint(lon=units.Distance(deg=-83.1), lat=units.Distance(deg=23.2))
 x_0 = PlatformState(
-    lon=units.Distance(deg=-89.37091244779876),
-    lat=units.Distance(deg=-15.327018321735004),
-    date_time=datetime.datetime(2022, 1, 2, 16, 0, 57, tzinfo=datetime.timezone.utc),
+    lon=units.Distance(deg=-81.06714984983319),
+    lat=units.Distance(deg=-28.61748961935156),
+    date_time=datetime.datetime(2022, 3, 5, 1, 22, 15, tzinfo=datetime.timezone.utc),
 )
 # %%
 arena = ArenaFactory.create(
     scenario_name=scenario_name,
-    t_interval=[
-        x_0.date_time - datetime.timedelta(days=2),
-        x_0.date_time + datetime.timedelta(days=32),
-    ],
-    points=[x_0.to_spatial_point()],
+    # t_interval=[
+    #     x_0.date_time - datetime.timedelta(days=2),
+    #     x_0.date_time + datetime.timedelta(days=32),
+    # ],
+    # points=[x_0.to_spatial_point()],
 )
 
 problem = SeaweedProblem(
@@ -79,11 +79,9 @@ problem = SeaweedProblem(
 # %% arena
 
 # %% Plot the problem on the map
-
-
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
     x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_0.to_spatio_temporal_point(),
+    x_T=x_0.to_spatial_point(),
     deg_around_x0_xT_box=12,
     temp_horizon_in_s=3600,
 )
@@ -127,10 +125,10 @@ specific_settings = {
     "n_time_vector": 24 * 30,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
     "deg_around_xt_xT_box": 10,  # area over which to run HJ_reachability
-    "deg_around_xt_xT_box_average": 50,  # area over which to run HJ_reachability for average data
+    "deg_around_xt_xT_box_average": 10,  # area over which to run HJ_reachability for average data
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 30 - 1,
+    "T_goal_in_seconds": 3600 * 24 * 2,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "grid_res": 0.0833,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
@@ -140,14 +138,14 @@ specific_settings = {
     "x_interval_seaweed": [-130, -70],
     "y_interval_seaweed": [-40, 0],
     "dirichlet_boundry_constant": 1,
-    "discount_factor_tau": False, #50 #False, #10,
+    "discount_factor_tau": False, #500, #50 #False, #10,
     "affine_dynamics": True,
 }
 # wandb.config.update({"planner_settings": specific_settings})
-#%%
+#%
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)
 observer = NoObserver()
-# %% Run reachability planner
+# % Run reachability planner
 observation = arena.reset(platform_state=x_0)
 observer.observe(observation)
 observation.forecast_data_source = observer
