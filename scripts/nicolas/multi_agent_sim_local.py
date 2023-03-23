@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/FC_HC/4_platforms/mission_285")
+save_in_folder = os.path.join(my_path, "generated_media/FC_HC/4_platforms/mission_basic")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -82,7 +82,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter
+    "high_level_ctrl": "centralized_mpc",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -122,36 +122,36 @@ missionConfig = {
     "x_T": {"lat": 24.35, "lon": -82.3},
 }
 
-# mission failing for flocking nr 285
-missionConfig = {
-    "feasible": True,
-    "seed": 571402,
-    "target_radius": 0.1,
-    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-    "x_0": [
-        {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.69220733642578,
-            "lon": -87.30220794677734,
-        },
-        {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.64868927001953,
-            "lon": -87.34028625488281,
-        },
-        {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.60809898376465,
-            "lon": -87.39879608154297,
-        },
-        {
-            "date_time": "2022-05-16T12:49:54+00:00",
-            "lat": 25.57320785522461,
-            "lon": -87.39673614501953,
-        },
-    ],
-    "x_T": {"lat": 27.03541637, "lon": -86.93996833},
-}
+# # mission failing for flocking nr 285
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.69220733642578,
+#             "lon": -87.30220794677734,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.64868927001953,
+#             "lon": -87.34028625488281,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.60809898376465,
+#             "lon": -87.39879608154297,
+#         },
+#         {
+#             "date_time": "2022-05-16T12:49:54+00:00",
+#             "lat": 25.57320785522461,
+#             "lon": -87.39673614501953,
+#         },
+#     ],
+#     "x_T": {"lat": 27.03541637, "lon": -86.93996833},
+# }
 
 # mission 64 failed for multi ag optim
 # missionConfig = {

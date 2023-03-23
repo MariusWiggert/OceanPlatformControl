@@ -301,6 +301,7 @@ class GenerationRunner:
         scenario_config: dir = None,
         c3=None,
         margin_deg_plot: int = 0.25,
+        **kwargs,
     ):
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
@@ -311,7 +312,7 @@ class GenerationRunner:
         os.makedirs(analysis_folder, exist_ok=True)
 
         # So it is enough to extract only one to get the data range
-        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[0])
+        problem = CachedNavigationProblem.from_pandas_row(problems_df.iloc[10])
 
         # Step 2:
         arena = ArenaFactory.create(
@@ -346,9 +347,10 @@ class GenerationRunner:
                 time=problem.start_state[0].date_time
                 if problem.nb_platforms > 1
                 else problem.start_state.date_time,
-                spatial_resolution=0.2,
+                # spatial_resolution=0.2,
                 return_ax=True,
                 figsize=(18, 12),
+                **kwargs,
             )
         # plot starts
         if all(problems_df["multi_agent"].tolist()):
@@ -356,14 +358,18 @@ class GenerationRunner:
             # colors = ['r', 'm', 'y', 'k', 'y', 'b'] #cm.rainbow(np.linspace(0, 1, (len(problems_df))))
             for k in range(len(problems_df)):
                 pb_marker = random.choice(markers)
+                x_centroid = np.array(literal_eval(problems_df["x_0_lon"][k])).mean()
+                y_centroid = np.array(literal_eval(problems_df["x_0_lat"][k])).mean()
                 ax.scatter(
-                    literal_eval(problems_df["x_0_lon"][k]),
-                    literal_eval(problems_df["x_0_lat"][k]),
+                    # literal_eval(problems_df["x_0_lon"][k]),
+                    # literal_eval(problems_df["x_0_lat"][k]),
+                    x_centroid,
+                    y_centroid,
                     c="red",
-                    marker=pb_marker,
+                    marker="o",  # pb_marker,
                     s=15,
                     linewidth=2,
-                    label="starts"
+                    label="start centroids"
                     if k == 0
                     else None,  # avoid repeating the same legend for each marker
                 )
@@ -373,7 +379,7 @@ class GenerationRunner:
                 problems_df["x_0_lat"],
                 c="red",
                 marker="o",
-                s=15,
+                s=10,
                 linewidth=2,
                 label="starts",
             )
@@ -382,13 +388,18 @@ class GenerationRunner:
             target_df["x_T_lon"],
             target_df["x_T_lat"],
             c="green",
-            marker="x",
-            linewidth=4,
-            s=75,
+            marker="+",
+            linewidth=2.5,
+            s=60,
             label="targets",
         )
-        ax.legend()
-        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.png")
+        # region == "GOM":
+        x_range = [-98, -77]
+        y_range = [18, 31]
+        ax.axis(xmin=x_range[0], xmax=x_range[1])
+        ax.axis(ymin=y_range[0], ymax=y_range[1])
+        ax.legend(loc="upper left")  # legend location
+        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.pdf")
         ax.get_figure().show()
 
     # @staticmethod
@@ -488,5 +499,7 @@ class GenerationRunner:
         plt.figure()
         plt.hist(ttr, bins=100)
         plt.title(plot_title)
-        plt.savefig(analysis_folder + "ttr.png", dpi=300)
+        plt.xlabel("Time to Reach (h)")
+        plt.ylabel("Number of Missions")
+        plt.savefig(analysis_folder + "ttr.pdf")
         plt.show()

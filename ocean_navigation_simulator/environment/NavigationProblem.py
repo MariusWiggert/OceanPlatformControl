@@ -62,7 +62,7 @@ class NavigationProblem(Problem):
     def plot(
         self,
         ax: matplotlib.axes.Axes,
-        problem_start_color: Optional[str] = "red",
+        problem_start_color: Optional[str] = "red",  # "black",
         problem_target_color: Optional[str] = "green",
         start_size=100,
     ) -> matplotlib.axes.Axes:
@@ -87,6 +87,9 @@ class NavigationProblem(Problem):
             c=problem_start_color,
             marker="o",
             label="start platforms",
+            # facecolor="None",
+            # edgecolors=problem_start_color,
+            # linewidths=1,
             s=start_size if self.nb_platforms == 1 else 30,
             zorder=6,
         )

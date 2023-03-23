@@ -656,6 +656,7 @@ class Arena:
         # plot directly or return ax
         figsize: Optional[Tuple[int]] = (8, 6),
         return_ax: Optional[bool] = False,
+        **kwargs,
     ) -> matplotlib.axes.Axes:
         """Helper Function to plot everything together on a map."""
         if x_interval is None or y_interval is None:
@@ -670,6 +671,8 @@ class Arena:
                 y_interval=y_interval,
                 return_ax=True,
                 figsize=figsize,
+                spatial_resolution=0.05,
+                **kwargs,
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(

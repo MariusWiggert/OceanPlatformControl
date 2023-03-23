@@ -434,17 +434,23 @@ class CentralizedMultiAgentMPC:
         # Objective scaling: prioritise collision avoidance and keeping communication
         max_mag_to_u_hj = np.linalg.norm(2 * u_hj, "fro") ** 2 / self.nb_platforms
         scaling_pot_func = max_mag_to_u_hj * self.param_dict["scaling_pot_function"]
-
+        n_x = 2
+        n_u = 2
+        # Declare decision variables
+        # x = opti.variable(n_x * self.nb_platforms, H)
+        # # Decision variables for state trajetcory
+        # u = opti.variable(n_u * self.nb_platforms, H - 1)
         # Declare decision variables
         x = [opti.variable(self.nb_platforms, 2) for _ in range(H)]
         # Decision variables for state trajetcory
         u = [
             opti.variable(self.nb_platforms, 2) for _ in range(H - 1)
         ]  # Decision variables for input trajectory
+        # Decision variables for input trajectory
         # laplacian_opti = [opti.variable(self.nb_platforms, self.nb_platforms) for _ in range(H)]
         # laplacian_second_eig = opti.variable(H, 1)
         gamma = opti.variable(H, 1)
-        slack = opti.variable(self.nb_platforms, self.nb_platforms)
+        # slack = opti.variable(self.nb_platforms, self.nb_platforms)
         # Parameters (not optimized over)
         x_start = opti.parameter(self.nb_platforms, 2)
 
@@ -456,11 +462,17 @@ class CentralizedMultiAgentMPC:
         objective = []
         laplacian_eval_at_t_k = []
         second_eig_at_t_k = []
+        callback_second_eig = MyCallback("eig", self.nb_platforms)
         for k in range(H - 1):
             # ----- Add the dynamics equality constraints ----- #
             # Calculate time in POSIX seconds
             time = x_t[:, 2] + k * dt
             # Explicit forward euler version
+            # x_k = ca.horzcat(x[: self.nb_platforms, k], x[self.nb_platforms :, k])
+            # u_k = ca.horzcat(x[: self.nb_platforms, k], x[self.nb_platforms :, k])
+            # x_k_plus_1 = x_k + dt * F_dyn(x=x_k, u=u_k, t=time)["x_dot"]
+            # x_next = ca.vertcat(x_k_plus_1[:, 0], x_k_plus_1[:, 1])
+
             x_next = x[k] + dt * F_dyn(x=x[k], u=u[k], t=time)["x_dot"]
             opti.subject_to(x[k + 1] == x_next)
 
@@ -484,12 +496,12 @@ class CentralizedMultiAgentMPC:
 
             # Add Laplacian constraints
             laplacian_eval_at_t_k.append(F_compute_laplacian(x_k=x[k])["laplacian"])
-            second_eig_at_t_k.append(F_compute_second_eig(laplacian_eval_at_t_k[k]))
-            opti.subject_to(
-                laplacian_eval_at_t_k[k] + ca.DM(np.ones((self.nb_platforms, self.nb_platforms)))
-                == slack + gamma[k] * ca.DM(np.ones((self.nb_platforms, self.nb_platforms)))
-            )
-            opti.subject_to(slack >= 0)
+            second_eig_at_t_k.append(callback_second_eig(laplacian_eval_at_t_k[k]))
+            # second_eig_at_t_k.append(F_compute_second_eig(laplacian_eval_at_t_k[k]))
+            # opti.subject_to(
+            #     laplacian_eval_at_t_k[k] + ca.DM(np.ones((self.nb_platforms, self.nb_platforms)))
+            #     > gamma[k] * ca.DM(np.eye((self.nb_platforms)))
+            # )
             # opti.subject_to(laplacian_second_eig[k] == laplacian_eval_at_t_k[k])
             # opti.subject_to(second_eig_at_t_k[k] >= 0.01)
             # opti.subject_to(laplacian_second_eig[k] >= 0.1)
@@ -500,7 +512,8 @@ class CentralizedMultiAgentMPC:
             # opti.subject_to(gamma[k] >= 0)
 
             # ----- Objective Function ----- #
-            # objective.append(gamma[k])
+            # objective.append(-gamma[k])
+            objective.append(-second_eig_at_t_k[k])
 
         # terminal state constraint for laplacian
         # laplacian_eval_k = F_compute_laplacian(x_k=x[H - 1])["laplacian"]
@@ -530,6 +543,7 @@ class CentralizedMultiAgentMPC:
         )
 
         # optimizer objective
+        objective.append(ca.dot(u[0] - u_hj, u[0] - u_hj))
         opti.minimize(sum(objective))
 
         # start state & goal constraint
@@ -544,7 +558,8 @@ class CentralizedMultiAgentMPC:
 
         opti.set_initial(u[0], u_hj)
 
-        opti.solver("ipopt", {"print_time": True})
+        opti.solver("ipopt")
+        # opti.solver("ipopt", {"expand": True}, {"acceptable_constr_viol_tol": 1e-8})
         # opti.solver("sqpmethod", {"print_time": True}) for QP
         try:
             sol = opti.solve()
@@ -601,9 +616,9 @@ class CentralizedMultiAgentMPC:
         # The graph laplacian is defined as L = D - A where D is the degree matrix and A is the adjacency matrix
 
         # Define the adjacency matrix
-        adjacency_mat = ca.SX(self.nb_platforms, self.nb_platforms)
-        x_k = ca.SX.sym("x_k", self.nb_platforms, 2)
-        degree_mat = ca.SX(np.zeros((self.nb_platforms, self.nb_platforms)))
+        adjacency_mat = ca.MX(self.nb_platforms, self.nb_platforms)
+        x_k = ca.MX.sym("x_k", self.nb_platforms, 2)
+        degree_mat = ca.MX(np.zeros((self.nb_platforms, self.nb_platforms)))
         for i in range(self.nb_platforms):
             for j in range(self.nb_platforms):
                 if i != j:
@@ -632,3 +647,32 @@ class CentralizedMultiAgentMPC:
         return ca.sqrt(
             ((x_i[0] - x_j[0]) * ca.cos(x_i[1]) * np.pi / 180) ** 2 + (x_i[1] - x_j[1]) ** 2
         )
+
+
+class MyCallback(ca.Callback):
+    def __init__(self, name, nb_agents, opts={}):
+        ca.Callback.__init__(self)
+        self.nb_agents = nb_agents
+        self.construct(name, opts)
+
+    # Number of inputs and outputs
+    def get_n_in(self):
+        return 1
+
+    def get_n_out(self):
+        return 1
+
+    # Initialize the object
+    def init(self):
+        print("initializing object")
+
+    # Evaluate numerically
+    def eval(self, arg):
+        L = arg[0]  # np.array(arg[0])
+        # eigenvalues = sp.linalg.eig(L)
+        eigenvalues = np.linalg.eigvals(L)
+        sorted_eig = np.unique(eigenvalues)
+        return [sorted_eig[0]]
+        # print(eigenvalues)
+        # # print(np.unique(eigenvalues[0]))
+        # return [1]

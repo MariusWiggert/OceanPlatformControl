@@ -84,6 +84,7 @@ class OceanCurrentSource(DataSource):
         set_title: Optional[bool] = True,
         quiver_spatial_res: Optional[float] = None,
         quiver_scale: Optional[int] = None,
+        quiver_headwidth: Optional[int] = 3,
         **kwargs,
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
@@ -164,6 +165,7 @@ class OceanCurrentSource(DataSource):
                 ax=ax,
                 add_guide=False,
                 scale=quiver_scale,
+                headwidth=quiver_headwidth,
             )
 
         if set_title:

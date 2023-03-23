@@ -273,7 +273,6 @@ class DataSource(abc.ABC):
           ax:               input axis object to plot on top of
           **kwargs:         Further keyword arguments for more specific setting, see plot_currents_from_2d_xarray.
         """
-
         # format to datetime object
         time = self.enforce_utc_datetime_object(time=time)
 
@@ -409,7 +408,6 @@ class DataSource(abc.ABC):
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
-
         # reset plot this is needed for matplotlib.animation
         if reset_plot:
             plt.clf()
@@ -455,6 +453,7 @@ class DataSource(abc.ABC):
         Returns:
             ax                 matplotlib.pyplot.axes object
         """
+
         if fill_nan:
             xarray = xarray.fillna(0)
         # Get data variable if not provided
@@ -476,7 +475,12 @@ class DataSource(abc.ABC):
         if vmin is None:
             vmin = xarray[var_to_plot].min()
         im = xarray[var_to_plot].plot(
-            cmap="viridis", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+            cmap="viridis",
+            vmin=vmin,
+            vmax=vmax,
+            alpha=alpha,
+            ax=ax,
+            add_colorbar=False,
         )
 
         # set and format colorbar

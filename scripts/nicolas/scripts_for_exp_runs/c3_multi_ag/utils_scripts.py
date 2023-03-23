@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import pandas as pd
+import numpy as np
 
 
 def plot_missions_target_cartopy(df: pd.DataFrame, region: str):
@@ -24,13 +25,17 @@ def plot_missions_target_cartopy(df: pd.DataFrame, region: str):
     ax.axis(xmin=x_range[0], xmax=x_range[1])
     ax.axis(ymin=y_range[0], ymax=y_range[1])
     for miss_idx in range(len(df)):
+        x_centroid = np.array(df.iloc[miss_idx]["x_0_lon"]).mean()
+        y_centroid = np.array(df.iloc[miss_idx]["x_0_lat"]).mean()
         ax.scatter(
-            df.iloc[miss_idx]["x_0_lon"],
-            df.iloc[miss_idx]["x_0_lat"],
+            # df.iloc[miss_idx]["x_0_lon"],
+            # df.iloc[miss_idx]["x_0_lat"],
+            x_centroid,
+            y_centroid,
             c="red",
             marker="o",
             s=6,
-            label="starts" if miss_idx == 0 else None,
+            label="start centroids" if miss_idx == 0 else None,
         )
     ax.scatter(df["x_T_lon"], df["x_T_lat"], c="green", marker="x", s=12, label="targets")
     ax.legend()
