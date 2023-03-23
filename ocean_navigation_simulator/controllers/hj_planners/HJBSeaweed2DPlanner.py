@@ -177,7 +177,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             # Note: no trajectory is extracted as the value function is used for closed-loop control
 
             # Load seaweed data if it doesn't exist yet
-            if self.seaweed_xarray_global is None:
+            if self.seaweed_xarray_global is None or self.seaweed_xarray_global["time"].data[
+                -1
+            ] < np.datetime64(x_t.date_time + timedelta(seconds=self.forecast_length)):
                 self._update_seaweed_data()
 
             # Check whether we plan the first time in order to retrieve the gloabl value fct for the time period after the interval we have FC data available.
