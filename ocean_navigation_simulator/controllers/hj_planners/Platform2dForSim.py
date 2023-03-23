@@ -342,3 +342,98 @@ class Platform2dForSimAffine(dynamics.ControlAndDisturbanceAffineDynamics):
             self.use_geographic_coordinate_system,
             jnp.abs(geographic_transformation_matrix(state) @ cartesian_partial_max_magnitudes),
             cartesian_partial_max_magnitudes)
+
+    ### Overwriting lower functions for fast closed-loop control
+    def get_opt_ctrl_from_values(self, x, grid, time, times, all_values,
+                                 upwind_scheme=upwind_first.WENO3, n_temporal_buffer_idx=6,
+                                 n_spatial_buffer_idx=10):
+        """Function that computes the optimal ctrl and distr for a point state at time based on the value function.
+
+        Input Params:
+        - x                 state at which to get optimal ctrl and distr
+        - grid              same grid as used to solve the PDE
+        - time              time of the value function
+        - times             times vector used for solving
+        - all_values        values from the PDE solve (T, ...)
+        - upwind_scheme     (Optional) schema to calculate the value function gradient. WENO3 is used as default.
+        - n_temporal_buffer_idx (Optional) number of temporal buffer indices to use for the time sub-setting
+        - n_spatial_buffer_idx (Optional) number of spatial buffer indices to use for the gradient calculation
+
+        Output:
+        - u_opt              optimal control at x at time (nCtrl, )
+        - d_opt              optimal disturbance at x at time (nDistr, )
+        """
+        # Step 0: subset the grid around the current state
+        subsetted_grid, subsetted_reach_times, subsetted_values = self.create_subsets(
+            time, times, all_values, grid, x, n_temporal_buffer_idx, n_spatial_buffer_idx)
+
+        # Step 1: interpolate the value function for the specific time along the time axis
+        val_at_t = interp1d(subsetted_reach_times, subsetted_values, axis=0, kind='linear')(time).squeeze()
+
+        # Step 2: get_opt_ctrl_from_values_jit
+        u_opt, d_opt = self.get_opt_ctrl_from_val_at_t_jit(state=x, time=time, grid=subsetted_grid,
+                                                           val_at_t=val_at_t, upwind_scheme=upwind_scheme)
+        return u_opt, d_opt
+
+    @staticmethod
+    @functools.partial(jit, static_argnames=("n_temporal_buffer_idx", "n_spatial_buffer_idx"))
+    def create_subsets(time, times, all_values, grid, state, n_temporal_buffer_idx, n_spatial_buffer_idx):
+        """Helper function to create a grid object that is a subset of the original grid around the current state and time."""
+        # Step 1: Get nearest index in the spatial grid
+        nearest_index = grid.nearest_index(state=state)
+        rel_time_index = jnp.argmin(jnp.abs(times - time))
+        # pre-step, get the starting indices for all dimensions
+        t_idx_start = jnp.maximum(rel_time_index - n_temporal_buffer_idx, 0)
+        x_idx_start = jnp.maximum(nearest_index[0] - n_spatial_buffer_idx, 0)
+        y_idx_start = jnp.maximum(nearest_index[1] - n_spatial_buffer_idx, 0)
+        # Subset the reach times
+        subsetted_reach_times = dynamic_slice_in_dim(times, t_idx_start, 2 * n_temporal_buffer_idx)
+        # Step 2: create a smaller grid as subset of planner.grid around the nearest index
+        subsetted_states = dynamic_slice(grid.states, (x_idx_start, y_idx_start, 0),
+                                         (2 * n_spatial_buffer_idx, 2 * n_spatial_buffer_idx, grid.ndim))
+        # subset the value function in planner.all_values the same way (Time, X, Y)
+        subsetted_values = dynamic_slice(all_values, (t_idx_start, x_idx_start, y_idx_start),
+                                         (2 * n_temporal_buffer_idx, 2 * n_spatial_buffer_idx,
+                                          2 * n_spatial_buffer_idx))
+        # subsetted_values = dynamic_slice(all_values, (t_idx_start, 0, 0),
+        #                                  (2 * n_temporal_buffer_idx, all_values.shape[1], all_values.shape[2]))
+
+        new_coords = *(dynamic_slice_in_dim(cord_vec, idx_start, 2 * n_spatial_buffer_idx) for cord_vec, idx_start
+                       in
+                       zip(grid.coordinate_vectors, [x_idx_start, y_idx_start])),
+        boundaries = jnp.take(jnp.vstack(new_coords), jnp.array([0, -1]), axis=1)
+        subsetted_domain = sets.Box(lo=boundaries[:, 0], hi=boundaries[:, 1])
+        # create subsetted grid object
+        subsetted_grid = Grid(
+            subsetted_states,
+            subsetted_domain,
+            new_coords,
+            grid.spacings,
+            grid.boundary_conditions
+        )
+        return subsetted_grid, subsetted_reach_times, subsetted_values
+
+    @functools.partial(jax.jit, static_argnames=("self", "upwind_scheme"))
+    def get_opt_ctrl_from_val_at_t_jit(self, state, time, grid, val_at_t, upwind_scheme=upwind_first.WENO3):
+        """Function that computes the optimal ctrl and distr for a state at time based on val_at_t.
+        Input Params:
+        - state             state at which to get optimal ctrl and distr
+        - time              time of the value function
+        - grid              grid object over which val_at_t is defined
+        - val_at_t          values from the PDE solve at time over grid
+        - upwind_scheme     (Optional) schema to calculate the value function gradient. WENO3 is used as default.
+
+        Output:
+        - u_opt              optimal control at x at time (nCtrl, )
+        - d_opt              optimal disturbance at x at time (nDistr, )
+        """
+
+        # Step 1: get center approximation of gradient at current point x
+        grad_at_x_cur = grid.interpolate(values=grid.grad_values(values=val_at_t, upwind_scheme=upwind_scheme),
+                                         state=state.flatten())
+
+        # Step 2: get u_opt and d_opt
+        u_opt, d_opt = self.optimal_control_and_disturbance(state=state.flatten(), time=time,
+                                                            grad_value=grad_at_x_cur)
+
+        return u_opt, d_opt
