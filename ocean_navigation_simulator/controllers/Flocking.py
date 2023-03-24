@@ -145,6 +145,18 @@ class FlockingControl:
         e_x = np.exp(array - np.max(array))
         return e_x / e_x.sum(axis=0)
 
+    @staticmethod
+    def standard_normalization(array: np.ndarray) -> np.ndarray:
+        """Standard normalization
+
+        Args:
+            array (np.ndarray): array to be normalized
+
+        Returns:
+            np.ndarray: normalized array
+        """
+        return array / array.sum(axis=0)
+
     def get_u_i(self, node_i: int, hj_action: PlatformAction) -> PlatformAction:
         """Obtain the flocking control input
 
@@ -175,8 +187,17 @@ class FlockingControl:
         grad_action = PlatformAction(
             np.linalg.norm(grad, ord=2), direction=np.arctan2(grad[1], grad[0])
         )
-        softmax_coeff = self.softmax(np.array([grad_action.magnitude, hj_action.magnitude]))
-        return grad_action.scaling(softmax_coeff[0]) + hj_action.scaling(softmax_coeff[1])
+        if self.param_dict["normalization"] == "softmax":
+            normalization_coeff = self.softmax(
+                np.array([grad_action.magnitude, hj_action.magnitude])
+            )
+        else:
+            normalization_coeff = self.standard_normalization(
+                np.array([grad_action.magnitude, hj_action.magnitude])
+            )
+        return grad_action.scaling(normalization_coeff[0]) + hj_action.scaling(
+            normalization_coeff[1]
+        )
 
     def plot_psi_and_phi_alpha(
         self,

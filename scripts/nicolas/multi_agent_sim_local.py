@@ -49,6 +49,7 @@ flockingConfig = {
     "grad_clip_range": 0.1,  # km
     "hysteresis": 0.3,
     "epsilon": 0.25,
+    "normalization": "standard",
 }
 reactiveConfig = {
     "unit": "m",
@@ -82,7 +83,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "centralized_mpc",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
+    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -546,24 +547,24 @@ arena = constructor.arena
 observation = arena.reset(platform_set=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
-    x_0=problem.start_state.to_spatio_temporal_point(),
-    x_T=problem.end_region,
-    deg_around_x0_xT_box=0.5,
-    temp_horizon_in_s=3600,
-)
+# t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
+#     x_0=problem.start_state.to_spatio_temporal_point(),
+#     x_T=problem.end_region,
+#     deg_around_x0_xT_box=0.5,
+#     temp_horizon_in_s=3600,
+# )
 
-ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=problem.start_state.date_time[0],
-    x_interval=lon_bnds,
-    y_interval=lat_bnds,
-    return_ax=True,
-    vmax=0.45,
-)
-problem.plot(ax=ax)
-plt.show()
+# ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+#     time=problem.start_state.date_time[0],
+#     x_interval=lon_bnds,
+#     y_interval=lat_bnds,
+#     return_ax=True,
+#     vmax=0.45,
+# )
+# problem.plot(ax=ax)
+# plt.show()
 
 #%%
 # Step 2: Retrieve Controller
