@@ -442,7 +442,7 @@ class HJPlannerBase(Controller):
         # extract trajectory for open_loop control or because of plotting/logging
         if (
             self.specific_settings["direction"] == "forward"
-            or self.specific_settings.get("calc_opt_traj_after_planning", False)
+            or self.specific_settings.get("calc_opt_traj_after_planning", True)
             or not self.specific_settings.get("closed_loop", True)
         ):
             self.times, self.x_traj, self.contr_seq, self.distr_seq = self._extract_trajectory(

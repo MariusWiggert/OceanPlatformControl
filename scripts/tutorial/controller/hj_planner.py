@@ -18,7 +18,7 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
-# set_arena_loggers(logging.DEBUG)
+set_arena_loggers(logging.DEBUG)
 
 # Initialize the Arena (holds all data sources and the platform, everything except controller)
 arena = ArenaFactory.create(
