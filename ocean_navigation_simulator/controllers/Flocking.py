@@ -187,6 +187,7 @@ class FlockingControl:
         grad_action = PlatformAction(
             np.linalg.norm(grad, ord=2), direction=np.arctan2(grad[1], grad[0])
         )
+        grad_action_unit = PlatformAction(magnitude=1, direction=grad_action.direction)
         if self.param_dict["normalization"] == "softmax":
             normalization_coeff = self.softmax(
                 np.array([grad_action.magnitude, hj_action.magnitude])
@@ -195,7 +196,7 @@ class FlockingControl:
             normalization_coeff = self.standard_normalization(
                 np.array([grad_action.magnitude, hj_action.magnitude])
             )
-        return grad_action.scaling(normalization_coeff[0]) + hj_action.scaling(
+        return grad_action_unit.scaling(normalization_coeff[0]) + hj_action.scaling(
             normalization_coeff[1]
         )
 
