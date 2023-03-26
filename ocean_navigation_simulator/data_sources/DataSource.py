@@ -711,7 +711,7 @@ class XarraySource(abc.ABC):
             time_grid = np.arange(
                 start=array["time"][0].data,
                 stop=array["time"][-1].data,
-                step=np.timedelta64(temporal_resolution, "s"),
+                step=np.timedelta64(int(temporal_resolution*(10**9)), "ns"),
             )
             array = array.interp(time=time_grid, method="linear")
 
