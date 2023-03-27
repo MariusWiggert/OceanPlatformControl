@@ -15,7 +15,7 @@ from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import 
     HJReach2DPlanner,
 )
 
-timeout_in_days = 15
+timeout_in_days = 10
 scenario_config = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 36000.0},
     "platform_dict": {
@@ -52,7 +52,7 @@ scenario_config = {
                 "type": "hindcast",
                 "currents": "total",
             },
-            "forecast_length_in_days": 15,
+            "forecast_length_in_days": 10,
         },
     },
     "bathymetry_dict": {
@@ -79,22 +79,22 @@ scenario_config = {
 }
 t_interval = [datetime.datetime(2022, 10, 4, 0, 0, 0), datetime.datetime(2022, 10, 20, 0, 0, 0)]
 # Download files if not there yet
-ArenaFactory.download_required_files(
-    archive_source="HYCOM",
-    archive_type="hindcast",
-    region="Region 1",
-    download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
-    t_interval=t_interval,
-    remove_files_if_corrupted=False,
-)
-ArenaFactory.download_required_files(
-    archive_source=scenario_config["ocean_dict"]["forecast"]["source_settings"]["source"],
-    archive_type=scenario_config["ocean_dict"]["forecast"]["source_settings"]["type"],
-    region="Region 1",
-    download_folder=scenario_config["ocean_dict"]["forecast"]["source_settings"]["folder"],
-    t_interval=t_interval,
-    remove_files_if_corrupted=True,
-)
+# ArenaFactory.download_required_files(
+#     archive_source="HYCOM",
+#     archive_type="hindcast",
+#     region="Region 1",
+#     download_folder=scenario_config["ocean_dict"]["hindcast"]["source_settings"]["folder"],
+#     t_interval=t_interval,
+#     remove_files_if_corrupted=False,
+# )
+# ArenaFactory.download_required_files(
+#     archive_source=scenario_config["ocean_dict"]["forecast"]["source_settings"]["source"],
+#     archive_type=scenario_config["ocean_dict"]["forecast"]["source_settings"]["type"],
+#     region="Region 1",
+#     download_folder=scenario_config["ocean_dict"]["forecast"]["source_settings"]["folder"],
+#     t_interval=t_interval,
+#     remove_files_if_corrupted=True,
+# )
 
 arena = ArenaFactory.create(scenario_config=scenario_config, t_interval=t_interval)
 
@@ -127,6 +127,8 @@ specific_settings = {
         "obstacle_value": 1,
         "safe_distance_to_obstacle": 10,
     },
+    "x_interval": [-159, -154],
+    "y_interval": [18.2, 22.2],
 }
 
 # # LA, random regions at edge of obstacles have lower values than target
@@ -156,28 +158,28 @@ specific_settings = {
 # x_T = SpatialPoint(lon=units.Distance(deg=-157), lat=units.Distance(deg=20.3))
 
 # Hawaii, on notion, before marius suggestions
+x_0 = PlatformState(
+    lon=units.Distance(deg=-155.7),
+    lat=units.Distance(deg=20.5),
+    date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
+)
+x_T = SpatialPoint(lon=units.Distance(deg=-157.2), lat=units.Distance(deg=20.6))
+
+
 # x_0 = PlatformState(
-#     lon=units.Distance(deg=-155.7),
-#     lat=units.Distance(deg=20.5),
+#     lon=units.Distance(deg=-155),
+#     lat=units.Distance(deg=20.3),
 #     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
 # )
-# x_T = SpatialPoint(lon=units.Distance(deg=-157.2), lat=units.Distance(deg=20.6))
+# x_T = SpatialPoint(lon=units.Distance(deg=-158), lat=units.Distance(deg=19.3))
 
 
-x_0 = PlatformState(
-    lon=units.Distance(deg=-155),
-    lat=units.Distance(deg=20.3),
-    date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
-)
-x_T = SpatialPoint(lon=units.Distance(deg=-158), lat=units.Distance(deg=19.3))
-
-
-x_0 = PlatformState(
-    lon=units.Distance(deg=-155),
-    lat=units.Distance(deg=20.3),
-    date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
-)
-x_T = SpatialPoint(lon=units.Distance(deg=-156.5), lat=units.Distance(deg=19.5))
+# x_0 = PlatformState(
+#     lon=units.Distance(deg=-155),
+#     lat=units.Distance(deg=20.3),
+#     date_time=datetime.datetime(2022, 10, 4, 0, 0, tzinfo=datetime.timezone.utc),
+# )
+# x_T = SpatialPoint(lon=units.Distance(deg=-156.5), lat=units.Distance(deg=19.5))
 
 
 problem = NavigationProblem(
@@ -219,7 +221,7 @@ action = planner.get_action(observation=observation)
 
 ax = planner.plot_reachability_snapshot_over_currents(
     rel_time_in_seconds=0,
-    granularity_in_h=5,  # 12
+    granularity_in_h=24,  # 12
     alpha_color=1,
     time_to_reach=True,
     fig_size_inches=(12, 12),
