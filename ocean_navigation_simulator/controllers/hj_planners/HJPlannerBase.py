@@ -6,7 +6,7 @@ import time
 from bisect import bisect
 from datetime import datetime, timezone
 from functools import partial
-from typing import AnyStr, Callable, List, Optional, Tuple, Union
+from typing import AnyStr, Callable, List, Optional, Tuple, Union, Dict
 
 # Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
@@ -445,7 +445,7 @@ class HJPlannerBase(Controller):
         # extract trajectory for open_loop control or because of plotting/logging
         if (
             self.specific_settings["direction"] == "forward"
-            or self.specific_settings.get("calc_opt_traj_after_planning", True)
+            or self.specific_settings.get("calc_opt_traj_after_planning", False)
             or not self.specific_settings.get("closed_loop", True)
         ):
             self.times, self.x_traj, self.contr_seq, self.distr_seq = self._extract_trajectory(
@@ -903,7 +903,9 @@ class HJPlannerBase(Controller):
             plt.show()
 
     def plot_reachability_snapshot_over_currents(
-        self, rel_time_in_seconds: float = 0, ax: plt.Axes = None, **kwargs
+        self, rel_time_in_seconds: float = 0, ax: plt.Axes = None,
+            background_args: Optional[dict] = {},
+            **kwargs
     ):
         """Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds over the currents.
         Args:
@@ -920,12 +922,12 @@ class HJPlannerBase(Controller):
             return_ax=True,
             colorbar=False,
             ax=ax,
+            **background_args,
         )
         # add reachability snapshot on top
         return self.plot_reachability_snapshot(
             rel_time_in_seconds=rel_time_in_seconds,
             ax=ax,
-            plot_in_h=True,
             display_colorbar=True,
             mask_above_zero=True,
             **kwargs,
