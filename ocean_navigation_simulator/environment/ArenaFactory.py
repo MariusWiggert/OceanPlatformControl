@@ -461,6 +461,7 @@ class ArenaFactory:
             "Region 5",
             "Region 6",
             "Region 7",
+            "Region Matthias",
         ]:
             raise ValueError(f"Region {region} invalid.")
 
