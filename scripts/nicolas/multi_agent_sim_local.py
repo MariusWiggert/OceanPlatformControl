@@ -49,7 +49,7 @@ flockingConfig = {
     "grad_clip_range": 0.1,  # km
     "hysteresis": 0.3,
     "epsilon": 0.25,
-    "normalization": "standard",
+    "normalization": "softmax",
 }
 reactiveConfig = {
     "unit": "m",

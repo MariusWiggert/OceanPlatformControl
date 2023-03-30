@@ -30,8 +30,10 @@ from ocean_navigation_simulator.utils.misc import (
     set_arena_loggers,
     silence_ray_and_tf,
 )
-
-sns.set_theme()
+from ocean_navigation_simulator.utils.plotting_utils import (
+    set_palatino_font,
+    set_palatino_font_plotly,
+)
 
 
 class GenerationRunner:
@@ -47,7 +49,6 @@ class GenerationRunner:
         self.name = name
         self.config = config
         self.verbose = verbose
-
         # Step 1: Prepare Paths & Save configuration
         self.timestring = datetime.datetime.now(tz=pytz.timezone("US/Pacific")).strftime(
             "%Y_%m_%d_%H_%M_%S"
@@ -303,6 +304,7 @@ class GenerationRunner:
         margin_deg_plot: int = 0.25,
         **kwargs,
     ):
+        set_palatino_font("ocean_navigation_simulator/package_data/font/Palatino_thin.ttf")
         # Step 1: Load Problems and Config
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
@@ -349,7 +351,7 @@ class GenerationRunner:
                 else problem.start_state.date_time,
                 # spatial_resolution=0.2,
                 return_ax=True,
-                figsize=(18, 12),
+                figsize=(8, 7),
                 **kwargs,
             )
         # plot starts
@@ -365,11 +367,11 @@ class GenerationRunner:
                     # literal_eval(problems_df["x_0_lat"][k]),
                     x_centroid,
                     y_centroid,
-                    c="red",
+                    c="black",
                     marker="o",  # pb_marker,
-                    s=15,
+                    s=3,
                     linewidth=2,
-                    label="start centroids"
+                    label="Network starting centroids"
                     if k == 0
                     else None,  # avoid repeating the same legend for each marker
                 )
@@ -384,23 +386,28 @@ class GenerationRunner:
                 label="starts",
             )
         # plot targets
-        ax.scatter(
-            target_df["x_T_lon"],
-            target_df["x_T_lat"],
-            c="green",
-            marker="+",
-            linewidth=2.5,
-            s=60,
-            label="targets",
-        )
+        # ax.scatter(
+        #     target_df["x_T_lon"],
+        #     target_df["x_T_lat"],
+        #     c="green",
+        #     marker="+",
+        #     linewidth=2.5,
+        #     s=60,
+        #     label="targets",
+        # )
         # region == "GOM":
         x_range = [-98, -77]
         y_range = [18, 31]
         ax.axis(xmin=x_range[0], xmax=x_range[1])
         ax.axis(ymin=y_range[0], ymax=y_range[1])
-        ax.legend(loc="upper left")  # legend location
-        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.pdf")
+        # ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.15), ncol=2)
+        ax.legend(
+            loc="upper left", bbox_to_anchor=(0.005, 0.999), framealpha=0.9
+        )  # legend location
         ax.get_figure().show()
+        # remove title
+        ax.title.set_text("")
+        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.pdf")
 
     # @staticmethod
     # def animate_starts_and_targets(generation):
@@ -475,6 +482,7 @@ class GenerationRunner:
 
     @staticmethod
     def plot_ttr_histogram(results_folder, pb_filename: str = "problems.csv"):
+        set_palatino_font("ocean_navigation_simulator/package_data/font/Palatino_thin.ttf")
         # Step 1: Load Data
         if results_folder.startswith("/seaweed-storage/"):
             cluster_utils.ensure_storage_connection()
@@ -496,10 +504,10 @@ class GenerationRunner:
             return
 
         # Step 2: Plot
-        plt.figure()
+        plt.figure(figsize=(8, 6))
         plt.hist(ttr, bins=100)
         plt.title(plot_title)
         plt.xlabel("Time to Reach (h)")
         plt.ylabel("Number of Missions")
-        plt.savefig(analysis_folder + "ttr.pdf")
+        plt.savefig(analysis_folder + "ttr.png", dpi=600)
         plt.show()

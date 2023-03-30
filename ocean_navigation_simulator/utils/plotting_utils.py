@@ -1,5 +1,6 @@
 from typing import AnyStr, Callable, List, Optional, Tuple
-
+import plotly.io as pio
+import plotly.graph_objs as go
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
@@ -207,3 +208,50 @@ def set_palatino_font(font_path="/package_data/font/Palatino_thin.ttf"):
         "ytick.labelsize": 13,
     }
     plt.rcParams.update(params)
+
+
+def set_palatino_font_plotly(font_path="/package_data/font/Palatino_thin.ttf"):
+    # Load font
+    pio.templates.default = "plotly"
+    pio.templates[pio.templates.default]["layout"]["font"]["family"] = "Palatino"
+
+    # Set font properties
+    font = {"family": "Palatino", "size": 21}
+
+    layout = go.Layout(
+        font=font,
+        legend=dict(
+            font=dict(
+                family=font["family"],
+                size=25,
+            ),
+        ),
+        title=dict(
+            font=dict(
+                family=font["family"],
+                size=30,
+            ),
+        ),
+        xaxis=dict(
+            title_font=dict(
+                family=font["family"],
+                size=25,
+            ),
+            tickfont=dict(
+                family=font["family"],
+                size=13,
+            ),
+        ),
+        yaxis=dict(
+            title_font=dict(
+                family=font["family"],
+                size=25,
+            ),
+            tickfont=dict(
+                family=font["family"],
+                size=13,
+            ),
+        ),
+    )
+
+    return layout
