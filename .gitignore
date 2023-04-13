@@ -10,3 +10,4 @@ ocean_navigation_simulator/generative_error_model/archive/
 2D_reachability_animation.html
 ocean_navigation_simulator.egg-info
 *.csv
+wandb/
