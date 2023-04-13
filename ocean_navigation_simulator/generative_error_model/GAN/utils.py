@@ -17,7 +17,7 @@ def l1(predictions, target, reduction="sum"):
 
 
 def sparse_mse(predictions, target):
-    return torch.where(target != 0, (target - predictions)**2/2, 0).sum()
+    return torch.where(target != 0, (target - predictions) ** 2 / 2, 0).sum()
 
 
 def total_variation(img, tv_weight: int = 1, reduction: str = "sum"):
@@ -49,46 +49,62 @@ def mass_conservation(tensor: torch.Tensor, scale: str = "locally"):
     top_right = tensor[..., :-1, 1:]
     bottom_left = tensor[..., 1:, :-1]
     bottom_right = tensor[..., 1:, 1:]
-    all_losses = (-top_left[:, [1]] + top_left[:, [0]] - top_right +
-                  bottom_left - bottom_right[:, [0]] + bottom_right[:, [1]]).sum(axis=1)
+    all_losses = (
+        -top_left[:, [1]]
+        + top_left[:, [0]]
+        - top_right
+        + bottom_left
+        - bottom_right[:, [0]]
+        + bottom_right[:, [1]]
+    ).sum(axis=1)
 
     # set nans to 0
     total_size = all_losses.nelement()
     num_nans = torch.isnan(all_losses).sum().item()
     all_losses[torch.isnan(all_losses)] = 0
     if scale == "locally":
-        mc_loss = torch.sqrt(F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction='sum') / (total_size - num_nans))
+        mc_loss = torch.sqrt(
+            F.mse_loss(all_losses, torch.zeros_like(all_losses), reduction="sum")
+            / (total_size - num_nans)
+        )
     elif scale == "globally":
-        mc_loss = torch.abs(all_losses.sum())/(total_size - num_nans)
+        mc_loss = torch.abs(all_losses.sum()) / (total_size - num_nans)
     return mc_loss
 
 
 # _____________________________ NET CONFIGS __________________________________ #
 
 
-def init_weights(net, init_type='normal', init_gain=0.02):
+def init_weights(net, init_type="normal", init_gain=0.02):
     """Initialize network weights.
     Parameters:
         net (network)   -- network to be initialized
         init_type (str) -- the name of an initialization method: normal | xavier | kaiming | orthogonal
         init_gain (float)    -- scaling factor for normal, xavier and orthogonal.
     """
+
     def init_func(m):  # define the initialization function
         classname = m.__class__.__name__
-        if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
-            if init_type == 'normal':
+        if hasattr(m, "weight") and (
+            classname.find("Conv") != -1 or classname.find("Linear") != -1
+        ):
+            if init_type == "normal":
                 init.normal_(m.weight.data, 0.0, init_gain)
-            elif init_type == 'xavier':
+            elif init_type == "xavier":
                 init.xavier_normal_(m.weight.data, gain=init_gain)
-            elif init_type == 'kaiming':
-                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
-            elif init_type == 'orthogonal':
+            elif init_type == "kaiming":
+                init.kaiming_normal_(m.weight.data, a=0, mode="fan_in")
+            elif init_type == "orthogonal":
                 init.orthogonal_(m.weight.data, gain=init_gain)
             else:
-                raise NotImplementedError('Initialization method [%s] is not implemented' % init_type)
-            if hasattr(m, 'bias') and m.bias is not None:
+                raise NotImplementedError(
+                    "Initialization method [%s] is not implemented" % init_type
+                )
+            if hasattr(m, "bias") and m.bias is not None:
                 init.constant_(m.bias.data, 0.0)
-        elif classname.find('BatchNorm2d') != -1:  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
+        elif (
+            classname.find("BatchNorm2d") != -1
+        ):  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
             init.normal_(m.weight.data, 1.0, init_gain)
             init.constant_(m.bias.data, 0.0)
 
@@ -96,22 +112,22 @@ def init_weights(net, init_type='normal', init_gain=0.02):
     net.apply(init_func)  # apply the initialization function <init_func>
 
 
-def get_norm_layer(norm_type='instance'):
+def get_norm_layer(norm_type="instance"):
     """Return a normalization layer
     Parameters:
         norm_type (str) -- the name of the normalization layer: batch | instance
     BatchNorm, uses learnable affine parameters and track running statistics (mean/stddev).
     InstanceNorm, does not use learnable affine parameters. It does not track running statistics.
     """
-    if norm_type == 'batch':
+    if norm_type == "batch":
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
-    elif norm_type == 'instance':
+    elif norm_type == "instance":
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=True, track_running_stats=False)
-    elif norm_type == 'instance_no_bias':
+    elif norm_type == "instance_no_bias":
         norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
-    elif norm_type == 'spectral':
+    elif norm_type == "spectral":
         norm_layer = nn.utils.spectral_norm
-    elif norm_type == 'no_norm':
+    elif norm_type == "no_norm":
         norm_layer = nn.Identity
     else:
         raise NotImplementedError(f"Normalization layer {norm_type} is not found")

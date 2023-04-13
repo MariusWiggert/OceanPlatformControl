@@ -1,11 +1,16 @@
-from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
-from ocean_navigation_simulator.generative_error_model.utils import get_path_to_project
+import os
+from typing import List, Tuple
 
-from typing import Tuple, AnyStr, List
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
+
+from ocean_navigation_simulator.generative_error_model.utils import (
+    get_path_to_project,
+)
+from ocean_navigation_simulator.generative_error_model.variogram.Variogram import (
+    Variogram,
+)
 
 
 class VisualizeVariogram:
@@ -38,7 +43,10 @@ class VisualizeVariogram:
         # initialize empty variogram and add bins and bins_count
         self.variogram = Variogram()
         variogram_dict = load_variogram_from_npy(variogram_file)
-        self.variogram.bins, self.variogram.bins_count = variogram_dict["bins"], variogram_dict["bins_count"]
+        self.variogram.bins, self.variogram.bins_count = (
+            variogram_dict["bins"],
+            variogram_dict["bins_count"],
+        )
         self.units = variogram_dict["units"]
 
         # different setup for 3d or 2d variogram
@@ -46,10 +54,18 @@ class VisualizeVariogram:
             self.variogram.is_3d = True
             self.vars = ["lon_lag", "lat_lag", "t_lag"]
             # set bin resolutions
-            self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res = variogram_dict["res"]
+            self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res = variogram_dict[
+                "res"
+            ]
             # compute number of bins from bins.shape
-            self.variogram.lon_bins, self.variogram.lat_bins, self.variogram.t_bins = self.variogram.bins.shape[:3]
-            print(f"Resolution: {[self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res]} {self.units}.")
+            (
+                self.variogram.lon_bins,
+                self.variogram.lat_bins,
+                self.variogram.t_bins,
+            ) = self.variogram.bins.shape[:3]
+            print(
+                f"Resolution: {[self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res]} {self.units}."
+            )
         else:
             self.variogram.is_3d = False
             self.vars = ["space_lag", "t_lag"]
@@ -77,12 +93,16 @@ class VisualizeVariogram:
         self.variogram.bins_count = self.bins_count_orig
 
         # check whether res_tuple has the correct length given dimenson of variogram
-        if (len(res_tuple) == 3 and self.variogram.is_3d is False) or (len(res_tuple) == 2 and self.variogram.is_3d is True):
+        if (len(res_tuple) == 3 and self.variogram.is_3d is False) or (
+            len(res_tuple) == 2 and self.variogram.is_3d is True
+        ):
             raise ValueError("Length of 'res_tuple' does not match dimension of Variogram!")
 
         # check whether not all new resolutions are a multiple of the original resolution
         if not all(np.mod(res_tuple, self.res_orig) == 0):
-            raise ValueError(f"Make sure the specified resolutions are multiples of the original resolution: {self.res_orig}.")
+            raise ValueError(
+                f"Make sure the specified resolutions are multiples of the original resolution: {self.res_orig}."
+            )
 
         # instead of weighted sum -> use bins_count to first multiply bins
         self.variogram.bins = self.variogram.bins * self.variogram.bins_count
@@ -90,30 +110,44 @@ class VisualizeVariogram:
         # figure out scaling of new variogram wrt old variogram
         scaling_temp = []
         for i in range(len(res_tuple)):
-            scaling_temp.append(np.round(res_tuple[i]/self.res_orig[i]))
+            scaling_temp.append(np.round(res_tuple[i] / self.res_orig[i]))
         scaling_vec = np.array(scaling_temp, dtype=np.int32)
 
         # pad array such that it can be resized appropriately
         self.variogram.bins = self._make_arr_size_divisible(self.variogram.bins, scaling_vec)
-        self.variogram.bins_count = self._make_arr_size_divisible(self.variogram.bins_count, scaling_vec)
+        self.variogram.bins_count = self._make_arr_size_divisible(
+            self.variogram.bins_count, scaling_vec
+        )
 
         # rescale axes one by one
         for dim in range(len(res_tuple)):
-            self.variogram.bins = self._decrease_res_in_axis(self.variogram.bins, axis=dim, scaling=scaling_vec[dim])
-            self.variogram.bins_count = self._decrease_res_in_axis(self.variogram.bins_count, axis=dim, scaling=scaling_vec[dim])
+            self.variogram.bins = self._decrease_res_in_axis(
+                self.variogram.bins, axis=dim, scaling=scaling_vec[dim]
+            )
+            self.variogram.bins_count = self._decrease_res_in_axis(
+                self.variogram.bins_count, axis=dim, scaling=scaling_vec[dim]
+            )
 
         # write new resolutions for plotting
         if len(res_tuple) == 3:
             self.variogram.lon_res, self.variogram.lat_res, self.variogram.t_res = res_tuple
-            self.variogram.lon_bins, self.variogram.lat_bins, self.variogram.t_bins = self.variogram.bins.shape[:3]
+            (
+                self.variogram.lon_bins,
+                self.variogram.lat_bins,
+                self.variogram.t_bins,
+            ) = self.variogram.bins.shape[:3]
         else:
             self.variogram.space_res, self.variogram.t_res = res_tuple
             self.variogram.space_bins, self.variogram.t_bins = self.variogram.bins.shape[:2]
         self.variogram.res_tuple = res_tuple
 
         # normalize by frequency per bins
-        self.variogram.bins = np.divide(self.variogram.bins, self.variogram.bins_count,
-                                        out=np.zeros_like(self.variogram.bins), where=self.variogram.bins_count != 0)
+        self.variogram.bins = np.divide(
+            self.variogram.bins,
+            self.variogram.bins_count,
+            out=np.zeros_like(self.variogram.bins),
+            where=self.variogram.bins_count != 0,
+        )
 
     def _decrease_res_in_axis(self, arr: np.ndarray, axis: int, scaling: int):
         """Sums blocks of dims of size scaling over the specified axis"""
@@ -122,11 +156,11 @@ class VisualizeVariogram:
         # get shape of incoming array
         temp_shape = list(arr.shape)
         # add an axis behind the reduced axis of dim=scaling
-        temp_shape.insert(axis+1, scaling)
+        temp_shape.insert(axis + 1, scaling)
         # reduce axis dimension by scaling factor
-        temp_shape[axis] = int(arr.shape[axis]/scaling)
+        temp_shape[axis] = int(arr.shape[axis] / scaling)
         # reshape array according to calculated shape and sum over newly introduced axis
-        arr = arr.reshape(temp_shape).sum(axis=axis+1)
+        arr = arr.reshape(temp_shape).sum(axis=axis + 1)
         return arr
 
     def _make_arr_size_divisible(self, arr: np.ndarray, scaling_vec: Tuple[int]):
@@ -137,11 +171,12 @@ class VisualizeVariogram:
         for dim, scaling in enumerate(scaling_vec):
             dim_extension = (scaling - arr.shape[dim] % scaling) % scaling
 
-            dims_map_3d = {0: (dim_extension, arr.shape[1], arr.shape[2], 2),
-                           1: (arr.shape[0], dim_extension, arr.shape[2], 2),
-                           2: (arr.shape[0], arr.shape[1], dim_extension, 2)}
-            dims_map_2d = {0: (dim_extension, arr.shape[1], 2),
-                           1: (arr.shape[0], dim_extension, 2)}
+            dims_map_3d = {
+                0: (dim_extension, arr.shape[1], arr.shape[2], 2),
+                1: (arr.shape[0], dim_extension, arr.shape[2], 2),
+                2: (arr.shape[0], arr.shape[1], dim_extension, 2),
+            }
+            dims_map_2d = {0: (dim_extension, arr.shape[1], 2), 1: (arr.shape[0], dim_extension, 2)}
             # maps dimension to right mapping
             dims_map = {3: dims_map_3d, 2: dims_map_2d}
 
@@ -151,38 +186,45 @@ class VisualizeVariogram:
         return arr
 
     def save_variogram(self, file_path: str) -> None:
-        """Saves entire variogram data to file.
-        """
+        """Saves entire variogram data to file."""
         if self.variogram.bins is None:
             raise Exception("Need to build variogram first before you can save it!")
 
-        data_to_save = {"bins": self.variogram.bins,
-                        "bins_count": self.variogram.bins_count,
-                        "res": self.variogram.res_tuple,
-                        "units": self.variogram.units,
-                        "detrend_metrics": self.variogram.detrend_metrics
-                        }
+        data_to_save = {
+            "bins": self.variogram.bins,
+            "bins_count": self.variogram.bins_count,
+            "res": self.variogram.res_tuple,
+            "units": self.variogram.units,
+            "detrend_metrics": self.variogram.detrend_metrics,
+        }
         np.save(file_path, data_to_save)
         print(f"\nSaved variogram data to: {file_path}")
 
     def save_tuned_variogram_2d(self, view_range: List[int], file_path: str):
-        """Converts hand-tuned variogram to dataframe and saves it.
-        """
+        """Converts hand-tuned variogram to dataframe and saves it."""
         space_lag, time_lag = [], []
         u_semivariance, v_semivariance = [], []
-        for space in range(int(view_range[0]/self.variogram.res_tuple[0])):
-            for time in range(int(view_range[1]/self.variogram.res_tuple[1])):
+        for space in range(int(view_range[0] / self.variogram.res_tuple[0])):
+            for time in range(int(view_range[1] / self.variogram.res_tuple[1])):
                 u_semivariance.append(self.variogram.bins[space, time, 0])
                 v_semivariance.append(self.variogram.bins[space, time, 1])
-                space_lag.append((space+1)*self.variogram.space_res)
-                time_lag.append((time+1)*self.variogram.t_res)
+                space_lag.append((space + 1) * self.variogram.space_res)
+                time_lag.append((time + 1) * self.variogram.t_res)
 
-        df = pd.DataFrame({"space_lag": space_lag,
-                           "t_lag": time_lag,
-                           "u_semivariance": u_semivariance,
-                           "v_semivariance": v_semivariance,
-                           "detrend_u": [self.variogram.detrend_metrics["u_error"] for _ in range(len(space_lag))],
-                           "detrend_v": [self.variogram.detrend_metrics["v_error"] for _ in range(len(space_lag))]})
+        df = pd.DataFrame(
+            {
+                "space_lag": space_lag,
+                "t_lag": time_lag,
+                "u_semivariance": u_semivariance,
+                "v_semivariance": v_semivariance,
+                "detrend_u": [
+                    self.variogram.detrend_metrics["u_error"] for _ in range(len(space_lag))
+                ],
+                "detrend_v": [
+                    self.variogram.detrend_metrics["v_error"] for _ in range(len(space_lag))
+                ],
+            }
+        )
         df.to_csv(file_path, index=False)
         print(f"Saved hand-tuned variogram at {file_path}.")
 
@@ -200,7 +242,9 @@ class VisualizeVariogram:
             self._plot_sliced_histogram(var, idx, tol, view_range, axs[idx])
         # plt.show()
 
-    def _plot_sliced_histogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis) -> plt.axis:
+    def _plot_sliced_histogram(
+        self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis
+    ) -> plt.axis:
         tol, view_range = self._plot_input_checker(idx, tol, view_range)
         view_index = self._get_view_index(idx, view_range)
         bin_sizes = self.variogram.bins.shape[:-1]
@@ -209,11 +253,16 @@ class VisualizeVariogram:
         if self.variogram.is_3d:
             other_indices = [0, 1, 2]
             del other_indices[idx]
-            var_y = np.sum(self.variogram.bins_count[:tol[0], :tol[1], :tol[2], 0], axis=tuple(other_indices))[:view_index]
+            var_y = np.sum(
+                self.variogram.bins_count[: tol[0], : tol[1], : tol[2], 0],
+                axis=tuple(other_indices),
+            )[:view_index]
         else:
             other_indices = [0, 1]
             del other_indices[idx]
-            var_y = np.sum(self.variogram.bins_count[:tol[0], :tol[1], 0], axis=tuple(other_indices))[:view_index]
+            var_y = np.sum(
+                self.variogram.bins_count[: tol[0], : tol[1], 0], axis=tuple(other_indices)
+            )[:view_index]
 
         ax.bar(var_x, var_y, width=self.variogram.res_tuple[idx] - 0.1, align="edge")
         units = self.units
@@ -223,8 +272,14 @@ class VisualizeVariogram:
         ax.set_ylabel("Frequency")
         ax.set_xlim(left=0)
 
-    def plot_variograms(self, tol: Tuple[int] = (1, 1, 1), view_range: Tuple[int] = None,
-                        error_variable: str = "u", label: str = "", axs_external=None) -> plt.axes:
+    def plot_variograms(
+        self,
+        tol: Tuple[int] = (1, 1, 1),
+        view_range: Tuple[int] = None,
+        error_variable: str = "u",
+        label: str = "",
+        axs_external=None,
+    ) -> plt.axes:
         """Plots the sliced variogram for each axis [lon, lat, time] in 3d or [space, time] in 2d.
 
         tol -        the slicing tolerance when plotting over one dimension. If the variogram was
@@ -243,8 +298,16 @@ class VisualizeVariogram:
             self._plot_sliced_variogram(var, idx, tol, view_range, axs[idx], error_variable, label)
         return axs
 
-    def _plot_sliced_variogram(self, var: str, idx: int, tol: Tuple[int], view_range: Tuple[int], ax: plt.axis,
-                               error_variable: str, label: str) -> None:
+    def _plot_sliced_variogram(
+        self,
+        var: str,
+        idx: int,
+        tol: Tuple[int],
+        view_range: Tuple[int],
+        ax: plt.axis,
+        error_variable: str,
+        label: str,
+    ) -> None:
         tol, view_range = self._plot_input_checker(idx, tol, view_range)
         view_index = self._get_view_index(idx, view_range)
         bin_sizes = self.variogram.bins.shape[:-1]
@@ -252,37 +315,43 @@ class VisualizeVariogram:
         error_variable_map = {"u": 0, "v": 1}
         try:
             error_var = error_variable_map[error_variable]
-        except:
+        except Exception:
             raise ValueError("Specified variable does not exist")
 
         # Only divide if denom is non-zero, else zero (https://stackoverflow.com/questions/26248654/how-to-return-0-with-divide-by-zero)
         if self.variogram.is_3d:
             other_indices = [0, 1, 2]
             del other_indices[idx]
-            var_y_num = np.sum(self.variogram.bins[:tol[0], :tol[1], :tol[2], error_var], axis=tuple(other_indices))[:view_index]
+            var_y_num = np.sum(
+                self.variogram.bins[: tol[0], : tol[1], : tol[2], error_var],
+                axis=tuple(other_indices),
+            )[:view_index]
             var_y_denom = tol[other_indices[0]] * tol[other_indices[1]]
         else:
             other_indices = [0, 1]
             del other_indices[idx]
-            var_y_num = np.sum(self.variogram.bins[:tol[0], :tol[1], error_var], axis=tuple(other_indices))[:view_index]
+            var_y_num = np.sum(
+                self.variogram.bins[: tol[0], : tol[1], error_var], axis=tuple(other_indices)
+            )[:view_index]
             var_y_denom = tol[other_indices[0]]
 
         ax.scatter(
-            self.variogram.res_tuple[idx] * (np.arange(bin_sizes[idx])[:view_index]) + self.variogram.res_tuple[idx],
+            self.variogram.res_tuple[idx] * (np.arange(bin_sizes[idx])[:view_index])
+            + self.variogram.res_tuple[idx],
             np.divide(var_y_num, var_y_denom, out=np.zeros_like(var_y_num), where=var_y_denom != 0),
             marker="x",
-            label=label
+            label=label,
         )
         units = self.units
         if var == "t_lag":
             units = "hrs"
         ax.set_xlabel(f"{var} [{units}]", fontdict={"size": 15})
         ax.set_ylabel("Semivariance", fontdict={"size": 15})
-        ax.tick_params(axis='both', which='major', labelsize=15)
+        ax.tick_params(axis="both", which="major", labelsize=15)
         ax.set_xlim(left=0)
         ax.set_ylim([0, 1.5])
         if label != "":
-            ax.legend(prop={'size': 13})
+            ax.legend(prop={"size": 13})
 
     def _plot_input_checker(self, idx: int, tol: Tuple[int] = None, view_range: Tuple[int] = None):
         if self.variogram.bins is None:
@@ -292,13 +361,15 @@ class VisualizeVariogram:
         tol = list(tol)
         tol[idx] = self.variogram.bins.shape[idx]
         if view_range is None:
-            view_range = np.array(self.variogram.bins.shape[:-1]) * np.array(self.variogram.res_tuple)
+            view_range = np.array(self.variogram.bins.shape[:-1]) * np.array(
+                self.variogram.res_tuple
+            )
         return tol, view_range
 
     def _get_view_index(self, idx: int, view_range: Tuple[int]):
         """Calculates the indices for each axis for a given view_range."""
         num_bin = self.variogram.bins.shape[idx]
-        bin_idx = int(view_range[idx]/self.variogram.res_tuple[idx])
+        bin_idx = int(view_range[idx] / self.variogram.res_tuple[idx])
         if bin_idx <= num_bin:
             view_index = bin_idx
         else:
@@ -313,7 +384,6 @@ def load_variogram_from_npy(file_path: str):
         "bins_count": data.item().get("bins_count"),
         "res": data.item().get("res"),
         "units": data.item().get("units"),
-        "detrend_metrics": list(data.item().get("detrend_metrics").values())[0]
+        "detrend_metrics": list(data.item().get("detrend_metrics").values())[0],
     }
     return variogram_dict
-   

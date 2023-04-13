@@ -1,14 +1,14 @@
+import os
+
+import cvxpy as cp
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy.fftpack import dct, idct
+
 from ocean_navigation_simulator.generative_error_model.compressed_sensing.CompressedSensing import (
     round_to_multiple,
 )
-
-from scipy.fftpack import dct, idct
-import cvxpy as cp
-import matplotlib.pyplot as plt
-from cosamp.cosamp import cosamp
-import numpy as np
-import os
-import pandas as pd
 
 # load sparse measurements
 buoy_dir = "/home/jonas/Documents/Thesis/OceanPlatformControl/data/drifter_data/dataset_forecast_error/area1"

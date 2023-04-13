@@ -1,0 +1,220 @@
+experiment_runner:
+  #  plots:
+  #    visualize_currents: True
+  #    plot_3d:
+  #      [ "error" ] #, "std_error", "initial_forecast", "water", "ground_truth" ]
+  #    visualize_metrics: True
+  metrics:
+    - "rmse"
+    - "r2"
+    - "vme"
+    #- "vector_correlation"
+  direction_current: [ "uv" , "u", "v" ]
+
+  #number_burnin_steps: 50
+  number_burnin_steps: 0
+  number_steps_prediction: 96 #120
+  delta_between_predictions_in_sec: 3600 #1h
+  time_horizon_predictions_in_sec: 86400 # 24 *3600
+  radius_area_around_platform: 0.8
+  radius_area_around_platform_for_NN: 0.5 #2 #0.5 #0.04665226 #3.89189189
+  number_steps_to_predict: 12 #24
+  gt_additional_area: 0.1
+  gt_additional_time: 3600
+  clear_observations_when_new_file: True
+
+  use_real_data: True
+  scenario_used: "gulf_of_mexico_files"
+  #problems_file: "./scenarios/ocean_observer/all_problems.yaml"
+#  problems:
+#    - initial_position:
+#        lon_in_deg: -86
+#        lat_in_deg: 24.86
+#        datetime: "2021-11-22T12:00:00Z" #In iso8601 format!
+#      target:
+#        lon_in_deg: -88.61
+#        lat_in_deg: 26.36
+#        radius_in_m: 1
+#    - initial_position:
+#        lon_in_deg: -82
+#        lat_in_deg: 24.86
+#        datetime: "2021-11-23T12:00:00Z" #In iso8601 format!
+#      target:
+#        lon_in_deg: -84.61
+#        lat_in_deg: 26.36
+#        radius_in_m: 1
+
+observer:
+  life_span_observations_in_sec: 43200 # 12 * 3600
+
+  model:
+    gaussian_process:
+      kernel:
+        type: 'matern'
+        sigma_exp_squared: 5.011571057964094
+        scaling:
+          latitude: 0.5753005356364821
+          longitude: 0.5967749664273109
+          time: 42103.57591355196
+        parameters:
+          length_scale_bounds: "fixed"
+          nu: 1.5
+
+    NN:
+      dimension_input: [ 12,13,13 ]
+      model_error: false
+      type: 'cnn'
+      parameters:
+        path_weights: "ablation_study/CNN_models_saved/medium_tile_big_ds.h5"
+        ch_sz: [ 6,24,48,96,192 ]
+        downsizing_method: "avgpool"
+        dropout_encoder: 0.24299222476871712
+        dropout_decoder: 0.13587898683659105
+        dropout_bottom: 0.7479602916555403
+        initial_channels: [ 0,1,2,3,6,7 ]
+        output_paddings: [ [ 0,1,1 ],[ 1,0,0 ],[ 1,0,0 ] ]
+        #output_paddings: [ [ 0,0,0 ],[ 1,0,0 ],[ 1,0,0 ] ]
+
+    # {'type': 'matern', 'scaling': {'latitude': 0.48426081412300614, 'longitude': 0.6580229922153629, 'time': 31553.807459317766}, 'sigma_exp_squared': 3.4904, 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([6.58022992e-01, 4.84260814e-01, 3.15538075e+04])}}
+    # 16 percent radius .5, lag 12
+
+
+
+    #    gaussian_process:
+    #      kernel:
+    #        type: "matern"
+    #        sigma_exp_squared: 2.3561
+    #        scaling:
+    #          latitude: 0.312469448771947 # [deg]
+    #          longitude: 48.89273743760174 # [deg]
+    #          #time: 716506.862986654 # [s]
+    #          time: 50036.400217 # [s]
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 1.5
+    #14.6 percent radius 0.5, lag 12
+    #{'type': 'matern', 'scaling': {'latitude': 0.31246944877194727, 'longitude': 48.89273743760174, 'time': 50036.40021766849}, 'sigma_exp_squared': 2.3561, 'parameters': {'nu': 1.5, 'length_scale_bounds': 'fixed', 'length_scale': array([4.88927374e+01, 3.12469449e-01, 5.00364002e+04])}}
+    #    gaussian_process:
+    #      #sigma_noise_squared: 0.000005
+    #      kernel:
+    #        #type: "RBF"
+    #        type: "matern"
+    #        # 3.6 ** 2 = 12.96
+    #        sigma_exp_squared: 0.6637000000000001 #12.96
+    #        scaling:
+    #          latitude: 891.8584994139342 # [m]
+    #          longitude: 1640.347182462361 # [m]
+    #          #time: 716506.862986654 # [s]
+    #          time: 4610.048270186653
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 0.1
+    #        #type: "rbf"
+    #        #type: "constantkernel"
+    #
+    # 915 results bayes
+    #    gaussian_process:
+    #      kernel:
+    #        #type: "RBF"
+    #        type: "matern"
+    #        # 3.6 ** 2 = 12.96
+    #        sigma_exp_squared: 6.38712504854436 #12.96
+    #        scaling:
+    #          latitude: 474112.9766555658 # [m]
+    #          longitude: 701235.1170321296 # [m]
+    #          #time: 716506.862986654 # [s]
+    #          time: 1569124.6286633604
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 0.001953445102778696
+    #        #type: "rbf"
+    #        #type: "constantkernel"
+    #    gaussian_process:
+    #      #sigma_noise_squared: 0.000005
+    #      kernel:
+    #        #type: "RBF"
+    #        type: "matern"
+    #        sigma_exp_squared: 1.4976 #12.96
+    #        scaling:
+    #          latitude: 226.6619894999933 # [m]
+    #          longitude: 2171.4892169111454 # [m]
+    #          #time: 716506.862986654 # [s]
+    #          time: 386865.14099893917
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 0.0018000000000000002
+    #        #type: "rbf"
+    #        #type: "constantkernel"
+    #    gaussian_process:
+    #      #sigma_noise_squared: 0.000005
+    #      kernel:
+    #        #type: "RBF"
+    #        type: "matern"
+    #        sigma_exp_squared: 0.4274 #12.96
+    #        scaling:
+    #          latitude: 1.736723 # [m]
+    #          longitude: 248.482222021 # [m]
+    #          #time: 716506.862986654 # [s]
+    #          time: 645633.31397
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 0.0015
+    #        #type: "rbf"
+    #        #type: "constantkernel"
+    #
+    #    gaussian_process:
+    #      kernel:
+    #        type: "matern"
+    #        sigma_exp_squared: 1.4976
+    #        scaling:
+    #          latitude: 226.6619894999933 # [m]
+    #          longitude: 2171.4892169111454 # [m]
+    #          #time: 716506.862986654 # [s]
+    #          time: 386865.14099893917
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 0.0018000000000000002
+    #type: "rbf"
+    #type: "constantkernel"
+
+
+    #{'type': 'matern', 'scaling': {'latitude': 226.6619894999933, 'longitude': 2171.4892169111454, 'time': 386865.14099893917}, 'sigma_exp_squared': 1.4976, 'parameters': {'nu': 0.0018000000000000002, 'length_scale_bounds': 'fixed', 'length_scale': array([2.17148922e+03, 2.26661989e+02, 3.86865141e+05])}}
+
+    #    gaussian_process:
+    #      kernel:
+    #        type: "matern"
+    #        sigma_exp_squared: 10
+    #          #        scaling:
+    #          #          latitude: 14.153862 # [m]
+    #          #          longitude: 3455.501243188848 # [m]
+    #        #          #time: 716506.862986654 # [s]
+    #        #          time: 176209.77315317513
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #nu: 0.0019
+
+    #      kernel:
+    #        type: "matern"
+    #        sigma_exp_squared: 0.171200000
+    #        scaling:
+    #          latitude: 14.153862 # [m]
+    #          longitude: 3455.501243188848 # [m]
+    #          #time: 716506.862986654 # [s]
+    #          time: 176209.77315317513
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          nu: 0.0019
+    # {'type': 'matern', 'scaling': {'latitude': 14.153862262405374, 'longitude': 3455.501243188848, 'time': 176209.77315317513}, 'sigma_exp_squared': 0.17120000000000002, 'parameters': {'nu': 0.0019, 'length_scale_bounds': 'fixed', 'length_scale': array([3.45550124e+03, 1.41538623e+01, 1.76209773e+05])}}
+
+
+    #    gaussian_process:
+    #      kernel:
+    #        type: "RationalQuadratic"
+    #        sigma_exp_squared: 0.2339000000
+    #        parameters:
+    #          length_scale_bounds: "fixed" #[ [ 0.0000001, 1000000000 ] ,[ 0.0000001, 10000000000 ] ,[ 0.0000001, 1000000000 ] ]
+    #          alpha: 0.1299637
+    #          alpha_bounds: "fixed"
+    # 2%
+    #{'type': 'RationalQuadratic', 'scaling': None, 'sigma_exp_squared': 0.23390000000000002, 'parameters': {'length_scale_bounds': 'fixed', 'alpha': 0.12996370566495802, 'alpha_bounds': 'fixed'}}
+

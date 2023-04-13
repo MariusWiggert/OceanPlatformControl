@@ -1,12 +1,16 @@
-from ocean_navigation_simulator.utils.a_star_state import AStarState
-from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import WaypointTrackingController
+import bisect
+import math
+
 import numpy as np
-import math, bisect
+
+from ocean_navigation_simulator.steering_controllers.waypoint_track_contr import (
+    WaypointTrackingController,
+)
+from ocean_navigation_simulator.utils.a_star_state import AStarState
 
 
 class MinimumThrustController(WaypointTrackingController):
-    """ Continually actuate with the minimum thrust in the direction of the currents,
-    """
+    """Continually actuate with the minimum thrust in the direction of the currents,"""
 
     def __init__(self, waypoints, problem=None):
         super().__init__()
@@ -24,7 +28,7 @@ class MinimumThrustController(WaypointTrackingController):
         self.__init__(waypoints=waypoints, problem=problem)
 
     def get_next_action(self, state):
-        """ Returns (thrust, header) for the next timestep
+        """Returns (thrust, header) for the next timestep
         Args:
             state:
                 A four element list describing the current state, i.e. [[lon],[lat], [battery_level], [time]]. Note each
@@ -35,7 +39,7 @@ class MinimumThrustController(WaypointTrackingController):
 
         # HELPER FUNCTIONS/CLASSES
         class PotentialWaypoint:
-            """ Collection of information on the next waypoint to potentially actuate to.
+            """Collection of information on the next waypoint to potentially actuate to.
 
             Attributes:
                 waypoint: the lat, lon of the waypoint
@@ -54,9 +58,9 @@ class MinimumThrustController(WaypointTrackingController):
                 self.planned_vector = planned_vector
 
             def cost(self):
-                """ This method will be used as a helper routine to figure out which waypoint to go to next. More
+                """This method will be used as a helper routine to figure out which waypoint to go to next. More
                 concretely, this function will quantify how good a waypoint is, where a smaller number is a better
-                waypoint. """
+                waypoint."""
 
                 # A waypoint is "good" if the directions of the proposed vector and the planned vector are similar.
 
@@ -70,7 +74,7 @@ class MinimumThrustController(WaypointTrackingController):
                 return abs(angle)
 
         def vec(cur_state, next_state):
-            """ Creates a vector from the current state to the next state
+            """Creates a vector from the current state to the next state
 
             Args:
                 cur_state: (lon, lat)
@@ -79,12 +83,12 @@ class MinimumThrustController(WaypointTrackingController):
             return [next_state[0] - cur_state[0], next_state[1] - cur_state[1]]
 
         def mag(u_dir):
-            """ Returns the magnitude of the given vector"""
+            """Returns the magnitude of the given vector"""
 
             return math.sqrt(u_dir[1] * u_dir[1] + u_dir[0] * u_dir[0])
 
         def nearest_waypoint(all_waypoints, curr_wp):
-            """ Finds the index of the nearest planned waypoint to where we currently are in the simulation """
+            """Finds the index of the nearest planned waypoint to where we currently are in the simulation"""
 
             distances_away = np.array([mag(vec(wp, curr_wp)) for wp in all_waypoints])
             return np.argmin(distances_away)
@@ -115,9 +119,16 @@ class MinimumThrustController(WaypointTrackingController):
         for i in range(start_index, end_index):
             waypoint, prev = self.path[i], self.path[i - 1]
             try:
-                thrust, heading, time = next(cur_state.actuate_towards(waypoint[0], waypoint[1],
-                                                                       print_output=False, use_middle=False,
-                                                                       full_send=True, cushion=0.1))
+                thrust, heading, time = next(
+                    cur_state.actuate_towards(
+                        waypoint[0],
+                        waypoint[1],
+                        print_output=False,
+                        use_middle=False,
+                        full_send=True,
+                        cushion=0.1,
+                    )
+                )
 
                 # nan if we are actuating to ourself.
                 if np.isnan(thrust):
@@ -125,7 +136,9 @@ class MinimumThrustController(WaypointTrackingController):
                 vector = vec((lon, lat), waypoint)
                 planned_vector = vec(prev, waypoint)
 
-                prospective_waypoints.append(PotentialWaypoint(waypoint, thrust, heading, time, vector, planned_vector))
+                prospective_waypoints.append(
+                    PotentialWaypoint(waypoint, thrust, heading, time, vector, planned_vector)
+                )
             except StopIteration:
                 continue
 

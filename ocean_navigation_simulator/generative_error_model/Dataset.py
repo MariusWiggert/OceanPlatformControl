@@ -6,8 +6,8 @@ import datetime
 
 
 class Dataset:
-    """This class handles the data loading for the Variogram computation and the ExperimentRunner.
-    """
+    """This class handles the data loading for the Variogram computation and the ExperimentRunner."""
+
     def __init__(self, data_dir: str, dataset_type: str, dataset_name: str):
         # TODO: change this convoluted way of deciding what data to load.
 
@@ -25,9 +25,8 @@ class Dataset:
         # TODO: find better way to get meta-data -> e.g. read in files and check extremal values.
         # self.meta_data = self.build_meta_data_list()
 
-    def load_dataset(self, overlap: bool=True, verbose: bool=False) -> pd.DataFrame:
-        """Loads entire dataset specified.
-        """
+    def load_dataset(self, overlap: bool = True, verbose: bool = False) -> pd.DataFrame:
+        """Loads entire dataset specified."""
         dataset_files = os.listdir(self.dataset_path)
         df = pd.read_csv(os.path.join(self.dataset_path, dataset_files[0]))
         df = pd.DataFrame(columns=df.columns)
@@ -44,8 +43,7 @@ class Dataset:
         return df
 
     def load_single_file(self, file_idx: int = 0) -> pd.DataFrame:
-        """Loads any file of specified dataset.
-        """
+        """Loads any file of specified dataset."""
         file_list = os.listdir(self.dataset_path)
         file_path = os.path.join(self.dataset_path, file_list[file_idx])
         df = pd.read_csv(file_path)
@@ -54,8 +52,7 @@ class Dataset:
         return df
 
     def load_file(self, file_name: str) -> pd.DataFrame:
-        """Loads a specific file of name file_name.
-        """
+        """Loads a specific file of name file_name."""
         if file_name not in os.listdir(self.dataset_path):
             raise FileExistsError(f"Specified file '{file_name}' does not exist!")
         df = pd.read_csv(os.path.join(self.dataset_path, file_name))
@@ -68,18 +65,23 @@ class Dataset:
             file_split = file.split("_")
             temp = dict()
             temp["file_name"] = file
-            temp["lon_range"] = [float(file_split[4].strip("[").strip("]").split(",")[0]),
-                                 float(file_split[4].strip("[").strip("]").split(",")[1])]
-            temp["lat_range"] = [float(file_split[6].strip("[").strip("]").split(",")[0]),
-                                 float(file_split[6].strip("[").strip("]").split(",")[1])]
+            temp["lon_range"] = [
+                float(file_split[4].strip("[").strip("]").split(",")[0]),
+                float(file_split[4].strip("[").strip("]").split(",")[1]),
+            ]
+            temp["lat_range"] = [
+                float(file_split[6].strip("[").strip("]").split(",")[0]),
+                float(file_split[6].strip("[").strip("]").split(",")[1]),
+            ]
             temp["t_range"] = [file_split[8], file_split[10].split(".")[0]]
             list_of_dicts.append(temp)
-        list_of_dicts.sort(key=lambda dictionary: dictionary['t_range'][0])
+        list_of_dicts.sort(key=lambda dictionary: dictionary["t_range"][0])
         return list_of_dicts
 
-    def get_recent_data_in_range(self, lon_range, lat_range, t_range: List[datetime.datetime]) -> pd.DataFrame:
-        """Gets the most up-to-date date for a specific range.
-        """
+    def get_recent_data_in_range(
+        self, lon_range, lat_range, t_range: List[datetime.datetime]
+    ) -> pd.DataFrame:
+        """Gets the most up-to-date date for a specific range."""
         # gets first day of each file
         df = self.load_dataset(overlap=False, verbose=False)
 
@@ -91,15 +93,16 @@ class Dataset:
         df = pd.concat([df, last_file], ignore_index=True)
 
         # filter for specific ranges
-        df = df[(df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S")) &
-                (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))]
+        df = df[
+            (df["time"] >= t_range[0].strftime("%Y-%m-%d %H:%M:%S"))
+            & (df["time"] <= t_range[1].strftime("%Y-%m-%d %H:%M:%S"))
+        ]
         df = df[(df["lon"] >= lon_range[0]) & (df["lon"] <= lon_range[1])]
         df = df[(df["lat"] >= lat_range[0]) & (df["lat"] <= lat_range[1])]
         return df
 
     def print_df_meta_data(self, data: pd.DataFrame):
-        """Convenience method for printing meta data after loading data.
-        """
+        """Convenience method for printing meta data after loading data."""
         print("\nBuoy Meta Data:")
         print(f"    Min time: {data['time'].min()}, max time: {data['time'].max()}")
         print(f"    Min lon: {data['lon'].min()}, max lon: {data['lon'].max()}")
@@ -111,5 +114,7 @@ if __name__ == "__main__":
     config = load_config("config_buoy_data.yaml")
     data_dir = "data/drifter_data"
     dataset = Dataset(data_dir, "synthetic", "area1")
-    data = dataset.load_file("synthetic_data_error_lon_[-140,-120]_lat_[20,30]_time_2022-04-21T13:00:00Z__2022-04-30T13:00:00Z.csv")
+    data = dataset.load_file(
+        "synthetic_data_error_lon_[-140,-120]_lat_[20,30]_time_2022-04-21T13:00:00Z__2022-04-30T13:00:00Z.csv"
+    )
     print(data)

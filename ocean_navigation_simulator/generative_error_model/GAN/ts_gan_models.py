@@ -1,28 +1,50 @@
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
-
-from torch.nn.utils import spectral_norm
-from torch.nn.init import xavier_uniform_
 import torch.nn.init as init
+from torch.autograd import Variable
+from torch.nn.init import xavier_uniform_
+from torch.nn.utils import spectral_norm
 
 
 def init_weights(m):
     if type(m) == nn.Linear or type(m) == nn.Conv2d:
         xavier_uniform_(m.weight)
-        m.bias.data.fill_(0.)
+        m.bias.data.fill_(0.0)
 
 
-def snconv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True):
-    return spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                                   stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias))
+def snconv2d(
+    in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True
+):
+    return spectral_norm(
+        nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+    )
 
 
-def snconv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True):
-    return spectral_norm(nn.Conv3d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                                   stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias))
+def snconv3d(
+    in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True
+):
+    return spectral_norm(
+        nn.Conv3d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+    )
 
 
 def snlinear(in_features, out_features, bias=True):
@@ -34,30 +56,50 @@ def sn_embedding(num_embeddings, embedding_dim):
 
 
 class Self_Attn(nn.Module):
-    """ Self attention Layer"""
+    """Self attention Layer"""
 
     def __init__(self, in_channels):
         super(Self_Attn, self).__init__()
         self.in_channels = in_channels
-        self.snconv1x1_theta = snconv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1, stride=1,
-                                        padding=0)
-        self.snconv1x1_phi = snconv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1, stride=1,
-                                      padding=0)
-        self.snconv1x1_g = snconv2d(in_channels=in_channels, out_channels=in_channels // 2, kernel_size=1, stride=1,
-                                    padding=0)
-        self.snconv1x1_attn = snconv2d(in_channels=in_channels // 2, out_channels=in_channels, kernel_size=1, stride=1,
-                                       padding=0)
+        self.snconv1x1_theta = snconv2d(
+            in_channels=in_channels,
+            out_channels=in_channels // 8,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+        self.snconv1x1_phi = snconv2d(
+            in_channels=in_channels,
+            out_channels=in_channels // 8,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+        self.snconv1x1_g = snconv2d(
+            in_channels=in_channels,
+            out_channels=in_channels // 2,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+        self.snconv1x1_attn = snconv2d(
+            in_channels=in_channels // 2,
+            out_channels=in_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
         self.maxpool = nn.MaxPool2d(2, stride=2, padding=0)
         self.softmax = nn.Softmax(dim=-1)
         self.sigma = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         """
-            inputs :
-                x : input feature maps(B X C X W X H)
-            returns :
-                out : self attention value + input feature
-                attention: B X N X N (N is Width*Height)
+        inputs :
+            x : input feature maps(B X C X W X H)
+        returns :
+            out : self attention value + input feature
+            attention: B X N X N (N is Width*Height)
         """
         _, ch, h, w = x.size()
         # Theta path
@@ -108,8 +150,8 @@ class InplaceShift(torch.autograd.Function):
         buffer[:, :-1] = input.data[:, 1:, :fold]
         input.data[:, :, :fold] = buffer
         buffer.zero_()
-        buffer[:, 1:] = input.data[:, :-1, fold: 2 * fold]
-        input.data[:, :, fold: 2 * fold] = buffer
+        buffer[:, 1:] = input.data[:, :-1, fold : 2 * fold]
+        input.data[:, :, fold : 2 * fold] = buffer
         return input
 
     @staticmethod
@@ -120,8 +162,8 @@ class InplaceShift(torch.autograd.Function):
         buffer[:, 1:] = grad_output.data[:, :-1, :fold]
         grad_output.data[:, :, :fold] = buffer
         buffer.zero_()
-        buffer[:, :-1] = grad_output.data[:, 1:, fold: 2 * fold]
-        grad_output.data[:, :, fold: 2 * fold] = buffer
+        buffer[:, :-1] = grad_output.data[:, 1:, fold : 2 * fold]
+        grad_output.data[:, :, fold : 2 * fold] = buffer
         return grad_output, None
 
 
@@ -131,13 +173,16 @@ class GenBlock(nn.Module):
         self.f = fold
         self.cond_bn1 = ConditionalBatchNorm2d(in_channels, num_classes)
         self.relu = nn.ReLU(inplace=True)
-        self.snconv2d1 = snconv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1,
-                                  padding=1)
+        self.snconv2d1 = snconv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1
+        )
         self.cond_bn2 = ConditionalBatchNorm2d(out_channels, num_classes)
-        self.snconv2d2 = snconv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1,
-                                  padding=1)
-        self.snconv2d0 = snconv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=1,
-                                  padding=0)
+        self.snconv2d2 = snconv2d(
+            in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1
+        )
+        self.snconv2d0 = snconv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=1, padding=0
+        )
 
     def forward(self, x, labels, shift):
         x0 = x
@@ -145,13 +190,13 @@ class GenBlock(nn.Module):
             x = self.shift(x, 16, fold_div=self.f, inplace=True)
         x = self.cond_bn1(x, labels)
         x = self.relu(x)
-        x = F.interpolate(x, scale_factor=2, mode='nearest')  # upsample
+        x = F.interpolate(x, scale_factor=2, mode="nearest")  # upsample
         x = self.snconv2d1(x)
         x = self.cond_bn2(x, labels)
         x = self.relu(x)
         x = self.snconv2d2(x)
 
-        x0 = F.interpolate(x0, scale_factor=2, mode='nearest')  # upsample
+        x0 = F.interpolate(x0, scale_factor=2, mode="nearest")  # upsample
         x0 = self.snconv2d0(x0)
 
         out = x + x0
@@ -167,8 +212,8 @@ class GenBlock(nn.Module):
         else:
             out = torch.zeros_like(x)
             out[:, :-1, :fold] = x[:, 1:, :fold]  # shift left
-            out[:, 1:, fold: 2 * fold] = x[:, :-1, fold: 2 * fold]  # shift right
-            out[:, :, 2 * fold:] = x[:, :, 2 * fold:]  # not shift
+            out[:, 1:, fold : 2 * fold] = x[:, :-1, fold : 2 * fold]  # shift right
+            out[:, :, 2 * fold :] = x[:, :, 2 * fold :]  # not shift
 
         return out.view(nt, c, h, w)
 
@@ -191,7 +236,9 @@ class Generator(nn.Module):
         self.block5 = GenBlock(g_conv_dim * 2, g_conv_dim, num_classes, fold=fold)
         self.bn = nn.BatchNorm2d(g_conv_dim, eps=1e-5, momentum=0.0001, affine=True)
         self.relu = nn.ReLU(inplace=True)
-        self.snconv2d1 = snconv2d(in_channels=g_conv_dim, out_channels=3, kernel_size=3, stride=1, padding=1)
+        self.snconv2d1 = snconv2d(
+            in_channels=g_conv_dim, out_channels=3, kernel_size=3, stride=1, padding=1
+        )
         self.tanh = nn.Tanh()
         xavier_uniform_(self.embed.weight)
 
@@ -220,9 +267,9 @@ class Generator(nn.Module):
 
         own_state = self.state_dict()
         for name, param in state_dict.items():
-            if ('embed' not in name and 'gain' not in name):
-                if ('bias' not in name and 'snlinear0' not in name):
-                    if ('cond_bn1' not in name and 'cond_bn2' not in name):
+            if "embed" not in name and "gain" not in name:
+                if "bias" not in name and "snlinear0" not in name:
+                    if "cond_bn1" not in name and "cond_bn2" not in name:
                         param = param.data
                         own_state[name].copy_(param)
 
@@ -230,14 +277,17 @@ class Generator(nn.Module):
 class DiscOptBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DiscOptBlock, self).__init__()
-        self.snconv2d1 = snconv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1,
-                                  padding=1)
+        self.snconv2d1 = snconv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1
+        )
         self.relu = nn.ReLU(inplace=True)
-        self.snconv2d2 = snconv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1,
-                                  padding=1)
+        self.snconv2d2 = snconv2d(
+            in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1
+        )
         self.downsample = nn.AvgPool2d(2)
-        self.snconv2d0 = snconv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=1,
-                                  padding=0)
+        self.snconv2d0 = snconv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=1, padding=0
+        )
 
     def forward(self, x):
         x0 = x
@@ -258,16 +308,19 @@ class DiscBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DiscBlock, self).__init__()
         self.relu = nn.ReLU(inplace=True)
-        self.snconv2d1 = snconv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1,
-                                  padding=1)
-        self.snconv2d2 = snconv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1,
-                                  padding=1)
+        self.snconv2d1 = snconv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1
+        )
+        self.snconv2d2 = snconv2d(
+            in_channels=out_channels, out_channels=out_channels, kernel_size=3, stride=1, padding=1
+        )
         self.downsample = nn.AvgPool2d(2)
         self.ch_mismatch = False
         if in_channels != out_channels:
             self.ch_mismatch = True
-        self.snconv2d0 = snconv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=1,
-                                  padding=0)
+        self.snconv2d0 = snconv2d(
+            in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=1, padding=0
+        )
 
     def forward(self, x, downsample=True):
         x0 = x
@@ -333,7 +386,7 @@ class Discriminator(nn.Module):
 
         own_state = self.state_dict()
         for name, param in state_dict.items():
-            if 'embed' not in name:
+            if "embed" not in name:
                 # backwards compatibility for serialized parameters
                 param = param.data
                 own_state[name].copy_(param)
@@ -402,14 +455,14 @@ class GRU(nn.Module):
 
     def initWeight(self, init_forget_bias=1):
         for name, params in self.named_parameters():
-            if 'weight' in name:
+            if "weight" in name:
                 init.xavier_uniform(params)
 
             # initialize forget gate bias
-            elif 'gru.bias_ih_l' in name:
+            elif "gru.bias_ih_l" in name:
                 b_ir, b_iz, b_in = params.chunk(3, 0)
                 init.constant(b_iz, init_forget_bias)
-            elif 'gru.bias_hh_l' in name:
+            elif "gru.bias_hh_l" in name:
                 b_hr, b_hz, b_hn = params.chunk(3, 0)
                 init.constant(b_hz, init_forget_bias)
             else:
@@ -417,5 +470,5 @@ class GRU(nn.Module):
 
     def initHidden(self, batch_size):
         self.hidden = Variable(torch.zeros(batch_size, self.hidden_size))
-        if self._gpu == True:
+        if self._gpu is True:
             self.hidden = self.hidden.cuda()

@@ -1,16 +1,16 @@
-from ocean_navigation_simulator.generative_error_model.utils import get_datetime_from_file_name,\
-    get_time_matched_file_lists
-
-from torch.utils.data import Dataset
-import os
-import xarray as xr
-import numpy as np
 import glob
-import datetime
+import os
+
+import numpy as np
+import xarray as xr
+from torch.utils.data import Dataset
+
+from ocean_navigation_simulator.generative_error_model.utils import (
+    get_time_matched_file_lists,
+)
 
 
 class ForecastHindcastDataset(Dataset):
-
     def __init__(self, fc_dir, hc_dir, transform=None):
         self.fc_dir = fc_dir
         self.hc_dir = hc_dir
@@ -30,8 +30,9 @@ class ForecastHindcastDataset(Dataset):
         fc_file_name = self.fc_file_names[file_idx]
         # fc_file = xr.load_dataset(os.path.join(self.fc_dir, fc_file_name)).sel(longitude=slice(-146.25, -125),
         #                                                                        latitude=slice(15, 36.25))
-        fc_file = xr.load_dataset(os.path.join(self.fc_dir, fc_file_name)).sel(longitude=slice(-116.25, -95),
-                                                                               latitude=slice(-11.25, 10))
+        fc_file = xr.load_dataset(os.path.join(self.fc_dir, fc_file_name)).sel(
+            longitude=slice(-116.25, -95), latitude=slice(-11.25, 10)
+        )
         fc_file_u = fc_file["utotal"]
         fc_file_v = fc_file["vtotal"]
         fc_u = fc_file_u.isel(time=time_step_idx).values.squeeze()
@@ -43,8 +44,9 @@ class ForecastHindcastDataset(Dataset):
         hc_file_name = self.hc_file_names[file_idx]
         # hc_file = xr.load_dataset(os.path.join(self.hc_dir, hc_file_name)).sel(lon=slice(-146.25, -125),
         #                                                                        lat=slice(15, 36.25))
-        hc_file = xr.load_dataset(os.path.join(self.hc_dir, hc_file_name)).sel(lon=slice(-116.25, -95),
-                                                                               lat=slice(-11.25, 10))
+        hc_file = xr.load_dataset(os.path.join(self.hc_dir, hc_file_name)).sel(
+            lon=slice(-116.25, -95), lat=slice(-11.25, 10)
+        )
         hc_file_u = hc_file["water_u"]
         hc_file_v = hc_file["water_v"]
         hc_u = hc_file_u.isel(time=time_step_idx).values.squeeze()
@@ -74,7 +76,7 @@ class ForecastHindcastDatasetNpy(Dataset):
             try:
                 fc_file_paths = sorted(glob.glob(f"{fc_dir}/{area}/*.npy"))
                 hc_file_paths = sorted(glob.glob(f"{hc_dir}/{area}/*.npy"))
-            except:
+            except ValueError:
                 raise ValueError("Specified area does not exist!")
 
             if len(fc_file_paths) != len(hc_file_paths):
@@ -83,17 +85,23 @@ class ForecastHindcastDatasetNpy(Dataset):
             # compare dates of files and make sure they match!
             fc_file_paths, hc_file_paths = get_time_matched_file_lists(fc_file_paths, hc_file_paths)
 
-            self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file//self.concat_len)
+            self.area_lens[area] = len(fc_file_paths) * (self.hours_in_file // self.concat_len)
             self.fc_file_paths.extend(fc_file_paths)
             self.hc_file_paths.extend(hc_file_paths)
 
-        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
-                        for file_path in self.fc_file_paths]
-        self.hc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True)[:self.hours_in_file]
-                        for file_path in self.hc_file_paths]
+        self.fc_data = [
+            np.load(file_path, mmap_mode="r+", allow_pickle=True)[: self.hours_in_file]
+            for file_path in self.fc_file_paths
+        ]
+        self.hc_data = [
+            np.load(file_path, mmap_mode="r+", allow_pickle=True)[: self.hours_in_file]
+            for file_path in self.hc_file_paths
+        ]
 
     def __len__(self):
-        return min(len(self.fc_file_paths), len(self.hc_file_paths)) * (self.hours_in_file//self.concat_len)
+        return min(len(self.fc_file_paths), len(self.hc_file_paths)) * (
+            self.hours_in_file // self.concat_len
+        )
 
     def __getitem__(self, idx):
         if self.concat_len == 1:
@@ -104,11 +112,13 @@ class ForecastHindcastDatasetNpy(Dataset):
         else:
             file_idx = (idx * self.concat_len + self.concat_len - 1) // self.hours_in_file
             time_step_idx = (idx * self.concat_len) % self.hours_in_file
-            fc_data = self.fc_data[file_idx][time_step_idx: time_step_idx + self.concat_len].squeeze()
+            fc_data = self.fc_data[file_idx][
+                time_step_idx : time_step_idx + self.concat_len
+            ].squeeze()
             hc_data = self.hc_data[file_idx][time_step_idx].squeeze()
             fc_data = fc_data.reshape(-1, fc_data.shape[-2], fc_data.shape[-1])
 
-        assert fc_data.shape[0] == 2*self.concat_len, "Error with concatting time steps!"
+        assert fc_data.shape[0] == 2 * self.concat_len, "Error with concatting time steps!"
         return fc_data, hc_data
 
 

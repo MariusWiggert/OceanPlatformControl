@@ -1,4 +1,6 @@
-from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
+    OceanCurrentNoiseField,
+)
 from ocean_navigation_simulator.generative_error_model.GAN.data_preprocessing import area_handler
 
 import numpy as np
@@ -16,8 +18,7 @@ noise_field.reset(rng)
 
 # define the spatial and temporal range
 lon_range, lat_range = area_handler("area1")
-t_range = [datetime.datetime(2022, 5, 2, 12, 30, 0),
-           datetime.datetime(2022, 5, 11, 12, 30, 0)]
+t_range = [datetime.datetime(2022, 5, 2, 12, 30, 0), datetime.datetime(2022, 5, 11, 12, 30, 0)]
 
 # output
 datasets = {"train_val": 139, "test": 16}

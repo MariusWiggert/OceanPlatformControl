@@ -1,6 +1,11 @@
 from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.variogram.utils import save_variogram_to_npy
-from ocean_navigation_simulator.generative_error_model.utils import timer, setup_logger, load_config, get_path_to_project
+from ocean_navigation_simulator.generative_error_model.utils import (
+    timer,
+    setup_logger,
+    load_config,
+    get_path_to_project,
+)
 from ocean_navigation_simulator.generative_error_model.variogram.Variogram import Variogram
 
 import argparse
@@ -10,17 +15,42 @@ import os
 
 def parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("bin_res", nargs="*", action="append", type=float, help="defines the ranges of bins [lon, lat, time]")
-    parser.add_argument("--yaml_file_config", default="scenarios/generative_error_model/config_buoy_data.yaml", type=str)
-    parser.add_argument("--is_3d", action="store_true", help="whether to compute a 3d or 2d variogram")
+    parser.add_argument(
+        "bin_res",
+        nargs="*",
+        action="append",
+        type=float,
+        help="defines the ranges of bins [lon, lat, time]",
+    )
+    parser.add_argument(
+        "--yaml_file_config",
+        default="scenarios/generative_error_model/config_buoy_data.yaml",
+        type=str,
+    )
+    parser.add_argument(
+        "--is_3d", action="store_true", help="whether to compute a 3d or 2d variogram"
+    )
     parser.add_argument("--num_workers", default=2, type=int, help="for multiprocessing")
-    parser.add_argument("--chunk_size", default=1e6, type=float, help="what size chunk the computation is performed on")
+    parser.add_argument(
+        "--chunk_size",
+        default=1e6,
+        type=float,
+        help="what size chunk the computation is performed on",
+    )
     parser.add_argument("--cross_buoy_pairs_only", action="store_true", help="read name m8")
     parser.add_argument("--units", default="km", type=str, help="choices: {'km', 'degrees'}")
-    parser.add_argument("--dataset_type", default="forecast", type=str, help="{'forecast', 'hindcast', 'synthetic'}")
+    parser.add_argument(
+        "--dataset_type", default="forecast", type=str, help="{'forecast', 'hindcast', 'synthetic'}"
+    )
     parser.add_argument("--dataset_name", default="area1", type=str, help="Region the data is in.")
-    parser.add_argument("--dataset_size", default="large", type=str, help="{large -> month, small -> single file}")
-    parser.add_argument("--no_data_overlap", action="store_false", help="Should errors between two forecasts overlap in time")
+    parser.add_argument(
+        "--dataset_size", default="large", type=str, help="{large -> month, small -> single file}"
+    )
+    parser.add_argument(
+        "--no_data_overlap",
+        action="store_false",
+        help="Should errors between two forecasts overlap in time",
+    )
     return parser
 
 
@@ -32,7 +62,7 @@ def main():
     project_dir = get_path_to_project(os.getcwd())
     config = load_config("config_buoy_data.yaml")
     # setup logging
-    now_string = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    now_string = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     log_dir = os.path.join(project_dir, config["data_dir"], "logging")
     logger = setup_logger(log_dir, now_string)
 
@@ -50,7 +80,8 @@ def main():
 
     # log hyper-params
     logger.info("Begin computing variogram.\n")
-    logger.info(f"""PARAMS:
+    logger.info(
+        f"""PARAMS:
         bin_res={args.bin_res[0]},
         is_3d={args.is_3d},
         num_workers={args.num_workers},
@@ -58,11 +89,18 @@ def main():
         cross_buoy_pairs_only={args.cross_buoy_pairs_only},
         units={args.units},
         dataset_size={args.dataset_size},
-        data_overlap={args.no_data_overlap}\n""")
+        data_overlap={args.no_data_overlap}\n"""
+    )
 
     # compute variogram
-    v.build_variogram(args.bin_res[0], args.num_workers, chunk_size=int(args.chunk_size),
-                          cross_buoy_pairs_only=args.cross_buoy_pairs_only, is_3d=args.is_3d, logger=logger)
+    v.build_variogram(
+        args.bin_res[0],
+        args.num_workers,
+        chunk_size=int(args.chunk_size),
+        cross_buoy_pairs_only=args.cross_buoy_pairs_only,
+        is_3d=args.is_3d,
+        logger=logger,
+    )
     # save to .npy
     resolution = list(v.res_tuple)
     dim_name_map = {True: "3d", False: "2d"}

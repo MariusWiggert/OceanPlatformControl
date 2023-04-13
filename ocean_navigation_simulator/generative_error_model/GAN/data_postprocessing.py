@@ -1,13 +1,19 @@
-from ocean_navigation_simulator.generative_error_model.GAN.data_preprocessing import save_sparse_as_npy, area_handler
-from ocean_navigation_simulator.generative_error_model.utils import get_datetime_from_file_name, datetime2str
-
-import os
-import numpy as np
+import datetime
 import glob
+import itertools
+import os
+
+import numpy as np
 import pandas as pd
 import xarray as xr
-import datetime
-import itertools
+
+from ocean_navigation_simulator.generative_error_model.GAN.data_preprocessing import (
+    area_handler,
+)
+from ocean_navigation_simulator.generative_error_model.utils import (
+    datetime2str,
+    get_datetime_from_file_name,
+)
 
 
 class ConvertToError:
@@ -22,8 +28,12 @@ class ConvertToError:
         fc_files = get_file_path_list(predictions_dir, "input")
         pred_files = get_file_path_list(predictions_dir, "output")
 
-        self.fc_data = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in fc_files]
-        self.predictions = [np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in pred_files]
+        self.fc_data = [
+            np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in fc_files
+        ]
+        self.predictions = [
+            np.load(file_path, mmap_mode="r+", allow_pickle=True) for file_path in pred_files
+        ]
 
     def get_files_start_end_date_time(self):
         """Uses ground_truth files to determine time range of GAN samples."""
@@ -43,21 +53,25 @@ class ConvertToError:
 
         # get number of files
         num_files = len(os.listdir(self.ground_truth_dir))
-        final_time_steps = (num_files-1)*24 + 8*24
+        final_time_steps = (num_files - 1) * 24 + 8 * 24
 
         final_data = np.zeros((final_time_steps, 2, 256, 256))
-        for i in range(len(self.fc_data)-1):
-            final_data[i*24:(i+1)*24, :, :, :] = self.predictions[i][:24] - self.fc_data[i][:24]
-        final_data[len(self.fc_data):len(self.fc_data) + 8*24, :, :, :] = self.predictions[-1] - self.fc_data[-1]
+        for i in range(len(self.fc_data) - 1):
+            final_data[i * 24 : (i + 1) * 24, :, :, :] = (
+                self.predictions[i][:24] - self.fc_data[i][:24]
+            )
+        final_data[len(self.fc_data) : len(self.fc_data) + 8 * 24, :, :, :] = (
+            self.predictions[-1] - self.fc_data[-1]
+        )
 
         # get axes for nc file
         start_datetime, end_datetime = self.get_files_start_end_date_time()
         start_end_timedelta = end_datetime - start_datetime
-        hour_range = start_end_timedelta.days*24 + start_end_timedelta.seconds//3600
+        hour_range = start_end_timedelta.days * 24 + start_end_timedelta.seconds // 3600
         t_axis, lat_axis, lon_axis = self.get_axes(start_datetime, hour_range, "area1")
         return self._create_xarray(final_data, lon_axis, lat_axis, t_axis)
 
-    def get_individual_as_nc(self, output_dir: str, type: str="error", duplicate: bool = False):
+    def get_individual_as_nc(self, output_dir: str, type: str = "error", duplicate: bool = False):
         """Take a single prediction/forecast file and converts it to an nc file."""
 
         gt_files = sorted(os.listdir(self.ground_truth_dir))
@@ -70,8 +84,10 @@ class ConvertToError:
             # check if file already exists
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
-            file_name = f"GAN_pred_lon_{lon_axis[0]},{lon_axis[-1]}_lat_{lat_axis[0]},{lat_axis[-1]}_" \
-                        f"time_{datetime2str(t_axis[0])},{datetime2str(t_axis[-1])}"
+            file_name = (
+                f"GAN_pred_lon_{lon_axis[0]},{lon_axis[-1]}_lat_{lat_axis[0]},{lat_axis[-1]}_"
+                f"time_{datetime2str(t_axis[0])},{datetime2str(t_axis[-1])}"
+            )
             file_path = f"{output_dir}/{file_name}.nc"
             if os.path.exists(file_path):
                 print(f"File: {file_name} already exists!")
@@ -102,7 +118,9 @@ class ConvertToError:
     def get_axes(start_datetime: datetime.datetime, hour_range: int, area: str):
         """Returns axes needed for xarray object."""
 
-        t_axis = [start_datetime + datetime.timedelta(hours=num_hours) for num_hours in range(hour_range)]
+        t_axis = [
+            start_datetime + datetime.timedelta(hours=num_hours) for num_hours in range(hour_range)
+        ]
         lon_range, lat_range = area_handler(area)
         lon_axis = np.linspace(lon_range[0], lon_range[1], 256, endpoint=True)
         lat_axis = np.linspace(lat_range[0], lat_range[1], 256, endpoint=True)
@@ -110,18 +128,15 @@ class ConvertToError:
 
     @staticmethod
     def _create_xarray(
-        data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: list) -> xr.Dataset:
+        data: np.ndarray, lon_axis: np.ndarray, lat_axis: np.ndarray, t_axis: list
+    ) -> xr.Dataset:
 
         ds = xr.Dataset(
             data_vars=dict(
                 water_u=(["time", "lat", "lon"], data[:, 0, :, :]),
                 water_v=(["time", "lat", "lon"], data[:, 1, :, :]),
             ),
-            coords=dict(
-                time=t_axis,
-                lat=lat_axis,
-                lon=lon_axis
-            ),
+            coords=dict(time=t_axis, lat=lat_axis, lon=lon_axis),
             attrs=dict(description="An ocean current error sample over time and space."),
         )
         return ds
@@ -150,11 +165,9 @@ def get_sparse_from_nc(nc_file: str, num_samples: int = 30000):
     u_error = data["water_u"].values.reshape(-1)[idx]
     v_error = data["water_v"].values.reshape(-1)[idx]
 
-    data = pd.DataFrame({"lon": lon,
-                         "lat": lat,
-                         "time": time,
-                         "u_error": u_error,
-                         "v_error": v_error})
+    data = pd.DataFrame(
+        {"lon": lon, "lat": lat, "time": time, "u_error": u_error, "v_error": v_error}
+    )
     return data
 
 

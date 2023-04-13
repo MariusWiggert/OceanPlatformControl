@@ -1,26 +1,33 @@
-from ocean_navigation_simulator.environment.data_sources.OceanCurrentField import OceanCurrentField
-
 import datetime
 import os
-import xarray as xr
-import numpy as np
 from typing import List
 
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 
-hindcast_dict = {"field": "OceanCurrents",
-                 "source": "opendap",
-                 "source_settings": {"service": "copernicus",
-                                     "currents": "total",
-                                     "USERNAME": "jdieker",
-                                     "PASSWORD": "AxxzVqCuC#!vS69",
-                                     "DATASET_ID": "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"}
-                 }
+hindcast_dict = {
+    "field": "OceanCurrents",
+    "source": "opendap",
+    "source_settings": {
+        "service": "copernicus",
+        "currents": "total",
+        "USERNAME": "jdieker",
+        "PASSWORD": "AxxzVqCuC#!vS69",
+        "DATASET_ID": "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i",
+    },
+}
 
 sim_cache_dict = {"deg_arount_x_t": 1, "time_around_x_t": 86400}
 
 
-def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], start: datetime.datetime,
-                            days:int, save_dir: str):
+def get_copernicus_hindcast(
+    lon_range: List[float],
+    lat_range: List[float],
+    start: datetime.datetime,
+    days: int,
+    save_dir: str,
+):
     """Gets 9 day long copernicus hindcasts for each day specified. E.g. if days=2, it saves two files of length 9
     days, the second one starting one day after the first.
     Note 1: Uses Marius' HindcastOpendapSource class which changes the internal xarray naming, this func changes it
@@ -34,32 +41,42 @@ def get_copernicus_hindcast(lon_range: List[float], lat_range: List[float], star
         file_start = start + datetime.timedelta(days=day)
         file_end = file_start + datetime.timedelta(days=9)
         print(f"Downloading for time period of [{file_start}, {file_end}].")
-        file_name = f"copernicus_hindcast_lon_{lon_range}_lat_{lat_range}_time_" + \
-                    f"[{start + datetime.timedelta(days=day)},{start + datetime.timedelta(days=9 + day)}].nc"
+        file_name = (
+            f"copernicus_hindcast_lon_{lon_range}_lat_{lat_range}_time_"
+            + f"[{start + datetime.timedelta(days=day)},{start + datetime.timedelta(days=9 + day)}].nc"
+        )
         # check if file already exists
         if os.path.exists(os.path.join(save_dir, file_name)):
-            print(f"File already exists!")
+            print("File already exists!")
             continue
 
         # need to run OceanCurrentField again so connection does not time out -> makes loop very slow
-        ocean_field = OceanCurrentField(hindcast_source_dict=hindcast_dict, sim_cache_dict=sim_cache_dict)
+        ocean_field = OceanCurrentField(
+            hindcast_source_dict=hindcast_dict, sim_cache_dict=sim_cache_dict
+        )
         print("Made connection to Copernicus!")
         # get xarray
         ds_hindcast = ocean_field.hindcast_data_source.DataArray
         # slice for specific range
-        hindcast = ds_hindcast.sel(time=slice(start+datetime.timedelta(days=day), start+datetime.timedelta(days=9+day)),
-                                   lon=slice(*lon_range),
-                                   lat=slice(*lat_range))
+        hindcast = ds_hindcast.sel(
+            time=slice(
+                start + datetime.timedelta(days=day), start + datetime.timedelta(days=9 + day)
+            ),
+            lon=slice(*lon_range),
+            lat=slice(*lat_range),
+        )
 
-        water_u = hindcast["water_u"].values[:, np.newaxis, :, :]
-        water_v = hindcast["water_v"].values[:, np.newaxis, :, :]
-        attrs = hindcast.attrs
+        # water_u = hindcast["water_u"].values[:, np.newaxis, :, :]
+        # water_v = hindcast["water_v"].values[:, np.newaxis, :, :]
+        # attrs = hindcast.attrs
 
         # rename dims and variables
-        renaming_map = {"lon": "longitude",
-                        "lat": "latitude",
-                        "water_u": "utotal",
-                        "water_v": "vtotal"}
+        renaming_map = {
+            "lon": "longitude",
+            "lat": "latitude",
+            "water_u": "utotal",
+            "water_v": "vtotal",
+        }
         hindcast = hindcast.rename(renaming_map)
         print(hindcast)
 

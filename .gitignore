@@ -2,12 +2,24 @@
 .DS_Store*
 __pycache__*
 *.gif
+*.log
+*.egg-info
 optimized_dp/
 viz/
-data/
 .vscode/
-ocean_navigation_simulator/generative_error_model/archive/
-2D_reachability_animation.html
-ocean_navigation_simulator.egg-info
-*.csv
+.ipynb_checkpoints/
+generated_media/
+./hj_reachability/
+./data/
+./models/
+!generative_error_model/models
+./results/
+# Setup file from Jerome
+setup/env*
+# New dir structure
+archive/
+tmp/
+data/
+models/
+results/
 wandb/

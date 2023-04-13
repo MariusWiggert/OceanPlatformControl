@@ -1,8 +1,9 @@
+from typing import Any, Callable, Dict, List, Tuple
+
 import numpy as np
-import xarray as xr
 import pandas as pd
-from typing import Callable, Dict, Any, List, Tuple
 import seaborn as sns
+import xarray as xr
 
 
 def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, Any]]]:
@@ -13,12 +14,20 @@ def get_metrics() -> Dict[str, Callable[[pd.DataFrame, pd.DataFrame], Dict[str, 
 
 
 def rmse(ground_truth, predictions):
-    return np.sqrt(((ground_truth[0] - predictions[0])**2 + (ground_truth[1] - predictions[1])**2).mean())
+    return np.sqrt(
+        ((ground_truth[0] - predictions[0]) ** 2 + (ground_truth[1] - predictions[1]) ** 2).mean()
+    )
 
 
 def rmse_pd(ground_truth: pd.DataFrame, synthetic_data: pd.DataFrame) -> Dict[str, float]:
-    rmse_val = np.sqrt((((ground_truth["u_error"]-synthetic_data["u_error"])**2 +
-                        (ground_truth["v_error"]-synthetic_data["v_error"])**2)).mean())
+    rmse_val = np.sqrt(
+        (
+            (
+                (ground_truth["u_error"] - synthetic_data["u_error"]) ** 2
+                + (ground_truth["v_error"] - synthetic_data["v_error"]) ** 2
+            )
+        ).mean()
+    )
     return {"rmse": rmse_val}
 
 
@@ -27,14 +36,22 @@ def rmse_over_time(df: pd.DataFrame, variables: Tuple[str, str]) -> Dict[str, Li
     hours = sorted(set(df["hour"].tolist()))
     rmse_data = []
     for hour in hours:
-        rmse_data.append(np.sqrt(((df[df["hour"] == hour][variables[0]])**2 +
-                                  (df[df["hour"] == hour][variables[1]])**2).mean()))
+        rmse_data.append(
+            np.sqrt(
+                (
+                    (df[df["hour"] == hour][variables[0]]) ** 2
+                    + (df[df["hour"] == hour][variables[1]]) ** 2
+                ).mean()
+            )
+        )
     return {"rmse": rmse_data}
 
 
 def rmse_over_time_xr(error: xr.Dataset, variables: Tuple[str, str]):
-    rmse_val = np.sqrt(((error[variables[0]]**2).mean(dim=("lon", "lat"))).values +
-                       ((error[variables[1]]**2).mean(dim=("lon", "lat"))).values)
+    rmse_val = np.sqrt(
+        ((error[variables[0]] ** 2).mean(dim=("lon", "lat"))).values
+        + ((error[variables[1]] ** 2).mean(dim=("lon", "lat"))).values
+    )
     return rmse_val
 
 
@@ -53,10 +70,7 @@ def vector_correlation_over_time(data: pd.DataFrame) -> np.ndarray:
 
 def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> np.ndarray:
     # rename forecast variables and slice forecast to size of error
-    renaming_map = {"longitude": "lon",
-                    "latitude": "lat",
-                    "utotal": "water_u",
-                    "vtotal": "water_v"}
+    renaming_map = {"longitude": "lon", "latitude": "lat", "utotal": "water_u", "vtotal": "water_v"}
     if any(item in forecast.dims for item in renaming_map.keys()):
         forecast = forecast.rename(renaming_map)
 
@@ -64,9 +78,7 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> 
     lon_range = [error["lon"].values.min(), error["lon"].values.max()]
     lat_range = [error["lat"].values.min(), error["lat"].values.max()]
     time_range = [error["time"].values.min(), error["time"].values.max()]
-    forecast = forecast.sel(lon=slice(*lon_range),
-                            lat=slice(*lat_range),
-                            time=slice(*time_range))
+    forecast = forecast.sel(lon=slice(*lon_range), lat=slice(*lat_range), time=slice(*time_range))
 
     # convert error to float32
     for data_source in [forecast, error]:
@@ -85,11 +97,15 @@ def vector_correlation_over_time_xr(error: xr.Dataset, forecast: xr.Dataset) -> 
         gt_v_error = ground_truth["water_v"].sel(time=time).values
         fc_u_error = forecast["water_u"].sel(time=time).values
         fc_v_error = forecast["water_v"].sel(time=time).values
-        vector_correlation_per_hour.append(vector_correlation(gt_u_error, gt_v_error, fc_u_error, fc_v_error))
+        vector_correlation_per_hour.append(
+            vector_correlation(gt_u_error, gt_v_error, fc_u_error, fc_v_error)
+        )
     return np.array(vector_correlation_per_hour)
 
 
-def vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured, print_out=False):
+def vector_correlation(
+    u_data_hindcast, v_data_hindcast, u_data_measured, v_data_measured, print_out=False
+):
     """
     Calculates the vector correlation for two sets of measurements.
     """
@@ -111,12 +127,19 @@ def vector_correlation(u_data_hindcast, v_data_hindcast, u_data_measured, v_data
     # Matrix multiplications
     epsilon = 0
     try:
-        vector_correlation = np.trace(np.linalg.inv(sigma_11) @ sigma_12 @ np.linalg.inv(sigma_22) @ sigma_21)
-    except:
+        vector_correlation = np.trace(
+            np.linalg.inv(sigma_11) @ sigma_12 @ np.linalg.inv(sigma_22) @ sigma_21
+        )
+    except Exception:
         vector_correlation = np.NaN
         while np.isnan(vector_correlation):
             epsilon += 5e-5
-            vector_correlation = np.trace(np.linalg.inv(sigma_11 + epsilon*np.eye(2)) @ sigma_12 @ np.linalg.inv(sigma_22 + epsilon*np.eye(2)) @ sigma_21)
+            vector_correlation = np.trace(
+                np.linalg.inv(sigma_11 + epsilon * np.eye(2))
+                @ sigma_12
+                @ np.linalg.inv(sigma_22 + epsilon * np.eye(2))
+                @ sigma_21
+            )
             if epsilon > 1e-1:
                 print("Could not compute vector correlation!")
                 break
@@ -134,7 +157,7 @@ def temporal_smoothness(data: np.ndarray) -> float:
         else:
             temp_smoothness += temp
 
-    return temp_smoothness.sum()/((data.shape[0]-1)*np.prod(temp_smoothness.shape))
+    return temp_smoothness.sum() / ((data.shape[0] - 1) * np.prod(temp_smoothness.shape))
     # return (temp_smoothness / (data.shape[0] - 1)).mean()
 
 
@@ -145,10 +168,4 @@ def get_correlation(var1: np.ndarray, var2: np.ndarray, *args):
 
 
 def plot_correlation_grid(df: pd.DataFrame):
-    sns.heatmap(df.corr(),
-                cbar=False,
-                annot=True,
-                fmt=".4f",
-                cmap="coolwarm",
-                vmin=-1,
-                vmax=1)
+    sns.heatmap(df.corr(), cbar=False, annot=True, fmt=".4f", cmap="coolwarm", vmin=-1, vmax=1)

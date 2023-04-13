@@ -24,19 +24,23 @@ class DatasetWriter:
             raise ValueError("Choose from {forecast, hindcast}.")
 
         # where forecasts are coming from
-        input_path = os.path.join(self.data_dir, self.dataset_type+"s", self.input_dir)
+        input_path = os.path.join(self.data_dir, self.dataset_type + "s", self.input_dir)
         if input_path != "/":
             input_path += "/"
         self.config["local_forecast"]["source_settings"]["folder"] = input_path
         print(f"Loading data from: {input_path}")
 
         # where dataset is saved
-        self.output_path = os.path.join(self.data_dir, f"dataset_{self.dataset_type}_error", self.output_dir)
+        self.output_path = os.path.join(
+            self.data_dir, f"dataset_{self.dataset_type}_error", self.output_dir
+        )
         if not os.path.exists(self.output_path):
             os.makedirs(self.output_path)
-        print(f'Writing data to: {self.output_path}\n')
+        print(f"Writing data to: {self.output_path}\n")
 
-        self.ocean_field = OceanCurrentField(self.config["sim_cache_dict"], self.config["local_forecast"])
+        self.ocean_field = OceanCurrentField(
+            self.config["sim_cache_dict"], self.config["local_forecast"]
+        )
         self.files_dicts = self.ocean_field.forecast_data_source.files_dicts
         self.DataArray = None
 
@@ -86,10 +90,12 @@ class DatasetWriter:
             self.config["buoy_config"]["copernicus"]["time_range"] = time_string
 
             # construct file name
-            file_name = f"{self.config['dataset_writer']['source']}_{self.dataset_type}_error"\
-                        f"_lon_{self.config['buoy_config']['copernicus']['lon_range']}"\
-                        f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"\
-                        f"_time_{self.config['buoy_config']['copernicus']['time_range']}.csv"
+            file_name = (
+                f"{self.config['dataset_writer']['source']}_{self.dataset_type}_error"
+                f"_lon_{self.config['buoy_config']['copernicus']['lon_range']}"
+                f"_lat_{self.config['buoy_config']['copernicus']['lat_range']}"
+                f"_time_{self.config['buoy_config']['copernicus']['time_range']}.csv"
+            )
             file_name = file_name.replace("/", "__")
 
             # get error and write file if it does not exists
@@ -97,7 +103,9 @@ class DatasetWriter:
                 print(f"file already exists: {file_name}")
                 continue
             if index_file_update and self.config["dataset_writer"]["source"] == "copernicus":
-                self.config["buoy_config"]["copernicus"]["dataset"]["download_index_files"] = index_file_update
+                self.config["buoy_config"]["copernicus"]["dataset"][
+                    "download_index_files"
+                ] = index_file_update
                 forecast_error = self.get_error(file_idx)
                 index_file_update = False
                 self.config["buoy_config"]["copernicus"]["dataset"]["download_index_files"] = False

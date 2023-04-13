@@ -12,12 +12,40 @@ from ocean_navigation_simulator.utils import units
 class SpatialPoint:
     """A dataclass containing variables that define the spatial position.
 
-      Attributes:
-        lon: The latitude position in degree
-        lat: The longitude position in degree
-      """
+    Attributes:
+      lon: The latitude position in degree
+      lat: The longitude position in degree
+    """
+
     lon: units.Distance
     lat: units.Distance
+
+    def distance(self, other) -> units.Distance:
+        return units.Distance(
+            deg=math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
+        )
+
+    def haversine(self, other) -> units.Distance:
+        """
+        Calculate the great circle distance in degrees between two points
+        on the earth (specified in decimal degrees)
+        Taken from: https://stackoverflow.com/a/4913653
+        """
+        return units.Distance(
+            rad=units.haversine_rad_from_deg(
+                self.lon.deg, self.lat.deg, other.lon.deg, other.lat.deg
+            )
+        )
+
+    @staticmethod
+    def from_dict(point_dict: dict):
+        return SpatialPoint(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+        )
+
+    def bearing(self, other) -> float:
+        return math.atan2(self.lon.deg - other.lon.deg, self.lat.deg - other.lat.deg)
 
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg])
@@ -28,11 +56,8 @@ class SpatialPoint:
     def __getitem__(self, item):
         return self.__array__()[item]
 
-    def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)
-
-    def __str__(self):
-        return f"({self.lon.deg:5f}°,{self.lat.deg:.5f}°)"
+    def __repr__(self):
+        return f"[{self.lon.deg:.2f}°,{self.lat.deg:.2f}°]"
 
 
 @dataclasses.dataclass
@@ -40,14 +65,26 @@ class SpatioTemporalPoint:
     # TODO: implement nice way to transform a list of those to numpy and back: https://kplauritzen.dk/2021/08/11/convert-dataclasss-np-array.html
     """A dataclass containing SpatioTemporalPoint variables..
 
-      Attributes:
-        lon: The latitude position in degree
-        lat: The longitude position in degree
-        date_time: The current time.
-      """
+    Attributes:
+      lon: The latitude position in degree
+      lat: The longitude position in degree
+      date_time: The current time.
+    """
     lon: units.Distance
     lat: units.Distance
     date_time: datetime.datetime
+
+    @staticmethod
+    def from_dict(point_dict: dict):
+        try:
+            dt = datetime.datetime.strptime(point_dict["date_time"], "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(point_dict["date_time"])
+        return SpatioTemporalPoint(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+            date_time=dt,
+        )
 
     def __array__(self):
         return np.array([self.lon.deg, self.lat.deg, self.date_time.timestamp()])
@@ -58,6 +95,15 @@ class SpatioTemporalPoint:
     def __getitem__(self, item):
         return self.__array__()[item]
 
+    def distance(self, other) -> units.Distance:
+        return self.to_spatial_point().distance(other)
+
+    def haversine(self, other) -> units.Distance:
+        return self.to_spatial_point().haversine(other)
+
+    def bearing(self, other) -> float:
+        return self.to_spatial_point().bearing(other)
+
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
         return SpatialPoint(lon=self.lon, lat=self.lat)
@@ -66,33 +112,71 @@ class SpatioTemporalPoint:
         """Helper function to produce a list [posix_time, lat, lon] to feed into casadi."""
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
+    def __repr__(self):
+        return f"[{self.lon.deg:.2f}°,{self.lat.deg:.2f}°,{self.date_time.strftime('%Y-%m-%d %H:%M:%S')}]"
+
 
 @dataclasses.dataclass
 class PlatformState:
     """A dataclass containing variables relevant to the platform state.
 
-      Attributes:
-        lon: The latitude position in degree
-        lat: The longitude position in degree
-        battery_charge: The amount of energy stored on the batteries.
-        seaweed_mass: The amount of seaweed biomass on the system.
-        date_time: The current time.
-      """
+    Attributes:
+      lon: The latitude position in degree
+      lat: The longitude position in degree
+      battery_charge: The amount of energy stored on the batteries.
+      seaweed_mass: The amount of seaweed biomass on the system.
+      date_time: The current time.
+    """
+
     lon: units.Distance
     lat: units.Distance
     date_time: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc)
     battery_charge: units.Energy = units.Energy(joule=100)
     seaweed_mass: units.Mass = units.Mass(kg=100)
+    inside_garbage: bool = False
 
     def __array__(self):
         return np.array(
-            [self.lon.deg, self.lat.deg, self.date_time.timestamp(), self.battery_charge.joule, self.seaweed_mass.kg])
+            [
+                self.lon.deg,
+                self.lat.deg,
+                self.date_time.timestamp(),
+                self.battery_charge.joule,
+                self.seaweed_mass.kg,
+                self.inside_garbage,
+            ]
+        )
 
     def __len__(self):
         return self.__array__().shape[0]
 
     def __getitem__(self, item):
         return self.__array__()[item]
+
+    @staticmethod
+    def from_dict(point_dict: dict):
+        # get date_time
+        try:
+            dt = datetime.datetime.strptime(point_dict["date_time"], "%Y-%m-%d %H:%M:%S.%f %z")
+        except BaseException:
+            dt = datetime.datetime.fromisoformat(point_dict["date_time"])
+        return PlatformState(
+            lon=units.Distance(deg=point_dict["lon"]),
+            lat=units.Distance(deg=point_dict["lat"]),
+            date_time=dt,
+            battery_charge=units.Energy(joule=point_dict.get("battery_charge", 100)),
+            seaweed_mass=units.Mass(kg=point_dict.get("seaweed_mass", 100)),
+            inside_garbage=point_dict.get("inside_garbage", 0),
+        )
+
+    def distance(self, other) -> units.Distance:
+        return self.to_spatial_point().distance(other)
+
+    def haversine(self, other) -> units.Distance:
+        return self.to_spatial_point().haversine(other)
+
+    def bearing(self, other) -> float:
+        return self.to_spatial_point().bearing(other)
 
     @staticmethod
     def from_numpy(numpy_array):
@@ -107,8 +191,13 @@ class PlatformState:
             lat=units.Distance(deg=numpy_array[1]),
             date_time=datetime.datetime.fromtimestamp(numpy_array[2], tz=datetime.timezone.utc),
             battery_charge=units.Energy(joule=numpy_array[3]),
-            seaweed_mass=units.Mass(kg=numpy_array[4])
+            seaweed_mass=units.Mass(kg=numpy_array[4]),
+            inside_garbage=numpy_array[5],
         )
+
+    @staticmethod
+    def from_spatio_temporal_point(point: SpatioTemporalPoint):
+        return PlatformState(lon=point.lon, lat=point.lat, date_time=point.date_time)
 
     def to_spatial_point(self) -> SpatialPoint:
         """Helper function to just extract the spatial point."""
@@ -123,10 +212,11 @@ class PlatformState:
         return [self.date_time.timestamp(), self.lat.deg, self.lon.deg]
 
     def __repr__(self):
-        return 'Platform State: lon: {x} deg, lat: {y} deg, battery_charge: {b} Joule, seaweed_mass: {m} kg, ' \
-               'date_time: {t}'.format(
-            x=self.lon.deg, y=self.lat.deg, b=self.battery_charge.joule, m=self.seaweed_mass.kg, t=self.date_time
+        return "Platform State[lon: {x:.2f} deg, lat: {y:.2f} deg, date_time: {t}, battery_charge: {b} Joule, seaweed_mass: {m} kg, inside_garbage: {g}]".format(
+            x=self.lon.deg,
+            y=self.lat.deg,
+            t=self.date_time.strftime("%Y-%m-%d %H:%M:%S"),
+            b=self.battery_charge.joule,
+            m=self.seaweed_mass.kg,
+            g=self.inside_garbage,
         )
-
-    def distance(self, other) -> float:
-        return math.sqrt((self.lat.deg - other.lat.deg) ** 2 + (self.lon.deg - other.lon.deg) ** 2)

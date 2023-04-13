@@ -1,15 +1,26 @@
-from ocean_navigation_simulator.generative_error_model.utils import hour_range_file_name, time_range_hrs, datetime2str
-
+import datetime
 import os
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-from typing import Tuple
-import datetime
+
+from ocean_navigation_simulator.generative_error_model.utils import (
+    datetime2str,
+    hour_range_file_name,
+    time_range_hrs,
+)
 
 
-def save_nc_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: Tuple, lat_range: Tuple,
-                   duplicate: bool = False):
+def save_nc_as_npy(
+    file_dir: str,
+    file_list: list,
+    output_dir: str,
+    lon_range: Tuple,
+    lat_range: Tuple,
+    duplicate: bool = False,
+):
     """Takes a .nc file and saves it as a .npy file."""
 
     for file in file_list:
@@ -19,7 +30,9 @@ def save_nc_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: T
             if duplicate:
                 index = 1
                 while os.path.exists(output_file_path):
-                    output_file_path = "".join(output_file_path.split(".")[:-1]) + str(index) + ".npy"
+                    output_file_path = (
+                        "".join(output_file_path.split(".")[:-1]) + str(index) + ".npy"
+                    )
                     index += 1
             else:
                 continue
@@ -37,8 +50,15 @@ def save_nc_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: T
         np.save(output_file_path, data)
 
 
-def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_range: Tuple, lat_range: Tuple, type="buoy",
-                       duplicate: bool = False):
+def save_sparse_as_npy(
+    file_dir: str,
+    file_list: list,
+    output_dir: str,
+    lon_range: Tuple,
+    lat_range: Tuple,
+    type="buoy",
+    duplicate: bool = False,
+):
     """Takes sparse buoy data, turns it into a sparse matrix and saves it as an .npy file."""
 
     for file in file_list:
@@ -48,7 +68,9 @@ def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_rang
             if duplicate:
                 index = 1
                 while os.path.exists(output_file_path):
-                    output_file_path = "".join(output_file_path.split(".")[:-1]) + str(index) + ".npy"
+                    output_file_path = (
+                        "".join(output_file_path.split(".")[:-1]) + str(index) + ".npy"
+                    )
                     index += 1
             else:
                 continue
@@ -58,10 +80,14 @@ def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_rang
         # advance by 1 hr due to 30 minute shift between between buoy time and FC time
         start_date = start_date + datetime.timedelta(hours=1)
         hour_range = time_range_hrs(start_date, hours_according_file_name)
-        output_data = np.zeros((hours_according_file_name,
-                                2,
-                                len(list(np.arange(*lon_range, 1/12)))+1,
-                                len(list(np.arange(*lat_range, 1/12)))+1))
+        output_data = np.zeros(
+            (
+                hours_according_file_name,
+                2,
+                len(list(np.arange(*lon_range, 1 / 12))) + 1,
+                len(list(np.arange(*lat_range, 1 / 12))) + 1,
+            )
+        )
         # need to make sure that the hours of the buoy data match the dense fc/hc data
         # if there is no buoy data for a particular hour, an empty frame is inserted
         added_non_zeros = 0
@@ -73,14 +99,18 @@ def save_sparse_as_npy(file_dir: str, file_list: list, output_dir: str, lon_rang
                 # convert from sparse to dense
                 points = np.array([data_time_step["lon"], data_time_step["lat"]])
                 nearest_grid_points = round_to_multiple(points)
-                lon_idx = np.searchsorted(np.arange(*lon_range, 1/12), nearest_grid_points[0])
-                lat_idx = np.searchsorted(np.arange(*lat_range, 1/12), nearest_grid_points[1])
+                lon_idx = np.searchsorted(np.arange(*lon_range, 1 / 12), nearest_grid_points[0])
+                lat_idx = np.searchsorted(np.arange(*lat_range, 1 / 12), nearest_grid_points[1])
                 if type == "buoy":
                     output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u"].values
                     output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v"].values
                 elif type == "forecast":
-                    output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u_forecast"].values
-                    output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v_forecast"].values
+                    output_data[time_step, 0, lat_idx, lon_idx] = data_time_step[
+                        "u_forecast"
+                    ].values
+                    output_data[time_step, 1, lat_idx, lon_idx] = data_time_step[
+                        "v_forecast"
+                    ].values
                 elif type == "error":
                     output_data[time_step, 0, lat_idx, lon_idx] = data_time_step["u_error"].values
                     output_data[time_step, 1, lat_idx, lon_idx] = data_time_step["v_error"].values
@@ -106,10 +136,12 @@ def area_handler(area: str):
     return lon_range, lat_range
 
 
-def save_sparse_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_dir: str, area: str, type="buoy"):
+def save_sparse_npy_datasets(
+    input_dir: str, output_np_dir: str, output_np_test_dir: str, area: str, type="buoy"
+):
     lon_range, lat_range = area_handler(area)
     files = sorted(os.listdir(input_dir))
-    len_train = int(0.9*len(files))
+    len_train = int(0.9 * len(files))
     train_val_files = files[:len_train]
     test_files = files[len_train:]
 
@@ -122,8 +154,8 @@ def save_sparse_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_
 def save_dense_npy_datasets(input_dir: str, output_np_dir: str, output_np_test_dir: str, area: str):
     lon_range, lat_range = area_handler(area)
     files = sorted(os.listdir(input_dir))
-    len_train = int(0.9*len(files))
-    train_val_files = files[:len_train]
+    len_train = int(0.9 * len(files))
+    # train_val_files = files[:len_train]
     test_files = files[len_train:]
 
     # save_nc_as_npy(input_dir, train_val_files, output_np_dir, lon_range, lat_range)
@@ -135,15 +167,19 @@ def save_repeated_test_dataset(input_dir: str, output_np_dir: str, area: str, ty
 
     lon_range, lat_range = area_handler(area)
     files = sorted(os.listdir(input_dir))
-    len_train = int(0.9*len(files))
+    len_train = int(0.9 * len(files))
     test_files = files[len_train:]
     file_to_repeat = test_files[0]
 
     repeated_test_files = [file_to_repeat for _ in range(10)]
     if type == "dense":
-        save_nc_as_npy(input_dir, repeated_test_files, output_np_dir, lon_range, lat_range, duplicate=True)
+        save_nc_as_npy(
+            input_dir, repeated_test_files, output_np_dir, lon_range, lat_range, duplicate=True
+        )
     elif type == "sparse":
-        save_sparse_as_npy(input_dir, repeated_test_files, output_np_dir, lon_range, lat_range, duplicate=True)
+        save_sparse_as_npy(
+            input_dir, repeated_test_files, output_np_dir, lon_range, lat_range, duplicate=True
+        )
 
 
 def main():

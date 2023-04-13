@@ -1,11 +1,16 @@
-from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import ForecastHindcastDatasetNpy
-from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse
-from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse
-
-import torch.nn.functional as F
-import torch
-import numpy as np
 import os
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import (
+    ForecastHindcastDatasetNpy,
+)
+from ocean_navigation_simulator.generative_error_model.GAN.utils import l1, mse
+from ocean_navigation_simulator.generative_error_model.generative_model_metrics import (
+    rmse,
+)
 
 
 def gaussian(window_size, sigma):
@@ -15,8 +20,10 @@ def gaussian(window_size, sigma):
 
     Length of list = window_size
     """
-    gauss = torch.Tensor([np.exp(-(x - window_size//2)**2/float(2*sigma**2)) for x in range(window_size)])
-    return gauss/gauss.sum()
+    gauss = torch.Tensor(
+        [np.exp(-((x - window_size // 2) ** 2) / float(2 * sigma**2)) for x in range(window_size)]
+    )
+    return gauss / gauss.sum()
 
 
 def create_window(window_size, channel=1):
@@ -35,7 +42,7 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False)
     pad = window_size // 2
     try:
         _, channels, height, width = img1.size()
-    except:
+    except Exception:
         channels, height, width = img1.size()
 
     # if window is not provided, init one
@@ -48,8 +55,8 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False)
     mu1 = F.conv2d(img1, window, padding=pad, groups=channels)
     mu2 = F.conv2d(img2, window, padding=pad, groups=channels)
 
-    mu1_sq = mu1 ** 2
-    mu2_sq = mu2 ** 2
+    mu1_sq = mu1**2
+    mu2_sq = mu2**2
     mu12 = mu1 * mu2
 
     # now we calculate the sigma square parameter
@@ -90,7 +97,7 @@ def main():
     print(f"Dataset length: {len(dataset)}")
     dataloader = iter(dataset)
     ssim_values, rmse_values, mse_values, l1_values = [], [], [], []
-    for i in range(round(0.9*len(dataset)), round(0.95*len(dataset))):
+    for i in range(round(0.9 * len(dataset)), round(0.95 * len(dataset))):
         fc, hc = next(dataloader)
         fc, hc = torch.Tensor(fc), torch.Tensor(hc)
         ssim_values.append(ssim(fc, hc))
@@ -98,10 +105,10 @@ def main():
         mse_values.append(np.sqrt(mse(fc, hc)))
         l1_values.append(l1(fc, hc))
 
-    print(np.array(ssim_values).sum()/len(ssim_values))
-    print(np.array(rmse_values).sum()/len(rmse_values))
-    print(np.array(mse_values).sum()/len(mse_values))
-    print(np.array(l1_values).sum()/len(l1_values))
+    print(np.array(ssim_values).sum() / len(ssim_values))
+    print(np.array(rmse_values).sum() / len(rmse_values))
+    print(np.array(mse_values).sum() / len(mse_values))
+    print(np.array(l1_values).sum() / len(l1_values))
 
 
 if __name__ == "__main__":

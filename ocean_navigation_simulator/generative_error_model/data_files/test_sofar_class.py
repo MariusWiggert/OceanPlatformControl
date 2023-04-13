@@ -1,4 +1,7 @@
-from ocean_navigation_simulator.generative_error_model.data_files.BuoyData import BuoyDataSofar, BuoyDataCopernicus
+from ocean_navigation_simulator.generative_error_model.data_files.BuoyData import (
+    BuoyDataSofar,
+    BuoyDataCopernicus,
+)
 import yaml
 
 

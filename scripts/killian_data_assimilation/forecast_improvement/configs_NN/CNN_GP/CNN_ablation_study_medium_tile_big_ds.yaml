@@ -1,0 +1,146 @@
+---
+arguments_model_runner:
+  tags_wandb: [ 'medium_tile', 'big_dataset','without_GP' ]
+  yaml_file_datasets: "config_neural_net"
+  batch_size: 128 #32
+  model_type: "cnn"
+  log_interval: 1
+  lr: 0.0001 #0.0003
+  epochs: 200
+  folder_figure: "./figures/"
+  max_batches_training_set: -1
+  max_batches_validation_set: -1
+  instance_norm: False
+  return_GP_FC_IMP_FC: True
+  tile_size: [ 12, 13, 13 ]
+  #validation_batch_size: 1000
+  optimizer:
+    name: "Adam"
+    parameters:
+      betas: [ 0.95, 0.9995 ]
+      eps: 0.000001
+      weight_decay: 0.0007 #0.000001 #0.0010 #0.005 # instead of 0.02 #0.15
+  scheduler:
+    name: "ReduceLROnPlateau"
+    parameters:
+      mode: 'min'
+      factor: 0.5
+      patience: 7
+      threshold: 0.005
+arguments_script_convert_data:
+  yaml_file_datasets: "config_neural_net"
+model:
+  cfg_neural_network:
+    print_dims: False
+    ch_sz: [ 6,24,48,96,192 ] #[ 6, 18, 36, 60, 112 ] #[ 6, 12, 24, 48, 96 ] #[ 6, 32, 64, 64, 128 ] #[ 2, 32, 64, 128, 192 ]
+    initial_channels: [ 0,1,2,3,6,7 ] #[ 0,1,2,3,4,5,6,7 ]
+    final_number_channels: 2
+    activation: "relu"
+    downsizing_method: "maxpool" #"conv" #"avgpool"
+    dropout_encoder: 0.12
+    dropout_bottom: 0.6
+    dropout_decoder: 0.5
+    output_paddings: [ [ 0,1,1 ],[ 1,0,0 ],[ 1,0,0 ] ] # [ [ 0,0,0 ],[ 1,0,0 ],[ 1,0,0 ] ]
+  cfg_dataset:
+    radius_lon: 1
+    radius_lat: 1
+    margin_forecast: 0.1
+    stride_tiles_dataset: 1
+    time_horizon_input_h: 12
+    time_horizon_output_h: 12
+    stride_time_dataset_h: 12
+    indices_chanels_initial_fc: [ 4,5 ]
+    input_shape:
+      - 2
+      - 12
+      - 25
+      - 25
+
+    output_shape:
+      - 2
+      - 12
+      - 25
+      - 25
+    index_axis_time: 2
+  model_error: true
+data_generation:
+  parameters_input:
+    start_training: '2022-05-03T12:30:01Z'
+    duration_training_in_h: 2700 #max time
+    start_validation: '2022-08-25T12:30:01Z'
+    duration_validation_in_h: 504 # 21 * 24
+    input_tile_dims: [ 25, 25, 12 ]
+    window_shift: 0 # if window shift = 2: input: [x{t-2} .. x{t+2}]
+    # if window shift = 0: input= [x{t}...x{t+4}]
+    output_tile_dims: [ 25, 25, 12 ]
+    size_per_file_in_mb: 2000
+    folder_training: "data_ablation_study/GP_sampled/training/"
+    shuffle_training: True
+    #folder_validation: "./data_NN/data_validation_30_days_without_nan/"
+    #folder_validation: "data_ablation_study/GP_output_corrected/validation_off_season/"
+    folder_validation: "data_ablation_study/GP_sampled/validation/"
+    validate_each_file_separately: True
+    shuffle_validation: False
+
+config_neural_net:
+  training:
+    hindcast:
+      field: 'OceanCurrents'
+      source: 'hindcast_files'
+      source_settings:
+        #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+        #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+        #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+        'folder':
+          - 'data_ablation_study/hc/april/'
+          - 'data_ablation_study/hc/may/'
+          - 'data_ablation_study/hc/june/'
+          - 'data_ablation_study/hc/july/'
+          - 'data_ablation_study/hc/august/'
+          - 'data_ablation_study/hc/september/'
+      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+    forecast:
+      field: 'OceanCurrents'
+      source: 'forecast_files'
+      source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+        'folder':
+          - 'data_ablation_study/fc/april/'
+          - 'data_ablation_study/fc/may/'
+          - 'data_ablation_study/fc/june/'
+          - 'data_ablation_study/fc/july/'
+          - 'data_ablation_study/fc/august/'
+          - 'data_ablation_study/fc/september/'
+        #'folder': 'data/april_may_data/forecasts_HYCOM_april_8th_to_june_6th/'
+        'currents': 'total'
+  validation:
+    hindcast:
+      field: 'OceanCurrents'
+      source: 'hindcast_files'
+      source_settings:
+        #'folder': "data/single_day_hindcasts/" #21/11/2021 -> 12/12/2021#"data/hindcast_test/"
+        #'folder': 'data/single_day_hindcasts/' # 21/11 -> 27/11 + 22/12 -> 27/12
+        #'folder': 'data/april_may_data/hindcast_HYCOM_all_one_file_april/'
+        'folder':
+          - 'data_ablation_study/hc/april/'
+          - 'data_ablation_study/hc/may/'
+          - 'data_ablation_study/hc/june/'
+          - 'data_ablation_study/hc/july/'
+          - 'data_ablation_study/hc/august/'
+          - 'data_ablation_study/hc/september/'
+      #'folder': 'data/hindcast_HYCOM_all_one_file_april/'
+    forecast:
+      field: 'OceanCurrents'
+      source: 'forecast_files'
+      source_settings:
+        #'folder': "data/forecast_test/"# "data/cop_fmrc/" # 21/11/2021 -> 06/12/2021
+        #'folder': "data/unique_forecast_test/" # 22/11/2021 -> 28/11/2021
+        'folder':
+          - 'data_ablation_study/fc/april/'
+          - 'data_ablation_study/fc/may/'
+          - 'data_ablation_study/fc/june/'
+          - 'data_ablation_study/fc/july/'
+          - 'data_ablation_study/fc/august/'
+          - 'data_ablation_study/fc/september/'
+        'currents': 'total'

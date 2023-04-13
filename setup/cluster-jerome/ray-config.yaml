@@ -1,0 +1,167 @@
+# Ray Cluster Launcher Configuration
+# Documentation: https://docs.ray.io/en/latest/cluster/cloud.html#
+# Example: https://github.com/ray-project/ray/blob/master/python/ray/autoscaler/azure/example-full.yaml
+# Defaults: https://github.com/ray-project/ray/blob/master/python/ray/autoscaler/azure/defaults.yaml
+
+
+# An unique identifier for the head node and workers of this cluster.
+cluster_name: default
+
+# The maximum number of workers nodes to launch in addition to the head node.
+#initial_workers: 12
+#min_workers: 12
+max_workers: 12
+
+# Cloud-provider specific configuration.
+provider:
+    type: azure
+    # https://azure.microsoft.com/en-us/global-infrastructure/locations
+    location: eastus # canadacentral
+    resource_group: jerome-ray-cpu
+    # set subscription id otherwise the default from az cli will be used
+    subscription_id: 320d211e-ea73-4cc2-9f71-18da686ab665
+    cache_stopped_nodes: True
+
+# How Ray will authenticate with newly launched nodes.
+auth:
+    ssh_user: ubuntu
+    # you must specify paths to matching private and public key pair files
+    # use `ssh-keygen -t rsa -b 4096` to generate a new ssh key pair
+    ssh_private_key: ~/.ssh/azure
+    # changes to this should match what is specified in file_mounts
+    ssh_public_key: ~/.ssh/azure.pub
+
+# Tell the autoscaler the allowed node types and the resources they provide.
+# The key is the name of the node type, which is just for debugging purposes.
+# The node config specifies the launch config and physical instance type.
+available_node_types:
+    ray.head.default:
+        max_workers: 0
+        # The resources provided by this node type.
+        resources: {"GPU": 1, "CPU": 6, "Head CPU": 6, "RAM": 56000}
+        # Provider-specific config, e.g. instance type.
+        node_config:
+            azure_arm_parameters:
+                #   OceanEnv Worker need ~ 2.2GB RAM therefore cheaper F-Series is not suitable!
+                #   Bigger machines have linear cost/storage:
+                #     Too many small machines is laborious.
+                #     Too few machines can have a disk bottleneck
+                #   On GPU machines cores are proportionally more expensive.
+                # GPU:
+                #   - Standard_NC6_Promo (US$289.08, 56GB RAM) 290/30 = 10
+                #   - Standard_NC12_Promo (US$578.16, 112GB RAM)
+                #   - Standard_NC24_Promo (US$1,156.32, 225GB RAM)
+                #   - Standard_NC6 (US$657.00, 56GB RAM)
+                #   - Standard_NC12 (US$1,314.00, 112GB RAM)
+                #   - Standard_NC24 (US$2,628.00, 225GB RAM)
+                # General Purpose:
+                #   - Standard_D2s_v5 (US$70.08, 8GB RAM)
+                #   - Standard_D4s_v5 (US$140.16, 16GB RAM)
+                #   - Standard_D8s_v5 (US$280.32, 32GB RAM) $280/mo = $9.3/d = $0.38/h -> 10 machines: $3.8/h
+                #   - Standard_D16s_v5 (US$560.64, 64GB RAM)
+                #   - Standard_D32s_v5 (US$1,121.28, 128GB RAM)
+                #   - Standard_D64s_v5 (US$2,242.56, 256GB RAM)
+                # High Memory:
+                #   - Standard_E8s_v5 ($367.92, 64GB RAM)
+                # Compute:
+                #   - Standard_F4s_v2 (US$123.37, 8GB RAM)
+                #   - Standard_F8s_v2 (US$246.74, 16GB RAM)
+                #   - Standard_F16s_v2 (US$494.21, 32GB RAM)
+                #   - Standard_F32s_v2 (US$987.69, 64GB RAM)
+                #   - Standard_F64s_v2 (US$1,975.38, 128GB RAM)
+                # Cost Examples:
+                #   - 1 GPU +  32 CPU: 1 * Standard_NC6_Promo +  8 * Standard_D4s_v3 = 289$ +  8 * 140$ = 1409$/month =  47$/day =   2$/hour
+                #   - 1 GPU +  70 CPU: 1 * Standard_NC6_Promo + 16 * Standard_D4s_v3 = 289$ + 16 * 140$ = 2529$/month =  84$/day = 3.5$/hour
+                #   - 1 GPU + 102 CPU: 1 * Standard_NC6_Promo + 12 * Standard_D8s_v3 = 289$ + 12 * 280$ = 3649$/month = 121$/day =   5$/hour
+                #   - 8 GPU +  48 CPU: 8 * Standard_NC6_Promo                        =        8$ * 289$ = 2312$/month =  77$/day = 3.2$/hour
+                vmSize: Standard_NC6_Promo
+                # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
+                imagePublisher: microsoft-dsvm
+                imageOffer: ubuntu-2004
+                # https://portal.azure.com/#view/Microsoft_Azure_Marketplace/GalleryItemDetailsBladeNopdl/id/microsoft-dsvm.ubuntu-2004/product~/%7B%22displayName%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22itemDisplayName%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22id%22%3A%22microsoft-dsvm.ubuntu-2004%22%2C%22bigId%22%3A%22DZH318Z09LXN%22%2C%22legacyId%22%3A%22microsoft-dsvm.ubuntu-2004%22%2C%22offerId%22%3A%22ubuntu-2004%22%2C%22publisherId%22%3A%22microsoft-dsvm%22%2C%22publisherDisplayName%22%3A%22Microsoft%22%2C%22summary%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22longSummary%22%3A%22Data%20Science%20Virtual%20Machine%20-%20Ubuntu%2020.04%22%2C%22description%22%3A%22%3Cp%3EThe%20%3Cstrong%3E%26apos%3BData%20Science%20Virtual%20Machine%20(DSVM)%26apos%3B%3C%2Fstrong%3E%20is%20a%20%26apos%3BUbuntu%2020.04%26apos%3B%20VM%20that%20has%20several%20popular%20tools%20for%20data%20exploration%2C%20analysis%2C%20modeling%20%26amp%3B%20development%20pre%20installed.%3C%2Fp%3E%5Cn%3Cp%3E%3Cstrong%3EHighlights%3A%3C%2Fstrong%3E%3C%2Fp%3E%5Cn%3Cp%3EOperating%20System%2C%20Drivers%20and%20other%20base%20components%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%3Cli%3E%26quot%3BUbuntu%2020.04%26quot%3B%20image%20from%20Azure%20Marketplace%3C%2Fli%3E%5Cn%20%20%20%20%3Cli%3ENvidia%20drivers%2C%20CUDA%20Toolkit%2C%20cuDNN%20(when%20GPU%20machines%20are%20used)%3C%2Fli%3E%5Cn%20%20%20%20%5Cn%20%20%20%20%3Cli%3EDocker%3C%2Fli%3E%5Cn%20%20%20%20%3Cli%3EAnaconda%20(%26quot%3Bconda%26quot%3B)%3C%2Fli%3E%5Cn%20%20%20%20%3Cli%3EGit%3C%2Fli%3E%5Cn%20%20%5Ct%3C%2Fol%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%5Cn%3Cp%3EAuthoring%20Tools%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EVisual%20Studio%20Code%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EPyCharm%20Community%20Edition%3C%2Fli%3E%5Cn%20%20%5Ct%5Ct%5Ct%3Cli%3EJupyter%2C%20Jupyter%20Lab%3C%2Fli%3E%20%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fol%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%3Cp%3EML%20Framework%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EPyTorch%2C%20TensorFlow%2C%20scikit-learn%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3Epyspark%3C%2Fli%3E%5Cn%20%20%5Ct%5Ct%5Ct%3Cli%3Edask%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EVowpal%20Wabbit%3C%2Fli%3E%20%20%20%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fol%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%3Cp%3EOther%20Notable%20Components%3C%2Fp%3E%5Cn%3Cul%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EAzure%20CLI%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3Cli%3EAzure%20ML%20SDK%20for%20Python%3C%2Fli%3E%5Cn%20%20%20%5Ct%5Ct%5Ct%3Cli%3EAzure%20Storage%20Explorer%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fol%3E%5Cn%20%20%20%20%20%20%20%20%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%20%20%3C%2Ful%3E%5Cn%20%20%20%20%3C%2Fli%3E%5Cn%20%20%20%20%20%20%5Cn%3Cp%3EUsers%20can%20access%20the%20DSVM%20via%20Remote%20Desktop%2C%20SSH%20or%20browser%20(eg%3A%20Jupyter%20Hub).%20Optionally%2C%20the%20VM%20can%20be%20placed%20in%20a%20corporate%20network.%20%3C%2Fp%3E%5Cn%5Cn%3Cp%3EUsers%20have%20full%20access%20to%20the%20DSVM.%20If%20needed%2C%20configurations%20can%20be%20adjusted%2C%20and%20additional%20frameworks%20can%20be%20installed%20like%20with%20any%20other%20virtual%20machine.%20The%20image%20provided%20here%20is%20a%20static%20VM%20image.%20Maintenance%20and%20protection%20against%20vulnerabilities%20of%20provisioned%20DSVMs%20is%20in%20the%20customer's%20responsibility.%5Cn%3C%2Fp%3E%5Cn%3Cp%3EThere%20is%20also%20a%20DSVM%20on%20Windows.%3C%2Fp%3E%5Cn%3Cp%3EFor%20more%20details%2C%20see%20the%20%3Ca%20href%3D%5C%22https%3A%2F%2Fdocs.microsoft.com%2Fen-us%2Fazure%2Fmachine-learning%2Fdata-science-virtual-machine%2
+                # https://docs.microsoft.com/en-gb/azure/machine-learning/data-science-virtual-machine/overview
+                # https://docs.microsoft.com/en-gb/azure/machine-learning/data-science-virtual-machine/tools-included
+                imageSku: '2004'
+                imageVersion: latest
+
+    ray.worker.default:
+        # The minimum number of worker nodes of this type to launch.
+        # This number should be >= 0.
+        min_workers: 12
+        max_workers: 12
+        # The resources provided by this node type.
+        resources: {"CPU": 8, "Worker CPU": 8, "RAM": 32000}
+        # Provider-specific config, e.g. instance type.
+        node_config:
+            azure_arm_parameters:
+                vmSize: Standard_D8s_v5
+                # List images https://docs.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage
+                imagePublisher: microsoft-dsvm
+                imageOffer: ubuntu-2004
+                imageSku: '2004'
+                imageVersion: latest
+
+# Specify the node type of the head node (as configured above).
+head_node_type: ray.head.default
+
+# Files or directories to copy to the head and worker nodes. The format is a
+# dictionary from REMOTE_PATH: LOCAL_PATH, e.g.
+file_mounts: {
+    "~/.ssh": "setup/cluster-jerome/keys",
+    "~/OceanPlatformControl/setup": "setup",
+}
+
+# Files or directories to copy from the head node to the worker nodes. The format is a
+# list of paths. The same path on the head node will be copied to the worker node.
+# This behavior is a subset of the file_mounts behavior. In the vast majority of cases
+# you should just use file_mounts. Only use this if you know what you're doing!
+cluster_synced_files: []
+
+# Whether changes to directories in file_mounts or cluster_synced_files in the head node
+# should sync to the worker node continuously
+file_mounts_sync_continuously: False
+
+# Patterns for files to exclude when running rsync up or rsync down
+rsync_exclude:
+    - "**/.git"
+    - "**/.git/**"
+
+# Pattern files to use for filtering out files when running rsync up or rsync down. The file is searched for
+# in the source directory and recursively through all subdirectories. For example, if .gitignore is provided
+# as a value, the behavior will match git's behavior for finding and using .gitignore files.
+rsync_filter:
+    - ".gitignore"
+
+# List of commands that will be run before `setup_commands`. If docker is
+# enabled, these commands will run outside the container and before docker
+# is setup.
+initialization_commands:
+    # get rid of annoying Ubuntu message
+    - touch ~/.sudo_as_admin_successful
+
+# List of shell commands to run to set up nodes.
+# NOTE: rayproject/ray-ml:latest has ray latest bundled
+setup_commands: []
+    # Note: if you're developing Ray, you probably want to create an AMI that
+    # has your Ray repo pre-cloned. Then, you can replace the pip installs
+    # below with a git checkout <your_sha> (and possibly a recompile).
+
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands: []
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands: []
+
+# Command to start ray on the head node. You don't need to change this.
+head_start_ray_commands:
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_ocean_platform_env.sh
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh
+    - ray stop --force
+    - ulimit -n 65536; ray start --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
+
+# Command to start ray on worker nodes. You don't need to change this.
+worker_start_ray_commands:
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_ocean_platform_env.sh
+    - bash -i ~/OceanPlatformControl/setup/cluster-jerome/set_up_seaweed_storage.sh
+    - ray stop --force
+    - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076

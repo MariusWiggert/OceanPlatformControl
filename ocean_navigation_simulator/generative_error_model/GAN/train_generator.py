@@ -1,21 +1,40 @@
-from utils import l1, mse, sparse_mse, total_variation, mass_conservation, \
-    init_weights, save_checkpoint, load_checkpoint
-from ocean_navigation_simulator.generative_error_model.generative_model_metrics import rmse, vector_correlation
-from ssim import ssim
-from helper_funcs import get_model, get_data, get_optimizer, get_scheduler, initialize, save_input_output_pairs,\
-    get_test_data, enable_dropout
-
-import wandb
 import os
-import yaml
 import sys
+from typing import Dict, List, Optional
+from warnings import warn
 
 import torch
 import torch.nn as nn
+import yaml
 from torchvision.utils import make_grid
-from typing import Dict, List, Optional
-from warnings import warn
 from tqdm import tqdm
+
+import wandb
+from ocean_navigation_simulator.generative_error_model.GAN.helper_funcs import (
+    enable_dropout,
+    get_data,
+    get_model,
+    get_optimizer,
+    get_scheduler,
+    get_test_data,
+    initialize,
+    save_input_output_pairs,
+)
+from ocean_navigation_simulator.generative_error_model.GAN.ssim import ssim
+from ocean_navigation_simulator.generative_error_model.GAN.utils import (
+    init_weights,
+    l1,
+    load_checkpoint,
+    mass_conservation,
+    mse,
+    save_checkpoint,
+    sparse_mse,
+    total_variation,
+)
+from ocean_navigation_simulator.generative_error_model.generative_model_metrics import (
+    rmse,
+    vector_correlation,
+)
 
 
 def predict_fixed_batch(model, dataloader, device) -> dict:
@@ -39,10 +58,16 @@ def predict_fixed_batch(model, dataloader, device) -> dict:
     predictions = wandb.Image(predictions, caption="Fixed batch predictions")
     samples = wandb.Image(samples, caption="Fixed batch samples")
     model.train()
-    return {"fixed_batch_gt": ground_truth, "fixed_batch_predictions": predictions, "fixed_batch_inputs": samples}
+    return {
+        "fixed_batch_gt": ground_truth,
+        "fixed_batch_predictions": predictions,
+        "fixed_batch_inputs": samples,
+    }
 
 
-def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor) -> Optional[Dict[str, float]]:
+def get_metrics(
+    metric_names, ground_truth: torch.Tensor, predictions: torch.Tensor
+) -> Optional[Dict[str, float]]:
     """Computes all specified metrics over the validation set predictions.
     Computes metrics for each pair, sums the result of all pairs in batch and returns metrics
     normalized by batch size."""
@@ -55,33 +80,39 @@ def get_metrics(metric_names, ground_truth: torch.Tensor, predictions: torch.Ten
     metrics = {metric_name: 0 for metric_name in metric_names}
     for idx in range(ground_truth.shape[0]):
         if "rmse" in metric_names:
-            rmse_val = rmse(ground_truth[idx, :2, :, :].squeeze(),
-                            predictions[idx, :2, :, :].squeeze())
+            rmse_val = rmse(
+                ground_truth[idx, :2, :, :].squeeze(), predictions[idx, :2, :, :].squeeze()
+            )
             metrics["rmse"] += rmse_val
         if "vector_correlation" in metric_names:
-            vec_corr_val = vector_correlation(ground_truth[idx, 0, :, :].squeeze(),
-                                              ground_truth[idx, 1, :, :].squeeze(),
-                                              predictions[idx, 0, :, :].squeeze(),
-                                              predictions[idx, 1, :, :].squeeze())
+            vec_corr_val = vector_correlation(
+                ground_truth[idx, 0, :, :].squeeze(),
+                ground_truth[idx, 1, :, :].squeeze(),
+                predictions[idx, 0, :, :].squeeze(),
+                predictions[idx, 1, :, :].squeeze(),
+            )
             metrics["vector_correlation"] += vec_corr_val
         if "ssim" in metric_names:
-            ssim_val = ssim(torch.Tensor(ground_truth[idx].squeeze()),
-                            torch.Tensor(predictions[idx].squeeze()))
+            ssim_val = ssim(
+                torch.Tensor(ground_truth[idx].squeeze()), torch.Tensor(predictions[idx].squeeze())
+            )
             metrics["ssim"] += ssim_val
-    metrics = {metric_name: metric_value / ground_truth.shape[0] for metric_name, metric_value in metrics.items()}
+    metrics = {
+        metric_name: metric_value / ground_truth.shape[0]
+        for metric_name, metric_value in metrics.items()
+    }
     return metrics
 
 
 def loss_function(predictions, target, losses: List[str], loss_weightings: List[float]):
-    """Handles which loss is to be used.
-    """
+    """Handles which loss is to be used."""
     loss = 0
     loss_map = {
         "mse": mse,
         "l1": l1,
         "sparse_mse": sparse_mse,
         "total_variation": total_variation,
-        "mass_conservation": mass_conservation
+        "mass_conservation": mass_conservation,
     }
 
     if len(losses) != len(loss_weightings):
@@ -110,7 +141,9 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
                 output = model(data)
 
                 # compute loss
-                train_loss = loss_function(output, target, cfgs_train["loss"]["gen"], cfgs_train["loss"]["gen_weighting"])
+                train_loss = loss_function(
+                    output, target, cfgs_train["loss"]["gen"], cfgs_train["loss"]["gen_weighting"]
+                )
                 total_loss += train_loss.item()
 
                 # perform optim step
@@ -120,7 +153,7 @@ def train(model: nn.Module, dataloader, device, optimizer, cfgs_train):
 
                 tepoch.set_postfix(loss=str(round(train_loss.item() / data.shape[0], 3)))
 
-    avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    avg_loss = total_loss / ((len(dataloader) - 1) * cfgs_train["batch_size"] + data.shape[0])
     # print(f"Training avg loss: {avg_loss:.2f}.")
     return avg_loss
 
@@ -132,7 +165,9 @@ def validation(model, dataloader, device: str, all_cfgs: dict, save_data=False):
     metrics_names = all_cfgs["metrics"]
     with torch.no_grad():
         with tqdm(dataloader, unit="batch") as tepoch:
-            tepoch.set_description(f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]")
+            tepoch.set_description(
+                f"Validation epoch [{cfgs_train['epoch']}/{cfgs_train['epochs']}]"
+            )
             metrics = {metric: 0 for metric in metrics_names}
             metrics_ratio = {metric: 0 for metric in metrics_names}
             for idx, (data, target) in enumerate(tepoch):
@@ -141,7 +176,9 @@ def validation(model, dataloader, device: str, all_cfgs: dict, save_data=False):
                 output = model(data)
                 if save_data:
                     save_input_output_pairs(data, output, all_cfgs, idx)
-                val_loss = loss_function(output, target, cfgs_train["loss"]["gen"], cfgs_train["loss"]["gen_weighting"])
+                val_loss = loss_function(
+                    output, target, cfgs_train["loss"]["gen"], cfgs_train["loss"]["gen_weighting"]
+                )
                 total_loss += val_loss.item()
 
                 # get metrics and ratio of metrics for generated outputs
@@ -153,13 +190,20 @@ def validation(model, dataloader, device: str, all_cfgs: dict, save_data=False):
                 #     print("Vector correlation of baseline is 2!")
                 for metric_name in metrics_names:
                     metrics[metric_name] += metric_values[metric_name]
-                    metrics_ratio[metric_name] += metric_values[metric_name] / (metric_values_baseline[metric_name]+1e-8)
+                    metrics_ratio[metric_name] += metric_values[metric_name] / (
+                        metric_values_baseline[metric_name] + 1e-8
+                    )
 
                 tepoch.set_postfix(loss=str(round(val_loss.item() / data.shape[0], 3)))
 
-    metrics = {metric_name: metric_value/len(dataloader) for metric_name, metric_value in metrics.items()}
-    metrics_ratio = {metric_name + "_ratio": metric_value/len(dataloader) for metric_name, metric_value in metrics_ratio.items()}
-    avg_loss = total_loss / ((len(dataloader)-1)*cfgs_train["batch_size"] + data.shape[0])
+    metrics = {
+        metric_name: metric_value / len(dataloader) for metric_name, metric_value in metrics.items()
+    }
+    metrics_ratio = {
+        metric_name + "_ratio": metric_value / len(dataloader)
+        for metric_name, metric_value in metrics_ratio.items()
+    }
+    avg_loss = total_loss / ((len(dataloader) - 1) * cfgs_train["batch_size"] + data.shape[0])
     # print(f"Validation avg loss: {avg_loss:.2f}")
     return avg_loss, metrics, metrics_ratio
 
@@ -167,7 +211,9 @@ def validation(model, dataloader, device: str, all_cfgs: dict, save_data=False):
 def clean_up_training(model, optimizer, dataloader, all_cfgs: dict, device: str):
     """Saves final model. Saves plot for fixed batch."""
 
-    save_checkpoint(model, optimizer, f"{os.path.join(all_cfgs['save_base_path'], all_cfgs['model_save_name'])}")
+    save_checkpoint(
+        model, optimizer, f"{os.path.join(all_cfgs['save_base_path'], all_cfgs['model_save_name'])}"
+    )
     _ = predict_fixed_batch(model, dataloader, device)
     wandb.finish()
 
@@ -191,23 +237,31 @@ def train_main(sweep: Optional[bool] = False):
     cfgs_lr_scheduler = all_cfgs["train"]["lr_scheduler_configs"]
 
     # load training data
-    train_loader, val_loader, fixed_batch_loader = get_data(all_cfgs["dataset_type"], cfgs_dataset, cfgs_train)
+    train_loader, val_loader, fixed_batch_loader = get_data(
+        all_cfgs["dataset_type"], cfgs_dataset, cfgs_train
+    )
 
     # define model and optimizer and load from checkpoint if specified
     print(f"-> Model: {model_type}.")
-    print(f"-> Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}.")
+    print(
+        f"-> Losses: {cfgs_train['loss']['gen']} with weightings {cfgs_train['loss']['gen_weighting']}."
+    )
     model = get_model(model_type, cfgs_model, device)
-    optimizer = get_optimizer(model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"])
+    optimizer = get_optimizer(
+        model, cfgs_optimizer["name"], cfgs_optimizer["parameters"], lr=cfgs_train["learning_rate"]
+    )
     if cfgs_lr_scheduler["value"]:
         lr_scheduler = get_scheduler(optimizer, cfgs_lr_scheduler)
     if all_cfgs["load_from_chkpt"]["value"]:
-        checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
+        checkpoint_path = os.path.join(
+            all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"]
+        )
         load_checkpoint(checkpoint_path, model, optimizer, cfgs_train["learning_rate"], device)
     else:
         init_weights(model, init_type=cfgs_model["init_type"], init_gain=cfgs_model["init_gain"])
     # torch.onnx.export(model, torch.randn(1, 2, 256, 256), "/home/jonas/Downloads/my_model.onnx")
 
-    train_losses, val_losses, lrs = list(), list(), list()
+    train_losses, val_losses = list(), list()
     try:
         for epoch in range(1, cfgs_train["epochs"] + 1):
             print()
@@ -220,7 +274,9 @@ def train_main(sweep: Optional[bool] = False):
             to_log |= {"train_loss": train_loss}
 
             if len(val_loader) != 0:
-                val_loss, metrics, metrics_ratio = validation(model, val_loader, device, all_cfgs, save_data=False)
+                val_loss, metrics, metrics_ratio = validation(
+                    model, val_loader, device, all_cfgs, save_data=False
+                )
                 val_losses.append(val_loss)
                 to_log |= {"val_loss": val_loss}
                 to_log |= metrics
@@ -260,7 +316,9 @@ def test_main(data: str = "test"):
 
     # load model
     model = get_model(all_cfgs["model"], cfgs_model, device)
-    checkpoint_path = os.path.join(all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"])
+    checkpoint_path = os.path.join(
+        all_cfgs["save_base_path"], all_cfgs["load_from_chkpt"]["file_name"]
+    )
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
 
@@ -281,11 +339,19 @@ def test_main(data: str = "test"):
                     if idx == 10:
                         break
                     target_fake = model(repeated_data)
-                    save_dir = save_input_output_pairs(repeated_data, target_fake, all_cfgs, all_cfgs["save_repeated_samples_path"], idx)
+                    save_dir = save_input_output_pairs(
+                        repeated_data,
+                        target_fake,
+                        all_cfgs,
+                        all_cfgs["save_repeated_samples_path"],
+                        idx,
+                    )
                 # normal samples
                 else:
                     target_fake = model(data)
-                    save_dir = save_input_output_pairs(data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx)
+                    save_dir = save_input_output_pairs(
+                        data, target_fake, all_cfgs, all_cfgs["save_samples_path"], idx
+                    )
         save_dirs.append(save_dir)
     return save_dirs
 

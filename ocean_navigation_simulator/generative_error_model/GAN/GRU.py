@@ -6,14 +6,38 @@ from torch.nn import init
 import numpy as np
 
 
-def snconv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True):
-    return spectral_norm(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                                   stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias))
+def snconv2d(
+    in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True
+):
+    return spectral_norm(
+        nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+    )
 
 
-def snconv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True):
-    return spectral_norm(nn.Conv3d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                                   stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias))
+def snconv3d(
+    in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True
+):
+    return spectral_norm(
+        nn.Conv3d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+    )
 
 
 def snlinear(in_features, out_features, bias=True):
@@ -51,14 +75,14 @@ class GRU(nn.Module):
 
     def init_weights(self, init_forget_bias=1):
         for name, params in self.named_parameters():
-            if 'weight' in name:
+            if "weight" in name:
                 init.xavier_uniform_(params)
 
             # initialize forget gate bias
-            elif 'gru.bias_ih' in name:
+            elif "gru.bias_ih" in name:
                 b_ir, b_iz, b_in = params.chunk(3, 0)
                 init.constant_(b_iz, init_forget_bias)
-            elif 'gru.bias_hh' in name:
+            elif "gru.bias_hh" in name:
                 b_hr, b_hz, b_hn = params.chunk(3, 0)
                 init.constant_(b_hz, init_forget_bias)
             else:
@@ -89,7 +113,7 @@ class CGRU(nn.Module):
 
 
 def cosine_similarity(u, v):
-    return np.dot(u, v)/(np.linalg.norm(u)*np.linalg.norm(v))
+    return np.dot(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
 
 
 def test():
@@ -108,14 +132,19 @@ def test():
     outputs = cgru(latent, n_frames)
 
     similarities = []
-    for i in range(outputs.shape[0]-1):
-        similarities.append(cosine_similarity(outputs[i].detach().numpy(),
-                                              outputs[i+1].detach().numpy()))
-    l2 = [np.linalg.norm(x) for x in np.array(outputs.detach().numpy()).reshape((n_frames*batch, 128))]
+    for i in range(outputs.shape[0] - 1):
+        similarities.append(
+            cosine_similarity(outputs[i].detach().numpy(), outputs[i + 1].detach().numpy())
+        )
+    l2 = [
+        np.linalg.norm(x)
+        for x in np.array(outputs.detach().numpy()).reshape((n_frames * batch, 128))
+    ]
 
     import matplotlib.pyplot as plt
-    plt.plot(list(range(batch*n_frames-1)), similarities, label="cosine similarity")
-    plt.plot(list(range(batch*n_frames)), l2, label="l2 norm")
+
+    plt.plot(list(range(batch * n_frames - 1)), similarities, label="cosine similarity")
+    plt.plot(list(range(batch * n_frames)), l2, label="l2 norm")
     plt.legend()
     plt.show()
 

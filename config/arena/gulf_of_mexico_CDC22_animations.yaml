@@ -1,0 +1,52 @@
+casadi_cache_dict:
+    deg_around_x_t: 0.5
+    time_around_x_t: 36000. # 3600 * 24 * 5
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.1
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 1800.0
+
+use_geographic_coordinate_system: True
+
+spatial_boundary: null
+timeout: 432000 #120h
+
+ocean_dict:
+    region: "GOM"
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'generative_noise'
+        base_source:
+            source: 'hindcast_files'
+            source_settings:
+                local: False
+                folder: "data/cdc22_animation_fc_as_hindcast/"
+                source: "HYCOM"
+                type: "hindcast"
+        noise_source:
+            source: 'simplex_noise'
+            source_settings:
+                seed: 151
+                params_path: "ocean_navigation_simulator/generative_error_model/models/tuned_2d_forecast_variogram_area1_[5.0, 1.0]_False_True.npy"
+                scale_noise: 1
+    forecast:
+        field: 'OceanCurrents'
+        source: 'forecast_files'
+        source_settings:
+            local: False
+            folder: "data/cdc22_animation_fc/"
+            source: "HYCOM"
+            type: "forecast"
+
+solar_dict:
+    hindcast: null
+    forecast: null
+
+seaweed_dict:
+    hindcast: null
+    forecast: null

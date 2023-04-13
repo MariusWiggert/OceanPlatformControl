@@ -1,0 +1,56 @@
+casadi_cache_dict:
+    deg_around_x_t: 0.5
+    time_around_x_t: 36000. # 3600 * 24 * 5 # This math is flawed
+
+timeout: 259200 #172800 # in seconds, here 3600 * 24 * 2
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.1
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 600.0
+
+use_geographic_coordinate_system: True
+
+spatial_boundary: null
+
+ocean_dict:
+    area: "GOM"
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'hindcast_files'
+        source_settings:
+            source: "HYCOM"
+            local: True
+            type: "hindcast"
+            folder: "data/hindcast_test_download/"
+    forecast: null
+
+solar_dict:
+    hindcast: null
+    forecast: null
+
+seaweed_dict:
+    hindcast: null
+    forecast: null
+
+bathymetry_dict:
+    field: "Bathymetry"
+    source: "gebco"
+    source_settings:
+        filepath: "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
+    casadi_cache_settings:
+        deg_around_x_t: 20
+    use_geographic_coordinate_system: True
+
+garbage_dict:
+    source: "Lebreton"
+    source_settings:
+        filepath: "ocean_navigation_simulator/package_data/bathymetry_and_garbage/garbage_patch_global_res_0.083_0.083.nc"
+    casadi_cache_settings:
+        deg_around_x_t: 10
+    use_geographic_coordinate_system: True
+    

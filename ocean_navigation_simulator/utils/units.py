@@ -1,23 +1,14 @@
 # coding=utf-8
-# Copyright 2022 The Balloon Learning Environment Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright 2022 The Balloon Learning Environment Authors. Adapted by Marius Wiggert and Jerome Jeannine.
 
 """Common unit conversion functions and classes."""
 
 import datetime as datetime
 import typing
+from math import floor, log10
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 
 _METERS_PER_FOOT = 0.3048
@@ -27,17 +18,24 @@ _METERS_PER_DEG_LAT_LON = 111120
 class Distance:
     """A compact distance unit."""
 
-    def __init__(self,
-                 *,
-                 m: float = 0.0,
-                 meters: float = 0.0,
-                 km: float = 0.0,
-                 kilometers: float = 0.0,
-                 feet: float = 0.0,
-                 deg: float = 0.0
-                 ):
+    def __init__(
+        self,
+        *,
+        m: float = 0.0,
+        meters: float = 0.0,
+        km: float = 0.0,
+        kilometers: float = 0.0,
+        feet: float = 0.0,
+        deg: float = 0.0,
+        rad: float = 0.0,
+    ):
         # Note: distance is stored as degree (because that's how it is used almost always)
-        self._distance = (m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT) / _METERS_PER_DEG_LAT_LON + deg
+        self._distance = (
+            (m + meters + (km + kilometers) * 1000.0 + feet * _METERS_PER_FOOT)
+            / _METERS_PER_DEG_LAT_LON
+            + deg
+            + (180 * rad / np.pi)
+        )
 
     @property
     def m(self) -> float:
@@ -55,6 +53,11 @@ class Distance:
         return self._distance
 
     @property
+    def rad(self) -> float:
+        """Gets distance in radians."""
+        return np.pi * self._distance / 180
+
+    @property
     def km(self) -> float:
         """Gets distance in kilometers."""
         return self._distance * _METERS_PER_DEG_LAT_LON / 1000.0
@@ -68,29 +71,29 @@ class Distance:
     def feet(self) -> float:
         return self._distance * _METERS_PER_DEG_LAT_LON / _METERS_PER_FOOT
 
-    def __add__(self, other: 'Distance') -> 'Distance':
+    def __add__(self, other: "Distance") -> "Distance":
         if isinstance(other, Distance):
             return Distance(deg=self.deg + other.deg)
         else:
-            raise NotImplementedError(f'Cannot add Distance and {type(other)}')
+            raise NotImplementedError(f"Cannot add Distance and {type(other)}")
 
-    def __sub__(self, other: 'Distance') -> 'Distance':
+    def __sub__(self, other: "Distance") -> "Distance":
         if isinstance(other, Distance):
             return Distance(deg=self.deg - other.deg)
         else:
-            raise NotImplementedError(f'Cannot subtract Distance and {type(other)}')
+            raise NotImplementedError(f"Cannot subtract Distance and {type(other)}")
 
     @typing.overload
-    def __truediv__(self, other: float) -> 'Distance':
+    def __truediv__(self, other: float) -> "Distance":
         ...
 
     @typing.overload
-    def __truediv__(self, other: datetime.timedelta) -> 'Velocity':
+    def __truediv__(self, other: datetime.timedelta) -> "Velocity":
         # velocity = change in distance / change in time.
         ...
 
     @typing.overload
-    def __truediv__(self, other: 'Distance') -> float:
+    def __truediv__(self, other: "Distance") -> float:
         ...
 
     def __truediv__(self, other):
@@ -101,48 +104,52 @@ class Distance:
         elif isinstance(other, Distance):
             return self.deg / other.deg
         else:
-            raise NotImplementedError(f'Cannot divide distance by {type(other)}')
+            raise NotImplementedError(f"Cannot divide distance by {type(other)}")
 
-    def __mul__(self, other: float) -> 'Distance':
+    def __mul__(self, other: float) -> "Distance":
         if isinstance(other, (int, float)):
             return Distance(deg=self.deg * other)
         else:
-            raise NotImplementedError(f'Cannot multiply Distance and {type(other)}')
+            raise NotImplementedError(f"Cannot multiply Distance and {type(other)}")
 
-    def __rmul__(self, other: float) -> 'Distance':
+    def __rmul__(self, other: float) -> "Distance":
         return self.__mul__(other)
 
-    def __eq__(self, other: 'Distance') -> bool:
+    def __eq__(self, other: "Distance") -> bool:
         return abs(self.m - other.m) < 1e-9
 
-    def __neq__(self, other: 'Distance') -> bool:
+    def __neq__(self, other: "Distance") -> bool:
         return not self.__eq__(other)
 
-    def __lt__(self, other: 'Distance') -> bool:
+    def __lt__(self, other: "Distance") -> bool:
         return self.m < other.m
 
-    def __le__(self, other: 'Distance') -> bool:
+    def __le__(self, other: "Distance") -> bool:
         return self.m <= other.m
 
-    def __gt__(self, other: 'Distance') -> bool:
+    def __gt__(self, other: "Distance") -> bool:
         return self.m > other.m
 
-    def __ge__(self, other: 'Distance') -> bool:
+    def __ge__(self, other: "Distance") -> bool:
         return self.m >= other.m
+
+    def __repr__(self) -> str:
+        return f"{self.deg:.2f}°"
 
 
 class Velocity:
     """A compact velocity unit."""
 
-    def __init__(self,
-                 *,
-                 mps: float = 0.0,
-                 meters_per_second: float = 0.0,
-                 kmph: float = 0.0,
-                 kilometers_per_hour: float = 0.0):
+    def __init__(
+        self,
+        *,
+        mps: float = 0.0,
+        meters_per_second: float = 0.0,
+        kmph: float = 0.0,
+        kilometers_per_hour: float = 0.0,
+    ):
         # Note: distance is stored as meters per second.
-        self._velocity = (
-                mps + meters_per_second + (kmph + kilometers_per_hour) * 1000 / 3600)
+        self._velocity = mps + meters_per_second + (kmph + kilometers_per_hour) * 1000 / 3600
 
     @property
     def mps(self) -> float:
@@ -164,45 +171,43 @@ class Velocity:
         """Gets velocity in kilometers per hour."""
         return self.kmph
 
-    def __add__(self, other: 'Velocity') -> 'Velocity':
+    def __add__(self, other: "Velocity") -> "Velocity":
         if isinstance(other, Velocity):
             return Velocity(mps=self.mps + other.mps)
         else:
-            raise NotImplementedError(f'Cannot add Velocity and {type(other)}')
+            raise NotImplementedError(f"Cannot add Velocity and {type(other)}")
 
-    def __sub__(self, other: 'Velocity') -> 'Velocity':
+    def __sub__(self, other: "Velocity") -> "Velocity":
         if isinstance(other, Velocity):
             return Velocity(mps=self.mps - other.mps)
         else:
-            raise NotImplementedError(f'Cannot subtract Velocity and {type(other)}')
+            raise NotImplementedError(f"Cannot subtract Velocity and {type(other)}")
 
     def __mul__(self, other: datetime.timedelta) -> Distance:
         if isinstance(other, datetime.timedelta):
             # distance = velocity * time (for constant velocity).
             return Distance(m=self.mps * other.total_seconds())
         else:
-            raise NotImplementedError(f'Cannot multiply velocity with {type(other)}')
+            raise NotImplementedError(f"Cannot multiply velocity with {type(other)}")
 
     def __rmul__(self, other: datetime.timedelta) -> Distance:
         return self.__mul__(other)
 
-    def __eq__(self, other: 'Velocity') -> bool:
+    def __eq__(self, other: "Velocity") -> bool:
         if isinstance(other, Velocity):
             # Note: we consider very similar velocities to be equal.
             return abs(self.mps - other.mps) < 1e-9
         else:
-            raise ValueError(f'Cannot compare velocity and {type(other)}')
+            raise ValueError(f"Cannot compare velocity and {type(other)}")
 
-    def __str__(self) -> str:
-        return f'{self.mps} m/s'
+    def __repr__(self) -> str:
+        return f"{self.mps} m/s"
 
 
 class Energy(object):
     """A compact energy class."""
 
-    def __init__(self, *,
-                 watt_hours: float = 0.0,
-                 joule: float = 0.0):
+    def __init__(self, *, watt_hours: float = 0.0, joule: float = 0.0):
         self._joule = joule + watt_hours * 3600
 
     @property
@@ -213,50 +218,50 @@ class Energy(object):
     def joule(self) -> float:
         return self._joule
 
-    def __add__(self, other: 'Energy') -> 'Energy':
+    def __add__(self, other: "Energy") -> "Energy":
         if isinstance(other, Energy):
             return Energy(joule=self.joule + other.joule)
         else:
-            raise NotImplementedError(f'Cannot add Energy and {type(other)}')
+            raise NotImplementedError(f"Cannot add Energy and {type(other)}")
 
-    def __sub__(self, other: 'Energy') -> 'Energy':
+    def __sub__(self, other: "Energy") -> "Energy":
         if isinstance(other, Energy):
             return Energy(joule=self.joule - other.joule)
         else:
-            raise NotImplementedError(f'Cannot subtract Energy and {type(other)}')
+            raise NotImplementedError(f"Cannot subtract Energy and {type(other)}")
 
-    def __truediv__(self, other: 'Energy') -> float:
+    def __truediv__(self, other: "Energy") -> float:
         if isinstance(other, Energy):
             return self.joule / other.joule
         else:
-            raise NotImplementedError(f'Cannot divide Energy and {type(other)}')
+            raise NotImplementedError(f"Cannot divide Energy and {type(other)}")
 
-    def __mul__(self, other: float) -> 'Energy':
+    def __mul__(self, other: float) -> "Energy":
         if isinstance(other, (int, float)):
             return Energy(joule=self.joule * other)
         else:
-            raise NotImplementedError(f'Cannot multiply Energy and {type(other)}')
+            raise NotImplementedError(f"Cannot multiply Energy and {type(other)}")
 
-    def __rmul__(self, other: float) -> 'Energy':
+    def __rmul__(self, other: float) -> "Energy":
         return self.__mul__(other)
 
-    def __gt__(self, other: 'Energy') -> bool:
+    def __gt__(self, other: "Energy") -> bool:
         if isinstance(other, Energy):
             return self.joule > other.joule
         else:
-            raise ValueError(f'Cannot compare Energy and {type(other)}')
+            raise ValueError(f"Cannot compare Energy and {type(other)}")
 
-    def __eq__(self, other: 'Energy') -> bool:
+    def __eq__(self, other: "Energy") -> bool:
         if isinstance(other, Energy):
             return self.joule == other.joule
         else:
-            raise ValueError(f'Cannot compare Energy and {type(other)}')
+            raise ValueError(f"Cannot compare Energy and {type(other)}")
 
-    def __ge__(self, other: 'Energy') -> bool:
+    def __ge__(self, other: "Energy") -> bool:
         if isinstance(other, Energy):
             return self.joule >= other.joule
         else:
-            raise ValueError(f'Cannot compare Energy and {type(other)}')
+            raise ValueError(f"Cannot compare Energy and {type(other)}")
 
 
 class Power(object):
@@ -269,38 +274,38 @@ class Power(object):
     def watts(self) -> float:
         return self._w
 
-    def __add__(self, other: 'Power') -> 'Power':
+    def __add__(self, other: "Power") -> "Power":
         if isinstance(other, Power):
             return Power(watts=self.watts + other.watts)
         else:
-            raise NotImplementedError(f'Cannot add Power and {type(other)}')
+            raise NotImplementedError(f"Cannot add Power and {type(other)}")
 
-    def __sub__(self, other: 'Power') -> 'Power':
+    def __sub__(self, other: "Power") -> "Power":
         if isinstance(other, Power):
             return Power(watts=self.watts - other.watts)
         else:
-            raise NotImplementedError(f'Cannot subtract Power and {type(other)}')
+            raise NotImplementedError(f"Cannot subtract Power and {type(other)}")
 
     def __mul__(self, other: datetime.timedelta) -> Energy:
         if isinstance(other, datetime.timedelta):
             return Energy(watt_hours=self.watts * timedelta_to_hours(other))
         else:
-            raise NotImplementedError(f'Cannot multiply Power with {type(other)}')
+            raise NotImplementedError(f"Cannot multiply Power with {type(other)}")
 
     def __rmul__(self, other: datetime.timedelta) -> Energy:
         return self.__mul__(other)
 
-    def __gt__(self, other: 'Power') -> bool:
+    def __gt__(self, other: "Power") -> bool:
         if isinstance(other, Power):
             return self.watts > other.watts
         else:
-            raise ValueError(f'Cannot compare Power and {type(other)}')
+            raise ValueError(f"Cannot compare Power and {type(other)}")
 
-    def __eq__(self, other: 'Power') -> bool:
+    def __eq__(self, other: "Power") -> bool:
         if isinstance(other, Power):
             return self.watts == other.watts
         else:
-            raise ValueError(f'Cannot compare Power and {type(other)}')
+            raise ValueError(f"Cannot compare Power and {type(other)}")
 
 
 class Mass(object):
@@ -317,72 +322,72 @@ class Mass(object):
     def kg(self) -> float:
         return self._kg
 
-    def __add__(self, other: 'Mass') -> 'Mass':
+    def __add__(self, other: "Mass") -> "Mass":
         if isinstance(other, Mass):
             return Mass(kg=self.kg + other.kg)
         else:
-            raise NotImplementedError(f'Cannot add Mass and {type(other)}')
+            raise NotImplementedError(f"Cannot add Mass and {type(other)}")
 
-    def __sub__(self, other: 'Mass') -> 'Mass':
+    def __sub__(self, other: "Mass") -> "Mass":
         if isinstance(other, Mass):
             return Mass(kg=self.kg - other.kg)
         else:
-            raise NotImplementedError(f'Cannot subtract Mass and {type(other)}')
+            raise NotImplementedError(f"Cannot subtract Mass and {type(other)}")
 
     @typing.overload
-    def __truediv__(self, other: float) -> 'Mass':
+    def __truediv__(self, other: float) -> "Mass":
         ...
 
     def __truediv__(self, other):
         if isinstance(other, (int, float)):
             return Mass(kg=self.kg / other)
         else:
-            raise NotImplementedError(f'Cannot divide Mass by {type(other)}')
+            raise NotImplementedError(f"Cannot divide Mass by {type(other)}")
 
-    def __mul__(self, other: float) -> 'Mass':
+    def __mul__(self, other: float) -> "Mass":
         if isinstance(other, (int, float)):
             return Mass(kg=self.kg * other)
         else:
-            raise NotImplementedError(f'Cannot multiply Mass and {type(other)}')
+            raise NotImplementedError(f"Cannot multiply Mass and {type(other)}")
 
-    def __rmul__(self, other: float) -> 'Mass':
+    def __rmul__(self, other: float) -> "Mass":
         return self.__mul__(other)
 
-    def __eq__(self, other: 'Mass') -> bool:
+    def __eq__(self, other: "Mass") -> bool:
         if isinstance(other, Mass):
             return abs(self.kg - other.kg) < 1e-9
         else:
-            raise ValueError(f'Cannot compare Mass and {type(other)}')
+            raise ValueError(f"Cannot compare Mass and {type(other)}")
 
-    def __neq__(self, other: 'Mass') -> bool:
+    def __neq__(self, other: "Mass") -> bool:
         if isinstance(other, Mass):
             return not self.__eq__(other)
         else:
-            raise ValueError(f'Cannot compare Mass and {type(other)}')
+            raise ValueError(f"Cannot compare Mass and {type(other)}")
 
-    def __lt__(self, other: 'Mass') -> bool:
+    def __lt__(self, other: "Mass") -> bool:
         if isinstance(other, Mass):
             return self.kg < other.kg
         else:
-            raise ValueError(f'Cannot compare Mass and {type(other)}')
+            raise ValueError(f"Cannot compare Mass and {type(other)}")
 
-    def __le__(self, other: 'Mass') -> bool:
+    def __le__(self, other: "Mass") -> bool:
         if isinstance(other, Mass):
             return self.kg <= other.kg
         else:
-            raise ValueError(f'Cannot compare Mass and {type(other)}')
+            raise ValueError(f"Cannot compare Mass and {type(other)}")
 
-    def __gt__(self, other: 'Mass') -> bool:
+    def __gt__(self, other: "Mass") -> bool:
         if isinstance(other, Mass):
             return self.kg > other.kg
         else:
-            raise ValueError(f'Cannot compare Mass and {type(other)}')
+            raise ValueError(f"Cannot compare Mass and {type(other)}")
 
-    def __ge__(self, other: 'Mass') -> bool:
+    def __ge__(self, other: "Mass") -> bool:
         if isinstance(other, Mass):
             return self.kg >= other.kg
         else:
-            raise ValueError(f'Cannot compare Mass and {type(other)}')
+            raise ValueError(f"Cannot compare Mass and {type(other)}")
 
 
 def relative_distance(x: Distance, y: Distance) -> Distance:
@@ -401,48 +406,72 @@ def timedelta_to_hours(d: datetime.timedelta) -> float:
 def datetime_from_timestamp(timestamp: int) -> datetime.datetime:
     """Converts a given UTC timestamp into a datetime.
 
-  The returned datetime includes timezone information.
+    The returned datetime includes timezone information.
 
-  Args:
-    timestamp: the timestamp (unix epoch; implicitly UTC).
+    Args:
+      timestamp: the timestamp (unix epoch; implicitly UTC).
 
-  Returns:
-    the corresponding datetime.
-  """
+    Returns:
+      the corresponding datetime.
+    """
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
 
 
 def get_posix_time_from_np64(np64_time_array: np.datetime64) -> np.array:
-    """Helper function to transform """
+    """Helper function to transform"""
     # transform from numpy datetime to POSIX time
-    t_posix = (np64_time_array - np.datetime64(0, 's')) / np.timedelta64(1, 's')
+    t_posix = (np64_time_array - np.datetime64(0, "s")) / np.timedelta64(1, "s")
     return t_posix
 
 
 def get_datetime_from_np64(np64_time_array: np.datetime64) -> datetime.datetime:
-    """Helper function to transform """
+    """Helper function to transform"""
     # transform from numpy datetime to datetime
-    t_posix = (np64_time_array - np.datetime64(0, 's')) / np.timedelta64(1, 's')
+    t_posix = (np64_time_array - np.datetime64(0, "s")) / np.timedelta64(1, "s")
     dt_object = datetime.datetime.fromtimestamp(t_posix, datetime.timezone.utc)
     return dt_object
 
 
 def posix_to_rel_seconds_in_year(posix_timestamp: float) -> float:
     """Helper function to map a posix_timestamp to it's relative seconds for the specific year (since 1st of January).
-  This is needed because the interpolation function for the nutrients operates on relative timestamps as we take
-  the average monthly nutrients for those as input.
-  Args:
-      posix_timestamp: a posix timestamp
-  """
+    This is needed because the interpolation function for the nutrients operates on relative timestamps as we take
+    the average monthly nutrients for those as input.
+    Args:
+        posix_timestamp: a posix timestamp
+    """
     # correction for extra long years because of Schaltjahre (makes it accurate 2020-2024, otherwise a couple of days off)
     correction_seconds = 13 * 24 * 3600
     # Calculate the relative time of the year in seconds
     return np.mod(posix_timestamp - correction_seconds, 365 * 24 * 3600)
 
 
-from math import log10, floor
 def round_to_sig_digits(x, sig_digit):
     if x == 0:
         return 0
     else:
         return round(x, sig_digit - int(floor(log10(abs(x)))) - 1)
+
+
+def format_datetime_x_axis(ax: plt.axis):
+    """Helper function for better formatting the x_axis for datetimes."""
+    locator = matplotlib.dates.AutoDateLocator(minticks=5, maxticks=10)
+    formatter = matplotlib.dates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+
+
+# Taken from: https://stackoverflow.com/a/4913653
+# https://www.movable-type.co.uk/scripts/latlong.html)
+def haversine_rad_from_deg(lon1, lat1, lon2, lat2) -> float:
+    """
+    Calculate the great circle distance in kilometers between two points
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula
+    dlon, dlat = lon2 - lon1, lat2 - lat1
+    a = np.square(np.sin(dlat / 2)) + np.cos(lat1) * np.cos(lat2) * np.square(np.sin(dlon / 2))
+    rad = 2 * np.arcsin(np.sqrt(a))
+    return rad

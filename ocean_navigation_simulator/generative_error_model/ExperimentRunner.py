@@ -1,6 +1,8 @@
 import copy
 
-from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import OceanCurrentNoiseField
+from ocean_navigation_simulator.generative_error_model.models.OceanCurrentNoiseField import (
+    OceanCurrentNoiseField,
+)
 from ocean_navigation_simulator.generative_error_model.Dataset import Dataset
 from ocean_navigation_simulator.generative_error_model.data_files.BuoyData import TargetedTimeRange
 from ocean_navigation_simulator.generative_error_model.generative_model_metrics import get_metrics
@@ -56,8 +58,7 @@ class ExperimentRunner:
         self.data = pd.DataFrame(columns={"time", "lon", "lat", "u_error", "v_error"})
 
     def reset(self):
-        """Resets the seed of the simplex noise model. Needed to generate diverse samples.
-        """
+        """Resets the seed of the simplex noise model. Needed to generate diverse samples."""
         new_seed = self.rng.choice(20000, 1)
         new_rng = np.random.default_rng(new_seed)
         self.model.reset(new_rng)
@@ -70,8 +71,12 @@ class ExperimentRunner:
             print(f"Running: {problem}")
             self.run_problem(problem, error_only=error_only, sampling_method="real")
 
-    def run_problem(self, problem: Problem, error_only: bool, sampling_method: str = "real") -> Optional[pd.DataFrame]:
-        noise_field = self.model.get_noise_from_ranges(problem.lon_range, problem.lat_range, problem.t_range)
+    def run_problem(
+        self, problem: Problem, error_only: bool, sampling_method: str = "real"
+    ) -> Optional[pd.DataFrame]:
+        noise_field = self.model.get_noise_from_ranges(
+            problem.lon_range, problem.lat_range, problem.t_range
+        )
         folder_name = self.dataset_name
         self.save_noise_field(noise_field, problem, folder_name)
 
@@ -81,7 +86,9 @@ class ExperimentRunner:
 
         if sampling_method == "real":
             ground_truth = self.get_ground_truth(problem)
-            synthetic_error = ExperimentRunner._get_samples_from_synthetic(noise_field, ground_truth)
+            synthetic_error = ExperimentRunner._get_samples_from_synthetic(
+                noise_field, ground_truth
+            )
             self.save_data(synthetic_error, problem, folder_name)
         elif sampling_method == "random":
             synthetic_error = ExperimentRunner._get_random_samples_from_synthetic(noise_field, 20)
@@ -89,15 +96,15 @@ class ExperimentRunner:
         return synthetic_error
 
     def get_ground_truth(self, problem: Problem):
-        """Loads the ground truth data for a specific problem.
-        """
-        ground_truth = self.dataset.get_recent_data_in_range(problem.lon_range, problem.lat_range, problem.t_range)
+        """Loads the ground truth data for a specific problem."""
+        ground_truth = self.dataset.get_recent_data_in_range(
+            problem.lon_range, problem.lat_range, problem.t_range
+        )
         ground_truth["time"] = pd.to_datetime(ground_truth["time"])
         return ground_truth
 
     def get_problems(self) -> List[Problem]:
-        """Loads problems from yaml file and returns them as a list of object of type Problem.
-        """
+        """Loads problems from yaml file and returns them as a list of object of type Problem."""
         problems = []
         if "problems_file" in self.variables.keys():
             with open(self.variables["problem_file"]) as f:
@@ -114,7 +121,9 @@ class ExperimentRunner:
         return problems
 
     @staticmethod
-    def _get_samples_from_synthetic(noise_field: xr.Dataset, ground_truth: pd.DataFrame) -> pd.DataFrame:
+    def _get_samples_from_synthetic(
+        noise_field: xr.Dataset, ground_truth: pd.DataFrame
+    ) -> pd.DataFrame:
         """Takes the generated error and takes samples where buoys are located in space and time.
         Note: Need to ensure that there is good overlap between points in ground_truth and the simplex
         noise sample. Otherwise, there will be large interpolation errors. Rows which contain at least
@@ -125,12 +134,20 @@ class ExperimentRunner:
         synthetic_data["v_error"] = 0
         n = 10
         for i in tqdm(range(0, synthetic_data.shape[0], n)):
-            noise_field_interp = noise_field.interp(time=synthetic_data.iloc[i:i+n]["time"],
-                                                    lon=synthetic_data.iloc[i:i+n]["lon"],
-                                                    lat=synthetic_data.iloc[i:i+n]["lat"])
-            synthetic_data["u_error"].iloc[i:i+n] = noise_field_interp["u_error"].values.diagonal().diagonal()
-            synthetic_data["v_error"].iloc[i:i+n] = noise_field_interp["v_error"].values.diagonal().diagonal()
-        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.")
+            noise_field_interp = noise_field.interp(
+                time=synthetic_data.iloc[i : i + n]["time"],
+                lon=synthetic_data.iloc[i : i + n]["lon"],
+                lat=synthetic_data.iloc[i : i + n]["lat"],
+            )
+            synthetic_data["u_error"].iloc[i : i + n] = (
+                noise_field_interp["u_error"].values.diagonal().diagonal()
+            )
+            synthetic_data["v_error"].iloc[i : i + n] = (
+                noise_field_interp["v_error"].values.diagonal().diagonal()
+            )
+        print(
+            f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%."
+        )
         synthetic_data = synthetic_data.dropna()
         return synthetic_data
 
@@ -144,55 +161,69 @@ class ExperimentRunner:
         lon_range = [noise_field["lon"].values.min(), noise_field["lon"].values.max()]
         lat_range = [noise_field["lat"].values.min(), noise_field["lat"].values.max()]
 
-        lon_samples = np.random.uniform(lon_range[0], lon_range[1], num_samples*time_steps)
-        lat_samples = np.random.uniform(lat_range[0], lat_range[1], num_samples*time_steps)
-        hour_samples = np.random.choice(np.arange(time_steps), num_samples*time_steps)
-        time_samples = np.array([time_range[0] + np.timedelta64(hours, 'h') for hours in hour_samples])
+        lon_samples = np.random.uniform(lon_range[0], lon_range[1], num_samples * time_steps)
+        lat_samples = np.random.uniform(lat_range[0], lat_range[1], num_samples * time_steps)
+        hour_samples = np.random.choice(np.arange(time_steps), num_samples * time_steps)
+        time_samples = np.array(
+            [time_range[0] + np.timedelta64(hours, "h") for hours in hour_samples]
+        )
 
-        synthetic_data = pd.DataFrame({"time": time_samples, "lon": lon_samples, "lat": lat_samples})
+        synthetic_data = pd.DataFrame(
+            {"time": time_samples, "lon": lon_samples, "lat": lat_samples}
+        )
         synthetic_data["u_error"] = 0
         synthetic_data["v_error"] = 0
 
         n = 10
         for i in tqdm(range(0, synthetic_data.shape[0], n)):
-            noise_field_interp = noise_field.interp(time=synthetic_data.iloc[i:i+n]["time"],
-                                                    lon=synthetic_data.iloc[i:i+n]["lon"],
-                                                    lat=synthetic_data.iloc[i:i+n]["lat"])
-            synthetic_data["u_error"].iloc[i:i+n] = noise_field_interp["u_error"].values.diagonal().diagonal()
-            synthetic_data["v_error"].iloc[i:i+n] = noise_field_interp["v_error"].values.diagonal().diagonal()
-        print(f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%.")
+            noise_field_interp = noise_field.interp(
+                time=synthetic_data.iloc[i : i + n]["time"],
+                lon=synthetic_data.iloc[i : i + n]["lon"],
+                lat=synthetic_data.iloc[i : i + n]["lat"],
+            )
+            synthetic_data["u_error"].iloc[i : i + n] = (
+                noise_field_interp["u_error"].values.diagonal().diagonal()
+            )
+            synthetic_data["v_error"].iloc[i : i + n] = (
+                noise_field_interp["v_error"].values.diagonal().diagonal()
+            )
+        print(
+            f"Percentage of failed interp: {100*np.isnan(synthetic_data['u_error']).sum()/synthetic_data.shape[0]}%."
+        )
         synthetic_data = synthetic_data.dropna()
         return synthetic_data
 
-    def save_data(self, synthetic_error_samples: pd.DataFrame, problem: Problem, folder_name: str) -> None:
-        """Save synthetic samples for computing the variogram.
-        """
-        synthetic_error_dir = os.path.join(self.data_dir,
-                                           "dataset_synthetic_error",
-                                           folder_name)
+    def save_data(
+        self, synthetic_error_samples: pd.DataFrame, problem: Problem, folder_name: str
+    ) -> None:
+        """Save synthetic samples for computing the variogram."""
+        synthetic_error_dir = os.path.join(self.data_dir, "dataset_synthetic_error", folder_name)
         if not os.path.exists(synthetic_error_dir):
             os.makedirs(synthetic_error_dir)
 
         date_format = "%Y-%m-%dT%H:%M:%SZ"
-        file_name = f"synthetic_data_error_lon_[{problem.lon_range[0]},{problem.lon_range[1]}]_"\
-                    f"lat_[{problem.lat_range[0]},{problem.lat_range[1]}]_"\
-                    f"time_{problem.t_range[0].strftime(date_format)}__{problem.t_range[1].strftime(date_format)}.csv"
+        file_name = (
+            f"synthetic_data_error_lon_[{problem.lon_range[0]},{problem.lon_range[1]}]_"
+            f"lat_[{problem.lat_range[0]},{problem.lat_range[1]}]_"
+            f"time_{problem.t_range[0].strftime(date_format)}__{problem.t_range[1].strftime(date_format)}.csv"
+        )
         file_path = os.path.join(synthetic_error_dir, file_name)
         if not os.path.exists(file_path):
             synthetic_error_samples.to_csv(file_path, index=False)
             print(f"Saved synthetic error dataset to: {synthetic_error_dir}.\n")
 
     def save_noise_field(self, noise_field: xr.Dataset, problem: Problem, folder_name: str):
-        """Save the noise fields create by OceanCurrentNoiseField.
-        """
+        """Save the noise fields create by OceanCurrentNoiseField."""
         noise_field_dir = os.path.join(self.data_dir, "synthetic_error", folder_name)
         if not os.path.exists(noise_field_dir):
             os.makedirs(noise_field_dir)
 
         date_format = "%Y-%m-%dT%H:%M:%SZ"
-        file_name = f"synthetic_data_error_lon_[{problem.lon_range[0]},{problem.lon_range[1]}]_"\
-                    f"lat_[{problem.lat_range[0]},{problem.lat_range[1]}]_"\
-                    f"time_{problem.t_range[0].strftime(date_format)}__{problem.t_range[1].strftime(date_format)}.nc"
+        file_name = (
+            f"synthetic_data_error_lon_[{problem.lon_range[0]},{problem.lon_range[1]}]_"
+            f"lat_[{problem.lat_range[0]},{problem.lat_range[1]}]_"
+            f"time_{problem.t_range[0].strftime(date_format)}__{problem.t_range[1].strftime(date_format)}.nc"
+        )
         file_path = os.path.join(noise_field_dir, file_name)
         if not os.path.exists(file_path):
             noise_field.to_netcdf(file_path)
@@ -211,8 +242,7 @@ class ExperimentRunner:
 
 
 def increment_time(problem: Problem, days: int):
-    """Takes a Problem and increments the time range by one day.500
-    """
+    """Takes a Problem and increments the time range by one day.500"""
     problem = copy.deepcopy(problem)
     for i in range(len(problem.t_range)):
         problem.t_range[i] = problem.t_range[i] + datetime.timedelta(days=days)

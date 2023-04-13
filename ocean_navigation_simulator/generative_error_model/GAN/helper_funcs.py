@@ -1,26 +1,38 @@
-from ocean_navigation_simulator.generative_error_model.GAN.Generator import Generator, GeneratorSimplified
-from ocean_navigation_simulator.generative_error_model.GAN.Discriminator import Discriminator
-from ocean_navigation_simulator.generative_error_model.GAN.BuoyForecastDataset import BuoyForecastErrorNpy
-from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import ForecastHindcastDatasetNpy
+import argparse
+import datetime
+import os
+from typing import Any, Callable, Dict, Optional, Tuple
+from warnings import warn
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import yaml
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader, Dataset
-from typing import Dict, Callable, Tuple, Any, Optional
-import numpy as np
-from warnings import warn
-import datetime
-import yaml
+
 import wandb
-import argparse
-import os
+from ocean_navigation_simulator.generative_error_model.GAN.BuoyForecastDataset import (
+    BuoyForecastErrorNpy,
+)
+from ocean_navigation_simulator.generative_error_model.GAN.Discriminator import (
+    Discriminator,
+)
+from ocean_navigation_simulator.generative_error_model.GAN.ForecastHindcastDataset import (
+    ForecastHindcastDatasetNpy,
+)
+from ocean_navigation_simulator.generative_error_model.GAN.Generator import (
+    Generator,
+    GeneratorSimplified,
+)
 
 
 def initialize(sweep: bool, test: bool = False):
     parser = argparse.ArgumentParser()
-    parser.add_argument("config_file", type=str, help="specify the file config for model and training")
+    parser.add_argument(
+        "config_file", type=str, help="specify the file config for model and training"
+    )
     config_file = parser.parse_args().config_file
     all_cfgs = yaml.load(open(config_file, "r"), Loader=yaml.FullLoader)
     wandb_cfgs = {"mode": all_cfgs.get("wandb_mode", "online")}
@@ -28,19 +40,21 @@ def initialize(sweep: bool, test: bool = False):
         wandb_cfgs = {"mode": "offline"}
     # add model saving name to cfgs
     all_cfgs["model_save_name"] = f"{get_now_string()}.pth"
-    wandb.init(project="Generative Models for Realistic Simulation of Ocean Currents",
-               entity="ocean-platform-control",
-               tags=f"test={test}",
-               **wandb_cfgs)
+    wandb.init(
+        project="Generative Models for Realistic Simulation of Ocean Currents",
+        entity="ocean-platform-control",
+        tags=f"test={test}",
+        **wandb_cfgs,
+    )
     # update wandb configs
     if sweep:
         all_cfgs |= sweep_set_parameter(all_cfgs)
         wandb.config.update(all_cfgs)
     # if all_cfgs["wandb_mode"] == "online":
-        # wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
-        #                  f"_{all_cfgs['dataset']['area']}" + \
-        #                  f"_{all_cfgs['dataset']['len']}" + \
-        #                  f"_{all_cfgs['dataset']['concat_len']}"
+    # wandb.run.name = f"{all_cfgs['train']['loss']['gen']}" + \
+    #                  f"_{all_cfgs['dataset']['area']}" + \
+    #                  f"_{all_cfgs['dataset']['len']}" + \
+    #                  f"_{all_cfgs['dataset']['concat_len']}"
     wandb.config.update(all_cfgs)
 
     # # define metrics for different charts
@@ -94,17 +108,21 @@ def _get_dataset(dataset_type: str, dataset_configs: Dict) -> Callable:
     handles which dataset to use."""
 
     if dataset_type == "forecastbuoy":
-        dataset = BuoyForecastErrorNpy(dataset_configs["forecasts"],
-                                       dataset_configs["ground_truth"],
-                                       dataset_configs["area"],
-                                       concat_len=dataset_configs["concat_len"],
-                                       dataset_names=dataset_configs["dataset_names"],
-                                       transform=dataset_configs["transform"])
+        dataset = BuoyForecastErrorNpy(
+            dataset_configs["forecasts"],
+            dataset_configs["ground_truth"],
+            dataset_configs["area"],
+            concat_len=dataset_configs["concat_len"],
+            dataset_names=dataset_configs["dataset_names"],
+            transform=dataset_configs["transform"],
+        )
     elif dataset_type == "forecasthindcast":
-        dataset = ForecastHindcastDatasetNpy(dataset_configs["forecasts"],
-                                             dataset_configs["hindcasts"],
-                                             dataset_configs["area"],
-                                             dataset_configs["concat_len"])
+        dataset = ForecastHindcastDatasetNpy(
+            dataset_configs["forecasts"],
+            dataset_configs["hindcasts"],
+            dataset_configs["area"],
+            dataset_configs["concat_len"],
+        )
     # print(f"Using {dataset_type} dataset with {dataset_configs}.")
     return dataset
 
@@ -122,7 +140,7 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     prev_dataset_len = 0
     acc_target_len = 0
     train_idx, val_idx, fixed_batch_idx = [], [], []
-    fixed_batch_size = int(4/len(area_lens.keys()))
+    fixed_batch_size = int(4 / len(area_lens.keys()))
     for area, length in area_lens.items():
         # get split sizes for the whole dataset.
         train_size = int(splits[0] * length)
@@ -139,8 +157,12 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
             val_target_size = target_len - train_target_size
 
         train_idx.extend(np.array(range(acc_target_len, acc_target_len + train_target_size)))
-        remaining_idx = np.array(range(acc_target_len + train_target_size,
-                                       acc_target_len + train_target_size + val_target_size))
+        remaining_idx = np.array(
+            range(
+                acc_target_len + train_target_size,
+                acc_target_len + train_target_size + val_target_size,
+            )
+        )
 
         # pick randomly which samples go in the fixed batch
         temp_idx = rng.choice(np.arange(0, len(remaining_idx)), fixed_batch_size, replace=False)
@@ -154,20 +176,30 @@ def _get_dataloaders(dataset: Dataset, dataset_configs: Dict, train_configs: Dic
     val_set = torch.utils.data.Subset(dataset, val_idx)
     fixed_batch_set = torch.utils.data.Subset(dataset, fixed_batch_idx)
 
-    print(f"=> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set)} " +
-          f"of {len(dataset)} available samples.")
+    print(
+        f"=> All sets using {len(train_set) + len(val_set) + len(fixed_batch_set)} "
+        + f"of {len(dataset)} available samples."
+    )
     print(f"=> Data from {dataset_configs['area']}.")
 
-    train_loader = DataLoader(dataset=train_set, batch_size=train_configs["batch_size"], shuffle=dataset_configs["shuffle"])
+    train_loader = DataLoader(
+        dataset=train_set,
+        batch_size=train_configs["batch_size"],
+        shuffle=dataset_configs["shuffle"],
+    )
     val_loader = DataLoader(dataset=val_set, batch_size=train_configs["batch_size"], shuffle=False)
-    fixed_batch = DataLoader(dataset=fixed_batch_set, batch_size=train_configs["batch_size"], shuffle=False)
+    fixed_batch = DataLoader(
+        dataset=fixed_batch_set, batch_size=train_configs["batch_size"], shuffle=False
+    )
     return train_loader, val_loader, fixed_batch
 
 
 def get_test_data(dataset_type: str, dataset_configs: Dict, train_configs: Dict):
     """Get specific part of data for test."""
     dataset = _get_dataset(dataset_type, dataset_configs)
-    test_loader = DataLoader(dataset=dataset, batch_size=train_configs["test_batch_size"], shuffle=False)
+    test_loader = DataLoader(
+        dataset=dataset, batch_size=train_configs["test_batch_size"], shuffle=False
+    )
     return test_loader
 
 
@@ -176,7 +208,7 @@ def get_optimizer(model, name: str, lr: float, kwargs_optimizer: Optional[dict[s
 
     if kwargs_optimizer is None:
         kwargs_optimizer = dict()
-    kwargs_optimizer['lr'] = float(lr)
+    kwargs_optimizer["lr"] = float(lr)
     # print(f"Optimizer params: {args_optimizer}")
     if name.lower() == "adam":
         return optim.Adam(model.parameters(), **kwargs_optimizer)
@@ -193,14 +225,20 @@ def get_scheduler(optimizer, scheduler_configs: Dict):
         optimizer          -- the optimizer of the network
         lr_configs         -- dictionary defining parameters
     """
-    if scheduler_configs["scheduler_type"] == 'plateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+    if scheduler_configs["scheduler_type"] == "plateau":
+        scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.2, threshold=0.01, patience=5
+        )
     else:
-        return NotImplementedError('learning rate policy [%s] is not implemented', scheduler_configs["scheduler_type"])
+        return NotImplementedError(
+            "learning rate policy [%s] is not implemented", scheduler_configs["scheduler_type"]
+        )
     return scheduler
 
 
-def save_input_output_pairs(data: torch.tensor, output: torch.tensor, save_root: str, save_dir: str, idx: int) -> str:
+def save_input_output_pairs(
+    data: torch.tensor, output: torch.tensor, save_root: str, save_dir: str, idx: int
+) -> str:
     """Saves input-output pairs for testing."""
 
     save_dir = save_dir.split(".")[0]
@@ -209,7 +247,7 @@ def save_input_output_pairs(data: torch.tensor, output: torch.tensor, save_root:
         os.makedirs(save_dir)
 
     # pad idx
-    idx = str(idx+1).zfill(4)
+    idx = str(idx + 1).zfill(4)
 
     save_file_path = os.path.join(save_dir, f"input_{idx}.npy")
     _save_data(data, save_file_path)
@@ -228,8 +266,9 @@ def enable_dropout(m, layers: list):
     """Enable specific Dropout layers in generator like in Pix2pix for validation/testing."""
 
     for name, layer in m.named_modules():
-        if layer.__class__.__name__.startswith('Dropout') and\
-                ("up" in name and any(str(x) in name for x in layers)):
+        if layer.__class__.__name__.startswith("Dropout") and (
+            "up" in name and any(str(x) in name for x in layers)
+        ):
             layer.train()
     # print("-> Enabled dropout in gen")
 
@@ -245,7 +284,7 @@ def init_decoder_weights(generator):
                 nn.init.xavier_normal_(layer.weight.data, gain=0.02)
                 if layer.bias is not None:
                     nn.init.constant_(layer.bias.data, 0.0)
-    print(f"=> Reset decoder weights")
+    print("=> Reset decoder weights")
 
 
 def freeze_encoder_weights(generator):
@@ -309,16 +348,22 @@ class SeededMasking:
         if keep_fraction > 1.0:
             raise ValueError("Please specify fraction in interval [0, 1].")
         mask = torch.zeros(mask_shape).flatten()
-        mask[:int(keep_fraction * mask.shape[0])] = 1
+        mask[: int(keep_fraction * mask.shape[0])] = 1
         rand_idx = torch.randperm(mask.shape[0], generator=self.rand_gen)
         mask = torch.reshape(mask[rand_idx], mask_shape)
         return mask
 
-    def get_perturbed_mask(self, perturb_prob: float, mask_shape: Optional[tuple] = None,
-                           keep_fraction: Optional[float] = None):
+    def get_perturbed_mask(
+        self,
+        perturb_prob: float,
+        mask_shape: Optional[tuple] = None,
+        keep_fraction: Optional[float] = None,
+    ):
         if self.prev_mask is None:
             if mask_shape is None or keep_fraction is None:
-                assert ValueError("Need to provide mask_shape and keep_fraction if SeededMasking.prev_mask = None.")
+                assert ValueError(
+                    "Need to provide mask_shape and keep_fraction if SeededMasking.prev_mask = None."
+                )
             mask = self.get_mask(mask_shape, keep_fraction)
             self.prev_mask = mask
             return mask
@@ -332,7 +377,7 @@ class SeededMasking:
         # decide whether to perturb or not
         if np.random.rand(1)[0] < perturb_prob:
             # if final batch smaller than batch_size
-            self.prev_mask = self.prev_mask[:mask_shape[0]]
+            self.prev_mask = self.prev_mask[: mask_shape[0]]
             # get indices of 1s of prev mask
             idx = (self.prev_mask == 1).nonzero()
             # perturb indices randomly
@@ -342,10 +387,15 @@ class SeededMasking:
             mask = torch.zeros(mask_shape)
             # convert indices into 1D tensor
             b, c, h, w = idx[:, 0], idx[:, 1], idx[:, 2], idx[:, 3]
-            helper = b*np.prod(mask.shape[1:]) + c*np.prod(mask.shape[2:]) + h*np.prod(mask.shape[-1]) + w
+            helper = (
+                b * np.prod(mask.shape[1:])
+                + c * np.prod(mask.shape[2:])
+                + h * np.prod(mask.shape[-1])
+                + w
+            )
             # assign 1 to indices
             mask.flatten().scatter_(dim=0, index=helper, value=1).reshape_as(mask)
         else:
-            mask = self.prev_mask[:mask_shape[0]]
+            mask = self.prev_mask[: mask_shape[0]]
         self.prev_mask = mask
         return mask

@@ -1,2 +1,0 @@
-class OceanCurrentSource:
-    pass
