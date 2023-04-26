@@ -136,7 +136,7 @@ class Platform2dForSim(dynamics.Dynamics):
         )
 
     ### Overwriting lower functions for fast closed-loop control
-    def get_opt_ctrl_from_values(self, x, grid, time, times, all_values,
+    def get_opt_ctrl_from_values(self, grid, x, time, times, all_values,
                                  upwind_scheme=upwind_first.WENO3, n_temporal_buffer_idx=6, n_spatial_buffer_idx=10):
         """Function that computes the optimal ctrl and distr for a point state at time based on the value function.
 
@@ -156,7 +156,8 @@ class Platform2dForSim(dynamics.Dynamics):
         """
         # Step 0: subset the grid around the current state
         subsetted_grid, subsetted_reach_times, subsetted_values = self.create_subsets(
-            time, times, all_values, grid, x, n_temporal_buffer_idx, n_spatial_buffer_idx)
+            time=time, times=times, all_values=all_values,
+            grid=grid, state=x, n_temporal_buffer_idx=n_temporal_buffer_idx, n_spatial_buffer_idx=n_spatial_buffer_idx)
 
         # Step 1: interpolate the value function for the specific time along the time axis
         val_at_t = interp1d(subsetted_reach_times, subsetted_values, axis=0, kind='linear')(time).squeeze()
@@ -167,7 +168,7 @@ class Platform2dForSim(dynamics.Dynamics):
         return u_opt, d_opt
 
     @staticmethod
-    @functools.partial(jit, static_argnames=("n_temporal_buffer_idx", "n_spatial_buffer_idx"))
+    # @functools.partial(jit, static_argnames=("n_temporal_buffer_idx", "n_spatial_buffer_idx"))
     def create_subsets(time, times, all_values, grid, state, n_temporal_buffer_idx, n_spatial_buffer_idx):
         """Helper function to create a grid object that is a subset of the original grid around the current state and time."""
         # Step 1: Get nearest index in the spatial grid
