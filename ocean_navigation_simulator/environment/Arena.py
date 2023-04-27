@@ -566,6 +566,7 @@ class Arena:
         show_control_trajectory: Optional[bool] = True,
         control_color: Optional[str] = "magenta",
         control_stride: Optional[int] = 1,
+        control_vec_scale: Optional[int] = 4,
         # Problem (Target)
         problem: Optional[Problem] = None,
         problem_start_color: Optional[str] = "red",
@@ -624,7 +625,8 @@ class Arena:
         if show_state_trajectory:
             self.plot_state_trajectory_on_map(ax=ax, color=state_color)
         if show_control_trajectory:
-            self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
+            self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride,
+                                                control_vec_scale=control_vec_scale)
         if show_current_position:
             ax.scatter(
                 self.state_trajectory[index, 0],
