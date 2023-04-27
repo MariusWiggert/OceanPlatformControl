@@ -221,8 +221,6 @@ class ArenaFactory:
                         days=config["ocean_dict"]["forecast"].get("forecast_length_in_days", 5)
                     ),
                 ]
-                print(t_interval)
-                print(t_interval_adapted)
                 with timing_logger(
                     "Download Forecast Files: {start} until {end} ({{}})".format(
                         start=t_interval_adapted[0].strftime("%Y-%m-%d %H-%M-%S"),
@@ -486,7 +484,9 @@ class ArenaFactory:
         # for NOAA it's a bit different for fetching them
         if archive_source.lower() == "noaa":
             archive_types["forecast"] = "Forecast"
-            c3_file_type = getattr(c3, f"NoaaCombined{archive_types[archive_type.lower()]}File")
+            c3_file_type = getattr(
+                c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
+            )
             region_filter_str = ""
         else:
             c3_file_type = getattr(

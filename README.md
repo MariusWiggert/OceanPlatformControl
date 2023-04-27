@@ -2,29 +2,19 @@
 
 ## Setup of environment
 <details>
-<summary> If you only develop on OceanPlatformControl </summary>
+<summary> Minimal setup if you only develop on OceanPlatformControl</summary>
+Install Anaconda OR miniconda (only one of them), more  [information](https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html). Recreate the minimal setup of Marius with hj_reachability (v0.4).
 
-In any case install conda:
-Install Anaconda OR miniconda (only one of them) [Link](https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html)
-```sh
+   ```sh
 # 1. Clone project repo: 
 git clone https://github.com/MariusWiggert/OceanPlatformControl.git
-# 2. In the terminal, navigate inside the project repo and run the install bash script
-cd setup/
-source  set_up_ocean_platform_env.sh
 ```
-</details>
-
-<details>
-<summary> Minimal setup </summary>
-Recreate the minimal setup of Marius with hj_reachability (v0.4).
-
 **LINUX** (might also work on x86 macs but not tested yet)
 
 First create a conda environment
 
 ```sh
-conda create -y -n ocean_minimal python=3.9.11
+conda create -y -n ocean_minimal python=3.9.15
 conda activate ocean_minimal
 ```
 
@@ -84,10 +74,11 @@ Once you have WSL installed and running, install conda or miniconda and follow t
 `git clone https://github.com/MariusWiggert/OceanPlatformControl.git`
 3. Clone hj_reachability repo:
 `git clone https://github.com/MariusWiggert/hj_reachability_c3`
-4. In the terminal, navigate inside the project repo, open the script:
-`set_up_ocean_platform_env.sh`
-Comment out line 13 (where hj_reachability is installed)
-Now run the script `source set_up_ocean_platform_env.sh`
+4. In the terminal, navigate inside the project repo, create the conda environment (see minimal instructions), open the script:
+`setup/install.sh` or its m1 version.
+Comment out the line where hj_reachability is installed.
+Now run the script as described above.
+5. Move into the hj_reachability_c3 directory. Within your activated conda environment, run `pip install -e .`
 
 
 This will create a new conda environment called `ocean_platform` which contains all that is needed.

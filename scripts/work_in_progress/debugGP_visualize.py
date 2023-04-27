@@ -145,7 +145,7 @@ objective_conf = {"type": "nav"}
 arenaConfig = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 86400.0},
     "ocean_dict": {
-        "area": "GOM",
+        "region": "GOM",
         "forecast": {
             "field": "OceanCurrents",
             "source": "forecast_files",

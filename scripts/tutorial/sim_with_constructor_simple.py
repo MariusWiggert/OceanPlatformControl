@@ -11,98 +11,6 @@ logging.basicConfig(level=logging.INFO)
 # % configs
 
 # Observer Configs
-GpObs_Config = {
-    "observer": {
-        "life_span_observations_in_sec": 86400,
-        "model": {
-            "gaussian_process": {
-                "kernel": {
-                    "type": "matern",
-                    "sigma_exp_squared": 5.011571057964094,
-                    "scaling": {
-                        "latitude": 0.5753005356364821,
-                        "longitude": 0.5967749664273109,
-                        "time": 42103.57591355196,
-                    },
-                    "parameters": {"length_scale_bounds": "fixed", "nu": 1.5},
-                }
-            }
-        },
-    }
-}
-big_tile_input_NN_observer_config = {
-    "observer": {
-        "life_span_observations_in_sec": 86400,
-        "model": {
-            "NN": {
-                "NN_radius_space": 1,
-                "NN_lags_in_second": 43200,
-                "dimension_input": [12, 25, 25],
-                "model_error": False,
-                "type": "cnn",
-                "parameters": {
-                    "path_weights": "ocean_navigation_simulator/package_data/NN_observer_weights/big_tile_big_ds.h5",
-                    "ch_sz": [6, 32, 64, 64, 128],
-                    "downsizing_method": "avgpool",
-                    "dropout_encoder": 0.35044302687330947,
-                    "dropout_decoder": 0.3940046389660926,
-                    "dropout_bottom": 0.5316670044828303,
-                    "initial_channels": [0, 1, 2, 3, 6, 7],
-                    "activation": "elu",
-                    "output_paddings": [[0, 0, 0], [1, 0, 0], [1, 0, 0]],
-                },
-            },
-            "gaussian_process": {
-                "kernel": {
-                    "type": "matern",
-                    "sigma_exp_squared": 5.011571057964094,
-                    "scaling": {
-                        "latitude": 0.5753005356364821,
-                        "longitude": 0.5967749664273109,
-                        "time": 42103.57591355196,
-                    },
-                    "parameters": {"length_scale_bounds": "fixed", "nu": 1.5},
-                }
-            },
-        },
-    }
-}
-medium_tile_input_NN_obs_config = {
-    "observer": {
-        "life_span_observations_in_sec": 86400,
-        "model": {
-            "NN": {
-                "NN_radius_space": 1,
-                "NN_lags_in_second": 43200,
-                "dimension_input": [12, 13, 13],
-                "model_error": False,
-                "type": "cnn",
-                "parameters": {
-                    "path_weights": "ocean_navigation_simulator/package_data/NN_observer_weights/medium_tile_big_ds.h5",
-                    "ch_sz": [6, 24, 48, 96, 192],
-                    "downsizing_method": "avgpool",
-                    "dropout_encoder": 0.24299222476871712,
-                    "dropout_decoder": 0.13587898683659105,
-                    "dropout_bottom": 0.7479602916555403,
-                    "initial_channels": [0, 1, 2, 3, 6, 7],
-                    "output_paddings": [[0, 1, 1], [1, 0, 0], [1, 0, 0]],
-                },
-            },
-            "gaussian_process": {
-                "kernel": {
-                    "type": "matern",
-                    "sigma_exp_squared": 5.011571057964094,
-                    "scaling": {
-                        "latitude": 0.5753005356364821,
-                        "longitude": 0.5967749664273109,
-                        "time": 42103.57591355196,
-                    },
-                    "parameters": {"length_scale_bounds": "fixed", "nu": 1.5},
-                }
-            },
-        },
-    }
-}
 NoObserver = {"observer": None}
 
 # Controller Configs
@@ -144,7 +52,7 @@ objective_conf = {"type": "nav"}
 arenaConfig = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 86400.0},
     "ocean_dict": {
-        "region": "GOM",
+        "region": "GOM", # this is gulf of mexico
         "forecast": {
             "field": "OceanCurrents",
             "source": "forecast_files",
@@ -173,7 +81,7 @@ arenaConfig = {
     "solar_dict": {"forecast": None, "hindcast": None},
     "spatial_boundary": None,
     "use_geographic_coordinate_system": True,
-    "timeout": 3600 * 24 * 5,
+    "timeout": 3600 * 24 * 5, # timeout of simulation
 }
 
 # Step 0: Create Constructor object which contains arena, problem, controller and observer
@@ -194,6 +102,7 @@ problem = constructor.problem
 arena = constructor.arena
 observation = arena.reset(platform_state=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
+
 # #%% Plot the problem on the map
 # import matplotlib.pyplot as plt
 # t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
