@@ -49,7 +49,9 @@ class HJReach2DPlanner(HJPlannerBase):
                 path_to_obstacle_file=self.specific_settings["obstacle_dict"][
                     "path_to_obstacle_file"
                 ],
-                safe_distance_to_obstacle=self.specific_settings["obstacle_dict"]["safe_distance_to_obstacle"]
+                safe_distance_to_obstacle=self.specific_settings["obstacle_dict"][
+                    "safe_distance_to_obstacle"
+                ],
             )
         else:
             return Platform2dForSim(

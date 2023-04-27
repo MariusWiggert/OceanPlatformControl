@@ -3,6 +3,9 @@ import datetime
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
@@ -10,10 +13,6 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
-
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJReach2DPlanner,
-)
 
 timeout_in_days = 10
 scenario_config = {

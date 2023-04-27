@@ -18,11 +18,13 @@ from typing import Dict, Optional
 import casadi as ca
 import numpy as np
 
-from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import BathymetrySource2d
+from ocean_navigation_simulator.data_sources import OceanCurrentSource
+from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
+    BathymetrySource2d,
+)
 from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
     GarbagePatchSource2d,
 )
-from ocean_navigation_simulator.data_sources import OceanCurrentSource
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthSource,
 )
@@ -78,8 +80,8 @@ class Platform:
     ocean_source: OceanCurrentSource = None
     solar_source: SolarIrradianceSource = None
     seaweed_source: SeaweedGrowthSource = None
-    bathymetry_source: BathymetrySource2d = None,
-    garbage_source: GarbagePatchSource2d = None,
+    bathymetry_source: BathymetrySource2d = (None,)
+    garbage_source: GarbagePatchSource2d = (None,)
     state: PlatformState = None
 
     def __init__(

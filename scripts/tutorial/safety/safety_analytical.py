@@ -6,30 +6,27 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 import xarray as xr
 import yaml
+from tqdm import tqdm
 
-
+from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
+    HJReach2DPlanner,
+)
+from ocean_navigation_simulator.data_sources.OceanCurrentField import (
+    OceanCurrentField,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
 from ocean_navigation_simulator.environment.Platform import PlatformState
-from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
-from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJReach2DPlanner,
-)
-
-
-from ocean_navigation_simulator.data_sources.OceanCurrentField import (
-    OceanCurrentField,
-)
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     SpatialPoint,
 )
 from ocean_navigation_simulator.utils import units
+
 %load_ext autoreload
 %autoreload 2
 
@@ -153,6 +150,7 @@ plt.show()
 
 #%%
 import plotly.graph_objects as go
+
 fig = go.Figure(
             data=go.Surface(
                 x=planner.grid.states[..., 0],

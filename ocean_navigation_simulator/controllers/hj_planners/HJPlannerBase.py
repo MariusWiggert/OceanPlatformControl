@@ -6,7 +6,7 @@ import time
 from bisect import bisect
 from datetime import datetime, timezone
 from functools import partial
-from typing import AnyStr, Callable, List, Optional, Tuple, Union, Dict
+from typing import AnyStr, Callable, List, Optional, Tuple, Union
 
 # Note: if you develop on hj_reachability repo and this library simultaneously, add the local version with this line
 # sys.path.extend([os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))) + 'hj_reachability_c3'])
@@ -426,7 +426,9 @@ class HJPlannerBase(Controller):
             t_start_backtracking = x_t.date_time.timestamp()
 
             if self.all_values.min() < -2:
-                print(f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}")
+                print(
+                    f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}"
+                )
                 # raise ValueError(
                 #     "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
                 # )
@@ -903,9 +905,11 @@ class HJPlannerBase(Controller):
             plt.show()
 
     def plot_reachability_snapshot_over_currents(
-        self, rel_time_in_seconds: float = 0, ax: plt.Axes = None,
-            background_args: Optional[dict] = {},
-            **kwargs
+        self,
+        rel_time_in_seconds: float = 0,
+        ax: plt.Axes = None,
+        background_args: Optional[dict] = {},
+        **kwargs,
     ):
         """Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds over the currents.
         Args:

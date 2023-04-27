@@ -6,7 +6,6 @@ from tqdm import tqdm
 from ocean_navigation_simulator.controllers.SwitchingController import (
     SwitchingController,
 )
-
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
@@ -14,7 +13,6 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
-
 
 scenario_config = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 36000.0},

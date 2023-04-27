@@ -1,10 +1,14 @@
 from typing import Union
+
 import jax.numpy as jnp
 import xarray as xr
-from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
+
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
+    Platform2dForSim, Platform2dForSimAffine
+)
 
 
-class Platform2dObsForSim(Platform2dForSim):
+class Platform2dObsForSim(Platform2dForSimAffine):
     """The 2D Ocean going Platform class on a dynamic current field with obstacles.
     This class is for use with the ocean_platform simulator
 
