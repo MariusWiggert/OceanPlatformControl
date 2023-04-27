@@ -1,2 +1,1 @@
 include ocean_navigation_simulator/package_data/bathymetry_and_garbage/*.nc
-include ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc
