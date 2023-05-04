@@ -276,6 +276,7 @@ class Arena:
                 ),
                 forecast_data_source=self.ocean_field.forecast_data_source,
             )
+        
         return obs
 
     def is_inside_arena(self, margin: Optional[float] = 0.0) -> bool:
@@ -326,6 +327,9 @@ class Arena:
             return self.garbage_source.is_in_garbage_patch(point)
         else:
             return 0
+
+    def return_state_trajectory(self):
+        return self.state_trajectory
 
     def is_timeout(self) -> bool:
         # calculate passed_seconds
@@ -631,6 +635,7 @@ class Arena:
         ax.legend(loc="lower right")
 
         if return_ax:
+            plt.show()
             return ax
         else:
             plt.show()

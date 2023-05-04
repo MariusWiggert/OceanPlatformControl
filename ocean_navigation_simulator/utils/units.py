@@ -66,6 +66,11 @@ class Distance:
     def kilometers(self) -> float:
         """Gets distance in kilometers."""
         return self.km
+    
+    @property
+    def rad_to_km(self) -> float:
+        """Gets distance in kilometers."""
+        return self.rad*6371
 
     @property
     def feet(self) -> float:

@@ -16,10 +16,11 @@ from ocean_navigation_simulator.utils import units
 
 
 @dataclasses.dataclass
-class NavigationProblem(Problem):
+class NavigationWaypointsProblem(Problem):
     """class to hold the essential variables for a path planning problem (A -> B)"""
 
     start_state: PlatformState
+    waypoints: List = None
     end_region: SpatialPoint
     target_radius: float
     platform_dict: dict = None
@@ -29,9 +30,6 @@ class NavigationProblem(Problem):
 
     def distance(self, state: PlatformState) -> units.Distance:
         return self.end_region.distance(state.to_spatial_point())
-
-    def haversine(self, state: PlatformState) -> units.Distance:
-        return self.end_region.haversine(state.to_spatial_point())
 
     def bearing(self, state: PlatformState) -> float:
         return self.end_region.bearing(state.to_spatial_point())
@@ -46,6 +44,10 @@ class NavigationProblem(Problem):
         if state.distance(self.end_region).deg <= self.target_radius:
             return 1
         return 0
+
+    def add_waypoints(self, waypoints_list) -> int:
+        self.waypoints = waypoints_list
+        return 1
 
     def plot(
         self,
@@ -74,6 +76,20 @@ class NavigationProblem(Problem):
                 zorder=6,
             )
         )
+        i = 0
+        for point in self.waypoints:
+            ax.add_patch(
+            plt.Circle(
+                (point[0], point[1]),
+                self.target_radius,
+                facecolor='yellow',
+                edgecolor='yellow',
+                label="waypoint" + str(i),
+                zorder=6,
+                )
+            )
+            i += 1
+
 
         return ax
 
