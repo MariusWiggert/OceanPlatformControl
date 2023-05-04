@@ -175,6 +175,20 @@ def get_process_information_dict() -> dict:
         "process_gpu_free": f"{gpu_info.used / 1e6:,.0f}MB",
     }
 
+#calculate fuel costs
+#speed_ms is in m/s
+#time is in minutes
+#cost_per_ton is $/ton, currently at $552
+def fuel_cost_calculator(speed_ms, time, cost_per_ton=552):
+    speed = speed_ms * 1.94
+    fuel_usage_per_day = 0.2525*speed*speed- 1.6307*speed
+    days = time / 1440.
+    fuel_usage_overall = fuel_usage_per_day * days
+    print("Fuel usage per day: " + str(fuel_usage_per_day))
+    print("Fuel usage for journey: " + str(fuel_usage_overall))
+    print("Fuel cost for journey: " + str(cost_per_ton*fuel_usage_overall))
+
+
 
 class bcolors:
     """

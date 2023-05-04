@@ -20,7 +20,11 @@ from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
+from ocean_navigation_simulator.utils.misc import fuel_cost_calculator
+
 set_arena_loggers(logging.DEBUG)
+
+COST_OF_FUEL_PER_TON = 552
 
 # in form lon,lat
 # list_of_waypoints = [(-95.85,19.4),(-89.8,24.5),(-80.3,24.6),(-79.9,25.46)] # Miami to Veracruz
@@ -69,6 +73,8 @@ problem_overall.plot(ax=ax_overall)
 plt.show()
 
 state_trajectory_overall = []
+
+speed = 0
 
 x = 0
 for first, second in zip(list_of_waypoints, list_of_waypoints[1:]):
@@ -176,12 +182,17 @@ for first, second in zip(list_of_waypoints, list_of_waypoints[1:]):
     arena.plot_all_on_map(problem=problem)
     
     state_trajectory_overall.append(arena.return_state_trajectory())
+
+    speed = arena.platform.platform_dict["u_max_in_mps"]
     
     x += 1
+
 
 print("Final destination reached:")
 print(total_time)
 print(datetime.timedelta(seconds=total_time*600))
+
+fuel_cost_calculator(speed,total_time*10,COST_OF_FUEL_PER_TON)
 
 # %% Plot the problem on the map
 t_interval, lat_bnds, lon_bnds = arena_overall.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
@@ -207,7 +218,9 @@ ax_overall.plot(
     label="State Trajectory",
 )
 
+
 problem_overall.plot(ax=ax_overall)
+
 
 plt.show()
 

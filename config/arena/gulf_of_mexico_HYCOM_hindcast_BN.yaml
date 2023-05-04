@@ -4,7 +4,7 @@ casadi_cache_dict:
 
 platform_dict:
     battery_cap_in_wh: 400.0
-    u_max_in_mps: 6
+    u_max_in_mps: 1
     motor_efficiency: 1.0
     solar_panel_size: 0.5
     solar_efficiency: 0.2
