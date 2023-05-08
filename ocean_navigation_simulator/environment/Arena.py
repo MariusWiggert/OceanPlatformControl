@@ -574,6 +574,9 @@ class Arena:
         x_interval: Optional[List] = None,
         y_interval: Optional[List] = None,
         margin: Optional[int] = 1,
+        spatial_resolution: Optional[float] = 0.1,
+        vmax: Optional[float] = None,
+        vmin: Optional[float] = None,
         # plot directly or return ax
         return_ax: Optional[bool] = False,
     ) -> matplotlib.axes.Axes:
@@ -590,6 +593,8 @@ class Arena:
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
+                spatial_resolution=spatial_resolution,
+                vmax=vmax,vmin=vmin,
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
