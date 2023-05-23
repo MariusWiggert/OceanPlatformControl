@@ -857,7 +857,7 @@ class HJPlannerBase(Controller):
             plot_level=0,
             color_level="black",
             colorbar=is_multi_reach,
-            obstacles=self.nondim_dynamics.dimensional_dynamics.obstacle_array.T
+            obstacles=self.nondim_dynamics.dimensional_dynamics.binary_obs_map.T
             if (self.specific_settings["obstacle_dict"] is not None)
             else None,
             target_set=initial_values,

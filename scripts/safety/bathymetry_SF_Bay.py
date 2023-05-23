@@ -426,64 +426,12 @@ def depth_stats(ds, x_interval, y_interval, levels, operation, excluded_areas):
     print(f"Water area in km²{np.sum(data < 0) / 12**2 * 110**2:,} (with 110km = 1 degree)")
 
 
-def compute_depth_stats_for_matthias():
-    # Underaproximation of decomposition area
-    ds = xr.open_dataset(
-        "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
-    )
-    excluded_areas = [
-        [[-100, -70], [18, 20]],
-        [[-89, -70], [15, 20]],
-        [[-84, -70], [9.5, 20]],
-        [[-83, -70], [9.02, 9.5]],
-        [[-82.3, -80.15], [8.8, 9.02]],
-        [[-78, -76], [8.2, 9.02]],
-    ]
-
-    depth_stats(ds, [-120, -70], [-20, 20], [-1500, -2000], "<", excluded_areas)
-
-    # if __name__ == "__main__":
-    #%%
-    # Generate global bathymetrymap and save to disk
-    gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
-    # generate_global_bathymetry_maps(gebco_global_filename, res_lat=1/100, res_lon=1/100)
-    low_res = coarsen(gebco_global_filename, 1/100, 1/100, "max")
-    #%%
-    low_res = low_res.astype("float32")
-    low_res.to_netcdf(f"data/bathymetry/bathymetry_global_res_{res_lat:.3f}_{res_lon:.3f}_{op}.nc")
-
-    # Test all other functions
-    # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    # plot_bathymetry_orthographic(low_res_loaded)
-    # plot_bathymetry_2d_levels(low_res_loaded)
-    # plot_bathymetry_2d(low_res_loaded)
-    # Low res is still too large for 3d interactive plot
-    # very_low_res = format_spatial_resolution(low_res_loaded, res_lat=1, res_lon=1)
-    # plot_bathymetry_3d(very_low_res)
-
-    # Create min_distance to land map and test loading it
-    # show current working directory
-    # import os
-    #
-    # print(os.getcwd())
-    # low_res_loaded = xr.open_dataset("data/bathymetry/bathymetry_global_res_0.083_0.083_max.nc")
-    # # subset it to Area of California
-    # low_res_loaded = low_res_loaded.sel(lat=slice(15, 40), lon=slice(-160, -105))
-    # elevation = 0
-    # min_d_map_name = f"data/bathymetry/bathymetry_distance_res_0.083_0.083_max_elevation_{int(elevation)}_california.nc"
-    # _ = generate_shortest_distance_maps(
-    #     low_res_loaded, save_path=min_d_map_name, elevation=elevation
-    # )
-    # min_d_map_loaded = xr.open_dataset(min_d_map_name)
-    # min_d_map_loaded = min_d_map_loaded.sel(lat=slice(15, 40), lon=slice(-160, -105))
-    # min_d_map_loaded["distance"].plot(cmap="jet_r")
-    # plt.show()
-
 #%% do it manually just for california area in high resolution!
 import xarray as xr
-gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
+# gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
+gebco_global_filename = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/OceanPlatformControl/data/bathymetry/GEBCO_2022.nc"
 ds = xr.open_dataset(gebco_global_filename)
-ds = ds.sel(lat=slice(37, 38), lon=slice(-123, -122))
+ds = ds.sel(lat=slice(36, 38), lon=slice(-124, -121.5))
 
 # coarsen it a bit
 res = 1/100
@@ -506,8 +454,8 @@ with dask.config.set(**{"array.slicing.split_large_chunks": False}):
         raise NotImplementedError("Unknown operation")
 coarsened = coarsened.compute()
 # #%% viz it
-# xr.where(coarsened["elevation"] > 0, 0, 10000).plot(cmap='jet_r')
-# plt.show()
+xr.where(coarsened["elevation"] > 0, 0, 10000).plot(cmap='jet_r')
+plt.show()
 # #%% remove bay inside
 coarsened["elevation"].loc[dict(lat=slice(37.77, 38), lon=slice(-122.52, -122))] = 10
 coarsened["elevation"].loc[dict(lat=slice(37.3, 37.8), lon=slice(-122.4, -122))] = 10
@@ -518,8 +466,18 @@ coarsened["elevation"].loc[dict(lat=slice(37.25, 37.275), lon=slice(-122.42,-122
 coarsened["elevation"].loc[dict(lat=slice(37.53, 37.55), lon=slice(-122.6,-122.52))] = 0
 coarsened["elevation"].loc[dict(lat=slice(37.62, 37.65), lon=slice(-122.5,-122.4))] = 10
 coarsened["elevation"].loc[dict(lat=slice(37.49, 37.52), lon=slice(-122.5,-122.4))] = 10
-#%% viz it again
-xr.where(coarsened["elevation"] > 0, 0, 10000).plot(cmap='jet_r')
+#%% new ones
+coarsened["elevation"].loc[dict(lat=slice(37.25, 38), lon=slice(-122,-121))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.7, 37), lon=slice(-121.82,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.5, 36.6), lon=slice(-121.95,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.0, 36.1), lon=slice(-121.6,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.95, 37), lon=slice(-122.1,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.6, 36.63), lon=slice(-121.92,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.57, 36.63), lon=slice(-121.98,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.5, 36.57), lon=slice(-121.962,-121.4))] = 10
+coarsened["elevation"].loc[dict(lat=slice(36.54, 36.57), lon=slice(-121.975,-121.4))] = 10
+#% viz it again
+xr.where(coarsened["elevation"] > 0, 0, 10000).sel(lat=slice(36.5, 37.5), lon=slice(-123, -121.5)).plot(cmap='jet_r')
 plt.show()
 #%% now run the distance map calculations
 # 0 land, 1 water
@@ -537,7 +495,7 @@ ds_distance = convert_np_to_xr(min_d_map, lat, lon)
 ds_distance["distance"].plot(cmap="jet_r")
 plt.show()
 #%% save it as file
-save_path = "data/bathymetry/bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc"
+save_path = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/OceanPlatformControl/data/bathymetry/bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc"
 ds_distance = ds_distance.astype("float32")
 ds_distance.to_netcdf(save_path)
 #%%
