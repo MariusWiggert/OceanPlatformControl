@@ -46,9 +46,7 @@ class HJReach2DPlanner(HJPlannerBase):
                 ],
                 control_mode="min",
                 disturbance_mode="max",
-                path_to_obstacle_file=self.specific_settings["obstacle_dict"][
-                    "path_to_obstacle_file"
-                ],
+                obstacle_file=self.specific_settings["obstacle_dict"]["obstacle_file"],
                 safe_distance_to_obstacle=self.specific_settings["obstacle_dict"][
                     "safe_distance_to_obstacle"
                 ],
@@ -101,9 +99,17 @@ class HJReach2DPlanner(HJPlannerBase):
                 / self.characteristic_vec,
             )
             value_function = np.maximum(signed_distance, np.zeros(signed_distance.shape))
+        elif direction == "multi-time-reach-forward":
+            # TODO: implement with radii 0!
+            center = self.x_t
+            value_function = hj.shapes.shape_ellipse(
+                grid=self.nonDimGrid,
+                center=self._get_non_dim_state(self.get_x_from_full_state(center)),
+                radii=self.specific_settings["initial_set_radii"] / self.characteristic_vec,
+            )
         else:
             raise ValueError(
-                "Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back."
+                "Direction in specific_settings of HJPlanner needs to be forward, backward, multi-reach-back, or multi-time-reach-forward."
             )
         # Add obstacle values
         if self.specific_settings["obstacle_dict"] is not None:

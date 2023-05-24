@@ -2,6 +2,8 @@ from typing import Union
 
 import jax.numpy as jnp
 import xarray as xr
+from pathlib import Path
+import os
 
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
     Platform2dForSim, Platform2dForSimAffine
@@ -24,7 +26,7 @@ class Platform2dObsForSim(Platform2dForSimAffine):
         use_geographic_coordinate_system: if we operate in the geographic coordinate system or not
         control_mode: If the control is trying to minimize or maximize the value function.
         disturbance_mode: If the disturbance is trying to minimize or maximize the value function.
-        path_to_obstacle_file: Path to the xarray file containing the distance to the obstacle.
+        obstacle_file: Name of the xarray file containing the distance to the obstacle (in package_data/bathymetry_and_garbage/).
         safe_distance_to_obstacle: Use to overapproximate obstacles by value to ensure whole obstacle is masked.
     """
 
@@ -35,13 +37,17 @@ class Platform2dObsForSim(Platform2dForSimAffine):
         use_geographic_coordinate_system: bool = True,
         control_mode: Union["min", "max"] = "min",
         disturbance_mode: Union["min", "max"] = "max",
-        path_to_obstacle_file: str = None,
+        obstacle_file: str = None,
         safe_distance_to_obstacle: float = 0,
     ):
         super().__init__(
             u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
         )
-        self.path_to_obstacle_file = path_to_obstacle_file
+        # make it an absolute path to the obstacle file
+        self.path_to_obstacle_file = os.path.join(Path(__file__).resolve().parents[2],
+                                        'package_data/bathymetry_and_garbage/',
+                                        obstacle_file)
+
         self.safe_distance_to_obstacle = safe_distance_to_obstacle
 
     def update_jax_interpolant(self, data_xarray: xr):
