@@ -55,7 +55,7 @@ class HJPlannerBase(Controller):
         Args:
             problem: the Problem the controller will run on
             specific_settings: Attributes required in the specific_settings dict
-                direction: string of {'forward', 'backward', 'forward-backward', 'multi-time-reach-back'}
+                direction: string of {'forward', 'backward', 'forward-backward', 'multi-time-reach-back', 'multi-time-reach-forward'}
                     Which directional setting for the reachability to run.
                 n_time_vector: int
                     The number of elements in the time vector which determines how granular the value function is saved.
@@ -87,6 +87,7 @@ class HJPlannerBase(Controller):
             "artificial_dissipation_scheme": "local_local",
             "use_geographic_coordinate_system": True,
             "progress_bar": False,
+            "stop_at_target_for_forward": True,
             # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             "d_max": 0.0,
             "platform_dict": problem.platform_dict if problem is not None else None,
@@ -125,7 +126,7 @@ class HJPlannerBase(Controller):
 
         if (
             self.specific_settings["d_max"] > 0
-            and self.specific_settings["direction"] == "multi-time-reach-back"
+            and self.specific_settings["direction"] in ["multi-time-reach-back", "multi-time-reach-forward"]
         ):
             self.logger.info(
                 "No disturbance implemented for multi-time reachability, only runs with d_max=0."
@@ -439,6 +440,19 @@ class HJPlannerBase(Controller):
                 # raise ValueError(
                 #     "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
                 # )
+        elif self.specific_settings["direction"] == "multi-time-reach-forward":
+            # Step 1: run multi-reachability forward in time
+            self._run_hj_reachability(
+                initial_values=self.get_initial_values(direction="multi-time-reach-forward"),
+                t_start=x_t.date_time,
+                dir="multi-time-reach-forward",
+                T_max_in_seconds=self.specific_settings["T_goal_in_seconds"],
+            )
+
+            if self.all_values.min() < -2:
+                print(
+                    f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}"
+                )
         else:
             raise ValueError(
                 "Direction in controller YAML needs to be one of {backward, forward, forward-backward, "
@@ -452,6 +466,7 @@ class HJPlannerBase(Controller):
             )
 
         # extract trajectory for open_loop control or because of plotting/logging
+
         if (
             self.specific_settings["direction"] == "forward"
             or self.specific_settings.get("calc_opt_traj_after_planning", False)
@@ -508,12 +523,12 @@ class HJPlannerBase(Controller):
             solve_times = np.flip(solve_times, axis=0)
             self.nondim_dynamics.dimensional_dynamics.control_mode = "min"
             self.nondim_dynamics.dimensional_dynamics.disturbance_mode = "max"
-        elif dir == "forward":
+        elif dir == "forward" or dir == "multi-time-reach-forward":
             self.nondim_dynamics.dimensional_dynamics.control_mode = "max"
             self.nondim_dynamics.dimensional_dynamics.disturbance_mode = "min"
 
-        # specific settings for multi-time-reach-back
-        if dir == "multi-time-reach-back":
+        # specific settings for multi-time-reach
+        if "multi-time-reach" in dir:
             # write multi_reach hamiltonian postprocessor
             def multi_reach_step(mask, val):
                 val = jnp.where(mask <= 0, -1, val)
@@ -540,7 +555,7 @@ class HJPlannerBase(Controller):
         # create solver settings object
         solver_settings = hj.SolverSettings.with_accuracy(
             accuracy=self.specific_settings["accuracy"],
-            x_init=self._get_non_dim_state(x_reach_end) if x_reach_end is not None else None,
+            x_init=self._get_non_dim_state(x_reach_end) if (x_reach_end is not None and self.specific_settings['stop_at_target_for_forward']) else None,
             artificial_dissipation_scheme=self.diss_scheme,
             hamiltonian_postprocessor=hamiltonian_postprocessor,
         )
@@ -820,6 +835,12 @@ class HJPlannerBase(Controller):
         # get_initial_value
         initial_values = self.get_initial_values(direction=self.specific_settings["direction"])
 
+        # check if rel_time_in_seconds is in the range of the value function
+        if rel_time_in_seconds + self.reach_times[0] > self.reach_times[-1]:
+            print(
+                f"HJPlanner: rel_time_in_seconds is beyond the available reach times! Reach times only go to {self.reach_times[-1] - self.reach_times[0]}"
+            )
+
         # interpolate the value function to the specific time
         val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind="linear")(
             max(
@@ -829,7 +850,7 @@ class HJPlannerBase(Controller):
         ).squeeze()
 
         # If in normal reachability setting
-        is_multi_reach = "multi-time-reach-back" == self.specific_settings["direction"]
+        is_multi_reach = "multi-time-reach" in self.specific_settings["direction"]
         if (
             is_multi_reach and "val_func_levels" not in kwargs
         ):  # value function pre-computations before plotting
