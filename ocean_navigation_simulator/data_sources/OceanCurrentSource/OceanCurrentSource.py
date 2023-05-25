@@ -132,7 +132,7 @@ class OceanCurrentSource(DataSource):
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
             cbar.ax.set_ylabel("current velocity [m/s]")
             cbar.ax.tick_params(labelsize=17)
-            cbar.patch.set_facecolor("white")
+            cbar.ax.set_facecolor("white")
             cbar.set_ticks(cbar.get_ticks())
             precision = 1
             if int(vmin * 10) == int(vmax * 10):

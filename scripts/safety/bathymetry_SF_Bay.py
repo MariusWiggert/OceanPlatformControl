@@ -431,7 +431,7 @@ import xarray as xr
 # gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
 gebco_global_filename = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/OceanPlatformControl/data/bathymetry/GEBCO_2022.nc"
 ds = xr.open_dataset(gebco_global_filename)
-ds = ds.sel(lat=slice(36, 38), lon=slice(-124, -121.5))
+ds = ds.sel(lat=slice(36, 39), lon=slice(-124, -121.5))
 
 # coarsen it a bit
 res = 1/100
@@ -466,7 +466,7 @@ coarsened["elevation"].loc[dict(lat=slice(37.25, 37.275), lon=slice(-122.42,-122
 coarsened["elevation"].loc[dict(lat=slice(37.53, 37.55), lon=slice(-122.6,-122.52))] = 0
 coarsened["elevation"].loc[dict(lat=slice(37.62, 37.65), lon=slice(-122.5,-122.4))] = 10
 coarsened["elevation"].loc[dict(lat=slice(37.49, 37.52), lon=slice(-122.5,-122.4))] = 10
-#%% new ones
+# cutting out stuff below 36-37 lat
 coarsened["elevation"].loc[dict(lat=slice(37.25, 38), lon=slice(-122,-121))] = 10
 coarsened["elevation"].loc[dict(lat=slice(36.7, 37), lon=slice(-121.82,-121.4))] = 10
 coarsened["elevation"].loc[dict(lat=slice(36.5, 36.6), lon=slice(-121.95,-121.4))] = 10
@@ -476,8 +476,18 @@ coarsened["elevation"].loc[dict(lat=slice(36.6, 36.63), lon=slice(-121.92,-121.4
 coarsened["elevation"].loc[dict(lat=slice(36.57, 36.63), lon=slice(-121.98,-121.4))] = 10
 coarsened["elevation"].loc[dict(lat=slice(36.5, 36.57), lon=slice(-121.962,-121.4))] = 10
 coarsened["elevation"].loc[dict(lat=slice(36.54, 36.57), lon=slice(-121.975,-121.4))] = 10
+#%% cutting out stuff above 38-39 lat
+coarsened["elevation"].loc[dict(lat=slice(37.9, 38.8), lon=slice(-122.6,-121))] = 10
+coarsened["elevation"].loc[dict(lat=slice(38.95, 39), lon=slice(-123.738,-121))] = 10
+coarsened["elevation"].loc[dict(lat=slice(37.99, 38.05), lon=slice(-123.,-122.7))] = 10
+coarsened["elevation"].loc[dict(lat=slice(38.05, 38.4), lon=slice(-122.97,-122.7))] = 10
+coarsened["elevation"].loc[dict(lat=slice(38.235, 38.4), lon=slice(-123.01,-122.7))] = 10
+coarsened["elevation"].loc[dict(lat=slice(38.3, 38.4), lon=slice(-123.05,-122.7))] = 10
+# coarsened["elevation"].loc[dict(lat=slice(38.27, 38.4), lon=slice(-123.03,-122.7))] = 10
 #% viz it again
-xr.where(coarsened["elevation"] > 0, 0, 10000).sel(lat=slice(36.5, 37.5), lon=slice(-123, -121.5)).plot(cmap='jet_r')
+xr.where(coarsened["elevation"] > 0, 0, 10000).sel(lat=slice(37.8, 38.4),
+                                                   lon=slice(-123.3, -122.5)
+                                                   ).plot(cmap='jet_r')
 plt.show()
 #%% now run the distance map calculations
 # 0 land, 1 water

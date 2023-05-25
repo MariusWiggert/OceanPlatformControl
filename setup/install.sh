@@ -1,8 +1,8 @@
 #!/usr/bin/env zsh
 
-conda install -y -c jupyter cartopy ffmpeg
+conda install -y -c jupyter cartopy ffmpeg nomkl
 pip install --upgrade pip
-pip install git+https://github.com/c3aidti/c3python
+pip install git+https://github.com/c3aidti/c3python@0e87998fbdd22ceae6a17edd15e2b6fbf6569cae
 pip install -r setup/requirements_minimal.txt
 
 # hj_reachability needs to be installed after jax
