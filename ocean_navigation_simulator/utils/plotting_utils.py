@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import AnyStr, Callable, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
@@ -181,9 +183,12 @@ def animate_trajectory(
     )
 
 
-def set_palatino_font(font_path="/package_data/font/Palatino_thin.ttf"):
-    font_manager.fontManager.addfont(font_path)
-    prop = font_manager.FontProperties(fname=font_path)
+def set_palatino_font(font_path="Palatino_thin.ttf"):
+    abs_file_path = os.path.join(Path(__file__).resolve().parents[1],
+                                 'package_data/font/',
+                                 font_path)
+    font_manager.fontManager.addfont(abs_file_path)
+    prop = font_manager.FontProperties(fname=abs_file_path)
 
     plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams["font.sans-serif"] = prop.get_name()

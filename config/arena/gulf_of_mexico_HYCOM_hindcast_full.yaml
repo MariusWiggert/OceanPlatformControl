@@ -1,0 +1,38 @@
+casadi_cache_dict:
+    deg_around_x_t: 0.5
+    time_around_x_t: 86400. # 24h
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.1
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 600.0
+
+use_geographic_coordinate_system: True
+
+spatial_boundary: null
+timeout: 6912000 #80 days
+
+ocean_dict:
+    region: "GOM"
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'hindcast_files'
+        source_settings:
+            local: True
+            folder: "data/hycom_hc_2021/" #"data/hycom_hc_2023/"
+#            currents: 'normal'
+            source: "HYCOM"
+            type: "hindcast"
+    forecast: null
+
+solar_dict:
+    hindcast: null
+    forecast: null
+
+seaweed_dict:
+    hindcast: null
+    forecast: null
