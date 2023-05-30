@@ -123,16 +123,15 @@ states = np.array([[1.25, 0.5, 0, 100, 1],
                    [1.8, 0.1, 0, 75, 0.75],
                    [1.2, 0.4, 0, 50, 0.5]])
 # get next states for them p(s'|s,a)
-actions = np.array([0, 3, 2]) # discretized 0 - 7. 0 is 0*pi and every int after +pi/4
+actions = np.array([0, 3, 2])   # discretized 0 - 7. 0 is 0*pi and every int after +pi/4
 print("Next states:")
 print(model.get_next_states(states=states, actions=actions))
 # get observations z for them p(z|s)
 print("Observations:")
 observations = model.sample_observation(states=states)
-print(observations) # those are currents in u and v direction at that state (noisy measurements)
+print(observations)     # those are currents in u and v direction at that state (noisy measurements)
 print("Evaluate Observation likelihoods:")
 print(model.evaluate_observations(states=states, observations=observations))
-
 
 #%% 
 # Getting an initial state distribution
@@ -169,14 +168,11 @@ class HeuristicPolicy:
         # discretize the angle
         actions = np.round(angle_to_target / (np.pi / 4)).astype(int)
         return actions
-    
-
 #%% 
 # Get the action for a state
 print("Heuristic policy:")
 print(HeuristicPolicy(target=np.array([0, 0.5])).get_action(states=np.array(initial_particles)))
 print("Same actions are expected because the platform position for all of them is the same, currents are ignored.")
-
 
 #%% 
 # Define a navigation problem to be solved
@@ -255,8 +251,7 @@ class TimeRewardFunction(RewardFunction):
 # Initialize the simulator of reality (this takes a bit, it performs caching of currents under the hood)
 u_max = 0.1
 dt_sim = 0.1
-timeout_of_simulation = 100 # in seconds
-
+timeout_of_simulation = 100     # in seconds
 arenaConfig = {
     "casadi_cache_dict": {"deg_around_x_t": 0.5, "time_around_x_t": 1000.0},
     "ocean_dict": {
@@ -291,11 +286,9 @@ arenaConfig = {
     "use_geographic_coordinate_system": False,
     "timeout": timeout_of_simulation,
 }
-
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
 arena = ArenaFactory.create(scenario_config=arenaConfig)
-
 
 #%% 
 # Working with the arena object
@@ -418,8 +411,8 @@ import time
 # Getting an initial state distribution
 platform_position = [0.1, 0.5, 0]
 
-period_time_range = [50, 100]
-v_amplitude_range = [0.5, 1.0]
+period_time_range = [50, 100] # true 50
+v_amplitude_range = [0.5, 1.0] # true 0.5
 
 # sample from this 2D space of hypothesis uniformly
 n_samples = 10_000
@@ -472,8 +465,10 @@ max_step = 200
 # can also run it for a fixed amount of steps
 while problem_status == 0 and step < max_step:
     # Get MCTS action
+    # from the outside particle filter/observer -> get a subset of particles for planning
     current_belief = mcts_observer.get_planner_particle_belief(num_planner_particles)
     planning_start = time.time()
+    # run the MCTS planner for planning
     next_action = mcts_planner.get_best_action(current_belief)
     planning_end = time.time()
     planning_time = planning_end - planning_start
@@ -513,12 +508,9 @@ while problem_status == 0 and step < max_step:
     step += 1
 
 print("Simulation terminated because:", arena.problem_status_text(arena.problem_status(problem=problem)))
-
-
 #%% 
 # Visualize the trajectory as 2D plot
 arena.plot_all_on_map(problem=problem)
-
 
 #%% 
 # Render animation of the closed-loop trajectory
