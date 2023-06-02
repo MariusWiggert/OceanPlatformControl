@@ -544,7 +544,6 @@ class GroundTruthFromNoise(OceanCurrentSource):
         throw_exceptions: Optional[bool] = True,
         noise_only: Optional[bool] = False,
     ) -> xr.Dataset:
-
         # Step 0: enforce timezone aware datetime objects
         t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
 
