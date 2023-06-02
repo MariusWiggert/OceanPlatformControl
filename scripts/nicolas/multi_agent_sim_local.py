@@ -2,6 +2,7 @@
 # %% imports
 import logging
 import os
+import datetime as datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 from ocean_navigation_simulator.problem_factories.Constructor import (
@@ -19,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Settings for where the problem is saved
 my_path = os.getcwd()
-save_in_folder = os.path.join(my_path, "generated_media/FC_HC/4_platforms/mission_basic")
+save_in_folder = os.path.join(my_path, "generated_media/HC_HC/plots_for_presentation")
 os.makedirs(save_in_folder, exist_ok=True)
 
 NoObserver = {"observer": None}
@@ -83,7 +84,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
+    "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -93,6 +94,223 @@ MultiAgentCtrlConfig = {
     "multi_ag_mpc": multiAgentMPC,
 }
 # Task Configs
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.2,
+#             "lon": -83.2,
+#         },
+#         {
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.25,
+#             "lon": -83.25,
+#         },
+#         {
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.3,
+#             "lon": -83.3,
+#         },
+#         {
+#             "date_time": "2021-11-24T12:00:48+00:00",
+#             "lat": 23.35,
+#             "lon": -83.35,
+#         },
+#     ],
+#     "x_T": {"lat": 24.35, "lon": -82.3},
+# }
+
+
+# missionConfig = {
+#     "feasible": True,
+#     "multi_agent": True,
+#     "seed": None,
+#     "target_radius": 0.25,
+#     "ttr_in_h": 127.20347070764753,
+#     "x_0": [
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.198286056518555,
+#             "lon": -88.85997772216797,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.169017791748047,
+#             "lon": -88.93144989013672,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.123735427856445,
+#             "lon": -88.93584442138672,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.069772720336914,
+#             "lon": -88.98153686523438,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.168127059936523,
+#             "lon": -88.8812484741211,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.035158157348633,
+#             "lon": -88.96973419189453,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.183242797851562,
+#             "lon": -88.79122161865234,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.083194732666016,
+#             "lon": -88.87967681884766,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.022216796875,
+#             "lon": -88.8958969116211,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.147104263305664,
+#             "lon": -88.97026824951172,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.13849449157715,
+#             "lon": -88.82368469238281,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.176158905029297,
+#             "lon": -88.83391571044922,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.20709228515625,
+#             "lon": -88.89604949951172,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.113862991333008,
+#             "lon": -89.01029205322266,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.073509216308594,
+#             "lon": -89.05158233642578,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.054969787597656,
+#             "lon": -88.92451477050781,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.029998779296875,
+#             "lon": -89.08702850341797,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 27.978696823120117,
+#             "lon": -89.04888916015625,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.07915496826172,
+#             "lon": -88.76929473876953,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.034744262695312,
+#             "lon": -89.02947998046875,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.23253631591797,
+#             "lon": -88.97615051269531,
+#         },
+#         {"date_time": "2022-07-15T20:19:33+00:00", "lat": 28.25927734375, "lon": -88.850830078125},
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 27.970394134521484,
+#             "lon": -89.10856628417969,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.091751098632812,
+#             "lon": -89.10391235351562,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 27.96567726135254,
+#             "lon": -88.90762329101562,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.224288940429688,
+#             "lon": -89.03540802001953,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 27.98069953918457,
+#             "lon": -89.00965118408203,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.101301193237305,
+#             "lon": -88.97576904296875,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.205623626708984,
+#             "lon": -88.73838806152344,
+#         },
+#         {
+#             "date_time": "2022-07-15T20:19:33+00:00",
+#             "lat": 28.151649475097656,
+#             "lon": -89.01187133789062,
+#         },
+#     ],
+#     "x_T": {"lat": 28.17263435072276, "lon": -87.90240381303659},
+# }
+
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.12441062927246,
+#             "lon": -88.06990814208984,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.154739379882812,
+#             "lon": -88.0869369506836,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.101789474487305,
+#             "lon": -88.0881118774414,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.100204467773438,
+#             "lon": -88.09916687011719,
+#         },
+#     ],
+#     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
+# }
 missionConfig = {
     "feasible": True,
     "seed": 571402,
@@ -100,212 +318,58 @@ missionConfig = {
     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
     "x_0": [
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.2,
-            "lon": -83.2,
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.12441062927246,
+            "lon": -88.06990814208984,
         },
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.25,
-            "lon": -83.25,
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.154739379882812,
+            "lon": -88.0869369506836,
         },
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.3,
-            "lon": -83.3,
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.101789474487305,
+            "lon": -88.0881118774414,
         },
         {
-            "date_time": "2021-11-24T12:00:48+00:00",
-            "lat": 23.35,
-            "lon": -83.35,
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.100204467773438,
+            "lon": -88.09916687011719,
+        },
+        {
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.180204467773438,
+            "lon": -88.1016687011719,
+        },
+        {
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.160204467773438,
+            "lon": -88.0616687011719,
+        },
+        {
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.190204467773438,
+            "lon": -88.0916687011719,
+        },
+        {
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.220204467773438,
+            "lon": -88.0816687011719,
+        },
+        {
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.220204467773438,
+            "lon": -88.0516687011719,
+        },
+        {
+            "date_time": "2022-08-31T02:11:19+00:00",
+            "lat": 22.200204467773438,
+            "lon": -88.0316687011719,
         },
     ],
-    "x_T": {"lat": 24.35, "lon": -82.3},
+    "x_T": {"lat": 22.31922451, "lon": -88.90433564},
 }
-
-# # mission failing for flocking nr 285
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.69220733642578,
-#             "lon": -87.30220794677734,
-#         },
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.64868927001953,
-#             "lon": -87.34028625488281,
-#         },
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.60809898376465,
-#             "lon": -87.39879608154297,
-#         },
-#         {
-#             "date_time": "2022-05-16T12:49:54+00:00",
-#             "lat": 25.57320785522461,
-#             "lon": -87.39673614501953,
-#         },
-#     ],
-#     "x_T": {"lat": 27.03541637, "lon": -86.93996833},
-# }
-
-# mission 64 failed for multi ag optim
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 90,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "lat": 20.87764358520508,
-#             "lon": -80.83842468261719,
-#             "date_time": "2022-10-08T11:23:24+00:00",
-#         },
-#         {
-#             "lat": 20.828874588012695,
-#             "lon": -80.88917541503906,
-#             "date_time": "2022-10-08T11:23:24+00:00",
-#         },
-#         {
-#             "lat": 20.804201126098633,
-#             "lon": -80.89605712890625,
-#             "date_time": "2022-10-08T11:23:24+00:00",
-#         },
-#         {
-#             "lat": 20.883544921875,
-#             "lon": -80.94055938720703,
-#             "date_time": "2022-10-08T11:23:24+00:00",
-#         },
-#     ],
-#     "x_T": {"lat": 20.16233662, "lon": -80.70645386},
-# }
-
-
-# mission 107 infeasible on C3:
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2022-10-04T10:59:36+00:00",
-#             "lat": 19.66683578491211,
-#             "lon": -85.3988265991211,
-#         },
-#         {
-#             "date_time": "2022-10-04T10:59:36+00:00",
-#             "lat": 19.689558029174805,
-#             "lon": -85.41865539550781,
-#         },
-#         {
-#             "date_time": "2022-10-04T10:59:36+00:00",
-#             "lat": 19.65205192565918,
-#             "lon": -85.39376831054688,
-#         },
-#         {
-#             "date_time": "2022-10-04T10:59:36+00:00",
-#             "lat": 19.62247085571289,
-#             "lon": -85.34988403320312,
-#         },
-#     ],
-#     "x_T": {"lat": 20.01063798, "lon": -85.91191056},
-# }
-
-
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.12441062927246,
-#             "lon": -88.06990814208984,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.154739379882812,
-#             "lon": -88.0869369506836,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.101789474487305,
-#             "lon": -88.0881118774414,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.100204467773438,
-#             "lon": -88.09916687011719,
-#         },
-#     ],
-#     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
-# }
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.25,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.12441062927246,
-#             "lon": -88.06990814208984,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.154739379882812,
-#             "lon": -88.0869369506836,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.101789474487305,
-#             "lon": -88.0881118774414,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.100204467773438,
-#             "lon": -88.09916687011719,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.180204467773438,
-#             "lon": -88.1016687011719,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.160204467773438,
-#             "lon": -88.0616687011719,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.190204467773438,
-#             "lon": -88.0916687011719,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.220204467773438,
-#             "lon": -88.0816687011719,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.220204467773438,
-#             "lon": -88.0516687011719,
-#         },
-#         {
-#             "date_time": "2022-08-31T02:11:19+00:00",
-#             "lat": 22.200204467773438,
-#             "lon": -88.0316687011719,
-#         },
-#     ],
-#     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
-# }
 
 
 # missionConfig = {
@@ -482,32 +546,33 @@ arenaConfig = {
                 # "region": "Region 1",
             },
         },
-        # "forecast": None,  # {
-        #     "field": "OceanCurrents",
-        #     "source": "forecast_files",
-        #     "source_settings": {
-        #         "folder": "data/miss_gen_forecast/",
-        #         "local": False,
-        #         "source": "Copernicus",
-        #         "type": "forecast",
-        #         "currents": "total",
-        #         "region": "GOM",
-        #     },
+        "forecast": None  # {
+        # "field": "OceanCurrents",
+        # "source": "forecast_files",
+        # "source_settings": {
+        #     "folder": "data/miss_gen_forecast/",
+        #     "local": False,
+        #     "source": "Copernicus",
+        #     "type": "forecast",
+        #     "currents": "total",
+        #     "region": "GOM",
         # },
-        "forecast": {
-            "field": "OceanCurrents",
-            "source": "hindcast_as_forecast_files",
-            "source_settings": {
-                "folder": "data/miss_gen_forecast/",
-                "local": False,
-                "source": "Copernicus",
-                "type": "hindcast",
-                "currents": "total",
-                "region": "GOM",
-            },
-            "forecast_length_in_days": 5,
-        },
+        # },
     },
+    # "forecast": {
+    #     "field": "OceanCurrents",
+    #     "source": "hindcast_as_forecast_files",
+    #     "source_settings": {
+    #         "folder": "data/miss_gen_forecast/",
+    #         "local": False,
+    #         "source": "Copernicus",
+    #         "type": "hindcast",
+    #         "currents": "total",
+    #         "region": "GOM",
+    #     },
+    #     "forecast_length_in_days": 5,
+    # },
+    # },
     "platform_dict": {
         "battery_cap_in_wh": 400.0,
         "drag_factor": 675.0,
@@ -521,7 +586,7 @@ arenaConfig = {
     "solar_dict": {"forecast": None, "hindcast": None},
     "spatial_boundary": None,
     "use_geographic_coordinate_system": True,
-    "timeout": 3600 * 24 * 3,  # CHANGE TIMOUT HERE
+    "timeout": 3600 * 96,  # CHANGE TIMOUT HERE
     "multi_agent_constraints": {
         "unit": "km",
         "communication_thrsld": 9,
@@ -547,13 +612,24 @@ arena = constructor.arena
 observation = arena.reset(platform_set=problem.start_state)
 problem_status = arena.problem_status(problem=problem)
 # #%% Plot the problem on the map
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 # t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
 #     x_0=problem.start_state.to_spatio_temporal_point(),
 #     x_T=problem.end_region,
 #     deg_around_x0_xT_box=0.5,
 #     temp_horizon_in_s=3600,
+# )
+
+# arena.ocean_field.hindcast_data_source.animate_data(
+#     x_interval=lon_bnds,
+#     y_interval=lat_bnds,
+#     t_interval=[
+#         problem.start_state.date_time[0],
+#         problem.start_state.date_time[0] + datetime.timedelta(hours=24),
+#     ],
+#     output="test.gif",
+#     vmax=0.8,
 # )
 
 # ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -566,7 +642,7 @@ problem_status = arena.problem_status(problem=problem)
 # problem.plot(ax=ax)
 # plt.show()
 
-#%%
+# %%
 # Step 2: Retrieve Controller
 # problem.platform_dict = arena.platform.platform_dict
 controller = constructor.controller
@@ -627,9 +703,7 @@ controller.plot_reachability_snapshot_over_currents(
 plt.show()
 
 # %% Plot useful metrics for multi-agent performance evaluation
-results_folder = os.path.join(
-    save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"] + "epsilon_0.25"
-)
+results_folder = os.path.join(save_in_folder, MultiAgentCtrlConfig["high_level_ctrl"])
 os.makedirs(results_folder, exist_ok=True)
 
 with open(f"{results_folder}/missionConfig.yml", "w") as outfile:

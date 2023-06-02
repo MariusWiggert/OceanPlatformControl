@@ -116,7 +116,7 @@ def animate_trajectory(
                 ax.scatter(
                     state_trajectory[k, 0, -1],
                     state_trajectory[k, 1, -1],
-                    c="orange",
+                    c="black",
                     marker="*",  # marker,if different markers wished for each platform
                     s=150,
                     label="Trajectories end" if k == 0 else None,
@@ -168,12 +168,19 @@ def animate_trajectory(
             goal_circle = plt.Circle(
                 (problem.end_region.lon.deg, problem.end_region.lat.deg),
                 problem.target_radius,
-                color="g",
-                fill=True,
-                alpha=0.7,
+                facecolor="None",
+                linewidth=4,
+                # facecolor=problem_target_color,
+                edgecolor="g",
+                zorder=8,
                 label="Goal",
-                zorder=6,
             )
+            #     color="g",
+            #     fill=True,
+            #     alpha=0.7,
+            #     label="Goal",
+            #     zorder=6,
+            # )
             ax.add_patch(goal_circle)
         ax.legend(loc="lower right", prop={"size": 8})
 

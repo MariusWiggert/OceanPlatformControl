@@ -608,7 +608,7 @@ class Arena:
                 self.state_trajectory[k, 1, ::stride],
                 "-",
                 marker=".",
-                markersize=0.5,
+                markersize=0.05,
                 color=color,
                 linewidth=1,
                 label="State Trajectory" if k == 0 else "",
@@ -712,10 +712,12 @@ class Arena:
 
         if problem is not None:
             problem.plot(ax=ax)
-
         ax.yaxis.grid(color="gray", linestyle="dashed")
         ax.xaxis.grid(color="gray", linestyle="dashed")
-        ax.legend(loc="lower right")
+        ax.set_xlim(x_interval[0], x_interval[-1])
+        ax.set_ylim(y_interval[0], y_interval[-1])
+        # ax.legend(loc="lower right")
+        ax.legend(loc="lower right", fontsize=14).set_zorder(20)
 
         if return_ax:
             return ax

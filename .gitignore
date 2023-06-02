@@ -5,6 +5,8 @@ __pycache__*
 *.gif
 *.log
 *.csv
+*.pdf
+*.svg
 *.egg-info
 optimized_dp/
 viz/

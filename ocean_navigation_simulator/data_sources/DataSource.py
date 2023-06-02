@@ -102,7 +102,11 @@ class DataSource(abc.ABC):
         """
 
         # Step 1: Create the intervals to query data for
-        t_interval, y_interval, x_interval, = self.convert_to_x_y_time_bounds(
+        (
+            t_interval,
+            y_interval,
+            x_interval,
+        ) = self.convert_to_x_y_time_bounds(
             x_0=states.to_spatio_temporal_point(),
             x_T=states[
                 0
@@ -418,6 +422,9 @@ class DataSource(abc.ABC):
         if ax is None:
             if self.source_config_dict["use_geographic_coordinate_system"]:
                 ax = self.set_up_geographic_ax()
+                # remove margin between frame and current map
+                ax.set_xlim(float(min(xarray.coords["lon"])), float(max(xarray.coords["lon"])))
+                ax.set_ylim(float(min(xarray.coords["lat"])), float(max(xarray.coords["lat"])))
             else:
                 ax = plt.axes()
 
@@ -931,7 +938,6 @@ class AnalyticalSource(abc.ABC):
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
     ):
-
         """Helper Function to produce a grid dict."""
         if spatial_resolution is None:
             spatial_resolution = self.spatial_resolution

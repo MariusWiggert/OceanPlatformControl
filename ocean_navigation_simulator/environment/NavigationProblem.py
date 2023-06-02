@@ -98,13 +98,14 @@ class NavigationProblem(Problem):
             plt.Circle(
                 (self.end_region.lon.deg, self.end_region.lat.deg),
                 self.target_radius,
-                facecolor=problem_target_color,
+                facecolor="None",
+                linewidth=4,
+                # facecolor=problem_target_color,
                 edgecolor=problem_target_color,
                 label="goal",
                 zorder=6,
             )
         )
-
         return ax
 
     @staticmethod

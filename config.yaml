@@ -1,0 +1,213 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.13.5
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.9.16
+    start_time: 1679722760.811742
+    t:
+      1:
+      - 1
+      - 5
+      - 12
+      - 45
+      - 53
+      - 54
+      - 55
+      2:
+      - 1
+      - 5
+      - 12
+      - 45
+      - 53
+      - 54
+      - 55
+      3:
+      - 2
+      - 13
+      - 14
+      - 16
+      - 23
+      4: 3.9.16
+      5: 0.13.5
+      8:
+      - 6
+arenaConfig:
+  desc: null
+  value:
+    casadi_cache_dict:
+      deg_around_x_t: 2.0
+      time_around_x_t: 432000
+    multi_agent_constraints:
+      collision_thrsld: 0.1
+      communication_thrsld: 9
+      epsilon_margin: 0.3
+      unit: km
+    ocean_dict:
+      forecast: null
+      hindcast:
+        field: OceanCurrents
+        source: hindcast_files
+        source_settings:
+          currents: total
+          folder: /tmp/30_platforms_HC_HC_col_100m_mission_nr_343_flocking_standard_0_5_NoObserver/hindcast_files/
+          local: false
+          region: GOM
+          source: HYCOM
+          type: hindcast
+    platform_dict:
+      battery_cap_in_wh: 400.0
+      drag_factor: 675.0
+      dt_in_s: 600.0
+      motor_efficiency: 1.0
+      solar_efficiency: 0.2
+      solar_panel_size: 0.5
+      u_max_in_mps: 0.1
+    seed: null
+    spatial_boundary: null
+    timeout: 518400
+    use_geographic_coordinate_system: true
+ctrlConfig:
+  desc: null
+  value:
+    communication_thrsld: 9
+    ctrl_name: ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner
+    flocking_config:
+      epsilon: 0.5
+      grad_clip_range: 0.1
+      hysteresis: 0.3
+      interaction_range: 9
+      normalization: standard
+      unit: km
+    high_level_ctrl: flocking
+    hj_specific_settings:
+      T_goal_in_seconds: 518400
+      accuracy: high
+      artificial_dissipation_scheme: local_local
+      ctrl_name: ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner.HJReach2DPlanner
+      d_max: 0.0
+      deg_around_xt_xT_box: 1.0
+      direction: multi-time-reach-back
+      grid_res: 0.02
+      n_time_vector: 200
+      progress_bar: true
+      replan_every_X_seconds: null
+      replan_on_new_fmrc: true
+      use_geographic_coordinate_system: true
+    unit: km
+experiment.id:
+  desc: null
+  value: 30_platforms_HC_HC_col_100m
+mission.id:
+  desc: null
+  value: 30_platforms_HC_HC_col_100m_mission_nr_343
+missionConfig:
+  desc: null
+  value:
+    feasible: true
+    multi_agent: true
+    seed: null
+    target_radius: 0.25
+    ttr_in_h: 127.20347070764753
+    x_0:
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.198286056518555
+      lon: -88.85997772216797
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.169017791748047
+      lon: -88.93144989013672
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.123735427856445
+      lon: -88.93584442138672
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.069772720336914
+      lon: -88.98153686523438
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.168127059936523
+      lon: -88.8812484741211
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.035158157348633
+      lon: -88.96973419189453
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.183242797851562
+      lon: -88.79122161865234
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.083194732666016
+      lon: -88.87967681884766
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.022216796875
+      lon: -88.8958969116211
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.147104263305664
+      lon: -88.97026824951172
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.13849449157715
+      lon: -88.82368469238281
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.176158905029297
+      lon: -88.83391571044922
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.20709228515625
+      lon: -88.89604949951172
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.113862991333008
+      lon: -89.01029205322266
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.073509216308594
+      lon: -89.05158233642578
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.054969787597656
+      lon: -88.92451477050781
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.029998779296875
+      lon: -89.08702850341797
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 27.978696823120117
+      lon: -89.04888916015625
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.07915496826172
+      lon: -88.76929473876953
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.034744262695312
+      lon: -89.02947998046875
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.23253631591797
+      lon: -88.97615051269531
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.25927734375
+      lon: -88.850830078125
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 27.970394134521484
+      lon: -89.10856628417969
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.091751098632812
+      lon: -89.10391235351562
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 27.96567726135254
+      lon: -88.90762329101562
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.224288940429688
+      lon: -89.03540802001953
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 27.98069953918457
+      lon: -89.00965118408203
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.101301193237305
+      lon: -88.97576904296875
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.205623626708984
+      lon: -88.73838806152344
+    - date_time: '2022-07-15T20:19:33+00:00'
+      lat: 28.151649475097656
+      lon: -89.01187133789062
+    x_T:
+      lat: 28.17263435072276
+      lon: -87.90240381303659
+observerConfig:
+  desc: null
+  value:
+    observer: null

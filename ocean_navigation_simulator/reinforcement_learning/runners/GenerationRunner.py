@@ -407,7 +407,7 @@ class GenerationRunner:
         ax.get_figure().show()
         # remove title
         ax.title.set_text("")
-        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.pdf")
+        ax.get_figure().savefig(f"{analysis_folder}starts_and_targets.png", dpi=1000)
 
     # @staticmethod
     # def animate_starts_and_targets(generation):
