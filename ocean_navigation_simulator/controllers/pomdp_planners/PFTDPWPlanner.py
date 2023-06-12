@@ -228,12 +228,13 @@ class PFTDPWPlanner:
 		
 		# Return rollout value from function call
 		if self.rollout_value is not None:
+			# return self.rollout_value(self.tree.belief_id_to_belief[belief_id])
 			raise Exception("DPW Planner: Rollout value not implemented yet")
 		
 		# Run rollout simulation starting from belief b
-		if self.specific_settings["rollout_style"] == "PO":
+		if self.specific_settings["rollout_style"] == "PO": # partially observable
 			return self._rollout_belief_simulation(belief_id)
-		elif self.specific_settings["rollout_style"] == "FO":
+		elif self.specific_settings["rollout_style"] == "FO":# fully observable
 			return self._rollout_mdp_simulation(belief_id)
 		
 		return 0.0

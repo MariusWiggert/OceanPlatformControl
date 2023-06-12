@@ -112,7 +112,6 @@ class DynamicsAndObservationModel(abc.ABC):
         )
 
         return np.logical_or(x_boundary, y_boundary).reshape([-1, 1])
-    
 
 #%% 
 # Using it:
@@ -428,28 +427,47 @@ initial_particles = np.array(initial_particles)
 initial_particle_belief = ParticleBelief(initial_particles)
 dynamics_and_observation_model = DynamicsAndObservationModel(
     cov_matrix=np.eye(2), u_max=0.1, epsilon_sep=0.2, dt=0.1, random_seed=None)
+# Tune: dt such that you see very different observations after 5 steps (half or full of max_depth)
 reward_function = TimeRewardFunction(target_position, target_radius)
 rollout_policy = HeuristicPolicy(target_position)
 num_planner_particles = 100
 mcts_settings = {
-    "num_mcts_simulate": 100,
-    "max_depth": 10,
-    "max_rollout_depth": 100,
-	"rollout_subsample": 10,
-    "rollout_style": "FO",
-    "ucb_factor": 10.0,
-    "dpw_k_observations": 4.0,
-    "dpw_alpha_observations": 0.25,
-    "dpw_k_actions": 3.0,
+    # 100 is very low, the higher the more flushed out the tree
+    "num_mcts_simulate": 100, # number of simulate calls to MCTS (either explores children or new node) from root node.
+    "max_depth": 10,    # maximum depth of the tree -> then roll-out policy
+    "max_rollout_depth": 100, # how far the rollout policy goes (should be the final T)
+	"rollout_subsample": 10, # for how many particles to run rollout policy (currently not parallelized)
+    "rollout_style": "FO", # PO cannot be parallized (getting observations) - FO can be parallelized
+    # could do 3rd rollout-style where we approximate V(b)
+    "ucb_factor": 10.0, # no explore (0.1), mostly explore (100) -> depends on reward range (this with 0-1 reward per step)
+    # Factors for progressive widening. How much to expand the tree.
+    "dpw_k_observations": 4.0, # means sample around 4 observations per node
+    "dpw_alpha_observations": 0.25, # how aggressively to expand the tree (higher means wider tree)
+    "dpw_k_actions": 3.0, # means sample around 3 actions
     "dpw_alpha_actions": 0.25,
     "discount": 0.99,
     "action_space_cardinality": 8,
 }
 
+# If you need more than one mode to keep track off and information gathering is important.
+# belief is very spread out and multi-modal belief after updating.
+# E.g. current up and down and middle no-currents. -> different modes have different consequences.
+# Taking currents in right direction is very rewarding, taking currents in wrong direction is very punishing.
+# So maybe without obstacle?
+# Other idea: stuck in current and there is a bifurcation that is faster, but you don't know where it is.
+
+# TODO: update dynamics_and_observation_model!
+# If swapping for x and y actual -> need to change it in GenParticleFilter as well MCTS_Observer
 # Setting up particle belief and observer
+# ML Thesis: Chapter 3!
+# Algorithm 3.1, Table 3.2 Page 26!
 generative_particle_filter = GenerativeParticleFilter(dynamics_and_observation_model, False)
 mcts_observer = ParticleFilterObserver(initial_particle_belief, dynamics_and_observation_model, True)
 mcts_planner = PFTDPWPlanner(generative_particle_filter, reward_function, rollout_policy, None, mcts_settings)
+
+# For viz the tree:
+# - can viz the most promising action & belief for each node.
+# - take the most visited. Might only be 3 depths...
 
 #%% 
 # The main simulation loop
