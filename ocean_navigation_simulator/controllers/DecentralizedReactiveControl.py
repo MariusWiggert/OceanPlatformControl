@@ -1,32 +1,24 @@
-from typing import Dict, List, Optional
-
-import matplotlib.pyplot as plt
-import networkx as nx
+"""
+    Implementation of Reactive Control for a Multi-Agent configuration of seaweed platforms.
+    Switching between control rules to maintain connectivity, avoid collisions and goToGoal using
+    a navigation function, in this context defined by HJ
+"""
+from typing import Optional
 import numpy as np
-
-from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
-from ocean_navigation_simulator.environment.NavigationProblem import (
-    NavigationProblem,
-)
 from ocean_navigation_simulator.environment.Platform import (
     PlatformAction,
-    PlatformActionSet,
 )
-from ocean_navigation_simulator.environment.PlatformState import (
-    PlatformState,
-    PlatformStateSet,
-    SpatialPoint,
-    SpatioTemporalPoint,
-)
-from ocean_navigation_simulator.utils import units
 
 
 class DecentralizedReactiveControl:
     """Implementation of reactive control for the multi-agent scheme
     with the rules specified in
     https://repository.upenn.edu/cgi/viewcontent.cgi?article=1044&context=meam_papers
+    Use the optimal control input from HJ in the "GoToGoal" mode i.e. when
+    agents are within an optimal communication range. Switching between control rules is defined
+    by the distances between agents
+    Return a plaform action object
     """
 
     def __init__(
@@ -43,7 +35,6 @@ class DecentralizedReactiveControl:
         self.adjacency_mat = observation.graph_obs.adjacency_matrix_in_unit(
             unit="m", graph_type="complete"
         )
-        # argspartition ensures that the all elements before nb_max_neighbors are the smallest elements
         self.g_a, self.g_b = None, None
         self.observation = observation
         self.u_max_mps = platform_dict["u_max_in_mps"]
@@ -123,7 +114,17 @@ class DecentralizedReactiveControl:
         )
         return grad / np.linalg.norm(grad, ord=2)
 
-    def closest_neighbors(self, pltf_id: int):
+    def closest_neighbors(self, pltf_id: int) -> np.ndarray:
+        """Find closest neighbors to a given platform, selected by distance
+           For this reactive scheme, only the two nearest neighbors are considered
+           (which is enough to ensure a connected communication graph)
+
+        Args:
+            pltf_id (int): current platform analyzed
+
+        Returns:
+            np.ndarray: ordered array of closest neighbors to the current platform
+        """
         if self.param_dict["mix_ttr_and_euclidean"]:
             ttr_ij_squared = (self.ttr_values - self.ttr_values[pltf_id]) ** 2
             closeness_measure = self.adjacency_mat[pltf_id, :] * np.sqrt(1 + ttr_ij_squared)
@@ -147,10 +148,8 @@ class DecentralizedReactiveControl:
         # obtained ordered list of neighbors (ascendent by distance) until element self.nb_max_neighbors
         # faster than a sort over whole array
         ordered_dist_neighbors = self.closest_neighbors(pltf_id=pltf_id)
-        # ordered_dist_neighbors = np.argpartition(
-        #     self.adjacency_mat[pltf_id, :], self.nb_max_neighbors
-        # )
-        # Extract closest platforms id: start at idx=1 since diagonal elements have distance 0 and correspond to self-loops
+        # Extract closest platforms id: start at idx=1 since diagonal elements have distance 0 and
+        # correspond to self-loops
         self.pltf_a, self.pltf_b = ordered_dist_neighbors[1 : self.nb_max_neighbors + 1]
         self.g_a = (
             self.adjacency_mat[pltf_id, self.pltf_a] ** 2

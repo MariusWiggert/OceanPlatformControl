@@ -1,36 +1,21 @@
 import math
 import time
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
-
-import matplotlib.pyplot as plt
-import networkx as nx
+from typing import Dict, Optional, Tuple
 import numpy as np
-import scipy
-import scipy.integrate as integrate
-import xarray as xr
-
-from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.controllers.DecentralizedReactiveControl import (
     DecentralizedReactiveControl,
 )
 from ocean_navigation_simulator.controllers.Flocking import (  # RelaxedFlockingControl,; FlockingControl2,
     FlockingControl,
-    FlockingControlVariant,
 )
-
 from ocean_navigation_simulator.controllers.MultiAgentOptimizationBased import (
     MultiAgentOptim,
-    CentralizedMultiAgentMPC,
+    # CentralizedMultiAgentMPC,
 )
-
 from ocean_navigation_simulator.controllers.hj_planners.HJReach2DPlanner import (
-    HJPlannerBase,
     HJReach2DPlanner,
 )
-from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
-from ocean_navigation_simulator.environment.MultiAgent import MultiAgent
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -41,8 +26,6 @@ from ocean_navigation_simulator.environment.Platform import (
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
     PlatformStateSet,
-    SpatialPoint,
-    SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.utils import units
 
@@ -65,24 +48,20 @@ class MultiAgentPlanner(HJReach2DPlanner):
         self.controller_type = specific_settings["high_level_ctrl"]
         self.hj = super()
 
-    def get_action(self, observation: ArenaObservation) -> PlatformActionSet:
-        if self.controller_type == "hj_naive":
-            return self._get_action_hj_naive(observation=observation)
-        elif self.controller_type == "reactive_control":
-            return self._get_action_hj_decentralized_reactive_control(observation=observation)
-        elif self.controller_type == "flocking":
-            return self._get_action_hj_with_flocking(observation=observation)
-        elif self.controller_type == "multi_ag_optimizer":
-            return self._get_action_hj_with_multi_ag_optim(observation=observation)
-        elif self.controller_type == "pred_safety_filter":
-            return self._get_action_hj_with_pred_safety_filter(observation=observation)
-        elif self.controller_type == "centralized_mpc":
-            return self._get_action_hj_with_centralized_mpc(observation=observation)
-        else:
-            raise ValueError(
-                "the controller specified in the config is not implemented or must \
-            not be empty"
-            )
+    def get_action(self, observation: ArenaObservation) -> Tuple[PlatformActionSet, float, float]:
+        controller_map = {
+            "hj_naive": self._get_action_hj_naive,
+            "reactive_control": self._get_action_hj_decentralized_reactive_control,
+            "flocking": self._get_action_hj_with_flocking,
+            "multi_ag_optimizer": self._get_action_hj_with_multi_ag_optim,
+            "pred_safety_filter": self._get_action_hj_with_pred_safety_filter,
+            # "centralized_mpc": self._get_action_hj_with_centralized_mpc,
+        }
+        if self.controller_type in controller_map:
+            return controller_map[self.controller_type](observation=observation)
+        raise ValueError(
+            "The controller specified in the config is not implemented or must not be empty"
+        )
 
     def _get_action_hj_naive(
         self, observation: ArenaObservation
@@ -133,11 +112,15 @@ class MultiAgentPlanner(HJReach2DPlanner):
                                             and Graph Observations
 
         Returns:
-            PlatformActionSet: A set of platform actions computed using reactive control and HJ
+            Tuple[PlatformActionSet, float, float]: A set of platform actions, the maximum of angular correction
+                                                    w.r.t to HJ, computing time
         """
         action_list = []
         times_list = []
         reactive_control_correction_angle = []
+        # if we should use a mix of ttr and euclidean distance as proxy for "close neighbors"
+        # in terms of distance and time to reach maps (ttr) (platforms with similar ttr might experience similar
+        # flows)
         if self.multi_agent_settings["reactive_control_config"]["mix_ttr_and_euclidean"]:
             self.hj.get_action(
                 observation[0]
@@ -172,14 +155,16 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def _get_action_hj_with_flocking(
         self, observation: ArenaObservation
     ) -> Tuple[PlatformActionSet, float, float]:
-        """multi-agent control input based on flocking and using HJ to reach the target
+        """Base function of the LISIC algorithm (low interference safe interaction control)
+           multi-agent control input based on flocking as safe input and uses HJ to reach the target
 
         Args:
             observation (ArenaObservation): Arena Observation with states, currents
                                             and Graph Observations
 
         Returns:
-            PlatformActionSet: A set of platform actions computed using flocking and HJ
+            Tuple[PlatformActionSet, float, float]: A set of platform actions, the maximum of angular correction
+                                                    w.r.t to HJ, computing time
         """
         action_list = []
         flocking_correction_angle = []
@@ -205,6 +190,19 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def _get_action_hj_with_multi_ag_optim(
         self, observation: ArenaObservation
     ) -> Tuple[PlatformActionSet, float, float]:
+        """MPC Style multi-agent problem using HJ as ideal performance control
+           and penalize deviation from it. Use the predicted HJ inputs over the
+           full MPC Horizon. Collisions and connectivity losses are discouraged
+           within the MPC optimization by using a reactive based elements in the objective
+
+        Args:
+            observation (ArenaObservation): Arena Observation with states, currents
+                                            and Graph Observations
+
+        Returns:
+            Tuple[PlatformActionSet, float, float]: A set of platform actions, the maximum of angular correction
+                                                    w.r.t to HJ, computing time
+        """
 
         horizon = self.multi_agent_settings["multi_ag_optim"]["optim_horizon"]
         start = time.time()
@@ -250,6 +248,20 @@ class MultiAgentPlanner(HJReach2DPlanner):
     def _get_action_hj_with_pred_safety_filter(
         self, observation: ArenaObservation
     ) -> Tuple[PlatformActionSet, float, float]:
+        """MPC Style multi-agent problem using HJ as ideal performance control
+           and penalize deviation from it. Use ONLY the first predicted HJ input, based on
+           literature on "predicive safety filters".
+           Collisions and connectivity losses are discouraged
+           within the MPC optimization by using a reactive based elements in the objective
+
+        Args:
+            observation (ArenaObservation): Arena Observation with states, currents
+                                            and Graph Observations
+
+        Returns:
+            Tuple[PlatformActionSet, float, float]: A set of platform actions, the maximum of angular correction
+                                                    w.r.t to HJ, computing time
+        """
 
         start = time.time()
         hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
@@ -275,34 +287,38 @@ class MultiAgentPlanner(HJReach2DPlanner):
             time_solver + hj_solve_time,
         )
 
-    def _get_action_hj_with_centralized_mpc(
-        self, observation: ArenaObservation
-    ) -> Tuple[PlatformActionSet, float, float]:
-        start = time.time()
-        start = time.time()
-        hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
-        hj_solve_time = time.time() - start
-        hj_xy_propulsion_arr = np.array([hj_input.to_xy_propulsion() for hj_input in hj_actions])
-        multi_ag_mpc = CentralizedMultiAgentMPC(
-            observation=observation,
-            param_dict=self.multi_agent_settings["multi_ag_mpc"],
-            platform_dict=self.platform_dict,
-        )
-        opt_actions, time_solver = multi_ag_mpc.get_next_control_for_all_pltf(
-            hj_xy_propulsion_arr,
-        )
-        opt_actions = [
-            self.to_platform_action_bounds(action, scale_magnitude=False) for action in opt_actions
-        ]
-        correction_angles = [
-            abs(math.remainder(optimized_input.direction - hj_input.direction, math.tau))
-            for optimized_input, hj_input in zip(opt_actions, hj_actions)
-        ]
-        return (
-            PlatformActionSet(action_set=opt_actions),
-            max(correction_angles),
-            time_solver + hj_solve_time,
-        )
+    # --- MPC with laplacian eigenvalue as constraint: not working yet with this implementation --- #
+
+    # def _get_action_hj_with_centralized_mpc(
+    #     self, observation: ArenaObservation
+    # ) -> Tuple[PlatformActionSet, float, float]:
+    #     start = time.time()
+    #     start = time.time()
+    #     hj_actions = [self.hj.get_action(observation[k]) for k in range(len(observation))]
+    #     hj_solve_time = time.time() - start
+    #     hj_xy_propulsion_arr = np.array([hj_input.to_xy_propulsion() for hj_input in hj_actions])
+    #     multi_ag_mpc = CentralizedMultiAgentMPC(
+    #         observation=observation,
+    #         param_dict=self.multi_agent_settings["multi_ag_mpc"],
+    #         platform_dict=self.platform_dict,
+    #     )
+    #     opt_actions, time_solver = multi_ag_mpc.get_next_control_for_all_pltf(
+    #         hj_xy_propulsion_arr,
+    #     )
+    #     opt_actions = [
+    #         self.to_platform_action_bounds(action, scale_magnitude=False) for action in opt_actions
+    #     ]
+    #     correction_angles = [
+    #         abs(math.remainder(optimized_input.direction - hj_input.direction, math.tau))
+    #         for optimized_input, hj_input in zip(opt_actions, hj_actions)
+    #     ]
+    #     return (
+    #         PlatformActionSet(action_set=opt_actions),
+    #         max(correction_angles),
+    #         time_solver + hj_solve_time,
+    #     )
+
+    # ------------------------------------------------------------------------------------------------#
 
     def to_platform_action_bounds(
         self, action: PlatformAction, scale_magnitude: Optional[bool] = True

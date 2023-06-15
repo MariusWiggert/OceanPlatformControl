@@ -84,7 +84,7 @@ multiAgentMPC = {
 
 MultiAgentCtrlConfig = {
     "ctrl_name": "ocean_navigation_simulator.controllers.MultiAgentPlanner.MultiAgentPlanner",
-    "high_level_ctrl": "hj_naive",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
+    "high_level_ctrl": "flocking",  # choose from hj_naive, flocking, reactive_control, multi_ag_optimizer, pred_safety_filter, centralized_mpc
     "unit": "km",
     "communication_thrsld": 9,
     "hj_specific_settings": HJMultiTimeConfig,
@@ -94,35 +94,35 @@ MultiAgentCtrlConfig = {
     "multi_ag_mpc": multiAgentMPC,
 }
 # Task Configs
-# missionConfig = {
-#     "feasible": True,
-#     "seed": 571402,
-#     "target_radius": 0.1,
-#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-#     "x_0": [
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.2,
-#             "lon": -83.2,
-#         },
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.25,
-#             "lon": -83.25,
-#         },
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.3,
-#             "lon": -83.3,
-#         },
-#         {
-#             "date_time": "2021-11-24T12:00:48+00:00",
-#             "lat": 23.35,
-#             "lon": -83.35,
-#         },
-#     ],
-#     "x_T": {"lat": 24.35, "lon": -82.3},
-# }
+missionConfig = {
+    "feasible": True,
+    "seed": 571402,
+    "target_radius": 0.1,
+    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+    "x_0": [
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.2,
+            "lon": -83.2,
+        },
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.25,
+            "lon": -83.25,
+        },
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.3,
+            "lon": -83.3,
+        },
+        {
+            "date_time": "2021-11-24T12:00:48+00:00",
+            "lat": 23.35,
+            "lon": -83.35,
+        },
+    ],
+    "x_T": {"lat": 24.35, "lon": -82.3},
+}
 
 
 # missionConfig = {
@@ -311,65 +311,65 @@ MultiAgentCtrlConfig = {
 #     ],
 #     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
 # }
-missionConfig = {
-    "feasible": True,
-    "seed": 571402,
-    "target_radius": 0.1,
-    "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
-    "x_0": [
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.12441062927246,
-            "lon": -88.06990814208984,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.154739379882812,
-            "lon": -88.0869369506836,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.101789474487305,
-            "lon": -88.0881118774414,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.100204467773438,
-            "lon": -88.09916687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.180204467773438,
-            "lon": -88.1016687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.160204467773438,
-            "lon": -88.0616687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.190204467773438,
-            "lon": -88.0916687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.220204467773438,
-            "lon": -88.0816687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.220204467773438,
-            "lon": -88.0516687011719,
-        },
-        {
-            "date_time": "2022-08-31T02:11:19+00:00",
-            "lat": 22.200204467773438,
-            "lon": -88.0316687011719,
-        },
-    ],
-    "x_T": {"lat": 22.31922451, "lon": -88.90433564},
-}
+# missionConfig = {
+#     "feasible": True,
+#     "seed": 571402,
+#     "target_radius": 0.1,
+#     "ttr_in_h": 60,  # here does not really make sense as it is normally computed by the missionGenerator
+#     "x_0": [
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.12441062927246,
+#             "lon": -88.06990814208984,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.154739379882812,
+#             "lon": -88.0869369506836,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.101789474487305,
+#             "lon": -88.0881118774414,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.100204467773438,
+#             "lon": -88.09916687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.180204467773438,
+#             "lon": -88.1016687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.160204467773438,
+#             "lon": -88.0616687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.190204467773438,
+#             "lon": -88.0916687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.220204467773438,
+#             "lon": -88.0816687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.220204467773438,
+#             "lon": -88.0516687011719,
+#         },
+#         {
+#             "date_time": "2022-08-31T02:11:19+00:00",
+#             "lat": 22.200204467773438,
+#             "lon": -88.0316687011719,
+#         },
+#     ],
+#     "x_T": {"lat": 22.31922451, "lon": -88.90433564},
+# }
 
 
 # missionConfig = {
