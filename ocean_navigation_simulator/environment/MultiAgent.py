@@ -1,3 +1,8 @@
+"""
+The MultiAgent contains the logic to update the graph representation of the multi-agent network,
+including computing relevant metrics and some plot functions to visualize the platform network.
+"""
+
 import copy
 import dataclasses
 import datetime as dt
@@ -6,10 +11,8 @@ import math
 from functools import partial
 from typing import (
     AnyStr,
-    Callable,
     Dict,
     List,
-    Literal,
     Optional,
     Tuple,
     Union,

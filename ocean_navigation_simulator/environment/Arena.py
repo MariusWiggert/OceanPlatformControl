@@ -60,15 +60,13 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
-from ocean_navigation_simulator.utils.misc import get_markers, timing_logger
+from ocean_navigation_simulator.utils.misc import timing_logger
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
     get_lon_lat_time_interval_from_trajectory,
 )
 from ocean_navigation_simulator.utils.units import (
-    Distance,
     format_datetime_x_axis,
-    haversine_rad_from_deg,
 )
 
 
@@ -313,6 +311,7 @@ class Arena:
             self.action_trajectory = np.append(
                 self.action_trajectory, np.atleast_3d(np.array(action)), axis=2
             )
+        # to log and use a graph representation for multi-agent
         if self.use_graph_reprs:
             graph_observation = self.multi_agent_net.update_graph(platform_set=platform_set)
             self.multi_agent_G_list.append(graph_observation)
@@ -490,11 +489,13 @@ class Arena:
             for posix in state_trajectory[0, 2, ::1]
         ]
 
-    ### Various Plotting Functions for the Arena Object ###
+    # -- Various Plotting Functions for the Arena Object -- #
 
     # general form of state trajectory array:
     # [nb_platforms, nb_states, time]
     # action_trajectory: [#nb_platforms, 2, time]
+
+    # ----------------------------------------------------- #
     def plot_control_trajectory_on_map(
         self,
         ax: Optional[matplotlib.axes.Axes] = None,
@@ -1014,7 +1015,6 @@ class Arena:
         Returns:
             matplotlib.figure.Figure
         """
-
         fig = plt.figure(figsize=figsize)
         ax1 = fig.add_subplot(2, 2, 1)
         ax2 = fig.add_subplot(2, 2, 2)
@@ -1098,7 +1098,12 @@ class Arena:
         )
         return metrics_dict
 
-    def get_plot_data_for_wandb(self):
+    def get_plot_data_for_wandb(self) -> Dict:
+        """To log in Weight and Biases
+
+        Returns:
+            Dict: information and metrics
+        """
         dict_for_plot = {
             "timesteps": np.arange(len(self.multi_agent_G_list)),
             "dates": self.get_datetime_from_state_trajectory(self.state_trajectory),
@@ -1114,6 +1119,3 @@ class Arena:
             ],
         }
         return dict_for_plot
-        # return pd.DataFrame.from_dict(
-        #     dict_for_plot, orient="columns"
-        # )  # pd.DataFrame(data=dict_for_plot)
