@@ -404,6 +404,10 @@ class MissionGenerator:
         return real_target
 
     def get_sampling_frame_mission_time(self) -> Tuple[dict, list]:
+        """Get frame (region) in lon,lat and time to sample mission start points
+        Returns:
+            Tuple[dict, list]: sampling frame in space in dict form and mission time array
+        """
         sampling_frame = {
             "x": [
                 self.hj_planner_frame["x_interval"][0] + self.config["min_distance_from_hj_frame"],
@@ -420,8 +424,15 @@ class MissionGenerator:
         ]
         return sampling_frame, mission_time
 
-    def generate_multi_agent_starts(self) -> List[List[Tuple[bool, SpatioTemporalPoint, float]]]:
-        start_time = time.time()
+    def generate_multi_agent_starts(
+        self,
+    ) -> Tuple[List[Tuple[bool, SpatioTemporalPoint, Distance]], List[SpatioTemporalPoint]]:
+        """Sample multiple start point positions for a given target, to be used in multi-agent experiments
+
+        Returns:
+            List[List[Tuple[bool, SpatioTemporalPoint, float]]]: List of agent start points in the SpatioTemporalPoint
+            format for each mission with bool if feasible or not and float for TTR to target
+        """
         sampling_frame, mission_time = self.get_sampling_frame_mission_time()
         feasible_missions, feasible_points = self.sample_connected_feasible_points(
             sampling_frame=sampling_frame, mission_time=mission_time
@@ -459,8 +470,27 @@ class MissionGenerator:
         return feasible_points + random_points
 
     def sample_connected_feasible_points(
-        self, sampling_frame, mission_time
-    ) -> List[Tuple[bool, SpatioTemporalPoint, Distance]]:
+        self, sampling_frame: dict, mission_time: List
+    ) -> Tuple[List[Tuple[bool, SpatioTemporalPoint, Distance]], List[SpatioTemporalPoint]]:
+        """Sample starting points of multi-agent systems, so that the initial points
+        form a connected graph, where from each starting point the target can be reached within the
+        min TTR and max TTR.
+        A given center point is chosen to meet the spatial sampling frame and the reach times to target so that
+        the other mission starting points are randomly sampled in a circle of predefined max radius around this
+        center point.
+
+        Args:
+            sampling_frame (dict): spatial sampling condition
+            mission_time (List): time sampling condition
+
+        Returns:
+            Tuple[List[Tuple[bool, SpatioTemporalPoint, Distance]], List[SpatioTemporalPoint]]:
+            First element of tuple is a List of missions with bool=true if feasible, the associated spatio-temp point and
+            distance to shore. Second elmnt is just a list of all spatio-temp points of the missions. Recall that
+            a SpatioTemporalPoint class can contain multiple points (e.g. a multi-agent mission can be represented by only one
+            SpatioTemporalPoint that contains all lon,lat,time of the involved agents)
+
+        """
         planner = self.hindcast_planner
         feasible_missions = []
         list_spatio_temp_points = []
@@ -486,16 +516,20 @@ class MissionGenerator:
         )
         sampling_radius = units.Distance(km=self.config["multi_agent"]["sampling_range_radius_km"])
         nb_mission_found = 0
-        # Step 2: Return List of SpatioTemporalPoint
+
+        # Step 2: Sample a random center point for each mission
         while nb_mission_found < min(
             self.config["feasible_missions_per_target"], points_to_sample.shape[0]
         ):
             self.performance["start_resampling"] = 0
             sample_index = self.random.integers(points_to_sample.shape[0])
             sampled_point = points_to_sample[sample_index]
+            # delete this point that we have chosen from the list
             points_to_sample = np.delete(points_to_sample, sample_index, axis=0)
             coordinates = planner.grid.states[sampled_point[0], sampled_point[1], :]
             mission_connected_points = []
+
+            # Step 3: For this sampled center point, add circular noise to sample other starting points
             while len(mission_connected_points) < self.config["multi_agent"]["nb_platforms"]:
                 # Add Noise to current point
                 angle_noise = self.random.uniform(0, 2 * np.pi)
@@ -510,14 +544,16 @@ class MissionGenerator:
                         tz=datetime.timezone.utc,
                     ),
                 )
+                # compute TTR for this point obtained by adding moise to the center point
                 point_ttr_h = float(
                     self.hindcast_planner.interpolate_value_function_in_hours(point=point)
                 )
-                # Add if far enough from shore
+                # compute distance to land for this sample point
                 distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
                     point.to_spatial_point()
                 )
-
+                # Step 4: Add agent starting point to mission
+                # Step 4.1: Only add if meets TTR range to target and distance to land req.
                 if (
                     (distance_to_shore.deg > self.config["min_distance_from_land"])
                     & (self.config["multi_agent"]["sample_range_ttr_h"][0] < point_ttr_h)
@@ -533,7 +569,8 @@ class MissionGenerator:
                                 lat=units.Distance(deg=sampled_spatial_points[1]),
                             )
                         )
-                        if any(  # connected to at least one of the other members
+                        # Step 4.2: Only add if connected to at least one of the other members
+                        if any(
                             dist.km
                             < self.config["scenario_config"]["multi_agent_constraints"][
                                 "communication_thrsld"
@@ -549,17 +586,17 @@ class MissionGenerator:
                                 np.array(point.to_spatial_point()).reshape(2, -1),
                                 axis=1,
                             )
-                else:
+                else:  # if not meeting TTR range OR distance to shore: resample
                     self.performance["start_resampling"] += 1
+                    # check if we are not in a loop hole, where it is impossible to sample
+                    # starting points from the actual center point
                     if (
                         self.performance["start_resampling"]
-                        > self.config["multi_agent"]["nb_platforms"]
-                        * 5  # heuristic that the actual point might not be good to sample from
-                    ):  # if actual point not a good one, change
+                        > self.config["multi_agent"]["nb_platforms"] * 5  # 5 is heuristic
+                    ):  # if actual center point not a good one, change
                         break
-            if (
-                len(mission_connected_points) == self.config["multi_agent"]["nb_platforms"]
-            ):  # only append if we were able to find enough starts for multi-agents
+            # Step 5: only append if we were able to find enough starts for multi-agents
+            if len(mission_connected_points) == self.config["multi_agent"]["nb_platforms"]:
                 feasible_missions.append(mission_connected_points)
                 list_spatio_temp_points.append(
                     SpatioTemporalPoint(

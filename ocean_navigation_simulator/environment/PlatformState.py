@@ -275,12 +275,27 @@ class PlatformState:
             v=str(self.velocity),
         )
 
-    def distance(self, other) -> float:
-        return self.to_spatial_point().distance(other)
-
 
 @dataclasses.dataclass
 class PlatformStateSet:
+    """A dataclass to contain multiple platform states, when dealing with a multi-agent
+    network of platforms. Provides methods to extract relevant states to each platform in
+    convenient form (e.g. np.array), or as attributes (automatically computed from the
+    list of platforms)
+
+    Attributes:
+      platform_list: List of platform states instances
+
+      Attributes computed automatically after instanciation of platform_list:
+        lon: The latitude position of all platforms in an units.Distance array.
+        lat: The longitude position of all platforms in an units.Distance array.
+        date_time: A np.array containing the current time of all platforms.
+        battery_charge: The amount of energy stored on the batteries of all platforms.
+        seaweed_mass: The amount of seaweed biomass of all platforms.
+        velocity: The velocity of all platforms, in u and v format.
+
+    """
+
     platform_list: List[PlatformState]
 
     def __array__(self):
@@ -294,6 +309,9 @@ class PlatformStateSet:
         return self.platform_list[platform_id]
 
     def __post_init__(self):
+        """Computes the states of all platforms passed in platform_list, so that the e.g. lon, lat
+        of all platforms can be directly accessed through an array (and attribute of this class).
+        """
         self.lon = units.Distance(deg=np.array(self.platform_list)[:, 0])
         self.lat = units.Distance(deg=np.array(self.platform_list)[:, 1])
         # datetime does not support array, whilst np.datetime64 has no timestamps....
@@ -323,30 +341,54 @@ class PlatformStateSet:
     def to_casadi_input_dynamics_array(self):
         return self.__array__()[:, 0:5]  # velocities not needed as inputs for casadi simulation
 
-    def get_timestamp_arr(self):
+    def get_timestamp_arr(self) -> np.ndarray:
+        """Extract timestamp of each platform and return the whole in an array form"""
         return np.array([platform.date_time.timestamp() for platform in self.platform_list])
 
-    def replace_velocities(self, u_mps, v_mps):
+    def replace_velocities(self, u_mps: np.ndarray, v_mps: np.ndarray):
+        """Update velocities of the platforms
+
+        Args:
+            u_mps (np.ndarray): u velocities of platforms in mps
+            v_mps (np.ndarray): v velocities of platforms in mps
+        """
         nb_platforms = len(self)
         for pltf_id in range(nb_platforms):  # update individual PlatformState attributes
             self.platform_list[pltf_id].replace_velocity(
                 u_mps=u_mps[pltf_id] if nb_platforms > 1 else u_mps,
                 v_mps=v_mps[pltf_id] if nb_platforms > 1 else v_mps,
             )
-            # self.platform_list[pltf_id].velocity = OceanCurrentVector(
-            #     u=units.Velocity(mps=u_mps[pltf_id]), v=units.Velocity(mps=v_mps[pltf_id])
-            # )
         self.velocity = OceanCurrentVector(
             u=units.Velocity(mps=u_mps), v=units.Velocity(mps=v_mps)
         )  # update attribute of this class
 
-    def get_distance_btw_platforms(self, from_nodes, to_nodes):
+    def get_distance_btw_platforms(self, from_nodes: List, to_nodes: List) -> units.Distance:
+        """Compute the distance between all pair of platforms
+        For this, separate all nodes (platforms in a graph) in two sets to represent
+        edges between the platforms
+
+        Args:
+            from_nodes (List): nodes attached to the edges first part
+            to_nodes (List): nodes attached to the edges second part.
+
+        Returns:
+            units.Distance: distances between platforms ("weights of the edges")
+        """
         lon_from, lat_from = self.lon[from_nodes], self.lat[from_nodes]
         lon_to, lat_to = self.lon[to_nodes], self.lat[to_nodes]
         from_spatial_point = SpatialPoint(lon=lon_from, lat=lat_from)
         return from_spatial_point.haversine(SpatialPoint(lon=lon_to, lat=lat_to))
 
     @staticmethod
-    def from_numpy(np_array):
+    def from_numpy(np_array: np.ndarray):
+        """Instanciate PlatformStateSet class from a numpy array representation
+        of platform states
+
+        Args:
+            np_array (np.ndarray): platforms as rows and states as columns
+
+        Returns:
+            PlatformStateSet: for the given 2d-array of multi-agent states
+        """
         platform_list = [PlatformState.from_numpy(np_array[k, :]) for k in range(np_array.shape[0])]
         return PlatformStateSet(platform_list=platform_list)
