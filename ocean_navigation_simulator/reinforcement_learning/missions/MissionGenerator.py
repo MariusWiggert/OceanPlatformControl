@@ -461,7 +461,6 @@ class MissionGenerator:
     def sample_connected_feasible_points(
         self, sampling_frame, mission_time
     ) -> List[Tuple[bool, SpatioTemporalPoint, Distance]]:
-
         planner = self.hindcast_planner
         feasible_missions = []
         list_spatio_temp_points = []
@@ -524,7 +523,6 @@ class MissionGenerator:
                     & (self.config["multi_agent"]["sample_range_ttr_h"][0] < point_ttr_h)
                     & (point_ttr_h < (self.config["multi_agent"]["sample_range_ttr_h"][1]))
                 ):
-
                     if len(mission_connected_points) == 0:
                         mission_connected_points.append((False, point, distance_to_shore))
                         sampled_spatial_points = np.array(point.to_spatial_point()).reshape(2, -1)

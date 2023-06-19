@@ -1,3 +1,6 @@
+""" Utils to assist plotting for scripts related to c3 and mission generation
+"""
+
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -6,6 +9,13 @@ import numpy as np
 
 
 def plot_missions_target_cartopy(df: pd.DataFrame, region: str):
+    """Plots the initial mission multi-agent network centers
+        and targets on a map
+
+    Args:
+        df (pd.DataFrame): contains for each mission the start of platforms and targets
+        region (str): ocean regions where missions are taking place
+    """
     if region == "GOM":
         x_range = [-98, -76]
         y_range = [18, 32]
@@ -28,8 +38,6 @@ def plot_missions_target_cartopy(df: pd.DataFrame, region: str):
         x_centroid = np.array(df.iloc[miss_idx]["x_0_lon"]).mean()
         y_centroid = np.array(df.iloc[miss_idx]["x_0_lat"]).mean()
         ax.scatter(
-            # df.iloc[miss_idx]["x_0_lon"],
-            # df.iloc[miss_idx]["x_0_lat"],
             x_centroid,
             y_centroid,
             c="red",
