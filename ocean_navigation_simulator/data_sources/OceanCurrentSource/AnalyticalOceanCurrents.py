@@ -171,7 +171,7 @@ class PeriodicDoubleGyre(OceanCurrentSourceAnalytical):
         w_angular_vel = 2 * np.pi / self.period_time
         a = self.epsilon_sep * np.sin(w_angular_vel * posix_time)
         b = 1 - 2 * self.epsilon_sep * np.sin(w_angular_vel * posix_time)
-        f = a * np.power(a * lon, 2) + b * lon
+        f = a * np.power(lon, 2) + b * lon
 
         u_cur_out = -np.pi * self.v_amplitude * np.sin(np.pi * f) * np.cos(np.pi * lat)
         return np.where(self.is_boundary(lon=lon, lat=lat, posix_time=posix_time), 0.0, u_cur_out)
@@ -194,7 +194,7 @@ class PeriodicDoubleGyre(OceanCurrentSourceAnalytical):
         w_angular_vel = 2 * np.pi / self.period_time
         a = self.epsilon_sep * np.sin(w_angular_vel * posix_time)
         b = 1 - 2 * self.epsilon_sep * np.sin(w_angular_vel * posix_time)
-        f = a * np.power(a * lon, 2) + b * lon
+        f = a * np.power(lon, 2) + b * lon
         df_dx = 2 * a * lon + b
 
         v_cur_out = np.pi * self.v_amplitude * np.cos(np.pi * f) * np.sin(np.pi * lat) * df_dx

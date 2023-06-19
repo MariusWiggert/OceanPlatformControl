@@ -12,13 +12,15 @@ class GenerativeParticleFilter(ParticleFilterBase):
     def __init__(
         self, 
         dynamics_and_observation, 
-        resample: bool
+        resample: bool,
+        no_position_uncertainty: bool = True
     ) -> None:
         super().__init__()
 
         # Dynamics, observation, resampling
         self.dynamics_and_observation = dynamics_and_observation
         self.resample = resample
+        self.no_position_uncertainty = no_position_uncertainty
 
     def dynamics_update(
         self, 
@@ -95,7 +97,7 @@ class GenerativeParticleFilter(ParticleFilterBase):
         # Sample a single state from particle belief according to the likelihood weights
         sampled_state_index = np.random.choice(
             particle_belief_state.num_particles, 
-            p = particle_belief_state.weights / np.sum(particle_belief_state.weights)
+            p=particle_belief_state.weights / np.sum(particle_belief_state.weights)
         )
         return particle_belief_state.states[sampled_state_index].reshape([1, -1])
 
@@ -107,11 +109,12 @@ class GenerativeParticleFilter(ParticleFilterBase):
         # Get a copy of the input
         next_particle_belief_state = deepcopy(particle_belief_state)
 
-        # Sample an observation by first picking a state
+        # Sample an observation by first picking a state (weighted by likelihood/weights)
         sampled_state = self.sample_random_state(next_particle_belief_state)
 
         # Then generating the observation from the sampled state (tiled for vectorization)
-        sampled_observation = self.dynamics_and_observation.sample_observation(sampled_state).flatten()
+        sampled_observation = self.dynamics_and_observation.sample_observation(states=sampled_state,
+                                                                               actions=np.array([action])).flatten()
         sampled_observation_tiled = np.tile(
             sampled_observation, 
             [next_particle_belief_state.num_particles, 1]
@@ -124,8 +127,12 @@ class GenerativeParticleFilter(ParticleFilterBase):
         # Run full bayesian next step with the sampled observation
         next_particle_belief_state = self.full_bayesian_update(
             next_particle_belief_state,
-            actions, 
+            actions,
             sampled_observation_tiled
         )
+
+        if self.no_position_uncertainty:
+            # No position uncertainy: set all particles to the same position
+            next_particle_belief_state.states[:, :2] = sampled_observation
 
         return next_particle_belief_state

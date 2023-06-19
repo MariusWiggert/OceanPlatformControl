@@ -32,8 +32,8 @@ class ParticleFilterObserver(ParticleFilterBase):
         # Dynamics-update the particle belief state
         self.particle_belief_state.update_states(
             self.dynamics_and_observation.get_next_states(
-                self.particle_belief_state.states,
-                actions
+                states=self.particle_belief_state.states,
+                actions=actions
             )
         )
 
@@ -43,8 +43,8 @@ class ParticleFilterObserver(ParticleFilterBase):
     ) -> None:
         # Observation-update the particle belief state
         new_weight_multiplier = self.dynamics_and_observation.evaluate_observations(
-            self.particle_belief_state.states,
-            observations    
+            states=self.particle_belief_state.states,
+            observations=observations
         )
         self.particle_belief_state.update_weights(
             self.particle_belief_state.weights * new_weight_multiplier
@@ -70,7 +70,8 @@ class ParticleFilterObserver(ParticleFilterBase):
             self._resample_particles()
 
     def _resample_particles(self) -> None:
-        # Naive resampling
+        # Naive resampling: essentially just re-sampling from the current belief states.
+        # This results in eliminating low weight particles and duplicating high weight particles.
         self.particle_belief_state.normalize_weights()
         sampled_indices = np.random.choice(
             self.particle_belief_state.num_particles, 

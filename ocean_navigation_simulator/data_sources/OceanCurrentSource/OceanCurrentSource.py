@@ -165,8 +165,16 @@ class OceanCurrentSource(DataSource):
                 scale=quiver_scale,
             )
 
+        # Label the plot
         if set_title:
-            ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M UTC"), fontsize=20)
+            # check if we are in posix time
+            if time > datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc):
+                time_string = time.strftime("%Y-%m-%d %H:%M:%S UTC")
+            else:
+                time_string = "in time units " + str(round(time.timestamp(), 2))
+            ax.set_title(
+                "Time: {t}".format(t="Time: " + time_string, fontsize=20)
+            )
         ax.set_facecolor("white")
         if return_cbar:
             return ax, cbar

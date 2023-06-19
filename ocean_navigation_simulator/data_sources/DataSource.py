@@ -482,9 +482,14 @@ class DataSource(abc.ABC):
 
         # Label the plot
         if set_title:
+            # check if we are in posix time
+            if time > datetime.datetime(2000, 1, 1):
+                time_string = time.strftime("%Y-%m-%d %H:%M:%S UTC")
+            else:
+                time_string = str(time.timestamp()) + " time units"
             ax.set_title(
                 "Variable: {var} \n at Time: {t}".format(
-                    var=var_to_plot, t="Time: " + time.strftime("%Y-%m-%d %H:%M:%S UTC")
+                    var=var_to_plot, t="Time: " + time_string
                 )
             )
         if return_cbar:

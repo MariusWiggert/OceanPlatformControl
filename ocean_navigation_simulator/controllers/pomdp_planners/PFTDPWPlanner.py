@@ -109,7 +109,7 @@ class PFTDPWPlanner:
 	def _sample_new_belief_action(self, belief_id: int) -> Any:
 		# Generate an action not yet explored for that belief
 		return self.generative_particle_filter.sample_new_action(
-			self.tree.belief_id_to_action_set[belief_id]
+			action_set=self.tree.belief_id_to_action_set[belief_id]
 		)
 
 	def _is_terminal(self, belief: ParticleBelief) -> np.array:
@@ -122,7 +122,8 @@ class PFTDPWPlanner:
 		action
 	) -> tuple[ParticleBelief, np.array]:
 		# Generate b', r from T(b, a)
-		next_belief = self.generative_particle_filter.generate_next_belief(belief, action)
+		next_belief = self.generative_particle_filter.generate_next_belief(
+			particle_belief_state=belief, action=action)
 		rewards = self.reward_function.get_reward(next_belief.states)
 		reward = np.sum(rewards * next_belief.weights / np.sum(next_belief.weights))
 
@@ -139,7 +140,7 @@ class PFTDPWPlanner:
 
 	def _rollout_action(self, belief: ParticleBelief) -> Any:
 		# Sample a random state and get a heuristic action from that
-		sampled_state = self.generative_particle_filter.sample_random_state(belief)
+		sampled_state = self.generative_particle_filter.sample_random_state(particle_belief_state=belief)
 		return self.rollout_policy.get_action(sampled_state)[0]
 	
 	def _rollout_belief_simulation(self, belief_id: int) -> float:
@@ -169,6 +170,7 @@ class PFTDPWPlanner:
 	
 	def _rollout_mdp_simulation(self, belief_id: int) -> float:
 		# Initialize rollout simulation with QMDP style (each trajectory separate)
+		# Assuming true state is known.
 		rollout_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
 		rollout_belief.normalize_weights()
 		is_terminal = self._is_terminal(rollout_belief)
@@ -197,8 +199,8 @@ class PFTDPWPlanner:
 			actions = self.rollout_policy.get_action(rollout_belief.states)
 			rollout_belief.update_states(
 				self.generative_particle_filter.dynamics_and_observation.get_next_states(
-					rollout_belief.states,
-					actions
+					states=rollout_belief.states,
+					actions=actions
 				)
 			)
 			rewards = self.reward_function.get_reward(rollout_belief.states)
