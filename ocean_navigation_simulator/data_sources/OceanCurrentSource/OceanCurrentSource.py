@@ -233,13 +233,6 @@ class OceanCurrentSource(DataSource):
 
         return units.Distance(rad=land_distances.min())
 
-    def __del__(self):
-        """Helper function to delete the existing casadi functions."""
-        if hasattr(self, "u_curr_func"):
-            del self.u_curr_func
-            del self.v_curr_func
-        pass
-
 
 class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
     """Class for OceanCurrentSources that are based on Xarray in contrast to an analytical function.
@@ -309,6 +302,13 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
             return OceanCurrentVector(
                 u=data_xarray["water_u"].item(), v=data_xarray["water_v"].item()
             )
+
+    def __del__(self):
+        """Helper function to delete the existing casadi functions."""
+        if hasattr(self, "u_curr_func"):
+            del self.u_curr_func
+            del self.v_curr_func
+        pass
 
 
 class ForecastFileSource(OceanCurrentSourceXarray):

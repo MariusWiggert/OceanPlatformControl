@@ -1,9 +1,10 @@
 import abc
 import logging
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 import numpy as np
 import xarray as xr
+import casadi as ca
 
 from ocean_navigation_simulator.data_sources.DataSource import AnalyticalSource
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
@@ -25,8 +26,6 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.ocean_field.ocean_source")
-        # Casadi functions are created and maintained here but used in the platform object
-        self.u_curr_func, self.v_curr_func = [None] * 2
         self.current_run_t_0 = 0
 
     @abc.abstractmethod
@@ -64,6 +63,36 @@ class OceanCurrentSourceAnalytical(OceanCurrentSource, AnalyticalSource):
             v_currents     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
         """
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def u_curr_func(self, state: List[float]) -> Union[float]:
+        """Calculating the current in longitudinal direction at a specific state.
+        Args:
+            state: casadi array of [posix_time, lat (y), lon (x)]
+        Returns:
+            u_currents     data as float
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def v_curr_func(self, state: List[float]) -> Union[float]:
+        """Calculating the current in longitudinal direction at a specific state.
+        Args:
+            state: casadi array of [posix_time, lat (y), lon (x)]
+        Returns:
+            v_currents     data as float
+        """
+        raise NotImplementedError
+
+    def initialize_casadi_functions(self, grid: List[List[float]], array: xr) -> None:
+        """DataSource specific function to initialize the casadi functions needed.
+        # Note: the input to the casadi function needs to be an array of the form np.array([posix time, lat, lon])
+        Args:
+          grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
+          array:    xarray object containing the sub-setted data for the next cached round
+        """
+        # check if self in a subclass of OceanCurrentSourceAnalytical
+        self.casadi_grid_dict = self.grid_dict
 
     def create_xarray(self, grids_dict: dict, data_tuple: Tuple) -> xr:
         """Function to create an xarray from the data tuple and grid dict
@@ -254,6 +283,14 @@ class FixedCurrentHighway(OceanCurrentSourceAnalytical):
         u_cur_low = np.where(lat <= self.y_range_highway[1], self.U_cur, 0.0)
         u_cur_out = np.where(self.y_range_highway[0] <= lat, u_cur_low, 0.0)
         return u_cur_out
+
+    def u_curr_func(self, state):
+        u_cur_low = ca.if_else(state[1] <= self.y_range_highway[1], self.U_cur, 0.0)
+        u_cur_out = ca.if_else(self.y_range_highway[0] <= state[1], u_cur_low, 0.0)
+        return u_cur_out
+
+    def v_curr_func(self, state):
+        return 0.0
 
     def v_current_analytical(
         self,

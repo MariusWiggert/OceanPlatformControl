@@ -239,10 +239,15 @@ mcts_planner = PFTDPWPlanner(generative_particle_filter, reward_function, rollou
 # - take the most visited. Might only be 3 depths...
 
 #%% do a single step of MCTS
+import time
 observation = arena.reset(platform_state=problem.start_state)
+start_time = time.time()
 current_belief = mcts_observer.get_planner_particle_belief(num_planner_particles)
 # run the MCTS planner for planning
 next_action = mcts_planner.get_best_action(current_belief)
+# take and print end time
+end_time = time.time()
+print("time for planning: ", end_time - start_time)
 print("next action: ", next_action)
 #%% Functions for plotting the MCTS tree
 from ocean_navigation_simulator.controllers.pomdp_planners.visualize import plot_tree, plot_tree_plotly

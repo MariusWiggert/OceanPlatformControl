@@ -31,9 +31,12 @@ class PFTDPWPlanner:
 		generative_particle_filter: GenerativeParticleFilter, 
 		reward_function,
 		rollout_policy,
-		rollout_value,
+		rollout_value, # this is a function(belief) -> value
 		specific_settings: dict
 	) -> None:
+		"""
+		:param generative_particle_filter:	GenerativeParticleFilter object
+		"""
 		# Initialize tree
 		self._initialize_tree()
 
@@ -169,8 +172,8 @@ class PFTDPWPlanner:
 		return cumulative_reward
 	
 	def _rollout_mdp_simulation(self, belief_id: int) -> float:
-		# Initialize rollout simulation with QMDP style (each trajectory separate)
-		# Assuming true state is known.
+		# Initialize rollout simulation with Q-MDP style (each trajectory separate)
+		# Assuming true state is known at each step...
 		rollout_belief = deepcopy(self.tree.belief_id_to_belief[belief_id])
 		rollout_belief.normalize_weights()
 		is_terminal = self._is_terminal(rollout_belief)
@@ -230,8 +233,8 @@ class PFTDPWPlanner:
 		
 		# Return rollout value from function call
 		if self.rollout_value is not None:
-			# return self.rollout_value(self.tree.belief_id_to_belief[belief_id])
-			raise Exception("DPW Planner: Rollout value not implemented yet")
+			return self.rollout_value(self.tree.belief_id_to_belief[belief_id])
+			# raise Exception("DPW Planner: Rollout value not implemented yet")
 		
 		# Run rollout simulation starting from belief b
 		if self.specific_settings["rollout_style"] == "PO": # partially observable
@@ -338,7 +341,6 @@ class PFTDPWPlanner:
 			Warning("PFT-DPW Planner: Was provided a terminal state for initial belief, returning rollout action")
 			return self._rollout_action(belief)
 
-
 		# Plan with the tree by querying the tree for num_mcts_simulate number of times
 		for _ in range(self.specific_settings["num_mcts_simulate"]):
 			self.mcts_simulate(initial_belief_id, self.specific_settings["max_depth"])
@@ -350,6 +352,7 @@ class PFTDPWPlanner:
 			if self.tree.action_id_to_q_values[action_id] > best_q_value:
 				best_q_value = self.tree.action_id_to_q_values[action_id]
 				best_action_id = action_id
+		print("Best Q Value: ", best_q_value)
 
 		assert best_action_id is not None
 		return self.tree.action_id_to_action[best_action_id]
@@ -371,6 +374,7 @@ class PFTDPWPlanner:
 			q_value = reward + self.specific_settings["discount"] * self._estimate_rollout_value(next_belief_id)
 		else:
 			q_value = reward + self.specific_settings["discount"] * self.mcts_simulate(next_belief_id, current_depth - 1)
+			# there needs to be a max operation over action node children
 
 		# Update the counters & quantities
 		self.tree.belief_id_num_visits[belief_id] += 1

@@ -8,6 +8,7 @@ from ocean_navigation_simulator.controllers.pomdp_planners.ParticleFilterBase im
     ParticleFilterBase,
 )
 
+
 class GenerativeParticleFilter(ParticleFilterBase):
     def __init__(
         self, 
@@ -96,7 +97,7 @@ class GenerativeParticleFilter(ParticleFilterBase):
     ) -> np.array:
         # Sample a single state from particle belief according to the likelihood weights
         sampled_state_index = np.random.choice(
-            particle_belief_state.num_particles, 
+            particle_belief_state.num_particles,
             p=particle_belief_state.weights / np.sum(particle_belief_state.weights)
         )
         return particle_belief_state.states[sampled_state_index].reshape([1, -1])
@@ -134,5 +135,7 @@ class GenerativeParticleFilter(ParticleFilterBase):
         if self.no_position_uncertainty:
             # No position uncertainy: set all particles to the same position
             next_particle_belief_state.states[:, :2] = sampled_observation
+            # next_particle_belief_state.states = np.concatenate(
+            #     (sampled_observation_tiled, next_particle_belief_state.states[:, 2:]), axis=1)
 
         return next_particle_belief_state

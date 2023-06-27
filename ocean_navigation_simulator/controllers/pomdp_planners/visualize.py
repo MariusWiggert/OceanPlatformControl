@@ -12,6 +12,19 @@ from typing import Any, List, Dict, Tuple, Union, Callable
 # https://community.plotly.com/t/displaying-image-on-point-hover-in-plotly/9223
 # Not that easy with interactive python..
 
+def plot_particles_in_1D(particle_belief,
+                         particle_axis_idx,
+                        particle_axis_label=None,
+                        true_state=None):
+    """Plot the particles and the true state."""
+    plt.figure()
+    plt.scatter(particle_belief.states[:,particle_axis_idx], [0] * particle_belief.states.shape[0],
+                s=particle_belief.weights*100)
+    plt.xlabel(particle_axis_label)
+    if true_state is not None:
+        plt.vlines(true_state, ymin=-0.1,ymax=0.1, colors="r")
+    plt.show()
+
 
 def plot_particles_in_2D(particle_belief, x_axis_idx, y_axis_idx,
                         x_axis_label=None,

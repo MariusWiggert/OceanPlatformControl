@@ -71,12 +71,25 @@ class PlatformAction:
     def from_discrete_action(action_idx):
         """Helper function get a PlatformAction based on 8 discrete action {0, .., 7}
         Args:
-            action_idx: index of the action
+            action_idx: index of the action (0-8) where 8 is no action.
         Returns:
             PlatformAction object
         """
         direction = action_idx * math.pi / 4
-        return PlatformAction(magnitude=1.0, direction=direction[0])
+        return PlatformAction(magnitude=0 if action_idx == 8 else 1, direction=direction)
+
+    def to_discrete_action(self):
+        """Helper function to get a discrete action based on a PlatformAction.
+        Args:
+            action: PlatformAction object
+        Returns:
+            action_idx: index of the action (0-8) where 8 is no action.
+        """
+        if self.magnitude == 0:
+            return 8
+        else:
+            action = int(self.direction / (math.pi / 4))
+            return np.where(action < 0, action + 8, action)
 
 
 class Platform:
@@ -148,7 +161,7 @@ class Platform:
         """
 
         # check if the cached dynamics need to be updated
-        self.update_dynamics(self.state)
+        # self.update_dynamics(self.state)
         # step forward with F_x_next and convert from casadi to numpy array
         f_state = (
             np.array(
