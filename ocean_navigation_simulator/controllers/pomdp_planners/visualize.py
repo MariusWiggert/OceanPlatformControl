@@ -45,8 +45,9 @@ def create_networkx_graph(tree_object):
     """Create a networkx graph from the tree object."""
     G = nx.DiGraph()
     # step 1: add nodes to the graph
-    belief_id_tuples = [(belief_id, {"color": "blue", "belief_id": belief_id}) for belief_id in
-                        np.arange(len(tree_object.belief_id_to_belief)).tolist()]
+    belief_id_tuples = [(belief_id, {"color": "blue", "belief_id": belief_id, "value_b": value_b}) for belief_id, value_b in
+                        zip(np.arange(len(tree_object.belief_id_to_belief)).tolist(),
+                            tree_object.belief_id_to_values)]
     G.add_nodes_from(belief_id_tuples)
     # add the action nodes (I number them after the belief nodes for unique IDs)
     action_id_tuples = [(action_id + len(tree_object.belief_id_to_belief),
@@ -115,16 +116,28 @@ def plot_tree_plotly(tree_object, node_size=5, q_val_decimals=1, reward_decimals
     # edit the dictionary q_value_labels (id -> q_value) so that q_value is a string
     q_value_labels = {node_id: "q={}".format(np.round(q_value, q_val_decimals)) for node_id, q_value in
                       q_value_labels.items()}
+
+    # plot the belief node attribute "value_b" as a label
+    value_b_labels = nx.get_node_attributes(tree_graph, 'value_b')
+    # edit the dictionary value_b_labels (id -> value_b) so that value_b is a string
+    value_b_labels = {node_id: "value_b={}".format(np.round(value_b, q_val_decimals)) for node_id, value_b in
+                      value_b_labels.items()}
+
     # now for belief nodes
     belief_node_labels = nx.get_node_attributes(tree_graph, 'belief_id')
-    belief_node_labels = {node_id: "b={}".format(belief_id) for node_id, belief_id in belief_node_labels.items()}
+    belief_node_labels = {node_id: "b_id={}".format(belief_id) for node_id, belief_id in belief_node_labels.items()}
+
+    # merge the dicts
+    for key in belief_node_labels.keys():
+        belief_node_labels[key] = belief_node_labels[key] + ", " + value_b_labels[key]
+
 
     merged_dict = {**belief_node_labels, **q_value_labels}
     edge_labels = {**edge_labels_rewards, **edge_labels_actions}
 
     vis = GraphVisualization(tree_graph, pos,
                              node_color=list(nx.get_node_attributes(tree_graph, 'color').values()),
-                             node_text={**belief_node_labels, **q_value_labels},
+                             node_text=merged_dict,
                              edge_label={**edge_labels},
                              node_size=node_size, node_border_width=1, edge_width=0.5)
     fig = vis.create_figure(height=800, width=800, showlabel=False)

@@ -180,7 +180,7 @@ class BaseDynObsModelParticles:
 
         # add noise to the position with variance self.obs_noise
         key, self._key = jax.random.split(self._key)
-        return position_next_state + self.var.rvs(size=position_next_state.shape[0], random_state=key[0].__int__())
+        return position_next_state # + self.var.rvs(size=position_next_state.shape[0], random_state=key[0].__int__())
 
     def evaluate_observations(self, states: np.array, observations: np.array) -> float:
         """Evaluate the probability of a measurement given a state.

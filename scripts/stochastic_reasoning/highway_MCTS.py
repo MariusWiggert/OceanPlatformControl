@@ -18,7 +18,7 @@ from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.controllers.pomdp_planners import visualize
 #% Problem Setup
 # Start - Goal Settings
-init_state = [5., 2.0, 0]
+init_state = [5., 2, 0]
 target_state = [5., 8.0]
 target_radius = 0.5
 
@@ -29,7 +29,7 @@ dt_sim = 0.1
 timeout_of_simulation = 20     # in seconds
 
 # about the observations -> THIS IS KEY!
-dt_obs = 0.5
+dt_obs = 0.1
 obs_noise = 1e-3#0.005
 
 arenaConfig = {
@@ -91,162 +91,6 @@ problem = NavigationProblem(
 #     x_interval=arenaConfig['ocean_dict']['hindcast']['source_settings']['x_domain'],
 #     y_interval=arenaConfig['ocean_dict']['hindcast']['source_settings']['y_domain'],
 # )
-#%% Get true optimal control
-specific_settings = {
-    "replan_on_new_fmrc": False,
-    "replan_every_X_seconds": False,
-    "direction": "multi-time-reach-back",
-    "n_time_vector": 200,
-    "closed_loop": True,  # to run closed-loop or open-loop
-    # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 4.0,  # area over which to run HJ_reachability
-    "accuracy": "high",
-    "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 20,
-    "use_geographic_coordinate_system": False,
-    # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-    "grid_res": 0.05,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-    "platform_dict": arena.platform.platform_dict,
-}
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
-# hj_planner = NaiveController(problem=problem, specific_settings=specific_settings)
-hj_planner_true = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
-# % Run reachability planner
-observation = arena.reset(platform_state=x_0)
-action = hj_planner_true.get_action(observation=observation)
-#%% same for other particles now!
-# Ground truth simulation setup
-u_highway = 0.0
-
-arenaConfig = {
-    "casadi_cache_dict": {"deg_around_x_t": 5.0,
-                          "time_around_x_t": 100.0},
-    "ocean_dict": {
-        "hindcast": {
-                "field": "OceanCurrents",
-                "source": "analytical",
-                "source_settings": {
-                    "name": "FixedCurrentHighway",
-                    "boundary_buffers": [0.2, 0.2],
-                    "x_domain": [0, 10],
-                    "y_domain": [0, 10],
-                    "temporal_domain": [0, 100],
-                    "spatial_resolution": 0.1,
-                    "temporal_resolution": 1.0,
-                    "y_range_highway": [4, 6],
-                    "U_cur": u_highway,
-                },
-            },
-        "forecast": None},
-    "platform_dict": {
-        "battery_cap_in_wh": 400.0,
-        "drag_factor": 675.0,
-        "dt_in_s": dt_sim,
-        "motor_efficiency": 1.0,
-        "solar_efficiency": 0.2,
-        "solar_panel_size": 0.5,
-        "u_max_in_mps": F_max,
-    },
-    "seaweed_dict": {"forecast": None, "hindcast": None},
-    "solar_dict": {"forecast": None, "hindcast": None},
-    # "spatial_boundary": {'x': [ 0, 2 ], 'y': [ 0, 1 ]},
-    "use_geographic_coordinate_system": False,
-    "timeout": timeout_of_simulation,
-}
-arena = ArenaFactory.create(scenario_config=arenaConfig)
-# % Specify Navigation Problem
-x_0 = PlatformState(
-    lon=units.Distance(deg=init_state[0]),
-    lat=units.Distance(deg=init_state[1]),
-    date_time=datetime.datetime.fromtimestamp(init_state[2], tz=datetime.timezone.utc),
-)
-target = SpatialPoint(lon=units.Distance(deg=target_state[0]), lat=units.Distance(deg=target_state[1]))
-
-problem = NavigationProblem(
-    start_state=x_0,
-    end_region=target,
-    target_radius=target_radius,
-    platform_dict=arenaConfig["platform_dict"],
-)
-
-#%% Get true optimal control
-specific_settings = {
-    "replan_on_new_fmrc": False,
-    "replan_every_X_seconds": False,
-    "direction": "multi-time-reach-back",
-    "n_time_vector": 200,
-    "closed_loop": True,  # to run closed-loop or open-loop
-    # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 4.0,  # area over which to run HJ_reachability
-    "accuracy": "high",
-    "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 20,
-    "use_geographic_coordinate_system": False,
-    # Note: grid_res should always be bigger than initial_set_radii, otherwise reachability behaves weirdly.
-    "grid_res": 0.05,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-    "platform_dict": arena.platform.platform_dict,
-}
-from ocean_navigation_simulator.controllers.NaiveController import NaiveController
-# hj_planner = NaiveController(problem=problem, specific_settings=specific_settings)
-hj_planner_zero = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
-# % Run reachability planner
-observation = arena.reset(platform_state=x_0)
-action = hj_planner_zero.get_action(observation=observation)
-#%% HJ reverse
-# Ground truth simulation setup
-u_highway = -0.5
-
-arenaConfig = {
-    "casadi_cache_dict": {"deg_around_x_t": 5.0,
-                          "time_around_x_t": 100.0},
-    "ocean_dict": {
-        "hindcast": {
-                "field": "OceanCurrents",
-                "source": "analytical",
-                "source_settings": {
-                    "name": "FixedCurrentHighway",
-                    "boundary_buffers": [0.2, 0.2],
-                    "x_domain": [0, 10],
-                    "y_domain": [0, 10],
-                    "temporal_domain": [0, 100],
-                    "spatial_resolution": 0.1,
-                    "temporal_resolution": 1.0,
-                    "y_range_highway": [4, 6],
-                    "U_cur": u_highway,
-                },
-            },
-        "forecast": None},
-    "platform_dict": {
-        "battery_cap_in_wh": 400.0,
-        "drag_factor": 675.0,
-        "dt_in_s": dt_sim,
-        "motor_efficiency": 1.0,
-        "solar_efficiency": 0.2,
-        "solar_panel_size": 0.5,
-        "u_max_in_mps": F_max,
-    },
-    "seaweed_dict": {"forecast": None, "hindcast": None},
-    "solar_dict": {"forecast": None, "hindcast": None},
-    # "spatial_boundary": {'x': [ 0, 2 ], 'y': [ 0, 1 ]},
-    "use_geographic_coordinate_system": False,
-    "timeout": timeout_of_simulation,
-}
-arena = ArenaFactory.create(scenario_config=arenaConfig)
-# % Specify Navigation Problem
-x_0 = PlatformState(
-    lon=units.Distance(deg=init_state[0]),
-    lat=units.Distance(deg=init_state[1]),
-    date_time=datetime.datetime.fromtimestamp(init_state[2], tz=datetime.timezone.utc),
-)
-target = SpatialPoint(lon=units.Distance(deg=target_state[0]), lat=units.Distance(deg=target_state[1]))
-
-problem = NavigationProblem(
-    start_state=x_0,
-    end_region=target,
-    target_radius=target_radius,
-    platform_dict=arenaConfig["platform_dict"],
-)
-
 #% Get true optimal control
 specific_settings = {
     "replan_on_new_fmrc": False,
@@ -266,10 +110,10 @@ specific_settings = {
 }
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 # hj_planner = NaiveController(problem=problem, specific_settings=specific_settings)
-hj_planner_minus = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
+hj_planner = HJReach2DPlanner(problem=problem, specific_settings=specific_settings)
 # % Run reachability planner
 observation = arena.reset(platform_state=x_0)
-action = hj_planner_minus.get_action(observation=observation)
+action = hj_planner.get_action(observation=observation)
 #%%
 hj_planner.plot_reachability_snapshot(
     rel_time_in_seconds=0,
@@ -296,7 +140,7 @@ while problem_status == 0:
     problem_status = arena.problem_status(problem=problem)
 
 arena.plot_all_on_map(problem=problem)
-#%
+#%%
 #% compute reward
 state_traj = arena.state_trajectory[:, :3]
 reward_func_time = Rewards.TimeRewardFunction(target_state, target_radius)
@@ -361,31 +205,25 @@ planner = RolloutPolicy.NaiveToTarget(target_state)
 discrete_action = planner.get_action(states= np.array(observation.platform_state))
 action = PlatformAction.from_discrete_action(discrete_action)
 #%%
-from ocean_navigation_simulator.controllers.pomdp_planners.RolloutValue import get_value_from_hj_dict
+from ocean_navigation_simulator.controllers.pomdp_planners.RolloutValue import get_value_from_hj
 from functools import partial
 
-get_value_from_hj_partial = partial(get_value_from_hj_dict, hj_planner_dict={
-    'true': hj_planner_true, 'zero': hj_planner_zero, 'minus': hj_planner_minus})
+get_value_from_hj_partial = partial(get_value_from_hj, hj_planner=hj_planner)
 
-#%%
-belief = planner.particle_observer.particle_belief_state
-belief.weights = np.array([0,0,1])
-get_value_from_hj_partial(belief)
-#%%
 #% Get initial particles
 n_mc = 100
 u_highway_sd = 0.5
 u_highway_err = 0   # -0.2   # as multiples of sd
 import jax.numpy as jnp
 _key = jax.random.PRNGKey(2)
-_key = jnp.array([4,4], dtype=jnp.uint32)
+_key = jnp.array([3,3], dtype=jnp.uint32)
 print(_key)
 # draw samples normally distributed with some error from the 3D Hypothesis space
-u_highway_samples = jax.random.normal(_key, shape=(n_mc, 1))*u_highway_sd + u_highway + u_highway_err*u_highway_sd
+u_highway_samples = jax.random.normal(_key, shape=(n_mc,1))*u_highway_sd + u_highway + u_highway_err*u_highway_sd
 # transform jax.numpy array to numpy array
 u_highway_samples = np.array(u_highway_samples)
-u_highway_samples = np.linspace(-0.5, 0.5, 3).reshape(-1, 1)
-# u_highway_samples = np.array([0.5]).reshape(-1,1)
+u_highway_samples = np.linspace(-0.5, 0.5, 5).reshape(-1,1)
+u_highway_samples = np.array([0.5]).reshape(-1,1)
 #% Settings for the
 particle_filter_dict = {
     'dt_observations': dt_obs,
@@ -395,20 +233,20 @@ particle_filter_dict = {
 }
 # Idea from claire: Can we make MCTS step-size adaptive by if it's different then what we expect?
 mcts_dict = {
-    'num_planner_particles': 3,
-    'dt_mcts': 0.3,
-    'n_euler_per_dt_dynamics': 10,
+    'num_planner_particles': 1,
+    'dt_mcts': 0.1,
+    'n_euler_per_dt_dynamics': 1,
     'n_states': 2,
     'n_actions': 9,
     'rollout_policy': None, #RolloutPolicy.NaiveToTarget(target_state),
     'rollout_value': get_value_from_hj_partial,
-    'no_position_uncertainty': True,
+    'no_position_uncertainty': False,
     'resample': False,
     'reward_function': Rewards.TimeRewardFunction(target_state, target_radius), # Rewards.RewardFunction(target_state, target_radius),
     'mcts_settings': {
         # 100 is very low, the higher the more flushed out the tree
-        "num_mcts_simulate": 200,  # number of simulate calls to MCTS (either explores children or new node) from root node.
-        "max_depth": 5,  # maximum depth of the tree -> then roll-out policy
+        "num_mcts_simulate": 500,  # number of simulate calls to MCTS (either explores children or new node) from root node.
+        "max_depth": 10,  # maximum depth of the tree -> then roll-out policy
         "max_rollout_depth": 200,  # how far the rollout policy goes (should be the final T)
         "rollout_subsample": 10,  # for how many particles to run rollout policy (currently not parallelized)
         "rollout_style": "FO",  # PO cannot be parallized (getting observations) - FO can be parallelized
@@ -416,7 +254,7 @@ mcts_dict = {
         "ucb_factor": 10.0,
         # no explore (0.1), mostly explore (100) -> depends on reward range (this with 0-1 reward per step)
         # Factors for progressive widening. How much to expand the tree.
-        "dpw_k_observations": 20.,  # means sample around 4 observations per node
+        "dpw_k_observations": 1.0,  # means sample around 4 observations per node
         "dpw_alpha_observations": 0.1,  # how aggressively to expand the tree (higher means wider tree)
         # can probably reduce that as observations do not have much noise...
         "dpw_k_actions": 5.0,  # means sample around 3 actions
@@ -485,24 +323,12 @@ visualize.plot_tree_plotly(planner.mcts_planner.tree, node_size=5, q_val_decimal
 #%%
 planner.mcts_planner.tree.belief_id_to_action_set[0]
 #%%
-id=53
-particle_belief = planner.mcts_planner.tree.belief_id_to_belief[id]
-print("value:", get_value_from_hj_partial(particle_belief))
-#% viz it
-visualize.plot_particles_in_1D(
-    particle_belief=particle_belief,
-     particle_axis_idx=3,
-     particle_axis_label="u_highway",
-     true_state=0.5)
-#%% why are 12 and 14 different?
-# -> dynamics transitions are the same...
-planner.mcts_planner.tree.belief_id_to_belief[12].states
+
 #%%
-planner.mcts_planner.tree.belief_id_to_belief[14].states
-#%% are observations stochastic?
-action = 4
-sampled_state = planner.mcts_planner.tree.belief_id_to_belief[14].states[0,:].reshape([1, -1])
-planner.mcts_planner.generative_particle_filter.dynamics_and_observation.sample_observation(states=sampled_state,actions=np.array([action])).flatten()
+# inspect 8, 15
+particle_belief = planner.mcts_planner.tree.belief_id_to_belief[2]
+get_value_from_hj(particle_belief, hj_planner=hj_planner)
+# get_value_from_hj_partial(particle_belief)
 #%% values somehow go above 100, how is that possible?
 planner.mcts_planner.reward_function.get_reward(particle_belief.states)
 #%%

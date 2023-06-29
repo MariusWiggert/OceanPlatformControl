@@ -118,12 +118,12 @@ class Platform2dForSim(dynamics.Dynamics):
         # if min, go against the gradient direction
         if self.control_mode == "min":
             alpha = alpha + jnp.pi
-        return jnp.array([uOpt, alpha])
-        # # now make it discretized action space!
-        # disc_action = jnp.round(alpha / (jnp.pi / 4))
-        # print("disc_action", disc_action)
-        # continous_disc_action = disc_action * jnp.pi / 4
-        # return jnp.array([uOpt, continous_disc_action])
+        # return jnp.array([uOpt, alpha])
+        # now make it discretized action space!
+        disc_action = jnp.round(alpha / (jnp.pi / 4))
+        print("disc_action", disc_action)
+        continous_disc_action = disc_action * jnp.pi / 4
+        return jnp.array([uOpt, continous_disc_action])
 
     def optimal_disturbance(self, state, time, grad_value):
         """Computes the optimal disturbance realized by the HJ PDE Hamiltonian."""
