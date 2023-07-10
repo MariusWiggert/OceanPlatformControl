@@ -455,6 +455,8 @@ class Arena:
             scale=control_vec_scale,
             angles="xy",
             label="Control Inputs",
+            # add the order to make sure it's always plotted on top
+            zorder=10,
         )
 
         return ax
@@ -510,6 +512,7 @@ class Arena:
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = "black",
         stride: Optional[int] = 1,
+        traj_linewidth: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
         """
         Plots the state trajectory on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
@@ -531,7 +534,7 @@ class Arena:
             marker=".",
             markersize=1,
             color=color,
-            linewidth=1,
+            linewidth=traj_linewidth,
             label="State Trajectory",
         )
 
@@ -562,6 +565,7 @@ class Arena:
         # State
         show_state_trajectory: Optional[bool] = True,
         state_color: Optional[str] = "black",
+        traj_linewidth: Optional[int] = 1,
         # Control
         show_control_trajectory: Optional[bool] = True,
         control_color: Optional[str] = "magenta",
@@ -579,6 +583,7 @@ class Arena:
         vmin: Optional[float] = None,
         # plot directly or return ax
         return_ax: Optional[bool] = False,
+        **kwargs
     ) -> matplotlib.axes.Axes:
         """Helper Function to plot everything together on a map."""
         if x_interval is None or y_interval is None:
@@ -595,6 +600,7 @@ class Arena:
                 return_ax=True,
                 spatial_resolution=spatial_resolution,
                 vmax=vmax,vmin=vmin,
+                **kwargs
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -628,7 +634,7 @@ class Arena:
             )
 
         if show_state_trajectory:
-            self.plot_state_trajectory_on_map(ax=ax, color=state_color)
+            self.plot_state_trajectory_on_map(ax=ax, color=state_color ,stride=1, traj_linewidth=traj_linewidth)
         if show_control_trajectory:
             self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride,
                                                 control_vec_scale=control_vec_scale)

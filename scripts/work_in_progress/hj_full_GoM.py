@@ -5,7 +5,7 @@ import numpy as np
 
 from ocean_navigation_simulator.controllers.NaiveController import NaiveController
 
-plt.style.use("dark_background")
+# plt.style.use("dark_background")
 import logging
 from functools import partial
 
@@ -99,7 +99,7 @@ specific_settings = {
     "deg_around_xt_xT_box": 4,  # area over which to run HJ_reachability
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 60,
+    "T_goal_in_seconds": 3600 * 24 * 13,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "calc_opt_traj_after_planning": False,  # TODO change it!
@@ -121,7 +121,7 @@ observation = arena.reset(platform_state=x_0)
 #% under FC
 # 65% under 0.05 res, 96% with 0.1 res
 action = planner.get_action(observation=observation)
-# #%% simulate closed-loop
+#%% simulate closed-loop
 problem_status = 0
 action = planner.get_action(observation=observation)
 # % Plot planning for each of the forecasts
@@ -131,13 +131,56 @@ while problem_status == 0:
     # update problem status
     problem_status = arena.problem_status(problem=problem)
 print(arena.problem_status_text(problem_status))
+#%% debug a bit!
+planner.plot_reachability_snapshot(
+    rel_time_in_seconds=0,
+    granularity_in_h=10,
+    alpha_color=1,
+    time_to_reach=True,
+    plot_in_h=True,
+    # add_drawing=add_planned_traj,
+)
 #%%
-arena.plot_all_on_map(problem=problem,
-                      control_stride = 100,
-                      control_vec_scale = 10)
+# compute the time it tookl
+in_seconds = arena.state_trajectory.time[-1] - arena.state_trajectory.time[0]
+print(f"Time to reach target: {in_seconds.total_seconds() / 3600} hours")
+#%%
+ax = arena.plot_all_on_map(problem=problem,
+                    index=10,
+                    control_stride = 300,
+                    control_vec_scale = 17,
+                    vmax=1.4, vmin=0,
+                    x_interval=[-98, -77],
+                    y_interval=[18, 32],
+                    return_ax=True,
+                    figsize=(18, 9),
+                    spatial_resolution=0.3,
+                    traj_linewidth=6,
+                      )
 # ax = arena.plot_state_trajectory_on_map(color='white')
 # problem.plot(ax=ax)
 # plt.show()
+#%
+# add trajectories
+trajs = [passive_traj]#, naive_to_target_traj]
+colors = ["white"]#, "darkred"]
+linestyles = ["--"]#, "--"]
+stride = 2
+linewidth = 5
+for traj, color, linestyle in zip(trajs, colors, linestyles):
+    ax.plot(traj[::stride, 0],
+            traj[::stride, 1],
+            linestyle=linestyle,
+            # marker=".",
+            # markersize=1,
+            color=color,
+            linewidth=linewidth,
+            zorder=1,
+            # label="State Trajectory",
+            )
+# ax.legend()
+# problem.plot(ax=ax)
+plt.show()
 #%%
 def add_traj(ax, time):
     trajs = [passive_traj, naive_to_target_traj]
@@ -165,7 +208,7 @@ arena.animate_trajectory(
     temporal_resolution=3600*4,
     full_traj=True,
     fps=15,
-    output="full_GoM_longest_latest.mp4",
+    output="full_GoM_longest_white.mp4",
     traj_linestyle="-",
     traj_color="black",
     traj_linewidth=6,
@@ -198,7 +241,7 @@ with open('state_trajectory.pickle', 'rb') as f:
 #%%
 import pickle
 # with open('state_trajectory_passive.pickle', 'wb') as f:
-#     pickle.dump(arena.state_trajectory, f)
+#     pickle.dump(arena_new.state_trajectory, f)
 # load it again
 with open('state_trajectory_passive.pickle', 'rb') as f:
     passive_traj = pickle.load(f)
