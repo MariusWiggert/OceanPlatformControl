@@ -144,7 +144,7 @@ def plot_tree_plotly(tree_object, node_size=5, q_val_decimals=1, reward_decimals
     fig.show()
 
 
-def plot_belief_in_tree(tree_object, belief_state_id, x_axis_particle_idx, y_axis_particle_idx,
+def plot_belief_in_tree_2D(tree_object, belief_state_id, x_axis_particle_idx, y_axis_particle_idx,
                         x_axis_label=None, y_axis_label=None, true_state=None):
 
     particle_belief = tree_object.belief_id_to_belief[belief_state_id]
@@ -154,6 +154,15 @@ def plot_belief_in_tree(tree_object, belief_state_id, x_axis_particle_idx, y_axi
                         x_axis_label=x_axis_label,
                         y_axis_label=y_axis_label,
                          true_state=true_state)
+
+def plot_belief_in_tree_1D(tree_object, belief_state_id, true_state=None):
+
+    particle_belief = tree_object.belief_id_to_belief[belief_state_id]
+    plot_particles_in_1D(
+        particle_belief=particle_belief,
+        particle_axis_idx=3,
+        particle_axis_label="u_highway",
+        true_state=true_state)
 
 
 Vertex = Any
