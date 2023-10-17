@@ -29,3 +29,19 @@ def highway_current_analytical(particle_states: np.array, y_range_highway: List[
                           particle_states[:, 3],
                           0.0)
     return np.array([u_currents, np.zeros(u_currents.shape)]).T
+
+
+def highway_current_analytical2D(particle_states: np.array, y_highway_center: float) -> np.array:
+    """Analytical Formula for highway velocity.
+    Args:
+        particle_states:  numpy array of shape (n,4) where n is the number of particles and the columns are x,y,t,u_highway
+        y_range_highway:  list of length 2 with the y range of the highway e.g. [2, 4]
+    Returns:
+        currents:         currents as numpy array
+    """
+
+    u_currents = np.where(np.logical_and(y_highway_center - particle_states[:, 4] <= particle_states[:, 1],
+                                        particle_states[:, 1] <= y_highway_center + particle_states[:, 4]),
+                          particle_states[:, 3],
+                          0.0)
+    return np.array([u_currents, np.zeros(u_currents.shape)]).T

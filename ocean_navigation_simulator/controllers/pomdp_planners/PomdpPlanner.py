@@ -15,7 +15,8 @@ class PomdpPlanner:
                  t_init, init_state, obs_noise,
                  key,
                  particle_filter_dict,
-                 mcts_dict):
+                 mcts_dict,
+                 initial_weights=None):
         """
         :param x_target: jnp.array of center of target (x, y)
         :param particle_vel_func: function that gives velocity vel(particle_state)
@@ -49,7 +50,7 @@ class PomdpPlanner:
         initial_particles = np.concatenate((init_state_tiled, stoch_params), axis=1)
 
         # Setting up necessary sub-variables and routines
-        initial_particle_belief = ParticleBelief(initial_particles)
+        initial_particle_belief = ParticleBelief(initial_particles, weights=initial_weights)
 
         # Create the outside particle observer for assimilation
         filter_dyn_obs_model = BaseDynObsModelParticles(
@@ -106,7 +107,6 @@ class PomdpPlanner:
         # Step 1: sample belief particles for planning
         planning_belief = self.particle_observer.get_planner_particle_belief(
             self.mcts_dict['num_planner_particles'])
-
         # run the MCTS planner for planning
         next_action = self.mcts_planner.get_best_action(planning_belief)
 

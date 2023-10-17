@@ -57,6 +57,8 @@ class HJReach2DPlanner(HJPlannerBase):
 
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
+        def dirichlet(x, pad_width: int):
+            return jnp.pad(x, ((pad_width, pad_width)), "constant", constant_values=3.0)
         # initialize grid using the grids_dict x-y shape as shape
         self.grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(
             domain=hj.sets.Box(
@@ -64,6 +66,7 @@ class HJReach2DPlanner(HJPlannerBase):
                 hi=np.array([xarray["lon"][-1].item(), xarray["lat"][-1].item()]),
             ),
             shape=(xarray["lon"].size, xarray["lat"].size),
+            boundary_conditions=(dirichlet, dirichlet),
         )
 
     def get_initial_values(self, direction) -> jnp.ndarray:

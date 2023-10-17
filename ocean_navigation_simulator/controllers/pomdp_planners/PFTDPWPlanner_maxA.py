@@ -2,7 +2,10 @@ import numpy as np
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
+import time
 
+from ocean_navigation_simulator.controllers.pomdp_planners.HJRolloutValue.ParticleHJValueEstimator import \
+	ParticleHJValueEstimator
 from ocean_navigation_simulator.controllers.pomdp_planners.ParticleBelief import (
     ParticleBelief,
 )
@@ -342,6 +345,17 @@ class PFTDPWPlanner:
 		if self._is_terminal(belief):
 			Warning("PFT-DPW Planner: Was provided a terminal state for initial belief, returning rollout action")
 			return self._rollout_action(belief)
+
+		# If rollout_value is of type ParticleHJValueEstimator
+		if isinstance(self.rollout_value, ParticleHJValueEstimator) and self.rollout_value.all_val_funcs is None:
+			# then trigger calculating the HJ value functions for all particles
+			params = belief.states[:, 3:]
+			current_time = belief.states[0, 2]
+			print("computing HJ_value functions for rollout_estimates")
+			# measure the time to compute the HJ value functions
+			start_time = time.time()
+			self.rollout_value.compute_hj_value_funcs(current_time, stoch_param=params)
+			print("HJ_value functions computed in ", time.time() - start_time, " seconds")
 
 		# Plan with the tree by querying the tree for num_mcts_simulate number of times
 		for _ in range(self.specific_settings["num_mcts_simulate"]):
