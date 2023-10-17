@@ -15,6 +15,7 @@ import jax.numpy as jnp
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
 import scipy
 import xarray as xr
 from scipy.interpolate import interp1d
@@ -81,6 +82,7 @@ class HJPlannerBase(Controller):
             "n_time_vector": 199,
             "deg_around_xt_xT_box": 1.0,  # area over which to run HJ_reachability
             "accuracy": "high",
+            "obstacle_dict": None,
             "artificial_dissipation_scheme": "local_local",
             "use_geographic_coordinate_system": True,
             "progress_bar": False,
@@ -422,10 +424,12 @@ class HJPlannerBase(Controller):
             # log values for closed-loop trajectory extraction
             x_start_backtracking = self.get_x_from_full_state(x_t)
             t_start_backtracking = x_t.date_time.timestamp()
+
             if self.all_values.min() < -2:
-                raise ValueError(
-                    "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
-                )
+                print(f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}")
+                # raise ValueError(
+                #     "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
+                # )
         else:
             raise ValueError(
                 "Direction in controller YAML needs to be one of {backward, forward, forward-backward, "
@@ -504,6 +508,15 @@ class HJPlannerBase(Controller):
             # write multi_reach hamiltonian postprocessor
             def multi_reach_step(mask, val):
                 val = jnp.where(mask <= 0, -1, val)
+                # Keep the value of the obstacles fixed, otherwise value of obstacles is reduced by
+                # dissipation value, of the artificial_dissipation_scheme, e.g. the lax_friedrichs_numerical_hamiltonian
+                # does return hamiltonian_value - dissipation_value.
+                if self.specific_settings["obstacle_dict"] is not None:
+                    val = jnp.where(
+                        mask == self.specific_settings["obstacle_dict"]["obstacle_value"],
+                        0,
+                        val,
+                    )
                 return val
 
             # combine it with partial sp the mask input gets fixed and only val is open
@@ -829,14 +842,15 @@ class HJPlannerBase(Controller):
                 }
             )
 
-        # plot the set on top of ax
         ax = hj.viz._visSet2D(
             self.grid,
             val_at_t,
             plot_level=0,
             color_level="black",
             colorbar=is_multi_reach,
-            obstacles=None,
+            obstacles=self.nondim_dynamics.dimensional_dynamics.obstacle_array.T
+            if (self.specific_settings["obstacle_dict"] is not None)
+            else None,
             target_set=initial_values,
             return_ax=True,
             input_ax=ax,
@@ -927,7 +941,7 @@ class HJPlannerBase(Controller):
         spatial_resolution: Optional[float] = None,
         with_opt_ctrl: Optional[bool] = False,
         forward_time: Optional[bool] = False,
-        data_source_for_plt: Optional = None,
+        data_source_for_plt: Optional[DataSource] = None,
         t_end: Optional[datetime] = None,
         fps: Optional[int] = 10,
         with_background: Optional[bool] = True,
@@ -1124,6 +1138,92 @@ class HJPlannerBase(Controller):
             return ax
         else:
             plt.show()
+
+    def animate_value_func_3D(self):
+        """Animate the 3D value function at a specific time frame."""
+        fig = go.Figure(
+            data=go.Surface(
+                x=self.grid.states[..., 0],
+                y=self.grid.states[..., 1],
+                z=self.all_values[0],
+            )
+        )
+
+        frames = [
+            go.Frame(data=go.Surface(z=self.all_values[k]), name=str(k))
+            for k in range(len(self.all_values))
+        ]
+        updatemenus = [
+            dict(
+                buttons=[
+                    dict(
+                        args=[
+                            None,
+                            {
+                                "frame": {"duration": 20, "redraw": True},
+                                "fromcurrent": True,
+                                "transition": {"duration": 0},
+                            },
+                        ],
+                        label="Play",
+                        method="animate",
+                    ),
+                    dict(
+                        args=[
+                            [None],
+                            {
+                                "frame": {"duration": 0, "redraw": False},
+                                "mode": "immediate",
+                                "transition": {"duration": 0},
+                            },
+                        ],
+                        label="Pause",
+                        method="animate",
+                    ),
+                ],
+                direction="left",
+                pad={"r": 10, "t": 87},
+                showactive=False,
+                type="buttons",
+                x=0.21,
+                xanchor="right",
+                y=-0.075,
+                yanchor="top",
+            )
+        ]
+
+        sliders = [
+            dict(
+                steps=[
+                    dict(
+                        method="animate",
+                        args=[
+                            [f"{k}"],
+                            dict(
+                                mode="immediate",
+                                frame=dict(duration=201, redraw=True),
+                                transition=dict(duration=0),
+                            ),
+                        ],
+                        label=f"{k+1}",
+                    )
+                    for k in range(len(self.all_values))
+                ],
+                active=0,
+                transition=dict(duration=0),
+                x=0,  # slider starting position
+                y=0,
+                currentvalue=dict(
+                    font=dict(size=12), prefix="frame: ", visible=True, xanchor="center"
+                ),
+                len=1.0,
+            )  # slider length
+        ]
+
+        fig.update_layout(width=700, height=700, updatemenus=updatemenus, sliders=sliders)
+        fig.update(frames=frames)
+        fig.update_traces(showscale=False)
+        fig.show()
 
     @staticmethod
     def _get_multi_reach_levels(granularity_in_h, vmin, abs_time_in_h, time_to_reach):

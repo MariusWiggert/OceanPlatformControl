@@ -53,9 +53,6 @@ class Platform2dForSim(dynamics.Dynamics):
         # initialize the current interpolants with None, they are set in the planner method
         self.x_current, self.y_current = None, None
 
-        # # obstacle operator (is overwritten if analytical_current with boundary obstacles)
-        # self.obstacle_operator = lambda state, time, dx_out: dx_out
-
         control_space = sets.Box(lo=jnp.array([0, 0]), hi=jnp.array([1.0, 2 * jnp.pi]))
 
         disturbance_space = sets.Ball(center=jnp.zeros(2), radius=d_max)
@@ -105,7 +102,6 @@ class Platform2dForSim(dynamics.Dynamics):
             jnp.array([dx1, dx2]).reshape(-1),
         )
         return dx_out
-        # return self.obstacle_operator(state, time, dx_out)
 
     @staticmethod
     def disturbance_jacobian(state, time):

@@ -123,16 +123,19 @@ def set_up_geographic_ax() -> plt.axes:
     return ax
 
 
-def plot_graph(graph, ax, both_directions=False):
+def plot_graph(graph, ax, both_directions=False, return_ax=False):
     for e in graph.get_edges(both_directions=both_directions):
         ax.plot(
             [graph.nodes_dict[e.destination].lon, graph.nodes_dict[e.source].lon],
             [graph.nodes_dict[e.destination].lat, graph.nodes_dict[e.source].lat],
-            c="r",
+            c="gold",
             lw=e.weight,
             transform=ccrs.Geodetic(),  # ccrs.PlateCarree()
         )
-    plt.show()
+    if return_ax:
+        return ax
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

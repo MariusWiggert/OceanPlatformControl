@@ -410,6 +410,39 @@ def mpl_to_plotly(cmap: plt.cm, pl_entries: int = 11, rdigits: int = 2):
     return pl_colorscale
 
 
+def depth_stats(ds, x_interval, y_interval, levels, operation, excluded_areas):
+    ds = ds.sel(lat=slice(*y_interval), lon=slice(*x_interval))
+    area = np.abs((x_interval[1] - x_interval[0]) * (y_interval[1] - y_interval[0]))
+    print(f"Area: {area} square degrees, with 110km/degree: {area*110**2:,}km^2")
+    # Set excluded areas to 10k
+    masking_val = 10000
+    for x, y in excluded_areas:
+        ds["elevation"].loc[dict(lat=slice(*y), lon=slice(*x))] = masking_val
+    # Count all values < -1500
+    data = ds["elevation"].data
+    for level in levels:
+        percent = np.sum(eval("data" + operation + "level")) / np.sum(data < 0)
+        print(f"{percent}% are {operation} than {level}.")
+    print(f"Water area in km²{np.sum(data < 0) / 12**2 * 110**2:,} (with 110km = 1 degree)")
+
+
+def compute_depth_stats_for_matthias():
+    # Underaproximation of decomposition area
+    ds = xr.open_dataset(
+        "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
+    )
+    excluded_areas = [
+        [[-100, -70], [18, 20]],
+        [[-89, -70], [15, 20]],
+        [[-84, -70], [9.5, 20]],
+        [[-83, -70], [9.02, 9.5]],
+        [[-82.3, -80.15], [8.8, 9.02]],
+        [[-78, -76], [8.2, 9.02]],
+    ]
+
+    depth_stats(ds, [-120, -70], [-20, 20], [-1500, -2000], "<", excluded_areas)
+
+
 if __name__ == "__main__":
     # Generate global bathymetrymap and save to disk
     # gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"

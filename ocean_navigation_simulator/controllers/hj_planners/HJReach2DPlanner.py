@@ -14,6 +14,9 @@ from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBase import (
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
     Platform2dForSim,
 )
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dObsForSim import (
+    Platform2dObsForSim,
+)
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
 )
@@ -34,15 +37,30 @@ class HJReach2DPlanner(HJPlannerBase):
 
     def get_dim_dynamical_system(self) -> hj.dynamics.Dynamics:
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        return Platform2dForSim(
-            u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
-            d_max=self.specific_settings["d_max"],
-            use_geographic_coordinate_system=self.specific_settings[
-                "use_geographic_coordinate_system"
-            ],
-            control_mode="min",
-            disturbance_mode="max",
-        )
+        if self.specific_settings["obstacle_dict"] is not None:
+            return Platform2dObsForSim(
+                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+                d_max=self.specific_settings["d_max"],
+                use_geographic_coordinate_system=self.specific_settings[
+                    "use_geographic_coordinate_system"
+                ],
+                control_mode="min",
+                disturbance_mode="max",
+                path_to_obstacle_file=self.specific_settings["obstacle_dict"][
+                    "path_to_obstacle_file"
+                ],
+                safe_distance_to_obstacle=self.specific_settings["obstacle_dict"]["safe_distance_to_obstacle"]
+            )
+        else:
+            return Platform2dForSim(
+                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+                d_max=self.specific_settings["d_max"],
+                use_geographic_coordinate_system=self.specific_settings[
+                    "use_geographic_coordinate_system"
+                ],
+                control_mode="min",
+                disturbance_mode="max",
+            )
 
     def initialize_hj_grid(self, xarray: xr) -> None:
         """Initialize the dimensional grid in degrees lat, lon"""
@@ -59,14 +77,14 @@ class HJReach2DPlanner(HJPlannerBase):
         """Setting the initial values for the HJ PDE solver."""
         if direction == "forward":
             center = self.x_t
-            return hj.shapes.shape_ellipse(
+            value_function = hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
                 center=self._get_non_dim_state(self.get_x_from_full_state(center)),
                 radii=self.specific_settings["initial_set_radii"] / self.characteristic_vec,
             )
         elif direction == "backward":
             center = self.problem.end_region
-            return hj.shapes.shape_ellipse(
+            value_function = hj.shapes.shape_ellipse(
                 grid=self.nonDimGrid,
                 center=self._get_non_dim_state(self.get_x_from_full_state(center)),
                 radii=[self.problem.target_radius, self.problem.target_radius]
@@ -80,11 +98,22 @@ class HJReach2DPlanner(HJPlannerBase):
                 radii=[self.problem.target_radius, self.problem.target_radius]
                 / self.characteristic_vec,
             )
-            return np.maximum(signed_distance, np.zeros(signed_distance.shape))
+            value_function = np.maximum(signed_distance, np.zeros(signed_distance.shape))
         else:
             raise ValueError(
                 "Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back."
             )
+        # Add obstacle values
+        if self.specific_settings["obstacle_dict"] is not None:
+            # Step 1: load specific area of the obstacle array (take lat lon bounds from self.grid)
+            obstacle_array = self.nondim_dynamics.dimensional_dynamics.obstacle_array
+            # Step 2: Masking of value function so that at obstacle value is obstcl_value, the rest is value function
+            value_function = (
+                value_function * (1 - obstacle_array.T)
+                + self.specific_settings["obstacle_dict"]["obstacle_value"] * obstacle_array.T
+            )
+
+        return value_function
 
     @staticmethod
     def from_saved_planner_state(
