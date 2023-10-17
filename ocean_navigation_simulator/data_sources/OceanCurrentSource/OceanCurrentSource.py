@@ -132,7 +132,7 @@ class OceanCurrentSource(DataSource):
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
             cbar.ax.set_ylabel("current velocity [m/s]")
             cbar.ax.tick_params(labelsize=17)
-            cbar.patch.set_facecolor("white")
+            cbar.ax.set_facecolor("white")
             cbar.set_ticks(cbar.get_ticks())
             precision = 1
             if int(vmin * 10) == int(vmax * 10):
@@ -140,6 +140,7 @@ class OceanCurrentSource(DataSource):
             cbar.set_ticklabels(
                 ["{:.{prec}f}".format(t, prec=precision) for t in cbar.get_ticks().tolist()]
             )
+
         # Plot on ax object
         if plot_type == "streamline":
             # Needed because the data needs to be perfectly equally spaced

@@ -249,8 +249,54 @@ class MissionGenerator:
             - datetime.timedelta(hours=self.config["problem_timeout_in_h"]),
         )
 
-        ##### Step 2: Reject if files are missing or corrupted #####
-        # TODO: fix since c3 is broken
+        # Step 2: Reject if to close to land
+        distance_to_shore = self.distance_to_area(fake_target, "bathymetry")
+
+        if (
+            "min_distance_from_land" in self.config
+            and distance_to_shore < self.config["min_distance_from_land"]
+        ):
+            self.performance["target_resampling"] += 1
+            logger.warning(
+                f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
+            )
+            return False
+
+        # Reject if too safe because too far to land and garbage
+        if (
+            "max_distance_from_land" in self.config
+            and "max_distance_from_garbage" in self.config
+            and "min_distance_from_garbage" in self.config
+        ):
+            distance_to_garbage = self.distance_to_area(fake_target, "garbage")
+
+            if distance_to_garbage < self.config["min_distance_from_garbage"]:
+                self.performance["target_resampling"] += 1
+                logger.warning(
+                    f"Target aborted because too close to garbage: {fake_target.to_spatial_point()} = {distance_to_garbage}."
+                )
+                return False
+
+            if (distance_to_shore > self.config["max_distance_from_land"]) and (
+                distance_to_garbage > self.config["max_distance_from_garbage"]
+            ):
+                self.performance["target_resampling"] += 1
+                logger.warning(
+                    f"Target aborted because too far to land and garbage (too safe): {fake_target.to_spatial_point()} = {distance_to_shore}, {distance_to_garbage}."
+                )
+                return False
+        # If we do not check for garbage but want to reject too safe missions
+        elif (
+            "max_distance_from_land" in self.config
+            and distance_to_shore > self.config["max_distance_from_land"]
+        ):
+            self.performance["target_resampling"] += 1
+            logger.warning(
+                f"Target aborted because too far from land: {fake_target.to_spatial_point()} = {distance_to_shore}."
+            )
+            return False
+
+        ##### Step 3: Reject if files are missing or corrupted #####
         try:
             self.arena = ArenaFactory.create(
                 scenario_file=self.config.get("scenario_file", None),
@@ -273,40 +319,6 @@ class MissionGenerator:
             self.performance["errors"] += 1
             self.errors.append(str(e))
             return False
-
-            # Step 3: Reject if to close to land
-            distance_to_shore = self.distance_to_area(fake_target, "bathymetry")
-            if "min_distance_from_land" in self.config:
-                if distance_to_shore < self.config["min_distance_from_land"]:
-                    self.performance["target_resampling"] += 1
-                    logger.warning(
-                        f"Target aborted because too close to land: {fake_target.to_spatial_point()} = {distance_to_shore}."
-                    )
-                    return False
-
-            # Reject if too safe because too far to land and garbage
-            if (
-                "max_distance_from_land" in self.config
-                and "max_distance_from_garbage" in self.config
-                and "min_distance_from_garbage" in self.config
-            ):
-                distance_to_garbage = self.distance_to_area(fake_target, "garbage")
-
-                if distance_to_garbage < self.config["min_distance_from_garbage"]:
-                    self.performance["target_resampling"] += 1
-                    logger.warning(
-                        f"Target aborted because too close to garbage: {fake_target.to_spatial_point()} = {distance_to_garbage}."
-                    )
-                    return False
-
-                if (distance_to_shore > self.config["max_distance_from_land"]) and (
-                    distance_to_garbage > self.config["max_distance_from_land"]
-                ):
-                    self.performance["target_resampling"] += 1
-                    logger.warning(
-                        f"Target aborted because too far to land and garbage (too safe): {fake_target.to_spatial_point()} = {distance_to_shore}, {distance_to_garbage}."
-                    )
-                    return False
 
         ##### Step 3: Run multi-time-back HJ Planner #####
         try:
@@ -435,6 +447,7 @@ class MissionGenerator:
             )
             return distance_to_shore.deg
         else:
+            # TODO: fix marius hacky way to enable c3 usage and to ensure we sample/reject correctly.
             return 1
             # raise NotImplementedError(
             #     f"Only garbage and bathymetry are supported as area_type, passed: {area_type}."

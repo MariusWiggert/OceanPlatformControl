@@ -13,14 +13,14 @@ class SwitchingController(Controller):
         self,
         problem: NavigationProblem,
         specific_settings: dict,
-        specific_settings_navigation,
-        specific_settings_safety,
+        # specific_settings_navigation,
+        # specific_settings_safety,
     ) -> None:
         super().__init__(problem)
 
-        self.specific_settings = specific_settings
-        self.specific_settings_navigation = specific_settings_navigation
-        self.specific_settings_safety = specific_settings_safety
+        self.specific_settings = specific_settings["specific_settings_switching"]
+        self.specific_settings_navigation = specific_settings["specific_settings_navigation"]
+        self.specific_settings_safety = specific_settings["specific_settings_safety"]
         # Load module that is needed for the specific controller
         NavigationControllerClass = self.__import_class_from_string(
             self.specific_settings["navigation_controller"]

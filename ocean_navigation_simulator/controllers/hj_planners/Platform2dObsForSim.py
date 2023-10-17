@@ -1,10 +1,16 @@
 from typing import Union
+
 import jax.numpy as jnp
 import xarray as xr
-from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSim
+from pathlib import Path
+import os
+
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import (
+    Platform2dForSim, Platform2dForSimAffine
+)
 
 
-class Platform2dObsForSim(Platform2dForSim):
+class Platform2dObsForSim(Platform2dForSimAffine):
     """The 2D Ocean going Platform class on a dynamic current field with obstacles.
     This class is for use with the ocean_platform simulator
 
@@ -20,7 +26,7 @@ class Platform2dObsForSim(Platform2dForSim):
         use_geographic_coordinate_system: if we operate in the geographic coordinate system or not
         control_mode: If the control is trying to minimize or maximize the value function.
         disturbance_mode: If the disturbance is trying to minimize or maximize the value function.
-        path_to_obstacle_file: Path to the xarray file containing the distance to the obstacle.
+        obstacle_file: Name of the xarray file containing the distance to the obstacle (in package_data/bathymetry_and_garbage/).
         safe_distance_to_obstacle: Use to overapproximate obstacles by value to ensure whole obstacle is masked.
     """
 
@@ -31,13 +37,17 @@ class Platform2dObsForSim(Platform2dForSim):
         use_geographic_coordinate_system: bool = True,
         control_mode: Union["min", "max"] = "min",
         disturbance_mode: Union["min", "max"] = "max",
-        path_to_obstacle_file: str = None,
+        obstacle_file: str = None,
         safe_distance_to_obstacle: float = 0,
     ):
         super().__init__(
             u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode
         )
-        self.path_to_obstacle_file = path_to_obstacle_file
+        # make it an absolute path to the obstacle file
+        self.path_to_obstacle_file = os.path.join(Path(__file__).resolve().parents[2],
+                                        'package_data/bathymetry_and_garbage/',
+                                        obstacle_file)
+
         self.safe_distance_to_obstacle = safe_distance_to_obstacle
 
     def update_jax_interpolant(self, data_xarray: xr):
@@ -46,7 +56,7 @@ class Platform2dObsForSim(Platform2dForSim):
             data_xarray: xarray containing variables water_u and water_v as matrices (T, Y, X)
         """
         super().update_jax_interpolant(data_xarray)
-        self.obstacle_array = self.create_obstacle_array(data_xarray)
+        self.binary_obs_map, self.obs_x_axis, self.obs_y_axis = self.create_obstacle_arrays(data_xarray)
 
     def __call__(self, state, control, disturbance, time):
         """Implements the continuous-time dynamics ODE with obstacles."""
@@ -58,17 +68,25 @@ class Platform2dObsForSim(Platform2dForSim):
         # TODO: Would actually need to change the 0 to velocity of obstacle if obstacle were dynamic
         return jnp.where(self.is_in_obstacle(state, time), 0, dx_out)
 
-    def create_obstacle_array(self, data_xarray):
+    def create_obstacle_arrays(self, data_xarray):
         """Use path to file to load and set the obstacle array"""
         obstacle_ds = xr.open_dataset(self.path_to_obstacle_file)["distance"]
-        # Fit to grid
+        # Fit to the grid that is used for HJ computation to have same resolution
         obstacle_array = obstacle_ds.interp_like(data_xarray)
+        # check if part of it is out of range (obstacle_array contains NaN), if yes through error
+        if obstacle_array.isnull().any():
+            raise ValueError("The obstacle file does not cover the whole domain."
+                             "Reduce the domain or update obstacle file."
+                             "\n Data Area Domain: {}."
+                             "\n Obstacle File Domain: {}."
+                             "\n File {}).".format(data_xarray.coords, obstacle_ds.coords, self.path_to_obstacle_file))
         # Convert to binary mask, set to 0 for "no obstacle" and 1 for "obstacle"
-        obstacle_array = xr.where(obstacle_array > self.safe_distance_to_obstacle, 0, 1)
-        return jnp.array(obstacle_array.data)
+        binary_obs_ds = xr.where(obstacle_array > self.safe_distance_to_obstacle, 0, 1)
+        # return all as jnp arrays
+        return jnp.array(binary_obs_ds.data), jnp.array(binary_obs_ds['lon'].data), jnp.array(binary_obs_ds['lat'].data)
 
     def is_in_obstacle(self, state, time):
         """Return if the state is in the obstacle region"""
-        x_idx = jnp.argmin(jnp.abs(self.obstacle_array - state[0]))
-        y_idx = jnp.argmin(jnp.abs(self.obstacle_array - state[1]))
-        return self.obstacle_array[y_idx, x_idx] > 0
+        x_idx = jnp.argmin(jnp.abs(self.obs_x_axis - state[0]))
+        y_idx = jnp.argmin(jnp.abs(self.obs_y_axis - state[1]))
+        return self.binary_obs_map[y_idx, x_idx] > 0

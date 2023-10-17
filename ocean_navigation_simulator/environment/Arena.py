@@ -10,13 +10,13 @@ from typing import AnyStr, Callable, Dict, List, Literal, Optional, Union
 
 import matplotlib
 import numpy as np
+import pandas as pd
 from matplotlib import patches
 from matplotlib import pyplot as plt
 
 from ocean_navigation_simulator.data_sources.Bathymetry.BathymetrySource import (
     BathymetrySource2d,
 )
-
 from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
     GarbagePatchSource2d,
 )
@@ -306,7 +306,18 @@ class Arena:
 
     def is_on_land(self, point: SpatialPoint = None, elevation: float = 0) -> bool:
         """Returns True/False if the closest grid_point to the self.cur_state is on_land."""
-        if self.bathymetry_source:
+        # TODO: would need to change everywhere to take argmin to not have sampling problems due to interpolation.
+        if hasattr(self.bathymetry_source, "DistanceArray"):
+            point = self.platform.state
+            # distance = self.bathymetry_source.DistanceArray.interp(
+            #     lat=point.lat.deg, lon=point.lon.deg
+            # ).data
+            x_idx = (np.abs(self.bathymetry_source.DistanceArray["lon"] - point.lon.deg)).argmin()
+            y_idx = (np.abs(self.bathymetry_source.DistanceArray["lat"] - point.lat.deg)).argmin()
+            distance = self.bathymetry_source.DistanceArray[y_idx, x_idx].data
+            return distance < self.bathymetry_source.source_dict["distance"]["safe_distance"]
+
+        elif self.bathymetry_source:
             if point is None:
                 point = self.platform.state.to_spatial_point()
             return self.bathymetry_source.is_higher_than(point, elevation)
@@ -444,6 +455,8 @@ class Arena:
             scale=control_vec_scale,
             angles="xy",
             label="Control Inputs",
+            # add the order to make sure it's always plotted on top
+            zorder=10,
         )
 
         return ax
@@ -499,6 +512,7 @@ class Arena:
         ax: Optional[matplotlib.axes.Axes] = None,
         color: Optional[str] = "black",
         stride: Optional[int] = 1,
+        traj_linewidth: Optional[int] = 1,
     ) -> matplotlib.axes.Axes:
         """
         Plots the state trajectory on a spatial map. Passing in an axis is optional. Otherwise a new figure is created.
@@ -520,7 +534,7 @@ class Arena:
             marker=".",
             markersize=1,
             color=color,
-            linewidth=1,
+            linewidth=traj_linewidth,
             label="State Trajectory",
         )
 
@@ -551,10 +565,12 @@ class Arena:
         # State
         show_state_trajectory: Optional[bool] = True,
         state_color: Optional[str] = "black",
+        traj_linewidth: Optional[int] = 1,
         # Control
         show_control_trajectory: Optional[bool] = True,
         control_color: Optional[str] = "magenta",
         control_stride: Optional[int] = 1,
+        control_vec_scale: Optional[int] = 4,
         # Problem (Target)
         problem: Optional[Problem] = None,
         problem_start_color: Optional[str] = "red",
@@ -562,8 +578,12 @@ class Arena:
         x_interval: Optional[List] = None,
         y_interval: Optional[List] = None,
         margin: Optional[int] = 1,
+        spatial_resolution: Optional[float] = 0.1,
+        vmax: Optional[float] = None,
+        vmin: Optional[float] = None,
         # plot directly or return ax
         return_ax: Optional[bool] = False,
+        **kwargs
     ) -> matplotlib.axes.Axes:
         """Helper Function to plot everything together on a map."""
         if x_interval is None or y_interval is None:
@@ -578,6 +598,9 @@ class Arena:
                 x_interval=x_interval,
                 y_interval=y_interval,
                 return_ax=True,
+                spatial_resolution=spatial_resolution,
+                vmax=vmax,vmin=vmin,
+                **kwargs
             )
         elif "solar" in background:
             ax = self.solar_field.hindcast_data_source.plot_data_at_time_over_area(
@@ -611,9 +634,10 @@ class Arena:
             )
 
         if show_state_trajectory:
-            self.plot_state_trajectory_on_map(ax=ax, color=state_color)
+            self.plot_state_trajectory_on_map(ax=ax, color=state_color ,stride=1, traj_linewidth=traj_linewidth)
         if show_control_trajectory:
-            self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride)
+            self.plot_control_trajectory_on_map(ax=ax, color=control_color, stride=control_stride,
+                                                control_vec_scale=control_vec_scale)
         if show_current_position:
             ax.scatter(
                 self.state_trajectory[index, 0],
@@ -798,3 +822,36 @@ class Arena:
                 ax=ax,
             )
         return ax
+
+    def get_datetime_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory.
+        """
+        return [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
+            for posix in state_trajectory[:, 2]
+        ]
+
+    def get_date_string_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory as strings.
+        """
+        return [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc).strftime(
+                "%y-%m-%d %H:%M"
+            )
+            for posix in state_trajectory[:, 2]
+        ]
+
+    def get_plot_data_for_wandb(self):
+        dict_for_plot = {
+            "timesteps": np.arange(self.state_trajectory.shape[0]),
+            "dates_timestamp": self.get_datetime_from_state_trajectory(self.state_trajectory),
+            "dates_string": self.get_date_string_from_state_trajectory(self.state_trajectory),
+            "lon": self.state_trajectory[:, 0],
+            "lat": self.state_trajectory[:, 1],
+            "battery_charge": self.state_trajectory[:, 3],
+            "seaweed_mass": self.state_trajectory[:, 4],
+            "inside_garbage": self.state_trajectory[:, 5],
+        }
+        return pd.DataFrame.from_dict(dict_for_plot, orient="columns")

@@ -4,9 +4,9 @@ import time
 from typing import AnyStr, Dict, List, Optional
 
 import casadi as ca
-import numpy as np
 import matplotlib.pyplot
 import matplotlib.pyplot as plt
+import numpy as np
 import xarray as xr
 
 from ocean_navigation_simulator.data_sources.DataSource2d import DataSource2d

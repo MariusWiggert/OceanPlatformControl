@@ -450,7 +450,7 @@ class ArenaFactory:
             )
         if archive_type.lower() not in ["forecast", "hindcast", "nowcast"]:
             raise ValueError(
-                f"archive_type {archive_type} invalid choose from: forecast, hindcast, nowcast."
+                f"archive_type {archive_type} invalid choose from: forecast, hindcast, hindcast_as_forecast_files, nowcast."
             )
         if region not in [
             "GOM",
@@ -484,7 +484,9 @@ class ArenaFactory:
         # for NOAA it's a bit different for fetching them
         if archive_source.lower() == "noaa":
             archive_types["forecast"] = "Forecast"
-            c3_file_type = getattr(c3, f"NoaaCombined{archive_types[archive_type.lower()]}File")
+            c3_file_type = getattr(
+                c3, f"NoaaCombined{archive_types[archive_type.lower()]}File"
+            )
             region_filter_str = ""
         else:
             c3_file_type = getattr(
@@ -653,7 +655,9 @@ class ArenaFactory:
                     break
 
     @staticmethod
-    def analyze_files(archive_source, archive_type, region, true_length=False):
+    def analyze_files(
+        archive_source, archive_type, region, true_length=False, save_as=None, return_ax=False
+    ):
         """
         analyze available files for specified source/type in a plot
         Arguments:
@@ -661,6 +665,8 @@ class ArenaFactory:
             archive_type: one of [forecast, hindcast]
             region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
             true_length: if yes *download all files* and check actual length of files using xarray
+            save_as: path to save file at, including filename and ending.
+            return_ax: if True, return ax
         """
         title = f"{archive_source.capitalize()} {archive_type.capitalize()} {region}"
         files = ArenaFactory.get_filelist(
@@ -729,8 +735,12 @@ class ArenaFactory:
             axs[1, 0].tick_params(axis="x", labelrotation=45)
             axs[1, 1].hist(deltas)
             axs[1, 1].set_title("Histogram of days before next file")
-
             fig.tight_layout()
+
+            if save_as is not None:
+                plt.savefig(save_as)
+            if return_ax:
+                return axs
             plt.show()
         else:
             logger.warning(f"No files for {title}")

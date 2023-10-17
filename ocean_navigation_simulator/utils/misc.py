@@ -5,6 +5,7 @@ import socket
 import time
 from types import SimpleNamespace
 from typing import Optional
+from pathlib import Path
 
 import psutil
 import pynvml
@@ -27,7 +28,12 @@ c3_logger = logging.getLogger("c3")
 ### Getting C3 Object for data downloading ###
 def get_c3():
     """Helper function to get C3 object for access to the C3 Database"""
-    KEYFILE = "setup/keys/c3-rsa-marius.pem"
+    # get the relative path to the keyfile
+    KEYFILE_relative = "package_data/keys/c3-rsa-marius.pem"
+    # get absolute path to keyfile
+    BASE_DIR = Path(__file__).resolve().parents[1]
+    # add keyfile to path
+    KEYFILE = os.path.join(BASE_DIR, KEYFILE_relative)
     USERNAME = "mariuswiggert@berkeley.edu"
 
     # reload after 10min to prevent c3 timeout

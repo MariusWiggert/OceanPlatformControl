@@ -1,0 +1,54 @@
+# casadi_cache_dict:
+#     deg_around_x_t: 10.0
+#     time_around_x_t: 1000.0
+
+casadi_cache_dict:
+    deg_around_x_t: 1
+    time_around_x_t: 100
+
+platform_dict:
+    battery_cap_in_wh: 400.0
+    u_max_in_mps: 0.1
+    motor_efficiency: 1.0
+    solar_panel_size: 0.5
+    solar_efficiency: 0.2
+    drag_factor: 675.0
+    dt_in_s: 0.1
+
+use_geographic_coordinate_system: False
+
+spatial_boundary:
+    x: [0, 10]
+    y: [0, 10]
+
+timeout: 500 # Time Units
+
+ocean_dict:
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'hindcast_files'
+        source_settings:
+            folder: "data/analytical_currents/vortex/"
+            type: "hindcast"
+    forecast: null
+
+
+solar_dict:
+    hindcast: null
+    forecast: null
+
+seaweed_dict:
+    hindcast: null
+    forecast: null
+    
+
+platform_state:
+    lon: 0
+    lat: 0
+    date_time: 1970-01-01 00:00:00Z
+    battery_charge: 0
+    seaweed_mass: 100
+
+end_region:
+    lon: 10
+    lat: 10

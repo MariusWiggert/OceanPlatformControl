@@ -375,6 +375,7 @@ class DataSource(abc.ABC):
                     "save_as_filename can be either None (for HTML rendering) or filepath and name needs to"
                     "contain either '.gif' or '.mp4' to specify the format and desired file location."
                 )
+        return None
 
     def plot_xarray_for_animation(
         self,
@@ -602,7 +603,7 @@ class DataSource(abc.ABC):
         ani = animation.FuncAnimation(fig, func=render_frame, frames=frames_vector, repeat=False)
 
         # render the animation with the keyword arguments
-        self.render_animation(animation_object=ani, output=output, fps=fps)
+        return self.render_animation(animation_object=ani, output=output, fps=fps)
 
     def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> datetime:
         """Helper function to check update the self.OceanCurrent if a new forecast is available at
@@ -711,7 +712,7 @@ class XarraySource(abc.ABC):
             time_grid = np.arange(
                 start=array["time"][0].data,
                 stop=array["time"][-1].data,
-                step=np.timedelta64(int(temporal_resolution), "s"),
+                step=np.timedelta64(int(temporal_resolution * (10**9)), "ns"),
             )
             array = array.interp(time=time_grid, method="linear")
 
@@ -819,6 +820,7 @@ class AnalyticalSource(abc.ABC):
         t_interval: List[Union[datetime.datetime, float]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = False,  # Fix to not break api
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:

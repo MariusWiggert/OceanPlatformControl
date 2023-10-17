@@ -6,7 +6,6 @@ from tqdm import tqdm
 from ocean_navigation_simulator.controllers.NaiveSafetyController import (
     NaiveSafetyController,
 )
-
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,

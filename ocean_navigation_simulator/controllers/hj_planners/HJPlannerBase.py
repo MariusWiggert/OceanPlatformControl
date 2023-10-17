@@ -21,6 +21,7 @@ import xarray as xr
 from scipy.interpolate import interp1d
 
 from ocean_navigation_simulator.controllers.Controller import Controller
+from ocean_navigation_simulator.controllers.hj_planners.Platform2dForSim import Platform2dForSimAffine
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -284,7 +285,13 @@ class HJPlannerBase(Controller):
                 print(f"self.reach_times: [{self.reach_times[0]:.0f}, {self.reach_times[-1]:.0f}]")
                 raise
 
-        return PlatformAction(magnitude=u_out[0], direction=u_out[1])
+        # if affine dynamics we need to transform the u_x and u_y to u_propulsion and direction theta
+        if issubclass(type(self.nondim_dynamics.dimensional_dynamics), Platform2dForSimAffine):
+            return PlatformAction.from_xy_propulsion(
+                x_propulsion=u_out[0] / self.nondim_dynamics.dimensional_dynamics.u_max,
+                y_propulsion=u_out[1] / self.nondim_dynamics.dimensional_dynamics.u_max)
+        else:
+            return PlatformAction(magnitude=u_out[0], direction=u_out[1])
 
     def get_waypoints(self) -> List[SpatioTemporalPoint]:
         """Returns: a list of waypoints each containing [lon, lat, time]"""
@@ -364,12 +371,16 @@ class HJPlannerBase(Controller):
                 t_start=x_t.date_time,
                 T_max_in_seconds=self.specific_settings["T_goal_in_seconds"],
                 dir="forward",
-                x_reach_end=self.get_x_from_full_state(self.problem.end_region),
+                x_reach_end= self.get_x_from_full_state(self.problem.end_region) if \
+                    self.specific_settings.get("stop_fwd_reach_at_x_target", False) else None,
             )
             # log values for closed-loop trajectory extraction
             x_start_backtracking = self.get_x_from_full_state(self.problem.end_region)
+            # Note: This starts backtracking from last time of reachability.
+            # This is only the same as first time in target set if 'stop_fwd_reach_at_x_target' is True in ctrl config.
+            # raise a warning if this is not the case
             t_start_backtracking = (
-                x_t.date_time.timestamp() + self.specific_settings["T_goal_in_seconds"]
+                x_t.date_time.timestamp() + self.current_data_t_0 - self.reach_times[-1]
             )
 
         elif self.specific_settings["direction"] == "backward":
@@ -426,7 +437,9 @@ class HJPlannerBase(Controller):
             t_start_backtracking = x_t.date_time.timestamp()
 
             if self.all_values.min() < -2:
-                print(f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}")
+                print(
+                    f"HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1. Lowest is {self.all_values.min()}"
+                )
                 # raise ValueError(
                 #     "HJPlanner: Some issue with the value function, min goes below -2, should maximally be -1."
                 # )
@@ -443,9 +456,7 @@ class HJPlannerBase(Controller):
             )
 
         # extract trajectory for open_loop control or because of plotting/logging
-        if (
-            self.specific_settings["direction"] == "forward"
-            or self.specific_settings.get("calc_opt_traj_after_planning", False)
+        if (self.specific_settings.get("calc_opt_traj_after_planning", False)
             or not self.specific_settings.get("closed_loop", True)
         ):
             self.times, self.x_traj, self.contr_seq, self.distr_seq = self._extract_trajectory(
@@ -590,6 +601,11 @@ class HJPlannerBase(Controller):
 
         # Step 0: get all_values and reach_times in the correct direction
         if self.specific_settings["direction"] == "forward":
+            self.logger.warning(
+                "HJPlanner Warning: Running forward reachability and computing trajectory."
+                "This is only the optimal traj. if computation was stopped at the target region,"
+                "otherwise backtracking starts at final time."
+            )
             backtracking_reach_times, backtracking_all_values = self.reach_times, self.all_values
             t_rel_start = t_start - self.current_data_t_0
             t_rel_stop = self.reach_times[-1]
@@ -848,7 +864,7 @@ class HJPlannerBase(Controller):
             plot_level=0,
             color_level="black",
             colorbar=is_multi_reach,
-            obstacles=self.nondim_dynamics.dimensional_dynamics.obstacle_array.T
+            obstacles=self.nondim_dynamics.dimensional_dynamics.binary_obs_map.T
             if (self.specific_settings["obstacle_dict"] is not None)
             else None,
             target_set=initial_values,
@@ -903,7 +919,11 @@ class HJPlannerBase(Controller):
             plt.show()
 
     def plot_reachability_snapshot_over_currents(
-        self, rel_time_in_seconds: float = 0, ax: plt.Axes = None, **kwargs
+        self,
+        rel_time_in_seconds: float = 0,
+        ax: plt.Axes = None,
+        background_args: Optional[dict] = {},
+        **kwargs,
     ):
         """Plot the reachable set the planner was computing last at  a specific rel_time_in_seconds over the currents.
         Args:
@@ -920,12 +940,12 @@ class HJPlannerBase(Controller):
             return_ax=True,
             colorbar=False,
             ax=ax,
+            **background_args,
         )
         # add reachability snapshot on top
         return self.plot_reachability_snapshot(
             rel_time_in_seconds=rel_time_in_seconds,
             ax=ax,
-            plot_in_h=True,
             display_colorbar=True,
             mask_above_zero=True,
             **kwargs,
@@ -1021,7 +1041,7 @@ class HJPlannerBase(Controller):
                     self.contr_seq[0, idx] * np.cos(self.contr_seq[1, idx]),  # u_vector
                     self.contr_seq[0, idx] * np.sin(self.contr_seq[1, idx]),  # v_vector
                     color="magenta",
-                    scale=10,
+                    scale=4,
                     label="Control",
                     zorder=10,
                 )

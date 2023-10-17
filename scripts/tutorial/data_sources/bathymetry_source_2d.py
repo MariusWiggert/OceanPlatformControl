@@ -16,7 +16,11 @@ bathymetry_source_dict = {
     "field": "Bathymetry",
     "source": "gebco",
     "source_settings": {
-        "filepath": "ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_global_res_0.083_0.083_max.nc"
+        "filepath": "bathymetry_global_res_0.083_0.083_max.nc"
+    },
+    "distance": {
+        "filepath": "bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc",
+        "safe_distance": 0.01,
     },
     "casadi_cache_settings": {"deg_around_x_t": 20},
     "use_geographic_coordinate_system": True,

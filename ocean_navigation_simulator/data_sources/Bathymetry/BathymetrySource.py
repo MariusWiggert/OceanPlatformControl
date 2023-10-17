@@ -1,13 +1,14 @@
 import logging
 import os
 import time
+from pathlib import Path
 from typing import AnyStr, Dict, List, Optional
 
 import casadi as ca
 import cmocean
-import numpy as np
 import matplotlib.pyplot
 import matplotlib.pyplot as plt
+import numpy as np
 import xarray as xr
 
 from ocean_navigation_simulator.data_sources.DataSource2d import DataSource2d
@@ -25,13 +26,22 @@ class BathymetrySource2d(DataSource2d):
         if self.source_dict["source"] == "gebco":
             self.DataArray = self.get_DataArray_from_file()
             self.grid_dict = self.get_grid_dict_from_xr(self.DataArray)
+            if "distance" in self.source_dict and self.source_dict["distance"] is not None:
+                abs_file_path = os.path.join(Path(__file__).resolve().parents[2],
+                                             'package_data/bathymetry_and_garbage/',
+                                             self.source_dict["distance"]["filepath"])
+                self.DistanceArray = xr.open_dataset(abs_file_path)["distance"]
         else:
             raise NotImplementedError(
                 f"Selected source {self.source_dict['source']} in the BathymetrySource dict is not implemented."
             )
 
     def get_DataArray_from_file(self) -> xr:
-        DataArray = xr.open_dataset(self.source_dict["source_settings"]["filepath"])
+        # make it an absolute path to the obstacle file
+        abs_file_path = os.path.join(Path(__file__).resolve().parents[2],
+                                     'package_data/bathymetry_and_garbage/',
+                                     self.source_dict["source_settings"]["filepath"])
+        DataArray = xr.open_dataset(abs_file_path)
         # DataArray = DataArray.rename({"latitude": "lat", "longitude": "lon"})
         return DataArray
 

@@ -5,6 +5,9 @@ import pytest
 from ocean_navigation_simulator.controllers.NaiveController import (
     NaiveController,
 )
+from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
+    GarbagePatchSource2d,
+)
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.environment.NavigationProblem import (
     NavigationProblem,
@@ -12,9 +15,6 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 from ocean_navigation_simulator.environment.Platform import PlatformState
 from ocean_navigation_simulator.environment.PlatformState import SpatialPoint
 from ocean_navigation_simulator.utils import units
-from ocean_navigation_simulator.data_sources.GarbagePatch.GarbagePatchSource import (
-    GarbagePatchSource2d,
-)
 
 
 # Might crash due to wrong meta data, other than that it works
