@@ -66,16 +66,20 @@ class Constructor:
                 point_to_check.date_time,
                 point_to_check.date_time
                 + datetime.timedelta(
-                    seconds=timeout_in_sec + arena_conf["casadi_cache_dict"]["time_around_x_t"] + 7200
+                    seconds=timeout_in_sec
+                    + arena_conf["casadi_cache_dict"]["time_around_x_t"]
+                    + 7200
                 ),
             ]
             self.arena = ArenaFactory.create(
-                scenario_config=arena_conf, t_interval=t_interval if download_files else None, c3=c3,
-                throw_exceptions=throw_exceptions
+                scenario_config=arena_conf,
+                t_interval=t_interval if download_files else None,
+                c3=c3,
+                throw_exceptions=throw_exceptions,
             )
 
         # Add platform_dict from arena to controll config
-        self.platform_dict = arena_conf['platform_dict']
+        self.platform_dict = arena_conf["platform_dict"]
 
         # Create problem from config
         self.problem = self.__problem_constructor()

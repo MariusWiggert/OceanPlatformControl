@@ -1,0 +1,112 @@
+model: ["generator_simplified", "discriminator"]
+save_model: False
+dataset_type: "forecastbuoy"
+wandb_mode: "online"
+save_base_path: "data/drifter_data/models"
+metrics: ["rmse", "vector_correlation"]
+custom_masking_keep: 1.0
+
+# model testing and saving output
+save_samples_path: "data/drifter_data/GAN_samples"
+save_repeated_samples_path: "data/drifter_data/GAN_samples_repeated"
+test_load_chkpt: "2023-02-11_18:41:00.pth"
+epoch: ""
+
+generator:
+  model_settings:
+    in_channels: 2
+    out_channels: 2
+    features: 64
+    norm: "batch"
+    # decides whether using dropout as source of randomness or latent vec
+    dropout: True
+    latent_size: 512
+    # adds dropout to all layers to avoid overfitting
+    dropout_all: False
+    dropout_val: 0.5
+  init_type: "normal"
+  init_gain: 0.02
+  load_from_chkpt: True
+  chkpt: "2023-01-17_12:07:52.pth"  # FC-FC
+  load_encoder_only: True
+  freeze_encoder: True
+
+gen_optimizer:
+#  name: "RMSprop"
+#  lr: 5e-5
+  name: "adam"
+  lr: 2e-4
+  parameters:
+    betas: [ 0.0, 0.9 ]
+
+discriminator:
+  model_settings:
+    in_channels: 2
+    features: [64, 128, 256, 512]
+    norm: "instance"
+    patch_disc: False
+    conditional: True
+  init_type: "normal"
+  init_gain: 0.02
+
+disc_optimizer:
+#  name: "RMSprop"
+#  lr: 5e-5
+  name: "adam"
+  lr: 2e-4
+  parameters:
+    betas: [ 0.0, 0.9 ]
+
+train:
+  batch_size: 32
+  test_batch_size: 192
+  epochs: 50
+  loss:
+    gen: ["wgan-gp"]
+    gen_weighting: [1]
+    disc: ["wgan-gp"]
+    disc_weighting: [1]
+  critic_iterations: 5
+  weight_clip: 0.01
+  lambda_gp: 10
+  lr_scheduler_configs:
+    value: False
+    scheduler_type: "plateau"
+    mode: "min"
+    factor: 0.2
+    threshold: 0.0001
+    patience: 3
+
+# this is used to eval/test model in the dropout generator case
+validation:
+  enable_dropout: False
+  # layers in decoder to use dropout
+  layers: [1, 2, 3, 4, 5]
+
+dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed"
+  ground_truth: "data/drifter_data/synthetic_data/train_val"
+#  ground_truth: "data/drifter_data/forecasts_preprocessed"
+  area: ["area1"]
+  dataset_names: ["fc", "synthetic_data"]
+  transform: False
+  shuffle: True
+  len: 500
+  split: [0.9, 0.1]
+  concat_len: 1
+
+val_dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed_val"
+  ground_truth: "data/drifter_data/buoy_preprocessed_val"
+  area: ["area1"]
+  concat_len: 1
+
+test_dataset:
+  forecasts: "data/drifter_data/forecasts_preprocessed_test"
+  ground_truth: "data/drifter_data/synthetic_data/test"
+#  forecasts: "data/drifter_data/thesis_gan_inference/forecast/"
+#  ground_truth: "data/drifter_data/thesis_gan_inference/ground_truth"
+  area: ["area1"]
+  concat_len: 1
+  dataset_names: [ "fc", "synthetic_data" ]
+  transform: False

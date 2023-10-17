@@ -15,6 +15,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatialPoint,
 )
 from ocean_navigation_simulator.utils import units
+
 #%% Option 1: analytical ensemble
 
 #%% Make the stochastic data source!
@@ -24,17 +25,17 @@ a_vector = np.random.uniform(0.1, 1, n_ensembles)
 e_vector = np.random.uniform(0.2, 0.2, n_ensembles)
 period_time_vector = np.random.uniform(10, 100, n_ensembles)
 ensemble_current_source_dict = true_current_source.copy()
-ensemble_current_source_dict['source_settings']['period_time'] = period_time_vector
-ensemble_current_source_dict['source_settings']['v_amplitude'] = a_vector
-ensemble_current_source_dict['source_settings']['epsilon_sep'] = e_vector
+ensemble_current_source_dict["source_settings"]["period_time"] = period_time_vector
+ensemble_current_source_dict["source_settings"]["v_amplitude"] = a_vector
+ensemble_current_source_dict["source_settings"]["epsilon_sep"] = e_vector
 ensemble_source = OceanCurrentField.instantiate_source_from_dict(ensemble_current_source_dict)
 #%% get full ensemble stuff
-ensemble_source.u_current_analytical(lon=1,lat=0.5,posix_time=time)
-ensemble_source.v_current_analytical(lon=1,lat=0.5,posix_time=time)
+ensemble_source.u_current_analytical(lon=1, lat=0.5, posix_time=time)
+ensemble_source.v_current_analytical(lon=1, lat=0.5, posix_time=time)
 #%% get it for a single ensemble member
 ensemble_idx = 4
-ensemble_source.u_current_analytical(lon=1,lat=0.5,posix_time=time)[ensemble_idx]
-ensemble_source.v_current_analytical(lon=1,lat=0.5,posix_time=time)[ensemble_idx]
+ensemble_source.u_current_analytical(lon=1, lat=0.5, posix_time=time)[ensemble_idx]
+ensemble_source.v_current_analytical(lon=1, lat=0.5, posix_time=time)[ensemble_idx]
 # => turns out, we don't actually need this I think.
 # For analytical currents we can just use a distribution over the w, A, and epsilon parameters.
 

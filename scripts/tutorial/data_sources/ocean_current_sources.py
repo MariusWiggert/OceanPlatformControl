@@ -50,7 +50,7 @@ hindcast_source_dict = {
         "service": "california_high_frequency_radar",
         "resolution_in_km": 6  # can be 1, 2, or 6.
         # Important: 6km covers a wide area, the more high resolution are only available for a small area
-    }
+    },
 }
 forecast_source_dict = None
 #%% Create the ocean Field object (containing both the hindcast and optionally the forecast source)

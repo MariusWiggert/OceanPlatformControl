@@ -57,8 +57,8 @@ class MissionGenerator:
         self.c3 = c3
         # Load distance maps
         self.distance_map = dict()
-        if self.config.get("filepath_distance_map",False):
-            for area_type in self.config.get("filepath_distance_map",False):
+        if self.config.get("filepath_distance_map", False):
+            for area_type in self.config.get("filepath_distance_map", False):
                 self.distance_map[area_type] = xr.open_dataset(
                     self.config["filepath_distance_map"][area_type]
                 )

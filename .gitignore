@@ -1,7 +1,6 @@
 .idea*
 .DS_Store*
 __pycache__*
-*.png
 *.gif
 *.log
 *.egg-info
@@ -13,6 +12,7 @@ generated_media/
 ./hj_reachability/
 ./data/
 ./models/
+!generative_error_model/models
 ./results/
 # Setup file from Jerome
 setup/env*

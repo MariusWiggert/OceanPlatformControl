@@ -21,7 +21,7 @@ class GenerativeModel(ABC):
         self,
         lon_locs: List[float],
         lat_locs: List[float],
-        t_locs: List[datetime.datetime],
+        t_interval: List[datetime.datetime],
         t_origin: datetime.datetime,
     ) -> xr.Dataset:
         """Returns the noise field given a specific rng."""

@@ -1,0 +1,7 @@
+data_dir: "/home/jonas/Downloads/sofar_data_pre_processed"
+
+buoy_config:
+  sofar:
+    lon_range: [ -140, -120 ]
+    lat_range: [ 20, 30 ]
+    time_range: "2022-03-21T12:30:00Z/2022-07-30T12:30:00Z"

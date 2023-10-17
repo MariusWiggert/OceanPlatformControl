@@ -78,8 +78,8 @@ class Platform:
     ocean_source: OceanCurrentSource = None
     solar_source: SolarIrradianceSource = None
     seaweed_source: SeaweedGrowthSource = None
-    bathymetry_source: BathymetrySource2d = None,
-    garbage_source: GarbagePatchSource2d = None,
+    bathymetry_source: BathymetrySource2d = (None,)
+    garbage_source: GarbagePatchSource2d = (None,)
     state: PlatformState = None
 
     def __init__(
