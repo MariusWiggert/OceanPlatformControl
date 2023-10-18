@@ -1,8 +1,11 @@
 .idea*
 .DS_Store*
 __pycache__*
+*.png
 *.gif
 *.log
+*.svg
+*.jpg
 *.egg-info
 optimized_dp/
 viz/
@@ -23,3 +26,6 @@ data/
 models/
 results/
 wandb/
+saved_planner/
+temp/*
+problems.csv

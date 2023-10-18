@@ -116,6 +116,7 @@ class Platform2dForSim(dynamics.Dynamics):
             jnp.array([dx1, dx2]).reshape(-1),
         )
         return dx_out
+        # return self.obstacle_operator(state, time, dx_out)
 
     @staticmethod
     def disturbance_jacobian(state, time):

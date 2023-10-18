@@ -1,6 +1,8 @@
 import datetime
 from importlib import import_module
-from typing import Type, Union
+from typing import Optional, Type, Union
+from c3python import C3Python
+
 
 from ocean_navigation_simulator.controllers.Controller import Controller
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
@@ -9,10 +11,12 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
-    SpatialPoint,
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.SeaweedProblem import (
+    SeaweedProblem,
+)
 from ocean_navigation_simulator.ocean_observer.NoObserver import NoObserver
 from ocean_navigation_simulator.ocean_observer.Observer import Observer
 
@@ -29,8 +33,8 @@ class Constructor:
         ctrl_conf: dict,
         observer_conf: dict,
         # Relevant for downloading data
+        c3: Optional[C3Python] = None,
         throw_exceptions=True,
-        c3=None,
         download_files=False,
         timeout_in_sec=0,
         create_arena=True,
@@ -53,6 +57,7 @@ class Constructor:
         self.objective_conf = objective_conf
         self.ctrl_conf = ctrl_conf
         self.observer_conf = observer_conf
+        self.c3 = c3
 
         # Create arena from config
         if create_arena:
@@ -114,25 +119,15 @@ class Constructor:
         for x in self.mission_conf["x_0"]:
             X_0.append(PlatformState.from_dict(x))
 
-        # TODO: Test!
-        # Create SpatialPoint objects from mission config and save it back to mission_conf
-        x_T = SpatialPoint.from_dict(self.mission_conf["x_T"])
-
         if self.objective_conf["type"] == "nav":
             return NavigationProblem(
                 start_state=X_0[0],
-                end_region=x_T,
+                end_region=SpatialPoint.from_dict(self.mission_conf["x_T"]),
                 target_radius=self.mission_conf["target_radius"],
                 platform_dict=self.platform_dict,
             )
-
-        # TODO: Adapt to new objectives i.e.:
-        #
-        # elif(self.objective=="max_seaweed"):
-        #     # TODO: code SeaweedProblem problem class
-        #     return SeaweedProblem(
-        #             start_state=X_0[0],
-        #             timeout=self.mission_conf["timeout"],)
+        elif self.objective_conf["type"] == "max_seaweed":
+            return SeaweedProblem(start_state=X_0[0], platform_dict=self.platform_dict)
         # elif(self.objective=="safety"):
         #     # TODO: code SafetyProblem class
         #     return SafetyProblem(
@@ -161,7 +156,9 @@ class Constructor:
         ControllerClass = self.__import_class_from_string()
 
         # Return controller object
-        return ControllerClass(problem=self.problem, specific_settings=self.ctrl_conf)
+        return ControllerClass(
+            problem=self.problem, arena=self.arena, specific_settings=self.ctrl_conf, c3=self.c3
+        )
 
     def __observer_constructor(self) -> Union[Observer, NoObserver]:
         """Constructs a observer object if the observer configuration specifies a observer. If not a empty observer object is created.

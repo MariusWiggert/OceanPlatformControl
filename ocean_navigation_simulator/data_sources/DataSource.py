@@ -3,6 +3,7 @@ import abc
 import datetime
 import logging
 import os
+import time
 from functools import partial
 from typing import Any, AnyStr, Callable, List, Optional, Tuple, Union
 
@@ -86,11 +87,12 @@ class DataSource(abc.ABC):
             return True
         return False
 
-    def update_casadi_dynamics(self, state: PlatformState) -> None:
+    def update_casadi_dynamics(self, state: PlatformState, **kwargs) -> None:
         """Function to update casadi_dynamics which means we fit an interpolant to grid data.
         Note: this can be overwritten in child-classes e.g. when an analytical function is available.
         Args:
           state: Platform State object containing [x, y, battery, mass, time] to update around
+          **kwargs: i.e. for spatial or temporary resulotion i.e. used by average source
         """
 
         # Step 1: Create the intervals to query data for
@@ -106,7 +108,9 @@ class DataSource(abc.ABC):
         )
 
         # Step 2: Get the data from itself and update casadi_grid_dict
-        xarray = self.get_data_over_area(x_interval, y_interval, t_interval, throw_exceptions=False)
+        xarray = self.get_data_over_area(
+            x_interval, y_interval, t_interval, throw_exceptions=False, **kwargs
+        )
         self.casadi_grid_dict = self.get_grid_dict_from_xr(xarray)
 
         # Step 3: Set up the grid
@@ -668,7 +672,11 @@ class XarraySource(abc.ABC):
             ]
         # Step 1: Subset the xarray accordingly
         # Step 1.1 include buffers around of the grid granularity (assuming regular grid axis)
-        dt = self.DataArray["time"][1] - self.DataArray["time"][0]
+        dt = self.DataArray["time"][2] - self.DataArray["time"][0]
+
+        # Ensure that dt is at least one day since some HYCOM files are missing some timesteps and we have to interpolate on the boundries (does not apply on average data)
+        dt = max(dt, np.timedelta64(24, "h"))
+
         t_interval_extended = [
             np.datetime64(t_interval[0].replace(tzinfo=None)) - dt,
             np.datetime64(t_interval[1].replace(tzinfo=None)) + dt,
@@ -712,7 +720,7 @@ class XarraySource(abc.ABC):
             time_grid = np.arange(
                 start=array["time"][0].data,
                 stop=array["time"][-1].data,
-                step=np.timedelta64(int(temporal_resolution * (10**9)), "ns"),
+                step=np.timedelta64(temporal_resolution, "s"),
             )
             array = array.interp(time=time_grid, method="linear")
 
@@ -767,6 +775,11 @@ class AnalyticalSource(abc.ABC):
             for y, i in zip(source_config_dict["source_settings"]["y_domain"], [1, 2])
         ]
         # set the temp_domain_posix
+        if type(source_config_dict["source_settings"]["temporal_domain"][0]) == str:
+            source_config_dict["source_settings"]["temporal_domain"] = [
+                datetime.datetime.fromisoformat(t)
+                for t in source_config_dict["source_settings"]["temporal_domain"]
+            ]
         if isinstance(
             source_config_dict["source_settings"]["temporal_domain"][0], datetime.datetime
         ):
@@ -777,6 +790,7 @@ class AnalyticalSource(abc.ABC):
             ]
         else:
             self.temp_domain_posix = source_config_dict["source_settings"]["temporal_domain"]
+
         # Set the default resolutions (used when none is provided in get_data_over_area)
         self.spatial_resolution = source_config_dict["source_settings"]["spatial_resolution"]
         self.temporal_resolution = source_config_dict["source_settings"]["temporal_resolution"]
@@ -820,7 +834,7 @@ class AnalyticalSource(abc.ABC):
         t_interval: List[Union[datetime.datetime, float]],
         spatial_resolution: Optional[float] = None,
         temporal_resolution: Optional[float] = None,
-        throw_exceptions: Optional[bool] = False,  # Fix to not break api
+        throw_exceptions: Optional[bool] = True,
     ) -> xr:
         """Function to get the the raw current data over an x, y, and t interval.
         Args:
@@ -833,6 +847,7 @@ class AnalyticalSource(abc.ABC):
           data_array     in xarray format that contains the grid and the values (land is NaN). Shape: T,Y,X
         """
 
+        start = time.time()
         # Step 0.0: if t_interval is in datetime convert to POSIX
         if isinstance(t_interval[0], datetime.datetime):
             t_interval_posix = [time.timestamp() for time in t_interval]
@@ -842,11 +857,14 @@ class AnalyticalSource(abc.ABC):
                 datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
                 for posix in t_interval_posix
             ]
+        # TODO: only temporary solution to ensure we don't get any error in sanity check of data sources -> permanent solution should look more like buffers in XarraySource
+        x_interval_extended = [x_interval[0] - 2 * 0.1, x_interval[1] + 2 * 0.1]
+        y_interval_extended = [y_interval[0] - 2 * 0.1, y_interval[1] + 2 * 0.1]
 
         # Get the coordinate vectors to calculate the analytical function over
         grids_dict = self.get_grid_dict(
-            x_interval,
-            y_interval,
+            x_interval_extended,
+            y_interval_extended,
             t_interval_posix,
             spatial_resolution=spatial_resolution,
             temporal_resolution=temporal_resolution,
@@ -859,6 +877,10 @@ class AnalyticalSource(abc.ABC):
 
         # Step 3: Do a sanity check for the sub-setting before it's used outside and leads to errors
         self.array_subsetting_sanity_check(subset, x_interval, y_interval, t_interval, self.logger)
+
+        self.logger.info(
+            f"AnalyticalSource: get Data over Area finished ({time.time() - start:.1f}s)"
+        )
 
         return subset
 
@@ -879,7 +901,21 @@ class AnalyticalSource(abc.ABC):
         # Step 1: Check default interval or bounded by the respective domain of the Data Source
         if t_interval is None:
             t_interval = self.temp_domain_posix
+            if type(t_interval[0]) is str:
+                t_interval = [
+                    datetime.datetime.fromisoformat(t)
+                    .replace(tzinfo=datetime.timezone.utc)
+                    .timestamp()
+                    for t in t_interval
+                ]
         else:
+            if type(t_interval[0]) is str:
+                t_interval = [
+                    datetime.datetime.fromisoformat(t)
+                    .replace(tzinfo=datetime.timezone.utc)
+                    .timestamp()
+                    for t in t_interval
+                ]
             t_interval = [
                 max(t_interval[0], self.temp_domain_posix[0]),
                 min(t_interval[1], self.temp_domain_posix[1]),

@@ -59,7 +59,6 @@ class OceanCurrentSource(DataSource):
           grid:     list of the 3 grids [time, y_grid, x_grid] for the xr data
           array:    xarray object containing the sub-setted data for the next cached round
         """
-
         self.u_curr_func = ca.interpolant(
             "u_curr", "linear", grid, array["water_u"].values.ravel(order="F")
         )
@@ -83,6 +82,7 @@ class OceanCurrentSource(DataSource):
         set_title: Optional[bool] = True,
         quiver_spatial_res: Optional[float] = None,
         quiver_scale: Optional[int] = None,
+        colorized_background: bool = True,
         **kwargs,
     ) -> matplotlib.pyplot.axes:
         """Base function to plot the currents from an xarray. If xarray has a time-dimension time_idx is selected,
@@ -96,6 +96,7 @@ class OceanCurrentSource(DataSource):
             vmax:              maximum current magnitude used for colorbar (float)
             alpha:             alpha of the current magnitude color visualization
             colorbar:          if to plot the colorbar or not
+            colorized_background: defines if vector should have a background color - works in combination with colorbar
             ax:                Optional for feeding in an axis object to plot the figure on.
             fill_nan:          If True NaN will be filled with 0, otherwise left as NaN
             return_cbar:       if True the colorbar object is returned
@@ -122,11 +123,13 @@ class OceanCurrentSource(DataSource):
         vmin = kwargs.get("vmin", vmin)
         if vmax is None:
             vmax = np.max(xarray["magnitude"].max()).item()
-        im = xarray["magnitude"].plot(
-            cmap="jet", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
-        )
+        if colorized_background:
+            im = xarray["magnitude"].plot(
+                cmap="jet", vmin=vmin, vmax=vmax, alpha=alpha, ax=ax, add_colorbar=False
+            )
+
         # set and format colorbar
-        if colorbar:
+        if colorbar and colorized_background:
             divider = make_axes_locatable(ax)
             cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
@@ -306,7 +309,7 @@ class OceanCurrentSourceXarray(OceanCurrentSource, XarraySource):
 
 class ForecastFileSource(OceanCurrentSourceXarray):
     # TODO: Make it work with multiple files for one forecast (a bit of extra logic, but possible)
-    """Data Source Object that accesses and manages multiple daily HYCOM files as source."""
+    """Data Source Object that accesses and manages multiple daily files as source."""
 
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
@@ -338,6 +341,19 @@ class ForecastFileSource(OceanCurrentSourceXarray):
         most_recent_fmrc_at_time: Optional[datetime.datetime] = None,
         throw_exceptions: Optional[bool] = True,
     ) -> xr:
+        """Function to get the the raw current data over an x, y, and t interval.
+        Args:
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          spatial_resolution: spatial resolution in the same units as x and y interval
+          temporal_resolution: temporal resolution in seconds
+          most_recent_fmrc_at_time: if specified this is the idx of a specific forecast file to get data from it
+                                    otherwise the most recent fmrc available at t_interval[0] is used.
+          throw_exceptions: boolean whether exception should be thrown or not
+        Returns:
+          data_array     in xarray format that contains the grid and the values (land is NaN)
+        """
         # Step 0: enforce timezone aware datetime objects
         t_interval = [self.enforce_utc_datetime_object(t) for t in t_interval]
 
@@ -414,7 +430,7 @@ class ForecastFileSource(OceanCurrentSourceXarray):
 
 
 class HindcastFileSource(OceanCurrentSourceXarray):
-    """Data Source Object that accesses and manages one or many HYCOM files as source."""
+    """Data Source Object that accesses and manages one or many daily files as source."""
 
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
@@ -585,6 +601,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
         x_interval: List[float],
         y_interval: List[float],
         spatial_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
         return_ax: Optional[bool] = False,
         **kwargs,
     ):
@@ -596,6 +613,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
             y_interval,
             [time, time + datetime.timedelta(seconds=1)],
             spatial_resolution=spatial_resolution,
+            throw_exceptions=throw_exceptions,
         )
 
         # get noise only data
@@ -604,6 +622,7 @@ class GroundTruthFromNoise(OceanCurrentSource):
             y_interval,
             [time, time + datetime.timedelta(seconds=1)],
             spatial_resolution=spatial_resolution,
+            throw_exceptions=throw_exceptions,
             noise_only=True,
         )
 
@@ -651,6 +670,8 @@ class GroundTruthFromNoise(OceanCurrentSource):
 
 
 class HindcastOpendapSource(OceanCurrentSourceXarray):
+    """Data Source Object that accesses the data via the opendap framework directly from the server."""
+
     def __init__(self, source_config_dict: dict):
         super().__init__(source_config_dict)
         # Step 1: establish the opendap connection with the settings in config_dict
@@ -693,6 +714,90 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
         return OceanCurrentVector(
             u=self.u_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
             v=self.v_curr_func(spatio_temporal_point.to_spatio_temporal_casadi_input()),
+        )
+
+
+class LongTermAverageSource(OceanCurrentSource):
+    """LongTermAverageSource which is used for planning horizons longer than the forecast horizon for daily forecasts. It takes the maximum daily forecast length for the first period and for the remaining period it takes monthly averages. It then concatenates both forecasts."""
+
+    def __init__(self, source_config_dict: dict):
+        self.u_curr_func, self.v_curr_func = [None] * 2
+        self.forecast_data_source = ForecastFileSource(
+            source_config_dict["source_settings"]["forecast"]
+        )
+        self.monthly_avg_data_source = HindcastFileSource(
+            source_config_dict["source_settings"]["average"]
+        )  # defaults currents to normal
+        self.source_config_dict = source_config_dict
+        # self.t_0 = source_config_dict['t0'] # not sure what to do here
+
+    def get_data_over_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[Union[datetime.datetime, int]],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+        throw_exceptions: Optional[bool] = True,
+    ) -> xr:
+        # Query as much forecast data as is possible
+        try:
+            forecast_dataframe = self.forecast_data_source.get_data_over_area(
+                x_interval,
+                y_interval,
+                t_interval,
+                spatial_resolution,
+                temporal_resolution,
+                throw_exceptions=throw_exceptions,
+            )
+            end_forecast_time = get_datetime_from_np64(forecast_dataframe["time"].to_numpy()[-1])
+        except ValueError:
+            monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(
+                x_interval,
+                y_interval,
+                t_interval,
+                spatial_resolution,
+                temporal_resolution=3600,
+                throw_exceptions=throw_exceptions,
+            )
+            return monthly_average_dataframe
+
+        if end_forecast_time >= t_interval[1]:
+            return forecast_dataframe
+
+        remaining_t_interval = [end_forecast_time, t_interval[1]]  # may not work
+        monthly_average_dataframe = self.monthly_avg_data_source.get_data_over_area(
+            x_interval,
+            y_interval,
+            remaining_t_interval,
+            spatial_resolution,
+            temporal_resolution=3600,
+            throw_exceptions=throw_exceptions,
+        )
+        # Monthly averages wiil be returned with buffers/margins. In order to concatenate the xarrays those margins have to be removed.
+        subset = monthly_average_dataframe.sel(
+            time=slice(remaining_t_interval[0], remaining_t_interval[1]),
+        )
+        # round to deal with numerical issues which would occure otherwise while concatenating the to xarrays
+        subset["lat"] = subset["lat"].data.round(decimals=4)
+        subset["lon"] = subset["lon"].data.round(decimals=4)
+        forecast_dataframe["lat"] = forecast_dataframe["lat"].data.round(decimals=4)
+        forecast_dataframe["lon"] = forecast_dataframe["lon"].data.round(decimals=4)
+        return xr.concat([forecast_dataframe, subset], dim="time")
+
+    def check_for_most_recent_fmrc_dataframe(self, time: datetime.datetime) -> int:
+        """Helper function to check update the self.OceanCurrent if a new forecast is available at
+        the specified input time.
+        Args:
+          time: datetime object
+        """
+        return self.forecast_data_source.check_for_most_recent_fmrc_dataframe(time)
+
+    # TODO: check: Not sure if I can just all this
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> OceanCurrentVector:
+        """We overwrite it because we don't want that Forecast needs caching..."""
+        return self.forecast_data_source.get_data_at_point(
+            spatio_temporal_point=spatio_temporal_point
         )
 
 

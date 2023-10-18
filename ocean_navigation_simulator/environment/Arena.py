@@ -72,6 +72,9 @@ class ArenaObservation:
     forecast_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray, OceanCurrentSourceAnalytical
     ]  # Data Source of the forecast
+    average_data_source: Union[
+        OceanCurrentSource, OceanCurrentSourceXarray
+    ]  # Data Source of the averages
 
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
         """
@@ -88,6 +91,7 @@ class ArenaObservation:
             ),
             true_current_at_state=self.true_current_at_state,
             forecast_data_source=self.forecast_data_source,
+            average_data_source=self.average_data_source,
         )
 
     def replace_datasource(
@@ -104,6 +108,7 @@ class ArenaObservation:
             platform_state=self.platform_state,
             true_current_at_state=self.true_current_at_state,
             forecast_data_source=datasource,
+            average_data_source=self.average_data_source,
         )
 
 
@@ -142,7 +147,7 @@ class Arena:
                                              - u_max_in_mps (maximum propulsion)
                                              - drag_factor, motor_efficiency (to model Energy consumption)
                                              - solar_panel_size, solar_efficiency, battery_cap_in_wh (charging via solar)
-            ocean_dict:                      Dictionary containing dicts for "hindcast" and optinally "forecast" which
+            ocean_dict:                      Dictionary containing dicts for "hindcast" and optinally "forecast" & "average" which
                                              specify the ocean current data source. Details see OceanCurrentField.
             use_geographic_coordinate_system: If True we use the Geographic coordinate system in lat, lon degree,
                                               if false the spatial system is in meters in x, y.
@@ -168,6 +173,10 @@ class Arena:
             casadi_cache_dict=casadi_cache_dict,
             hindcast_source_dict=ocean_dict["hindcast"],
             forecast_source_dict=ocean_dict["forecast"],
+            average_source_dict=ocean_dict.get(
+                "average", "not_defined"
+            ),  # "not_defined" if no "average" key in ocean_dict otherwise we would always load averages for all scenarios without averages needed.
+            # TODO: find more elegant solution to ensure compatibility with short term planning
             use_geographic_coordinate_system=use_geographic_coordinate_system,
         )
         # Step 1.2 Solar Irradiance Field
@@ -181,13 +190,15 @@ class Arena:
         # Step 1.3 Seaweed Growth Field
         if seaweed_dict is not None and seaweed_dict["hindcast"] is not None:
             # For initializing the SeaweedGrowth Field we need to supply the respective SolarIrradianceSources
-            seaweed_dict["hindcast"]["source_settings"][
-                "solar_source"
-            ] = self.solar_field.hindcast_data_source
-            if seaweed_dict["forecast"] is not None:
-                seaweed_dict["forecast"]["source_settings"][
+            if self.solar_field is not None:
+                seaweed_dict["hindcast"]["source_settings"][
                     "solar_source"
                 ] = self.solar_field.hindcast_data_source
+                # check if self.solar_field.hindcast_data_source exists
+                if seaweed_dict["forecast"] is not None:
+                    seaweed_dict["forecast"]["source_settings"][
+                        "solar_source"
+                    ] = self.solar_field.hindcast_data_source
             self.seaweed_field = SeaweedGrowthField(
                 casadi_cache_dict=casadi_cache_dict,
                 hindcast_source_dict=seaweed_dict["hindcast"],
@@ -195,6 +206,7 @@ class Arena:
                 use_geographic_coordinate_system=use_geographic_coordinate_system,
             )
         # Step 1.4 Bathymetry Field
+        # TODO: figure out if API of BathymetrySource2d should be like of the other sources
         if bathymetry_dict is not None:
             self.bathymetry_source = BathymetrySource2d(source_dict=bathymetry_dict)
         if garbage_dict is not None:
@@ -237,6 +249,11 @@ class Arena:
         self.platform.set_state(self.initial_state)
         self.platform.initialize_dynamics(self.initial_state)
         self.ocean_field.forecast_data_source.update_casadi_dynamics(self.initial_state)
+        if self.ocean_field.average_data_source is not None:
+            self.ocean_field.average_data_source.update_casadi_dynamics(
+                self.initial_state,
+                temporal_resolution=7200,  # TODO: add configurable temporal_resolution
+            )
 
         self.state_trajectory = np.expand_dims(np.array(platform_state).squeeze(), axis=0)
         self.action_trajectory = np.zeros(shape=(0, 2))
@@ -247,6 +264,7 @@ class Arena:
                 self.platform.state.to_spatio_temporal_point()
             ),
             forecast_data_source=self.ocean_field.forecast_data_source,
+            average_data_source=self.ocean_field.average_data_source,
         )
 
     def step(self, action: PlatformAction) -> ArenaObservation:
@@ -275,6 +293,7 @@ class Arena:
                     state.to_spatio_temporal_point()
                 ),
                 forecast_data_source=self.ocean_field.forecast_data_source,
+                average_data_source=self.ocean_field.average_data_source,
             )
         return obs
 
@@ -467,6 +486,7 @@ class Arena:
         x_interval: Optional[List[float]] = None,
         y_interval: Optional[List[float]] = None,
         problem: Optional[NavigationProblem] = None,
+        background: Optional[str] = "current",
         temporal_resolution: Optional[float] = None,
         add_ax_func_ext: Optional[Callable] = None,
         full_traj: Optional[bool] = True,
@@ -479,6 +499,7 @@ class Arena:
               x_interval:        If both x and y interval are present the margin is ignored.
               y_interval:        If both x and y interval are present the margin is ignored.
               problem:           Navigation Problem object
+              background:       Data source which is rendered in plot background
               temporal_resolution:  The temporal resolution of the animation in seconds (per default same as data_source)
               add_ax_func_ext:  function handle what to add on top of the current visualization
                                 signature needs to be such that it takes an axis object and time as input
@@ -491,11 +512,23 @@ class Arena:
               forward_time:     If True, animation is forward in time, if false backwards
               **kwargs:         Further keyword arguments for plotting(see plot_currents_from_xarray)
         """
+
+        # Background: Data Sources
+        if "current" in background:
+            data_source = self.ocean_field.hindcast_data_source
+        elif "solar" in background:
+            data_source = self.solar_field.hindcast_data_source
+        elif "seaweed" in background or "growth" in background:
+            data_source = self.seaweed_field.hindcast_data_source
+        else:
+            raise Exception(
+                f"Arena: Background '{background}' is not avaialble only 'current', 'solar' or 'seaweed."
+            )
         # shallow wrapper to plotting utils function
         animate_trajectory(
             state_trajectory=self.state_trajectory.T,
             ctrl_trajectory=self.action_trajectory.T,
-            data_source=self.ocean_field.hindcast_data_source,
+            data_source=data_source,
             problem=problem,
             margin=margin,
             x_interval=x_interval,
@@ -713,10 +746,10 @@ class Arena:
             datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
-        ax.plot(dates, self.state_trajectory[::stride, 3], marker=".")
+        ax.plot(dates, self.state_trajectory[::stride, 4], marker=".")
 
         ax.set_title("Seaweed Mass over Time")
-        ax.set_ylim(0.0, 1.1)
+        # ax.set_ylim(0.0, 1000)
         ax.set_xlabel("time in h")
         ax.set_ylabel("Seaweed Mass in kg")
 
@@ -822,6 +855,39 @@ class Arena:
                 ax=ax,
             )
         return ax
+
+    def get_datetime_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory.
+        """
+        return [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
+            for posix in state_trajectory[:, 2]
+        ]
+
+    def get_date_string_from_state_trajectory(self, state_trajectory: np.ndarray):
+        """
+        Function returning the list of dates for a given state trajectory as strings.
+        """
+        return [
+            datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc).strftime(
+                "%y-%m-%d %H:%M"
+            )
+            for posix in state_trajectory[:, 2]
+        ]
+
+    def get_plot_data_for_wandb(self):
+        dict_for_plot = {
+            "timesteps": np.arange(self.state_trajectory.shape[0]),
+            "dates_timestamp": self.get_datetime_from_state_trajectory(self.state_trajectory),
+            "dates_string": self.get_date_string_from_state_trajectory(self.state_trajectory),
+            "lon": self.state_trajectory[:, 0],
+            "lat": self.state_trajectory[:, 1],
+            "battery_charge": self.state_trajectory[:, 3],
+            "seaweed_mass": self.state_trajectory[:, 4],
+            "inside_garbage": self.state_trajectory[:, 5],
+        }
+        return pd.DataFrame.from_dict(dict_for_plot, orient="columns")
 
     def get_datetime_from_state_trajectory(self, state_trajectory: np.ndarray):
         """

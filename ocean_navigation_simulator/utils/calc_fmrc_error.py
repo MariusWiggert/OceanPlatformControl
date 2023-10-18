@@ -23,7 +23,7 @@ def calc_fmrc_errors(
     # Get intervals over which to calculate the error
     t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
         x_0=problem.start_state.to_spatio_temporal_point(),
-        x_T=problem.end_region,
+        x_T=problem.end_region if hasattr(problem, "end_region") else problem.start_state.to_spatial_point(),
         deg_around_x0_xT_box=deg_around_x0_xT_box,
         temp_horizon_in_s=T_goal_in_seconds,
     )

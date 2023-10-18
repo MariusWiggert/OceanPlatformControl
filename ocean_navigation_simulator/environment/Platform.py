@@ -109,7 +109,7 @@ class Platform:
         self.use_geographic_coordinate_system = use_geographic_coordinate_system
 
         self.model_battery = self.solar_source is not None
-        self.model_seaweed = self.solar_source is not None and self.seaweed_source is not None
+        self.model_seaweed = self.seaweed_source is not None
 
         # Set parameters for the Platform dynamics
         self.u_max = units.Velocity(mps=platform_dict["u_max_in_mps"])
@@ -230,7 +230,7 @@ class Platform:
         sym_lat_degree = ca.MX.sym("lat")  # in deg or m
         sym_time = ca.MX.sym("time")  # in posix
         sym_battery = ca.MX.sym("battery")  # in Joule
-        sym_seaweed_mass = ca.MX.sym("battery")  # in Kg
+        sym_seaweed_mass = ca.MX.sym("seaweed")  # in Kg
         sym_dt = ca.MX.sym("dt")  # in s
         sym_u_thrust = ca.MX.sym("u_thrust")  # in % of u_max
         sym_u_angle = ca.MX.sym("u_angle")  # in radians

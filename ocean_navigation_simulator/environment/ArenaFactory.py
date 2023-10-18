@@ -7,6 +7,7 @@ from typing import List, Optional
 
 import mergedeep
 import yaml
+from c3python import C3Python
 from tqdm import tqdm
 
 from ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource import (
@@ -55,7 +56,7 @@ class ArenaFactory:
         y_interval: Optional[List[units.Distance]] = None,
         t_interval: Optional[List[datetime.datetime]] = None,
         throw_exceptions: Optional[bool] = True,
-        c3: Optional = None,
+        c3: Optional[C3Python] = None,
     ) -> Arena:
         """
         Create an Arena with all needed configuration dictionaries.
@@ -159,6 +160,7 @@ class ArenaFactory:
                             throw_exceptions=throw_exceptions,
                             points=points,
                             c3=c3,
+                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
                         )
 
                     logger.debug(f"Hindcast Files: {files}")
@@ -200,6 +202,7 @@ class ArenaFactory:
                             throw_exceptions=throw_exceptions,
                             points=points,
                             c3=c3,
+                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
                         )
 
                     logger.debug(f"Forecast Files: {files}")
@@ -211,27 +214,20 @@ class ArenaFactory:
             elif (
                 t_interval is not None
                 and config["ocean_dict"]["forecast"] is not None
+                and config["ocean_dict"]["hindcast"] is not None
                 and config["ocean_dict"]["forecast"]["source"] == "hindcast_as_forecast_files"
             ):
-                # Adjust t_interval to make sure we have downloaded enough time. Default forecast length is 5 days
-                t_interval_adapted = [
-                    t_interval[0] - datetime.timedelta(days=2),
-                    t_interval[1]
-                    + datetime.timedelta(
-                        days=config["ocean_dict"]["forecast"].get("forecast_length_in_days", 5)
-                    ),
-                ]
                 with timing_logger(
                     "Download Forecast Files: {start} until {end} ({{}})".format(
-                        start=t_interval_adapted[0].strftime("%Y-%m-%d %H-%M-%S"),
-                        end=t_interval_adapted[-1].strftime("%Y-%m-%d %H-%M-%S"),
+                        start=t_interval[0].strftime("%Y-%m-%d %H-%M-%S"),
+                        end=t_interval[-1].strftime("%Y-%m-%d %H-%M-%S"),
                     ),
                     logger,
                 ):
                     if config["ocean_dict"]["forecast"]["source_settings"].get("local", False):
                         files = ArenaFactory.find_copernicus_files(
                             config["ocean_dict"]["forecast"]["source_settings"]["folder"],
-                            t_interval_adapted,
+                            t_interval,
                         )
                     else:
                         files = ArenaFactory.download_required_files(
@@ -245,10 +241,11 @@ class ArenaFactory:
                                 "folder"
                             ],
                             region=config["ocean_dict"].get("region", "GOM"),
-                            t_interval=t_interval_adapted,
+                            t_interval=t_interval,
                             throw_exceptions=throw_exceptions,
                             points=points,
                             c3=c3,
+                            keep_newest_days=config["ocean_dict"].get("keep_newest_days", 100),
                         )
 
                     logger.debug(f"Forecast Files: {files}")
@@ -274,7 +271,9 @@ class ArenaFactory:
 
     @staticmethod
     @contextlib.contextmanager
-    def download_files(config, type, t_interval, points, c3=None, throw_exceptions=True):
+    def download_files(
+        config, type, t_interval, points, c3=None, throw_exceptions=True, keep_newest_days=100
+    ):
         """Helper method to be run in C3 context manager."""
         try:
             if "files" in config["ocean_dict"][type]["source"]:
@@ -287,6 +286,25 @@ class ArenaFactory:
                     throw_exceptions=throw_exceptions,
                     points=points,
                     c3=c3,
+                    keep_newest_days=keep_newest_days,
+                )
+            elif "files" in config["ocean_dict"][type]["source_settings"][type]["source"]:
+                ArenaFactory.download_required_files(
+                    archive_source=config["ocean_dict"][type]["source_settings"][type][
+                        "source_settings"
+                    ]["source"],
+                    archive_type=config["ocean_dict"][type]["source_settings"][type][
+                        "source_settings"
+                    ]["type"],
+                    download_folder=config["ocean_dict"][type]["source_settings"][type][
+                        "source_settings"
+                    ]["folder"],
+                    t_interval=t_interval,
+                    region=config["ocean_dict"]["region"],
+                    throw_exceptions=throw_exceptions,
+                    points=points,
+                    c3=c3,
+                    keep_newest_days=keep_newest_days,
                 )
             yield True
         finally:
@@ -340,7 +358,8 @@ class ArenaFactory:
         region: str = "GOM",
         points: Optional[List[SpatialPoint]] = None,
         throw_exceptions: bool = False,
-        c3: Optional = None,
+        c3: Optional[C3Python] = None,
+        keep_newest_days: int = 100,
         remove_files_if_corrupted: bool = True,
     ) -> List[str]:
         """
@@ -354,6 +373,7 @@ class ArenaFactory:
             points: List of SpatialPoints to check for file coverage
             throw_exceptions: throw exceptions for missing or corrupted files
             c3: c3 object can be passed in directly, if not a c3 object is created
+            keep_newest_days: keep only n newest dates to prevent full storage i.e for 100 -> ~ 100 * 100MB = 10GB
         Returns:
             list of downloaded files
         Examples:
@@ -414,6 +434,7 @@ class ArenaFactory:
             download_folder=download_folder,
             throw_exceptions=throw_exceptions,
             c3=c3,
+            keep_newest_days=keep_newest_days,
             remove_files_if_corrupted=remove_files_if_corrupted,
         )
 
@@ -425,14 +446,14 @@ class ArenaFactory:
         archive_type: str,
         region: Optional[str] = "GOM",
         t_interval: List[datetime.datetime] = None,
-        c3: Optional = None,
+        c3: Optional[C3Python] = None,
     ):
         """
         helper function to get a list of available files from c3
         Args:
             archive_source: one of [HYCOM, Copernicus, Noaa_FC, Noaa_NC]
             archive_type: one of [forecast, hindcast]
-            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
+            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM, Region Matthias]. Exception: Region 1 is not unique for HYCOM
             t_interval: List of datetime with length 2. None allows to search in all available times.
         Return:
             c3.FetchResult where objs contains the actual files
@@ -468,8 +489,10 @@ class ArenaFactory:
         # Step 2: Find c3 type
         if c3 is None:
             c3 = get_c3()
-
-        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast", "nowcast": "Nowcast"}
+        archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
+        c3_file_type = getattr(
+            c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
+        )
 
         # Step 3: Execute Query
         if t_interval is not None:
@@ -505,14 +528,21 @@ class ArenaFactory:
 
     @staticmethod
     def _download_filelist(
-        files, download_folder, throw_exceptions, c3, remove_files_if_corrupted=True
+        files,
+        download_folder,
+        throw_exceptions,
+        c3: Optional[C3Python] = None,
+        keep_newest_days: int = 100,
+        remove_files_if_corrupted=True
     ):
         """
         thread-safe download with corruption and file size check
         Arguments:
-            files: c3.FecthResult object
+            files: c3.FetchResult object
             download_folder: folder to download files to
             throw_exceptions: if True throws exceptions for missing/corrupted files
+            keep_newest_days = 100 ->  ~ 100 * 100MB = 10GB
+            c3: c3 object
         Returns:
             list of downloaded files
         """
@@ -539,6 +569,10 @@ class ArenaFactory:
                     or os.path.getsize(download_folder + filename) != filesize
                 ):
                     c3.Client.copyFilesToLocalClient(url, temp_folder)
+
+                    # Sometimes the download doesn't work on the first try - so we try a second time
+                    if not os.path.exists(download_folder + filename):
+                        c3.Client.copyFilesToLocalClient(url, temp_folder)
 
                     error = False
                     # check file size match
@@ -608,14 +642,12 @@ class ArenaFactory:
             shutil.rmtree(temp_folder, ignore_errors=True)
 
         # Step 3: Only keep most recent files to prevent full storage
-        KEEP = 1000  # ~ 100 * 100MB = 10GB
         cached_files = [f"{download_folder}{file}" for file in os.listdir(download_folder)]
         cached_files = [file for file in cached_files if os.path.isfile(file)]
         cached_files.sort(key=os.path.getmtime, reverse=True)
-        for file in cached_files[KEEP:]:
+        for file in cached_files[keep_newest_days:]:
             logger.info(f"Deleting old forecast file: '{file}'")
             os.remove(file)
-
         return downloaded_files
 
     @staticmethod
@@ -663,7 +695,7 @@ class ArenaFactory:
         Arguments:
             archive_source: one of [HYCOM, Copernicus]
             archive_type: one of [forecast, hindcast]
-            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM]. Exception: Region 1 is not unique for HYCOM
+            region: one of [Region 1,  Region 2, Region 3, ... Region 7, GOM, Region Matthias]. Exception: Region 1 is not unique for HYCOM
             true_length: if yes *download all files* and check actual length of files using xarray
             save_as: path to save file at, including filename and ending.
             return_ax: if True, return ax

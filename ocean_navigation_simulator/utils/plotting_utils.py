@@ -5,6 +5,8 @@ from typing import AnyStr, Callable, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import font_manager
+import plotly.io as pio
+import plotly.graph_objs as go
 
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.environment.NavigationProblem import (
@@ -134,7 +136,7 @@ def animate_trajectory(
             zorder=6,
         )
         # plot the goal
-        if problem is not None:
+        if problem is not None and hasattr(problem, "end_region"):
             goal_circle = plt.Circle(
                 (problem.end_region.lon.deg, problem.end_region.lat.deg),
                 problem.target_radius,
@@ -200,3 +202,50 @@ def set_palatino_font(font_path="Palatino_thin.ttf"):
         "ytick.labelsize": 13,
     }
     plt.rcParams.update(params)
+
+
+def set_palatino_font_plotly(font_path="/package_data/font/Palatino_thin.ttf"):
+    # Load font
+    pio.templates.default = "plotly"
+    pio.templates[pio.templates.default]["layout"]["font"]["family"] = "Palatino"
+
+    # Set font properties
+    font = {"family": "Palatino", "size": 21}
+
+    layout = go.Layout(
+        font=font,
+        legend=dict(
+            font=dict(
+                family=font["family"],
+                size=16,
+            ),
+        ),
+        title=dict(
+            font=dict(
+                family=font["family"],
+                size=21,
+            ),
+        ),
+        xaxis=dict(
+            title_font=dict(
+                family=font["family"],
+                size=18,
+            ),
+            tickfont=dict(
+                family=font["family"],
+                size=13,
+            ),
+        ),
+        yaxis=dict(
+            title_font=dict(
+                family=font["family"],
+                size=18,
+            ),
+            tickfont=dict(
+                family=font["family"],
+                size=13,
+            ),
+        ),
+    )
+
+    return layout

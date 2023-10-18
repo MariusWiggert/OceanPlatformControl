@@ -22,6 +22,9 @@ class DataField(abc.ABC):
         casadi_cache_dict: Dict,
         hindcast_source_dict: Dict,
         forecast_source_dict: Optional[Dict] = None,
+        average_source_dict: Optional[
+            Dict
+        ] = "not_defined",  # TODO: find more elegant solution to ensure compatibility with short term planning
         use_geographic_coordinate_system: Optional[bool] = True,
     ):
         """Initialize the source objects from the respective settings dicts.
@@ -29,8 +32,8 @@ class DataField(abc.ABC):
           casadi_cache_dict: containing the cache settings to use in the sources for caching of 3D data
                           e.g. {'deg_around_x_t': 2, 'time_around_x_t': 3600*24*5} for 5 days
 
-          forecast_source_dict and hindcast_source_dict
-           Both are dicts with four keys:
+          forecast_source_dict and hindcast_source_dict and average_source_dict
+           All are dicts with four keys:
              'field' the kind of field the should be created e.g. OceanCurrent or SolarIrradiance
              'source' in {opendap, hindcast_files, forecast_files}
              'subset_time_buffer_in_s' specifying the buffer applied to the time-interval when sub-setting an area
@@ -59,6 +62,27 @@ class DataField(abc.ABC):
             ] = use_geographic_coordinate_system
             self.forecast_data_source = self.instantiate_source_from_dict(forecast_source_dict)
             self.logger.info(f"DataField: Create Forecast Source ({time.time() - start:.1f}s)")
+
+        # Step 3: Create Average Source if different from Hindcast
+        if average_source_dict is None and hindcast_source_dict["field"] == "OceanCurrents":
+            self.logger.info(
+                "DataField: Average is the same as Hindcast for {}.".format(
+                    hindcast_source_dict["field"]
+                )
+            )
+            self.average_data_source = self.hindcast_data_source
+        # "not_defined" if no "average" key in ocean_dict - so for all scenarios without averages.
+        elif (
+            average_source_dict != "not_defined"
+            and hindcast_source_dict["field"] == "OceanCurrents"
+        ):  # TODO: find more elegant solution to ensure compatibility with short term planning
+            start = time.time()
+            average_source_dict["casadi_cache_settings"] = casadi_cache_dict
+            average_source_dict[
+                "use_geographic_coordinate_system"
+            ] = use_geographic_coordinate_system
+            self.average_data_source = self.instantiate_source_from_dict(average_source_dict)
+            self.logger.info(f"DataField: Create Average Source ({time.time() - start:.1f}s)")
 
     def get_forecast(self, spatio_temporal_point: SpatioTemporalPoint):
         """Returns forecast at a point in the field.
@@ -126,6 +150,37 @@ class DataField(abc.ABC):
           data_array                    in xarray format that contains the grid and the values
         """
         return self.hindcast_data_source.get_data_over_area(
+            x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
+        )
+
+    def get_average(self, spatio_temporal_point: SpatioTemporalPoint):
+        """Returns average data at a point in the field.
+        Args:
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
+        Returns:
+          A Field Data for the position in the DataField (Vector or Data Object).
+        """
+        return self.average_data_source.get_data_at_point(spatio_temporal_point)
+
+    def get_average_area(
+        self,
+        x_interval: List[float],
+        y_interval: List[float],
+        t_interval: List[datetime.datetime],
+        spatial_resolution: Optional[float] = None,
+        temporal_resolution: Optional[float] = None,
+    ) -> xr:
+        """A function to receive the average data for a specific area over a time interval.
+        Args:
+          x_interval: List of the lower and upper x area in the respective coordinate units [x_lower, x_upper]
+          y_interval: List of the lower and upper y area in the respective coordinate units [y_lower, y_upper]
+          t_interval: List of the lower and upper datetime requested [t_0, t_T] in datetime
+          spatial_resolution: spatial resolution in the same units as x and y interval
+          temporal_resolution: temporal resolution in seconds
+        Returns:
+          data_array                    in xarray format that contains the grid and the values
+        """
+        return self.average_data_source.get_data_over_area(
             x_interval, y_interval, t_interval, spatial_resolution, temporal_resolution
         )
 

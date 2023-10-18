@@ -8,10 +8,10 @@ import pandas as pd
 import pytz
 import ray
 import seaborn as sns
-import wandb
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 
+import wandb
 from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
 from ocean_navigation_simulator.reinforcement_learning.missions.CachedNavigationProblem import (
     CachedNavigationProblem,

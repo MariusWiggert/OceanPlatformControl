@@ -12,12 +12,12 @@ import numpy as np
 import pytz
 import ray
 import torch
-import wandb
 from ray.rllib import BaseEnv, Policy, RolloutWorker
 from ray.rllib.algorithms import Algorithm
 from ray.rllib.evaluation import Episode
 from torchinfo import torchinfo
 
+import wandb
 from ocean_navigation_simulator.reinforcement_learning.TrainerFactory import (
     TrainerFactory,
 )

@@ -5,6 +5,7 @@ from ocean_navigation_simulator.data_sources.DataField import DataField
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
     SeaweedGrowthGEOMAR,
     SeaweedGrowthSource,
+    SeaweedGrowthCircles
 )
 
 
@@ -36,10 +37,10 @@ class SeaweedGrowthField(DataField):
         # initialize logger
         self.logger = logging.getLogger("arena.seaweed_growth_field")
         super().__init__(
-            casadi_cache_dict,
-            hindcast_source_dict,
-            forecast_source_dict,
-            use_geographic_coordinate_system,
+            casadi_cache_dict=casadi_cache_dict,
+            hindcast_source_dict=hindcast_source_dict,
+            forecast_source_dict=forecast_source_dict,
+            use_geographic_coordinate_system=use_geographic_coordinate_system,
         )
 
     @staticmethod
@@ -47,6 +48,8 @@ class SeaweedGrowthField(DataField):
         """Helper function to instantiate an OceanCurrentSource object from the dict."""
         if source_dict["source"] == "GEOMAR":
             return SeaweedGrowthGEOMAR(source_dict)
+        if source_dict["source"] == "SeaweedGrowthCircles":
+            return SeaweedGrowthCircles(source_dict)
         else:
             raise NotImplementedError(
                 "Selected source {} in the SeaweedGrowthSource dict is not implemented.".format(

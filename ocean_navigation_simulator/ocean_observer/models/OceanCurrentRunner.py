@@ -13,12 +13,12 @@ from warnings import warn
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import wandb
 import yaml
 from torch import optim
 from torch.nn import functional as F
 from tqdm import tqdm
 
+import wandb
 from ocean_navigation_simulator.ocean_observer.models.CustomOceanCurrentsFromFiles import (
     CustomOceanCurrentsFromFiles,
 )

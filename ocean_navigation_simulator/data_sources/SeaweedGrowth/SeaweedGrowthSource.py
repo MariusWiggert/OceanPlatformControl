@@ -1,6 +1,8 @@
+import abc
 import datetime
+import glob
 import logging
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import casadi as ca
 import matplotlib.pyplot as plt
@@ -44,6 +46,122 @@ class SeaweedGrowthSource(DataSource):
         """
         raise NotImplementedError
 
+    def create_xarray(self, grids_dict: Dict, data_tuple: np.array) -> xr:
+        """Function to create an xarray from the data tuple and grid dict
+        Args:
+          data_tuple/NGR_per_second: np.array containing the data of the data [T, Y, X]
+          grids_dict: containing ranges and grids of x, y, t dimension
+        Returns:
+          xr     an xarray containing both the grid and data
+        """
+        array = xr.Dataset(
+            dict(F_NGR_per_second=(["time", "lat", "lon"], data_tuple)),
+            coords=dict(
+                lon=grids_dict["x_grid"],
+                lat=grids_dict["y_grid"],
+                time=np.round(np.array(grids_dict["t_grid"]) * 1000, 0).astype("datetime64[ms]"),
+            ),
+        )
+
+        array["F_NGR_per_second"].attrs = {
+            "units": "Net Growth Rate Factor per second (*Biomass to get the dMass/dt) "
+        }
+        return array
+
+
+class SeaweedGrowthAnalytical(SeaweedGrowthSource, AnalyticalSource):
+    """Analytical Seaweed Growth Source base class.
+    Children classes need to only implement the F_NGR_per_second_analytical function.
+    """
+
+    def __init__(self, source_config_dict: Dict):
+        super().__init__(source_config_dict)
+        # initialize logger
+        self.logger = logging.getLogger("arena.seaweed_field.seaweed_growth_source")
+
+    @abc.abstractmethod
+    def F_NGR_per_second_analytical(
+            self,
+            lon: Union[float, np.array],
+            lat: Union[float, np.array],
+            posix_time: Union[float, np.array],
+    ) -> Union[float, np.array]:
+        """Calculating the current in longitudinal direction at a specific lat, lon point at posix_time.
+        Note: this can be used for floats as input or np.arrays which are all the same shape.
+        Args:
+            lon: longitude in degree
+            lat: latitude in degree
+            posix_time: POSIX time
+        Returns:
+            F_NGR_per_second     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+        """
+        raise NotImplementedError
+
+    def create_xarray(self, grids_dict: dict, data_tuple: np.array) -> xr:
+        """Function to create an xarray from the data tuple and grid dict
+        Args:
+          data_tuple: np.array of the data (F_NGR_per_second_data)
+          grids_dict: containing ranges and grids of x, y, t dimension
+        Returns:
+          xr     an xarray containing both the grid and data
+        """
+        # make a xarray object out of it
+        return xr.Dataset(
+            dict(
+                F_NGR_per_second=(["time", "lat", "lon"], data_tuple),
+            ),
+            coords=dict(
+                lon=grids_dict["x_grid"],
+                lat=grids_dict["y_grid"],
+                time=np.round(np.array(grids_dict["t_grid"]) * 1000, 0).astype("datetime64[ms]"),
+            ),
+        )
+
+    def map_analytical_function_over_area(self, grids_dict: dict) -> np.array:
+        """Function to map the analytical function over an area with the spatial states and grid_dict times.
+        Args:
+          grids_dict: containing grids of x, y, t dimension
+        Returns:
+          data_tuple     containing the data in tuple format as numpy array (not yet in xarray form)
+        """
+
+        # Step 1: Create the meshgrid numpy matrices for each coordinate
+        LAT, TIMES, LON = np.meshgrid(
+            grids_dict["y_grid"], grids_dict["t_grid"], grids_dict["x_grid"]
+        )
+
+        # Step 2: Feed the arrays into the solar radiation function and return the np.array
+        F_NGR_per_second_data = self.F_NGR_per_second_analytical(lon=LON, lat=LAT, posix_time=TIMES)
+
+        return F_NGR_per_second_data
+
+    def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> xr:
+        """Function to get the data at a specific point.
+        Args:
+          spatio_temporal_point: SpatioTemporalPoint in the respective used coordinate system geospherical or unitless
+        Returns:
+          xr object that is then processed by the respective data source for its purpose
+        """
+        return self.F_NGR_per_second(spatio_temporal_point.to_spatio_temporal_casadi_input())
+
+    def set_casadi_function(self):
+        """Creates the symbolic computation graph for the full casadi function."""
+        # Step 2: Set-Up the casadi graph for the full calculation
+        sym_time = ca.MX.sym("time")  # in posix
+        sym_lon_degree = ca.MX.sym("lon")  # in deg
+        sym_lat_degree = ca.MX.sym("lat")  # in deg
+
+        sym_NGR_per_second = self.F_NGR_per_second_analytical(
+            lon=sym_lon_degree, lat=sym_lat_degree, posix_time=sym_time
+        )
+
+        # Set up the full function
+        self.F_NGR_per_second = ca.Function(
+            "d_biomass_dt_in_seconds",
+            [ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)],
+            [sym_NGR_per_second],
+        )
+
 
 class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
     """Seaweed Growth based on the model from the paper below with various simplifications for our use-case (see Notion).
@@ -68,7 +186,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         source_config_dict = self.add_default_domains(source_config_dict)
         super().__init__(source_config_dict)
         # initialize logger
-        self.logger = logging.getLogger("arena.ocean_field.seaweed_growth_source")
+        self.logger = logging.getLogger("arena.seaweed_field.seaweed_growth_source")
 
         # Initialize variables used to hold casadi functions.
         self.F_NGR_per_second, self.r_growth_wo_irradiance, self.r_resp = [None] * 3
@@ -86,8 +204,12 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
 
     def get_growth_and_resp_data_array_from_file(self) -> xr:
         """Helper function to open the dataset and calculate the metrics derived from nutrients and temp."""
-        # TODO: we can actually just pre-compute it and just load the nc file for those two values.
-        DataArray = xr.open_dataset(self.source_config_dict["source_settings"]["filepath"])
+        # TODO: this can be precomputed and saved as a .nc file to speed up the initialization
+        nc_files = glob.glob(self.source_config_dict["source_settings"]["filepath"] + "*.nc")
+        nc_files = sorted(nc_files, key=lambda x: xr.open_dataset(x).time[0].values)
+
+        DataArray = xr.open_mfdataset(nc_files)
+
         DataArray = DataArray.rename({"latitude": "lat", "longitude": "lon"})
         DataArray = DataArray.assign(
             R_growth_wo_Irradiance=compute_R_growth_without_irradiance(
@@ -97,6 +219,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         DataArray = DataArray.assign(R_resp=compute_R_resp(DataArray["Temperature"]))
         # Just to conserve RAM
         DataArray = DataArray.drop(["Temperature", "no3", "po4"])
+
         return DataArray
 
     @staticmethod
@@ -162,28 +285,6 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         plt.title("Seaweed Growth Factor without Irradiance adjusting per day.")
         plt.show()
 
-    def create_xarray(self, grids_dict: Dict, NGR_per_second: np.array) -> xr:
-        """Function to create an xarray from the data tuple and grid dict
-        Args:
-          NGR_per_second: tuple containing the data of the source as numpy array [T, Y, X]
-          grids_dict: containing ranges and grids of x, y, t dimension
-        Returns:
-          xr     an xarray containing both the grid and data
-        """
-        array = xr.Dataset(
-            dict(F_NGR_per_second=(["time", "lat", "lon"], NGR_per_second)),
-            coords=dict(
-                lon=grids_dict["x_grid"],
-                lat=grids_dict["y_grid"],
-                time=np.round(np.array(grids_dict["t_grid"]) * 1000, 0).astype("datetime64[ms]"),
-            ),
-        )
-
-        array["F_NGR_per_second"].attrs = {
-            "units": "Net Growth Rate Factor per second (*Biomass to get the dMass/dt) "
-        }
-        return array
-
     def map_analytical_function_over_area(self, grids_dict: Dict) -> np.array:
         """Function to map the analytical function over an area with the spatial states and grid_dict times.
         Args:
@@ -196,8 +297,19 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
             grids_dict["y_grid"], grids_dict["t_grid"], grids_dict["x_grid"]
         )
         data_out = self.F_NGR_per_second(ca.DM([TIMES.flatten(), LAT.flatten(), LON.flatten()]))
-        # return reshaped to proper size
+
+        # LAT, LON = np.meshgrid(grids_dict["y_grid"], grids_dict["x_grid"])
+
+        # LON, LAT = np.where((LON >= -79.9) & (LON <= -79.5), 1, 0), np.where(
+        #     (LAT >= -14.9) & (LAT <= -14.5), 1, 0
+        # )
+        # data = np.multiply(LON.T, LAT.T)
+
+        # T = grids_dict["t_grid"].shape[0]
+
+        # data = np.repeat(data[np.newaxis, :, :], T, axis=0)
         return np.array(data_out).reshape(LAT.shape)
+
 
     def get_data_at_point(self, spatio_temporal_point: SpatioTemporalPoint) -> float:
         """Function to get the data at a specific point.
@@ -218,10 +330,50 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
             datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
             datetime.datetime(2024, 1, 10, 0, 0, 0, tzinfo=datetime.timezone.utc),
         ]
-        source_config_dict["source_settings"]["spatial_resolution"] = 0.25
+        source_config_dict["source_settings"]["spatial_resolution"] = 0.1
         source_config_dict["source_settings"]["temporal_resolution"] = 3600
 
         return source_config_dict
 
     def update_casadi_dynamics(self, state: PlatformState) -> None:
         pass
+
+
+class SeaweedGrowthCircles(SeaweedGrowthAnalytical):
+    """Seaweed growth source with multiple circles of growth with different growth rates.
+    The variables are specifeid in the source_settings.
+     source_settings:
+        cirles: [[-0.5, 1, 1]] # [x, y, r]
+        NGF_in_time_units: [1] # [NGF]
+    """
+
+    def F_NGR_per_second_analytical(
+            self,
+            lon: Union[float, np.array],
+            lat: Union[float, np.array],
+            posix_time: Union[float, np.array],
+    ) -> Union[float, np.array]:
+        """Calculating the current in longitudinal direction at a specific lat, lon point at posix_time.
+        Note: this can be used for floats as input or np.arrays which are all the same shape.
+        Args:
+            lon: longitude in degree
+            lat: latitude in degree
+            posix_time: POSIX time
+        Returns:
+            F_NGR_per_second     data as numpy array (not yet in xarray form) in 3D Matrix Time x Lat x Lon
+        """
+        # empty array to store the NGF
+        NGF = 0
+        # loop over all circles
+        for circle, NGF_in_time_unit in zip(self.source_config_dict["source_settings"]['cirles'],
+                                            self.source_config_dict["source_settings"]['NGF_in_time_units']):
+            # Step 1: Create the meshgrid numpy matrices for each coordinate
+            dx = lon - circle[0]
+            dy = lat - circle[1]
+            r = circle[2]
+            signed_distance = np.sqrt(dx ** 2 + dy ** 2) - r
+            # Step 2: Create the NGF and add it up
+            NGF += (signed_distance < 0) * NGF_in_time_unit
+
+        return NGF
+

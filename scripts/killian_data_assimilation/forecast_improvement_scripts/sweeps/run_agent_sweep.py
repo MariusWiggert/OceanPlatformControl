@@ -1,5 +1,4 @@
 import wandb
-
 from ocean_navigation_simulator.ocean_observer.models.OceanCurrentRunner import (
     main,
 )
