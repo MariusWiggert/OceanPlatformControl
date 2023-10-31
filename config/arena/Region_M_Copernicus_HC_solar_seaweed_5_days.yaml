@@ -1,0 +1,60 @@
+casadi_cache_dict:
+    deg_around_x_t: 0.5
+    time_around_x_t: 172800. # 3600 * 24 * 5
+
+platform_dict:
+    battery_cap_in_wh: 400000.0 #400000.0
+    u_max_in_mps: 0.4
+    motor_efficiency: 1.0
+    solar_panel_size: 100
+    solar_efficiency: 1
+    drag_factor: 675.0
+    dt_in_s: 600.0
+
+use_geographic_coordinate_system: True
+
+spatial_boundary: null
+timeout: 432000 # 3600*24*5
+
+ocean_dict:
+    region: "Region Matthias"
+    keep_newest_days: 400
+    hindcast:
+        field: 'OceanCurrents'
+        source: 'hindcast_files'
+        source_settings:
+            folder: 'data/RegionMatthias/Hindcast/'
+            source: 'Copernicus'
+            type: "hindcast"
+            #local: True
+#         field: 'OceanCurrents'
+#         source: 'opendap'
+#         source_settings:
+#             service: "copernicus"
+#             currents: "total"
+#             USERNAME: "mmariuswiggert"
+#             PASSWORD: "tamku3-qetroR-guwneq"
+#             DATASET_ID: "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i"
+    forecast: null
+
+solar_dict:
+    hindcast: 
+        field: 'SolarIrradiance'
+        source: 'analytical_wo_caching' # can also be analytical_w_caching
+        source_settings:
+            boundary_buffer: [0.2, 0.2]
+            x_domain: [-180, 180]
+            y_domain: [-90, 90]
+            temporal_domain: [2020-01-01 00:00:00Z, 2023-01-10 00:00:00Z]
+            spatial_resolution: 0.25
+            temporal_resolution: 3600 
+    forecast: null
+
+seaweed_dict:
+    hindcast: 
+        field: 'SeaweedGrowth'
+        source: 'GEOMAR'
+        source_settings:
+            filepath: './ocean_navigation_simulator/package_data/nutrients/' #'./data/nutrients/2022_monthly_nutrients_and_temp.nc' 
+    forecast: null
+    

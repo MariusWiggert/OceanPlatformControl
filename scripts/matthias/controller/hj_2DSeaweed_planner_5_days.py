@@ -26,66 +26,38 @@ from ocean_navigation_simulator.utils.misc import get_c3, set_arena_loggers
 from ocean_navigation_simulator.utils.plotting_utils import set_palatino_font, set_palatino_font_plotly
 set_palatino_font()
 set_palatino_font_plotly()
-os.close(0)  # close standard input stream
-os.close(1)  # close standard output stream
-os.close(2)  # close standard error stream
-os.open(os.devnull, os.O_RDWR)  # open null device as standard input stream
-os.dup(0)  # duplicate standard input stream to standard output stream
+# os.close(0)  # close standard input stream
+# os.close(1)  # close standard output stream
+# os.close(2)  # close standard error stream
+# os.open(os.devnull, os.O_RDWR)  # open null device as standard input stream
+# os.dup(0)  # duplicate standard input stream to standard output stream
 
 %load_ext autoreload
 %autoreload 2
-# %% Initialize
-# os.chdir(
-#     "/Users/matthiaskiller/Library/Mobile Documents/com~apple~CloudDocs/Studium/Master RCI/Masters Thesis/Code/OceanPlatformControl"
-# )
+# % Initialize
 set_arena_loggers(logging.ERROR)
-
-scenario_name = "Region_M_HC_as_forecast_daily+monthly_averages_Copernicus_HC_solar_seaweed"  # "Region_3_Copernicus_HC_solar_seaweed"
-
-# Initialize the Arena (holds all data sources and the platform, everything except controller)
-# we can also download the respective files directly to a temp folder, then t_interval needs to be set
-# % Specify Navigation Problem
-# x_0 = PlatformState(
-#     lon=units.Distance(deg=-150),
-#     lat=units.Distance(deg=30),
-#     date_time=datetime.datetime(2022, 7, 24, 12, 0, tzinfo=datetime.timezone.utc),
-# )
-# x_T = SpatialPoint(lon=units.Distance(deg=-120), lat=units.Distance(deg=70))
-
-#%% init weights & biases
-with open(f"config/arena/{scenario_name}.yaml") as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-# wandb.init(project="Long Horizon Seaweed Maximization", entity="ocean-platform-control", config=config)
-
-
-#%%
-# x_0 = PlatformState(
-#     lon=units.Distance(deg=-83.1),
-#     lat=units.Distance(deg=23.2),
-#     date_time=datetime.datetime(2021, 11, 23, 12, 0, tzinfo=datetime.timezone.utc),
-# )
-# x_T = SpatialPoint(lon=units.Distance(deg=-83.1), lat=units.Distance(deg=23.2))
+scenario_name = "Region_M_Copernicus_HC_solar_seaweed_5_days"  # "Region_3_Copernicus_HC_solar_seaweed"
+#%
 x_0 = PlatformState(
     lon=units.Distance(deg=-91),
     lat=units.Distance(deg=-3.05),
     date_time=datetime.datetime(2022, 1, 4, 16, 16, 36, tzinfo=datetime.timezone.utc),
 )
-# %%
+# %
 arena = ArenaFactory.create(
     scenario_name=scenario_name,
     # t_interval=[
     #     x_0.date_time - datetime.timedelta(days=2),
     #     x_0.date_time + datetime.timedelta(days=65),
     # ],
+    throw_exceptions=True,
     points=[x_0.to_spatial_point()],
 )
-
+#%%
 problem = SeaweedProblem(
     start_state=x_0,
     platform_dict=arena.platform.platform_dict,
 )
-
-# %% arena
 
 # %% Plot the problem on the map
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
@@ -94,8 +66,8 @@ t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_
     deg_around_x0_xT_box=12,
     temp_horizon_in_s=3600,
 )
-lat_bnds = [-40, 0]
-lon_bnds = [-130, -70]
+# lat_bnds = [-40, 0]
+# lon_bnds = [-130, -70]
 # # %%
 ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     time=x_0.date_time,
@@ -104,24 +76,27 @@ ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
     return_ax=True,
     quiver_spatial_res=1,
     quiver_scale=22,
-    # vmax=1.2,
-    alpha=0,
+    vmax=1.2,
+    # alpha=0,
     quiver_headwidth=1.2,
 )
+plt.show()
 # problem.plot(ax=ax)
 #plt.tight_layout()
-plt.savefig("currents_25S_0_108W_70W.png", dpi=1200)
-plt.show()
-# # %%
-ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
-)
-problem.plot(ax=ax)
-plt.show()
+# plt.savefig("currents_25S_0_108W_70W.png", dpi=1200)
+# plt.show()
+# # # %%
+# ax = arena.ocean_field.forecast_data_source.plot_data_at_time_over_area(
+#     time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+# )
+# problem.plot(ax=ax)
+# plt.show()
 # %%
 ax = arena.seaweed_field.hindcast_data_source.plot_data_at_time_over_area(
-    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=True
+    time=x_0.date_time, x_interval=lon_bnds, y_interval=lat_bnds, return_ax=False
 )
+#%%
+arena.seaweed_field.hindcast_data_source.plot_R_growth_wo_Irradiance(time=x_0.date_time)
 #%%
 fig = ax.get_figure()
 fig = plt.figure(fig)
@@ -136,17 +111,17 @@ specific_settings = {
     "replan_on_new_fmrc": True,
     "replan_every_X_seconds": False,
     "direction": "backward",
-    "n_time_vector": 24 * 60,
+    "n_time_vector": 24 * 5,
     # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
-    "deg_around_xt_xT_box": 60,  # area over which to run HJ_reachability
-    "deg_around_xt_xT_box_average": 12,  # area over which to run HJ_reachability for average data
+    "deg_around_xt_xT_box": 5,  # area over which to run HJ_reachability
+    # "deg_around_xt_xT_box_average": 0,  # area over which to run HJ_reachability for average data
     "accuracy": "high",
     "artificial_dissipation_scheme": "local_local",
-    "T_goal_in_seconds": 3600 * 24 * 60 - 1,
+    "T_goal_in_seconds": 3600 * 24 * 6,
     "use_geographic_coordinate_system": True,
     "progress_bar": True,
     "grid_res": 0.166,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
-    "r": 0.166,  # Grid res for average data  Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    # "r": 0.166,  # Grid res for average data  Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
     "d_max": 0.0,
     "calc_opt_traj_after_planning": False,
     "x_interval_seaweed": [-130, -70],
@@ -191,8 +166,8 @@ fig, ax = plt.subplots()
 ax = arena.plot_seaweed_trajectory_on_timeaxis(ax=ax)
 fig.canvas.draw()
 ax.draw(fig.canvas.renderer)
-
-plt.savefig("seaweed_trajectory_on_timeaxis_DF.png", dpi=1200)
+plt.show()
+# plt.savefig("seaweed_trajectory_on_timeaxis_DF.png", dpi=1200)
 #%%
 ax = arena.plot_all_on_map(
     problem=problem,
