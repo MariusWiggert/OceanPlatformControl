@@ -12,9 +12,11 @@ from ocean_navigation_simulator.problem_factories.Constructor import Constructor
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
 set_arena_loggers(logging.DEBUG)
+%load_ext autoreload
+%autoreload 2
 
 # Set-Up for Simulation
-#%% Platform Speed, Forecasted and true currents
+#% Platform Speed, Forecasted and true currents
 # Forecast System that we can use:
 # - HYCOM Global (daily forecasts, xh resolution, 1/12 deg spatial resolution)
 # - Copernicus Global (daily forecasts for 5 days out, xh resolution, 1/12 deg spatial resolution)
@@ -90,7 +92,7 @@ arena_config = {
 
 objectiveConfig = {"type": "nav"}
 
-#%% Controller Settings
+#% Controller Settings
 t_max_planning_ahead_in_seconds = 3600*60 # that is 60h
 
 ctrl_config={  'T_goal_in_seconds': t_max_planning_ahead_in_seconds,
@@ -110,7 +112,7 @@ ctrl_config={  'T_goal_in_seconds': t_max_planning_ahead_in_seconds,
               'calc_opt_traj_after_planning': True,
               'use_geographic_coordinate_system': True}
 
-#%% Mission Settings Start -> Target
+#% Mission Settings Start -> Target
 print("current UTC datetime is: ", datetime.datetime.now())
 
 start_time = "2023-05-25T19:00:00+00:00"  # in UTC

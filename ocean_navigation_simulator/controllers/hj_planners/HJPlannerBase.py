@@ -49,7 +49,7 @@ class HJPlannerBase(Controller):
         See Planner class for the rest of the attributes.
     """
 
-    def __init__(self, problem: NavigationProblem, specific_settings: dict):
+    def __init__(self, problem: NavigationProblem, specific_settings: dict, **kwargs):
         """
         Constructor for the HJ Planner Baseclass.
         Args:

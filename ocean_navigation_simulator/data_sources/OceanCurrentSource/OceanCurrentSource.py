@@ -131,15 +131,16 @@ class OceanCurrentSource(DataSource):
         # set and format colorbar
         if colorbar and colorized_background:
             divider = make_axes_locatable(ax)
-            cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
+            cax = divider.append_axes(position="right", size="5%", pad=0.2, axes_class=plt.Axes)
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
             cbar.ax.set_ylabel("current velocity [m/s]")
             cbar.ax.tick_params(labelsize=17)
             cbar.ax.set_facecolor("white")
             cbar.set_ticks(cbar.get_ticks())
             precision = 1
-            if int(vmin * 10) == int(vmax * 10):
-                precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
+            if vmin and vmax:
+                if int(vmin * 10) == int(vmax * 10):
+                    precision = 2 if int(vmin * 100) != int(vmin * 100) else 3
             cbar.set_ticklabels(
                 ["{:.{prec}f}".format(t, prec=precision) for t in cbar.get_ticks().tolist()]
             )
@@ -170,7 +171,7 @@ class OceanCurrentSource(DataSource):
             )
 
         if set_title:
-            ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M UTC"), fontsize=20)
+            ax.set_title("Time: " + time.strftime("%Y-%m-%d %H:%M UTC"), fontsize=15)
         ax.set_facecolor("white")
         if return_cbar:
             return ax, cbar

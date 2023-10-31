@@ -52,7 +52,7 @@ problem = SeaweedProblem(
 # %% Plot the problem on the map
 t_interval, lat_bnds, lon_bnds = arena.ocean_field.hindcast_data_source.convert_to_x_y_time_bounds(
     x_0=x_0.to_spatio_temporal_point(),
-    x_T=x_0.to_spatio_temporal_point(),
+    x_T=x_0.to_spatial_point(),
     deg_around_x0_xT_box=10,
     temp_horizon_in_s=3600,
 )

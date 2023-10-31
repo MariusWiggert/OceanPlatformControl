@@ -11,7 +11,7 @@ from ocean_navigation_simulator.environment.NavigationProblem import (
 )
 from ocean_navigation_simulator.environment.PlatformState import (
     PlatformState,
-    SpatioTemporalPoint,
+    SpatioTemporalPoint, SpatialPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
 from ocean_navigation_simulator.environment.SeaweedProblem import (

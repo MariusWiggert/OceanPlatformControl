@@ -476,7 +476,7 @@ class DataSource(abc.ABC):
             divider = make_axes_locatable(ax)
             cax = divider.append_axes(position="right", size="5%", pad=0.15, axes_class=plt.Axes)
             cbar = plt.colorbar(im, orientation="vertical", cax=cax)
-            cbar.ax.set_ylabel("current velocity in m/s")
+            cbar.ax.set_ylabel(var_to_plot)
             cbar.set_ticks(cbar.get_ticks())
             precision = 1
             if int(vmin * 10) == int(vmax * 10):

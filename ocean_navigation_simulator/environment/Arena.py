@@ -50,6 +50,7 @@ from ocean_navigation_simulator.environment.PlatformState import (
     SpatioTemporalPoint,
 )
 from ocean_navigation_simulator.environment.Problem import Problem
+from ocean_navigation_simulator.environment.SeaweedProblem import SeaweedProblem
 from ocean_navigation_simulator.utils.misc import timing_logger
 from ocean_navigation_simulator.utils.plotting_utils import (
     animate_trajectory,
@@ -485,7 +486,7 @@ class Arena:
         margin: Optional[float] = 1,
         x_interval: Optional[List[float]] = None,
         y_interval: Optional[List[float]] = None,
-        problem: Optional[NavigationProblem] = None,
+        problem: Optional[Union[NavigationProblem, SeaweedProblem]] = None,
         background: Optional[str] = "current",
         temporal_resolution: Optional[float] = None,
         add_ax_func_ext: Optional[Callable] = None,
@@ -605,7 +606,7 @@ class Arena:
         control_stride: Optional[int] = 1,
         control_vec_scale: Optional[int] = 4,
         # Problem (Target)
-        problem: Optional[Problem] = None,
+        problem: Optional[Union[NavigationProblem, SeaweedProblem]] = None,
         problem_start_color: Optional[str] = "red",
         problem_target_color: Optional[str] = "green",
         x_interval: Optional[List] = None,
