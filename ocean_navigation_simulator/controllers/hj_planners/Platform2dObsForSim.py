@@ -39,6 +39,7 @@ class Platform2dObsForSim(Platform2dForSimAffine):
         disturbance_mode: Union["min", "max"] = "max",
         obstacle_file: str = None,
         safe_distance_to_obstacle: float = 0,
+        **kwargs
     ):
         super().__init__(
             u_max, d_max, use_geographic_coordinate_system, control_mode, disturbance_mode

@@ -1,12 +1,18 @@
 import numpy as np
 import xarray as xr
 
-# Constants for a specific seaweed species
+# Constants we use for Kelp (San Francisco Bay Experiment)
+# temperature
+T_opt = 12  # celsius
+T_max = 20  # celsius
+T_min = 5  # celsius
+
+# Constants for a specific seaweed species (tropical species)
 # TODO: which units are all of them in?
 # temperature
-T_opt = 20  # celsius
-T_max = 25  # celsius
-T_min = 0  # celsius
+# T_opt = 20  # celsius
+# T_max = 25  # celsius
+# T_min = 0  # celsius
 # nutrients
 K_N = 2
 K_P = 0.1

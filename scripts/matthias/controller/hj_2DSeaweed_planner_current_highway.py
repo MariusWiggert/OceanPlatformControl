@@ -24,8 +24,8 @@ from ocean_navigation_simulator.utils import units
 from ocean_navigation_simulator.utils.misc import set_arena_loggers
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import SeaweedGrowthCircles
 
-# %load_ext autoreload
-# %autoreload 2
+%load_ext autoreload
+%autoreload 2
 
 # % Initialize
 set_arena_loggers(logging.INFO)
@@ -94,8 +94,7 @@ specific_settings = {
     # The higher the discount factor, the MORE the planner cares about the future.
     # This is the opposite of the usual RL discount factor!
     # E.g. if we set it to 100, that means at each time-step the value function is reduced by 1/100th*dt of it's value.
-    'discount_factor_tau': False, #50 #False, #10,
-    'affine_dynamics': True,
+    'discount_factor_tau': 50, #50 #False, #10,
 }
 
 planner = HJBSeaweed2DPlanner(arena=arena, problem=problem, specific_settings=specific_settings)

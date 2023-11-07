@@ -267,6 +267,8 @@ class HJPlannerBaseDim(Controller):
                     "HJPlanner Warning: Extrapolating time beyond the reach_times, should replan."
                 )
                 rel_time = self.reach_times[-1]
+            elif rel_time < 0:
+                raise ValueError("HJPlanner Error: Negative relative time from self.current_data_t_0, should not happen.")
 
             # Extract the optimal control from the calculated value function at the specific platform state.
             try:
@@ -285,7 +287,7 @@ class HJPlannerBaseDim(Controller):
                 raise
 
         # if affine dynamics we need to transform the u_x and u_y to u_propulsion and direction theta
-        if isinstance(self.dim_dynamics.base_sim_class, Platform2dForSimAffine):
+        if isinstance(self.dim_dynamics, Platform2dForSimAffine):
             return PlatformAction.from_xy_propulsion(
                 x_propulsion=u_out[0]/self.dim_dynamics.u_max,
                 y_propulsion=u_out[1]/self.dim_dynamics.u_max)

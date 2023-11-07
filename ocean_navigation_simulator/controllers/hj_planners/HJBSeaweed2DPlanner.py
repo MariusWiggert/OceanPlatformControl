@@ -23,8 +23,7 @@ from ocean_navigation_simulator.controllers.hj_planners.HJPlannerBaseDim import 
 )
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedFunction import irradianceFactor
 from ocean_navigation_simulator.controllers.hj_planners.Platform2dSeaweedForSim import (
-    Platform2dSeaweedForSim,
-    Platform2dSeaweedForSimDiscount,
+    seaweed_platform_factory
 )
 from ocean_navigation_simulator.data_sources.DataSource import DataSource
 from ocean_navigation_simulator.data_sources.SeaweedGrowth.SeaweedGrowthSource import (
@@ -95,29 +94,23 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
 
     def get_dim_dynamical_system(self):
         """Initialize 2D (lat, lon) Platform dynamics in deg/s."""
-        if self.specific_settings.get("discount_factor_tau", False):
-            return Platform2dSeaweedForSimDiscount(
-                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
-                d_max=self.specific_settings["d_max"],
-                use_geographic_coordinate_system=self.specific_settings[
-                    "use_geographic_coordinate_system"
-                ],
-                control_mode="min",
-                disturbance_mode="max",
-                discount_factor_tau=self.specific_settings["discount_factor_tau"],
-                affine_dynamics=self.specific_settings.get("affine_dynamics", False),
-            )
+        if "obstacle_dict" in self.specific_settings:
+            obstacle_file = self.specific_settings["obstacle_dict"]["obstacle_file"]
+            safe_distance_to_obstacle = self.specific_settings["obstacle_dict"]["safe_distance_to_obstacle"]
         else:
-            return Platform2dSeaweedForSim(
-                u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
-                d_max=self.specific_settings["d_max"],
-                use_geographic_coordinate_system=self.specific_settings[
-                    "use_geographic_coordinate_system"
-                ],
-                control_mode="min",
-                disturbance_mode="max",
-                affine_dynamics=self.specific_settings.get("affine_dynamics", False),
-            )
+            obstacle_file = None
+            safe_distance_to_obstacle = 0
+
+        return seaweed_platform_factory(
+            obstacles=True if "obstacle_dict" in self.specific_settings else False,
+            use_geographic_coordinate_system=self.specific_settings["use_geographic_coordinate_system"],
+            u_max=self.specific_settings["platform_dict"]["u_max_in_mps"],
+            d_max=self.specific_settings["d_max"],
+            control_mode="min",
+            disturbance_mode="max",
+            discount_factor_tau=self.specific_settings.get("discount_factor_tau", 0.0),
+            obstacle_file=obstacle_file,
+            safe_distance_to_obstacle=safe_distance_to_obstacle)
 
     def _dirichlet(self, x, pad_width: int):
         """Dirichlet boundry conditions for PDE solve"""
@@ -143,15 +136,25 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
     def get_initial_values(self, direction) -> jnp.ndarray:
         """Setting the initial values for the HJ PDE solver."""
         if direction == "forward":
-            return jnp.zeros(self.grid.shape)
+            value_function = jnp.zeros(self.grid.shape)
         elif direction == "backward":
-            return jnp.zeros(self.grid.shape)
+            value_function = jnp.zeros(self.grid.shape)
         elif direction == "multi-time-reach-back":
             raise NotImplementedError("HJPlanner: Multi-Time-Reach not implemented yet")
         else:
             raise ValueError(
                 "Direction in specific_settings of HJPlanner needs to be forward, backward, or multi-reach-back."
             )
+        # Add obstacle values
+        if "obstacle_dict" in self.specific_settings:
+            # Step 1: load specific area of the obstacle array (take lat lon bounds from self.grid)
+            binary_obs_map = self.dim_dynamics.binary_obs_map
+            # Step 2: Masking of value function so that at obstacle value is obstcl_value, the rest is value function
+            value_function = (
+                    value_function * (1 - binary_obs_map.T)
+                    + self.specific_settings["obstacle_dict"]["obstacle_value"] * binary_obs_map.T
+            )
+        return value_function
 
     def _get_idx_closest_value_in_array(self, array: np.ndarray, value: Union[int, float]) -> int:
         """Takes a value and an array and returns the index of the closest value in the array.
@@ -364,13 +367,20 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         # Extract FC length in seconds -> if else in order to also work with toy examples i.e current highway
         # TODO: change to posix time
 
+        # check if running with observer or with raw observation from Arena
+        if hasattr(observation.forecast_data_source, "forecast_data_source"):
+            # then we run with an observer
+            fc_data_source = observation.forecast_data_source.forecast_data_source
+        else:
+            fc_data_source = observation.forecast_data_source
+
         # Check if FC source is from type ForecastFromHindcastSource and retrieve forecast length from source config
         if isinstance(
-            observation.forecast_data_source.forecast_data_source,
+            fc_data_source,
             ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.ForecastFromHindcastSource,
         ):
             self.forecast_length = (
-                observation.forecast_data_source.forecast_data_source.forecast_length_in_days
+                fc_data_source.forecast_length_in_days
                 * 3600
                 * 24
             )
@@ -378,17 +388,17 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         elif (
             hasattr(observation.forecast_data_source, "forecast_data_source")
             and not isinstance(
-                observation.forecast_data_source.forecast_data_source,
+                fc_data_source,
                 ocean_navigation_simulator.data_sources.OceanCurrentSource.OceanCurrentSource.HindcastFileSource,
             )
             and not isinstance(
-                observation.forecast_data_source.forecast_data_source,
+                fc_data_source,
                 ocean_navigation_simulator.data_sources.OceanCurrentSource.AnalyticalOceanCurrents.OceanCurrentSourceAnalytical,
             )
         ):
             self.forecast_length = int(
                 (
-                    observation.forecast_data_source.forecast_data_source.DataArray.time.max()
+                    fc_data_source.DataArray.time.max()
                     - np.datetime64(observation.platform_state.date_time, "ns")
                 )
                 / np.timedelta64(1, "s")
@@ -412,7 +422,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
             x_0=observation.platform_state.to_spatio_temporal_point(),
             x_T=observation.platform_state.to_spatio_temporal_point(),
-            deg_around_x0_xT_box=self.specific_settings["deg_around_xt_xT_box_average"],
+            deg_around_x0_xT_box=self.specific_settings["deg_around_xt_xT_box"] if self.forecast_length < self.specific_settings["T_goal_in_seconds"] else self.specific_settings["deg_around_xt_xT_box_average"],
             temp_horizon_in_s=self.specific_settings["T_goal_in_seconds"],
         )
 
@@ -453,6 +463,9 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 lon=slice(x_interval[0], x_interval[1]),
                 lat=slice(y_interval[0], y_interval[1]),
             )
+            # align spatial dimensions (lat, lon) of solar and growth data (a bit wasteful in compute, can change it
+            # above when get_data_over_area is called, but ok for now.)
+            solar_xarray = solar_xarray.interp(lat=growth_xarray.lat, lon=growth_xarray.lon, method='linear')
             # calculate irradiance factor
             solar_xarray = solar_xarray.assign(
                 irradianceFactor=lambda x: irradianceFactor(x.solar_irradiance)

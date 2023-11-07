@@ -266,6 +266,7 @@ class Platform2dForSimAffine(dynamics.ControlAndDisturbanceAffineDynamics):
         use_geographic_coordinate_system: bool = True,
         control_mode: Union["min", "max"] = "min",
         disturbance_mode: Union["min", "max"] = "max",
+        **kwargs
     ):
 
         # set variables
