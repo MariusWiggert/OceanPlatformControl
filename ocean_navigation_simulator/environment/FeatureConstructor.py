@@ -1,6 +1,6 @@
 import abc
 
-import gym
+# import gym
 import numpy as np
 
 from ocean_navigation_simulator.environment.Arena import ArenaObservation
@@ -15,7 +15,7 @@ and then convert to a numpy array that the RL model can use.
 class FeatureConstructor(abc.ABC):
     @staticmethod
     @abc.abstractmethod
-    def get_observation_space(config) -> gym.spaces.Box:
+    def get_observation_space(config):
         pass
 
     @abc.abstractmethod
