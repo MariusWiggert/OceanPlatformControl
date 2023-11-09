@@ -269,6 +269,13 @@ class HJPlannerBaseDim(Controller):
                 rel_time = self.reach_times[-1]
             elif rel_time < 0:
                 raise ValueError("HJPlanner Error: Negative relative time from self.current_data_t_0, should not happen.")
+            elif rel_time < self.reach_times[0]:
+                self.logger.warning(
+                    "HJPlanner Warning: Interpolating time before the reach_times, some error in data?. Using self.reach_times[0]"
+                )
+                rel_time = self.reach_times[0]
+            elif rel_time == self.reach_times[0]:
+                rel_time = self.reach_times[0] + 1e-3
 
             # Extract the optimal control from the calculated value function at the specific platform state.
             try:

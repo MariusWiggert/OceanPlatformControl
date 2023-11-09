@@ -71,7 +71,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             "grid_res": 0.083,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
             "grid_res_average": 0.166,  # Grid res for average data
             "deg_around_xt_xT_box": 8.2,  # Area over which to run HJ_reachability
-            "deg_around_xt_xT_box_average": 50,  # area over which to run HJ_reachability for average data
+            "deg_around_xt_xT_box_average": 2.0,  # area over which to run HJ_reachability for average data
             "dirichlet_boundry_constant": 0,
         } | self.specific_settings
         (
@@ -422,7 +422,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
         t_interval, y_interval, x_interval = DataSource.convert_to_x_y_time_bounds(
             x_0=observation.platform_state.to_spatio_temporal_point(),
             x_T=observation.platform_state.to_spatio_temporal_point(),
-            deg_around_x0_xT_box=self.specific_settings["deg_around_xt_xT_box"] if self.forecast_length < self.specific_settings["T_goal_in_seconds"] else self.specific_settings["deg_around_xt_xT_box_average"],
+            deg_around_x0_xT_box=self.specific_settings["deg_around_xt_xT_box"] if self.forecast_length > self.specific_settings["T_goal_in_seconds"] else self.specific_settings["deg_around_xt_xT_box_average"],
             temp_horizon_in_s=self.specific_settings["T_goal_in_seconds"],
         )
 
