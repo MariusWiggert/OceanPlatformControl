@@ -2,7 +2,8 @@ import os
 import datetime
 import logging
 import random
-
+%load_ext autoreload
+%autoreload 2
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -39,8 +40,103 @@ import wandb
 
 c3 = get_c3()
 
+#%%
+import wandb
+import random
+os.environ["WANDB_API_KEY"] = "58d4e4678afaad11453362a7b2af8b95e862d4f3"
+
+# start a new wandb run to track this script
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="CaliforniaRealOceanTests",
+
+    # track hyperparameters and run metadata
+    config={
+        "learning_rate": 0.02,
+        "architecture": "CNN",
+        "dataset": "CIFAR-100",
+        "epochs": 10,
+    }
+)
+
+# simulate training
+epochs = 10
+offset = random.random() / 5
+for epoch in range(2, epochs):
+    acc = 1 - 2 ** -epoch - random.random() / epoch - offset
+    loss = 2 ** -epoch + random.random() / epoch + offset
+
+    # log metrics to wandb
+    wandb.log({"acc": acc, "loss": loss})
+
+# [optional] finish the wandb run, necessary in notebooks
+wandb.finish()
+#%%
+os.environ["WANDB_API_KEY"] = "58d4e4678afaad11453362a7b2af8b95e862d4f3"
+wandb.init(
+            # Set the project where this run will be logged
+            project="CaliforniaRealOceanTests",
+            entity="ocean-platform-control",
+            # pass a run name (otherwise it'll be randomly assigned, like sunshine-lollypop-10)
+            name="test_name2",
+            settings=wandb.Settings(start_method="fork") # if this doesn't work try without this line
+        )
+
+# Generate dummy data for x and y values
+x_values = range(0, 100)
+y_values = [2 * x + 3 + random.uniform(-10, 10) for x in x_values]
+
+data = [[x, y] for (x, y) in zip(x_values, y_values)]
+
+# Create a wandb.Table
+table = wandb.Table(data=data, columns=["x", "y"])
+
+# Log the line plot to W&B
+wandb.log(
+    {"my_custom_plot_id": wandb.plot.line(table, "x", "y",
+           title="Custom Y vs X Line Plot")}
+)
+
+wandb.finish()
+#%%
+# ctrlConfig['ctrl_name'] = 'ocean_navigation_simulator.controllers.PassiveFloatingController.PassiveFloatingController'
+#%%
+experiment_name = "umax_0.2_TEST"
+exp = c3.Experiment.get(experiment_name)
+#exp.remove()
+#%% get all ocean sim runs
+experiment = 'mission.experiment.id==' + '"' + exp.id + '"'
+objs_list = c3.OceanSimRun.fetch(spec={'include': "[this]",'filter':  experiment}).objs
+print("Total of {} OceanSimRuns".format(len(objs_list)))
+
+staged_to_run = 0
+running_sim = 0
+finished_running = 0
+run_failed = 0
+for run in objs_list:
+    if run.status == 'staged_to_run':
+        staged_to_run += 1
+    elif run.status == 'running_sim':
+        running_sim += 1
+    elif run.status == 'finished_running':
+        finished_running += 1
+    elif run.status == 'run_failed':
+        run_failed += 1
+
+print("staged_to_run: ", staged_to_run)
+print("running_sim: ", running_sim)
+print("finished_running: ", finished_running)
+print("run_failed: ", run_failed)
+
+#%%
+objs_list[6]
+#%%
+exp.createOceanSimRuns(ctrl_name='NaiveToTarget', obs_name='NoObserver')
+#%%
+
 run = c3.OceanSimRun.get(
-    "umax_0.3_30d_HC_copernicus_mission_nr_1298_SeaweedHJController_deg_HC_50_affine_bc_1_NoObserver"
+    "umax_0.2_TEST_batch_seed_122_0_SeaweedHJController_2_deg_test_gpu_NoObserver"
+    # "umax_0.2_TEST_batch_seed_122_1_NaiveToTarget_NoObserver"
 )
 
 
@@ -54,7 +150,265 @@ this = run.get(
 )
 this
 
-set_arena_loggers(logging.INFO)
+set_arena_loggers(logging.DEBUG)
+
+#%
+
+import contextlib
+import shutil
+import time
+import wandb
+from ocean_navigation_simulator.utils.misc import get_c3, set_arena_loggers
+
+
+@contextlib.contextmanager
+def dummy_context_mgr():
+    yield None
+
+# try:
+# ensure we have all necessary data to run
+this = this.get(
+    "mission.missionConfig, mission.experiment.timeout_in_sec,"
+    + "mission.experiment.arenaConfig, mission.experiment.objectiveConfig,"
+    + "controllerSetting.ctrlConfig, observerSetting.observerConfig"
+)
+
+# # Step 0: check if mission is ready_to_run before running
+# if this.mission.get("status").status != 'ready_to_run':
+#     oceanSimResult = c3.OceanSimResult(**{
+#         'error_message': 'Mission status is not ready_to_run, run feasibility check first or manually set status.',
+#     })
+#     new_osr = c3.OceanSimRun(**{'id': this.id, 'status': 'run_failed', 'oceanSimResult': oceanSimResult})
+#     new_osr.merge()
+#     return new_osr
+
+# update the entry while it's running
+new_osr = c3.OceanSimRun(**{"id": this.id, "status": "running_sim"})
+new_osr.merge()
+
+# set download directories (ignore set ones in arenaConfig)
+arenaConfig = this.mission.experiment.arenaConfig
+
+### Prepare data for WandB
+ctrlConfig = this.controllerSetting.ctrlConfig
+missionConfig = this.mission.missionConfig
+observerConfig = this.observerSetting.observerConfig
+
+# Prepare variables for run naming
+
+# Planning horizon in days
+#TODO: how to make this work for naive?
+T_in_days = ctrlConfig.get("T_goal_in_seconds",3600*24*5) / (24 * 3600)
+
+# Prepare string whether we use only HC or FC/HC
+if arenaConfig["ocean_dict"]["forecast"] is not None:
+    data_sources = "FC_HC"
+else:
+    data_sources = "HC"
+
+if (
+    ctrlConfig["ctrl_name"]
+    == "ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner.HJBSeaweed2DPlanner"
+):
+    ctrl_name = "HJ"
+else:
+    ctrl_name = "undefined"
+
+umax = arenaConfig["platform_dict"]["u_max_in_mps"]
+#TODO: how to make this work for naive?
+deg_around_xt_xT_box = ctrlConfig.get("deg_around_xt_xT_box",2.0)
+grid_res = ctrlConfig.get("grid_res",0.1)
+
+# if not ctrlConfig.get("precomputation", False):
+# Log metrics in WandB
+os.environ["WANDB_API_KEY"] = "58d4e4678afaad11453362a7b2af8b95e862d4f3"
+
+# Randomly delay some runs in order stay within wandb request limits (200 per minute)
+# Generate a random delay - default 0
+delay = random.randint(0, ctrlConfig.get("wandb_delay", 0))
+# Pause the execution of code for the generated random delay value
+time.sleep(delay)
+
+# wandb.init(
+#     # Set the project where this run will be logged
+#     project="CaliforniaRealOceanTests",
+#     entity="mariuswiggert",
+#     id=this.id,
+#     # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+#     name=f"{ctrl_name}_{data_sources}_days_{T_in_days}_u_{umax}_deg_{deg_around_xt_xT_box}_res_{grid_res}_id_{this.id}",
+#     # Track hyperparameters and run metadata
+#     config={
+#         "missionConfig": missionConfig,
+#         "arenaConfig": arenaConfig,
+#         "ctrlConfig": ctrlConfig,
+#         "observerConfig": observerConfig,
+#         "mission.id": this.mission.id,
+#         "experiment.id": this.mission.experiment.id,
+#         # "path_to_local_data": user_param["metrics_dir"],
+#     },
+#     settings=wandb.Settings(start_method="fork"),
+# )
+
+# create strings for all files and external directories where to save results
+# Set up file paths and download folders
+temp_folder = "/tmp/" + this.id + "/"
+# create the folder if it doesn't exist yet
+if not os.path.isdir(temp_folder):
+    os.mkdir(temp_folder)
+traj_file_name = this.id + ".obj"
+extDir = (
+    "ocean_sim_run_results/"
+    + this.mission.experiment.id
+    + "/OceanSimRuns/"
+    + this.id
+)
+set_arena_loggers(logging.DEBUG)
+# Get and set the correct path to the nutrient and monthly average files (for c3) - !! CONFIG gets overwritten!!
+filepath = ocean_navigation_simulator.__file__
+module_path = os.path.dirname(filepath)
+nutrient_path = module_path + "/package_data/nutrients/"
+seaweed_maps_path = module_path + "/package_data/seaweed_growth_maps/"
+averages_path = module_path + "/package_data/monthly_averages/"
+
+ctrlConfig["seaweed_precomputation_folder"] = seaweed_maps_path
+
+arenaConfig["seaweed_dict"]["hindcast"]["source_settings"][
+    "filepath"
+] = nutrient_path
+
+arenaConfig["timeout"] = this.mission.experiment.timeout_in_sec
+to_download_forecast_files = False
+
+# for hindcast
+arenaConfig["ocean_dict"]["hindcast"]["source_settings"]["folder"] = (
+    "/tmp/" + this.id + "/hindcast_files/"
+)
+# For forecast
+if arenaConfig["ocean_dict"]["forecast"] is not None:
+    arenaConfig["ocean_dict"]["forecast"]["source_settings"]["folder"] = (
+        "/tmp/" + this.id + "/forecast_files/"
+    )
+    to_download_forecast_files = (
+        arenaConfig["ocean_dict"]["forecast"]["source"] == "forecast_files"
+        or arenaConfig["ocean_dict"]["forecast"]["source"]
+        == "hindcast_as_forecast_files"
+    )
+
+# For average
+if arenaConfig["ocean_dict"].get("average", None) is not None:
+    arenaConfig["ocean_dict"]["average"]["source_settings"][
+        "folder"
+    ] = averages_path
+
+# prepping the file download
+point_to_check = SpatioTemporalPoint.from_dict(
+    this.mission.missionConfig["x_0"][0]
+)
+t_interval = [
+    point_to_check.date_time,
+    point_to_check.date_time
+    + datetime.timedelta(
+        seconds=this.mission.experiment.timeout_in_sec
+        + arenaConfig["casadi_cache_dict"]["time_around_x_t"]
+        + 7200
+    ),
+]
+
+arena, controller = None, None
+
+if (
+    arenaConfig["ocean_dict"]["forecast"] is not None
+    and arenaConfig["ocean_dict"]["forecast"]["source"]
+    == "hindcast_as_forecast_files"
+):
+    t_interval_adapted = [
+        t_interval[0] - datetime.timedelta(days=2),
+        t_interval[1]
+        + datetime.timedelta(
+            days=arenaConfig["ocean_dict"]["forecast"].get(
+                "forecast_length_in_days", 5
+            )
+        ),
+    ]
+else:
+    t_interval_adapted = t_interval
+
+config=arenaConfig
+type="hindcast"
+points=[point_to_check.to_spatial_point()]
+keep_newest_days=arenaConfig["ocean_dict"]["keep_newest_days"]
+#%%
+ArenaFactory.download_required_files(
+            archive_source=config["ocean_dict"][type]["source_settings"]["source"],
+            archive_type=config["ocean_dict"][type]["source_settings"]["type"],
+            download_folder=config["ocean_dict"][type]["source_settings"]["folder"],
+            t_interval=t_interval,
+            region=config["ocean_dict"]["region"],
+            throw_exceptions=True,
+            points=points,
+            c3=c3,
+            keep_newest_days=keep_newest_days,
+        )
+#%%
+ctrlConfig['n_time_vector'] = 200
+#%%
+set_arena_loggers(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+constructor = Constructor(
+        arena_conf=arenaConfig,
+        mission_conf=this.mission.missionConfig,
+        objective_conf=this.mission.experiment.objectiveConfig,
+        ctrl_conf=this.controllerSetting.ctrlConfig,
+        observer_conf=this.observerSetting.observerConfig,
+        c3=c3)
+
+# Step 1.1 Retrieve problem
+problem = constructor.problem
+
+# Step 1.2: Retrieve arena
+arena = constructor.arena
+observation = arena.reset(platform_state=problem.start_state)
+problem_status = arena.problem_status(problem=problem)
+
+# Step 2: Retrieve Controller
+controller = constructor.controller
+
+# Step 3: Retrieve observer
+observer = constructor.observer
+observer.observe(observation)
+observation.forecast_data_source = observer
+
+#%%
+controller.get_action(observation=observation)
+#%%
+# Step 4: Run Arena
+round = 0
+set_arena_loggers(logging.DEBUG)
+while problem_status == 0:
+    print("round: ", round)
+    round += 1
+    # Get action
+    action = controller.get_action(observation=observation)
+
+    # execute action
+    observation = arena.step(action)
+
+    # Observer data assimilation
+    observer.observe(observation)
+    observation.forecast_data_source = observer
+
+    # update problem status
+    problem_status = arena.problem_status(problem=problem)
+
+new_osr.status = "finished_running"
+new_osr.terminationReason = arena.problem_status_text(problem_status)
+if arena.problem_status_text(problem_status) == "Success":
+    new_osr.T_arrival_time = (
+        arena.state_trajectory[-1, 2] - arena.state_trajectory[0, 2]
+    ) / 3600
+logged_error_message = None
+#%%
+
 
 # wandb.join()
 # wandb.finish()
@@ -115,7 +469,7 @@ try:
         ctrl_name = "undefined"
 
     umax = arenaConfig["platform_dict"]["u_max_in_mps"]
-    deg_around_xt_xT_box = ctrlConfig["deg_around_xt_xT_box"]
+    deg_around_xt_xT_box = ctrlConfig.get("deg_around_xt_xT_box", 2.0)
     grid_res = ctrlConfig["grid_res"]
 
     # if not ctrlConfig.get("precomputation", False):

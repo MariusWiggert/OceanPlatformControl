@@ -3,6 +3,7 @@ import datetime
 import glob
 import logging
 from typing import Dict, List, Union
+import os
 
 import casadi as ca
 import matplotlib.pyplot as plt
@@ -165,13 +166,21 @@ class SeaweedGrowthAnalytical(SeaweedGrowthSource, AnalyticalSource):
 
 class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
     """Seaweed Growth based on the model from the paper below with various simplifications for our use-case (see Notion).
-    Set 'source' = 'GEOMAR_paper' for instantiating this source in the SeaweedGrowthField
     Wu, Jiajun, David P. Keller, and Andreas Oschlies.
     "Carbon Dioxide Removal via Macroalgae Open-ocean Mariculture and Sinking: An Earth System Modeling Study."
      Earth System Dynamics Discussions (2022): 1-52.
 
      The nutrient concentrations of phosphate and nitrate as well as temperatures are taken
-     from 2021 monthly averaged nutrient data from Copernicus."""
+     from 2021 monthly averaged nutrient data from Copernicus.
+
+     Example config: {
+        'field': 'SeaweedGrowth',
+        'source':'GEOMAR',
+        'source_settings':{
+            'filepath': './ocean_navigation_simulator/package_data/nutrients/'}  # './data/nutrients/2022_monthly_nutrients_and_temp.nc'
+        }
+
+     """
 
     def __init__(self, source_config_dict: Dict):
         """Dictionary with the three top level keys:
@@ -179,11 +188,12 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
          'source' = 'GEOMAR' for instantiating this source
          'source_settings':{
             'filepath': './data/2021_monthly_nutrients_and_temp.nc'
-            'solar_func_ca': pointer to the casadi function from the solar module to use here.
+            'solar_source': pointer to solar source. Needs to be instantiated before this source.
         }
         """
         # Adding things that are required for the AnalyticalSource to the dictionary
-        source_config_dict = self.add_default_domains(source_config_dict)
+        if 'x_domain' not in source_config_dict["source_settings"]:
+            source_config_dict = self.add_default_domains(source_config_dict)
         super().__init__(source_config_dict)
         # initialize logger
         self.logger = logging.getLogger("arena.seaweed_field.seaweed_growth_source")
@@ -319,7 +329,7 @@ class SeaweedGrowthGEOMAR(SeaweedGrowthSource, AnalyticalSource):
         Returns:
           float of the net_growth_rate per second
         """
-        return self.F_NGR_per_second(SpatioTemporalPoint.to_spatio_temporal_casadi_input())
+        return self.F_NGR_per_second(spatio_temporal_point.to_spatio_temporal_casadi_input())
 
     @staticmethod
     def add_default_domains(source_config_dict: Dict) -> Dict:
@@ -377,3 +387,98 @@ class SeaweedGrowthCircles(SeaweedGrowthAnalytical):
 
         return NGF
 
+
+class SeaweedGrowthCali(SeaweedGrowthGEOMAR):
+    """Seaweed Growth based on the model from the paper below with various simplifications for our use-case (see Notion).
+    Set 'source' = 'California' for instantiating this source in the SeaweedGrowthField
+    Wu, Jiajun, David P. Keller, and Andreas Oschlies.
+    "Carbon Dioxide Removal via Macroalgae Open-ocean Mariculture and Sinking: An Earth System Modeling Study."
+     Earth System Dynamics Discussions (2022): 1-52.
+     """
+
+    def __init__(self, source_config_dict: Dict):
+        """Dictionary with the three top level keys:
+         'field' the kind of field the should be created, here SeaweedGrowth
+         'source' = 'California' for instantiating this source
+         'source_settings':{
+            'filepath': './data/2021_monthly_nutrients_and_temp.nc'
+            'solar_func_ca': pointer to the casadi function from the solar module to use here.
+            'max_growth': 0.2
+            'respiration_rate': 0.01
+        }
+        """
+        # Adding things that are required for the AnalyticalSource to the dictionary
+        source_config_dict = self.add_default_domains(source_config_dict)
+        super().__init__(source_config_dict)
+
+    def get_growth_and_resp_data_array_from_file(self) -> xr:
+        """Helper function to open the dataset which contains the nutrient growth factor from 0-1."""
+        # check if filepath is a folder using os.path.isdir
+        if os.path.isdir(self.source_config_dict["source_settings"]["filepath"]):
+            nc_files = glob.glob(self.source_config_dict["source_settings"]["filepath"] + "*.nc")
+            nc_files = sorted(nc_files, key=lambda x: xr.open_dataset(x).time[0].values)
+        else: # it is a single file
+            nc_files = [self.source_config_dict["source_settings"]["filepath"]]
+
+        DataArray = xr.open_mfdataset(nc_files)
+
+        DataArray = DataArray.assign(
+            R_growth_wo_Irradiance=
+            self.source_config_dict["source_settings"]["max_growth"] * DataArray['static_growth_map']
+        )
+
+        return DataArray
+
+    def set_casadi_function(self):
+        """Creates the symbolic computation graph for the full casadi function."""
+        # Step 1: Create the grid for interpolation (in relative seconds per year, not posix time as other sources)
+        grid = [
+            units.posix_to_rel_seconds_in_year(
+                units.get_posix_time_from_np64(self.DataArray.coords["time"].values)
+            ),
+            self.DataArray.coords["lat"].values,
+            self.DataArray.coords["lon"].values,
+        ]
+        # Set-up the casadi interpolation functions for the growth and respiration factors
+        r_growth_wo_irradiance = ca.interpolant(
+            "r_growth_wo_irradiance",
+            "linear",
+            grid,
+            self.DataArray["R_growth_wo_Irradiance"].fillna(0).values.ravel(order="F"),
+        )
+        r_resp = self.source_config_dict["source_settings"]["respiration_rate"]
+
+        # Step 2: Set-Up the casadi graph for the full calculation
+        sym_time = ca.MX.sym("time")  # in posix
+        sym_lon_degree = ca.MX.sym("lon")  # in deg
+        sym_lat_degree = ca.MX.sym("lat")  # in deg
+
+        # Calculate solar factor
+        sym_irradiance = self.solar_rad_casadi(ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree))
+        sym_f_Irradiance = irradianceFactor(sym_irradiance)
+        # put things together to the NGR
+        sym_rel_year_time = self.posix_to_rel_sec_in_year_ca(sym_time)
+        sym_rel_year_input = ca.vertcat(sym_rel_year_time, sym_lat_degree, sym_lon_degree)
+        sym_NGR_per_second = r_growth_wo_irradiance(sym_rel_year_input) / (
+            24 * 3600
+        ) * sym_f_Irradiance - r_resp / (24 * 3600)
+        # Set up the full function
+        self.F_NGR_per_second = ca.Function(
+            "d_biomass_dt_in_seconds",
+            [ca.vertcat(sym_time, sym_lat_degree, sym_lon_degree)],
+            [sym_NGR_per_second],
+        )
+
+    @staticmethod
+    def add_default_domains(source_config_dict: Dict) -> Dict:
+        """Helper Function to make it work smoothly with the AnalyticalSource class."""
+        source_config_dict["source_settings"]["x_domain"] = [-124, -121.5]
+        source_config_dict["source_settings"]["y_domain"] = [36, 38.98]
+        source_config_dict["source_settings"]["temporal_domain"] = [
+            datetime.datetime(2023, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc),
+        ]
+        source_config_dict["source_settings"]["spatial_resolution"] = 0.03
+        source_config_dict["source_settings"]["temporal_resolution"] = 3600
+
+        return source_config_dict

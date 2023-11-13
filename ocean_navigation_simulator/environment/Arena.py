@@ -716,7 +716,7 @@ class Arena:
             datetime.datetime.fromtimestamp(posix, tz=datetime.timezone.utc)
             for posix in self.state_trajectory[::stride, 2]
         ]
-        ax.plot(dates, self.state_trajectory[::stride, 3])
+        ax.plot(dates, self.state_trajectory[::stride, 3]/self.platform.battery_capacity.joule)
 
         ax.set_title("Battery charge over time")
         ax.set_ylim(0.0, 1.1)

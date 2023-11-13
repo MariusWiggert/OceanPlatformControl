@@ -490,9 +490,9 @@ class ArenaFactory:
         if c3 is None:
             c3 = get_c3()
         archive_types = {"forecast": "FMRC", "hindcast": "Hindcast"}
-        c3_file_type = getattr(
-            c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
-        )
+        # c3_file_type = getattr(
+        #     c3, f"{archive_source.capitalize()}{archive_types[archive_type.lower()]}File"
+        # )
 
         # Step 3: Execute Query
         if t_interval is not None:

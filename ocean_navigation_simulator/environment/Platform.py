@@ -152,6 +152,13 @@ class Platform:
             .astype("float64")
             .flatten()
         )
+        # check if any is nan in f_state
+        if np.isnan(f_state).any():
+            self.logger.error(
+                f"Platform: Simulation step resulted in nan state, probably current data not available at state. "
+                f"State: {self.state}, Action: {action}"
+            )
+            raise ValueError("Simulation step resulted in nan state.")
         # Append if the platform is in garbage to the trajectory
         garbage_state = (
             np.array(self.garbage_source.is_in_garbage_patch(self.state.to_spatial_point()))

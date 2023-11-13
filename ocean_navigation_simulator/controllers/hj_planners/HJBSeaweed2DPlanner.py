@@ -442,7 +442,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             )
             # TODO: enforce timezone awareness to mitigate warning: Indexing a timezone-naive DatetimeIndex with a timezone-aware datetime is deprecated and will raise KeyError in a future version.  Use a timezone-naive object instead.
             self.seaweed_xarray = seaweed_xarray.sel(time=slice(t_interval[0], t_interval[1]))
-        elif self.arena.seaweed_field.hindcast_data_source.source_config_dict["source"] == "GEOMAR":
+        elif self.arena.seaweed_field.hindcast_data_source.source_config_dict["source"] in ["GEOMAR", "California"]:
 
             # Get growth data without solar irradiance from data source
             # do NOT slice in time otherwise we need to extrapolate, the interpolation can take care of that.
@@ -458,11 +458,11 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 t_interval=t_interval,
             )
 
-            # Ensure solar data has no extra data i.e. buffers added
-            solar_xarray = solar_xarray.sel(
-                lon=slice(x_interval[0], x_interval[1]),
-                lat=slice(y_interval[0], y_interval[1]),
-            )
+            # # Ensure solar data has no extra data i.e. buffers added
+            # solar_xarray = solar_xarray.sel(
+            #     lon=slice(x_interval[0], x_interval[1]),
+            #     lat=slice(y_interval[0], y_interval[1]),
+            # )
             # align spatial dimensions (lat, lon) of solar and growth data (a bit wasteful in compute, can change it
             # above when get_data_over_area is called, but ok for now.)
             solar_xarray = solar_xarray.interp(lat=growth_xarray.lat, lon=growth_xarray.lon, method='linear')
@@ -479,7 +479,10 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                 stop=t_interval[1],
                 step=np.timedelta64(temporal_resolution_solar, "ns"),
             )
-            growth_xarray = growth_xarray.interp(time=time_grid, method="linear").isel(depth=0)
+            growth_xarray = growth_xarray.interp(time=time_grid, method="linear")
+
+            if 'depth' in growth_xarray.dims:
+                growth_xarray = growth_xarray.isel(depth=0)
 
             # Ensure same temporal grid for solar as for growth array
             solar_xarray = solar_xarray.interp(time=time_grid, method="linear")
@@ -495,9 +498,13 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             #     )
 
             # Compute F_NGR_per_second
-            seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
-                "irradianceFactor"
-            ] - growth_xarray["R_resp"] / (24 * 3600)
+            if 'R_resp' in growth_xarray.data_vars:
+                seaweed_xarray = growth_xarray["R_growth_wo_Irradiance"] / (24 * 3600) * solar_xarray[
+                    "irradianceFactor"
+                ] - growth_xarray["R_resp"] / (24 * 3600)
+            else:
+                seaweed_xarray = (growth_xarray["R_growth_wo_Irradiance"] * solar_xarray[
+                    "irradianceFactor"] - self.arena.seaweed_field.hindcast_data_source.source_config_dict['source_settings']['respiration_rate']) / (24 * 3600)
 
             # Convert back to xarray dataset
             self.seaweed_xarray_global = seaweed_xarray.to_dataset(
@@ -523,8 +530,8 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             grids_dict = self.arena.seaweed_field.hindcast_data_source.get_grid_dict(
                 t_interval=[0, 100]
             )
-            grids_dict["x_grid"] = self.grid.coordinate_vectors[0].to_py()
-            grids_dict["y_grid"] = self.grid.coordinate_vectors[1].to_py()
+            grids_dict["x_grid"] = self.grid.coordinate_vectors[0].tolist()
+            grids_dict["y_grid"] = self.grid.coordinate_vectors[1].tolist()
             # create the xarray for exactly that grids_dict
             F_NGR_per_second_data = (
                 self.arena.seaweed_field.hindcast_data_source.map_analytical_function_over_area(
