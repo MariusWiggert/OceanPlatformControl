@@ -190,6 +190,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             if (
                 self.first_plan
                 and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
+                and self.last_observation.average_data_source is not None
             ):
 
                 # Load average data for running HJ
@@ -253,6 +254,7 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
             elif (
                 not self.first_plan
                 and self.forecast_length < self.specific_settings["T_goal_in_seconds"]
+                and self.last_observation.average_data_source
             ):
                 # Load forecast data for running consecutive HJ
                 self._update_forecast_data()
@@ -271,9 +273,17 @@ class HJBSeaweed2DPlanner(HJPlannerBaseDim):
                         x_t.date_time + timedelta(seconds=T_max_in_seconds) + timedelta(days=1),
                     ]
                 )  # Slice time with some buffers (1 day prior & afterwards)
-
+            run_fc_data = False
             # Check if planning horizon is actual shorter than FC horizon - no need for averages
-            elif self.forecast_length >= self.specific_settings["T_goal_in_seconds"]:
+            if (self.forecast_length < self.specific_settings["T_goal_in_seconds"]
+                and not self.last_observation.average_data_source
+                ):
+                    # raise warning to logger
+                    self.logger.warning(
+                        "FC is shorter than T_goal_in_seconds but no average data given, so cutting accordingly.")
+                    run_fc_data = True
+            # Standard using forecast data
+            if run_fc_data or self.forecast_length >= self.specific_settings["T_goal_in_seconds"]:
                 # Load forecast data for running consecutive HJ
                 self._update_forecast_data()
 
