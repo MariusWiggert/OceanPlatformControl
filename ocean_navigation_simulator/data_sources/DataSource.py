@@ -204,33 +204,34 @@ class DataSource(abc.ABC):
         """Advanced Check if admissible subset and warning of partially being out of bound in space or time."""
         temporal_error = False
         spatial_error = False
+        fatal_error = False
 
         # Step 1: collateral check is any dimension 0?
         if 0 in (len(array.coords["lat"]), len(array.coords["lon"]), len(array.coords["time"])):
             # check which dimension for more informative errors
             if len(array.coords["time"]) == 0:
-                temporal_error = "None of the requested t_interval is in the file."
+                fatal_error = "None of the requested t_interval is in the file."
             else:
-                spatial_error = "None of the requested spatial area is in the file."
+                fatal_error = "None of the requested spatial area is in the file."
 
         # Step 2: Data partially not in the array check
         if (
-            array.coords["lat"].data[0] >= y_interval[0]
-            or array.coords["lat"].data[-1] <= y_interval[1]
+            array.coords["lat"].data[0] > y_interval[0]
+            or array.coords["lat"].data[-1] < y_interval[1]
         ):
             spatial_error = f"Part of the y requested area is outside of file (requested: [{y_interval[0]}, {y_interval[1]}])."
         if (
-            array.coords["lon"].data[0] >= x_interval[0]
-            or array.coords["lon"].data[-1] <= x_interval[1]
+            array.coords["lon"].data[0] > x_interval[0]
+            or array.coords["lon"].data[-1] < x_interval[1]
         ):
             spatial_error = f"Part of the x requested area is outside of file (requested: [{x_interval[0]}, {x_interval[1]}])."
         if units.get_datetime_from_np64(array.coords["time"].data[0]) > t_interval[0]:
-            temporal_error = f"The starting time is not in the array (requested: [{t_interval[0]}, {t_interval[1]}])."
+            fatal_error = f"The starting time is not in the array (requested: [{t_interval[0]}, {t_interval[1]}])."
         if units.get_datetime_from_np64(array.coords["time"].data[-1]) < t_interval[1]:
             temporal_error = f"The requested final time is not part of the subset (requested: [{t_interval[0]}, {t_interval[1]}])."
 
-        if temporal_error or spatial_error:
-            error = temporal_error or spatial_error
+        if temporal_error or spatial_error or fatal_error:
+            error = temporal_error or spatial_error or fatal_error
             error += " (files: x_range: {x}, y_range: {y}, t_range:{t})".format(
                 x=self.grid_dict["x_range"],
                 y=self.grid_dict["y_range"],
@@ -239,7 +240,7 @@ class DataSource(abc.ABC):
                     self.grid_dict["t_range"][-1].strftime("%Y-%m-%d %H-%M-%S"),
                 ],
             )
-            if throw_exception and ():
+            if fatal_error:
                 raise SubsettingDataSourceException(error)
             elif temporal_error or spatial_error:
                 logger.warning(error)

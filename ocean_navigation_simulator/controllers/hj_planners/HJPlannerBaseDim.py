@@ -350,7 +350,7 @@ class HJPlannerBaseDim(Controller):
             error_string = (
                 "Current time {} is before the start of the forecast data. This should not happen. "
                 "current_data_t_0 is {}".format(
-                    x_t.date_time, datetime.fromtimestamp(self.current_data_t_0, tz=timezone.utc)
+                    x_t.date_time, datetime.fromtimestamp(int(self.current_data_t_0), tz=timezone.utc)
                 )
             )
             self.logger.error(error_string)
