@@ -151,7 +151,7 @@ class SeaweedMissionGenerator:
 
             if distance_to_shore.deg > self.config[
                 "min_distance_from_land"
-            ] and self._point_in_pacific(point):
+            ]: # and self._point_in_pacific(point):
                 sampled_points.append((True, point, distance_to_shore))
                 i += 1
 
@@ -414,6 +414,7 @@ class SeaweedMissionGeneratorFeasibility:
                     if distance_to_shore.deg > self.config[
                         "min_distance_from_land"
                     ] and self._point_in_pacific(point):
+
                         sampled_points.append((True, point, distance_to_shore))
                         break
 
