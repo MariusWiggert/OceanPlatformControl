@@ -1,4 +1,3 @@
-import contextlib
 import datetime
 import logging
 import os
@@ -267,42 +266,13 @@ class SeaweedMissionGeneratorFileCheck:
         t_interval = [start_candidate.date_time,
                       start_candidate.date_time + datetime.timedelta(seconds=self.config["time_horizon"])]
         try:
-            # check if fc in scenario_config
-            to_download_forecast_files = False
-            if self.config["scenario_config"]["ocean_dict"]["forecast"] is not None:
-                to_download_forecast_files = True
-                t_interval_adapted = [t_interval[0] - datetime.timedelta(days=1),
-                                      t_interval[1]]
-
-            @contextlib.contextmanager
-            def dummy_context_mgr():
-                yield None
-            with ArenaFactory.download_files(
-                    config=self.config["scenario_config"],
-                    type="hindcast",
-                    t_interval=t_interval,
-                    c3=self.c3,
-                    points=[start_candidate.to_spatial_point()],
-                    keep_newest_days=self.config["scenario_config"]["ocean_dict"].get("keep_newest_days",50),
-            ) as download_hindcast_files_to_local, (
-                    ArenaFactory.download_files(
-                        config=self.config["scenario_config"],
-                        type="forecast",
-                        t_interval=t_interval_adapted,
-                        c3=self.c3,
-                        points=[start_candidate.to_spatial_point()],
-                        keep_newest_days=self.config["scenario_config"]["ocean_dict"].get("keep_newest_days",50),
-                    )
-                    if to_download_forecast_files
-                    else dummy_context_mgr()
-            ) as download_forecast_files_to_local:
-                # Step 0: Create Constructor object which contains arena, problem, controller and observer
-
                 self.arena = ArenaFactory.create(
                     scenario_config=self.config["scenario_config"],
                     x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
                     y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
-                    throw_exceptions=True
+                    t_interval=t_interval,
+                    throw_exceptions=True,
+                    c3=self.c3
                 )
                 self.arena.reset(PlatformState.from_spatio_temporal_point(start_candidate))
                 return True
