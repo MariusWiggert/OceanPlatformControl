@@ -369,6 +369,9 @@ class Platform2dForSimAffine(dynamics.ControlAndDisturbanceAffineDynamics):
             grid=grid, state=x, n_temporal_buffer_idx=n_temporal_buffer_idx, n_spatial_buffer_idx=n_spatial_buffer_idx)
 
         # Step 1: interpolate the value function for the specific time along the time axis
+        # round idx 0 down and idx -1 up to get the correct indices for the interpolation
+        subsetted_reach_times = subsetted_reach_times.at[0].set(jnp.floor(subsetted_reach_times[0]))
+        subsetted_reach_times = subsetted_reach_times.at[-1].set(jnp.ceil(subsetted_reach_times[-1]))
         val_at_t = interp1d(subsetted_reach_times, subsetted_values, axis=0, kind='linear')(time).squeeze()
 
         # Step 2: get_opt_ctrl_from_values_jit
