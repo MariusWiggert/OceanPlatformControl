@@ -431,7 +431,7 @@ import xarray as xr
 # gebco_global_filename = "data/bathymetry/GEBCO_2022.nc"
 gebco_global_filename = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/OceanPlatformControl/data/bathymetry/GEBCO_2022.nc"
 ds = xr.open_dataset(gebco_global_filename)
-ds = ds.sel(lat=slice(36, 39), lon=slice(-124, -121.5))
+ds = ds.sel(lat=slice(34, 40), lon=slice(-126, -121))
 
 # coarsen it a bit
 res = 1/100
@@ -485,9 +485,7 @@ coarsened["elevation"].loc[dict(lat=slice(38.235, 38.4), lon=slice(-123.01,-122.
 coarsened["elevation"].loc[dict(lat=slice(38.3, 38.4), lon=slice(-123.05,-122.7))] = 10
 # coarsened["elevation"].loc[dict(lat=slice(38.27, 38.4), lon=slice(-123.03,-122.7))] = 10
 #% viz it again
-xr.where(coarsened["elevation"] > 0, 0, 10000).sel(lat=slice(37.8, 38.4),
-                                                   lon=slice(-123.3, -122.5)
-                                                   ).plot(cmap='jet_r')
+xr.where(coarsened["elevation"] > 0, 0, 10000).sel().plot(cmap='jet_r')
 plt.show()
 #%% now run the distance map calculations
 # 0 land, 1 water
@@ -505,7 +503,7 @@ ds_distance = convert_np_to_xr(min_d_map, lat, lon)
 ds_distance["distance"].plot(cmap="jet_r")
 plt.show()
 #%% save it as file
-save_path = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/OceanPlatformControl/data/bathymetry/bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc"
+save_path = "/ocean_navigation_simulator/package_data/bathymetry_and_garbage/bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc"
 ds_distance = ds_distance.astype("float32")
 ds_distance.to_netcdf(save_path)
 #%%
