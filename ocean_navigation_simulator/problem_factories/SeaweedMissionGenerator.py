@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import logging
 import os
@@ -151,7 +152,7 @@ class SeaweedMissionGenerator:
 
             if distance_to_shore.deg > self.config[
                 "min_distance_from_land"
-            ]: # and self._point_in_pacific(point):
+            ] and self._point_in_pacific(point):
                 sampled_points.append((True, point, distance_to_shore))
                 i += 1
 
@@ -235,6 +236,226 @@ class SeaweedMissionGenerator:
             or (-85 < point.lon.deg < -70 and 10 < point.lat.deg < 15)
             or (-86 < point.lon.deg < -70 and 8.5 < point.lat.deg < 10)
         )
+
+
+class SeaweedMissionGeneratorFileCheck:
+    """
+    Same as SeaweedMissionGenerator but including a check if all files are in the database.
+    """
+    def __init__(self, config: dict = {}, c3=None):
+        """Takes the config file, sets the seed and initializes the arena object.
+
+        Args:
+            config: dictionary which specifies the generation configuration
+        """
+        if type(config["t_range"][0]) == str:
+            config["t_range"] = [datetime.datetime.fromisoformat(t) for t in config["t_range"]]
+        self.config = config
+        self.c3 = c3
+
+        self.random = np.random.default_rng(self.config["seed"])
+        self.logger = logging.getLogger("SeaweedMissionGenerator")
+        self.performance = {
+            "total_time": 0,
+            "generate_time": 0,
+            "errors": 0,
+        }
+
+    def _check_files_in_db(self, start_candidate: SpatioTemporalPoint) -> bool:
+        """Initializes the arena and downloads the data. Catches errors if download fails i.e. due to missing or corrupt files."""
+        # derive t_interval from start_candidate
+        t_interval = [start_candidate.date_time,
+                      start_candidate.date_time + datetime.timedelta(seconds=self.config["time_horizon"])]
+        try:
+            # check if fc in scenario_config
+            to_download_forecast_files = False
+            if self.config["scenario_config"]["ocean_dict"]["forecast"] is not None:
+                to_download_forecast_files = True
+                t_interval_adapted = [t_interval[0] - datetime.timedelta(days=1),
+                                      t_interval[1]]
+
+            @contextlib.contextmanager
+            def dummy_context_mgr():
+                yield None
+            with ArenaFactory.download_files(
+                    config=self.config["scenario_config"],
+                    type="hindcast",
+                    t_interval=t_interval,
+                    c3=self.c3,
+                    points=[start_candidate.to_spatial_point()],
+                    keep_newest_days=self.config["scenario_config"]["ocean_dict"].get("keep_newest_days",50),
+            ) as download_hindcast_files_to_local, (
+                    ArenaFactory.download_files(
+                        config=self.config["scenario_config"],
+                        type="forecast",
+                        t_interval=t_interval_adapted,
+                        c3=self.c3,
+                        points=[start_candidate.to_spatial_point()],
+                        keep_newest_days=self.config["scenario_config"]["ocean_dict"].get("keep_newest_days",50),
+                    )
+                    if to_download_forecast_files
+                    else dummy_context_mgr()
+            ) as download_forecast_files_to_local:
+                # Step 0: Create Constructor object which contains arena, problem, controller and observer
+
+                self.arena = ArenaFactory.create(
+                    scenario_config=self.config["scenario_config"],
+                    x_interval=[units.Distance(deg=x) for x in self.config["x_range"]],
+                    y_interval=[units.Distance(deg=y) for y in self.config["y_range"]],
+                    throw_exceptions=True
+                )
+                self.arena.reset(PlatformState.from_spatio_temporal_point(start_candidate))
+                return True
+        except (MissingOceanFileException, CorruptedOceanFileException) as e:
+            self.logger.warning(
+                f"Aborted because of missing or corrupted files: [{self.config['t_range'][0]}, {self.config['t_range'][1]}]."
+            )
+            self.logger.warning(e)
+            return False
+
+    def generate_batch(self) -> List[SeaweedProblem]:
+        """Generate a batch of starts according to config"""
+        self.problems = []
+
+        with timing_dict(
+            self.performance,
+            "total_time",
+            "Batch finished ({})",
+            self.logger,
+        ):
+            # Step 1: Generate start candidates
+            starts = self._generate_starts()
+
+            # Step 2: Create Problems
+            for rand, start, distance_to_shore in starts:
+                self.problems.append(
+                    SeaweedProblem(
+                        start_state=PlatformState(
+                            lon=start.lon,
+                            lat=start.lat,
+                            date_time=start.date_time,
+                        ),
+                        platform_dict=self.arena.platform.platform_dict,
+                        extra_info={
+                            "time_horizon_in_sec": self.config["time_horizon"],
+                            "random": rand,
+                            "distance_to_shore_deg": distance_to_shore.deg,
+                            # Factory
+                            "factory_seed": self.config["seed"],
+                            "factory_index": len(self.problems),
+                        },
+                    )
+                )
+
+        return self.problems
+
+    def _generate_starts(self) -> List[Tuple[bool, SpatioTemporalPoint, float]]:
+        """
+        Samples in/feasible starts from the already generated target.
+        Returns:
+            List of starts for the pre-existing target.
+        """
+        start_time = time.time()
+        sampled_points = []
+        i = 0
+        while i < self.config["n_samples"]:
+            print("Iteration: ", i)
+            point = SpatioTemporalPoint(
+                lon=units.Distance(
+                    deg=self.random.uniform(self.config["x_range"][0], self.config["x_range"][1])
+                ),
+                lat=units.Distance(
+                    deg=self.random.uniform(self.config["y_range"][0], self.config["y_range"][1])
+                ),
+                date_time=self._get_random_starting_time(),
+            )
+            print(point)
+            # check if all files are there and if so add to list
+            if self._check_files_in_db(point):
+                print("files is in db")
+                # Add if far enough from shore
+                distance_to_shore = self.arena.ocean_field.hindcast_data_source.distance_to_land(
+                    point.to_spatial_point()
+                )
+                if distance_to_shore.deg > self.config["min_distance_from_land"]:
+                    print("distance good")
+                    sampled_points.append((True, point, distance_to_shore))
+                    i += 1
+                else:
+                    print("distance too close to shore")
+
+
+        self.logger.info(
+            f"SeaweedMissionGenerator: {len(sampled_points)} starts created ({time.time()-start_time:.1f}s)."
+        )
+
+        return sampled_points
+
+    def _get_random_starting_time(self):
+        """Samples a random datetime object within the given time interval and ensures it is at least time_horizon earlier than the end of our time interval
+        Returns:
+            random_datetime
+        """
+        start_datetime, end_datetime = self.config["t_range"]
+        end_datetime -= datetime.timedelta(seconds=self.config["time_horizon"])
+
+        if end_datetime <= start_datetime:
+            raise ValueError(
+                "Invalid time interval, the time horizon is too large for the given time range"
+            )
+
+        random_seconds = random.uniform(0, (end_datetime - start_datetime).total_seconds())
+        random_datetime = start_datetime + datetime.timedelta(seconds=random_seconds)
+
+        return random_datetime
+
+    @staticmethod
+    def plot_starts(
+        config: dict,
+        problems: Optional[List] = None,
+        results_folder: Optional[str] = None,
+    ):
+
+        # Step 1: Load Problems
+        if problems is not None:
+            problems_df = pd.DataFrame([problem.to_dict() for problem in problems])
+        elif results_folder is not None:
+            if results_folder.startswith("/seaweed-storage/"):
+                cluster_utils.ensure_storage_connection()
+            problems_df = pd.read_csv(f"{results_folder}problems.csv")
+            analysis_folder = f"{results_folder}analysis/"
+            os.makedirs(analysis_folder, exist_ok=True)
+        else:
+            raise ValueError(
+                "Please provide a List of problems or a directory where the problems are saved in a .csv file as parameters."
+            )
+        problem = SeaweedProblem.from_pandas_row(problems_df.iloc[0])
+
+        # Step 2:
+        arena = ArenaFactory.create(
+            scenario_file=config.get("scenario_file", None),
+            scenario_config=config.get("scenario_config", {}),
+            scenario_name=config.get("scenario_name", None),
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            ax = arena.ocean_field.hindcast_data_source.plot_data_at_time_over_area(
+                x_interval=config["x_range"],
+                y_interval=config["y_range"],
+                time=problem.start_state.date_time,
+                spatial_resolution=0.2,
+                return_ax=True,
+                # figsize=(32, 24),
+            )
+        ax.scatter(
+            problems_df["x_0_lon"], problems_df["x_0_lat"], c="red", marker="o", s=6, label="starts"
+        )
+
+        ax.legend()
+        if results_folder is not None:
+            ax.get_figure().savefig(f"{analysis_folder}starts.png")
+        ax.get_figure().show()
 
 
 class SeaweedMissionGeneratorFeasibility:
@@ -414,7 +635,6 @@ class SeaweedMissionGeneratorFeasibility:
                     if distance_to_shore.deg > self.config[
                         "min_distance_from_land"
                     ] and self._point_in_pacific(point):
-
                         sampled_points.append((True, point, distance_to_shore))
                         break
 
