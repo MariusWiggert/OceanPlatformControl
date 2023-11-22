@@ -498,8 +498,8 @@ class MissionGenerator:
 
             # Format
             point = SpatioTemporalPoint(
-                lon=units.Distance(deg=coordinates[0] + noise[0]),
-                lat=units.Distance(deg=coordinates[1] + noise[1]),
+                lon=units.Distance(deg=coordinates[0].item() + noise[0]),
+                lat=units.Distance(deg=coordinates[1].item() + noise[1]),
                 # Smallest available time in hj planner
                 date_time=datetime.datetime.fromtimestamp(
                     math.ceil(planner.current_data_t_0 + planner.reach_times[0]),
@@ -825,8 +825,8 @@ class ForwardMissionGenerator(MissionGenerator):
 
             # Format
             point = SpatioTemporalPoint(
-                lon=units.Distance(deg=coordinates[0] + noise[0]),
-                lat=units.Distance(deg=coordinates[1] + noise[1]),
+                lon=units.Distance(deg=coordinates[0].item() + noise[0]),
+                lat=units.Distance(deg=coordinates[1].item() + noise[1]),
                 # Smallest available time in hj planner
                 date_time=datetime.datetime.fromtimestamp(
                     math.ceil(relative_reach_times[in_time_idx[time_idx]] + planner.reach_times[0]),
