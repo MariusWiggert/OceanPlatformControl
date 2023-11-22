@@ -15,7 +15,7 @@ class Controller(abc.ABC):
 
     gpus: float = 0.0
 
-    def __init__(self, problem: NavigationProblem, specific_settings=None):
+    def __init__(self, problem: NavigationProblem, specific_settings=None, **kwargs):
         """
         Basic constructor logging the problem given at construction.
         Args:
