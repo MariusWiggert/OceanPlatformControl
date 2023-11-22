@@ -75,7 +75,7 @@ class ArenaObservation:
     ]  # Data Source of the forecast
     average_data_source: Union[
         OceanCurrentSource, OceanCurrentSourceXarray
-    ]  # Data Source of the averages
+    ] = None  # Data Source of the averages
 
     def replace_spatio_temporal_point(self, point: SpatioTemporalPoint):
         """

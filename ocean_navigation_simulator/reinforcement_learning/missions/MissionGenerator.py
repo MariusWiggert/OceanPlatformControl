@@ -730,3 +730,117 @@ class MissionGenerator:
     #         #         )
     #
     #         ax.set_title(f"Multi-Reach at time ({rel_time_in_seconds/3600:.1f}h)")
+
+
+class ForwardMissionGenerator(MissionGenerator):
+    def __init__(self, config: Optional[dict] = {}, c3=None):
+        super().__init__(config, c3)
+        self.config["hj_specific_settings"]["direction"] = 'forward'
+        self.config["hj_specific_settings"]["initial_set_radii"] = 0.1
+
+    def generate_batch(self) -> List[CachedNavigationProblem]:
+        """Generate a target and a batch of starts according to config"""
+        self.problems = []
+
+        # Step 1: Generate Target & Starts until enough valid target/starts found
+        while not (start := self.generate_target()) or not (targets := self.generate_starts()):
+            pass
+
+        # adjust time of start to be before target
+        start.date_time = start.date_time - datetime.timedelta(hours=self.config["problem_timeout_in_h"])
+
+        # Step 2: Create Problems
+        for random, target, distance_to_shore in targets:
+            self.problems.append(
+                CachedNavigationProblem(
+                    start_state=PlatformState(
+                        lon=start.lon,
+                        lat=start.lat,
+                        date_time=start.date_time,
+                    ),
+                    end_region=target.to_spatial_point(),
+                    target_radius=self.config["problem_target_radius"],
+                    platform_dict=self.arena.platform.platform_dict,
+                    extra_info={
+                        "timeout_datetime": target.date_time.isoformat(),
+                        "start_target_distance_deg": target.haversine(start).deg,
+                        "random": random,
+                        "distance_to_shore_deg": distance_to_shore,
+                        # Planner Caching
+                        "x_cache": self.hj_planner_frame["x_interval"],
+                        "y_cache": self.hj_planner_frame["y_interval"],
+                        # "t_cache": self.hj_planner_time_frame,
+                        # Factory
+                        "factory_seed": self.config["seed"],
+                        "factory_index": len(self.problems),
+                    },
+                )
+            )
+            logger.debug(f"Problem created: {self.problems[-1]}")
+
+        return self.problems
+
+    def sample_feasible_points(
+            self, sampling_frame, mission_time
+    ) -> List[Tuple[bool, SpatioTemporalPoint, float]]:
+
+        planner = self.hindcast_planner
+        # Step 1: Find reachable points with minimum distance from frame
+        relative_reach_times = planner.reach_times - planner.reach_times[0]
+        in_time_idx = np.argwhere(
+            (mission_time[0] < relative_reach_times) & (relative_reach_times < mission_time[1])).flatten()
+        frame_condition_x = (sampling_frame["x"][0] < planner.grid.states[:, :, 0]) & (
+                planner.grid.states[:, :, 0] < sampling_frame["x"][1]
+        )
+        frame_condition_y = (sampling_frame["y"][0] < planner.grid.states[:, :, 1]) & (
+                planner.grid.states[:, :, 1] < sampling_frame["y"][1]
+        )
+        # get suitable 2D points
+        time_idx_points_to_sample = []
+        total_points = 0
+        for time_idx in in_time_idx:
+            points_to_sample = np.argwhere((planner.all_values[time_idx] < 0) & frame_condition_x & frame_condition_y)
+            time_idx_points_to_sample.append(points_to_sample)
+            total_points += points_to_sample.shape[0]
+
+        # Step 2: Return List of SpatioTemporalPoint
+        sampled_points = []
+        for _ in range(
+                min(5 * self.config["feasible_missions_per_target"], total_points)
+        ):
+            # sample time_index
+            time_idx = self.random.integers(in_time_idx.shape[0])
+
+            # Sample Coordinates
+            sample_index = self.random.integers(time_idx_points_to_sample[time_idx].shape[0])
+            sampled_point = time_idx_points_to_sample[time_idx][sample_index]
+            time_idx_points_to_sample[time_idx] = np.delete(time_idx_points_to_sample[time_idx], sample_index, axis=0)
+            coordinates = planner.grid.states[sampled_point[0], sampled_point[1], :]
+
+            # Add Noise
+            noise = (
+                self.config["hj_specific_settings"]["grid_res"] * self.random.uniform(-0.5, 0.5),
+                self.config["hj_specific_settings"]["grid_res"] * self.random.uniform(-0.5, 0.5),
+            )
+
+            # Format
+            point = SpatioTemporalPoint(
+                lon=units.Distance(deg=coordinates[0] + noise[0]),
+                lat=units.Distance(deg=coordinates[1] + noise[1]),
+                # Smallest available time in hj planner
+                date_time=datetime.datetime.fromtimestamp(
+                    math.ceil(relative_reach_times[in_time_idx[time_idx]] + planner.reach_times[0]),
+                    tz=datetime.timezone.utc,
+                ),
+            )
+
+            # Add if far enough from shore
+            distance_to_shore = self.distance_to_area(point, "bathymetry")
+            if distance_to_shore > self.config["min_distance_from_land"]:
+                sampled_points.append((False, point, distance_to_shore))
+            else:
+                self.performance["start_resampling"] += 1
+            if len(sampled_points) >= self.config["feasible_missions_per_target"]:
+                break
+
+        return sampled_points
