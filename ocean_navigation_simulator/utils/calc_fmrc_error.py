@@ -98,6 +98,8 @@ def calc_fmrc_errors(
         )
         # prep for next round
         next_time = forecast_time_start + datetime.timedelta(days=1, hours=5)
+        if forecast_time_start == arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(next_time):
+            raise ValueError("FC Error Calc: Likely missing forecast files, when iterating through getting stuck.")
         forecast_time_start = (
             arena.ocean_field.forecast_data_source.check_for_most_recent_fmrc_dataframe(next_time)
         )
@@ -115,17 +117,16 @@ def calc_speed_RMSE(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hi
     """Helper function to calculate the RMSE on current speed."""
     RMSE_speed = np.sqrt(
         (u_data_forecast - u_data_hindcast) ** 2 + (v_data_forecast - v_data_hindcast) ** 2
-    ).mean(axis=(1, 2))
+    ).mean(axis=(1, 2), where=(u_data_forecast != 0) & (u_data_hindcast != 0))
     return RMSE_speed
-
 
 def calc_abs_angle_difference(u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast):
     return np.abs(
         np.arctan2(v_data_hindcast, u_data_hindcast) - np.arctan2(v_data_forecast, u_data_forecast)
-    ).mean(axis=(1, 2))
+    ).mean(axis=(1, 2), where=(u_data_forecast != 0) & (u_data_hindcast != 0))
 
 
-def calc_vector_corr_over_time(forecast, hindcast, sigma_diag=0, remove_nans: bool = False):
+def calc_vector_corr_over_time(forecast, hindcast, sigma_diag=0, remove_nans: bool = True):
     # run it over a for loop
     vec_corr_over_time = []
     for time_idx in range(forecast.shape[0]):
@@ -134,6 +135,7 @@ def calc_vector_corr_over_time(forecast, hindcast, sigma_diag=0, remove_nans: bo
             hindcast[time_idx, ...],
             sigma_diag=sigma_diag,
             remove_nans=remove_nans,
+            # print_out=True,
         )
         vec_corr_over_time.append(vec_corr)
     # compile it to a np array
@@ -155,6 +157,12 @@ def calc_vector_correlation(
         m = np.bitwise_or.reduce(
             np.logical_or(np.isnan(forecast_vec), np.isnan(hindcast_vec)), axis=0
         )
+        # or zeros
+        m_0 = np.bitwise_or.reduce(
+            np.logical_or(forecast_vec == 0.0, hindcast_vec == 0.0), axis=0
+        )
+        # now combine the masks
+        m = np.bitwise_or(m, m_0)
         forecast_vec = forecast_vec[:, ~m]
         hindcast_vec = hindcast_vec[:, ~m]
 

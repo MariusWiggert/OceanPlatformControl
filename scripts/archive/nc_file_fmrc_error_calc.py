@@ -1,69 +1,248 @@
 import datetime
-import time
+import logging
+import os
 
-import hj_reachability as hj
-import matplotlib.pyplot as plt
-import numpy as np
+from matplotlib import pyplot as plt
+from scipy.interpolate import interp1d
 
-from ocean_navigation_simulator import OceanNavSimulator, utils
-from ocean_navigation_simulator.problem import Problem
+from ocean_navigation_simulator.controllers.NaiveController import NaiveController
+from ocean_navigation_simulator.environment.ArenaFactory import ArenaFactory
+from ocean_navigation_simulator.environment.NavigationProblem import NavigationProblem
+from ocean_navigation_simulator.environment.Platform import PlatformAction
+from ocean_navigation_simulator.environment.PlatformState import (
+    SpatioTemporalPoint, SpatialPoint,
+)
+from ocean_navigation_simulator.problem_factories.Constructor import Constructor
+from ocean_navigation_simulator.utils.misc import set_arena_loggers
 
-# % Settings to feed into the planner
-# Set the platform configurations
-platform_config_dict = {
-    "battery_cap": 400.0,
-    "u_max": 0.1,
-    "motor_efficiency": 1.0,
-    "solar_panel_size": 0.5,
-    "solar_efficiency": 0.2,
-    "drag_factor": 675,
-}
+%load_ext autoreload
+%autoreload 2
 
-# Create the navigation problem
-t_0 = datetime.datetime(2021, 11, 23, 12, 10, 10, tzinfo=datetime.timezone.utc)
-# all through Gulf of Mexico
-# x_0 = [-94.5, 25, 1]  # lon, lat, battery
-# x_T = [-83, 25]
-# # # short 80h start-goal Mission
-# x_0 = [-88.25, 26.5, 1]  # lon, lat, battery
-# x_T = [-90, 26]
-# For head figure bifurcating flow
-x_0 = [-88.25, 26.5, 1]  # lon, lat, battery
-x_T = [-87, 26]
-# With eddie below (after 100h)
-t_0 = datetime.datetime(2021, 11, 23, 12, 10, 10, tzinfo=datetime.timezone.utc)
-x_0 = [-81.5, 23.5, 1]  # lon, lat, battery
-x_T = [-80.4, 24.2]
-# x_T = [-79.8, 24.]
-# hindcast_folder = "data/single_day_hindcasts/"
-# hindcast_source = {'data_source_type': 'multiple_daily_nc_files',
-#                    'data_source': hindcast_folder}
-# hindcast_folder = "data/hindcast_test/"
-# hindcast_source = {'data_source_type': 'single_nc_file',
-#                    'data_source': hindcast_folder}
-hindcast_source = {
-    "data_source_type": "cop_opendap",
-    "data_source": {
-        "USERNAME": "mmariuswiggert",
-        "PASSWORD": "tamku3-qetroR-guwneq",
-        "DATASET_ID": "global-analysis-forecast-phy-001-024-hourly-t-u-v-ssh",
+# Set-Up for Simulation
+#% Platform Speed, Forecasted and true currents
+# Forecast System that we can use:
+# - HYCOM Global (daily forecasts, xh resolution, 1/12 deg spatial resolution)
+# - Copernicus Global (daily forecasts for 5 days out, xh resolution, 1/12 deg spatial resolution)
+# - NOAA West Coast Nowcast System (daily nowcasts for 24h, xh resolution, 10km spatial resolution)
+# Note: if you switch it, you need to delete the old FC files, otherwise the system will use those. It just grabs all the files in the folder 'folder_for_forecast_files'
+
+max_speed_of_platform_in_meter_per_second = 0.1
+time_horizon_in_day = 1
+forecast_system_to_use = "noaa"  # either of ['HYCOM', 'Copernicus', 'noaa']
+
+folder_for_forecast_files = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/jupyter_FC_data/noaa_forecast_files/"
+folder_for_hindcast_files = "/Volumes/Data/2_Work/2_Graduate_Research/1_Seaweed/cop_hc_seaweed_cali/"
+#%%
+for fold_path in [folder_for_hindcast_files, folder_for_forecast_files]:
+    if not os.path.exists(fold_path):
+        os.makedirs(fold_path)
+#%
+true_ocean_current_dict = {
+            "field": "OceanCurrents",
+            "source": "hindcast_files",
+            "source_settings": {"source": "HYCOM",
+                                "folder": folder_for_hindcast_files,
+                                "type": "hindcast"},
+        }
+
+# Configs for simulator
+simulation_timeout = 3600*24*time_horizon_in_day # 5 days
+
+arena_config = {
+    "timeout": simulation_timeout,
+    "casadi_cache_dict": {
+        "deg_around_x_t": 0.8,
+        "time_around_x_t": 3600*24*4,
+    },  # This is 24h in seconds!
+    "platform_dict": {
+        "battery_cap_in_wh": 400000.0, #400000.0
+        "u_max_in_mps": max_speed_of_platform_in_meter_per_second,
+        "motor_efficiency": 1.0,
+        "solar_panel_size": 100,
+        "solar_efficiency": 1.0,
+        "drag_factor": 0.1,
+        "dt_in_s": 600.0,
     },
+    "use_geographic_coordinate_system": True,
+    "spatial_boundary": None,
+    "ocean_dict": {
+        "region": "Region 1",  # This is the region of northern California
+        "hindcast": true_ocean_current_dict,
+        "forecast": #None,#true_ocean_current_dict,
+            {
+            "field": "OceanCurrents",
+            "source": "forecast_files",
+            "source_settings": {"source": forecast_system_to_use,
+                                "folder": folder_for_forecast_files,
+                                "type": "forecast"},
+        },
+    },
+    "solar_dict": {"hindcast": {
+        'field': 'SolarIrradiance',
+        'source': 'analytical_wo_caching',  # can also be analytical_w_caching
+        'source_settings': {
+            'boundary_buffer': [0.2, 0.2],
+            'x_domain': [-180, 180],
+            'y_domain': [-90, 90],
+            'temporal_domain': ["2022-01-01T00:00:00+00:00", "2024-01-01T00:00:00+00:00"],
+            'spatial_resolution': 0.25,
+            'temporal_resolution': 3600}
+        }, "forecast": None},
+    "seaweed_dict": {
+        # "hindcast": {
+        # 'field': 'SeaweedGrowth',
+        # 'source': 'SeaweedGrowthCircles',
+        # 'source_settings': {
+        #     # Specific for it
+        #     'cirles': [[-123, 37, 0.3]], # [x, y, r]
+        #     'NGF_in_time_units': [0.000001], # [NGF]
+        #     # Just boundary stuff
+        #     'boundary_buffers': [0., 0.],
+        #     'x_domain': [-130, -120],
+        #     'y_domain': [35,40],
+        #     'temporal_domain': ["2022-01-01T00:00:00+00:00", "2024-01-01T00:00:00+00:00"],
+        #     'spatial_resolution': 0.1,
+        #     'temporal_resolution': 3600*24}}
+        # "hindcast": {
+        # 'field': 'SeaweedGrowth',
+        # 'source':'GEOMAR',
+        # 'source_settings':{
+        #     'filepath': './ocean_navigation_simulator/package_data/nutrients/'}  # './data/nutrients/2022_monthly_nutrients_and_temp.nc'
+        # }
+        "hindcast": {
+        'field': 'SeaweedGrowth',
+        'source': 'California',
+        'source_settings': {
+            'filepath': './ocean_navigation_simulator/package_data/cali_growth_map/static_growth_map_south.nc',
+            'max_growth': 0.4,
+            'respiration_rate': 0.01},
+        }
+        , "forecast": None},
+    "bathymetry_dict" : {
+        "field": "Bathymetry",
+        "source": "gebco",
+        "source_settings": {
+            "filepath": "bathymetry_global_res_0.083_0.083_max.nc"
+        },
+        "distance": {
+            "filepath": "bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc",
+            "safe_distance": 0.01, # ≈4km from shore
+        },
+        "casadi_cache_settings": {"deg_around_x_t": 20}, # is used by Bathymetry source casadi, not sure why necessary.
+    }
 }
-# datetime.datetime(2021, 12, 1, 12, 10, 10, tzinfo=datetime.timezone.utc)
 
-forecast_folder = "data/forecast_test/"
-forecasts_source = {"data_source_type": "single_nc_file", "data_source": forecast_folder}
+objectiveConfig = {"type": "max_seaweed"}
 
-plan_on_gt = False
-problem = Problem(
-    x_0,
-    x_T,
-    t_0,
-    platform_config_dict=platform_config_dict,
-    hindcast_source=hindcast_source,
-    forecast_source=forecasts_source,
-    plan_on_gt=plan_on_gt,
-    x_T_radius=0.1,
+#% Controller Settings
+t_max_planning_ahead_in_seconds = 3600*24*2 # that is 60h
+
+# distance controller should keep from shore
+safe_distance = 0.1, # ≈4km from shore
+dirichlet_and_obstacle_val = 0.4
+days_ahead = time_horizon_in_day
+specific_settings = {
+    'ctrl_name': 'ocean_navigation_simulator.controllers.hj_planners.HJBSeaweed2DPlanner.HJBSeaweed2DPlanner',
+    "replan_on_new_fmrc": True,
+    "direction": "backward",
+    "n_time_vector": 24 * days_ahead,
+    # Note that this is the number of time-intervals, the vector is +1 longer because of init_time
+    "deg_around_xt_xT_box": 1,  # area over which to run HJ_reachability
+    "deg_around_xt_xT_box_average": 1,
+    "accuracy": "high",
+    "artificial_dissipation_scheme": "local_local",
+    "T_goal_in_seconds": 3600 * 24 * days_ahead,
+    "use_geographic_coordinate_system": True,
+    'obstacle_dict': {'obstacle_value': dirichlet_and_obstacle_val,
+                    'obstacle_file': 'bathymetry_distance_res_0.004_max_elevation_0_northern_california.nc',
+                    'safe_distance_to_obstacle': safe_distance},
+    "progress_bar": True,
+    "grid_res": 0.04,  # Note: this is in deg lat, lon (HYCOM Global is 0.083 and Mexico 0.04)
+    "calc_opt_traj_after_planning": False,
+    # "x_interval_seaweed": [-130, -70],
+    # "y_interval_seaweed": [-40, 0],
+    "dirichlet_boundry_constant": dirichlet_and_obstacle_val,
+    "discount_factor_tau": False,# 3600 * 24 * 80 - 1,  # 50 #False, #10,
+    "affine_dynamics": True,
+}
+
+#% Mission Settings Start -> Target
+print("current UTC datetime is: ", datetime.datetime.now())
+
+start_time = "2023-10-05T19:00:00+00:00"  # in UTC
+OB_point = {"lat": 37.738160, "lon": -122.545469}
+HMB_point = {"lat": 37.482812, "lon": -122.531450}
+open_ocean = {"lat": 37, "lon": -123}
+
+x_0_dict = {"date_time": start_time,
+            "battery_charge": arena_config["platform_dict"]["battery_cap_in_wh"]*3600}
+x_0_dict.update(HMB_point)
+missionConfig = {
+    "target_radius": 0.02,  # in degrees
+    "x_0": [x_0_dict],  # the start position and time
+    "x_T": OB_point,  # the target position
+}
+
+#%% Download FC Files (does not need to be rerun)
+# Note: This needs to be run only once, not when re-running constructor etc.
+point_to_check = SpatioTemporalPoint.from_dict(missionConfig['x_0'][0])
+t_interval = [point_to_check.date_time - datetime.timedelta(hours=35),
+              point_to_check.date_time + datetime.timedelta(
+                  seconds=simulation_timeout
+                          + arena_config['casadi_cache_dict'][
+                      'time_around_x_t'] + 7200)]
+
+
+#HC Note: it connects to C3 and downloads the relevant forecast files to the local repo
+ArenaFactory.download_required_files(
+        archive_source = arena_config['ocean_dict']['hindcast']['source_settings']['source'],
+        archive_type = arena_config['ocean_dict']['hindcast']['source_settings']['type'],
+        download_folder=arena_config['ocean_dict']['hindcast']['source_settings']['folder'],
+        t_interval = t_interval,
+        region= arena_config['ocean_dict']['region'],
+        points= [point_to_check])
+
+#%FC Note: it connects to C3 and downloads the relevant forecast files to the local repo
+ArenaFactory.download_required_files(
+        archive_source = arena_config['ocean_dict']['forecast']['source_settings']['source'],
+        archive_type = arena_config['ocean_dict']['forecast']['source_settings']['type'],
+        download_folder=arena_config['ocean_dict']['forecast']['source_settings']['folder'],
+        t_interval = t_interval,
+        region= arena_config['ocean_dict']['region'],
+        points= [point_to_check])
+
+#%% Create Arena, Problem, Controller
+set_arena_loggers(logging.DEBUG)
+# Step 0: Create Constructor object which contains arena, problem, controller
+constructor = Constructor(
+    arena_conf=arena_config,
+    mission_conf=missionConfig,
+    objective_conf=objectiveConfig,
+    ctrl_conf=specific_settings,
+    observer_conf={"observer": None},
+    timeout_in_sec=simulation_timeout,
+    throw_exceptions=False,
+)
+# Step 1.1 Retrieve problem
+problem = constructor.problem
+
+# Step 1.2: Retrieve arena
+arena = constructor.arena
+observation = arena.reset(platform_state=problem.start_state)
+problem_status = arena.problem_status(problem=problem)
+
+# Step 2: Retrieve Controller
+controller = constructor.controller
+#%%
+from ocean_navigation_simulator.utils.calc_fmrc_error import calc_fmrc_errors
+calc_fmrc_errors(problem, arena, t_horizon_in_h=24, deg_around_x0_xT_box=0.5, T_goal_in_seconds=3600*24*2)
+#%%
+def calc_fmrc_errors(
+    problem: Problem,
+    arena: Arena,
+    t_horizon_in_h: int,
+    deg_around_x0_xT_box: float,
+    T_goal_in_seconds: int,
 )
 # %%
 deg_around_x0_xT_box = 0.5
