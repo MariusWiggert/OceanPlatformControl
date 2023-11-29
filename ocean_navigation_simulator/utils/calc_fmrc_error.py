@@ -73,23 +73,35 @@ def calc_fmrc_errors(
             ],
         )
         hc_correct_size = hc_data.interp_like(fc_data)
+        # get the data
+        u_data_forecast = fc_data["water_u"].data
+        v_data_forecast = fc_data["water_v"].data
+        u_data_hindcast = hc_correct_size["water_u"].data
+        v_data_hindcast = hc_correct_size["water_v"].data
+        # set all nans to zero
+        for data in [u_data_forecast, v_data_forecast, u_data_hindcast, v_data_hindcast]:
+            data[np.isnan(data)] = 0
         # get data
         RMSE_across_fmrc.append(
             calc_speed_RMSE(
-                fc_data["water_u"].data,
-                fc_data["water_v"].data,
-                hc_correct_size["water_u"].data,
-                hc_correct_size["water_v"].data,
+                u_data_forecast,
+                v_data_forecast,
+                u_data_hindcast,
+                v_data_hindcast,
             )
         )
         angle_diff_across_fmrc.append(
             calc_abs_angle_difference(
-                fc_data["water_u"].data,
-                fc_data["water_v"].data,
-                hc_correct_size["water_u"].data,
-                hc_correct_size["water_v"].data,
+                u_data_forecast,
+                v_data_forecast,
+                u_data_hindcast,
+                v_data_hindcast,
             )
         )
+        # prep inputs for vector correlation
+        # if hc_correct_size has depth as data variable drop it
+        if "depth" in hc_correct_size.data_vars:
+            hc_correct_size = hc_correct_size.drop_vars("depth")
         vec_corr_across_fmrc.append(
             calc_vector_corr_over_time(
                 fc_data.to_array().to_numpy().transpose((1, 3, 2, 0)),
