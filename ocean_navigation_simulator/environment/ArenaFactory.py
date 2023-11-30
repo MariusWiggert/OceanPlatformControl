@@ -288,6 +288,8 @@ class ArenaFactory:
                     c3=c3,
                     keep_newest_days=keep_newest_days,
                 )
+            elif "opendap" in config["ocean_dict"][type]["source"]:
+                print("opendap")
             elif "files" in config["ocean_dict"][type]["source_settings"][type]["source"]:
                 ArenaFactory.download_required_files(
                     archive_source=config["ocean_dict"][type]["source_settings"][type][
