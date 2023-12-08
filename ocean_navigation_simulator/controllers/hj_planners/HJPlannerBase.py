@@ -828,12 +828,14 @@ class HJPlannerBase(Controller):
         # get_initial_value
         initial_values = self.get_initial_values(direction=self.specific_settings["direction"])
 
+        # get best matching time from relative time
+        reach_time_to_plot = max(
+            self.reach_times[0],
+            min(self.reach_times[-1], rel_time_in_seconds + self.reach_times[0]),
+        )
         # interpolate the value function to the specific time
         val_at_t = interp1d(self.reach_times, self.all_values, axis=0, kind="linear")(
-            max(
-                self.reach_times[0],
-                min(self.reach_times[-1], rel_time_in_seconds + self.reach_times[0]),
-            )
+            reach_time_to_plot
         ).squeeze()
 
         # If in normal reachability setting
@@ -894,7 +896,7 @@ class HJPlannerBase(Controller):
             ax.set_title(
                 "Value Function at time {}".format(
                     datetime.fromtimestamp(
-                        self.reach_times[0] + rel_time_in_seconds + self.current_data_t_0,
+                        reach_time_to_plot + self.current_data_t_0,
                         tz=timezone.utc,
                     ).strftime("%Y-%m-%d %H:%M UTC")
                 ),
@@ -1008,7 +1010,7 @@ class HJPlannerBase(Controller):
 
         def add_reachability_snapshot(ax, time):
             ax = self.plot_reachability_snapshot(
-                rel_time_in_seconds=time - self.current_data_t_0,
+                rel_time_in_seconds=time - (self.current_data_t_0 + self.reach_times[0]),
                 granularity_in_h=granularity_in_h,
                 alpha_color=1,
                 mask_above_zero=True,
@@ -1063,6 +1065,8 @@ class HJPlannerBase(Controller):
             ]
 
         if with_background:
+            # set background_animation_args['colorbar'] = False if not in the dict
+            background_animation_args.setdefault("colorbar", False)
             data_source_for_plt.animate_data(
                 x_interval=[self.grid.domain.lo[0], self.grid.domain.hi[0]],
                 y_interval=[self.grid.domain.lo[1], self.grid.domain.hi[1]],
@@ -1071,7 +1075,6 @@ class HJPlannerBase(Controller):
                 spatial_resolution=spatial_resolution,
                 forward_time=forward_time | (self.specific_settings["direction"] == "forward"),
                 add_ax_func=add_reachability_snapshot,
-                colorbar=False,
                 output=filename,
                 fps=fps,
                 **background_animation_args,
