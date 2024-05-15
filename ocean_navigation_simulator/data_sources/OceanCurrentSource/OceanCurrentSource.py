@@ -677,13 +677,11 @@ class HindcastOpendapSource(OceanCurrentSourceXarray):
         super().__init__(source_config_dict)
         # Step 1: establish the opendap connection with the settings in config_dict
         if source_config_dict["source_settings"]["service"] == "copernicus":
-            self.DataArray = xr.open_dataset(
-                copernicusmarine_datastore(
+            self.DataArray = copernicusmarine_datastore(
                     source_config_dict["source_settings"]["DATASET_ID"],
                     source_config_dict["source_settings"]["USERNAME"],
                     source_config_dict["source_settings"]["PASSWORD"],
                 )
-            )
             self.DataArray = format_xarray(
                 self.DataArray,
                 currents=source_config_dict["source_settings"].get("currents", "total"),
@@ -903,21 +901,16 @@ def get_grid_dict_from_file(file: AnyStr, currents="total") -> dict:
 
 def copernicusmarine_datastore(dataset, username, password):
     """Helper Function to establish an opendap session with copernicus data."""
-    cas_url = "https://cmems-cas.cls.fr/cas/login"
-    session = setup_session(cas_url, username, password)
-    session.cookies.set("CASTGC", session.cookies.get_dict()["CASTGC"])
-    database = ["my", "nrt"]
-    url = f"https://{database[0]}.cmems-du.eu/thredds/dodsC/{dataset}"
-    try:
-        data_store = xr.backends.PydapDataStore(
-            open_url(url, session=session)
-        )  # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
-    except BaseException:
-        url = f"https://{database[1]}.cmems-du.eu/thredds/dodsC/{dataset}"
-        data_store = xr.backends.PydapDataStore(
-            open_url(url, session=session)
-        )  # needs PyDAP >= v3.3.0 see https://github.com/pydap/pydap/pull/223/commits
-    return data_store
+    # Import modules
+    import copernicusmarine
+    # Load xarray dataset
+    xarray = copernicusmarine.open_dataset(
+        dataset_id=dataset,
+        variables=["vtotal", "utotal", "vo", "uo"],
+        username=username,
+        password=password,
+    )
+    return xarray
 
 
 def format_to_equally_spaced_xy_grid(xarray):
