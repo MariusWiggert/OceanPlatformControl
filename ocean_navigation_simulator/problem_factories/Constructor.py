@@ -157,7 +157,7 @@ class Constructor:
 
         # Return controller object
         return ControllerClass(
-            problem=self.problem, arena=self.arena, specific_settings=self.ctrl_conf, c3=self.c3
+            problem=self.problem, specific_settings=self.ctrl_conf, c3=self.c3, # arena=self.arena, this is only needed for the seaweed source
         )
 
     def __observer_constructor(self) -> Union[Observer, NoObserver]:
